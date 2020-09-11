@@ -27,6 +27,7 @@ type PolicyResponse struct {
 	Rules []RuleResponse `json:"rules"`
 	// ValidationFailureAction: audit(default if not set),enforce
 	ValidationFailureAction string
+
 }
 
 //ResourceSpec resource action applied on

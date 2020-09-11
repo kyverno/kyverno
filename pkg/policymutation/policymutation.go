@@ -277,7 +277,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		return kyvernoRule{}
 	}
 
-	if rule.Mutation.Overlay == nil && !rule.HasValidate() {
+	if rule.Mutation.Overlay == nil && !rule.HasValidate() && rule.Mutation.PatchStrategicMerge == nil {
 		return kyvernoRule{}
 	}
 
@@ -328,6 +328,19 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 			Overlay: map[string]interface{}{
 				"spec": map[string]interface{}{
 					"template": rule.Mutation.Overlay,
+				},
+			},
+		}
+
+		controllerRule.Mutation = newMutation.DeepCopy()
+		return *controllerRule
+	}
+
+	if rule.Mutation.PatchStrategicMerge != nil {
+		newMutation := &kyverno.Mutation{
+			PatchStrategicMerge: map[string]interface{}{
+				"spec": map[string]interface{}{
+					"template": rule.Mutation.PatchStrategicMerge,
 				},
 			},
 		}

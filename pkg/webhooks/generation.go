@@ -47,10 +47,11 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	}
 
 	// engine.Generate returns a list of rules that are applicable on this resource
+	var rules []response.RuleResponse
 	for _, policy := range policies {
 		policyContext.Policy = *policy
 		engineResponse := engine.Generate(policyContext)
-		for i, rule := range engineResponse.PolicyResponse.Rules {
+		for _, rule := range engineResponse.PolicyResponse.Rules {
 			if !rule.Success {
 				grList, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
 				if err != nil {
@@ -64,15 +65,14 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 						}
 					}
 				}
-				if len(engineResponse.PolicyResponse.Rules) > 1 {
-					engineResponse.PolicyResponse.Rules = append(engineResponse.PolicyResponse.Rules[:i], engineResponse.PolicyResponse.Rules[i+1:]...)
-					continue
-				} else if len(engineResponse.PolicyResponse.Rules) == 1 {
-					engineResponse.PolicyResponse.Rules = []response.RuleResponse{}
-				}
+			}else{
+				rules = append(rules,rule)
 			}
 		}
-		if len(engineResponse.PolicyResponse.Rules) > 0 {
+
+
+		if len(rules) > 0 {
+			engineResponse.PolicyResponse.Rules = rules
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
 			ws.statusListener.Send(generateStats{
@@ -81,6 +81,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		}
 
 	}
+
 	// Adds Generate Request to a channel(queue size 1000) to generators
 	if failedResponse := applyGenerateRequest(ws.grGenerator, userRequestInfo, request.Operation, engineResponses...); err != nil {
 		// report failure event

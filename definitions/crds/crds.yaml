@@ -14,7 +14,7 @@ spec:
     plural: clusterpolicies
     singular: clusterpolicy
     shortNames:
-    - cpol
+      - cpol
   subresources:
     status: {}
   validation:
@@ -23,14 +23,14 @@ spec:
         status: {}
         spec:
           required:
-          - rules
+            - rules
           properties:
-          # default values to be handled by user
+            # default values to be handled by user
             validationFailureAction:
               type: string
-              enum: 
-              - enforce # blocks the resorce api-reques if a rule fails.
-              - audit # allows resource creation and reports the failed validation rules as violations. Default
+              enum:
+                - enforce # blocks the resorce api-reques if a rule fails.
+                - audit # allows resource creation and reports the failed validation rules as violations. Default
             background:
               type: boolean
             rules:
@@ -38,15 +38,15 @@ spec:
               items:
                 type: object
                 required:
-                - name
-                - match
+                  - name
+                  - match
                 properties:
                   name:
                     type: string
                   match:
                     type: object
                     required:
-                    - resources
+                      - resources
                     properties:
                       roles:
                         type: array
@@ -61,8 +61,8 @@ spec:
                         items:
                           type: object
                           required:
-                          - kind
-                          - name
+                            - kind
+                            - name
                           properties:
                             kind:
                               type: string
@@ -101,8 +101,8 @@ spec:
                                 items:
                                   type: object
                                   required:
-                                  - key
-                                  - operator
+                                    - key
+                                    - operator
                                   properties:
                                     key:
                                       type: string
@@ -128,8 +128,8 @@ spec:
                         items:
                           type: object
                           required:
-                          - kind
-                          - name
+                            - kind
+                            - name
                           properties:
                             kind:
                               type: string
@@ -167,8 +167,8 @@ spec:
                                 items:
                                   type: object
                                   required:
-                                  - key
-                                  - operator
+                                    - key
+                                    - operator
                                   properties:
                                     key:
                                       type: string
@@ -183,9 +183,9 @@ spec:
                     items:
                       type: object
                       required:
-                      - key  # can be of any type
-                      - operator # typed
-                      - value # can be of any type
+                        - key  # can be of any type
+                        - operator # typed
+                        - value # can be of any type
                   mutate:
                     type: object
                     properties:
@@ -198,17 +198,17 @@ spec:
                         items:
                           type: object
                           required:
-                          - path
-                          - op
+                            - path
+                            - op
                           properties:
                             path:
                               type: string
                             op:
                               type: string
                               enum:
-                              - add
-                              - replace
-                              - remove
+                                - add
+                                - replace
+                                - remove
                             value: {}
                   validate:
                     type: object
@@ -231,24 +231,24 @@ spec:
                                 operator:
                                   type: string
                                   enum:
-                                  - Equal
-                                  - Equals
-                                  - NotEqual
-                                  - NotEquals
-                                  - In
-                                  - NotIn
+                                    - Equal
+                                    - Equals
+                                    - NotEqual
+                                    - NotEquals
+                                    - In
+                                    - NotIn
                                 key:
                                   type: string
                                 value:
                                   anyOf:
-                                  - type: string
-                                  - type: array
-                                    items: {}
+                                    - type: string
+                                    - type: array
+                                      items: {}
                   generate:
                     type: object
                     required:
-                    - kind
-                    - name
+                      - kind
+                      - name
                     properties:
                       apiVersion:
                         type: string
@@ -260,11 +260,11 @@ spec:
                         type: string
                       synchronize:
                         type: boolean
-                      clone: 
+                      clone:
                         type: object
                         required:
-                        - namespace
-                        - name
+                          - namespace
+                          - name
                         properties:
                           namespace:
                             type: string
@@ -288,7 +288,7 @@ spec:
     plural: policies
     singular: policy
     shortNames:
-    - pol
+      - pol
   subresources:
     status: {}
   validation:
@@ -297,14 +297,14 @@ spec:
         status: {}
         spec:
           required:
-          - rules
+            - rules
           properties:
-          # default values to be handled by user
+            # default values to be handled by user
             validationFailureAction:
               type: string
-              enum: 
-              - enforce # blocks the resorce api-reques if a rule fails.
-              - audit # allows resource creation and reports the failed validation rules as violations. Default
+              enum:
+                - enforce # blocks the resorce api-reques if a rule fails.
+                - audit # allows resource creation and reports the failed validation rules as violations. Default
             background:
               type: boolean
             rules:
@@ -312,15 +312,15 @@ spec:
               items:
                 type: object
                 required:
-                - name
-                - match
+                  - name
+                  - match
                 properties:
                   name:
                     type: string
                   match:
                     type: object
                     required:
-                    - resources
+                      - resources
                     properties:
                       roles:
                         type: array
@@ -335,8 +335,8 @@ spec:
                         items:
                           type: object
                           required:
-                          - kind
-                          - name
+                            - kind
+                            - name
                           properties:
                             kind:
                               type: string
@@ -367,8 +367,8 @@ spec:
                                 items:
                                   type: object
                                   required:
-                                  - key
-                                  - operator
+                                    - key
+                                    - operator
                                   properties:
                                     key:
                                       type: string
@@ -394,8 +394,8 @@ spec:
                         items:
                           type: object
                           required:
-                          - kind
-                          - name
+                            - kind
+                            - name
                           properties:
                             kind:
                               type: string
@@ -425,8 +425,8 @@ spec:
                                 items:
                                   type: object
                                   required:
-                                  - key
-                                  - operator
+                                    - key
+                                    - operator
                                   properties:
                                     key:
                                       type: string
@@ -441,9 +441,9 @@ spec:
                     items:
                       type: object
                       required:
-                      - key  # can be of any type
-                      - operator # typed
-                      - value # can be of any type
+                        - key  # can be of any type
+                        - operator # typed
+                        - value # can be of any type
                   mutate:
                     type: object
                     properties:
@@ -456,17 +456,17 @@ spec:
                         items:
                           type: object
                           required:
-                          - path
-                          - op
+                            - path
+                            - op
                           properties:
                             path:
                               type: string
                             op:
                               type: string
                               enum:
-                              - add
-                              - replace
-                              - remove
+                                - add
+                                - replace
+                                - remove
                             value: {}
                   validate:
                     type: object
@@ -489,24 +489,24 @@ spec:
                                 operator:
                                   type: string
                                   enum:
-                                  - Equal
-                                  - Equals
-                                  - NotEqual
-                                  - NotEquals
-                                  - In
-                                  - NotIn
+                                    - Equal
+                                    - Equals
+                                    - NotEqual
+                                    - NotEquals
+                                    - In
+                                    - NotIn
                                 key:
                                   type: string
                                 value:
                                   anyOf:
-                                  - type: string
-                                  - type: array
-                                    items: {}
+                                    - type: string
+                                    - type: array
+                                      items: {}
                   generate:
                     type: object
                     required:
-                    - kind
-                    - name
+                      - kind
+                      - name
                     properties:
                       apiVersion:
                         type: string
@@ -518,11 +518,11 @@ spec:
                         type: string
                       synchronize:
                         type: boolean
-                      clone: 
+                      clone:
                         type: object
                         required:
-                        - namespace
-                        - name
+                          - namespace
+                          - name
                         properties:
                           namespace:
                             type: string
@@ -546,41 +546,41 @@ spec:
     plural: clusterpolicyviolations
     singular: clusterpolicyviolation
     shortNames:
-    - cpolv
+      - cpolv
   subresources:
     status: {}
   additionalPrinterColumns:
-  - name: Policy
-    type: string
-    description: The policy that resulted in the violation
-    JSONPath: .spec.policy
-  - name: ResourceKind
-    type: string
-    description: The resource kind that cause the violation
-    JSONPath: .spec.resource.kind
-  - name: ResourceName
-    type: string
-    description: The resource name that caused the violation
-    JSONPath: .spec.resource.name
-  - name: Age
-    type: date
-    JSONPath: .metadata.creationTimestamp
+    - name: Policy
+      type: string
+      description: The policy that resulted in the violation
+      JSONPath: .spec.policy
+    - name: ResourceKind
+      type: string
+      description: The resource kind that cause the violation
+      JSONPath: .spec.resource.kind
+    - name: ResourceName
+      type: string
+      description: The resource name that caused the violation
+      JSONPath: .spec.resource.name
+    - name: Age
+      type: date
+      JSONPath: .metadata.creationTimestamp
   validation:
     openAPIV3Schema:
       properties:
         spec:
           required:
-          - policy
-          - resource
-          - rules
+            - policy
+            - resource
+            - rules
           properties:
             policy:
               type: string
             resource:
               type: object
               required:
-              - kind
-              - name
+                - kind
+                - name
               properties:
                 kind:
                   type: string
@@ -591,9 +591,9 @@ spec:
               items:
                 type: object
                 required:
-                - name
-                - type
-                - message
+                  - name
+                  - type
+                  - message
                 properties:
                   name:
                     type: string
@@ -618,41 +618,41 @@ spec:
     plural: policyviolations
     singular: policyviolation
     shortNames:
-    - polv
+      - polv
   subresources:
     status: {}
   additionalPrinterColumns:
-  - name: Policy
-    type: string
-    description: The policy that resulted in the violation
-    JSONPath: .spec.policy
-  - name: ResourceKind
-    type: string
-    description: The resource kind that cause the violation
-    JSONPath: .spec.resource.kind
-  - name: ResourceName
-    type: string
-    description: The resource name that caused the violation
-    JSONPath: .spec.resource.name
-  - name: Age
-    type: date
-    JSONPath: .metadata.creationTimestamp
+    - name: Policy
+      type: string
+      description: The policy that resulted in the violation
+      JSONPath: .spec.policy
+    - name: ResourceKind
+      type: string
+      description: The resource kind that cause the violation
+      JSONPath: .spec.resource.kind
+    - name: ResourceName
+      type: string
+      description: The resource name that caused the violation
+      JSONPath: .spec.resource.name
+    - name: Age
+      type: date
+      JSONPath: .metadata.creationTimestamp
   validation:
     openAPIV3Schema:
       properties:
         spec:
           required:
-          - policy
-          - resource
-          - rules
+            - policy
+            - resource
+            - rules
           properties:
             policy:
               type: string
             resource:
               type: object
               required:
-              - kind
-              - name
+                - kind
+                - name
               properties:
                 kind:
                   type: string
@@ -663,9 +663,9 @@ spec:
               items:
                 type: object
                 required:
-                - name
-                - type
-                - message
+                  - name
+                  - type
+                  - message
                 properties:
                   name:
                     type: string
@@ -690,52 +690,52 @@ spec:
     plural: generaterequests
     singular: generaterequest
     shortNames:
-    - gr
+      - gr
   subresources:
     status: {}
   additionalPrinterColumns:
-  - name: Policy
-    type: string
-    description: The policy that resulted in the violation
-    JSONPath: .spec.policy
-  - name: ResourceKind
-    type: string
-    description: The resource kind that cause the violation
-    JSONPath: .spec.resource.kind
-  - name: ResourceName
-    type: string
-    description: The resource name that caused the violation
-    JSONPath: .spec.resource.name
-  - name: ResourceNamespace
-    type: string
-    description: The resource namespace that caused the violation
-    JSONPath: .spec.resource.namespace
-  - name: status
-    type : string
-    description: Current state of generate request
-    JSONPath: .status.state
-  - name: Age
-    type: date
-    JSONPath: .metadata.creationTimestamp
+    - name: Policy
+      type: string
+      description: The policy that resulted in the violation
+      JSONPath: .spec.policy
+    - name: ResourceKind
+      type: string
+      description: The resource kind that cause the violation
+      JSONPath: .spec.resource.kind
+    - name: ResourceName
+      type: string
+      description: The resource name that caused the violation
+      JSONPath: .spec.resource.name
+    - name: ResourceNamespace
+      type: string
+      description: The resource namespace that caused the violation
+      JSONPath: .spec.resource.namespace
+    - name: status
+      type : string
+      description: Current state of generate request
+      JSONPath: .status.state
+    - name: Age
+      type: date
+      JSONPath: .metadata.creationTimestamp
   validation:
     openAPIV3Schema:
       properties:
         spec:
           required:
-          - policy
-          - resource
+            - policy
+            - resource
           properties:
             policy:
               type: string
             resource:
               type: object
               required:
-              - kind 
-              - name
+                - kind
+                - name
               properties:
                 kind:
                   type: string
-                name: 
+                name:
                   type: string
                 namespace:
-                  type: string    
+                  type: string

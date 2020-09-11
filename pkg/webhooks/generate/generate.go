@@ -90,6 +90,7 @@ func (g *Generator) processApply() {
 
 func (g *Generator) generate(grSpec kyverno.GenerateRequestSpec, action v1beta1.Operation) error {
 	// create/update a generate request
+
 	if err := retryApplyResource(g.client, grSpec, g.log, action); err != nil {
 		return err
 	}
@@ -125,10 +126,10 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 			}
 			for i, v := range grList.Items {
 				if grSpec.Policy == v.Spec.Policy && grSpec.Resource.Name == v.Spec.Resource.Name && grSpec.Resource.Kind == v.Spec.Resource.Kind && grSpec.Resource.Namespace == v.Spec.Resource.Namespace {
-
 					gr.SetLabels(map[string]string{
 						"resources-update": "true",
 					})
+
 					v.Spec.Context = gr.Spec.Context
 					v.Spec.Policy = gr.Spec.Policy
 					v.Spec.Resource = gr.Spec.Resource

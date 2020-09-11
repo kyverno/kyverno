@@ -4,6 +4,9 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
+	"math/rand"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -61,6 +64,9 @@ type PolicyController struct {
 	// npLister can list/get namespace policy from the shared informer's store
 	npLister kyvernolister.PolicyLister
 
+	// grLister can list/get generate request from the shared informer's store
+	grLister kyvernolister.GenerateRequestLister
+
 	// pvLister can list/get policy violation from the shared informer's store
 	cpvLister kyvernolister.ClusterPolicyViolationLister
 
@@ -85,6 +91,8 @@ type PolicyController struct {
 	// nsListerSynced returns true if the namespace store has been synced at least once
 	nsListerSynced cache.InformerSynced
 
+	// grListerSynced returns true if the generate request store has been synced at least once
+	grListerSynced cache.InformerSynced
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
 
@@ -93,6 +101,7 @@ type PolicyController struct {
 
 	// policy violation generator
 	pvGenerator policyviolation.GeneratorInterface
+
 
 	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
@@ -116,6 +125,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	npInformer kyvernoinformer.PolicyInformer,
 	cpvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	nspvInformer kyvernoinformer.PolicyViolationInformer,
+	grInformer kyvernoinformer.GenerateRequestInformer,
 	configHandler config.Interface, eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
@@ -185,11 +195,12 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	pc.npLister = npInformer.Lister()
 
 	pc.nsLister = namespaces.Lister()
-
+	pc.grLister = grInformer.Lister()
 	pc.pListerSynced = pInformer.Informer().HasSynced
 	pc.npListerSynced = npInformer.Informer().HasSynced
 
 	pc.nsListerSynced = namespaces.Informer().HasSynced
+	pc.grListerSynced = grInformer.Informer().HasSynced
 
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins
@@ -351,6 +362,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 			logger.Info("failed to sync informer cache")
 			return
 		}
+
 	}
 
 	for i := 0; i < workers; i++ {
@@ -402,7 +414,6 @@ func (pc *PolicyController) handleErr(err error, key interface{}) {
 }
 
 func (pc *PolicyController) syncPolicy(key string) error {
-
 	logger := pc.log
 	startTime := time.Now()
 	logger.V(4).Info("started syncing policy", "key", key, "startTime", startTime)
@@ -413,6 +424,11 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	namespace, key, isNamespacedPolicy := getIsNamespacedPolicy(key)
 	var policy *kyverno.ClusterPolicy
 	var err error
+	grList, err := pc.grLister.List(labels.Everything())
+	if err != nil {
+		logger.Error(err, "failed to list generate request")
+	}
+
 	if !isNamespacedPolicy {
 		policy, err = pc.pLister.Get(key)
 	} else {
@@ -420,6 +436,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		nspolicy, err = pc.npLister.Policies(namespace).Get(key)
 		policy = ConvertPolicyToClusterPolicy(nspolicy)
 	}
+
 	if errors.IsNotFound(err) {
 		if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
 			pc.policySync.mux.Lock()
@@ -427,17 +444,32 @@ func (pc *PolicyController) syncPolicy(key string) error {
 			pc.policySync.mux.Unlock()
 			return nil
 		}
+		for _, v := range grList {
+			if key == v.Spec.Policy {
+				err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(),&metav1.DeleteOptions{})
+				if err != nil {
+					logger.Error(err, "failed to delete gr")
+				}
+			}
+		}
 		go pc.deletePolicyViolations(key)
-
 		// remove webhook configurations if there are no policies
 		if err := pc.removeResourceWebhookConfiguration(); err != nil {
 			logger.Error(err, "failed to remove resource webhook configurations")
 		}
 		return nil
 	}
-
-	if err != nil {
-		return err
+	for _, v := range grList {
+		if policy.Name == v.Spec.Policy {
+			v.SetLabels(map[string]string{
+				"policy-update" :fmt.Sprintf("revision-count-%d",rand.Intn(100000)),
+			})
+			_,err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(v)
+			if err != nil {
+				logger.Error(err, "failed to update gr")
+				return err
+			}
+		}
 	}
 
 	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
@@ -448,8 +480,8 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		pc.resourceWebhookWatcher.RegisterResourceWebhook()
 		engineResponses := pc.processExistingResources(policy)
 		pc.cleanupAndReport(engineResponses)
+		pc.resourceWebhookWatcher.RegisterResourceWebhook()
 	}
-
 	return nil
 }
 

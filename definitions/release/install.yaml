@@ -832,8 +832,10 @@ rules:
   - rolebindings
   - clusterrolebindings
   - configmaps
+  - namespaces
   verbs:
   - watch
+  - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -1075,7 +1077,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: nirmata/kyverno:v1.1.10
+        image: nirmata/kyverno:v1.1.11
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 4
@@ -1107,7 +1109,7 @@ spec:
             cpu: 100m
             memory: 50Mi
       initContainers:
-      - image: nirmata/kyvernopre:v1.1.10
+      - image: nirmata/kyvernopre:v1.1.11
         imagePullPolicy: Always
         name: kyverno-pre
       serviceAccountName: kyverno-service-account
