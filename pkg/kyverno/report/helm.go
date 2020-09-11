@@ -17,36 +17,26 @@ import (
 
 func HelmCommand() *cobra.Command {
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
-	var mode,policy, namespace string
+	var mode, policy, namespace string
 	cmd := &cobra.Command{
 		Use:     "helm",
 		Short:   "generate report",
 		Example: fmt.Sprintf("To create a helm report from background scan:\nkyverno report helm --namespace=defaults \n kyverno report helm"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			os.Setenv("POLICY-TYPE", "POLICYREPORT")
+			logger := log.Log.WithName("Report")
 			restConfig, err := kubernetesConfig.ToRESTConfig()
 			if err != nil {
+				logger.Error(err, "failed to create rest config of kubernetes cluster ")
 				os.Exit(1)
 			}
 			const resyncPeriod = 15 * time.Minute
 			kubeClient, err := utils.NewKubeClient(restConfig)
 			if err != nil {
-				log.Log.Error(err, "Failed to create kubernetes client")
+				logger.Error(err, "Failed to create kubernetes client")
 				os.Exit(1)
 			}
-			if mode == "cli" && namespace != "" {
-				var wg sync.WaitGroup
-				wg.Add(1)
-				go backgroundScan(namespace, "Helm",policy,&wg,restConfig)
-				wg.Wait()
-				return nil
-			} else if namespace != "" {
-				var wg sync.WaitGroup
-				wg.Add(1)
-				go configmapScan(namespace, "Helm", &wg, restConfig)
-				wg.Wait()
-				return nil
-			}
+
 			var stopCh <-chan struct{}
 
 			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
@@ -57,27 +47,30 @@ func HelmCommand() *cobra.Command {
 			nSynced := np.Informer().HasSynced
 
 			if !cache.WaitForCacheSync(stopCh, nSynced) {
-				log.Log.Error(err, "Failed to create kubernetes client")
+				logger.Error(err, "Failed to create kubernetes client")
 				os.Exit(1)
 			}
+			var wg sync.WaitGroup
 			if mode == "cli" {
-				ns, err := np.Lister().List(labels.Everything())
-				if err != nil {
-					os.Exit(1)
+				if namespace != "" {
+					wg.Add(1)
+					go backgroundScan(namespace, "Helm", policy, &wg, restConfig, logger)
+				} else {
+					ns, err := np.Lister().List(labels.Everything())
+					if err != nil {
+						logger.Error(err, "Failed to list all namespaces")
+						os.Exit(1)
+					}
+					wg.Add(len(ns))
+					for _, n := range ns {
+						go backgroundScan(n.GetName(), "Helm", policy, &wg, restConfig, logger)
+					}
 				}
-				var wg sync.WaitGroup
-				wg.Add(len(ns))
-				for _, n := range ns {
-					go backgroundScan(n.GetName(), "Helm",policy, &wg, restConfig)
-				}
-				wg.Wait()
 			} else {
-				var wg sync.WaitGroup
 				wg.Add(1)
-				go configmapScan("", "Helm", &wg, restConfig)
-				wg.Wait()
-				return nil
+				go configmapScan("", "Helm", &wg, restConfig, logger)
 			}
+			wg.Wait()
 			return nil
 		},
 	}

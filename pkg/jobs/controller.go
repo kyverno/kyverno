@@ -206,7 +206,6 @@ func (j *Job) syncHandler(info JobInfo) error {
 	defer func() {
 		j.mux.Unlock()
 	}()
-	j.log.V(2).Info("Configmap sync at ", "policy", info)
 	j.mux.Lock()
 	var wg sync.WaitGroup
 	if info.JobType == "POLICYSYNC" {
@@ -294,11 +293,15 @@ func (j *Job) CreateJob(args []string, jobType, scope string, wg *sync.WaitGroup
 		},
 	}
 	job.SetGenerateName("kyverno-policyreport-")
-	_, err := j.dclient.CreateResource("", "Job", config.KubePolicyNamespace, job, false)
+	resource, err := j.dclient.CreateResource("", "Job", config.KubePolicyNamespace, job, false)
 	if err != nil {
 		return
 	}
-	deadline := time.Now().Add(30 * time.Second)
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.UnstructuredContent(), &job); err != nil {
+		j.log.Error(err,"Error in converting job Default Unstructured Converter","job_name",job.GetName())
+		return
+	}
+	deadline := time.Now().Add(100 * time.Second)
 	for {
 		time.Sleep(20*time.Second)
 		resource, err := j.dclient.GetResource("", "Job", config.KubePolicyNamespace, job.GetName())

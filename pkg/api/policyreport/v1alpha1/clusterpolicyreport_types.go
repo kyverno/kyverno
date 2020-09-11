@@ -45,6 +45,11 @@ type ClusterPolicyReport struct {
 	// +optional
 	Scope *corev1.ObjectReference `json:"scope,omitempty"`
 
+	// ScopeSelector is an optional selector for multiple scopes (e.g. Pods).
+	// Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.
+	// +optional
+	ScopeSelector *metav1.LabelSelector `json:"scopeSelector,omitempty"`
+
 	// PolicyReportSummary provides a summary of results
 	// +optional
 	Summary PolicyReportSummary `json:"summary,omitempty"`

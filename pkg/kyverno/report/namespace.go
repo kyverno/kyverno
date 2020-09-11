@@ -23,8 +23,10 @@ func NamespaceCommand() *cobra.Command {
 		Example: fmt.Sprintf("To create a namespace report from background scan:\nkyverno report namespace --namespace=defaults \n kyverno report namespace"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			os.Setenv("POLICY-TYPE", "POLICYREPORT")
+			logger := log.Log.WithName("Report")
 			restConfig, err := kubernetesConfig.ToRESTConfig()
 			if err != nil {
+				logger.Error(err, "failed to create rest config of kubernetes cluster ")
 				os.Exit(1)
 			}
 			const resyncPeriod = 1 * time.Second
@@ -33,21 +35,8 @@ func NamespaceCommand() *cobra.Command {
 				log.Log.Error(err, "Failed to create kubernetes client")
 				os.Exit(1)
 			}
-			if mode == "cli" && namespace != "" {
-				var wg sync.WaitGroup
-				wg.Add(1)
-				go backgroundScan(namespace,"Namespace",policy, &wg, restConfig)
-				wg.Wait()
-				return nil
-			} else if namespace != "" {
-				var wg sync.WaitGroup
-				wg.Add(1)
-				go configmapScan(namespace, "Namespace", &wg, restConfig)
-				wg.Wait()
-				return nil
-			}
-			var stopCh <-chan struct{}
 
+			var stopCh <-chan struct{}
 			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 			np := kubeInformer.Core().V1().Namespaces()
 
@@ -60,17 +49,22 @@ func NamespaceCommand() *cobra.Command {
 			}
 			var wg sync.WaitGroup
 			if mode == "cli" {
-				ns, err := nLister.List(labels.Everything())
-				if err != nil {
-					os.Exit(1)
-				}
-				wg.Add(len(ns))
-				for _, n := range ns {
-					go backgroundScan(n.GetName(), "Namespace",policy, &wg, restConfig)
+				if namespace != "" {
+					wg.Add(1)
+					go backgroundScan(namespace, "Namespace", policy, &wg, restConfig, logger)
+				} else {
+					ns, err := nLister.List(labels.Everything())
+					if err != nil {
+						os.Exit(1)
+					}
+					wg.Add(len(ns))
+					for _, n := range ns {
+						go backgroundScan(n.GetName(), "Namespace", policy, &wg, restConfig, logger)
+					}
 				}
 			} else {
 				wg.Add(1)
-				go configmapScan("", "Namespace", &wg, restConfig)
+				go configmapScan("", "Namespace", &wg, restConfig, logger)
 			}
 			wg.Wait()
 			<-stopCh
