@@ -157,7 +157,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 
 	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}
 
-	if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
+	if os.Getenv("POLICY-TYPE") != common.PolicyReport {
 		cpvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc:    pc.addClusterPolicyViolation,
 			UpdateFunc: pc.updateClusterPolicyViolation,
@@ -206,7 +206,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	// rebuild after 300 seconds/ 5 mins
 	//TODO: pass the time in seconds instead of converting it internally
 	pc.rm = NewResourceManager(30)
-	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
 		go func(pc PolicyController) {
 			for k := range time.Tick(60 * time.Second) {
 				pc.log.V(2).Info("Policy Background sync at", "time", k.String())
@@ -354,7 +354,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
 		if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.nsListerSynced) {
 			logger.Info("failed to sync informer cache")
 			return
@@ -448,7 +448,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 				}
 			}
 		}
-		if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+		if os.Getenv("POLICY-TYPE") == common.PolicyReport {
 			pc.policySync.mux.Lock()
 			pc.policySync.policy = append(pc.policySync.policy, key)
 			pc.policySync.mux.Unlock()
@@ -474,7 +474,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		}
 	}
 
-	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
 		pc.policySync.mux.Lock()
 		pc.policySync.policy = append(pc.policySync.policy, key)
 		pc.policySync.mux.Unlock()

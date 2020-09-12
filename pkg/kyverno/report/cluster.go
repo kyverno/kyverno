@@ -17,7 +17,7 @@ func ClusterCommand() *cobra.Command {
 		Short:   "generate report",
 		Example: fmt.Sprintf("To create a cluster report from background scan:\nkyverno report cluster --namespace=defaults \n kyverno report cluster"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			os.Setenv("POLICY-TYPE", "POLICYREPORT")
+			os.Setenv("POLICY-TYPE", common.PolicyReport)
 			logger := log.Log.WithName("Report")
 			restConfig, err := kubernetesConfig.ToRESTConfig()
 			if err != nil {

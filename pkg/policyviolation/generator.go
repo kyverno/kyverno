@@ -134,7 +134,7 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 		job:                  job,
 		policyStatusListener: policyStatus,
 	}
-	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
 		gen.prgen = policyreport.NewPRGenerator(client,
 			dclient,
 			prInformer,
@@ -253,7 +253,7 @@ func (gen *Generator) processNextWorkItem() bool {
 
 func (gen *Generator) syncHandler(info Info) error {
 	logger := gen.log
-	if os.Getenv("POLICY-TYPE") == "POLICYREPORT" {
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
 		gen.prgen.Add(policyreport.Info(info))
 		return nil
 	}

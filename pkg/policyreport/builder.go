@@ -18,7 +18,7 @@ func GeneratePRsFromEngineResponse(ers []response.EngineResponse, log logr.Logge
 			continue
 		}
 		// skip when response succeed
-		if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
+		if os.Getenv("POLICY-TYPE") != common.PolicyReport {
 			if er.IsSuccessful() {
 				continue
 			}
@@ -85,7 +85,7 @@ func buildPVInfo(er response.EngineResponse) Info {
 func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 	var violatedRules []kyverno.ViolatedRule
 	for _, rule := range er.PolicyResponse.Rules {
-		if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
+		if os.Getenv("POLICY-TYPE") != common.PolicyReport {
 			if rule.Success {
 				continue
 			}

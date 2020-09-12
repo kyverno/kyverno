@@ -70,7 +70,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
-
       - uses: J12934/helm-gh-pages-action@master
         name: Run Helm Publish
         with:

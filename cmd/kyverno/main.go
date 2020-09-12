@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/nirmata/kyverno/pkg/common"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -54,7 +55,7 @@ var (
 	excludeUsername  string
 	// User FQDN as CSR CN
 	fqdncn       bool
-	policyReport string
+	policyReport bool
 	setupLog     = log.Log.WithName("setup")
 )
 
@@ -70,7 +71,7 @@ func main() {
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
-	flag.StringVar(&policyReport, "policyreport", "policyviolation", "Report Type")
+	flag.BoolVar(&policyReport, "policyreport", false, "Set this flag for enabling policy report")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -83,11 +84,10 @@ func main() {
 	if profile {
 		go http.ListenAndServe("localhost:6060", nil)
 	}
-	os.Setenv("POLICY-TYPE", "POLICYVIOLATION")
-	if policyReport == "policyreport" {
-		os.Setenv("POLICY-TYPE", "POLICYREPORT")
+	os.Setenv("POLICY-TYPE", common.PolicyViolation)
+	if policyReport {
+		os.Setenv("POLICY-TYPE", common.PolicyReport)
 	}
-	setupLog.Info(os.Getenv("POLICY-TYPE"))
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
@@ -341,11 +341,9 @@ func main() {
 	go grgen.Run(1)
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
-	if os.Getenv("POLICY-TYPE") != "POLICYREPORT" {
-		go policyCtrl.Run(3, stopCh)
-	} else {
-		go policyCtrl.Run(1, stopCh)
-	}
+
+	go policyCtrl.Run(3, stopCh)
+
 
 	go eventGenerator.Run(3, stopCh)
 	go grc.Run(1, stopCh)

@@ -23,7 +23,7 @@ func HelmCommand() *cobra.Command {
 		Short:   "generate report",
 		Example: fmt.Sprintf("To create a helm report from background scan:\nkyverno report helm --namespace=defaults \n kyverno report helm"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			os.Setenv("POLICY-TYPE", "POLICYREPORT")
+			os.Setenv("POLICY-TYPE", common.PolicyReport)
 			logger := log.Log.WithName("Report")
 			restConfig, err := kubernetesConfig.ToRESTConfig()
 			if err != nil {
