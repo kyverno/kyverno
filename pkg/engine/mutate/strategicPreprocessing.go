@@ -103,11 +103,23 @@ func walkMap(pattern, resource *yaml.RNode) error {
 			if ind == -1 {
 				continue
 			}
-
+             
 			// remove anchor tags from value
 			// A MappingNode contains keyNode and Value node
 			// keyNode contains it's key value in it's Value field, So remove anchor tags from Value field
 			pattern.YNode().Content[ind].Value = removeAnchor(key)
+			// If the field exists in resource, then remove the field from pattern
+			_, resFields, err := getAnchorSortedFields(resource)
+			if err != nil {
+				return err
+			}
+			rInd := getIndex(removeAnchor(key), resFields)
+			if rInd != -1 {
+				// remove anchor field from the map and update fields
+				removeAnchorNode(pattern, ind)
+				sfields = removeKeyFromFields(key, sfields)
+				fields = removeKeyFromFields(key, fields)
+			}
 		}
 		noAnchorKey := removeAnchor(key)
 		patternMapNode := pattern.Field(noAnchorKey)
