@@ -101,9 +101,9 @@ func NewJobsJob(dclient *dclient.Client,
 			gen.log.V(2).Info("Background Sync sync at ", "time", k.String())
 			var wg sync.WaitGroup
 			wg.Add(3)
-			go gen.syncKyverno(&wg, "Helm", "SYNC","")
-			go gen.syncKyverno(&wg, "Namespace", "SYNC","")
-			go gen.syncKyverno(&wg, "Cluster", "SYNC","")
+			go gen.syncKyverno(&wg, "Helm", "SYNC", "")
+			go gen.syncKyverno(&wg, "Namespace", "SYNC", "")
+			go gen.syncKyverno(&wg, "Cluster", "SYNC", "")
 			wg.Wait()
 		}
 	}(configHandler)
@@ -210,22 +210,22 @@ func (j *Job) syncHandler(info JobInfo) error {
 	var wg sync.WaitGroup
 	if info.JobType == "POLICYSYNC" {
 		wg.Add(3)
-		go j.syncKyverno(&wg, "Helm", "SYNC",info.JobData)
-		go j.syncKyverno(&wg, "Namespace", "SYNC",info.JobData)
-		go j.syncKyverno(&wg, "Cluster", "SYNC",info.JobData)
-	}else if info.JobType == "CONFIGMAP" {
+		go j.syncKyverno(&wg, "Helm", "SYNC", info.JobData)
+		go j.syncKyverno(&wg, "Namespace", "SYNC", info.JobData)
+		go j.syncKyverno(&wg, "Cluster", "SYNC", info.JobData)
+	} else if info.JobType == "CONFIGMAP" {
 		if info.JobData != "" {
-			str := strings.Split(info.JobData,",")
+			str := strings.Split(info.JobData, ",")
 			wg.Add(len(str))
-			for _,scope := range str {
-				go j.syncKyverno(&wg, scope, "CONFIGMAP","")
+			for _, scope := range str {
+				go j.syncKyverno(&wg, scope, "CONFIGMAP", "")
 			}
 		}
 	}
 	return nil
 }
 
-func (j *Job) syncKyverno(wg *sync.WaitGroup, jobType, scope,data string) {
+func (j *Job) syncKyverno(wg *sync.WaitGroup, jobType, scope, data string) {
 	var args []string
 	var mode string
 	if scope == "SYNC" || scope == "POLICYSYNC" {
@@ -259,7 +259,7 @@ func (j *Job) syncKyverno(wg *sync.WaitGroup, jobType, scope,data string) {
 	}
 
 	if scope == "POLICYSYNC" && data != "" {
-		args = append(args,fmt.Sprintf("-p=%s", data))
+		args = append(args, fmt.Sprintf("-p=%s", data))
 	}
 	go j.CreateJob(args, jobType, scope, wg)
 	wg.Wait()
@@ -270,9 +270,9 @@ func (j *Job) CreateJob(args []string, jobType, scope string, wg *sync.WaitGroup
 	job := &v1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: config.KubePolicyNamespace,
-			Labels : map[string]string{
-				"scope" : scope,
-				"type" : jobType,
+			Labels: map[string]string{
+				"scope": scope,
+				"type":  jobType,
 			},
 		},
 		Spec: v1.JobSpec{
@@ -298,28 +298,28 @@ func (j *Job) CreateJob(args []string, jobType, scope string, wg *sync.WaitGroup
 		return
 	}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.UnstructuredContent(), &job); err != nil {
-		j.log.Error(err,"Error in converting job Default Unstructured Converter","job_name",job.GetName())
+		j.log.Error(err, "Error in converting job Default Unstructured Converter", "job_name", job.GetName())
 		return
 	}
 	deadline := time.Now().Add(100 * time.Second)
 	for {
-		time.Sleep(20*time.Second)
+		time.Sleep(20 * time.Second)
 		resource, err := j.dclient.GetResource("", "Job", config.KubePolicyNamespace, job.GetName())
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				j.log.Error(err,"job is already deleted","job_name",job.GetName())
+				j.log.Error(err, "job is already deleted", "job_name", job.GetName())
 				break
 			}
 			continue
 		}
 		job := v1.Job{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.UnstructuredContent(), &job); err != nil {
-			j.log.Error(err,"Error in converting job Default Unstructured Converter","job_name",job.GetName())
+			j.log.Error(err, "Error in converting job Default Unstructured Converter", "job_name", job.GetName())
 			continue
 		}
 		if time.Now().After(deadline) {
 			if err := j.dclient.DeleteResource("", "Job", config.KubePolicyNamespace, job.GetName(), false); err != nil {
-				j.log.Error(err,"Error in deleting jobs","job_name",job.GetName())
+				j.log.Error(err, "Error in deleting jobs", "job_name", job.GetName())
 				continue
 			}
 			break

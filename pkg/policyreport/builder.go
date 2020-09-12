@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/common"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 )
 

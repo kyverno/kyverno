@@ -8,17 +8,17 @@ import (
 	"strings"
 	"sync"
 
-	policyreportinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
-	"github.com/nirmata/kyverno/pkg/jobs"
-	"github.com/nirmata/kyverno/pkg/policyreport"
-
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	policyreportinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/common"
 	"github.com/nirmata/kyverno/pkg/constant"
+	"github.com/nirmata/kyverno/pkg/jobs"
+	"github.com/nirmata/kyverno/pkg/policyreport"
 	"github.com/nirmata/kyverno/pkg/policystatus"
 
 	dclient "github.com/nirmata/kyverno/pkg/dclient"

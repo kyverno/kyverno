@@ -12,16 +12,16 @@ import (
 )
 
 func (pc *PolicyController) cleanUp(ers []response.EngineResponse) {
-		for _, er := range ers {
-			if !er.IsSuccessful() {
-				continue
-			}
-			if len(er.PolicyResponse.Rules) == 0 {
-				continue
-			}
-			// clean up after the policy has been corrected
-			pc.cleanUpPolicyViolation(er.PolicyResponse)
+	for _, er := range ers {
+		if !er.IsSuccessful() {
+			continue
 		}
+		if len(er.PolicyResponse.Rules) == 0 {
+			continue
+		}
+		// clean up after the policy has been corrected
+		pc.cleanUpPolicyViolation(er.PolicyResponse)
+	}
 
 }
 

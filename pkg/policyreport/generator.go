@@ -187,17 +187,17 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 			err := gen.createConfigmap()
 			scops := []string{}
 			if len(gen.inMemoryConfigMap.Namespace) > 0 {
-				scops = append(scops,"Namespace")
+				scops = append(scops, "Namespace")
 			}
 			if len(gen.inMemoryConfigMap.Helm) > 0 {
-				scops = append(scops,"Helm")
+				scops = append(scops, "Helm")
 			}
 			if len(gen.inMemoryConfigMap.Cluster["cluster"]) > 0 {
-				scops = append(scops,"Cluster")
+				scops = append(scops, "Cluster")
 			}
 			gen.job.Add(jobs.JobInfo{
 				JobType: "CONFIGMAP",
-				JobData: strings.Join(scops,","),
+				JobData: strings.Join(scops, ","),
 			})
 			if err != nil {
 				gen.log.Error(err, "configmap error")

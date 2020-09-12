@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"github.com/nirmata/kyverno/pkg/common"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/labels"

@@ -9,5 +9,5 @@ const (
 // Policy Reporting Types
 const (
 	PolicyViolation = "POLICYVIOLATION"
-	PolicyReport = "POLICYREPORT"
+	PolicyReport    = "POLICYREPORT"
 )

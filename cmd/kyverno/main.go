@@ -344,7 +344,6 @@ func main() {
 
 	go policyCtrl.Run(3, stopCh)
 
-
 	go eventGenerator.Run(3, stopCh)
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)

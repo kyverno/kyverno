@@ -1,12 +1,13 @@
 package policy
 
 import (
+	"fmt"
+	"github.com/nirmata/kyverno/pkg/common"
+	"k8s.io/apimachinery/pkg/labels"
+	"math/rand"
 	"os"
 	"strings"
 	"sync"
-	"fmt"
-	"k8s.io/apimachinery/pkg/labels"
-	"math/rand"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -101,7 +102,6 @@ type PolicyController struct {
 
 	// policy violation generator
 	pvGenerator policyviolation.GeneratorInterface
-
 
 	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
@@ -442,7 +442,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	if errors.IsNotFound(err) {
 		for _, v := range grList {
 			if key == v.Spec.Policy {
-				err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(),&metav1.DeleteOptions{})
+				err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(), &metav1.DeleteOptions{})
 				if err != nil {
 					logger.Error(err, "failed to delete gr")
 				}
@@ -464,9 +464,9 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	for _, v := range grList {
 		if policy.Name == v.Spec.Policy {
 			v.SetLabels(map[string]string{
-				"policy-update" :fmt.Sprintf("revision-count-%d",rand.Intn(100000)),
+				"policy-update": fmt.Sprintf("revision-count-%d", rand.Intn(100000)),
 			})
-			_,err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(v)
+			_, err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(v)
 			if err != nil {
 				logger.Error(err, "failed to update gr")
 				return err
