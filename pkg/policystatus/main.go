@@ -3,16 +3,14 @@ package policystatus
 import (
 	"encoding/json"
 	"fmt"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
 	"strings"
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-
-	"github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
