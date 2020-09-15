@@ -102,7 +102,6 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 		"",
 		"",
 		"",
-		600000,
 		lgr.WithName("ConfigData"),
 	)
 	var cpolicies []*kyvernov1.ClusterPolicy
