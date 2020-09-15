@@ -180,6 +180,18 @@ type Rule struct {
 	// Specifies patterns to create additional resources
 	// +optional
 	Generation Generation `json:"generate,omitempty" yaml:"generate,omitempty"`
+
+	// Context
+	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+}
+
+type ContextEntry struct {
+    Name string `json:"name,omitempty" yaml:"name,omitempty"`
+    ConfigMap ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
+}
+type ConfigMapReference struct {
+    Name string `json:"name,omitempty" yaml:"name,omitempty"`
+    Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 }
 
 //Condition defines the evaluation condition

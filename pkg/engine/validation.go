@@ -14,6 +14,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/nirmata/kyverno/pkg/resourcecache"
 )
 
 //Validate applies validation rules from policy on the resource
@@ -24,6 +25,9 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 	oldR := policyContext.OldResource
 	ctx := policyContext.Context
 	admissionInfo := policyContext.AdmissionInfo
+
+	resCache := policyContext.ResourceCache
+	jsonContext := policyContext.JSONContext
 	logger := log.Log.WithName("EngineValidate").WithValues("policy", policy.Name)
 
 	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
@@ -33,7 +37,6 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 	}
 
 	logger.V(4).Info("start processing", "startTime", startTime)
-
 	defer func() {
 		if reflect.DeepEqual(resp, response.EngineResponse{}) {
 			return
@@ -68,13 +71,12 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 	if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo, policyContext.ExcludeGroupRole); !denyResp.IsSuccessful() {
 		return *denyResp
 	}
-
 	if reflect.DeepEqual(oldR, unstructured.Unstructured{}) {
-		return *validateResource(logger, ctx, policy, newR, admissionInfo, policyContext.ExcludeGroupRole)
+		return *validateResource(logger, ctx, policy, newR, admissionInfo, policyContext.ExcludeGroupRole, resCache, jsonContext)
 	}
 
-	oldResponse := validateResource(logger, ctx, policy, oldR, admissionInfo, policyContext.ExcludeGroupRole)
-	newResponse := validateResource(logger, ctx, policy, newR, admissionInfo, policyContext.ExcludeGroupRole)
+	oldResponse := validateResource(logger, ctx, policy, oldR, admissionInfo, policyContext.ExcludeGroupRole, resCache, jsonContext)
+	newResponse := validateResource(logger, ctx, policy, newR, admissionInfo, policyContext.ExcludeGroupRole, resCache, jsonContext)
 	if !isSameResponse(oldResponse, newResponse) {
 		return *newResponse
 	}
@@ -116,7 +118,7 @@ func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.
 		if !rule.HasValidate() {
 			continue
 		}
-
+		
 		if err := MatchesResourceDescription(resource, rule, admissionInfo, excludeResource); err != nil {
 			log.V(4).Info("resource fails the match description", "reason", err.Error())
 			continue
@@ -147,7 +149,7 @@ func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.
 	return resp
 }
 
-func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, excludeGroupRole []string) *response.EngineResponse {
+func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 
 	if SkipPolicyApplication(policy, resource) {
@@ -164,7 +166,10 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 		if !rule.HasValidate() {
 			continue
 		}
-
+		if err := addResourceToContext(log, rule.Context, resCache, jsonContext); err != nil {
+			log.V(4).Info("cannot add configmaps to context", "reason", err.Error())
+			continue
+		}
 		// check if the resource satisfies the filter conditions defined in the rule
 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont satisfy a policy rule resource description

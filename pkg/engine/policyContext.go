@@ -5,6 +5,7 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"github.com/nirmata/kyverno/pkg/resourcecache"
 )
 
 // PolicyContext contains the contexts for engine to process
@@ -22,4 +23,10 @@ type PolicyContext struct {
 	Context context.EvalInterface
 	// Config handler
 	ExcludeGroupRole []string
+
+	// ResourceCache provides listers to resources 
+	// Currently Supports Configmap
+	ResourceCache resourcecache.ResourceCacheIface
+	// JSONContext ...
+	JSONContext *context.Context
 }

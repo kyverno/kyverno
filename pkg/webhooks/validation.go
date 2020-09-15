@@ -20,6 +20,8 @@ import (
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/nirmata/kyverno/pkg/resourcecache"
 )
 
 // HandleValidation handles validating webhook admission request
@@ -35,7 +37,8 @@ func HandleValidation(
 	eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
 	log logr.Logger,
-	dynamicConfig config.Interface) (bool, string) {
+	dynamicConfig config.Interface,
+	resCache resourcecache.ResourceCacheIface) (bool, string) {
 
 	if len(policies) == 0 {
 		return true, ""
@@ -73,6 +76,8 @@ func HandleValidation(
 		Context:          ctx,
 		AdmissionInfo:    userRequestInfo,
 		ExcludeGroupRole: dynamicConfig.GetExcludeGroupRole(),
+		ResourceCache: resCache,
+		JSONContext: ctx,
 	}
 
 	var engineResponses []response.EngineResponse

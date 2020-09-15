@@ -113,6 +113,12 @@ func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) bool {
 	matchedVarsRegex := regexp.MustCompile(regexStr)
 
 	if len(allVarsRegex.FindAllStringSubmatch(string(policyRaw), -1)) > len(matchedVarsRegex.FindAllStringSubmatch(string(policyRaw), -1)) {
+		// If rules contains Context then skip this validation
+		for _, rule := range policy.Spec.Rules {
+			if len(rule.Context) > 0 {
+				return false
+			}
+		}
 		return true
 	}
 	return false

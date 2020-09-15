@@ -38,6 +38,9 @@ import (
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/nirmata/kyverno/pkg/resourcecache"
+
 )
 
 // WebhookServer contains configured TLS server with MutationWebhook.
@@ -111,6 +114,8 @@ type WebhookServer struct {
 	openAPIController *openapi.Controller
 
 	supportMutateValidate bool
+
+	resCache resourcecache.ResourceCacheIface
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -137,6 +142,7 @@ func NewWebhookServer(
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
+	resCache resourcecache.ResourceCacheIface,
 ) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -178,6 +184,7 @@ func NewWebhookServer(
 		log:                       log,
 		openAPIController:         openAPIController,
 		supportMutateValidate:     supportMutateValidate,
+		resCache: resCache,
 	}
 
 	mux := httprouter.New()
@@ -347,7 +354,7 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 			ws.auditHandler.Add(request.DeepCopy())
 
 			// VALIDATION
-			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log, ws.configHandler)
+			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log, ws.configHandler, ws.resCache)
 			if !ok {
 				logger.Info("admission request denied")
 				return &v1beta1.AdmissionResponse{
@@ -473,7 +480,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		logger.Error(err, "failed to load service account in context")
 	}
 
-	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log, ws.configHandler)
+	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log, ws.configHandler, ws.resCache)
 	if !ok {
 		logger.Info("admission request denied")
 		return &v1beta1.AdmissionResponse{

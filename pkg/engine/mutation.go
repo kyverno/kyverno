@@ -27,6 +27,9 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	policy := policyContext.Policy
 	patchedResource := policyContext.NewResource
 	ctx := policyContext.Context
+
+	resCache := policyContext.ResourceCache
+	jsonContext := policyContext.JSONContext
 	logger := log.Log.WithName("EngineMutate").WithValues("policy", policy.Name, "kind", patchedResource.GetKind(),
 		"namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
 
@@ -42,6 +45,10 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	}
 
 	for _, rule := range policy.Spec.Rules {
+		if err := addResourceToContext(logger, rule.Context, resCache, jsonContext); err != nil{
+			logger.V(4).Info("cannot add configmaps to context", "reason", err.Error())
+			continue
+		}
 		var ruleResponse response.RuleResponse
 		logger := logger.WithValues("rule", rule.Name)
 		if !rule.HasMutate() {

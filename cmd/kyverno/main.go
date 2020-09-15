@@ -33,6 +33,7 @@ import (
 	"k8s.io/klog"
 	"k8s.io/klog/klogr"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/nirmata/kyverno/pkg/resourcecache"
 )
 
 const resyncPeriod = 15 * time.Minute
@@ -104,6 +105,16 @@ func main() {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
+
+	// ======================= resource cache ====================
+	rCache, err := resourcecache.NewResourceCache(log.Log, clientConfig, client, []string{"configmaps"}, []string{})
+	if err != nil {
+		setupLog.Error(err, "Failed to create resource cache")
+		os.Exit(1)
+	}
+	rCache.RunAllInformers(log.Log)
+	// ===========================================================
+
 
 	// CRD CHECK
 	// - verify if the CRD for Policy & PolicyViolation are available
@@ -251,6 +262,7 @@ func main() {
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		log.Log.WithName("ValidateAuditHandler"),
 		configData,
+		rCache,
 	)
 
 	// CONFIGURE CERTIFICATES
@@ -309,6 +321,7 @@ func main() {
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
+		rCache,
 	)
 
 	if err != nil {
