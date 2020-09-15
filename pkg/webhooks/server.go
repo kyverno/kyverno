@@ -40,7 +40,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/nirmata/kyverno/pkg/resourcecache"
-
 )
 
 // WebhookServer contains configured TLS server with MutationWebhook.
@@ -184,7 +183,7 @@ func NewWebhookServer(
 		log:                       log,
 		openAPIController:         openAPIController,
 		supportMutateValidate:     supportMutateValidate,
-		resCache: resCache,
+		resCache:                  resCache,
 	}
 
 	mux := httprouter.New()

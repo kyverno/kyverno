@@ -12,6 +12,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/policycache"
 	"github.com/nirmata/kyverno/pkg/policystatus"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/resourcecache"
 	"github.com/nirmata/kyverno/pkg/userinfo"
 	"github.com/pkg/errors"
 	"k8s.io/api/admission/v1beta1"
@@ -21,7 +22,6 @@ import (
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"github.com/nirmata/kyverno/pkg/resourcecache"
 )
 
 const (
@@ -53,7 +53,7 @@ type auditHandler struct {
 
 	log           logr.Logger
 	configHandler config.Interface
-	resCache resourcecache.ResourceCacheIface
+	resCache      resourcecache.ResourceCacheIface
 }
 
 // NewValidateAuditHandler returns a new instance of audit policy handler
@@ -79,7 +79,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		crbSynced:      crbInformer.Informer().HasSynced,
 		log:            log,
 		configHandler:  dynamicConfig,
-		resCache: resCache,
+		resCache:       resCache,
 	}
 }
 

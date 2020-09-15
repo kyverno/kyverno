@@ -12,9 +12,9 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
+	"github.com/nirmata/kyverno/pkg/resourcecache"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"github.com/nirmata/kyverno/pkg/resourcecache"
 )
 
 //Validate applies validation rules from policy on the resource
@@ -118,7 +118,7 @@ func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.
 		if !rule.HasValidate() {
 			continue
 		}
-		
+
 		if err := MatchesResourceDescription(resource, rule, admissionInfo, excludeResource); err != nil {
 			log.V(4).Info("resource fails the match description", "reason", err.Error())
 			continue

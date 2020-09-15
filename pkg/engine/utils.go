@@ -1,17 +1,17 @@
 package engine
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
-	"strings"
-	"time"
-	"encoding/json"
 	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/utils"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
+	"time"
 
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -19,9 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	"github.com/nirmata/kyverno/pkg/resourcecache"
 	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/resourcecache"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 //EngineStats stores in the statistics for a single application of resource
@@ -284,44 +284,43 @@ func SkipPolicyApplication(policy kyverno.ClusterPolicy, resource unstructured.U
 	return false
 }
 
-
 func addResourceToContext(logger logr.Logger, contexts []kyverno.ContextEntry, resCache resourcecache.ResourceCacheIface, ctx *context.Context) error {
 	gvrC := resCache.GetGVRCache("configmaps")
 	if gvrC != nil {
 		lister := gvrC.GetLister()
 		for _, context := range contexts {
-					contextData := make(map[string]interface{})
-					name := context.ConfigMap.Name
-					namespace := context.ConfigMap.Namespace
-					if namespace == "" {
-						namespace = "default"
-					}
-					key := fmt.Sprintf("%s/%s", namespace, name)
-					obj, err := lister.Get(key)
-					if err != nil {
-						logger.Error(err, fmt.Sprintf("failed to read configmap %s/%s from cache", namespace, name))
-						continue
-					}
-					unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-					if err != nil {
-						logger.Error(err, "failed to convert context runtime object to unstructured")
-						continue
-					}
-					// fmt.Println(unstructuredObj["data"])
-					contextData["data"]=unstructuredObj["data"]
-					contextNamedData := make(map[string]interface{})
-					contextNamedData[context.Name] = contextData
-					jdata, err := json.Marshal(contextNamedData)
-					if err != nil {
-						logger.Error(err, "failed to unmarshal context data")
-						continue
-					}
-					fmt.Println(string(jdata))
-					err = ctx.AddJSON(jdata)
-					if err != nil {
-						logger.Error(err, "failed to load context json")
-						continue
-					}
+			contextData := make(map[string]interface{})
+			name := context.ConfigMap.Name
+			namespace := context.ConfigMap.Namespace
+			if namespace == "" {
+				namespace = "default"
+			}
+			key := fmt.Sprintf("%s/%s", namespace, name)
+			obj, err := lister.Get(key)
+			if err != nil {
+				logger.Error(err, fmt.Sprintf("failed to read configmap %s/%s from cache", namespace, name))
+				continue
+			}
+			unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+			if err != nil {
+				logger.Error(err, "failed to convert context runtime object to unstructured")
+				continue
+			}
+			// fmt.Println(unstructuredObj["data"])
+			contextData["data"] = unstructuredObj["data"]
+			contextNamedData := make(map[string]interface{})
+			contextNamedData[context.Name] = contextData
+			jdata, err := json.Marshal(contextNamedData)
+			if err != nil {
+				logger.Error(err, "failed to unmarshal context data")
+				continue
+			}
+			fmt.Println(string(jdata))
+			err = ctx.AddJSON(jdata)
+			if err != nil {
+				logger.Error(err, "failed to load context json")
+				continue
+			}
 		}
 		return nil
 	}

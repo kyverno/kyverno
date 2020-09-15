@@ -14,13 +14,13 @@ type GVRCacheIface interface {
 }
 
 type GVRCache struct {
-	GVR schema.GroupVersionResource
-	Namespaced bool
-	stopCh chan struct{}
+	GVR             schema.GroupVersionResource
+	Namespaced      bool
+	stopCh          chan struct{}
 	genericInformer informers.GenericInformer
 }
 
-func NewGVRCache(gvr schema.GroupVersionResource, namespaced bool, stopCh chan struct{}, genericInformer informers.GenericInformer) GVRCacheIface{
+func NewGVRCache(gvr schema.GroupVersionResource, namespaced bool, stopCh chan struct{}, genericInformer informers.GenericInformer) GVRCacheIface {
 	return &GVRCache{GVR: gvr, Namespaced: namespaced, stopCh: stopCh, genericInformer: genericInformer}
 }
 
@@ -28,7 +28,7 @@ func (gvrc *GVRCache) StopInformer() {
 	close(gvrc.stopCh)
 }
 
-func (gvrc *GVRCache) IsNamespaced() bool{
+func (gvrc *GVRCache) IsNamespaced() bool {
 	return gvrc.Namespaced
 }
 

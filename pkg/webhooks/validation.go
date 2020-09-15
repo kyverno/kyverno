@@ -76,8 +76,8 @@ func HandleValidation(
 		Context:          ctx,
 		AdmissionInfo:    userRequestInfo,
 		ExcludeGroupRole: dynamicConfig.GetExcludeGroupRole(),
-		ResourceCache: resCache,
-		JSONContext: ctx,
+		ResourceCache:    resCache,
+		JSONContext:      ctx,
 	}
 
 	var engineResponses []response.EngineResponse

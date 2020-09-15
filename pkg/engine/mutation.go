@@ -45,7 +45,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	}
 
 	for _, rule := range policy.Spec.Rules {
-		if err := addResourceToContext(logger, rule.Context, resCache, jsonContext); err != nil{
+		if err := addResourceToContext(logger, rule.Context, resCache, jsonContext); err != nil {
 			logger.V(4).Info("cannot add configmaps to context", "reason", err.Error())
 			continue
 		}

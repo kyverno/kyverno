@@ -23,6 +23,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystatus"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/resourcecache"
 	"github.com/nirmata/kyverno/pkg/signal"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/version"
@@ -33,7 +34,6 @@ import (
 	"k8s.io/klog"
 	"k8s.io/klog/klogr"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
-	"github.com/nirmata/kyverno/pkg/resourcecache"
 )
 
 const resyncPeriod = 15 * time.Minute
@@ -114,7 +114,6 @@ func main() {
 	}
 	rCache.RunAllInformers(log.Log)
 	// ===========================================================
-
 
 	// CRD CHECK
 	// - verify if the CRD for Policy & PolicyViolation are available

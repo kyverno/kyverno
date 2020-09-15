@@ -42,7 +42,7 @@ func (resc *ResourceCache) CreateResourceInformer(log logr.Logger, resource stri
 	return true, nil
 }
 
-func (resc *ResourceCache) StopResourceInformer(log logr.Logger, resource string) (bool) {
+func (resc *ResourceCache) StopResourceInformer(log logr.Logger, resource string) bool {
 	res, ok := resc.GVRCacheData[resource]
 	if ok {
 		delete(resc.GVRCacheData, resource)

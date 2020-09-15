@@ -3,28 +3,28 @@ package resourcecache
 import (
 	// "fmt"
 	// "time"
-	"k8s.io/client-go/discovery"
-	dclient "github.com/nirmata/kyverno/pkg/dclient"
-	"k8s.io/client-go/rest"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic/dynamicinformer"
 	"github.com/go-logr/logr"
+	dclient "github.com/nirmata/kyverno/pkg/dclient"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/rest"
 	// "k8s.io/client-go/informers"
 )
 
 type ResourceCacheIface interface {
 	RunAllInformers(log logr.Logger)
 	CreateResourceInformer(log logr.Logger, resource string) (bool, error)
-	StopResourceInformer(log logr.Logger, resource string) (bool)
+	StopResourceInformer(log logr.Logger, resource string) bool
 	GetGVRCache(resource string) *GVRCache
 }
 
 type ResourceCache struct {
-	config *rest.Config
-	dclient *dclient.Client
+	config    *rest.Config
+	dclient   *dclient.Client
 	dinformer dynamicinformer.DynamicSharedInformerFactory
-	match []string
-	exclude []string
+	match     []string
+	exclude   []string
 
 	GVRCacheData map[string]*GVRCache
 }
@@ -46,7 +46,7 @@ func NewResourceCache(log logr.Logger, config *rest.Config, dclient *dclient.Cli
 	return resCache, nil
 }
 
-func udateGVRCache(log logr.Logger, resc *ResourceCache, discoveryIface discovery.CachedDiscoveryInterface) (error){
+func udateGVRCache(log logr.Logger, resc *ResourceCache, discoveryIface discovery.CachedDiscoveryInterface) error {
 	serverResources, err := discoveryIface.ServerPreferredResources()
 	if err != nil {
 		return err
@@ -76,38 +76,23 @@ func udateGVRCache(log logr.Logger, resc *ResourceCache, discoveryIface discover
 	return nil
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-			// mok := resc.matchGVRKey(resource.Name)
-			// if !mok {
-			// 	continue
-			// }
-			// eok := resc.excludeGVRKey(resource.Name)
-			// if eok {
-			// 	continue
-			// }
-			// _, ok := resc.GVRCacheData[resource.Name]
-			// stopCh := make(chan struct{})
-			// gvrc := &GVRCache{GVR: gv.WithResource(resource.Name), Namespaced: resource.Namespaced, stopCh: stopCh}
-			// if ok {
-			// 	continue
-			// }
-			// resc.GVRCacheData[resource.Name] = gvrc
-			// // fmt.Printf("%+v\n", gv.WithResource(resource.Name))
-			// gvr := gv.WithResource(resource.Name)
-			// genInformer := resc.dinformer.ForResource(gvr)
-			// gvrc.genericInformer = genInformer
-			// go startWatching(stopCh, genInformer.Informer())
+// mok := resc.matchGVRKey(resource.Name)
+// if !mok {
+// 	continue
+// }
+// eok := resc.excludeGVRKey(resource.Name)
+// if eok {
+// 	continue
+// }
+// _, ok := resc.GVRCacheData[resource.Name]
+// stopCh := make(chan struct{})
+// gvrc := &GVRCache{GVR: gv.WithResource(resource.Name), Namespaced: resource.Namespaced, stopCh: stopCh}
+// if ok {
+// 	continue
+// }
+// resc.GVRCacheData[resource.Name] = gvrc
+// // fmt.Printf("%+v\n", gv.WithResource(resource.Name))
+// gvr := gv.WithResource(resource.Name)
+// genInformer := resc.dinformer.ForResource(gvr)
+// gvrc.genericInformer = genInformer
+// go startWatching(stopCh, genInformer.Informer())

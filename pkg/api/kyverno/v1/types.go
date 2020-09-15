@@ -186,12 +186,12 @@ type Rule struct {
 }
 
 type ContextEntry struct {
-    Name string `json:"name,omitempty" yaml:"name,omitempty"`
-    ConfigMap ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
+	Name      string             `json:"name,omitempty" yaml:"name,omitempty"`
+	ConfigMap ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
 }
 type ConfigMapReference struct {
-    Name string `json:"name,omitempty" yaml:"name,omitempty"`
-    Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	Name      string `json:"name,omitempty" yaml:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 }
 
 //Condition defines the evaluation condition
