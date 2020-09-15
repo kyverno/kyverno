@@ -3,6 +3,7 @@ package policy
 import (
 	"fmt"
 	"github.com/nirmata/kyverno/pkg/common"
+	"github.com/nirmata/kyverno/pkg/policyreport"
 	"k8s.io/apimachinery/pkg/labels"
 	"math/rand"
 	"os"
@@ -103,6 +104,9 @@ type PolicyController struct {
 	// policy violation generator
 	pvGenerator policyviolation.GeneratorInterface
 
+	// policy violation generator
+	prGenerator policyreport.GeneratorInterface
+
 	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 
@@ -128,6 +132,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	grInformer kyvernoinformer.GenerateRequestInformer,
 	configHandler config.Interface, eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
+	prGenerator policyreport.GeneratorInterface,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	namespaces informers.NamespaceInformer,
 	job *jobs.Job,
@@ -150,6 +155,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		configHandler:          configHandler,
 		pvGenerator:            pvGenerator,
+		prGenerator:            prGenerator,
 		resourceWebhookWatcher: resourceWebhookWatcher,
 		job:                    job,
 		log:                    log,
@@ -206,19 +212,6 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	// rebuild after 300 seconds/ 5 mins
 	//TODO: pass the time in seconds instead of converting it internally
 	pc.rm = NewResourceManager(30)
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		go func(pc PolicyController) {
-			for k := range time.Tick(60 * time.Second) {
-				pc.log.V(2).Info("Policy Background sync at", "time", k.String())
-				if len(pc.policySync.policy) > 0 {
-					pc.job.Add(jobs.JobInfo{
-						JobType: "POLICYSYNC",
-						JobData: strings.Join(pc.policySync.policy, ","),
-					})
-				}
-			}
-		}(pc)
-	}
 
 	return &pc, nil
 }
@@ -365,6 +358,20 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 			return
 		}
 
+	}
+
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		go func(pc *PolicyController) {
+			for k := range time.Tick(constant.PolicyReportPolicyChangeResync) {
+				pc.log.V(2).Info("Policy Background sync at", "time", k.String())
+				if len(pc.policySync.policy) > 0 {
+					pc.job.Add(jobs.JobInfo{
+						JobType: "POLICYSYNC",
+						JobData: strings.Join(pc.policySync.policy, ","),
+					})
+				}
+			}
+		}(pc)
 	}
 
 	for i := 0; i < workers; i++ {

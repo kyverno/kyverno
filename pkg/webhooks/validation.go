@@ -1,7 +1,10 @@
 package webhooks
 
 import (
+	"github.com/nirmata/kyverno/pkg/common"
 	"github.com/nirmata/kyverno/pkg/config"
+	"github.com/nirmata/kyverno/pkg/policyreport"
+	"os"
 	"reflect"
 	"sort"
 	"time"
@@ -34,6 +37,7 @@ func HandleValidation(
 	statusListener policystatus.Listener,
 	eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
+	prGenerator policyreport.GeneratorInterface,
 	log logr.Logger,
 	dynamicConfig config.Interface) (bool, string) {
 
@@ -121,8 +125,13 @@ func HandleValidation(
 	// ADD POLICY VIOLATIONS
 	// violations are created with resource on "audit"
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger)
-	pvGenerator.Add(pvInfos...)
-
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		for _, v := range pvInfos {
+			prGenerator.Add(policyreport.Info(v))
+		}
+	} else {
+		pvGenerator.Add(pvInfos...)
+	}
 	return true, ""
 }
 

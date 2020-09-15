@@ -2,6 +2,9 @@ package policy
 
 import (
 	"fmt"
+	"github.com/nirmata/kyverno/pkg/common"
+	"github.com/nirmata/kyverno/pkg/policyreport"
+	"os"
 
 	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/engine/response"
@@ -23,7 +26,14 @@ func (pc *PolicyController) cleanupAndReport(engineResponses []response.EngineRe
 		pvInfos[i].FromSync = true
 	}
 
-	pc.pvGenerator.Add(pvInfos...)
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		for _, v := range pvInfos {
+			pc.prGenerator.Add(policyreport.Info(v))
+		}
+	} else {
+		pc.pvGenerator.Add(pvInfos...)
+	}
+
 	// cleanup existing violations if any
 	// if there is any error in clean up, we dont re-queue the resource
 	// it will be re-tried in the next controller cache resync

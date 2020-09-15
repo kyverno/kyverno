@@ -13,11 +13,11 @@ import (
 	"time"
 )
 
-func NamespaceCommand() *cobra.Command {
+func AllReportsCommand() *cobra.Command {
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
-	var mode, namespace, policy string
+	var namespace, policy string
 	cmd := &cobra.Command{
-		Use:     "namespace",
+		Use:     "all",
 		Short:   "generate report",
 		Example: fmt.Sprintf("To create a namespace report from background scan:\nkyverno report namespace --namespace=defaults \n kyverno report namespace"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -34,28 +34,23 @@ func NamespaceCommand() *cobra.Command {
 				log.Log.Error(err, "Failed to create kubernetes client")
 				os.Exit(1)
 			}
-
 			var stopCh <-chan struct{}
 			var wg sync.WaitGroup
-			if mode == "cli" {
-				if namespace != "" {
-					wg.Add(1)
-					go backgroundScan(namespace, Namespace, policy, &wg, restConfig, logger)
-				} else {
-					ns, err := kubeClient.CoreV1().Namespaces().List(metav1.ListOptions{})
-					if err != nil {
-						os.Exit(1)
-					}
-					wg.Add(len(ns.Items))
-					for _, n := range ns.Items {
-						go backgroundScan(n.GetName(), Namespace, policy, &wg, restConfig, logger)
-					}
-				}
-			} else {
+			if namespace != "" {
 				wg.Add(1)
-				go configmapScan("", Namespace, &wg, restConfig, logger)
+				go backgroundScan(namespace, All, policy, &wg, restConfig, logger)
+				wg.Wait()
+			} else {
+				ns, err := kubeClient.CoreV1().Namespaces().List(metav1.ListOptions{})
+				if err != nil {
+					os.Exit(1)
+				}
+				wg.Add(len(ns.Items))
+				for _, n := range ns.Items {
+					go backgroundScan(n.GetName(), All, policy, &wg, restConfig, logger)
+				}
+				wg.Wait()
 			}
-			wg.Wait()
 			os.Exit(0)
 			<-stopCh
 			return nil
@@ -63,6 +58,5 @@ func NamespaceCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "define specific namespace")
 	cmd.Flags().StringVarP(&policy, "policy", "p", "", "define specific policy")
-	cmd.Flags().StringVarP(&mode, "mode", "m", "cli", "mode")
 	return cmd
 }

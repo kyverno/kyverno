@@ -41,13 +41,15 @@ const (
 	Helm      string = "Helm"
 	Namespace string = "Namespace"
 	Cluster   string = "Cluster"
+	All       string = "All"
 )
 
 func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfig *rest.Config, logger logr.Logger) {
+	lgr := logger.WithValues("namespace", n, "scope", scope, "policychange", policychange)
 	defer func() {
+		lgr.Error(nil, "done")
 		wg.Done()
 	}()
-	lgr := logger.WithValues("namespace", n, "scope", scope, "policychange", policychange)
 	dClient, err := client.NewClient(restConfig, 5*time.Minute, make(chan struct{}), lgr)
 	if err != nil {
 		lgr.Error(err, "Error in creating dcclient with provided rest config")
@@ -66,7 +68,7 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 	}
 	pclient, err := kyvernoclient.NewForConfig(restConfig)
 	if err != nil {
-		lgr.Error(err, "Error in creating kyverno client for polciy with provided rest config")
+		lgr.Error(err, "Error in creating kyverno client for policy with provided rest config")
 		os.Exit(1)
 	}
 	var stopCh <-chan struct{}
@@ -147,10 +149,11 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 			cpolicies = append(cpolicies, cp)
 		}
 	}
-
 	// key uid
-	resourceMap := map[string]unstructured.Unstructured{}
-	var engineResponses []response.EngineResponse
+	resourceMap := map[string]map[string]unstructured.Unstructured{}
+	resourceMap[Cluster] = make(map[string]unstructured.Unstructured)
+	resourceMap[Helm] = make(map[string]unstructured.Unstructured)
+	resourceMap[Namespace] = make(map[string]unstructured.Unstructured)
 	for _, p := range cpolicies {
 		for _, rule := range p.Spec.Rules {
 			for _, k := range rule.MatchResources.Kinds {
@@ -159,10 +162,9 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 					lgr.Error(err, "failed to find resource", "kind", k)
 					continue
 				}
-
-				if !resourceSchema.Namespaced && scope == Cluster {
+				if !resourceSchema.Namespaced {
 					rMap := policy.GetResourcesPerNamespace(k, dClient, "", rule, configData, log.Log)
-					policy.MergeResources(resourceMap, rMap)
+					policy.MergeResources(resourceMap[Cluster], rMap)
 				} else if resourceSchema.Namespaced {
 					namespaces := policy.GetNamespacesForRule(&rule, np.Lister(), log.Log)
 					for _, ns := range namespaces {
@@ -172,10 +174,10 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 								labels := r.GetLabels()
 								_, okChart := labels["app"]
 								_, okRelease := labels["release"]
-								if okChart && okRelease && scope == Helm {
-									policy.MergeResources(resourceMap, rMap)
-								} else if scope == Namespace && r.GetNamespace() != "" {
-									policy.MergeResources(resourceMap, rMap)
+								if okChart && okRelease {
+									policy.MergeResources(resourceMap[Helm], rMap)
+								} else if r.GetNamespace() != "" {
+									policy.MergeResources(resourceMap[Namespace], rMap)
 								}
 							}
 						}
@@ -186,123 +188,161 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 		}
 
 		if p.HasAutoGenAnnotation() {
-			resourceMap = policy.ExcludePod(resourceMap, log.Log)
+			switch scope {
+			case Cluster:
+				resourceMap[Cluster] = policy.ExcludePod(resourceMap[Cluster], log.Log)
+				break
+			case Namespace:
+				resourceMap[Namespace] = policy.ExcludePod(resourceMap[Namespace], log.Log)
+				break
+			case Helm:
+				resourceMap[Helm] = policy.ExcludePod(resourceMap[Helm], log.Log)
+				break
+			case All:
+				resourceMap[Cluster] = policy.ExcludePod(resourceMap[Cluster], log.Log)
+				resourceMap[Namespace] = policy.ExcludePod(resourceMap[Namespace], log.Log)
+				resourceMap[Helm] = policy.ExcludePod(resourceMap[Helm], log.Log)
+			}
 		}
 		results := make(map[string][]policyreportv1alpha1.PolicyReportResult)
-		for _, resource := range resourceMap {
-			policyContext := engine.PolicyContext{
-				NewResource:      resource,
-				Context:          context.NewContext(),
-				Policy:           *p,
-				ExcludeGroupRole: configData.GetExcludeGroupRole(),
-			}
-
-			engineResponse := engine.Validate(policyContext)
-
-			if len(engineResponse.PolicyResponse.Rules) > 0 {
-				engineResponses = append(engineResponses, engineResponse)
-			}
-
-			engineResponse = engine.Mutate(policyContext)
-			if len(engineResponse.PolicyResponse.Rules) > 0 {
-				engineResponses = append(engineResponses, engineResponse)
-			}
-
-			pv := policyreport.GeneratePRsFromEngineResponse(engineResponses, log.Log)
-
-			for _, v := range pv {
-				var appname string
-				switch scope {
-				case Helm:
-					resource, err := dClient.GetResource(v.Resource.GetAPIVersion(), v.Resource.GetKind(), v.Resource.GetNamespace(), v.Resource.GetName())
-					if err != nil {
-						lgr.Error(err, "failed to get resource")
-						continue
-					}
-					labels := resource.GetLabels()
-					_, okChart := labels["app"]
-					_, okRelease := labels["release"]
-					if okChart && okRelease {
-						appname = fmt.Sprintf("kyverno-policyreport-%s-%s", labels["app"], policyContext.NewResource.GetNamespace())
-
-					}
-					break
-				case Namespace:
-					appname = fmt.Sprintf("kyverno-policyreport-%s", policyContext.NewResource.GetNamespace())
-					break
-				case Cluster:
-					appname = fmt.Sprintf("kyverno-clusterpolicyreport")
-					break
+		for key, _ := range resourceMap {
+			for _, resource := range resourceMap[key] {
+				policyContext := engine.PolicyContext{
+					NewResource:      resource,
+					Context:          context.NewContext(),
+					Policy:           *p,
+					ExcludeGroupRole: configData.GetExcludeGroupRole(),
 				}
-				builder := policyreport.NewPrBuilder()
-				pv := builder.Generate(v)
-
-				for _, e := range pv.Spec.ViolatedRules {
-					result := &policyreportv1alpha1.PolicyReportResult{
-						Policy:  pv.Spec.Policy,
-						Rule:    e.Name,
-						Message: e.Message,
-						Status:  policyreportv1alpha1.PolicyStatus(e.Check),
-						Resource: &corev1.ObjectReference{
-							Kind:       pv.Spec.Kind,
-							Namespace:  pv.Spec.Namespace,
-							APIVersion: pv.Spec.APIVersion,
-							Name:       pv.Spec.Name,
-						},
-					}
-					results[appname] = append(results[appname], *result)
-				}
+				results = createResults(policyContext, key, results)
 			}
 		}
-
 		for k, _ := range results {
 			if k == "" {
 				continue
 			}
-			if scope == Helm || scope == Namespace {
-				availablepr, err := kclient.PolicyV1alpha1().PolicyReports(n).Get(k, metav1.GetOptions{})
-
-				if err != nil {
-					if apierrors.IsNotFound(err) {
-						availablepr = initPolicyReport(scope, n, k)
-					}
-				}
-				availablepr, action := mergeReport(availablepr, results[k], removePolicy)
-				if action == "Create" {
-					_, err := kclient.PolicyV1alpha1().PolicyReports(n).Create(availablepr)
-					if err != nil {
-						lgr.Error(err, "Error in Create polciy report", "appreport", k)
-					}
-				} else {
-					_, err := kclient.PolicyV1alpha1().PolicyReports(n).Update(availablepr)
-					if err != nil {
-						lgr.Error(err, "Error in update polciy report", "appreport", k)
-					}
-				}
-			} else {
-				availablepr, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Get(k, metav1.GetOptions{})
-				if err != nil {
-					if apierrors.IsNotFound(err) {
-						availablepr = initClusterPolicyReport(scope, k)
-					}
-				}
-				availablepr, action := mergeClusterReport(availablepr, results[k])
-				if action == "Create" {
-					_, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Create(availablepr)
-					if err != nil {
-						lgr.Error(err, "Error in Create polciy report", "appreport", k)
-					}
-				} else {
-					_, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Update(availablepr)
-					if err != nil {
-						lgr.Error(err, "Error in update polciy report", "appreport", k)
-					}
-				}
+			err := createReport(kclient, k, n, results[k], lgr)
+			if err != nil {
+				continue
 			}
-
 		}
 	}
-	os.Exit(0)
+}
+
+func createReport(kclient *kyvernoclient.Clientset, name, namespace string, results []policyreportv1alpha1.PolicyReportResult, lgr logr.Logger) error {
+	str := strings.Split(name, "-")
+	var scope string
+	if len(str) == 1 {
+		scope = Cluster
+	} else if strings.Contains(name, "policyreport-helm-") {
+		scope = Helm
+	} else {
+		scope = Cluster
+	}
+	if len(str) > 1 {
+		availablepr, err := kclient.PolicyV1alpha1().PolicyReports(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				availablepr = initPolicyReport(scope, namespace, name)
+			} else {
+				return err
+			}
+		}
+
+		availablepr, action := mergeReport(availablepr, results, []string{})
+		if action == "Create" {
+			availablepr.SetLabels(map[string]string{
+				"policy-state": "state",
+			})
+			_, err := kclient.PolicyV1alpha1().PolicyReports(availablepr.GetNamespace()).Create(availablepr)
+			if err != nil {
+				lgr.Error(err, "Error in Create policy report", "appreport", name)
+				return err
+			}
+		} else {
+			_, err := kclient.PolicyV1alpha1().PolicyReports(availablepr.GetNamespace()).Update(availablepr)
+			if err != nil {
+				lgr.Error(err, "Error in update policy report", "appreport", name)
+				return err
+			}
+		}
+	} else {
+		availablepr, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Get(name, metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				availablepr = initClusterPolicyReport(scope, name)
+			} else {
+				return err
+			}
+		}
+		availablepr, action := mergeClusterReport(availablepr, results)
+		if action == "Create" {
+			_, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Create(availablepr)
+			if err != nil {
+				lgr.Error(err, "Error in Create policy report", "appreport", name)
+				return err
+			}
+		} else {
+			_, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Update(availablepr)
+			if err != nil {
+				lgr.Error(err, "Error in update policy report", "appreport", name)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func createResults(policyContext engine.PolicyContext, key string, results map[string][]policyreportv1alpha1.PolicyReportResult) map[string][]policyreportv1alpha1.PolicyReportResult {
+
+	var engineResponses []response.EngineResponse
+	engineResponse := engine.Validate(policyContext)
+
+	if len(engineResponse.PolicyResponse.Rules) > 0 {
+		engineResponses = append(engineResponses, engineResponse)
+	}
+
+	engineResponse = engine.Mutate(policyContext)
+	if len(engineResponse.PolicyResponse.Rules) > 0 {
+		engineResponses = append(engineResponses, engineResponse)
+	}
+
+	pv := policyreport.GeneratePRsFromEngineResponse(engineResponses, log.Log)
+
+	for _, v := range pv {
+		var appname string
+		if key == Helm {
+			labels := policyContext.NewResource.GetLabels()
+			_, okChart := labels["app"]
+			_, okRelease := labels["release"]
+			if okChart && okRelease {
+				appname = fmt.Sprintf("policyreport-helm-%s-%s", labels["app"], policyContext.NewResource.GetNamespace())
+			}
+		} else if key == Namespace {
+			appname = fmt.Sprintf("policyreport-%s", policyContext.NewResource.GetNamespace())
+		} else {
+			appname = fmt.Sprintf("clusterpolicyreport")
+		}
+
+		builder := policyreport.NewPrBuilder()
+		pv := builder.Generate(v)
+
+		for _, e := range pv.Spec.ViolatedRules {
+			result := &policyreportv1alpha1.PolicyReportResult{
+				Policy:  pv.Spec.Policy,
+				Rule:    e.Name,
+				Message: e.Message,
+				Status:  policyreportv1alpha1.PolicyStatus(e.Check),
+				Resource: &corev1.ObjectReference{
+					Kind:       pv.Spec.Kind,
+					Namespace:  pv.Spec.Namespace,
+					APIVersion: pv.Spec.APIVersion,
+					Name:       pv.Spec.Name,
+				},
+			}
+			results[appname] = append(results[appname], *result)
+		}
+	}
+	return results
 }
 
 func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config, logger logr.Logger) {
@@ -371,7 +411,7 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config,
 				var appname string
 				// Increase Count
 				if scope == Cluster {
-					appname = fmt.Sprintf("kyverno-clusterpolicyreport")
+					appname = fmt.Sprintf("clusterpolicyreport")
 				} else if scope == Helm {
 					resource, err := dClient.GetResource(v.Resource.GetAPIVersion(), v.Resource.GetKind(), v.Resource.GetNamespace(), v.Resource.GetName())
 					if err != nil {
@@ -382,11 +422,11 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config,
 					_, okChart := labels["app"]
 					_, okRelease := labels["release"]
 					if okChart && okRelease {
-						appname = fmt.Sprintf("kyverno-policyreport-%s-%s", labels["app"], v.Resource.GetNamespace())
+						appname = fmt.Sprintf("policyreport-helm-%s-%s", labels["app"], v.Resource.GetNamespace())
 
 					}
 				} else {
-					appname = fmt.Sprintf("kyverno-policyreport-%s", v.Resource.GetNamespace())
+					appname = fmt.Sprintf("policyreport-%s", v.Resource.GetNamespace())
 				}
 				results[appname] = append(results[appname], *result)
 			}
@@ -395,59 +435,14 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config,
 	}
 
 	for k := range results {
-		if scope == Helm || scope == Namespace {
-			availablepr, err := kclient.PolicyV1alpha1().PolicyReports(n).Get(k, metav1.GetOptions{})
-			str := strings.Split(k, "-")
-			var namespace string
-			if len(str) == 2 {
-				namespace = str[1]
-			} else if len(str) == 3 {
-				namespace = str[2]
-			}
-			if err != nil {
-				if apierrors.IsNotFound(err) {
-					availablepr = initPolicyReport(scope, namespace, k)
-				}
-			}
-
-			availablepr, action := mergeReport(availablepr, results[k], []string{})
-			if action == "Create" {
-				availablepr.SetLabels(map[string]string{
-					"policy-state": "state",
-				})
-				_, err := kclient.PolicyV1alpha1().PolicyReports(availablepr.GetNamespace()).Create(availablepr)
-				if err != nil {
-					lgr.Error(err, "Error in Create polciy report", "appreport", k)
-				}
-			} else {
-				_, err := kclient.PolicyV1alpha1().PolicyReports(availablepr.GetNamespace()).Update(availablepr)
-				if err != nil {
-					lgr.Error(err, "Error in update polciy report", "appreport", k)
-				}
-			}
-		} else {
-			availablepr, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Get(k, metav1.GetOptions{})
-			if err != nil {
-				if apierrors.IsNotFound(err) {
-					availablepr = initClusterPolicyReport(scope, k)
-				}
-			}
-			availablepr, action := mergeClusterReport(availablepr, results[k])
-			if action == "Create" {
-				_, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Create(availablepr)
-				if err != nil {
-					lgr.Error(err, "Error in Create polciy report", "appreport", action)
-				}
-			} else {
-				_, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Update(availablepr)
-				if err != nil {
-					lgr.Error(err, "Error in update polciy report", "appreport", action)
-				}
-			}
+		if k != "" {
+			continue
 		}
-
+		err := createReport(kclient, k, "", results[k], lgr)
+		if err != nil {
+			continue
+		}
 	}
-	os.Exit(0)
 }
 
 func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1alpha1.PolicyReportResult, removePolicy []string) (*policyreportv1alpha1.PolicyReport, string) {

@@ -2,16 +2,15 @@ package policyreport
 
 import (
 	"encoding/json"
+	"github.com/nirmata/kyverno/pkg/config"
+	"github.com/nirmata/kyverno/pkg/jobs"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/nirmata/kyverno/pkg/config"
-	"github.com/nirmata/kyverno/pkg/jobs"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -118,6 +117,11 @@ type PVEvent struct {
 	Cluster   map[string][]Info
 }
 
+//GeneratorInterface provides API to create PVs
+type GeneratorInterface interface {
+	Add(infos ...Info)
+}
+
 // NewPRGenerator returns a new instance of policy violation generator
 func NewPRGenerator(client *policyreportclient.Clientset,
 	dclient *dclient.Client,
@@ -125,8 +129,7 @@ func NewPRGenerator(client *policyreportclient.Clientset,
 	nsprInformer policyreportinformer.PolicyReportInformer,
 	policyStatus policystatus.Listener,
 	job *jobs.Job,
-	log logr.Logger,
-	stopChna <-chan struct{}) *Generator {
+	log logr.Logger) *Generator {
 	gen := Generator{
 		policyreportInterface: client.PolicyV1alpha1(),
 		dclient:               dclient,
@@ -178,11 +181,8 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 		logger.Info("failed to sync informer cache")
 	}
 
-	for i := 0; i < workers; i++ {
-		go wait.Until(gen.runWorker, constant.PolicyViolationControllerResync, stopCh)
-	}
-	go func() {
-		for k := range time.Tick(60 * time.Second) {
+	go func(gen *Generator) {
+		for k := range time.Tick(constant.PolicyReportResourceChangeResync) {
 			gen.log.V(2).Info("Configmap sync at ", "time", k.String())
 			err := gen.createConfigmap()
 			scops := []string{}
@@ -208,7 +208,12 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 				Cluster:   make(map[string][]Info),
 			}
 		}
-	}()
+	}(gen)
+
+	for i := 0; i < workers; i++ {
+		go wait.Until(gen.runWorker, constant.PolicyViolationControllerResync, stopCh)
+	}
+
 	<-stopCh
 }
 

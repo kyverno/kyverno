@@ -28,5 +28,6 @@ func Command() *cobra.Command {
 	cmd.AddCommand(HelmCommand())
 	cmd.AddCommand(NamespaceCommand())
 	cmd.AddCommand(ClusterCommand())
+	cmd.AddCommand(AllReportsCommand())
 	return cmd
 }

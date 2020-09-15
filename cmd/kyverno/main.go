@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/nirmata/kyverno/pkg/common"
+	"github.com/nirmata/kyverno/pkg/policyreport"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -190,17 +191,34 @@ func main() {
 
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
-	pvgen := policyviolation.NewPVGenerator(pclient,
-		client,
-		pInformer.Kyverno().V1().ClusterPolicyViolations(),
-		pInformer.Kyverno().V1().PolicyViolations(),
-		pInformer.Policy().V1alpha1().ClusterPolicyReports(),
-		pInformer.Policy().V1alpha1().PolicyReports(),
-		statusSync.Listener,
-		jobController,
-		log.Log.WithName("PolicyViolationGenerator"),
-		stopCh,
-	)
+	var pvgen *policyviolation.Generator
+	if os.Getenv("POLICY-TYPE") == common.PolicyViolation {
+		pvgen = policyviolation.NewPVGenerator(pclient,
+			client,
+			pInformer.Kyverno().V1().ClusterPolicyViolations(),
+			pInformer.Kyverno().V1().PolicyViolations(),
+			pInformer.Policy().V1alpha1().ClusterPolicyReports(),
+			pInformer.Policy().V1alpha1().PolicyReports(),
+			statusSync.Listener,
+			jobController,
+			log.Log.WithName("PolicyViolationGenerator"),
+			stopCh,
+		)
+	}
+	// POLICY Report GENERATOR
+	// -- generate policy report
+	var prgen *policyreport.Generator
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		prgen =  policyreport.NewPRGenerator(pclient,
+			client,
+			pInformer.Policy().V1alpha1().ClusterPolicyReports(),
+			pInformer.Policy().V1alpha1().PolicyReports(),
+			statusSync.Listener,
+			jobController,
+			log.Log.WithName("PolicyReportGenerator"),
+		)
+	}
+
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
 	// - process policy on existing resources
@@ -215,6 +233,7 @@ func main() {
 		configData,
 		eventGenerator,
 		pvgen,
+		prgen,
 		rWebhookWatcher,
 		kubeInformer.Core().V1().Namespaces(),
 		jobController,
@@ -265,6 +284,7 @@ func main() {
 		eventGenerator,
 		statusSync.Listener,
 		pvgen,
+		prgen,
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		log.Log.WithName("ValidateAuditHandler"),
@@ -320,6 +340,7 @@ func main() {
 		statusSync.Listener,
 		configData,
 		pvgen,
+		prgen,
 		grgen,
 		rWebhookWatcher,
 		auditHandler,
@@ -341,17 +362,21 @@ func main() {
 	go grgen.Run(1)
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
+	go policyCtrl.Run(2, stopCh)
 
-	go policyCtrl.Run(3, stopCh)
-
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		go prgen.Run(2,stopCh)
+	}else{
+		go pvgen.Run(2, stopCh)
+	}
 	go eventGenerator.Run(3, stopCh)
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
-	go pvgen.Run(1, stopCh)
+
 	go statusSync.Run(1, stopCh)
 	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)
-	go jobController.Run(3, stopCh)
+	go jobController.Run(2, stopCh)
 	openAPISync.Run(1, stopCh)
 
 	// verifies if the admission control is enabled and active

@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"sync"
 	"time"
@@ -9,10 +10,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/common"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/tools/cache"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -38,40 +36,28 @@ func HelmCommand() *cobra.Command {
 				os.Exit(1)
 			}
 
-			var stopCh <-chan struct{}
-
-			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
-			np := kubeInformer.Core().V1().Namespaces()
-
-			go np.Informer().Run(stopCh)
-
-			nSynced := np.Informer().HasSynced
-
-			if !cache.WaitForCacheSync(stopCh, nSynced) {
-				logger.Error(err, "Failed to create kubernetes client")
-				os.Exit(1)
-			}
 			var wg sync.WaitGroup
 			if mode == "cli" {
 				if namespace != "" {
 					wg.Add(1)
-					go backgroundScan(namespace, "Helm", policy, &wg, restConfig, logger)
+					go backgroundScan(namespace, Helm, policy, &wg, restConfig, logger)
 				} else {
-					ns, err := np.Lister().List(labels.Everything())
+					ns, err := kubeClient.CoreV1().Namespaces().List(metav1.ListOptions{})
 					if err != nil {
 						logger.Error(err, "Failed to list all namespaces")
 						os.Exit(1)
 					}
-					wg.Add(len(ns))
-					for _, n := range ns {
-						go backgroundScan(n.GetName(), "Helm", policy, &wg, restConfig, logger)
+					wg.Add(len(ns.Items))
+					for _, n := range ns.Items {
+						go backgroundScan(n.GetName(), Helm, policy, &wg, restConfig, logger)
 					}
 				}
 			} else {
 				wg.Add(1)
-				go configmapScan("", "Helm", &wg, restConfig, logger)
+				go configmapScan("", Helm, &wg, restConfig, logger)
 			}
 			wg.Wait()
+			os.Exit(0)
 			return nil
 		},
 	}

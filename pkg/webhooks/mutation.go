@@ -1,6 +1,9 @@
 package webhooks
 
 import (
+	"github.com/nirmata/kyverno/pkg/common"
+	"github.com/nirmata/kyverno/pkg/policyreport"
+	"os"
 	"reflect"
 	"sort"
 	"time"
@@ -89,6 +92,13 @@ func (ws *WebhookServer) HandleMutation(
 	// generate violation when response fails
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger)
 	ws.pvGenerator.Add(pvInfos...)
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		for _, v := range pvInfos {
+			ws.prGenerator.Add(policyreport.Info(v))
+		}
+	} else {
+		ws.pvGenerator.Add(pvInfos...)
+	}
 
 	// REPORTING EVENTS
 	// Scenario 1:
