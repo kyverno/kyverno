@@ -191,12 +191,18 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 			switch scope {
 			case Cluster:
 				resourceMap[Cluster] = policy.ExcludePod(resourceMap[Cluster], log.Log)
+				delete(resourceMap,Namespace)
+				delete(resourceMap,Helm)
 				break
 			case Namespace:
 				resourceMap[Namespace] = policy.ExcludePod(resourceMap[Namespace], log.Log)
+				delete(resourceMap,Cluster)
+				delete(resourceMap,Helm)
 				break
 			case Helm:
 				resourceMap[Helm] = policy.ExcludePod(resourceMap[Helm], log.Log)
+				delete(resourceMap,Namespace)
+				delete(resourceMap,Cluster)
 				break
 			case All:
 				resourceMap[Cluster] = policy.ExcludePod(resourceMap[Cluster], log.Log)
@@ -345,7 +351,7 @@ func createResults(policyContext engine.PolicyContext, key string, results map[s
 	return results
 }
 
-func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config, logger logr.Logger) {
+func configmapScan(scope string, wg *sync.WaitGroup, restConfig *rest.Config, logger logr.Logger) {
 	defer func() {
 		wg.Done()
 	}()
@@ -374,15 +380,25 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config,
 	}
 	var response map[string][]policyreport.Info
 	if scope == Cluster {
-		if err := json.Unmarshal([]byte(job.Data["Cluster"]), &response); err != nil {
+		if err := json.Unmarshal([]byte(job.Data[Cluster]), &response); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
 	} else if scope == Helm {
-		if err := json.Unmarshal([]byte(job.Data["Helm"]), &response); err != nil {
+		if err := json.Unmarshal([]byte(job.Data[Helm]), &response); err != nil {
+			lgr.Error(err, "Error in json marshal of namespace data")
+		}
+	} else if scope == Namespace {
+		if err := json.Unmarshal([]byte(job.Data[Namespace]), &response); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
 	} else {
-		if err := json.Unmarshal([]byte(job.Data["Namespace"]), &response); err != nil {
+		if err := json.Unmarshal([]byte(job.Data[Cluster]), &response); err != nil {
+			lgr.Error(err, "Error in json marshal of namespace data")
+		}
+		if err := json.Unmarshal([]byte(job.Data[Helm]), &response); err != nil {
+			lgr.Error(err, "Error in json marshal of namespace data")
+		}
+		if err := json.Unmarshal([]byte(job.Data[Namespace]), &response); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
 	}
@@ -410,9 +426,9 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config,
 				}
 				var appname string
 				// Increase Count
-				if scope == Cluster {
+				if k == Cluster {
 					appname = fmt.Sprintf("clusterpolicyreport")
-				} else if scope == Helm {
+				} else if k == Helm {
 					resource, err := dClient.GetResource(v.Resource.GetAPIVersion(), v.Resource.GetKind(), v.Resource.GetNamespace(), v.Resource.GetName())
 					if err != nil {
 						lgr.Error(err, "failed to get resource")
@@ -433,7 +449,7 @@ func configmapScan(n, scope string, wg *sync.WaitGroup, restConfig *rest.Config,
 
 		}
 	}
-
+  fmt.Println(results)
 	for k := range results {
 		if k != "" {
 			continue

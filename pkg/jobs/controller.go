@@ -122,15 +122,6 @@ func (j *Job) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	logger.Info("start")
 	defer logger.Info("shutting down")
-	go func(configHandler config.Interface) {
-		for k := range time.Tick(time.Duration(configHandler.GetBackgroundSync()) * time.Second) {
-			j.log.V(2).Info("Background Sync sync at ", "time", k.String())
-			var wg sync.WaitGroup
-			wg.Add(1)
-			go j.syncKyverno(&wg, "All", "SYNC", "")
-			wg.Wait()
-		}
-	}(j.configHandler)
 	for i := 0; i < workers; i++ {
 		go wait.Until(j.runWorker, constant.PolicyViolationControllerResync, stopCh)
 	}

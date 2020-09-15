@@ -32,7 +32,7 @@ func ClusterCommand() *cobra.Command {
 				wg.Wait()
 				os.Exit(0)
 			}
-			go configmapScan("", Cluster, &wg, restConfig, logger)
+			go configmapScan(Cluster, &wg, restConfig, logger)
 			wg.Wait()
 			os.Exit(0)
 			return nil

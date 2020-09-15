@@ -53,7 +53,7 @@ func NamespaceCommand() *cobra.Command {
 				}
 			} else {
 				wg.Add(1)
-				go configmapScan("", Namespace, &wg, restConfig, logger)
+				go configmapScan( Namespace, &wg, restConfig, logger)
 			}
 			wg.Wait()
 			os.Exit(0)

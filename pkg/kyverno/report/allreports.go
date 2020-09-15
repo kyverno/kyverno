@@ -34,8 +34,8 @@ func AllReportsCommand() *cobra.Command {
 				log.Log.Error(err, "Failed to create kubernetes client")
 				os.Exit(1)
 			}
+			var wg sync.WaitGroup
 			if mode == "cli" {
-				var wg sync.WaitGroup
 				if namespace != "" {
 					wg.Add(1)
 					go backgroundScan(namespace, All, policy, &wg, restConfig, logger)
@@ -49,12 +49,12 @@ func AllReportsCommand() *cobra.Command {
 						go backgroundScan(n.GetName(), All, policy, &wg, restConfig, logger)
 					}
 				}
-				wg.Wait()
-				os.Exit(0)
 			}else{
-				log.Log.Error(nil, "mode is not supported","mode",mode)
-				os.Exit(1)
+				wg.Add(1)
+				go configmapScan(All, &wg, restConfig, logger)
 			}
+			wg.Wait()
+			os.Exit(0)
 			return nil
 		},
 	}

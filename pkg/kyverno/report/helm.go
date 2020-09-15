@@ -54,7 +54,7 @@ func HelmCommand() *cobra.Command {
 				}
 			} else {
 				wg.Add(1)
-				go configmapScan("", Helm, &wg, restConfig, logger)
+				go configmapScan(Helm, &wg, restConfig, logger)
 			}
 			wg.Wait()
 			os.Exit(0)
