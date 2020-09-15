@@ -207,7 +207,7 @@ func (j *Job) syncHandler(info JobInfo) error {
 	if info.JobType == "POLICYSYNC" {
 		wg.Add(1)
 		go j.syncKyverno(&wg, "All", "SYNC", info.JobData)
-	} else if info.JobType == "CONFIGMAP" {
+	}else if info.JobType == "CONFIGMAP" {
 		if info.JobData != "" {
 			str := strings.Split(info.JobData, ",")
 			wg.Add(len(str))

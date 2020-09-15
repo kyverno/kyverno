@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	Helm      string = "Helm"
+	Helm      string = "App"
 	Namespace string = "Namespace"
 	Cluster   string = "Cluster"
 	All       string = "All"

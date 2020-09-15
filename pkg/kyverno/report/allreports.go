@@ -15,7 +15,7 @@ import (
 
 func AllReportsCommand() *cobra.Command {
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
-	var namespace, policy string
+	var mode,namespace, policy string
 	cmd := &cobra.Command{
 		Use:     "all",
 		Short:   "generate report",
@@ -34,29 +34,32 @@ func AllReportsCommand() *cobra.Command {
 				log.Log.Error(err, "Failed to create kubernetes client")
 				os.Exit(1)
 			}
-			var stopCh <-chan struct{}
-			var wg sync.WaitGroup
-			if namespace != "" {
-				wg.Add(1)
-				go backgroundScan(namespace, All, policy, &wg, restConfig, logger)
-				wg.Wait()
-			} else {
-				ns, err := kubeClient.CoreV1().Namespaces().List(metav1.ListOptions{})
-				if err != nil {
-					os.Exit(1)
+			if mode == "cli" {
+				var wg sync.WaitGroup
+				if namespace != "" {
+					wg.Add(1)
+					go backgroundScan(namespace, All, policy, &wg, restConfig, logger)
+				} else {
+					ns, err := kubeClient.CoreV1().Namespaces().List(metav1.ListOptions{})
+					if err != nil {
+						os.Exit(1)
+					}
+					wg.Add(len(ns.Items))
+					for _, n := range ns.Items {
+						go backgroundScan(n.GetName(), All, policy, &wg, restConfig, logger)
+					}
 				}
-				wg.Add(len(ns.Items))
-				for _, n := range ns.Items {
-					go backgroundScan(n.GetName(), All, policy, &wg, restConfig, logger)
-				}
 				wg.Wait()
+				os.Exit(0)
+			}else{
+				log.Log.Error(nil, "mode is not supported","mode",mode)
+				os.Exit(1)
 			}
-			os.Exit(0)
-			<-stopCh
 			return nil
 		},
 	}
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "define specific namespace")
 	cmd.Flags().StringVarP(&policy, "policy", "p", "", "define specific policy")
+	cmd.Flags().StringVarP(&mode, "mode", "m", "cli", "mode")
 	return cmd
 }
