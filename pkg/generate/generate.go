@@ -173,16 +173,12 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 
 		processExisting := false
 
-		for _, v := range policy.Spec.Rules {
-			if policy.Name == gr.Spec.Policy {
-				if len(v.MatchResources.ResourceDescription.Kinds) > 0 && (len(v.MatchResources.ResourceDescription.Annotations) == 0 || len(v.MatchResources.ResourceDescription.Selector.MatchLabels) == 0) {
-					processExisting = func() bool {
-						rcreationTime := resource.GetCreationTimestamp()
-						pcreationTime := policy.GetCreationTimestamp()
-						return rcreationTime.Before(&pcreationTime)
-					}()
-				}
-			}
+		if len(rule.MatchResources.ResourceDescription.Kinds) > 0 && (len(rule.MatchResources.ResourceDescription.Annotations) == 0 && len(rule.MatchResources.ResourceDescription.Selector.MatchLabels) == 0) {
+			processExisting = func() bool {
+				rcreationTime := resource.GetCreationTimestamp()
+				pcreationTime := policy.GetCreationTimestamp()
+				return rcreationTime.Before(&pcreationTime)
+			}()
 		}
 
 		genResource, err := applyRule(log, c.client, rule, resource, ctx, policy.Name, gr, processExisting)
@@ -301,6 +297,8 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		rdata, mode, err = manageClone(log, genAPIVersion, genKind, genNamespace, genName, genCopy, client, resource)
 	}
 
+	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
+
 	if err != nil {
 		return noGenResource, err
 	}
@@ -312,7 +310,6 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	if processExisting {
 		return noGenResource, nil
 	}
-	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
 
 	// build the resource template
 	newResource := &unstructured.Unstructured{}
@@ -345,6 +342,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		logger.V(4).Info("creating new resource")
 		_, err = client.CreateResource(genAPIVersion, genKind, genNamespace, newResource, false)
 		if err != nil {
+			logger.Error(err, "failed to create resource", "resource", newResource.GetName())
 			// Failed to create resource
 			return noGenResource, err
 		}
@@ -379,7 +377,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 				return noGenResource, err
 			}
 			logger.V(4).Info("updated new resource")
-		}else{
+		} else {
 			resource := &unstructured.Unstructured{}
 			resource.SetUnstructuredContent(rdata)
 			resource.SetLabels(label)
