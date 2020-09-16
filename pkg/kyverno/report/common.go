@@ -537,6 +537,7 @@ func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1
 		for _, v := range removePolicy {
 			for i, r := range pr.Results {
 				if r.Policy == v {
+					pr = changeCount("", string(r.Status), pr)
 					pr.Results = append(pr.Results[:i], pr.Results[i+1:]...)
 				}
 			}
