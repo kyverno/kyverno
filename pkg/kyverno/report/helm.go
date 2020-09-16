@@ -14,7 +14,7 @@ import (
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func HelmCommand() *cobra.Command {
+func AppCommand() *cobra.Command {
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
 	var mode, policy, namespace string
 	cmd := &cobra.Command{
@@ -40,7 +40,7 @@ func HelmCommand() *cobra.Command {
 			if mode == "cli" {
 				if namespace != "" {
 					wg.Add(1)
-					go backgroundScan(namespace, Helm, policy, &wg, restConfig, logger)
+					go backgroundScan(namespace, App, policy, &wg, restConfig, logger)
 				} else {
 					ns, err := kubeClient.CoreV1().Namespaces().List(metav1.ListOptions{})
 					if err != nil {
@@ -49,12 +49,12 @@ func HelmCommand() *cobra.Command {
 					}
 					wg.Add(len(ns.Items))
 					for _, n := range ns.Items {
-						go backgroundScan(n.GetName(), Helm, policy, &wg, restConfig, logger)
+						go backgroundScan(n.GetName(), App, policy, &wg, restConfig, logger)
 					}
 				}
 			} else {
 				wg.Add(1)
-				go configmapScan(Helm, &wg, restConfig, logger)
+				go configmapScan(App, &wg, restConfig, logger)
 			}
 			wg.Wait()
 			os.Exit(0)

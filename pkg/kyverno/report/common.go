@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	Helm      string = "App"
+	App      string = "App"
 	Namespace string = "Namespace"
 	Cluster   string = "Cluster"
 	All       string = "All"
@@ -150,7 +150,7 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 	// key uid
 	resourceMap := map[string]map[string]unstructured.Unstructured{}
 	resourceMap[Cluster] = make(map[string]unstructured.Unstructured)
-	resourceMap[Helm] = make(map[string]unstructured.Unstructured)
+	resourceMap[App] = make(map[string]unstructured.Unstructured)
 	resourceMap[Namespace] = make(map[string]unstructured.Unstructured)
 	for _, p := range cpolicies {
 		for _, rule := range p.Spec.Rules {
@@ -173,7 +173,7 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 								_, okChart := labels["app"]
 								_, okRelease := labels["release"]
 								if okChart && okRelease {
-									policy.MergeResources(resourceMap[Helm], rMap)
+									policy.MergeResources(resourceMap[App], rMap)
 								} else if r.GetNamespace() != "" {
 									policy.MergeResources(resourceMap[Namespace], rMap)
 								}
@@ -190,22 +190,22 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 			case Cluster:
 				resourceMap[Cluster] = policy.ExcludePod(resourceMap[Cluster], log.Log)
 				delete(resourceMap,Namespace)
-				delete(resourceMap,Helm)
+				delete(resourceMap,App)
 				break
 			case Namespace:
 				resourceMap[Namespace] = policy.ExcludePod(resourceMap[Namespace], log.Log)
 				delete(resourceMap,Cluster)
-				delete(resourceMap,Helm)
+				delete(resourceMap,App)
 				break
-			case Helm:
-				resourceMap[Helm] = policy.ExcludePod(resourceMap[Helm], log.Log)
+			case App:
+				resourceMap[App] = policy.ExcludePod(resourceMap[App], log.Log)
 				delete(resourceMap,Namespace)
 				delete(resourceMap,Cluster)
 				break
 			case All:
 				resourceMap[Cluster] = policy.ExcludePod(resourceMap[Cluster], log.Log)
 				resourceMap[Namespace] = policy.ExcludePod(resourceMap[Namespace], log.Log)
-				resourceMap[Helm] = policy.ExcludePod(resourceMap[Helm], log.Log)
+				resourceMap[App] = policy.ExcludePod(resourceMap[App], log.Log)
 			}
 		}
 		results := make(map[string][]policyreportv1alpha1.PolicyReportResult)
@@ -238,7 +238,7 @@ func createReport(kclient *kyvernoclient.Clientset, name, namespace string, resu
 	if len(str) == 1 {
 		scope = Cluster
 	} else if strings.Contains(name, "policyreport-helm-") {
-		scope = Helm
+		scope = App
 	} else {
 		scope = Cluster
 	}
@@ -314,7 +314,7 @@ func createResults(policyContext engine.PolicyContext, key string, results map[s
 
 	for _, v := range pv {
 		var appname string
-		if key == Helm {
+		if key == App {
 			labels := policyContext.NewResource.GetLabels()
 			_, okChart := labels["app"]
 			_, okRelease := labels["release"]
@@ -381,8 +381,8 @@ func configmapScan(scope string, wg *sync.WaitGroup, restConfig *rest.Config, lo
 		if err := json.Unmarshal([]byte(job.Data[Cluster]), &response); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
-	} else if scope == Helm {
-		if err := json.Unmarshal([]byte(job.Data[Helm]), &response); err != nil {
+	} else if scope == App {
+		if err := json.Unmarshal([]byte(job.Data[App]), &response); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
 	} else if scope == Namespace {
@@ -393,7 +393,7 @@ func configmapScan(scope string, wg *sync.WaitGroup, restConfig *rest.Config, lo
 		if err := json.Unmarshal([]byte(job.Data[Cluster]), &response); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
-		if err := json.Unmarshal([]byte(job.Data[Helm]), &response); err != nil {
+		if err := json.Unmarshal([]byte(job.Data[App]), &response); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
 		if err := json.Unmarshal([]byte(job.Data[Namespace]), &response); err != nil {
@@ -426,7 +426,7 @@ func configmapScan(scope string, wg *sync.WaitGroup, restConfig *rest.Config, lo
 				// Increase Count
 				if k == Cluster {
 					appname = fmt.Sprintf("clusterpolicyreport")
-				} else if k == Helm {
+				} else if k == App {
 					resource, err := dClient.GetResource(v.Resource.GetAPIVersion(), v.Resource.GetKind(), v.Resource.GetNamespace(), v.Resource.GetName())
 					if err != nil {
 						lgr.Error(err, "failed to get resource")
@@ -447,7 +447,6 @@ func configmapScan(scope string, wg *sync.WaitGroup, restConfig *rest.Config, lo
 
 		}
 	}
-  fmt.Println(results)
 	for k := range results {
 		if k != "" {
 			continue

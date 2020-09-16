@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	report "github.com/nirmata/kyverno/pkg/kyverno/report"
 	policyreportclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	policyreportv1alpha1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha1"
 	policyreportinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
@@ -112,7 +113,7 @@ func (i Info) toKey() string {
 // make the struct hashable
 
 type PVEvent struct {
-	Helm      map[string][]Info
+	App      map[string][]Info
 	Namespace map[string][]Info
 	Cluster   map[string][]Info
 }
@@ -143,7 +144,7 @@ func NewPRGenerator(client *policyreportclient.Clientset,
 		policyStatusListener:  policyStatus,
 		configmap:             nil,
 		inMemoryConfigMap: &PVEvent{
-			Helm:      make(map[string][]Info),
+			App:      make(map[string][]Info),
 			Namespace: make(map[string][]Info),
 			Cluster:   make(map[string][]Info),
 		},
@@ -187,13 +188,13 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 			err := gen.createConfigmap()
 			scops := []string{}
 			if len(gen.inMemoryConfigMap.Namespace) > 0 {
-				scops = append(scops, "Namespace")
+				scops = append(scops, report.Namespace)
 			}
-			if len(gen.inMemoryConfigMap.Helm) > 0 {
-				scops = append(scops, "Helm")
+			if len(gen.inMemoryConfigMap.App) > 0 {
+				scops = append(scops, report.App)
 			}
 			if len(gen.inMemoryConfigMap.Cluster["cluster"]) > 0 {
-				scops = append(scops, "Cluster")
+				scops = append(scops, report.Cluster)
 			}
 			gen.job.Add(jobs.JobInfo{
 				JobType: "CONFIGMAP",
@@ -203,7 +204,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 				gen.log.Error(err, "configmap error")
 			}
 			gen.inMemoryConfigMap = &PVEvent{
-				Helm:      make(map[string][]Info),
+				App:      make(map[string][]Info),
 				Namespace: make(map[string][]Info),
 				Cluster:   make(map[string][]Info),
 			}
@@ -297,12 +298,12 @@ func (gen *Generator) createConfigmap() error {
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(configmap.UnstructuredContent(), &cm); err != nil {
 		return err
 	}
-	rawData, _ := json.Marshal(gen.inMemoryConfigMap.Helm)
-	cm.Data["Helm"] = string(rawData)
+	rawData, _ := json.Marshal(gen.inMemoryConfigMap.App)
+	cm.Data[report.App] = string(rawData)
 	rawData, _ = json.Marshal(gen.inMemoryConfigMap.Cluster)
-	cm.Data["Cluster"] = string(rawData)
+	cm.Data[report.Cluster] = string(rawData)
 	rawData, _ = json.Marshal(gen.inMemoryConfigMap.Namespace)
-	cm.Data["Namespace"] = string(rawData)
+	cm.Data[report.Namespace] = string(rawData)
 
 	_, err = gen.dclient.UpdateResource("", "ConfigMap", config.KubePolicyNamespace, cm, false)
 	if err != nil {
@@ -326,7 +327,7 @@ func (gen *Generator) syncHandler(info Info) error {
 	_, okChart := labels["app"]
 	_, okRelease := labels["release"]
 	if okChart && okRelease {
-		gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Helm[info.Resource.GetNamespace()], info)
+		gen.inMemoryConfigMap.App[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.App[info.Resource.GetNamespace()], info)
 		return nil
 	} else if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
