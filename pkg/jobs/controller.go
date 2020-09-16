@@ -194,6 +194,7 @@ func (j *Job) syncHandler(info JobInfo) error {
 		j.mux.Unlock()
 	}()
 	j.mux.Lock()
+
 	var wg sync.WaitGroup
 	if info.JobType == constant.BackgroundPolicySync {
 		wg.Add(1)
@@ -261,22 +262,28 @@ func (j *Job) syncKyverno(wg *sync.WaitGroup, scope, jobType, data string) {
 	if jobType == constant.BackgroundPolicySync && data != "" {
 		args = append(args, fmt.Sprintf("-p=%s", data))
 	}
-	resourceList, err := j.dclient.ListResource("", "Job", config.KubePolicyNamespace, &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"scope" : scope,
-			"type" : jobType,
-		},
-	})
-	if err != nil {
-		j.log.Error(err, "failed to get job")
+	deadline := time.Now().Add(100 * time.Second)
+	for {
+		resourceList, err := j.dclient.ListResource("", "Job", config.KubePolicyNamespace, &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"scope" : scope,
+				"type" : jobType,
+			},
+		})
+		if err != nil {
+			j.log.Error(err, "failed to get job")
+		}
+		if len(resourceList.Items) == 0 {
+			go j.CreateJob(args, jobType, scope, wg)
+			wg.Wait()
+			break
+		}
+		if time.Now().After(deadline) {
+			break;
+		}
+		time.Sleep(10*time.Second)
 	}
-	if len(resourceList.Items) == 0 {
-		go j.CreateJob(args, jobType, scope, wg)
-		wg.Wait()
-	}else{
-		wg.Done()
-	}
-
+	wg.Done()
 }
 
 // CreateJob will create Job template for background scan
