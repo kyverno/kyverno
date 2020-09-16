@@ -9,9 +9,9 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/rest"
-	// "k8s.io/client-go/informers"
 )
 
+// ResourceCacheIface - allows the creation, deletion and saving the resource informers as a cache
 type ResourceCacheIface interface {
 	RunAllInformers(log logr.Logger)
 	CreateResourceInformer(log logr.Logger, resource string) (bool, error)
@@ -19,16 +19,25 @@ type ResourceCacheIface interface {
 	GetGVRCache(resource string) *GVRCache
 }
 
+// ResourceCache ...
 type ResourceCache struct {
-	config    *rest.Config
-	dclient   *dclient.Client
 	dinformer dynamicinformer.DynamicSharedInformerFactory
-	match     []string
-	exclude   []string
+	// match - matches the resources for which the informers needs to be created.
+	// if the matches contains any resource name then the informers are created for only that resource
+	// else informers are created for all the server supported resources
+	match []string
 
+	// excludes the creation of informers for a specific resources
+	// if a specific resource is available in both match and exclude then exclude overrides it
+	exclude []string
+
+	// GVRCacheData - stores the informers and lister object for a resource.
+	// it uses resource name as key (For ex :-  namespaces for Namespace, pods for Pod, clusterpolicies for ClusterPolicy etc)
+	// GVRCache stores GVR (Group Version Resource) for the resource, Informer() instance and Lister() instance for that resource.
 	GVRCacheData map[string]*GVRCache
 }
 
+// NewResourceCache - initializes the ResourceCache where it initially stores the GVR and Namespaced codition for the allowed resources in GVRCacheData
 func NewResourceCache(log logr.Logger, config *rest.Config, dclient *dclient.Client, match []string, exclude []string) (ResourceCacheIface, error) {
 	logger := log.WithName("resourcecache")
 	discoveryIface := dclient.GetDiscoveryCache()
@@ -36,7 +45,7 @@ func NewResourceCache(log logr.Logger, config *rest.Config, dclient *dclient.Cli
 
 	dInformer := dclient.NewDynamicSharedInformerFactory(0)
 
-	resCache := &ResourceCache{config: config, dclient: dclient, GVRCacheData: cacheData, dinformer: dInformer, match: match, exclude: exclude}
+	resCache := &ResourceCache{GVRCacheData: cacheData, dinformer: dInformer, match: match, exclude: exclude}
 
 	err := udateGVRCache(logger, resCache, discoveryIface)
 	if err != nil {

@@ -4,30 +4,17 @@ import (
 	"github.com/go-logr/logr"
 )
 
+// RunAllInformers - run the informers for the GVR of all the resources available in GVRCacheData
 func (resc *ResourceCache) RunAllInformers(log logr.Logger) {
 	for key, _ := range resc.GVRCacheData {
-		mok := resc.matchGVRKey(key)
-		if !mok {
-			continue
-		}
-		eok := resc.excludeGVRKey(key)
-		if eok {
-			continue
-		}
 		resc.CreateResourceInformer(log, key)
 		log.V(4).Info("created informer for resource", "name", key)
 	}
 }
 
+// CreateResourceInformer - check the availability of the given resource in ResourceCache.
+// if available then create an informer for that GVR and store that GenericInformer instance in the cache and start watching for that resource
 func (resc *ResourceCache) CreateResourceInformer(log logr.Logger, resource string) (bool, error) {
-	mok := resc.matchGVRKey(resource)
-	if !mok {
-		return false, nil
-	}
-	eok := resc.excludeGVRKey(resource)
-	if eok {
-		return false, nil
-	}
 	res, ok := resc.GVRCacheData[resource]
 	if ok {
 		stopCh := make(chan struct{})
@@ -39,6 +26,7 @@ func (resc *ResourceCache) CreateResourceInformer(log logr.Logger, resource stri
 	return true, nil
 }
 
+// StopResourceInformer - delete the given resource information from ResourceCache and stop watching for the given resource
 func (resc *ResourceCache) StopResourceInformer(log logr.Logger, resource string) bool {
 	res, ok := resc.GVRCacheData[resource]
 	if ok {
@@ -50,6 +38,7 @@ func (resc *ResourceCache) StopResourceInformer(log logr.Logger, resource string
 	return false
 }
 
+// GetGVRCache - get the GVRCache for a given resource if available
 func (resc *ResourceCache) GetGVRCache(resource string) *GVRCache {
 	res, ok := resc.GVRCacheData[resource]
 	if ok {
