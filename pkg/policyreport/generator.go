@@ -14,7 +14,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	report "github.com/nirmata/kyverno/pkg/kyverno/report"
 	policyreportclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	policyreportv1alpha1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha1"
 	policyreportinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
@@ -188,16 +187,16 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 			err := gen.createConfigmap()
 			scops := []string{}
 			if len(gen.inMemoryConfigMap.Namespace) > 0 {
-				scops = append(scops, report.Namespace)
+				scops = append(scops, constant.Namespace)
 			}
 			if len(gen.inMemoryConfigMap.App) > 0 {
-				scops = append(scops, report.App)
+				scops = append(scops, constant.App)
 			}
 			if len(gen.inMemoryConfigMap.Cluster["cluster"]) > 0 {
-				scops = append(scops, report.Cluster)
+				scops = append(scops, constant.Cluster)
 			}
 			gen.job.Add(jobs.JobInfo{
-				JobType: "CONFIGMAP",
+				JobType: constant.ConfiigmapMode,
 				JobData: strings.Join(scops, ","),
 			})
 			if err != nil {
@@ -299,11 +298,11 @@ func (gen *Generator) createConfigmap() error {
 		return err
 	}
 	rawData, _ := json.Marshal(gen.inMemoryConfigMap.App)
-	cm.Data[report.App] = string(rawData)
+	cm.Data[constant.App] = string(rawData)
 	rawData, _ = json.Marshal(gen.inMemoryConfigMap.Cluster)
-	cm.Data[report.Cluster] = string(rawData)
+	cm.Data[constant.Cluster] = string(rawData)
 	rawData, _ = json.Marshal(gen.inMemoryConfigMap.Namespace)
-	cm.Data[report.Namespace] = string(rawData)
+	cm.Data[constant.Namespace] = string(rawData)
 
 	_, err = gen.dclient.UpdateResource("", "ConfigMap", config.KubePolicyNamespace, cm, false)
 	if err != nil {

@@ -9,7 +9,7 @@ metadata:
 ---
 apiVersion: v1
 data:
-  Helm: ''
+  App: ''
 kind: ConfigMap
 metadata:
   name: kyverno-event

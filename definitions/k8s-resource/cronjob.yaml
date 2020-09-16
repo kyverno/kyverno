@@ -2,6 +2,7 @@ apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
   name: policyreport-background-scan
+  namespace: kyverno
 spec:
   schedule: "*/6 * * * *"
   concurrencyPolicy : Forbid

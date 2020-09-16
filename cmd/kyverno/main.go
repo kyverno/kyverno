@@ -383,6 +383,11 @@ func main() {
 	// max deadline: deadline*3 (set the deployment annotation as false)
 	server.RunAsync(stopCh)
 
+	// Create a sync Job for policy report
+	jobController.Add(jobs.JobInfo{
+		JobType: "POLICYSYNC",
+		JobData: "",
+	})
 	<-stopCh
 
 	// by default http.Server waits indefinitely for connections to return to idle and then shuts down

@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"github.com/nirmata/kyverno/pkg/constant"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"sync"
@@ -18,7 +19,7 @@ func AppCommand() *cobra.Command {
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
 	var mode, policy, namespace string
 	cmd := &cobra.Command{
-		Use:     "helm",
+		Use:     "app",
 		Short:   "generate report for scope app",
 		Example: fmt.Sprintf("To create a helm report from background scan:\nkyverno report helm --namespace=defaults \n kyverno report helm"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -40,7 +41,7 @@ func AppCommand() *cobra.Command {
 			if mode == "cli" {
 				if namespace != "" {
 					wg.Add(1)
-					go backgroundScan(namespace, App, policy, &wg, restConfig, logger)
+					go backgroundScan(namespace, constant.App, policy, &wg, restConfig, logger)
 				} else {
 					ns, err := kubeClient.CoreV1().Namespaces().List(metav1.ListOptions{})
 					if err != nil {
@@ -49,12 +50,12 @@ func AppCommand() *cobra.Command {
 					}
 					wg.Add(len(ns.Items))
 					for _, n := range ns.Items {
-						go backgroundScan(n.GetName(), App, policy, &wg, restConfig, logger)
+						go backgroundScan(n.GetName(), constant.App, policy, &wg, restConfig, logger)
 					}
 				}
 			} else {
 				wg.Add(1)
-				go configmapScan(App, &wg, restConfig, logger)
+				go configmapScan(constant.App, &wg, restConfig, logger)
 			}
 			wg.Wait()
 			os.Exit(0)

@@ -3,6 +3,7 @@ package report
 import (
 	"fmt"
 	"github.com/nirmata/kyverno/pkg/common"
+	"github.com/nirmata/kyverno/pkg/constant"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"os"
@@ -28,11 +29,11 @@ func ClusterCommand() *cobra.Command {
 			var wg sync.WaitGroup
 			wg.Add(1)
 			if mode == "cli" {
-				go backgroundScan("", Cluster, policy, &wg, restConfig, logger)
+				go backgroundScan("", constant.Cluster, policy, &wg, restConfig, logger)
 				wg.Wait()
 				os.Exit(0)
 			}
-			go configmapScan(Cluster, &wg, restConfig, logger)
+			go configmapScan(constant.Cluster, &wg, restConfig, logger)
 			wg.Wait()
 			os.Exit(0)
 			return nil

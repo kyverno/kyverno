@@ -3,6 +3,7 @@ package report
 import (
 	"fmt"
 	"github.com/nirmata/kyverno/pkg/common"
+	"github.com/nirmata/kyverno/pkg/constant"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +16,7 @@ import (
 
 func AllReportsCommand() *cobra.Command {
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
-	var mode,namespace, policy string
+	var mode, namespace, policy string
 	cmd := &cobra.Command{
 		Use:     "all",
 		Short:   "generate report for all scope",
@@ -38,7 +39,7 @@ func AllReportsCommand() *cobra.Command {
 			if mode == "cli" {
 				if namespace != "" {
 					wg.Add(1)
-					go backgroundScan(namespace, All, policy, &wg, restConfig, logger)
+					go backgroundScan(namespace, constant.All, policy, &wg, restConfig, logger)
 				} else {
 					ns, err := kubeClient.CoreV1().Namespaces().List(metav1.ListOptions{})
 					if err != nil {
@@ -46,12 +47,12 @@ func AllReportsCommand() *cobra.Command {
 					}
 					wg.Add(len(ns.Items))
 					for _, n := range ns.Items {
-						go backgroundScan(n.GetName(), All, policy, &wg, restConfig, logger)
+						go backgroundScan(n.GetName(), constant.All, policy, &wg, restConfig, logger)
 					}
 				}
-			}else{
+			} else {
 				wg.Add(1)
-				go configmapScan(All, &wg, restConfig, logger)
+				go configmapScan(constant.All, &wg, restConfig, logger)
 			}
 			wg.Wait()
 			os.Exit(0)

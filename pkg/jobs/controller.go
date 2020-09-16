@@ -195,62 +195,70 @@ func (j *Job) syncHandler(info JobInfo) error {
 	}()
 	j.mux.Lock()
 	var wg sync.WaitGroup
-	if info.JobType == "POLICYSYNC" {
+	if info.JobType == constant.BackgroundPolicySync {
 		wg.Add(1)
-		go j.syncKyverno(&wg, "All", "SYNC", info.JobData)
-	}else if info.JobType == "CONFIGMAP" {
+		go j.syncKyverno(&wg, constant.All, constant.BackgroundPolicySync, info.JobData)
+	}else if info.JobType == constant.ConfiigmapMode {
 		if info.JobData != "" {
 			str := strings.Split(info.JobData, ",")
-			wg.Add(len(str))
-			for _, scope := range str {
-				go j.syncKyverno(&wg, scope, "CONFIGMAP", "")
+			if len(str) > 1 {
+				wg.Add(1)
+				go j.syncKyverno(&wg, constant.All, constant.ConfiigmapMode, "")
+			}else{
+				wg.Add(len(str))
+				for _, scope := range str {
+					go j.syncKyverno(&wg, scope, constant.ConfiigmapMode, "")
+				}
 			}
 		}
 	}
 	return nil
 }
 
-func (j *Job) syncKyverno(wg *sync.WaitGroup, jobType, scope, data string) {
+func (j *Job) syncKyverno(wg *sync.WaitGroup, scope, jobType, data string) {
 	var args []string
 	var mode string
-	if scope == "SYNC" || scope == "POLICYSYNC" {
+	if jobType == constant.BackgroundPolicySync || jobType == constant.BackgroundSync {
 		mode = "cli"
+		switch scope {
+		case constant.App:
+			args = []string{
+				"report",
+				"app",
+				fmt.Sprintf("--mode=%s", mode),
+			}
+			break
+		case constant.Namespace:
+			args = []string{
+				"report",
+				"namespace",
+				fmt.Sprintf("--mode=%s", mode),
+			}
+			break
+		case constant.Cluster:
+			args = []string{
+				"report",
+				"cluster",
+				fmt.Sprintf("--mode=%s", mode),
+			}
+			break
+		case constant.All:
+			args = []string{
+				"report",
+				"all",
+				fmt.Sprintf("--mode=%s", mode),
+			}
+			break
+		}
 	} else {
-		mode = "configmap"
-	}
-
-	switch jobType {
-	case "Helm":
-		args = []string{
-			"report",
-			"helm",
-			fmt.Sprintf("--mode=%s", mode),
-		}
-		break
-	case "Namespace":
-		args = []string{
-			"report",
-			"namespace",
-			fmt.Sprintf("--mode=%s", mode),
-		}
-		break
-	case "Cluster":
-		args = []string{
-			"report",
-			"cluster",
-			fmt.Sprintf("--mode=%s", mode),
-		}
-		break
-	case "All":
 		args = []string{
 			"report",
 			"all",
-			fmt.Sprintf("--mode=%s", mode),
+			fmt.Sprintf("--mode=%s", "configmap"),
 		}
-		break
 	}
 
-	if scope == "POLICYSYNC" && data != "" {
+	if jobType == constant.BackgroundPolicySync && data != "" {
 		args = append(args, fmt.Sprintf("-p=%s", data))
 	}
 	resourceList, err := j.dclient.ListResource("", "Job", config.KubePolicyNamespace, &metav1.LabelSelector{
@@ -307,7 +315,7 @@ func (j *Job) CreateJob(args []string, jobType, scope string, wg *sync.WaitGroup
 		j.log.Error(err, "Error in converting job Default Unstructured Converter", "job_name", job.GetName())
 		return
 	}
-	deadline := time.Now().Add(150 * time.Second)
+	deadline := time.Now().Add(100 * time.Second)
 	for {
 			time.Sleep(20 * time.Second)
 			resource, err := j.dclient.GetResource("", "Job", config.KubePolicyNamespace, job.GetName())
@@ -323,7 +331,7 @@ func (j *Job) CreateJob(args []string, jobType, scope string, wg *sync.WaitGroup
 				j.log.Error(err, "Error in converting job Default Unstructured Converter", "job_name", job.GetName())
 				continue
 			}
-			if time.Now().After(deadline) {
+			if job.Status.Succeeded > 0 && time.Now().After(deadline) {
 				if err := j.dclient.DeleteResource("", "Job", config.KubePolicyNamespace, job.GetName(), false); err != nil {
 					j.log.Error(err, "Error in deleting jobs", "job_name", job.GetName())
 					continue

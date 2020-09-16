@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-logr/logr"
-
 	kyvernov1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	policyreportv1alpha1 "github.com/nirmata/kyverno/pkg/api/policyreport/v1alpha1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
 	"github.com/nirmata/kyverno/pkg/config"
+	"github.com/nirmata/kyverno/pkg/constant"
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
@@ -21,7 +21,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
 	"os"
@@ -35,13 +34,6 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
-)
-
-const (
-	App      string = "App"
-	Namespace string = "Namespace"
-	Cluster   string = "Cluster"
-	All       string = "All"
 )
 
 func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfig *rest.Config, logger logr.Logger) {
@@ -149,9 +141,6 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 	}
 	// key uid
 	resourceMap := map[string]map[string]unstructured.Unstructured{}
-	resourceMap[Cluster] = make(map[string]unstructured.Unstructured)
-	resourceMap[App] = make(map[string]unstructured.Unstructured)
-	resourceMap[Namespace] = make(map[string]unstructured.Unstructured)
 	for _, p := range cpolicies {
 		for _, rule := range p.Spec.Rules {
 			for _, k := range rule.MatchResources.Kinds {
@@ -162,8 +151,12 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 				}
 				if !resourceSchema.Namespaced {
 					rMap := policy.GetResourcesPerNamespace(k, dClient, "", rule, configData, log.Log)
-					policy.MergeResources(resourceMap[Cluster], rMap)
-				} else if resourceSchema.Namespaced {
+					if len(resourceMap[constant.Cluster]) == 0 {
+						resourceMap[constant.Cluster] = make(map[string]unstructured.Unstructured)
+					}
+					policy.MergeResources(resourceMap[constant.Cluster], rMap)
+				}
+				if resourceSchema.Namespaced {
 					namespaces := policy.GetNamespacesForRule(&rule, np.Lister(), log.Log)
 					for _, ns := range namespaces {
 						if ns == n {
@@ -173,9 +166,15 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 								_, okChart := labels["app"]
 								_, okRelease := labels["release"]
 								if okChart && okRelease {
-									policy.MergeResources(resourceMap[App], rMap)
-								} else if r.GetNamespace() != "" {
-									policy.MergeResources(resourceMap[Namespace], rMap)
+									if len(resourceMap[constant.App]) == 0 {
+										resourceMap[constant.App] = make(map[string]unstructured.Unstructured)
+									}
+									policy.MergeResources(resourceMap[constant.App], rMap)
+								} else {
+									if len(resourceMap[constant.Namespace]) == 0 {
+										resourceMap[constant.Namespace] = make(map[string]unstructured.Unstructured)
+									}
+									policy.MergeResources(resourceMap[constant.Namespace], rMap)
 								}
 							}
 						}
@@ -187,27 +186,28 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 
 		if p.HasAutoGenAnnotation() {
 			switch scope {
-			case Cluster:
-				resourceMap[Cluster] = policy.ExcludePod(resourceMap[Cluster], log.Log)
-				delete(resourceMap,Namespace)
-				delete(resourceMap,App)
+			case constant.Cluster:
+				resourceMap[constant.Cluster] = policy.ExcludePod(resourceMap[constant.Cluster], log.Log)
+				delete(resourceMap, constant.Namespace)
+				delete(resourceMap, constant.App)
 				break
-			case Namespace:
-				resourceMap[Namespace] = policy.ExcludePod(resourceMap[Namespace], log.Log)
-				delete(resourceMap,Cluster)
-				delete(resourceMap,App)
+			case constant.Namespace:
+				resourceMap[constant.Namespace] = policy.ExcludePod(resourceMap[constant.Namespace], log.Log)
+				delete(resourceMap, constant.Cluster)
+				delete(resourceMap, constant.App)
 				break
-			case App:
-				resourceMap[App] = policy.ExcludePod(resourceMap[App], log.Log)
-				delete(resourceMap,Namespace)
-				delete(resourceMap,Cluster)
+			case constant.App:
+				resourceMap[constant.App] = policy.ExcludePod(resourceMap[constant.App], log.Log)
+				delete(resourceMap, constant.Namespace)
+				delete(resourceMap, constant.Cluster)
 				break
-			case All:
-				resourceMap[Cluster] = policy.ExcludePod(resourceMap[Cluster], log.Log)
-				resourceMap[Namespace] = policy.ExcludePod(resourceMap[Namespace], log.Log)
-				resourceMap[App] = policy.ExcludePod(resourceMap[App], log.Log)
+			case constant.All:
+				resourceMap[constant.Cluster] = policy.ExcludePod(resourceMap[constant.Cluster], log.Log)
+				resourceMap[constant.Namespace] = policy.ExcludePod(resourceMap[constant.Namespace], log.Log)
+				resourceMap[constant.App] = policy.ExcludePod(resourceMap[constant.App], log.Log)
 			}
 		}
+
 		results := make(map[string][]policyreportv1alpha1.PolicyReportResult)
 		for key, _ := range resourceMap {
 			for _, resource := range resourceMap[key] {
@@ -220,11 +220,12 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 				results = createResults(policyContext, key, results)
 			}
 		}
+
 		for k, _ := range results {
 			if k == "" {
 				continue
 			}
-			err := createReport(kclient, k, n, results[k], lgr)
+			err := createReport(kclient, k, results[k], removePolicy, lgr)
 			if err != nil {
 				continue
 			}
@@ -232,31 +233,36 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 	}
 }
 
-func createReport(kclient *kyvernoclient.Clientset, name, namespace string, results []policyreportv1alpha1.PolicyReportResult, lgr logr.Logger) error {
-	str := strings.Split(name, "-")
-	var scope string
-	if len(str) == 1 {
-		scope = Cluster
-	} else if strings.Contains(name, "policyreport-helm-") {
-		scope = App
-	} else {
-		scope = Cluster
+func createReport(kclient *kyvernoclient.Clientset, name string, results []policyreportv1alpha1.PolicyReportResult,removePolicy []string, lgr logr.Logger) error {
+
+	var scope, ns string
+	if strings.Contains(name, "clusterpolicyreport") {
+		scope = constant.Cluster
+	} else if strings.Contains(name, "policyreport-app-") {
+		scope = constant.App
+		ns = strings.ReplaceAll(name, "policyreport-app-", "")
+		str := strings.Split(ns, "--")
+		ns = str[1]
+	} else if strings.Contains(name, "policyreport-ns-") {
+		scope = constant.Namespace
+		ns = strings.ReplaceAll(name, "policyreport-ns-", "")
 	}
-	if len(str) > 1 {
-		availablepr, err := kclient.PolicyV1alpha1().PolicyReports(namespace).Get(name, metav1.GetOptions{})
+
+	if scope == constant.App || scope == constant.Namespace {
+		availablepr, err := kclient.PolicyV1alpha1().PolicyReports(ns).Get(name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				availablepr = initPolicyReport(scope, namespace, name)
+				availablepr = initPolicyReport(scope, ns, name)
 			} else {
 				return err
 			}
 		}
-
-		availablepr, action := mergeReport(availablepr, results, []string{})
+		availablepr, action := mergeReport(availablepr, results, removePolicy)
 		if action == "Create" {
 			availablepr.SetLabels(map[string]string{
 				"policy-state": "state",
 			})
+
 			_, err := kclient.PolicyV1alpha1().PolicyReports(availablepr.GetNamespace()).Create(availablepr)
 			if err != nil {
 				lgr.Error(err, "Error in Create policy report", "appreport", name)
@@ -282,7 +288,7 @@ func createReport(kclient *kyvernoclient.Clientset, name, namespace string, resu
 		if action == "Create" {
 			_, err := kclient.PolicyV1alpha1().ClusterPolicyReports().Create(availablepr)
 			if err != nil {
-				lgr.Error(err, "Error in Create policy report", "appreport", name)
+				lgr.Error(err, "Error in Create policy report", "appreport", availablepr)
 				return err
 			}
 		} else {
@@ -314,36 +320,37 @@ func createResults(policyContext engine.PolicyContext, key string, results map[s
 
 	for _, v := range pv {
 		var appname string
-		if key == App {
-			labels := policyContext.NewResource.GetLabels()
-			_, okChart := labels["app"]
-			_, okRelease := labels["release"]
+		labels := policyContext.NewResource.GetLabels()
+		_, okChart := labels["app"]
+		_, okRelease := labels["release"]
+		if key == constant.App {
 			if okChart && okRelease {
-				appname = fmt.Sprintf("policyreport-helm-%s-%s", labels["app"], policyContext.NewResource.GetNamespace())
+				appname = fmt.Sprintf("policyreport-app-%s--%s", labels["app"], policyContext.NewResource.GetNamespace())
 			}
-		} else if key == Namespace {
-			appname = fmt.Sprintf("policyreport-%s", policyContext.NewResource.GetNamespace())
+		} else if key == constant.Namespace {
+			appname = fmt.Sprintf("policyreport-ns-%s", policyContext.NewResource.GetNamespace())
 		} else {
 			appname = fmt.Sprintf("clusterpolicyreport")
 		}
+		if appname != "" {
+			builder := policyreport.NewPrBuilder()
+			pv := builder.Generate(v)
 
-		builder := policyreport.NewPrBuilder()
-		pv := builder.Generate(v)
-
-		for _, e := range pv.Spec.ViolatedRules {
-			result := &policyreportv1alpha1.PolicyReportResult{
-				Policy:  pv.Spec.Policy,
-				Rule:    e.Name,
-				Message: e.Message,
-				Status:  policyreportv1alpha1.PolicyStatus(e.Check),
-				Resource: &corev1.ObjectReference{
-					Kind:       pv.Spec.Kind,
-					Namespace:  pv.Spec.Namespace,
-					APIVersion: pv.Spec.APIVersion,
-					Name:       pv.Spec.Name,
-				},
+			for _, e := range pv.Spec.ViolatedRules {
+				result := &policyreportv1alpha1.PolicyReportResult{
+					Policy:  pv.Spec.Policy,
+					Rule:    e.Name,
+					Message: e.Message,
+					Status:  policyreportv1alpha1.PolicyStatus(e.Check),
+					Resource: &corev1.ObjectReference{
+						Kind:       pv.Spec.Kind,
+						Namespace:  pv.Spec.Namespace,
+						APIVersion: pv.Spec.APIVersion,
+						Name:       pv.Spec.Name,
+					},
+				}
+				results[appname] = append(results[appname], *result)
 			}
-			results[appname] = append(results[appname], *result)
 		}
 	}
 	return results
@@ -376,57 +383,71 @@ func configmapScan(scope string, wg *sync.WaitGroup, restConfig *rest.Config, lo
 		lgr.Error(err, "Error in converting resource to Default Unstructured Converter")
 		os.Exit(1)
 	}
-	var response map[string][]policyreport.Info
-	if scope == Cluster {
-		if err := json.Unmarshal([]byte(job.Data[Cluster]), &response); err != nil {
+	response := make(map[string]map[string][]policyreport.Info)
+	var temp = map[string][]policyreport.Info{}
+	if scope == constant.Cluster {
+		if err := json.Unmarshal([]byte(job.Data[constant.Cluster]), &temp); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
-	} else if scope == App {
-		if err := json.Unmarshal([]byte(job.Data[App]), &response); err != nil {
+		response[constant.Cluster] = temp
+		delete(job.Data, constant.Namespace)
+		delete(job.Data, constant.App)
+	} else if scope == constant.App {
+		if err := json.Unmarshal([]byte(job.Data[constant.App]), &temp); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
-	} else if scope == Namespace {
-		if err := json.Unmarshal([]byte(job.Data[Namespace]), &response); err != nil {
+		response[constant.App] = temp
+		delete(job.Data, constant.Cluster)
+		delete(job.Data, constant.Namespace)
+	} else if scope == constant.Namespace {
+		if err := json.Unmarshal([]byte(job.Data[constant.Namespace]), &temp); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
+		response[constant.Namespace] = temp
+		delete(job.Data, constant.Cluster)
+		delete(job.Data, constant.App)
 	} else {
-		if err := json.Unmarshal([]byte(job.Data[Cluster]), &response); err != nil {
+		if err := json.Unmarshal([]byte(job.Data[constant.Cluster]), &temp); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
-		if err := json.Unmarshal([]byte(job.Data[App]), &response); err != nil {
+		response[constant.Cluster] = temp
+		temp = make(map[string][]policyreport.Info)
+		if err := json.Unmarshal([]byte(job.Data[constant.App]), &temp); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
-		if err := json.Unmarshal([]byte(job.Data[Namespace]), &response); err != nil {
+		response[constant.App] = temp
+		temp = make(map[string][]policyreport.Info)
+		if err := json.Unmarshal([]byte(job.Data[constant.Namespace]), &temp); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
+		response[constant.Namespace] = temp
+		temp = make(map[string][]policyreport.Info)
 	}
 	var results = make(map[string][]policyreportv1alpha1.PolicyReportResult)
 	var ns []string
 	for k := range response {
-		for _, v := range response[k] {
-			for _, r := range v.Rules {
-				builder := policyreport.NewPrBuilder()
-				pv := builder.Generate(v)
-				result := &policyreportv1alpha1.PolicyReportResult{
-					Policy:  pv.Spec.Policy,
-					Rule:    r.Name,
-					Message: r.Message,
-					Status:  policyreportv1alpha1.PolicyStatus(r.Check),
-					Resource: &corev1.ObjectReference{
-						Kind:       pv.Spec.Kind,
-						Namespace:  pv.Spec.Namespace,
-						APIVersion: pv.Spec.APIVersion,
-						Name:       pv.Spec.Name,
-					},
-				}
-				if !strings.Contains(strings.Join(ns, ","), v.Resource.GetNamespace()) {
-					ns = append(ns, v.Resource.GetNamespace())
-				}
-				var appname string
-				// Increase Count
-				if k == Cluster {
-					appname = fmt.Sprintf("clusterpolicyreport")
-				} else if k == App {
+		for n, infos := range response[k] {
+			for _, v := range infos {
+				for _, r := range v.Rules {
+					builder := policyreport.NewPrBuilder()
+					pv := builder.Generate(v)
+					result := &policyreportv1alpha1.PolicyReportResult{
+						Policy:  pv.Spec.Policy,
+						Rule:    r.Name,
+						Message: r.Message,
+						Status:  policyreportv1alpha1.PolicyStatus(r.Check),
+						Resource: &corev1.ObjectReference{
+							Kind:       pv.Spec.Kind,
+							Namespace:  n,
+							APIVersion: pv.Spec.APIVersion,
+							Name:       pv.Spec.Name,
+						},
+					}
+					if !strings.Contains(strings.Join(ns, ","), v.Resource.GetNamespace()) {
+						ns = append(ns, n)
+					}
+
+					var appname string
 					resource, err := dClient.GetResource(v.Resource.GetAPIVersion(), v.Resource.GetKind(), v.Resource.GetNamespace(), v.Resource.GetName())
 					if err != nil {
 						lgr.Error(err, "failed to get resource")
@@ -435,23 +456,30 @@ func configmapScan(scope string, wg *sync.WaitGroup, restConfig *rest.Config, lo
 					labels := resource.GetLabels()
 					_, okChart := labels["app"]
 					_, okRelease := labels["release"]
-					if okChart && okRelease {
-						appname = fmt.Sprintf("policyreport-helm-%s-%s", labels["app"], v.Resource.GetNamespace())
-
+					// Increase Count
+					if k == constant.Cluster {
+						appname = fmt.Sprintf("clusterpolicyreport")
+					} else if k == constant.App {
+						if okChart && okRelease {
+							appname = fmt.Sprintf("policyreport-app-%s--%s", labels["app"], v.Resource.GetNamespace())
+						}
+					} else {
+						if !okChart && !okRelease {
+							appname = fmt.Sprintf("policyreport-ns-%s", v.Resource.GetNamespace())
+						}
 					}
-				} else {
-					appname = fmt.Sprintf("policyreport-%s", v.Resource.GetNamespace())
+					results[appname] = append(results[appname], *result)
 				}
-				results[appname] = append(results[appname], *result)
 			}
-
 		}
 	}
+
 	for k := range results {
-		if k != "" {
+		if k == "" {
 			continue
 		}
-		err := createReport(kclient, k, "", results[k], lgr)
+
+		err := createReport(kclient, k, results[k],[]string{}, lgr)
 		if err != nil {
 			continue
 		}
@@ -476,6 +504,9 @@ func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1
 			if r.Policy == v.Policy && r.Rule == v.Rule && r.Resource.APIVersion == v.Resource.APIVersion && r.Resource.Kind == v.Resource.Kind && r.Resource.Namespace == v.Resource.Namespace && r.Resource.Name == v.Resource.Name {
 				v = &r
 				isExist = true
+				if string(r.Status) != string(v.Status) {
+					pr = changeCount(string(r.Status), string(v.Status), pr)
+				}
 				break
 			}
 		}
@@ -656,10 +687,5 @@ func initClusterPolicyReport(scope, name string) *policyreportv1alpha1.ClusterPo
 	}
 	availablepr.SetName(name)
 	availablepr.SetLabels(labelMap)
-	availablepr.SetGroupVersionKind(schema.GroupVersionKind{
-		Kind:    "PolicyReport",
-		Version: "v1alpha1",
-		Group:   "policy.kubernetes.io",
-	})
 	return availablepr
 }
