@@ -24,5 +24,5 @@ spec:
       pattern: 
         spec: 
           =(volumes): 
-          - X(hostPath): null
+          - X(hostPath): "null"
 ````

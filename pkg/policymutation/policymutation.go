@@ -316,10 +316,13 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		MatchResources: match.DeepCopy(),
 	}
 
+	if !reflect.DeepEqual(exclude, kyverno.ExcludeResources{}) {
+		controllerRule.ExcludeResources = exclude.DeepCopy()
+	}
+
 	// overwrite Kinds by pod controllers defined in the annotation
 	controllerRule.MatchResources.Kinds = strings.Split(controllers, ",")
 	if len(exclude.Kinds) != 0 {
-		controllerRule.ExcludeResources = exclude.DeepCopy()
 		controllerRule.ExcludeResources.Kinds = strings.Split(controllers, ",")
 	}
 
