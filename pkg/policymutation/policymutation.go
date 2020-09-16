@@ -44,7 +44,56 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 
 	patches = append(patches, patch...)
 
+	convertPatch, errs := convertPatchToJSON6902(policy, log)
+	if len(errs) > 0 {
+		var errMsgs []string
+		for _, err := range errs {
+			errMsgs = append(errMsgs, err.Error())
+			log.Error(err, "failed to generate pod controller rule")
+		}
+		updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
+	}
+
+	patches = append(patches, convertPatch...)
+
 	return utils.JoinPatches(patches), updateMsgs
+}
+
+func convertPatchToJSON6902(policy *kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
+	patches = make([][]byte, 0)
+
+	for i, rule := range policy.Spec.Rules {
+		if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) {
+			if len(rule.Mutation.Patches) > 0 {
+				mutation := rule.Mutation
+				patchesJSON6902 := ""
+				for _, patch := range mutation.Patches {
+					patchesJSON6902 += fmt.Sprintf("- path : %s\n  op : %s\n  value: %s\n", patch.Path, patch.Operation, patch.Value)
+				}
+				mutation.PatchesJSON6902 = patchesJSON6902
+				mutation.Patches = []kyverno.Patch{}
+
+				jsonPatch := struct {
+					Path  string            `json:"path"`
+					Op    string            `json:"op"`
+					Value *kyverno.Mutation `json:"value"`
+				}{
+					fmt.Sprintf("/spec/rules/%s/mutate", strconv.Itoa(i)),
+					"replace",
+					&mutation,
+				}
+
+				patchByte, err := json.Marshal(jsonPatch)
+				if err != nil {
+					errs = append(errs, fmt.Errorf("failed to convert patch to patchesJson6902 for policy '%s': %v", policy.Name, err))
+				}
+
+				patches = append(patches, patchByte)
+			}
+		}
+	}
+
+	return patches, errs
 }
 
 func defaultBackgroundFlag(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, string) {

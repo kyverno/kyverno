@@ -138,6 +138,8 @@ spec:
 
 Note, that if **remove** operation cannot be applied, then this **remove** operation will be skipped with no error.
 
+
+
 ## Strategic Merge Patch
 
 A `patchStrategicMerge` patch is [stategic-merge](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-api-machinery/strategic-merge-patch.md)-style patch. The `patchStrategicMerge` overlay resolves to a partial resource definition.
