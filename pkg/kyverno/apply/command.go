@@ -416,11 +416,19 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 				rc.error++
 			}
 
-			mutatedResource := string(yamlEncodedResource)
-			if len(strings.TrimSpace(mutatedResource)) > 0 {
-				fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
-				fmt.Printf("\n" + mutatedResource)
-				fmt.Printf("\n")
+			if mutateLogPath == "" {
+				mutatedResource := string(yamlEncodedResource)
+				if len(strings.TrimSpace(mutatedResource)) > 0 {
+					fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
+					fmt.Printf("\n" + mutatedResource)
+					fmt.Printf("\n")
+				}
+			} else {
+				err := printMutatedOutput(mutateLogPath, mutateLogPathIsDir, string(yamlEncodedResource), resource.GetName()+"-mutated")
+				if err != nil {
+					return sanitizedError.NewWithError("failed to print mutated result", err)
+				}
+				fmt.Printf("\n\nMutation:\nMutation has been applied succesfully. Check the files.")
 			}
 
 		} else {
