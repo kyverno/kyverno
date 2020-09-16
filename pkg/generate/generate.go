@@ -51,7 +51,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	// build context
 	ctx := context.NewContext()
 
-	policy, err := c.pLister.Get(gr.Spec.Policy)
+	policyObj, err := c.pLister.Get(gr.Spec.Policy)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			for _, e := range gr.Status.GeneratedResources {
@@ -96,7 +96,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 
 	policyContext := engine.PolicyContext{
 		NewResource:      resource,
-		Policy:           *policy,
+		Policy:           *policyObj,
 		Context:          ctx,
 		AdmissionInfo:    gr.Spec.Context.UserRequestInfo,
 		ExcludeGroupRole: c.Config.GetExcludeGroupRole(),
@@ -129,10 +129,10 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	}
 	engineResponse.PolicyResponse.Rules = []response.RuleResponse{}
 
-	for _, v := range policy.Spec.Rules {
+	for _, v := range policyObj.Spec.Rules {
 		for _, r := range rules {
-			if policy.Name == engineResponse.PolicyResponse.Policy && r.Name == v.Name {
-				if len(v.MatchResources.Kinds) > 0 && (len(v.MatchResources.Annotations) == 0 || len(v.MatchResources.Selector.MatchLabels) == 0) {
+			if policyObj.Name == engineResponse.PolicyResponse.Policy && r.Name == v.Name {
+				if len(v.MatchResources.Kinds) > 0 && reflect.DeepEqual(v.MatchResources.Annotations, map[string]string{}) && reflect.DeepEqual(v.MatchResources.Selector, metav1.LabelSelector{}) {
 					continue
 				} else {
 					engineResponse.PolicyResponse.Rules = append(engineResponse.PolicyResponse.Rules, r)
@@ -180,7 +180,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 				return rcreationTime.Before(&pcreationTime)
 			}()
 		}
-
+		c.log.V(2).Info("DEBUG","KEY",processExisting)
 		genResource, err := applyRule(log, c.client, rule, resource, ctx, policy.Name, gr, processExisting)
 
 		if err != nil {
