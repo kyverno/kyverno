@@ -19,7 +19,7 @@ func HelmCommand() *cobra.Command {
 	var mode, policy, namespace string
 	cmd := &cobra.Command{
 		Use:     "helm",
-		Short:   "generate report",
+		Short:   "generate report for scope app",
 		Example: fmt.Sprintf("To create a helm report from background scan:\nkyverno report helm --namespace=defaults \n kyverno report helm"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			os.Setenv("POLICY-TYPE", common.PolicyReport)

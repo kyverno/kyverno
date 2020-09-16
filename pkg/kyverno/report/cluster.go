@@ -15,8 +15,8 @@ func ClusterCommand() *cobra.Command {
 	var mode, policy string
 	cmd := &cobra.Command{
 		Use:     "cluster",
-		Short:   "generate report",
-		Example: fmt.Sprintf("To create a cluster report from background scan:\nkyverno report cluster --namespace=defaults \n kyverno report cluster"),
+		Short:   "generate report for cluster scope",
+		Example: fmt.Sprintf("To create a cluster report from background scan: kyverno report cluster"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			os.Setenv("POLICY-TYPE", common.PolicyReport)
 			logger := log.Log.WithName("Report")

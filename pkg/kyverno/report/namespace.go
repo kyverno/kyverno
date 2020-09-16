@@ -18,7 +18,7 @@ func NamespaceCommand() *cobra.Command {
 	var mode, namespace, policy string
 	cmd := &cobra.Command{
 		Use:     "namespace",
-		Short:   "generate report",
+		Short:   "generate report for scope namespace",
 		Example: fmt.Sprintf("To create a namespace report from background scan:\nkyverno report namespace --namespace=defaults \n kyverno report namespace"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			os.Setenv("POLICY-TYPE", common.PolicyReport)
