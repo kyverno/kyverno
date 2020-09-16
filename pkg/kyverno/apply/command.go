@@ -215,7 +215,6 @@ func Command() *cobra.Command {
 				for _, resource := range resources {
 					// get values from file for this policy resource combination
 					thisPolicyResouceValues := make(map[string]string)
-					// if len(valuesMap[policy.GetName()]) != 0 && valuesMap[policy.GetName()][resource.GetName()] != nil
 					if len(valuesMap[policy.GetName()]) != 0 && !reflect.DeepEqual(valuesMap[policy.GetName()][resource.GetName()], Resource{}) {
 						thisPolicyResouceValues = valuesMap[policy.GetName()][resource.GetName()].Values
 					}
