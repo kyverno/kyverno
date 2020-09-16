@@ -132,7 +132,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	for _, v := range policy.Spec.Rules {
 		for _, r := range rules {
 			if policy.Name == engineResponse.PolicyResponse.Policy && r.Name == v.Name {
-				if len(v.MatchResources.ResourceDescription.Kinds) > 0 && (len(v.MatchResources.ResourceDescription.Annotations) == 0 || len(v.MatchResources.ResourceDescription.Selector.MatchLabels) == 0) {
+				if len(v.MatchResources.Kinds) > 0 && (len(v.MatchResources.Annotations) == 0 || len(v.MatchResources.Selector.MatchLabels) == 0) {
 					continue
 				} else {
 					engineResponse.PolicyResponse.Rules = append(engineResponse.PolicyResponse.Rules, r)
@@ -173,7 +173,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 
 		processExisting := false
 
-		if len(rule.MatchResources.ResourceDescription.Kinds) > 0 && (len(rule.MatchResources.ResourceDescription.Annotations) == 0 && len(rule.MatchResources.ResourceDescription.Selector.MatchLabels) == 0) {
+		if len(rule.MatchResources.Kinds) > 0 && reflect.DeepEqual(rule.MatchResources.Annotations, map[string]string{}) && reflect.DeepEqual(rule.MatchResources.Selector, metav1.LabelSelector{}) {
 			processExisting = func() bool {
 				rcreationTime := resource.GetCreationTimestamp()
 				pcreationTime := policy.GetCreationTimestamp()
