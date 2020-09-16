@@ -211,6 +211,7 @@ func main() {
 		rWebhookWatcher,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
+		rCache,
 	)
 
 	if err != nil {
@@ -233,6 +234,7 @@ func main() {
 		statusSync.Listener,
 		log.Log.WithName("GenerateController"),
 		configData,
+		rCache,
 	)
 
 	// GENERATE REQUEST CLEANUP

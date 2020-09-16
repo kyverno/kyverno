@@ -75,24 +75,3 @@ func udateGVRCache(log logr.Logger, resc *ResourceCache, discoveryIface discover
 	}
 	return nil
 }
-
-// mok := resc.matchGVRKey(resource.Name)
-// if !mok {
-// 	continue
-// }
-// eok := resc.excludeGVRKey(resource.Name)
-// if eok {
-// 	continue
-// }
-// _, ok := resc.GVRCacheData[resource.Name]
-// stopCh := make(chan struct{})
-// gvrc := &GVRCache{GVR: gv.WithResource(resource.Name), Namespaced: resource.Namespaced, stopCh: stopCh}
-// if ok {
-// 	continue
-// }
-// resc.GVRCacheData[resource.Name] = gvrc
-// // fmt.Printf("%+v\n", gv.WithResource(resource.Name))
-// gvr := gv.WithResource(resource.Name)
-// genInformer := resc.dinformer.ForResource(gvr)
-// gvrc.genericInformer = genInformer
-// go startWatching(stopCh, genInformer.Informer())

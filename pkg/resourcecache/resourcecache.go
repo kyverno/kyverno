@@ -1,7 +1,6 @@
 package resourcecache
 
 import (
-	"fmt"
 	"github.com/go-logr/logr"
 )
 
@@ -16,10 +15,8 @@ func (resc *ResourceCache) RunAllInformers(log logr.Logger) {
 			continue
 		}
 		resc.CreateResourceInformer(log, key)
-		fmt.Println("created informer for resource", key)
 		log.V(4).Info("created informer for resource", "name", key)
 	}
-	fmt.Printf("resc :\n%+v\n", resc.GVRCacheData)
 }
 
 func (resc *ResourceCache) CreateResourceInformer(log logr.Logger, resource string) (bool, error) {
@@ -49,7 +46,6 @@ func (resc *ResourceCache) StopResourceInformer(log logr.Logger, resource string
 		log.V(4).Info("deleted resource from gvr cache", "name", resource)
 		res.StopInformer()
 		log.V(4).Info("closed informer for resource", "name", resource)
-		fmt.Println("closed informer for resource", resource)
 	}
 	return false
 }

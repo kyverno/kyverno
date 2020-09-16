@@ -19,6 +19,7 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/resourcecache"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -103,6 +104,9 @@ type PolicyController struct {
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 
 	log logr.Logger
+
+	// resCache - controls creation and fetching of resource informer cache
+	resCache resourcecache.ResourceCacheIface
 }
 
 // NewPolicyController create a new PolicyController
@@ -117,7 +121,9 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	pvGenerator policyviolation.GeneratorInterface,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	namespaces informers.NamespaceInformer,
-	log logr.Logger) (*PolicyController, error) {
+	log logr.Logger,
+	resCache resourcecache.ResourceCacheIface,
+) (*PolicyController, error) {
 
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
@@ -138,6 +144,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		pvGenerator:            pvGenerator,
 		resourceWebhookWatcher: resourceWebhookWatcher,
 		log:                    log,
+		resCache:               resCache,
 	}
 
 	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}

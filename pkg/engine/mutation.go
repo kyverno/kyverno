@@ -45,10 +45,6 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	}
 
 	for _, rule := range policy.Spec.Rules {
-		if err := addResourceToContext(logger, rule.Context, resCache, jsonContext); err != nil {
-			logger.V(4).Info("cannot add configmaps to context", "reason", err.Error())
-			continue
-		}
 		var ruleResponse response.RuleResponse
 		logger := logger.WithValues("rule", rule.Name)
 		if !rule.HasMutate() {
@@ -64,6 +60,11 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		}
 		if err := MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource); err != nil {
 			logger.V(3).Info("resource not matched", "reason", err.Error())
+			continue
+		}
+		// add configmap json data to context
+		if err := AddResourceToContext(logger, rule.Context, resCache, jsonContext); err != nil {
+			logger.V(4).Info("cannot add configmaps to context", "reason", err.Error())
 			continue
 		}
 

@@ -284,7 +284,15 @@ func SkipPolicyApplication(policy kyverno.ClusterPolicy, resource unstructured.U
 	return false
 }
 
-func addResourceToContext(logger logr.Logger, contexts []kyverno.ContextEntry, resCache resourcecache.ResourceCacheIface, ctx *context.Context) error {
+// AddResourceToContext - Add the Configmap JSON to Context.
+// it will read configmaps (can be extended to get other type of resource like secrets, namespace etc) from the informer cache
+// and add the configmap data to context
+func AddResourceToContext(logger logr.Logger, contexts []kyverno.ContextEntry, resCache resourcecache.ResourceCacheIface, ctx *context.Context) error {
+	if len(contexts) == 0 {
+		return nil
+	}
+	// get GVR Cache for "configmaps"
+	// can get cache for other resources if the informers are enabled in resource cache
 	gvrC := resCache.GetGVRCache("configmaps")
 	if gvrC != nil {
 		lister := gvrC.GetLister()
@@ -306,7 +314,7 @@ func addResourceToContext(logger logr.Logger, contexts []kyverno.ContextEntry, r
 				logger.Error(err, "failed to convert context runtime object to unstructured")
 				continue
 			}
-			// fmt.Println(unstructuredObj["data"])
+			// extract configmap data
 			contextData["data"] = unstructuredObj["data"]
 			contextNamedData := make(map[string]interface{})
 			contextNamedData[context.Name] = contextData
@@ -315,7 +323,7 @@ func addResourceToContext(logger logr.Logger, contexts []kyverno.ContextEntry, r
 				logger.Error(err, "failed to unmarshal context data")
 				continue
 			}
-			fmt.Println(string(jdata))
+			// add data to context
 			err = ctx.AddJSON(jdata)
 			if err != nil {
 				logger.Error(err, "failed to load context json")

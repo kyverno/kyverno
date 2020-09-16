@@ -114,6 +114,7 @@ type WebhookServer struct {
 
 	supportMutateValidate bool
 
+	// resCache - controls creation and fetching of resource informer cache
 	resCache resourcecache.ResourceCacheIface
 }
 

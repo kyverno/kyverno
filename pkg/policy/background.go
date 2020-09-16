@@ -32,6 +32,10 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 				return fmt.Errorf("invalid variable used at spec/rules[%d]/condition[%d]/value", idx, condIdx)
 			}
 		}
+		// Skip Validation if rule contains Context
+		if len(rule.Context) > 0 {
+			return nil
+		}
 
 		if rule.Mutation.Overlay != nil {
 			if rule.Mutation.Overlay, err = variables.SubstituteVars(log.Log, ctx, rule.Mutation.Overlay); !checkNotFoundErr(err) {
