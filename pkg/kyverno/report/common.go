@@ -47,7 +47,6 @@ const (
 func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfig *rest.Config, logger logr.Logger) {
 	lgr := logger.WithValues("namespace", n, "scope", scope, "policychange", policychange)
 	defer func() {
-		lgr.Error(nil, "done")
 		wg.Done()
 	}()
 	dClient, err := client.NewClient(restConfig, 5*time.Minute, make(chan struct{}), lgr)
