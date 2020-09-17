@@ -115,7 +115,7 @@ url = "https://nirmata.com"
 weight = 2
 
 [[menu.navbar]]
-name = "Blogs & Videos"
+name = "Resources"
 url = "/docs/resources"
 weight = 3
 
