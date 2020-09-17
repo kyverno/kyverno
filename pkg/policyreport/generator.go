@@ -112,7 +112,7 @@ func (i Info) toKey() string {
 // make the struct hashable
 
 type PVEvent struct {
-	App      map[string][]Info
+	App       map[string][]Info
 	Namespace map[string][]Info
 	Cluster   map[string][]Info
 }
@@ -143,7 +143,7 @@ func NewPRGenerator(client *policyreportclient.Clientset,
 		policyStatusListener:  policyStatus,
 		configmap:             nil,
 		inMemoryConfigMap: &PVEvent{
-			App:      make(map[string][]Info),
+			App:       make(map[string][]Info),
 			Namespace: make(map[string][]Info),
 			Cluster:   make(map[string][]Info),
 		},
@@ -203,7 +203,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 				gen.log.Error(err, "configmap error")
 			}
 			gen.inMemoryConfigMap = &PVEvent{
-				App:      make(map[string][]Info),
+				App:       make(map[string][]Info),
 				Namespace: make(map[string][]Info),
 				Cluster:   make(map[string][]Info),
 			}

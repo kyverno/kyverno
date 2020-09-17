@@ -46,15 +46,11 @@ type PolicyReportResult struct {
 	// +optional
 	Rule string `json:"rule,omitempty"`
 
-	// Resource is an optional reference to the resource check bu the policy rule
-	// +optional
-	Resource *corev1.ObjectReference `json:"resource,omitempty"`
+	// Resources is an optional reference to the resource check bu the policy rule
+	Resources []*ResourceStatus `json:"resources,omitempty"`
 
 	// Message is a short user friendly description of the policy rule
 	Message string `json:"message,omitempty"`
-
-	// Status indicates the result of the policy rule check
-	Status PolicyStatus `json:"status,omitempty"`
 
 	// Scored indicates if this policy rule is scored
 	Scored bool `json:"scored,omitempty"`
@@ -63,7 +59,18 @@ type PolicyReportResult struct {
 	Data map[string]string `json:"data,omitempty"`
 }
 
+// ResourceStatus provides the resource status
+type ResourceStatus struct {
+
+	// Resource is an optional reference to the resource check bu the policy rule
+	Resource *corev1.ObjectReference `json:"resource,omitempty"`
+
+	// Status indicates the result of the policy rule check
+	Status PolicyStatus `json:"status,omitempty"`
+}
+
 // +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1
@@ -98,7 +105,7 @@ type PolicyReport struct {
 }
 
 // +kubebuilder:object:root=true
-
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // PolicyReportList contains a list of PolicyReport
 type PolicyReportList struct {
 	metav1.TypeMeta `json:",inline"`

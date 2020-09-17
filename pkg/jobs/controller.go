@@ -199,13 +199,13 @@ func (j *Job) syncHandler(info JobInfo) error {
 	if info.JobType == constant.BackgroundPolicySync {
 		wg.Add(1)
 		go j.syncKyverno(&wg, constant.All, constant.BackgroundPolicySync, info.JobData)
-	}else if info.JobType == constant.ConfiigmapMode {
+	} else if info.JobType == constant.ConfiigmapMode {
 		if info.JobData != "" {
 			str := strings.Split(info.JobData, ",")
 			if len(str) > 1 {
 				wg.Add(1)
 				go j.syncKyverno(&wg, constant.All, constant.ConfiigmapMode, "")
-			}else{
+			} else {
 				wg.Add(len(str))
 				for _, scope := range str {
 					go j.syncKyverno(&wg, scope, constant.ConfiigmapMode, "")
@@ -266,8 +266,8 @@ func (j *Job) syncKyverno(wg *sync.WaitGroup, scope, jobType, data string) {
 	for {
 		resourceList, err := j.dclient.ListResource("", "Job", config.KubePolicyNamespace, &metav1.LabelSelector{
 			MatchLabels: map[string]string{
-				"scope" : scope,
-				"type" : jobType,
+				"scope": scope,
+				"type":  jobType,
 			},
 		})
 		if err != nil {
@@ -279,9 +279,9 @@ func (j *Job) syncKyverno(wg *sync.WaitGroup, scope, jobType, data string) {
 			break
 		}
 		if time.Now().After(deadline) {
-			break;
+			break
 		}
-		time.Sleep(10*time.Second)
+		time.Sleep(10 * time.Second)
 	}
 	wg.Done()
 }
@@ -324,27 +324,27 @@ func (j *Job) CreateJob(args []string, jobType, scope string, wg *sync.WaitGroup
 	}
 	deadline := time.Now().Add(100 * time.Second)
 	for {
-			time.Sleep(20 * time.Second)
-			resource, err := j.dclient.GetResource("", "Job", config.KubePolicyNamespace, job.GetName())
-			if err != nil {
-				if apierrors.IsNotFound(err) {
-					j.log.Error(err, "job is already deleted", "job_name", job.GetName())
-					break
-				}
-				continue
-			}
-			job := v1.Job{}
-			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.UnstructuredContent(), &job); err != nil {
-				j.log.Error(err, "Error in converting job Default Unstructured Converter", "job_name", job.GetName())
-				continue
-			}
-			if job.Status.Succeeded > 0 && time.Now().After(deadline) {
-				if err := j.dclient.DeleteResource("", "Job", config.KubePolicyNamespace, job.GetName(), false); err != nil {
-					j.log.Error(err, "Error in deleting jobs", "job_name", job.GetName())
-					continue
-				}
+		time.Sleep(20 * time.Second)
+		resource, err := j.dclient.GetResource("", "Job", config.KubePolicyNamespace, job.GetName())
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				j.log.Error(err, "job is already deleted", "job_name", job.GetName())
 				break
 			}
+			continue
+		}
+		job := v1.Job{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.UnstructuredContent(), &job); err != nil {
+			j.log.Error(err, "Error in converting job Default Unstructured Converter", "job_name", job.GetName())
+			continue
+		}
+		if job.Status.Succeeded > 0 && time.Now().After(deadline) {
+			if err := j.dclient.DeleteResource("", "Job", config.KubePolicyNamespace, job.GetName(), false); err != nil {
+				j.log.Error(err, "Error in deleting jobs", "job_name", job.GetName())
+				continue
+			}
+			break
+		}
 	}
 	wg.Done()
 }

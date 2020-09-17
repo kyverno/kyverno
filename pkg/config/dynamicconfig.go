@@ -42,7 +42,7 @@ type ConfigData struct {
 	// hasynced
 	cmSycned cache.InformerSynced
 
-	log            logr.Logger
+	log logr.Logger
 }
 
 // ToFilter checks if the given resource is set to be filtered in the configuration
@@ -78,7 +78,6 @@ func (cd *ConfigData) GetExcludeUsername() []string {
 	return cd.excludeUsername
 }
 
-
 // Interface to be used by consumer to check filters
 type Interface interface {
 	ToFilter(kind, namespace, name string) bool
@@ -94,10 +93,10 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 		log.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
 	}
 	cd := ConfigData{
-		client:         rclient,
-		cmName:         os.Getenv(cmNameEnv),
-		cmSycned:       cmInformer.Informer().HasSynced,
-		log:            log,
+		client:   rclient,
+		cmName:   os.Getenv(cmNameEnv),
+		cmSycned: cmInformer.Informer().HasSynced,
+		log:      log,
 	}
 	cd.restrictDevelopmentUsername = []string{"minikube-user", "kubernetes-admin"}
 

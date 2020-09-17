@@ -207,7 +207,7 @@ func main() {
 	// -- generate policy report
 	var prgen *policyreport.Generator
 	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		prgen =  policyreport.NewPRGenerator(pclient,
+		prgen = policyreport.NewPRGenerator(pclient,
 			client,
 			pInformer.Policy().V1alpha1().ClusterPolicyReports(),
 			pInformer.Policy().V1alpha1().PolicyReports(),
@@ -363,8 +363,8 @@ func main() {
 	go policyCtrl.Run(2, stopCh)
 
 	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		go prgen.Run(2,stopCh)
-	}else{
+		go prgen.Run(2, stopCh)
+	} else {
 		go pvgen.Run(2, stopCh)
 	}
 	go eventGenerator.Run(3, stopCh)

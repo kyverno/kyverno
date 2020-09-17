@@ -10,20 +10,19 @@ const (
 	GenerateControllerResync        = 15 * time.Minute
 	GenerateRequestControllerResync = 15 * time.Minute
 
-	PolicyReportPolicyChangeResync =  60 * time.Second
-	PolicyReportResourceChangeResync =  60 * time.Second
+	PolicyReportPolicyChangeResync   = 60 * time.Second
+	PolicyReportResourceChangeResync = 60 * time.Second
 )
 
-
 const (
-	App      string = "App"
+	App       string = "App"
 	Namespace string = "Namespace"
 	Cluster   string = "Cluster"
 	All       string = "All"
 )
 
 const (
-	ConfiigmapMode      string = "CONFIGMAP"
+	ConfiigmapMode       string = "CONFIGMAP"
 	BackgroundPolicySync string = "POLICYSYNC"
-	BackgroundSync string = "SYNC"
+	BackgroundSync       string = "SYNC"
 )

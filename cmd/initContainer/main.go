@@ -32,7 +32,6 @@ const (
 	validatingWebhookConfigKind string = "ValidatingWebhookConfiguration"
 )
 
-
 func main() {
 	klog.InitFlags(nil)
 	log.SetLogger(klogr.New())
