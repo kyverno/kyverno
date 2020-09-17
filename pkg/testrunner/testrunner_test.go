@@ -10,6 +10,10 @@ func Test_Mutate_Validate_qos(t *testing.T) {
 	testScenario(t, "/test/scenarios/other/scenario_mutate_validate_qos.yaml")
 }
 
+func Test_Mutate_Validate_qos_sm(t *testing.T) {
+	testScenario(t, "/test/scenarios/other/scenario_mutate_validate_qos_sm.yaml")
+}
+
 func Test_disallow_root_user(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/disallow_root_user.yaml")
 }
