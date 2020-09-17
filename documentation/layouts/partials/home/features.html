@@ -1,7 +1,7 @@
 {{ $features := site.Params.features }}
 {{ with $features }}
 <section class="section is-light">
-  <div class="container">
+  <div class="container" style="text-align: center">
       <div class="content">
            <h2>Features</h2>
       </div>
@@ -9,14 +9,11 @@
         <div class="rows">
             {{ range $features }}
             {{ $url := .url }}
-
-          <ul>
-            <li>
-                <div class="content">
+          <ol>
+                <div class="content" >
                     <h5>{{ .title }}</h5>
                 </div>
-            </li>
-          </ul>
+          </ol>
 
        {{ end }}
     </div>
