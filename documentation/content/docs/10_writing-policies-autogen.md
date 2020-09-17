@@ -1,5 +1,6 @@
 ---
 title: Auto Generating Rules for Pod Controllers
+slug: /auto-generate-rule
 description: 
 ---
 

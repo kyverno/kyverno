@@ -1,5 +1,6 @@
 ---
 title: Preconditions
+slug: /precondition
 description: 
 ---
 

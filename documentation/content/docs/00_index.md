@@ -1,5 +1,6 @@
 ---
 title: Home
+slug: /docs/index
 description: Kyverno is a policy engine designed for Kubernetes.
 ---
 

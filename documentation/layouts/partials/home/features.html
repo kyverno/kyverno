@@ -1,6 +1,7 @@
 {{ $features := site.Params.features }}
 {{ with $features }}
-<section class="section is-light">
+<section class="section">
+
   <div class="container" style="text-align: center">
       <div class="content">
            <h2>Features</h2>
@@ -18,5 +19,21 @@
        {{ end }}
     </div>
   </div>
+
+
+</section>
+<section class="section">
+    <div class="container-fluid" style="text-align: center">
+        <div class="content">
+            <h2>Kyverno Webinar</h2>
+        </div>
+        <hr/>
+        <div class="row">
+            <div class="col-md-6">
+                <iframe width=70% height="615" src="https://www.youtube.com/embed/rSq-xqhQ09Q" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
+
 </section>
 {{ end }}

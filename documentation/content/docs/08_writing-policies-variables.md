@@ -1,5 +1,6 @@
 ---
 title: Variables
+slug: /variables
 description: 
 ---
 

@@ -110,6 +110,12 @@ url = "/docs"
 weight = 1
 
 [[menu.navbar]]
-name = "Blog"
-url = "https://kyverno.com/blog"
+name = "Nirmata"
+url = "https://nirmata.com"
 weight = 2
+
+[[menu.navbar]]
+name = "Blogs & Videos"
+url = "/docs/resources"
+weight = 3
+

@@ -1,5 +1,6 @@
 ---
 title: Kyverno CLI
+slug: /kyverno-cli
 description: 
 ---
 

@@ -1,5 +1,6 @@
 ---
 title: Testing Policies 
+slug: /testing-policy
 description: 
 ---
 

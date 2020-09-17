@@ -1,5 +1,6 @@
 ---
 title: Mutate Resources
+slug: /mutate-resource
 description: 
 ---
 

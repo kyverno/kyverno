@@ -1,5 +1,6 @@
 ---
 title: Getting started
+slug: /getting-started
 description: Install kyverno in just 5 mins
 ---
 

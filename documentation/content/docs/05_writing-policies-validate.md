@@ -1,5 +1,6 @@
 ---
 title: Validate Resources
+slug: validate-resource
 description: 
 ---
 

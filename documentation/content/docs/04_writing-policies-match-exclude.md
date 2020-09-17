@@ -1,5 +1,6 @@
 ---
 title: Match & Exclude
+slug: /match-and-exclude
 description: 
 ---
 

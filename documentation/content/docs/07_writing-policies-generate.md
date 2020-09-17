@@ -1,5 +1,6 @@
 ---
 title: Generate Resources
+slug: /generate-resource
 description: 
 ---
 

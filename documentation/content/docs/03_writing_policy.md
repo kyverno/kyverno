@@ -1,5 +1,6 @@
 ---
 title: Writing Policies
+slug: /writing-policy
 description: 
 ---
 # Writing Policies
