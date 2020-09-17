@@ -132,7 +132,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	for _, v := range policyObj.Spec.Rules {
 		for _, r := range rules {
 			if policyObj.Name == engineResponse.PolicyResponse.Policy && r.Name == v.Name && len(v.MatchResources.Kinds) > 0 {
-				if len(v.MatchResources.Annotations) > 0 || v.MatchResources.Selector == nil {
+				if len(v.MatchResources.Annotations) == 0 && v.MatchResources.Selector == nil {
 					continue
 				} else {
 					engineResponse.PolicyResponse.Rules = append(engineResponse.PolicyResponse.Rules, r)
@@ -174,7 +174,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 		processExisting := false
 
 		if len(rule.MatchResources.Kinds) > 0 {
-			if len(rule.MatchResources.Annotations) > 0 || rule.MatchResources.Selector == nil {
+			if len(rule.MatchResources.Annotations) == 0 && rule.MatchResources.Selector == nil {
 				processExisting = func() bool {
 					rcreationTime := resource.GetCreationTimestamp()
 					pcreationTime := policy.GetCreationTimestamp()
