@@ -19,6 +19,7 @@ $slack-green: #74cdb0
 $stack-overflow-orange: #f48024
 $cncf-blue: #df795a
 $cncf-green: #76c5d5
+$breakpoint:   (64.063em, 90em)
 
 @import "bulma/sass/utilities/initial-variables"
 @import "bulma/sass/utilities/functions"
@@ -37,6 +38,12 @@ $colors: mergeColorMaps(("twitter-blue": ($twitter-blue, $white), "slack-green":
 
 @import "bulma/bulma"
 @import "bulma-dashboard/src/bulma-dashboard"
+
+html
+    width: 100%;
+    height: 100%;
+    font-size: 16px;
+
 
 .card
   margin: 1.5rem 0
@@ -80,3 +87,101 @@ $colors: mergeColorMaps(("twitter-blue": ($twitter-blue, $white), "slack-green":
 
   .main
     flex: 1
+
+.intro-header
+    padding-top: 40px;
+    text-align: center;
+    color: #f8f8f8;
+
+.intro-message
+    margin-top: 80px;
+    color: rgb(51, 51, 51);
+    text-align: left;
+    padding-bottom: 10%;
+    margin-top: -30px;
+    text-align: center;
+
+
+.intro-message
+  h3
+    font-family: -apple-system-headline, 'HelveticaNeue-Light', 'Helvetica Neue', Helvetica, sans-serif;
+
+
+.intro-message
+    h1
+        font-family: -apple-system-subheadline, 'HelveticaNeue-UltraLight', 'Helvetica Neue', Helvetica, sans-serif;
+        font-size: 3em;
+
+body
+    font-family: -apple-system-headline, 'Helvetica Neue', Helvetica, sans-serif;
+
+
+.intro-divider
+  padding-top: 40px;
+  text-align: center;
+  color: #f8f8f8;
+  width: 100%;
+  border-top: 1px solid #f8f8f8;
+  border-bottom: 1px solid rgba(0,0,0,0.2);
+
+.intro-image
+  height: 100%;
+  min-height: 380px;
+  margin-top: 20px;
+  background: url(https://kyverno.io/img/kyverno.png) no-repeat center center;
+  background-size: 280px;
+
+
+.network-name
+  text-transform: uppercase;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 2px;
+
+
+.container
+  width: 80%;
+  line-height: 1.2em;
+
+
+.header-container
+  width: 100%;
+  margin-bottom: 160px;
+
+
+.container
+  ul
+     line-height: 1.6em;
+
+
+.container pre
+  margin-top: 20px;
+  margin-bottom: 20px;
+  line-height: 1.6em;
+
+
+.container
+   h3
+      margin-top: 20px;
+      margin-bottom: 10px;
+
+.content-section-a
+  padding: 10px 0;
+  background-color: #f8f8f8;
+
+
+.content-section-b
+  padding: 50px 0;
+  border-top: 1px solid #e7e7e7;
+  border-bottom: 1px solid #e7e7e7;
+
+
+.section-heading
+  margin-top: 10px;
+  margin-bottom: 10px;
+
+.section-heading-spacer
+  float: left;
+  width: 200px;
+  border-top: 3px solid #e7e7e7;
+

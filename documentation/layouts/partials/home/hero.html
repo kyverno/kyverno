@@ -1,20 +1,29 @@
 {{ $title      := site.Title }}
 {{ $description := site.Params.description | markdownify }}
 {{ $detail := site.Params.detail | markdownify }}
-<section class="hero is-medium is-primary">
-  <div class="hero-body">
-    <div class="container">
-     
-      {{ with $description }}
-      <p class="subtitle is-size-2 is-size-3-mobile has-text-weight-light">
-        {{ . }}
-      </p>
-      {{ end }}
-      {{ with $detail }}
-      <p >
-        {{ . }}
-      </p>
-      {{ end }}
+
+<section  id="intro">
+  <div class="intro-header">
+    <div class="container header-container">
+      <div class="row">
+        <div class="intro-image col-md-4"></div>
+        <div class="intro-message col-md-6">
+          <h1>Kyverno</h1>
+          <h3><b>Kubernetes Native Policy Management</b> </h3>
+          <blockquote>
+            Manage policies as Kubernetes resources. Validate, mutate, and generate configurations.
+            Select resources based on labels and wildcards. View policy enforcement as events. Detect
+            policy violations for existing resources.</blockquote>
+
+           <hr/>
+          <iframe class="github-btn" src="https://ghbtns.com/github-btn.html?user=nirmata&repo=kyverno&type=watch&count=true&size=large&v=2" frameborder="0" scrolling="0" width="160px" height="30px"></iframe>
+
+          <iframe class="github-btn" src="https://ghbtns.com/github-btn.html?user=nirmata&repo=kyverno&type=star&count=true&size=large" frameborder="0" scrolling="0" width="160px" height="30px"></iframe>
+
+          <iframe class="github-btn" src="https://ghbtns.com/github-btn.html?user=nirmata&repo=kyverno&type=fork&count=true&size=large" frameborder="0" scrolling="0" width="158px" height="30px"></iframe>
+
+        </div>
+      </div>
     </div>
   </div>
 </section>

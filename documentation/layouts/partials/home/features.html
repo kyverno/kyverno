@@ -2,26 +2,23 @@
 {{ with $features }}
 <section class="section is-light">
   <div class="container">
-    <div class="columns is-multiline is-variable is-8">
-      {{ range $features }}
-      {{ $url := .url }}
-      <div class="column is-half">
-        <article class="media is-large">
-          <figure class="media-left">
-    <span class="icon is-medium has-text-orange">
-      <i class="fas fa-lg fa-{{ .icon }}"></i>
-    </span>
-          </figure>
-          <div class="media-content">
-            <div class="content">
-              <h2>{{ .title }}</h2>
-
-              {{ .description | markdownify }}
-            </div>
-          </div>
-        </article>
+      <div class="content">
+           <h2>Features</h2>
       </div>
-      {{ end }}
+      <hr/>
+        <div class="rows">
+            {{ range $features }}
+            {{ $url := .url }}
+
+          <ul>
+            <li>
+                <div class="content">
+                    <h5>{{ .title }}</h5>
+                </div>
+            </li>
+          </ul>
+
+       {{ end }}
     </div>
   </div>
 </section>
