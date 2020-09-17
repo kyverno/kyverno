@@ -30,6 +30,8 @@ import (
 	"github.com/nirmata/kyverno/pkg/webhooks"
 	webhookgenerate "github.com/nirmata/kyverno/pkg/webhooks/generate"
 	kubeinformers "k8s.io/client-go/informers"
+	crdInformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	apiextension "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/klog"
 	"k8s.io/klog/klogr"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
@@ -277,7 +279,14 @@ func main() {
 	}
 
 	// Sync openAPI definitions of resources
-	openAPISync := openapi.NewCRDSync(client, openAPIController)
+	// openAPISync := openapi.NewCRDSync(client, openAPIController)
+	crdClient, err := apiextension.NewForConfig(clientConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create crd client")
+		os.Exit(1)
+	}
+	crdInformerCache := crdInformer.NewSharedInformerFactory(crdClient, 0)
+	openAPISyncNew := openapi.NewCRDSyncNew(client, openAPIController, crdInformerCache.Apiextensions().V1().CustomResourceDefinitions())
 
 	supportMutateValidate := utils.HigherThanKubernetesVersion(client, log.Log, 1, 14, 0)
 
@@ -331,7 +340,9 @@ func main() {
 	go statusSync.Run(1, stopCh)
 	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)
-	openAPISync.Run(1, stopCh)
+	go openAPISyncNew.Run(1, stopCh)
+	// openAPISync.Run(1, stopCh)
+	
 
 	// verifies if the admission control is enabled and active
 	// resync: 60 seconds

@@ -1077,8 +1077,8 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: nirmata/kyverno:v1.1.11
-        imagePullPolicy: Always
+        image: nirmata/kyverno:v1.1.7-113-g46158ee6
+        imagePullPolicy: Never
         livenessProbe:
           failureThreshold: 4
           httpGet:
