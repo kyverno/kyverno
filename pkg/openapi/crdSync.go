@@ -116,6 +116,16 @@ func (o *Controller) deleteCRDFromPreviousSync() {
 	o.crdList = make([]string, 0)
 }
 
+func (o *Controller) deleteCRDFromCache(crd string) {
+	for i, cName := range o.crdList {
+		if crd == cName {
+			o.crdList = append(o.crdList[:i], o.crdList[i+1:]...)
+		}
+	}
+	delete(o.kindToDefinitionName, crd)
+	delete(o.definitions, crd)
+}
+
 func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 	var err error
 
@@ -164,8 +174,16 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 		}
 		return
 	}
-
-	o.crdList = append(o.crdList, crdName)
+	ok := false
+	for _, cName := range o.crdList {
+		if crdName == cName {
+			ok = true
+			break
+		}
+	}
+	if !ok {
+		o.crdList = append(o.crdList, crdName)
+	}
 	o.kindToDefinitionName[crdName] = crdName
 	o.definitions[crdName] = parsedSchema
 }
