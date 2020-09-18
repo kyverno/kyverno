@@ -9,7 +9,6 @@ import (
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -108,7 +107,8 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		logger.V(4).Info("policy does not apply to resource")
 		return nil, fmt.Errorf("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 	}
-	var rules []response.RuleResponse
+
+	// Removing GR if rule is failed. Used when the generate condition failed but gr exist
 	for _, r := range engineResponse.PolicyResponse.Rules {
 		if !r.Success {
 			grList, err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
@@ -123,23 +123,9 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 					}
 				}
 			}
-		} else {
-			rules = append(rules, r)
 		}
 	}
-	engineResponse.PolicyResponse.Rules = []response.RuleResponse{}
 
-	for _, v := range policyObj.Spec.Rules {
-		for _, r := range rules {
-			if policyObj.Name == engineResponse.PolicyResponse.Policy && r.Name == v.Name && len(v.MatchResources.Kinds) > 0 {
-				if len(v.MatchResources.Annotations) == 0 && v.MatchResources.Selector == nil {
-					continue
-				} else {
-					engineResponse.PolicyResponse.Rules = append(engineResponse.PolicyResponse.Rules, r)
-				}
-			}
-		}
-	}
 
 	// Apply the generate rule on resource
 	return c.applyGeneratePolicy(logger, policyContext, gr)
