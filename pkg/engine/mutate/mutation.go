@@ -22,7 +22,11 @@ func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResou
 	case isPatchesJSON6902(mutate):
 		return newPatchesJSON6902Handler(ruleName, mutate, patchedResource, logger)
 	case isOverlay(mutate):
-		return newOverlayHandler(ruleName, mutate, patchedResource, context, logger)
+		//return newOverlayHandler(ruleName, mutate, patchedResource, context, logger)
+		mutate.PatchStrategicMerge = mutate.Overlay
+		var a interface{}
+		mutate.Overlay = a
+		return newpatchStrategicMergeHandler(ruleName, mutate, patchedResource, context, logger)
 	case isPatches(mutate):
 		return newpatchesHandler(ruleName, mutate, patchedResource, context, logger)
 	default:

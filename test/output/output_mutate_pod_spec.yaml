@@ -1,6 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  creationTimestamp: "2017-05-31T12:56:35Z"
   name: nginx-deployment
   labels:
     app: nginx
@@ -12,6 +13,7 @@ spec:
       app: nginx
   template:
     metadata:
+      creationTimestamp: "2017-05-31T12:56:35Z"
       labels:
         app: nginx
     spec:

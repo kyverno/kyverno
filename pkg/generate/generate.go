@@ -379,7 +379,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 				return noGenResource, err
 			}
 			logger.V(4).Info("updated new resource")
-		}else{
+		} else {
 			resource := &unstructured.Unstructured{}
 			resource.SetUnstructuredContent(rdata)
 			resource.SetLabels(label)

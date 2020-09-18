@@ -146,7 +146,7 @@ func TestGeneratePodControllerRule_Mutate(t *testing.T) {
 				}
 			  },
 			  "mutate": {
-				"overlay": {
+				"patchStrategicMerge": {
 				  "metadata": {
 					"annotations": {
 					  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
@@ -197,7 +197,7 @@ func TestGeneratePodControllerRule_Mutate(t *testing.T) {
 				}
 			  },
 			  "mutate": {
-				"overlay": {
+				"patchStrategicMerge": {
 				  "metadata": {
 					"annotations": {
 					  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
@@ -227,7 +227,7 @@ func TestGeneratePodControllerRule_Mutate(t *testing.T) {
 				}
 			  },
 			  "mutate": {
-				"overlay": {
+				"patchStrategicMerge": {
 				  "spec": {
 					"template": {
 					  "metadata": {
@@ -258,7 +258,7 @@ func TestGeneratePodControllerRule_Mutate(t *testing.T) {
 				}
 			  },
 			  "mutate": {
-				"overlay": {
+				"patchStrategicMerge": {
 				  "spec": {
 					"jobTemplate": {
 					  "spec": {

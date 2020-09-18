@@ -16,4 +16,4 @@ expected:
         - name: annotate-empty-dir
           type: Mutation
           success: true
-          message: "successfully processed overlay"
+          message: "successfully processed stragetic merge patch"

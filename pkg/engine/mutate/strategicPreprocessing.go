@@ -103,7 +103,7 @@ func walkMap(pattern, resource *yaml.RNode) error {
 			if ind == -1 {
 				continue
 			}
-             
+
 			// remove anchor tags from value
 			// A MappingNode contains keyNode and Value node
 			// keyNode contains it's key value in it's Value field, So remove anchor tags from Value field
@@ -131,6 +131,18 @@ func walkMap(pattern, resource *yaml.RNode) error {
 					return err
 				}
 			}
+		} else {
+			// remove anchors from patterns where there is no specific key exists in resource.
+			// Ex :-
+			// pattern : {"annotations": {"+(add-annotation)":"true" }}
+			// resource : No "annotations" key
+			if hasAnchors(pattern) {
+				err := preProcessPattern(patternMapNode.Value, resource)
+				if err != nil {
+					return err
+				}
+			}
+
 		}
 	}
 	return nil
@@ -484,7 +496,7 @@ func hasAnchors(pattern *yaml.RNode) bool {
 		}
 		for _, key := range fields {
 
-			if anchor.IsConditionAnchor(key) {
+			if anchor.IsConditionAnchor(key) || anchor.IsAddingAnchor(key) {
 				return true
 			}
 			patternMapNode := pattern.Field(key)
