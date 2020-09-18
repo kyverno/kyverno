@@ -65,10 +65,10 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 	// If request is delete, newR will be empty
 	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
-		return *isRequestDenied(logger, ctx, policy, oldR, admissionInfo, policyContext.ExcludeGroupRole)
+		return *isRequestDenied(logger, ctx, policy, oldR, admissionInfo, policyContext.ExcludeGroupRole, resCache, jsonContext)
 	}
 
-	if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo, policyContext.ExcludeGroupRole); !denyResp.IsSuccessful() {
+	if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo, policyContext.ExcludeGroupRole, resCache, jsonContext); !denyResp.IsSuccessful() {
 		return *denyResp
 	}
 	if reflect.DeepEqual(oldR, unstructured.Unstructured{}) {
@@ -104,7 +104,7 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }
 
-func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, excludeGroupRole []string) *response.EngineResponse {
+func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 	if SkipPolicyApplication(policy, resource) {
 		log.V(5).Info("Skip applying policy, Pod has ownerRef set", "policy", policy.GetName())
@@ -116,6 +116,12 @@ func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.
 	}
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasValidate() {
+			continue
+		}
+
+		// add configmap json data to context
+		if err := AddResourceToContext(log, rule.Context, resCache, jsonContext); err != nil {
+			log.V(4).Info("cannot add configmaps to context", "reason", err.Error())
 			continue
 		}
 

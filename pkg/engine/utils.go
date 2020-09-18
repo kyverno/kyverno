@@ -316,6 +316,7 @@ func AddResourceToContext(logger logr.Logger, contexts []kyverno.ContextEntry, r
 			}
 			// extract configmap data
 			contextData["data"] = unstructuredObj["data"]
+			contextData["metadata"] = unstructuredObj["metadata"]
 			contextNamedData := make(map[string]interface{})
 			contextNamedData[context.Name] = contextData
 			jdata, err := json.Marshal(contextNamedData)

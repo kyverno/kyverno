@@ -20,6 +20,10 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 		if path := userInfoDefined(rule.ExcludeResources.UserInfo); path != "" {
 			return fmt.Errorf("invalid variable used at path: spec/rules[%d]/exclude/%s", idx, path)
 		}
+		// Skip Validation if rule contains Context
+		if len(rule.Context) > 0 {
+			return nil
+		}
 
 		filterVars := []string{"request.object"}
 		ctx := context.NewContext(filterVars...)
@@ -31,10 +35,6 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 			if condition.Value, err = variables.SubstituteVars(log.Log, ctx, condition.Value); !checkNotFoundErr(err) {
 				return fmt.Errorf("invalid variable used at spec/rules[%d]/condition[%d]/value", idx, condIdx)
 			}
-		}
-		// Skip Validation if rule contains Context
-		if len(rule.Context) > 0 {
-			return nil
 		}
 
 		if rule.Mutation.Overlay != nil {
