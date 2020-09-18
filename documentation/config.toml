@@ -1,7 +1,6 @@
 title = "Kyverno"
 baseURL = "https://kyverno.netlify.com"
 disableKinds = ["sitemap", "taxonomy", "taxonomyTerm"]
-languageCode = "en-us"
 pygmentsCodefences = true
 pygmentsStyle = "monokai"
 copyright = "Nirmata"
