@@ -15,10 +15,9 @@ description = "Kubernetes Native Policy Management"
 detail= "Manage policies as Kubernetes resources. Validate, mutate, and generate configurations. Select resources based on labels and wildcards. View policy enforcement as events. Detect policy violations for existing resources."
 sansseriffont = "Open Sans"
 monospacefont = "Fira Mono"
-fontawesomeversion = "5.12.0"
-js = ["jquery-3.3.1", "app"]
+fontawesomeversion = "5.6.3"
 logo = "/Kyverno_Horizontal.png"
-favicon = "/cncf-color.png"
+favicon = ""
 repositoryUrl = "https://github.com/nirmata/kyverno"
 contentDir = "/content/"
 
@@ -42,36 +41,31 @@ hex = "#00aced"
 [params.social.github]
 name = "GitHub"
 url  = "https://github.com/nirmata/kyverno"
-icon = "github"
+icon = "fa fa-github"
 color = "github-black"
 
 [params.social.slack]
 name = "Slack"
 url = "https://kubernetes.slack.com/"
-icon = "slack"
+icon = "fa fa-slack"
 color = "slack-green"
 
 [params.social.twitter]
 name = "Twitter"
 url = "https://twitter.com/kyverno"
-icon = "fab fa-twitter"
+icon = "fa fa-twitter"
 color = "twitter-blue"
 
 
 [[params.fonts]]
-name = "Fira Sans"
+name = "Open Sans"
 sizes = [300, 400, 600, 700]
 type = "sans_serif"
 
 [[params.fonts]]
 name = "Fira Mono"
-sizes = [300, 400, 600, 700]
+sizes = [400]
 type = "monospace"
-
-[[params.fonts]]
-name = "Fire Sans"
-sizes = [100, 200, 300, 400, 500, 600, 700]
-type = "heading_font"
 
 
 [[menu.main]]

@@ -1,8 +1,6 @@
 ---
 title: "Docs"
 description: "index of the docs section"
-draft: false
-toc: true
 slug : /
 ---
 
