@@ -123,8 +123,8 @@ docker-build-all: docker-build-initContainer docker-build-kyverno docker-build-c
 
 ci:
 	echo "kustomize input"
-	chmod a+x $(PWD)/scripts/ci.sh
-	$(PWD)/scripts/ci.sh
+	chmod a+x $(PWD)/scripts/e2e-helper.sh
+	$(PWD)/scripts/e2e-helper.sh
 
 
 ##################################
