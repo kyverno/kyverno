@@ -106,16 +106,21 @@ url = "/docs"
 
 [[menu.navbar]]
 name = "Docs"
-url = "/docs"
+url = "/docs/home"
 weight = 1
+
+[[menu.navbar]]
+name = "Best Practices"
+url = "/examples/home/"
+weight = 2
 
 [[menu.navbar]]
 name = "Nirmata"
 url = "https://nirmata.com"
-weight = 2
+weight = 3
 
 [[menu.navbar]]
 name = "Resources"
 url = "/docs/resources"
-weight = 3
+weight = 4
 
