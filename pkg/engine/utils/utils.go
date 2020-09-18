@@ -1,8 +1,11 @@
 package utils
 
 import (
+	"encoding/json"
+
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	commonAnchor "github.com/nirmata/kyverno/pkg/engine/anchor/common"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -84,6 +87,19 @@ func JoinPatches(patches [][]byte) []byte {
 	return result
 }
 
+// TransformPatches converts mutation.Patches to bytes array
+func TransformPatches(patches []kyverno.Patch) (patchesBytes [][]byte, err error) {
+	for _, patch := range patches {
+		patchRaw, err := json.Marshal(patch)
+		if err != nil {
+			return nil, err
+		}
+		patchesBytes = append(patchesBytes, patchRaw)
+	}
+
+	return patchesBytes, nil
+}
+
 //ConvertToUnstructured converts the resource to unstructured format
 func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 	resource := &unstructured.Unstructured{}
@@ -99,7 +115,7 @@ func GetAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{}
 	result := make(map[string]interface{})
 
 	for key, value := range anchorsMap {
-		if anchor.IsConditionAnchor(key) {
+		if commonAnchor.IsConditionAnchor(key) {
 			result[key] = value
 		}
 	}

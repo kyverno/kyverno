@@ -24,7 +24,7 @@ func (wrc *WebhookRegistrationClient) constructDebugMutatingWebhookConfig(caData
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				"*/*",
+				[]string{"*/*"},
 				"*",
 				"*",
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
@@ -34,6 +34,17 @@ func (wrc *WebhookRegistrationClient) constructDebugMutatingWebhookConfig(caData
 }
 
 func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+
+	webhookCfg := generateMutatingWebhook(
+		config.MutatingWebhookName,
+		config.MutatingWebhookServicePath,
+		caData, false, wrc.timeoutSeconds,
+		[]string{"*/*"}, "*", "*",
+		[]admregapi.OperationType{admregapi.Create, admregapi.Update})
+
+	reinvoke := admregapi.IfNeededReinvocationPolicy
+	webhookCfg.ReinvocationPolicy = &reinvoke
+
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.MutatingWebhookConfigurationName,
@@ -41,19 +52,7 @@ func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(caData []by
 				wrc.constructOwner(),
 			},
 		},
-		Webhooks: []admregapi.MutatingWebhook{
-			generateMutatingWebhook(
-				config.MutatingWebhookName,
-				config.MutatingWebhookServicePath,
-				caData,
-				false,
-				wrc.timeoutSeconds,
-				"*/*",
-				"*",
-				"*",
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
-			),
-		},
+		Webhooks: []admregapi.MutatingWebhook{webhookCfg},
 	}
 }
 
@@ -70,7 +69,7 @@ func (wrc *WebhookRegistrationClient) RemoveResourceMutatingWebhookConfiguration
 	configName := wrc.GetResourceMutatingWebhookConfigName()
 	logger := wrc.log.WithValues("kind", MutatingWebhookConfigurationKind, "name", configName)
 	// delete webhook configuration
-	err := wrc.client.DeleteResource(MutatingWebhookConfigurationKind, "", configName, false)
+	err := wrc.client.DeleteResource("", MutatingWebhookConfigurationKind, "", configName, false)
 	if errors.IsNotFound(err) {
 		logger.V(4).Info("webhook configuration not found")
 		return
@@ -98,7 +97,7 @@ func (wrc *WebhookRegistrationClient) constructDebugValidatingWebhookConfig(caDa
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				"*/*",
+				[]string{"*/*"},
 				"*",
 				"*",
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
@@ -122,7 +121,7 @@ func (wrc *WebhookRegistrationClient) constructValidatingWebhookConfig(caData []
 				caData,
 				false,
 				wrc.timeoutSeconds,
-				"*/*",
+				[]string{"*/*"},
 				"*",
 				"*",
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
@@ -144,7 +143,7 @@ func (wrc *WebhookRegistrationClient) GetResourceValidatingWebhookConfigName() s
 func (wrc *WebhookRegistrationClient) RemoveResourceValidatingWebhookConfiguration() {
 	configName := wrc.GetResourceValidatingWebhookConfigName()
 	logger := wrc.log.WithValues("kind", ValidatingWebhookConfigurationKind, "name", configName)
-	err := wrc.client.DeleteResource(ValidatingWebhookConfigurationKind, "", configName, false)
+	err := wrc.client.DeleteResource("", ValidatingWebhookConfigurationKind, "", configName, false)
 	if errors.IsNotFound(err) {
 		logger.V(5).Info("webhook configuration not found")
 		return

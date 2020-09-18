@@ -10,6 +10,7 @@ metadata:
       With `securityContext.allowPrivilegeEscalation` enabled, a process can 
       gain privileges from its parent. 
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-privileged
     match:
@@ -22,8 +23,6 @@ spec:
         spec:
           containers:
           - =(securityContext):
-              # https://github.com/kubernetes/api/blob/7dc09db16fb8ff2eee16c65dc066c85ab3abb7ce/core/v1/types.go#L5707-L5711
-              # k8s default to false
               =(privileged): false
   - name: validate-allowPrivilegeEscalation
     match:
@@ -36,6 +35,5 @@ spec:
         spec:
           containers:
           - securityContext:
-              # https://github.com/kubernetes/api/blob/7dc09db16fb8ff2eee16c65dc066c85ab3abb7ce/core/v1/types.go#L5754
               allowPrivilegeEscalation: false
 

@@ -3,7 +3,7 @@
 ##################################
 # DEFAULTS
 ##################################
-GIT_VERSION := $(shell git describe --dirty --always --tags)
+GIT_VERSION := $(shell git describe --always --tags)
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
@@ -28,7 +28,7 @@ PWD := $(CURDIR)
 ##################################
 INITC_PATH := cmd/initContainer
 INITC_IMAGE := kyvernopre
-initContainer:
+initContainer: fmt vet
 	GOOS=$(GOOS) go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
 
 .PHONY: docker-build-initContainer docker-tag-repo-initContainer docker-push-initContainer
@@ -58,7 +58,7 @@ local:
 	go build -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)
 	go build -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)
 
-kyverno:
+kyverno: fmt vet
 	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
 
 docker-publish-kyverno: docker-build-kyverno  docker-tag-repo-kyverno  docker-push-kyverno
@@ -68,6 +68,7 @@ docker-build-kyverno:
 	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(PWD)/$(KYVERNO_PATH)
 
 docker-tag-repo-kyverno:
+	@echo "docker tag $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest"
 	@docker tag $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest
 
 docker-push-kyverno:
@@ -75,6 +76,7 @@ docker-push-kyverno:
 	@docker push $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest
 
 ##################################
+
 # Generate Docs for types.go
 ##################################
 
@@ -89,10 +91,43 @@ generate-api-docs:
 ##################################
 # CLI
 ##################################
+.PHONY: docker-build-cli docker-tag-repo-cli docker-push-cli
 CLI_PATH := cmd/cli/kubectl-kyverno
+KYVERNO_CLI_IMAGE := kyverno-cli
+
 cli:
 	GOOS=$(GOOS) go build -o $(PWD)/$(CLI_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)/main.go
 
+docker-publish-cli: docker-build-cli  docker-tag-repo-cli  docker-push-cli
+
+docker-build-cli:
+	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(CLI_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)/main.go
+	@docker build -f $(PWD)/$(CLI_PATH)/Dockerfile -t $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(PWD)/$(CLI_PATH)
+
+docker-tag-repo-cli:
+	@echo "docker tag $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):latest"
+	@docker tag $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):latest
+
+docker-push-cli:
+	@docker push $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG)
+	@docker push $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):latest
+
+##################################
+docker-publish-all: docker-publish-initContainer docker-publish-kyverno docker-publish-cli
+
+docker-build-all: docker-build-initContainer docker-build-kyverno docker-build-cli
+
+##################################
+# CI Testing
+##################################
+
+ci:
+	echo "kustomize input"
+	chmod a+x $(PWD)/scripts/ci.sh
+	$(PWD)/scripts/ci.sh
+
+
+##################################
 
 ##################################
 # Testing & Code-Coverage 
@@ -126,6 +161,12 @@ code-cov-report: $(CODE_COVERAGE_FILE_TXT)
 	go tool cover -html=coverage.txt
 	if [ -a $(CODE_COVERAGE_FILE_HTML) ]; then open $(CODE_COVERAGE_FILE_HTML); fi;
 
+# Test E2E
+test-e2e:
+	$(eval export E2E="ok")
+	go test ./test/e2e/... -v
+	$(eval export E2E="")
+
 # godownloader create downloading script for kyverno-cli
 godownloader:
 	godownloader .goreleaser.yml --repo nirmata/kyverno -o ./scripts/install-cli.sh  --source="raw"
@@ -139,3 +180,14 @@ kustomize-crd:
 	# Generate install_debug.yaml that for developer testing
 	kustomize build ./definitions/debug > ./definitions/install_debug.yaml
 
+# guidance https://github.com/nirmata/kyverno/wiki/Generate-a-Release
+release: 
+	kustomize build ./definitions > ./definitions/install.yaml
+	kustomize build ./definitions > ./definitions/release/install.yaml
+
+# Run go fmt against code
+fmt:
+	go fmt ./...
+
+vet:
+	go vet ./...

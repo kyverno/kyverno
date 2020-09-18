@@ -3,9 +3,9 @@ on:
   push:
     tags:
       - '*'
-    
+
 jobs:
-  releaser:
+  docker-and-e2e:
     runs-on: ubuntu-latest
     steps:
       -
@@ -20,6 +20,47 @@ jobs:
         with:
           go-version: 1.14
       - uses: creekorful/goreportcard-action@v1.0
+
+      - name: login to docker hub
+        run: echo "${{ secrets.DOCKERIO_PASSWORD }}" | docker login -u "${{ secrets.DOCKERIO_USERNAME }}" --password-stdin
+
+      - name :  docker images publish
+        run: |
+          make docker-publish-all
+
+      - name :  Create Kind Cluster and setup kustomize
+        run: |
+          make ci
+
+      - name: e2e testing
+        run: |
+          echo ">>> Install Kyverno"
+          sed 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' ${GITHUB_WORKSPACE}/definitions/install.yaml | kubectl apply -f -
+          kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/rbac.yaml
+          chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
+          sleep 50
+          echo ">>> Check kyverno"
+          kubectl get pods -n kyverno
+          ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh -n kyverno  kyverno
+          echo ">>> Run Kyverno e2e test"
+          make test-e2e
+
+  kyvernocli-and-helm:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v2
+      -
+        name: Unshallow
+        run: git fetch --prune --unshallow
+      -
+        name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+      - uses: creekorful/goreportcard-action@v1.0
+
       -
         name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v2
@@ -28,14 +69,14 @@ jobs:
           args: release --rm-dist
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+
+
       - uses: J12934/helm-gh-pages-action@master
         name: Run Helm Publish
         with:
           access-token: ${{ secrets.ACCESS_TOKEN }}
           deploy-branch: gh-pages
           charts-folder: charts
+
       - name: Update new version in krew-index
         uses: rajatjindal/krew-release-bot@v0.0.38
-
-
-

@@ -37,7 +37,7 @@ spec:
                 imagePullPolicy: "Always"
 ```
 
-## JSON Patch
+## JSONPatch - RFC 6902
 
 A JSON Patch rule provides an alternate way to mutate resources.
 
@@ -64,15 +64,36 @@ spec :
           kinds :
           - ConfigMap
       mutate:
-        patches:
-        - path: "/data/ship.properties"
-          op: add
-          value: |
-            type=starship
-            owner=utany.corp
-        - path : "/data/newKey1"
-          op : add
-          value : newValue1
+        patchesJson6902: |-
+          - path: "/data/ship.properties"
+            op: add
+            value: |
+              type=starship
+              owner=utany.corp
+          - path : "/data/newKey1"
+            op : add
+            value : newValue1
+````
+
+If your ConfigMap has empty data, the following policy adds an entry to `config-game`.
+````yaml
+apiVersion : kyverno.io/v1
+kind : ClusterPolicy
+metadata :
+  name : policy-generate-cm
+spec :
+  rules:
+    - name: pCM1
+      match:
+        resources:
+          name: "config-game"
+          kinds :
+          - ConfigMap
+      mutate:
+        patchesJson6902: |-
+          - path: "/data"
+            op: add
+            value: {"ship.properties": "{\"type\": \"starship\", \"owner\": \"utany.corp\"}"}
 ````
 
 Here is the example of a patch that removes a label from the secret:
@@ -90,12 +111,70 @@ spec:
           kinds:
             - Secret
       mutate:
-        patches:
-        - path: "/metadata/labels/purpose"
-          op: remove
+        patchesJson6902: |-
+          - path: "/metadata/labels/purpose"
+            op: remove
+````
+
+This policy adds elements to list:
+
+````yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: insert-container
+spec:
+  rules:
+    - name: insert-container
+      match:
+        resources:
+          kinds:
+            - Pod
+      mutate:
+        patchesJson6902: |-
+          - op: add
+            path: /spec/containers/1
+            value: {"name":"busyboxx","image":"busybox:latest"}
+          - op: add
+            path: /spec/containers/0/command
+            value:
+            - ls
 ````
 
 Note, that if **remove** operation cannot be applied, then this **remove** operation will be skipped with no error.
+
+
+
+## Strategic Merge Patch
+
+A `patchStrategicMerge` patch is [stategic-merge](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-api-machinery/strategic-merge-patch.md)-style patch. The `patchStrategicMerge` overlay resolves to a partial resource definition.
+
+This policy sets the imagePullPolicy, adds command to container `nginx`:
+````yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: strategic-merge-patch
+spec:
+  rules:
+    - name: set-image-pull-policy-add-command
+      match:
+        resources:
+          kinds:
+            - Pod
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              name: "{{request.object.metadata.name}}"
+          spec:
+            containers:
+              - name: "nginx"
+                image: "nginx:latest"
+                imagePullPolicy: "Never"
+                command:
+                - ls
+````
 
 ## Mutate Overlay
 

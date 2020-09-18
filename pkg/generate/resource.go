@@ -7,5 +7,5 @@ import (
 )
 
 func getResource(client *dclient.Client, resourceSpec kyverno.ResourceSpec) (*unstructured.Unstructured, error) {
-	return client.GetResource(resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
+	return client.GetResource(resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
 }

@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"github.com/nirmata/kyverno/pkg/config"
 	"reflect"
 	"sort"
 	"time"
@@ -33,7 +34,8 @@ func HandleValidation(
 	statusListener policystatus.Listener,
 	eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
-	log logr.Logger) (bool, string) {
+	log logr.Logger,
+	dynamicConfig config.Interface) (bool, string) {
 
 	if len(policies) == 0 {
 		return true, ""
@@ -66,10 +68,11 @@ func HandleValidation(
 	}
 
 	policyContext := engine.PolicyContext{
-		NewResource:   newR,
-		OldResource:   oldR,
-		Context:       ctx,
-		AdmissionInfo: userRequestInfo,
+		NewResource:      newR,
+		OldResource:      oldR,
+		Context:          ctx,
+		AdmissionInfo:    userRequestInfo,
+		ExcludeGroupRole: dynamicConfig.GetExcludeGroupRole(),
 	}
 
 	var engineResponses []response.EngineResponse
@@ -84,7 +87,8 @@ func HandleValidation(
 		}
 		engineResponses = append(engineResponses, engineResponse)
 		statusListener.Send(validateStats{
-			resp: engineResponse,
+			resp:      engineResponse,
+			namespace: policy.Namespace,
 		})
 		if !engineResponse.IsSuccessful() {
 			logger.V(4).Info("failed to apply policy", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
@@ -123,11 +127,16 @@ func HandleValidation(
 }
 
 type validateStats struct {
-	resp response.EngineResponse
+	resp      response.EngineResponse
+	namespace string
 }
 
 func (vs validateStats) PolicyName() string {
-	return vs.resp.PolicyResponse.Policy
+	if vs.namespace == "" {
+		return vs.resp.PolicyResponse.Policy
+	}
+	return vs.namespace + "/" + vs.resp.PolicyResponse.Policy
+
 }
 
 func (vs validateStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {

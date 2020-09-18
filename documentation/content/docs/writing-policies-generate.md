@@ -27,6 +27,12 @@ spec:
         resources:
           kinds:
             - Namespace
+      exclude:
+        namespaces:
+          - "kube-system"
+          - "default"
+          - "kube-public"
+          - "kyverno"
       generate:
         synchronize: true
         kind: ConfigMap
@@ -54,6 +60,12 @@ spec:
         resources:
           kinds: 
           - Namespace
+      exclude:
+        namespaces:
+          - "kube-system"
+          - "default"
+          - "kube-public"
+          - "kyverno"
       generate:
         kind: ConfigMap # Kind of resource 
         name: default-config # Name of the new Resource
@@ -80,7 +92,7 @@ spec:
             purpose: mongo
 ````
 
-In this example new namespaces will receive 2 new resources after its creation:
+In this example each namespaces will receive 2 new resources:
   * A `ConfigMap` cloned from `default/config-template`.
   * A `Secret` with values `DB_USER` and `DB_PASSWORD`, and label `purpose: mongo`.
 
@@ -99,6 +111,12 @@ spec:
         kinds:
         - Namespace
         name: "*"
+    exclude:
+      namespaces:
+        - "kube-system"
+        - "default"
+        - "kube-public"
+        - "kyverno"
     generate: 
       kind: NetworkPolicy
       name: deny-all-traffic

@@ -17,6 +17,7 @@ kind: ClusterPolicy
 metadata:
   name: disallow-sysctls
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-sysctls
     match:

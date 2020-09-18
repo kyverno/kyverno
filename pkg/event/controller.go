@@ -1,8 +1,6 @@
 package event
 
 import (
-	"time"
-
 	"github.com/go-logr/logr"
 
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
@@ -61,7 +59,7 @@ func NewEventGenerator(client *client.Client, pInformer kyvernoinformer.ClusterP
 }
 
 func rateLimiter() workqueue.RateLimiter {
-	return workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 1000*time.Second)
+	return workqueue.DefaultItemBasedRateLimiter()
 }
 
 func initRecorder(client *client.Client, eventSource Source, log logr.Logger) record.EventRecorder {
@@ -184,7 +182,7 @@ func (gen *Generator) syncHandler(key Info) error {
 			return err
 		}
 	default:
-		robj, err = gen.client.GetResource(key.Kind, key.Namespace, key.Name)
+		robj, err = gen.client.GetResource("", key.Kind, key.Namespace, key.Name)
 		if err != nil {
 			logger.Error(err, "failed to get resource", "kind", key.Kind, "name", key.Name, "namespace", key.Namespace)
 			return err

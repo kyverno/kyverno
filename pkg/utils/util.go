@@ -69,7 +69,7 @@ func CRDInstalled(discovery client.IDiscovery, log logr.Logger) bool {
 	logger := log.WithName("CRDInstalled")
 	check := func(kind string) bool {
 		gvr := discovery.GetGVRFromKind(kind)
-		if reflect.DeepEqual(gvr, (schema.GroupVersionResource{})) {
+		if reflect.DeepEqual(gvr, schema.GroupVersionResource{}) {
 			logger.Info("CRD not installed", "kind", kind)
 			return false
 		}
@@ -88,7 +88,7 @@ func CleanupOldCrd(client *dclient.Client, log logr.Logger) {
 	logger := log.WithName("CleanupOldCrd")
 	gvr := client.DiscoveryClient.GetGVRFromKind("NamespacedPolicyViolation")
 	if !reflect.DeepEqual(gvr, (schema.GroupVersionResource{})) {
-		if err := client.DeleteResource("CustomResourceDefinition", "", "namespacedpolicyviolations.kyverno.io", false); err != nil {
+		if err := client.DeleteResource("", "CustomResourceDefinition", "", "namespacedpolicyviolations.kyverno.io", false); err != nil {
 			logger.Error(err, "Failed to remove prevous CRD", "kind", "namespacedpolicyviolation")
 		}
 	}

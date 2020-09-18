@@ -1,8 +1,6 @@
 package generate
 
 import (
-	"time"
-
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -20,6 +18,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"time"
 )
 
 const (
@@ -58,6 +57,8 @@ type Controller struct {
 	nsInformer           informers.GenericInformer
 	policyStatusListener policystatus.Listener
 	log                  logr.Logger
+
+	Config config.Interface
 }
 
 //NewController returns an instance of the Generate-Request Controller
@@ -70,6 +71,7 @@ func NewController(
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
 	policyStatus policystatus.Listener,
 	log logr.Logger,
+	dynamicConfig config.Interface,
 ) *Controller {
 	c := Controller{
 		client:        client,
@@ -81,6 +83,7 @@ func NewController(
 		dynamicInformer:      dynamicInformer,
 		log:                  log,
 		policyStatusListener: policyStatus,
+		Config:               dynamicConfig,
 	}
 	c.statusControl = StatusControl{client: kyvernoclient}
 
@@ -195,6 +198,19 @@ func (c *Controller) deleteGR(obj interface{}) {
 		if !ok {
 			logger.Info("tombstone contained object that is not a Generate Request CR", "obj", obj)
 			return
+		}
+	}
+	for _, resource := range gr.Status.GeneratedResources {
+		r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
+		if err != nil {
+			logger.Error(err, "Generated resource is not deleted", "Resource", resource.Name)
+			continue
+		}
+		labels := r.GetLabels()
+		if labels["policy.kyverno.io/synchronize"] == "enable" {
+			if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil {
+				logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
+			}
 		}
 	}
 	logger.Info("deleting generate request", "name", gr.Name)

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
 	"github.com/nirmata/kyverno/pkg/policy/common"
 )
 
@@ -31,14 +31,14 @@ func (v *Validate) Validate() (string, error) {
 	}
 
 	if rule.Pattern != nil {
-		if path, err := common.ValidatePattern(rule.Pattern, "/", []anchor.IsAnchor{anchor.IsConditionAnchor, anchor.IsExistenceAnchor, anchor.IsEqualityAnchor, anchor.IsNegationAnchor}); err != nil {
+		if path, err := common.ValidatePattern(rule.Pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor}); err != nil {
 			return fmt.Sprintf("pattern.%s", path), err
 		}
 	}
 
 	if len(rule.AnyPattern) != 0 {
 		for i, pattern := range rule.AnyPattern {
-			if path, err := common.ValidatePattern(pattern, "/", []anchor.IsAnchor{anchor.IsConditionAnchor, anchor.IsExistenceAnchor, anchor.IsEqualityAnchor, anchor.IsNegationAnchor}); err != nil {
+			if path, err := common.ValidatePattern(pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor}); err != nil {
 				return fmt.Sprintf("anyPattern[%d].%s", i, path), err
 			}
 		}

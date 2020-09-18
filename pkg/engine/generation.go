@@ -22,19 +22,27 @@ func Generate(policyContext PolicyContext) (resp response.EngineResponse) {
 	resource := policyContext.NewResource
 	admissionInfo := policyContext.AdmissionInfo
 	ctx := policyContext.Context
+
 	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name, "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
-	return filterRules(policy, resource, admissionInfo, ctx, logger)
+
+	return filterRules(policy, resource, admissionInfo, ctx, logger, policyContext.ExcludeGroupRole)
 }
 
-func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface, log logr.Logger) *response.RuleResponse {
+func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface, log logr.Logger, excludeGroupRole []string) *response.RuleResponse {
 	if !rule.HasGenerate() {
 		return nil
 	}
 
 	startTime := time.Now()
-
-	if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
-		return nil
+	if err := MatchesResourceDescription(resource, rule, admissionInfo, excludeGroupRole); err != nil {
+		return &response.RuleResponse{
+			Name:    rule.Name,
+			Type:    "Generation",
+			Success: false,
+			RuleStats: response.RuleStats{
+				ProcessingTime: time.Since(startTime),
+			},
+		}
 	}
 	// operate on the copy of the conditions, as we perform variable substitution
 	copyConditions := copyConditions(rule.Conditions)
@@ -55,7 +63,7 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	}
 }
 
-func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface, log logr.Logger) response.EngineResponse {
+func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface, log logr.Logger, excludeGroupRole []string) response.EngineResponse {
 	resp := response.EngineResponse{
 		PolicyResponse: response.PolicyResponse{
 			Policy: policy.Name,
@@ -66,9 +74,8 @@ func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 			},
 		},
 	}
-
 	for _, rule := range policy.Spec.Rules {
-		if ruleResp := filterRule(rule, resource, admissionInfo, ctx, log); ruleResp != nil {
+		if ruleResp := filterRule(rule, resource, admissionInfo, ctx, log, excludeGroupRole); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}

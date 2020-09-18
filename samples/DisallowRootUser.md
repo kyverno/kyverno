@@ -16,6 +16,7 @@ kind: ClusterPolicy
 metadata:
   name: disallow-root-user
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-runAsNonRoot
     match:
@@ -29,7 +30,14 @@ spec:
           securityContext:
             runAsNonRoot: true
       - spec:
+          securityContext:
+            runAsUser: ">0"
+      - spec:
           containers:
           - securityContext:
               runAsNonRoot: true
+      - spec:
+          containers:
+          - securityContext:
+              runAsUser: ">0"
 ````

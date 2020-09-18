@@ -15,7 +15,10 @@ apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: disallow-new-capabilities
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-add-capabilities
     match:
@@ -25,11 +28,11 @@ spec:
     validate:
       message: "New capabilities cannot be added"
       pattern:
-      - spec:
+        spec:
           containers:
-          - name: "*"
-            =(securityContext):
-              =(capabilities):
-                X(add): null
+            - name: "*"
+              =(securityContext):
+                =(capabilities):
+                  X(add): null
 
 ````

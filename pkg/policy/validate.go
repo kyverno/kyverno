@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/nirmata/kyverno/pkg/kyverno/common"
 	"reflect"
 	"strings"
 
@@ -21,10 +22,20 @@ import (
 // - One operation per rule
 // - ResourceDescription mandatory checks
 func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
+	// check for invalid fields
+	err := checkInvalidFields(policyRaw)
+	if err != nil {
+		return err
+	}
+
 	var p kyverno.ClusterPolicy
-	err := json.Unmarshal(policyRaw, &p)
+	err = json.Unmarshal(policyRaw, &p)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal policy admission request err %v", err)
+	}
+
+	if common.PolicyHasVariables(p) && common.PolicyHasNonAllowedVariables(p) {
+		return fmt.Errorf("policy contains non allowed variables")
 	}
 
 	if path, err := validateUniqueRuleName(p); err != nil {
@@ -47,6 +58,32 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 			// as there are more than 1 operation in rule, not need to evaluate it further
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
+		// validate Cluster Resources in namespaced cluster policy
+		// For namespaced cluster policy, ClusterResource type field and values are not allowed in match and exclude
+		if !mock && p.ObjectMeta.Namespace != "" {
+			var Empty struct{}
+			clusterResourcesMap := make(map[string]*struct{})
+			// Get all the cluster type kind supported by cluster
+			res, err := client.GetDiscoveryCache().ServerPreferredResources()
+			if err != nil {
+				return err
+			}
+			for _, resList := range res {
+				for _, r := range resList.APIResources {
+					if r.Namespaced == false {
+						if clusterResourcesMap[r.Kind] != nil {
+							clusterResourcesMap[r.Kind] = &Empty
+						}
+					}
+				}
+			}
+
+			clusterResources := make([]string, 0, len(clusterResourcesMap))
+			for k := range clusterResourcesMap {
+				clusterResources = append(clusterResources, k)
+			}
+			return checkClusterResourceInMatchAndExclude(rule, clusterResources)
+		}
 
 		if doesMatchAndExcludeConflict(rule) {
 			return fmt.Errorf("path: spec.rules[%v]: rule is matching an empty set", rule.Name)
@@ -68,6 +105,11 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 					" the rule does not match an kind")
 			}
 		}
+
+		// Validate string values in labels
+		if !isLabelAndAnnotationsString(rule) {
+			return fmt.Errorf("labels and annotations supports only string values, \"use double quotes around the non string values\"")
+		}
 	}
 
 	if !mock {
@@ -80,6 +122,34 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		}
 	}
 
+	return nil
+}
+
+// checkInvalidFields - checks invalid fields in webhook policy request
+// policy supports 5 json fields in types.go i.e. "apiVersion", "kind", "metadata", "spec", "status"
+// If the webhook request policy contains new fields then block creation of policy
+func checkInvalidFields(policyRaw []byte) error {
+	// hardcoded supported fields by policy
+	var allowedKeys = []string{"apiVersion", "kind", "metadata", "spec", "status"}
+	var data interface{}
+	err := json.Unmarshal(policyRaw, &data)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal policy admission request err %v", err)
+	}
+	mapData := data.(map[string]interface{})
+	// validate any new fields in the admission request against the supported fields and block the request with any new fields
+	for requestField, _ := range mapData {
+		ok := false
+		for _, allowedField := range allowedKeys {
+			if requestField == allowedField {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return fmt.Errorf("unknown field \"%s\" in policy admission request", requestField)
+		}
+	}
 	return nil
 }
 
@@ -219,6 +289,62 @@ func doesMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		}
 	}
 
+	return true
+}
+
+// isLabelAndAnnotationsString :- Validate if labels and annotations contains only string values
+func isLabelAndAnnotationsString(rule kyverno.Rule) bool {
+	// checkMetadata - Verify if the labels and annotations contains string value inside metadata
+	checkMetadata := func(patternMap map[string]interface{}) bool {
+		for k := range patternMap {
+			if k == "metadata" {
+				metaKey, ok := patternMap[k].(map[string]interface{})
+				if ok {
+					// range over metadata
+					for mk := range metaKey {
+						if mk == "labels" {
+							labelKey, ok := metaKey[mk].(map[string]interface{})
+							if ok {
+								// range over labels
+								for _, val := range labelKey {
+									if reflect.TypeOf(val).String() != "string" {
+										return false
+									}
+								}
+							}
+						} else if mk == "annotations" {
+							annotationKey, ok := metaKey[mk].(map[string]interface{})
+							if ok {
+								// range over annotations
+								for _, val := range annotationKey {
+									if reflect.TypeOf(val).String() != "string" {
+										return false
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		return true
+	}
+
+	patternMap, ok := rule.Validation.Pattern.(map[string]interface{})
+	if ok {
+		return checkMetadata(patternMap)
+	} else if len(rule.Validation.AnyPattern) > 0 {
+		anyPatterns := rule.Validation.AnyPattern
+		for _, pattern := range anyPatterns {
+			patternMap, ok := pattern.(map[string]interface{})
+			if ok {
+				ret := checkMetadata(patternMap)
+				if ret == false {
+					return ret
+				}
+			}
+		}
+	}
 	return true
 }
 
@@ -398,6 +524,37 @@ func validateResourceDescription(rd kyverno.ResourceDescription) error {
 		if len(requirements) == 0 {
 			return errors.New("the requirements are not specified in selector")
 		}
+	}
+	return nil
+}
+
+// checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in
+// Match and Exclude block
+func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources []string) error {
+	// Contains Namespaces in Match->ResourceDescription
+	if len(rule.MatchResources.ResourceDescription.Namespaces) > 0 {
+		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in match.resources")
+	}
+	// Contains Namespaces in Exclude->ResourceDescription
+	if len(rule.ExcludeResources.ResourceDescription.Namespaces) > 0 {
+		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in exclude.resources")
+	}
+	// Contains "Cluster Wide Resources" in Match->ResourceDescription->Kinds
+	for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
+		for _, k := range clusterResources {
+			if kind == k {
+				return fmt.Errorf("namespaced policy : cluster type value '%s' not allowed in match.resources.kinds", kind)
+			}
+		}
+	}
+	// Contains "Cluster Wide Resources" in Exclude->ResourceDescription->Kinds
+	for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
+		for _, k := range clusterResources {
+			if kind == k {
+				return fmt.Errorf("namespaced policy : cluster type value '%s' not allowed in exclude.resources.kinds", kind)
+			}
+		}
+
 	}
 	return nil
 }

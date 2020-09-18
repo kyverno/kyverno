@@ -158,8 +158,10 @@ rules:
   - rolebindings
   - clusterrolebindings
   - configmaps
+  - namespaces
   verbs:
   - watch
+  - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -170,6 +172,8 @@ rules:
 - apiGroups:
   - '*'
   resources:
+  - policies
+  - policies/status
   - clusterpolicies
   - clusterpolicies/status
   - clusterpolicyviolations
@@ -234,25 +238,17 @@ rules:
   verbs:
   - watch
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: init-config
-  namespace: kyverno
-data:
-  # resource types to be skipped by kyverno policy engine
-  resourceFilters: "[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
----
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
-  name: kyverno:view-policyviolations
+  name: kyverno:view-policies-policyviolations
   labels:
     rbac.authorization.k8s.io/aggregate-to-view: "true"
 rules:
 - apiGroups: ["kyverno.io"]
   resources:
   - policyviolations
+  - policies
   verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -266,3 +262,34 @@ rules:
   resources:
   - clusterpolicyviolations
   verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kyverno:admin-policies
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - policies
+  verbs:
+  - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+  name: kyverno:edit-policies-policyviolations
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - policyviolations
+  - policies
+  verbs:
+  - get
+  - list
+  - watch

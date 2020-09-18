@@ -15,7 +15,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
-	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/utils"
 )
@@ -100,7 +100,7 @@ func ProcessOverlay(log logr.Logger, ruleName string, overlay interface{}, resou
 	resp.Success = true
 	resp.Message = fmt.Sprintf("successfully processed overlay")
 	resp.Patches = patches
-	// apply the patches to the resource
+
 	return resp, patchedResource
 }
 
@@ -192,7 +192,7 @@ func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path stri
 	for key, value := range overlayMap {
 		// skip anchor element because it has condition, not
 		// the value that must replace resource value
-		if anchor.IsConditionAnchor(key) {
+		if commonAnchors.IsConditionAnchor(key) {
 			continue
 		}
 
@@ -200,7 +200,7 @@ func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path stri
 		currentPath := path + noAnchorKey + "/"
 		resourcePart, ok := resourceMap[noAnchorKey]
 
-		if ok && !anchor.IsAddingAnchor(key) {
+		if ok && !commonAnchors.IsAddingAnchor(key) {
 			// Key exists - go down through the overlay and resource trees
 			patches, err := applyOverlay(resourcePart, value, currentPath)
 			if err != nil {

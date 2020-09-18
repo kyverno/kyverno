@@ -3,15 +3,14 @@ package policystatus
 import (
 	"encoding/json"
 	"fmt"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	"strings"
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-
-	"github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/client/clientset/versioned"
+	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -51,6 +50,7 @@ type Sync struct {
 	Listener Listener
 	client   *versioned.Clientset
 	lister   kyvernolister.ClusterPolicyLister
+	nsLister kyvernolister.PolicyLister
 }
 
 type cache struct {
@@ -59,7 +59,7 @@ type cache struct {
 	keyToMutex *keyToMutex
 }
 
-func NewSync(c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister) *Sync {
+func NewSync(c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister, nsLister kyvernolister.PolicyLister) *Sync {
 	return &Sync{
 		cache: &cache{
 			dataMu:     sync.RWMutex{},
@@ -68,6 +68,7 @@ func NewSync(c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister) *
 		},
 		client:   c,
 		lister:   lister,
+		nsLister: nsLister,
 		Listener: make(chan statusUpdater, 20),
 	}
 }
@@ -98,7 +99,6 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 					status = policy.Status
 				}
 			}
-
 			updatedStatus := statusUpdater.UpdateStatus(status)
 
 			s.cache.dataMu.Lock()
@@ -126,18 +126,49 @@ func (s *Sync) updatePolicyStatus() {
 	s.cache.dataMu.Unlock()
 
 	for policyName, status := range nameToStatus {
-		policy, err := s.lister.Get(policyName)
-		if err != nil {
-			continue
+		// Identify Policy and ClusterPolicy based on namespace in key
+		// key = <namespace>/<name> for namespacepolicy and key = <name> for clusterpolicy
+		// and update the respective policies
+		namespace := ""
+		isNamespacedPolicy := false
+		key := policyName
+		index := strings.Index(policyName, "/")
+		if index != -1 {
+			namespace = policyName[:index]
+			isNamespacedPolicy = true
+			policyName = policyName[index+1:]
+		}
+		if !isNamespacedPolicy {
+			policy, err := s.lister.Get(policyName)
+			if err != nil {
+				continue
+			}
+
+			policy.Status = status
+			_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(policy)
+			if err != nil {
+				s.cache.dataMu.Lock()
+				delete(s.cache.data, policyName)
+				s.cache.dataMu.Unlock()
+				log.Log.Error(err, "failed to update policy status")
+			}
+		} else {
+			policy, err := s.nsLister.Policies(namespace).Get(policyName)
+			if err != nil {
+				s.cache.dataMu.Lock()
+				delete(s.cache.data, key)
+				s.cache.dataMu.Unlock()
+				continue
+			}
+			policy.Status = status
+			_, err = s.client.KyvernoV1().Policies(namespace).UpdateStatus(policy)
+			if err != nil {
+				s.cache.dataMu.Lock()
+				delete(s.cache.data, key)
+				s.cache.dataMu.Unlock()
+				log.Log.Error(err, "failed to update namespace policy status")
+			}
 		}
 
-		policy.Status = status
-		_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(policy)
-		if err != nil {
-			s.cache.dataMu.Lock()
-			delete(s.cache.data, policyName)
-			s.cache.dataMu.Unlock()
-			log.Log.Error(err, "failed to update policy status")
-		}
 	}
 }

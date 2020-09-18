@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-//CanIOptions provides utility ti check if user has authorization for the given operation
+//CanIOptions provides utility to check if user has authorization for the given operation
 type CanIOptions struct {
 	namespace string
 	verb      string
@@ -20,7 +20,7 @@ type CanIOptions struct {
 	log       logr.Logger
 }
 
-//NewCanI returns a new instance of operation access controler evaluator
+//NewCanI returns a new instance of operation access controller evaluator
 func NewCanI(client *client.Client, kind, namespace, verb string, log logr.Logger) *CanIOptions {
 	o := CanIOptions{
 		client: client,
@@ -38,7 +38,7 @@ func NewCanI(client *client.Client, kind, namespace, verb string, log logr.Logge
 // - operation is a combination of namespace, kind, verb
 // - can only evaluate a single verb
 // - group version resource is determined from the kind using the discovery client REST mapper
-// - If disallowed, the reason and evaluationError is avialable in the logs
+// - If disallowed, the reason and evaluationError is available in the logs
 // - each can generates a SelfSubjectAccessReview resource and response is evaluated for permissions
 func (o *CanIOptions) RunAccessCheck() (bool, error) {
 	// get GroupVersionResource from RESTMapper
@@ -67,7 +67,7 @@ func (o *CanIOptions) RunAccessCheck() (bool, error) {
 	logger := o.log.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name)
 
 	// Create the Resource
-	resp, err := o.client.CreateResource("SelfSubjectAccessReview", "", sar, false)
+	resp, err := o.client.CreateResource("", "SelfSubjectAccessReview", "", sar, false)
 	if err != nil {
 		logger.Error(err, "failed to create resource")
 		return false, err

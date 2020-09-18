@@ -110,7 +110,7 @@ type WebhookServer struct {
 	log               logr.Logger
 	openAPIController *openapi.Controller
 
-	supportMudateValidate bool
+	supportMutateValidate bool
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -133,7 +133,7 @@ func NewWebhookServer(
 	grGenerator *generate.Generator,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	auditHandler AuditHandler,
-	supportMudateValidate bool,
+	supportMutateValidate bool,
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
@@ -177,11 +177,11 @@ func NewWebhookServer(
 		auditHandler:              auditHandler,
 		log:                       log,
 		openAPIController:         openAPIController,
-		supportMudateValidate:     supportMudateValidate,
+		supportMutateValidate:     supportMutateValidate,
 	}
 
 	mux := httprouter.New()
-	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, ws.handlerFunc(ws.resourceMutation, true))
+	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, ws.handlerFunc(ws.ResourceMutation, true))
 	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, ws.handlerFunc(ws.resourceValidation, true))
 	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.handlerFunc(ws.policyMutation, true))
 	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.policyValidation, true))
@@ -224,7 +224,8 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 			return
 		}
 
-		logger := ws.log.WithValues("kind", admissionReview.Request.Kind, "namespace", admissionReview.Request.Namespace, "name", admissionReview.Request.Name)
+		logger := ws.log.WithName("handlerFunc").WithValues("kind", admissionReview.Request.Kind, "namespace", admissionReview.Request.Namespace,
+			"name", admissionReview.Request.Name, "operation", admissionReview.Request.Operation, "uid", admissionReview.Request.UID)
 
 		admissionReview.Response = &v1beta1.AdmissionResponse{
 			Allowed: true,
@@ -259,9 +260,9 @@ func writeResponse(rw http.ResponseWriter, admissionReview *v1beta1.AdmissionRev
 	}
 }
 
-func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 
-	logger := ws.log.WithName("resourceMutation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	logger := ws.log.WithName("ResourceMutation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return &v1beta1.AdmissionResponse{
@@ -271,19 +272,23 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 			},
 		}
 	}
+	logger.V(6).Info("received an admission request in mutating webhook")
+	mutatePolicies := ws.pCache.Get(policycache.Mutate, nil)
+	validatePolicies := ws.pCache.Get(policycache.ValidateEnforce, nil)
+	generatePolicies := ws.pCache.Get(policycache.Generate, nil)
 
-	mutatePolicies := ws.pCache.Get(policycache.Mutate)
-	validatePolicies := ws.pCache.Get(policycache.ValidateEnforce)
-	generatePolicies := ws.pCache.Get(policycache.Generate)
+	// Get namespace policies from the cache for the requested resource namespace
+	nsMutatePolicies := ws.pCache.Get(policycache.Mutate, &request.Namespace)
+	mutatePolicies = append(mutatePolicies, nsMutatePolicies...)
 
 	// getRoleRef only if policy has roles/clusterroles defined
 	var roles, clusterRoles []string
 	var err error
 	if containRBACinfo(mutatePolicies, validatePolicies, generatePolicies) {
-		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
+		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
 		if err != nil {
 			// TODO(shuting): continue apply policy if error getting roleRef?
-			logger.Error(err, "failed to get RBAC infromation for request")
+			logger.Error(err, "failed to get RBAC information for request")
 		}
 	}
 
@@ -324,25 +329,25 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	var patches []byte
 	patchedResource := request.Object.Raw
 
-	if ws.supportMudateValidate {
+	if ws.supportMutateValidate {
 		// MUTATION
 		// mutation failure should not block the resource creation
 		// any mutation failure is reported as the violation
-		if request.Operation != v1beta1.Delete {
+		if resource.GetDeletionTimestamp() == nil {
 			patches = ws.HandleMutation(request, resource, mutatePolicies, ctx, userRequestInfo)
 			logger.V(6).Info("", "generated patches", string(patches))
-		}
 
-		// patch the resource with patches before handling validation rules
-		patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
-		logger.V(6).Info("", "patchedResource", string(patchedResource))
+			// patch the resource with patches before handling validation rules
+			patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
+			logger.V(6).Info("", "patchedResource", string(patchedResource))
+		}
 
 		if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
 			// push admission request to audit handler, this won't block the admission request
 			ws.auditHandler.Add(request.DeepCopy())
 
 			// VALIDATION
-			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log)
+			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log, ws.configHandler)
 			if !ok {
 				logger.Info("admission request denied")
 				return &v1beta1.AdmissionResponse{
@@ -364,7 +369,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	// Failed -> Failed to create Generate Request CR
 
 	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
-		go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo)
+		go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo, ws.configHandler)
 	}
 
 	// Succesful processing of mutation & validation rules in policy
@@ -395,7 +400,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		}
 	}
 
-	if !ws.supportMudateValidate {
+	if !ws.supportMutateValidate {
 		logger.Info("mutate and validate rules are not supported prior to Kubernetes 1.14.0")
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
@@ -414,10 +419,15 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		}
 	}
 
+	logger.V(6).Info("received an admission request in validating webhook")
+
 	// push admission request to audit handler, this won't block the admission request
 	ws.auditHandler.Add(request.DeepCopy())
 
-	policies := ws.pCache.Get(policycache.ValidateEnforce)
+	policies := ws.pCache.Get(policycache.ValidateEnforce, nil)
+	// Get namespace policies from the cache for the requested resource namespace
+	nsPolicies := ws.pCache.Get(policycache.ValidateEnforce, &request.Namespace)
+	policies = append(policies, nsPolicies...)
 	if len(policies) == 0 {
 		logger.V(4).Info("No enforce Validation policy found, returning")
 		return &v1beta1.AdmissionResponse{Allowed: true}
@@ -427,7 +437,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	var err error
 	// getRoleRef only if policy has roles/clusterroles defined
 	if containRBACinfo(policies) {
-		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request)
+		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
 		if err != nil {
 			logger.Error(err, "failed to get RBAC information for request")
 			return &v1beta1.AdmissionResponse{
@@ -463,7 +473,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		logger.Error(err, "failed to load service account in context")
 	}
 
-	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log)
+	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log, ws.configHandler)
 	if !ok {
 		logger.Info("admission request denied")
 		return &v1beta1.AdmissionResponse{
@@ -498,7 +508,7 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 	}(ws)
 	logger.Info("starting")
 
-	// verifys if the admission control is enabled and active
+	// verifies if the admission control is enabled and active
 	// resync: 60 seconds
 	// deadline: 60 seconds (send request)
 	// max deadline: deadline*3 (set the deployment annotation as false)
@@ -577,13 +587,13 @@ func (ws *WebhookServer) excludeKyvernoResources(request *v1beta1.AdmissionReque
 		labels := resource.GetLabels()
 		if labels != nil {
 			if labels["app.kubernetes.io/managed-by"] == "kyverno" && labels["policy.kyverno.io/synchronize"] == "enable" {
-				isAuthorized, err := userinfo.IsRoleAuthorize(ws.rbLister, ws.crbLister, ws.rLister, ws.crLister, request)
+				isAuthorized, err := userinfo.IsRoleAuthorize(ws.rbLister, ws.crbLister, ws.rLister, ws.crLister, request, ws.configHandler)
 				if err != nil {
 					return fmt.Errorf("failed to get RBAC infromation for request %v", err)
 				}
 				if !isAuthorized {
 					// convert RAW to unstructured
-					return fmt.Errorf("Resource is managed by a Kyverno policy and cannot be update manually. You can edit the policy %s to update this resource.",labels["policy.kyverno.io/policy-name"])
+					return fmt.Errorf("resource is managed by a Kyverno policy and cannot be update manually. You can edit the policy %s to update this resource.", labels["policy.kyverno.io/policy-name"])
 				}
 			}
 		}

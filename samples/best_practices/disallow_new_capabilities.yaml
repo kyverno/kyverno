@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: disallow-new-capabilities
   annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
     policies.kyverno.io/category: Security
     policies.kyverno.io/description: Linux allows defining fine-grained permissions using
       capabilities. With Kubernetes, it is possible to add capabilities that escalate the
@@ -10,6 +11,7 @@ metadata:
       enforces that containers cannot add new capabilities. Other policies can be used to set
       default capabilities. 
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-add-capabilities
     match:
@@ -19,9 +21,9 @@ spec:
     validate:
       message: "New capabilities cannot be added"
       pattern:
-      - spec:
+        spec:
           containers:
-          - name: "*"
-            =(securityContext):
-              =(capabilities):
-                X(add): null
+            - name: "*"
+              =(securityContext):
+                =(capabilities):
+                  X(add): null

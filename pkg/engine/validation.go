@@ -62,19 +62,19 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 	// If request is delete, newR will be empty
 	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
-		return *isRequestDenied(logger, ctx, policy, oldR, admissionInfo)
+		return *isRequestDenied(logger, ctx, policy, oldR, admissionInfo, policyContext.ExcludeGroupRole)
 	}
 
-	if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo); !denyResp.IsSuccessful() {
+	if denyResp := isRequestDenied(logger, ctx, policy, newR, admissionInfo, policyContext.ExcludeGroupRole); !denyResp.IsSuccessful() {
 		return *denyResp
 	}
 
 	if reflect.DeepEqual(oldR, unstructured.Unstructured{}) {
-		return *validateResource(logger, ctx, policy, newR, admissionInfo)
+		return *validateResource(logger, ctx, policy, newR, admissionInfo, policyContext.ExcludeGroupRole)
 	}
 
-	oldResponse := validateResource(logger, ctx, policy, oldR, admissionInfo)
-	newResponse := validateResource(logger, ctx, policy, newR, admissionInfo)
+	oldResponse := validateResource(logger, ctx, policy, oldR, admissionInfo, policyContext.ExcludeGroupRole)
+	newResponse := validateResource(logger, ctx, policy, newR, admissionInfo, policyContext.ExcludeGroupRole)
 	if !isSameResponse(oldResponse, newResponse) {
 		return *newResponse
 	}
@@ -102,19 +102,22 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }
 
-func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
+func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, excludeGroupRole []string) *response.EngineResponse {
 	resp := &response.EngineResponse{}
-	if policy.HasAutoGenAnnotation() && excludePod(resource) {
+	if SkipPolicyApplication(policy, resource) {
 		log.V(5).Info("Skip applying policy, Pod has ownerRef set", "policy", policy.GetName())
 		return resp
 	}
-
+	excludeResource := []string{}
+	if len(excludeGroupRole) > 0 {
+		excludeResource = excludeGroupRole
+	}
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasValidate() {
 			continue
 		}
 
-		if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
+		if err := MatchesResourceDescription(resource, rule, admissionInfo, excludeResource); err != nil {
 			log.V(4).Info("resource fails the match description", "reason", err.Error())
 			continue
 		}
@@ -144,12 +147,17 @@ func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.
 	return resp
 }
 
-func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo) *response.EngineResponse {
+func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, excludeGroupRole []string) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 
-	if policy.HasAutoGenAnnotation() && excludePod(resource) {
+	if SkipPolicyApplication(policy, resource) {
 		log.V(5).Info("Skip applying policy, Pod has ownerRef set", "policy", policy.GetName())
 		return resp
+	}
+
+	excludeResource := []string{}
+	if len(excludeGroupRole) > 0 {
+		excludeResource = excludeGroupRole
 	}
 
 	for _, rule := range policy.Spec.Rules {
@@ -160,7 +168,7 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 		// check if the resource satisfies the filter conditions defined in the rule
 		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont satisfy a policy rule resource description
-		if err := MatchesResourceDescription(resource, rule, admissionInfo); err != nil {
+		if err := MatchesResourceDescription(resource, rule, admissionInfo, excludeResource); err != nil {
 			log.V(4).Info("resource fails the match description", "reason", err.Error())
 			continue
 		}

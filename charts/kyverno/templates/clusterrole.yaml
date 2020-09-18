@@ -80,6 +80,8 @@ rules:
 - apiGroups:
   - '*'
   resources:
+  - policies
+  - policies/status
   - clusterpolicies
   - clusterpolicies/status
   - clusterpolicyviolations
@@ -129,6 +131,7 @@ rules:
   - limitranges
   - clusterroles
   - rolebindings
+  - namespaces
   - clusterrolebindings
   {{- range .Values.generatecontrollerExtraResources }}
   - {{ . }}
@@ -137,6 +140,7 @@ rules:
   - create
   - update
   - delete
+  - list
   - get
 # dynamic watches on trigger resources for generate rules
 # re-evaluate the policy if the resource is updated

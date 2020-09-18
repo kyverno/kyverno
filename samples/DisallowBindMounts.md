@@ -11,7 +11,8 @@ apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata: 
   name: disallow-bind-mounts
-spec: 
+spec:
+  validationFailureAction: audit
   rules: 
   - name: validate-hostPath
     match: 
@@ -23,5 +24,5 @@ spec:
       pattern: 
         spec: 
           =(volumes): 
-          - X(hostPath): null
+          - X(hostPath): "null"
 ````

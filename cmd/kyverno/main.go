@@ -46,6 +46,9 @@ var (
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
 	filterK8Resources string
+
+	excludeGroupRole string
+	excludeUsername  string
 	// User FQDN as CSR CN
 	fqdncn   bool
 	setupLog = log.Log.WithName("setup")
@@ -55,6 +58,8 @@ func main() {
 	klog.InitFlags(nil)
 	log.SetLogger(klogr.New())
 	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
+	flag.StringVar(&excludeGroupRole, "excludeGroupRole", "", "")
+	flag.StringVar(&excludeUsername, "excludeUsername", "", "")
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
@@ -140,7 +145,7 @@ func main() {
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
 	//		- Policy
-	//		- PolicyVolation
+	//		- PolicyViolation
 	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, resyncPeriod)
 
 	// Configuration Data
@@ -151,6 +156,8 @@ func main() {
 		kubeClient,
 		kubeInformer.Core().V1().ConfigMaps(),
 		filterK8Resources,
+		excludeGroupRole,
+		excludeUsername,
 		log.Log.WithName("ConfigData"),
 	)
 
@@ -164,7 +171,8 @@ func main() {
 	// Policy Status Handler - deals with all logic related to policy status
 	statusSync := policystatus.NewSync(
 		pclient,
-		pInformer.Kyverno().V1().ClusterPolicies().Lister())
+		pInformer.Kyverno().V1().ClusterPolicies().Lister(),
+		pInformer.Kyverno().V1().Policies().Lister())
 
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
@@ -183,8 +191,10 @@ func main() {
 	policyCtrl, err := policy.NewPolicyController(pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().Policies(),
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().PolicyViolations(),
+		pInformer.Kyverno().V1().GenerateRequests(),
 		configData,
 		eventGenerator,
 		pvgen,
@@ -212,6 +222,7 @@ func main() {
 		kubedynamicInformer,
 		statusSync.Listener,
 		log.Log.WithName("GenerateController"),
+		configData,
 	)
 
 	// GENERATE REQUEST CLEANUP
@@ -227,6 +238,7 @@ func main() {
 
 	pCacheController := policycache.NewPolicyCacheController(
 		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().Policies(),
 		log.Log.WithName("PolicyCacheController"),
 	)
 
@@ -238,6 +250,7 @@ func main() {
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		log.Log.WithName("ValidateAuditHandler"),
+		configData,
 	)
 
 	// CONFIGURE CERTIFICATES
@@ -266,7 +279,7 @@ func main() {
 	// Sync openAPI definitions of resources
 	openAPISync := openapi.NewCRDSync(client, openAPIController)
 
-	supportMudateValidate := utils.HigherThanKubernetesVersion(client, log.Log, 1, 14, 0)
+	supportMutateValidate := utils.HigherThanKubernetesVersion(client, log.Log, 1, 14, 0)
 
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
@@ -292,7 +305,7 @@ func main() {
 		grgen,
 		rWebhookWatcher,
 		auditHandler,
-		supportMudateValidate,
+		supportMutateValidate,
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
@@ -311,7 +324,7 @@ func main() {
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
 	go policyCtrl.Run(3, stopCh)
-	go eventGenerator.Run(1, stopCh)
+	go eventGenerator.Run(3, stopCh)
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
@@ -320,7 +333,7 @@ func main() {
 	go auditHandler.Run(10, stopCh)
 	openAPISync.Run(1, stopCh)
 
-	// verifys if the admission control is enabled and active
+	// verifies if the admission control is enabled and active
 	// resync: 60 seconds
 	// deadline: 60 seconds (send request)
 	// max deadline: deadline*3 (set the deployment annotation as false)

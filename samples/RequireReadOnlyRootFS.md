@@ -13,6 +13,7 @@ kind: ClusterPolicy
 metadata:
   name: require-ro-rootfs
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-readOnlyRootFilesystem
     match:

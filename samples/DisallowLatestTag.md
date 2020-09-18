@@ -13,6 +13,7 @@ kind: ClusterPolicy
 metadata:
   name: disallow-latest-tag
 spec:
+  validationFailureAction: audit
   rules:
   - name: require-image-tag
     match:

@@ -1,9 +1,6 @@
 package engine
 
 import (
-	"encoding/json"
-	"reflect"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -16,12 +13,12 @@ import (
 )
 
 const (
+	// PodControllerCronJob represent CronJob string
+	PodControllerCronJob = "CronJob"
 	//PodControllers stores the list of Pod-controllers in csv string
-	PodControllers = "DaemonSet,Deployment,Job,StatefulSet"
+	PodControllers = "DaemonSet,Deployment,Job,StatefulSet,CronJob"
 	//PodControllersAnnotation defines the annotation key for Pod-Controllers
 	PodControllersAnnotation = "pod-policies.kyverno.io/autogen-controllers"
-	//PodTemplateAnnotation defines the annotation key for Pod-Template
-	PodTemplateAnnotation = "pod-policies.kyverno.io/autogen-applied"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
@@ -38,7 +35,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	startMutateResultResponse(&resp, policy, patchedResource)
 	defer endMutateResultResponse(logger, &resp, startTime)
 
-	if policy.HasAutoGenAnnotation() && excludePod(patchedResource) {
+	if SkipPolicyApplication(policy, patchedResource) {
 		logger.V(5).Info("Skip applying policy, Pod has ownerRef set", "policy", policy.GetName())
 		resp.PatchedResource = patchedResource
 		return
@@ -47,15 +44,18 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	for _, rule := range policy.Spec.Rules {
 		var ruleResponse response.RuleResponse
 		logger := logger.WithValues("rule", rule.Name)
-		//TODO: to be checked before calling the resources as well
-		if !rule.HasMutate() && !strings.Contains(PodControllers, patchedResource.GetKind()) {
+		if !rule.HasMutate() {
 			continue
 		}
 
 		// check if the resource satisfies the filter conditions defined in the rule
 		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
 		// dont satisfy a policy rule resource description
-		if err := MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo); err != nil {
+		excludeResource := []string{}
+		if len(policyContext.ExcludeGroupRole) > 0 {
+			excludeResource = policyContext.ExcludeGroupRole
+		}
+		if err := MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource); err != nil {
 			logger.V(3).Info("resource not matched", "reason", err.Error())
 			continue
 		}
@@ -70,73 +70,23 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		}
 
 		mutation := rule.Mutation.DeepCopy()
-		// Process Overlay
-		if mutation.Overlay != nil {
-			overlay := mutation.Overlay
-			// subsiitue the variables
-			var err error
-			if overlay, err = variables.SubstituteVars(logger, ctx, overlay); err != nil {
-				// variable subsitution failed
-				ruleResponse.Success = false
-				ruleResponse.Message = err.Error()
-				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+
+		mutateHandler := mutate.CreateMutateHandler(rule.Name, mutation, patchedResource, ctx, logger)
+		ruleResponse, patchedResource = mutateHandler.Handle()
+		if ruleResponse.Success {
+			// - overlay pattern does not match the resource conditions
+			if ruleResponse.Patches == nil {
 				continue
 			}
-
-			ruleResponse, patchedResource = mutate.ProcessOverlay(logger, rule.Name, overlay, patchedResource)
-			if ruleResponse.Success {
-				// - overlay pattern does not match the resource conditions
-				if ruleResponse.Patches == nil {
-					continue
-				}
-				logger.V(4).Info("overlay applied successfully")
-			}
-
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
-			incrementAppliedRuleCount(&resp)
+			logger.V(4).Info("mutate rule applied successfully", "ruleName", rule.Name)
 		}
 
-		// Process Patches
-		if rule.Mutation.Patches != nil {
-			var ruleResponse response.RuleResponse
-			ruleResponse, patchedResource = mutate.ProcessPatches(logger, rule, patchedResource)
-			logger.V(4).Info("patches applied successfully")
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
-			incrementAppliedRuleCount(&resp)
-		}
+		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+		incrementAppliedRuleCount(&resp)
 	}
 
-	// insert annotation to podtemplate if resource is pod controller
-	// skip inserting on UPDATE request
-	if !reflect.DeepEqual(policyContext.OldResource, unstructured.Unstructured{}) {
-		resp.PatchedResource = patchedResource
-		return resp
-	}
-
-	// send the patched resource
 	resp.PatchedResource = patchedResource
 	return resp
-}
-
-func patchedResourceHasPodControllerAnnotation(resource unstructured.Unstructured) bool {
-	var podController struct {
-		Spec struct {
-			Template struct {
-				Metadata struct {
-					Annotations map[string]interface{} `json:"annotations"`
-				} `json:"metadata"`
-			} `json:"template"`
-		} `json:"spec"`
-	}
-
-	resourceRaw, _ := json.Marshal(resource.Object)
-	_ = json.Unmarshal(resourceRaw, &podController)
-
-	val, ok := podController.Spec.Template.Metadata.Annotations[PodTemplateAnnotation]
-
-	log.Log.V(4).Info("patchedResourceHasPodControllerAnnotation", "resourceRaw", string(resourceRaw), "val", val, "ok", ok)
-
-	return ok
 }
 
 func incrementAppliedRuleCount(resp *response.EngineResponse) {

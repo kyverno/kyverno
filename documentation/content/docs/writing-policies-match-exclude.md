@@ -10,7 +10,7 @@ weight: 5
 The `match` and `exclude` filters control which resources policies are applied to. 
 
 The match / exclude clauses have the same structure, and can each contain the following elements:
-* resources: select resources by name, namespaces, kinds, and label selectors.
+* resources: select resources by name, namespaces, kinds, label selectors and annotations.
 * subjects: select users, user groups, and service accounts
 * roles: select namespaced roles
 * clusterroles: select cluster wide roles
@@ -129,4 +129,17 @@ spec:
           name: John
 ````
 
----
+Here is an example of a rule that matches all pods, having 'imageregistry: "https://hub.docker.com/"' annotations.
+
+````yaml
+spec:
+  rules:
+    - name: match-pod-annotations
+      match:
+        resources:
+          annotations:
+            imageregistry: "https://hub.docker.com/"
+          kinds:
+            - Pod
+          name: "*"
+````

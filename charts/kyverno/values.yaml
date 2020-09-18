@@ -98,7 +98,11 @@ config:
   - "[SubjectAccessReview,*,*]"
   - "[*,kyverno,*]"
   # Or give the name of an existing config map (ignores default/provided resourceFilters)
-  existingConfig:
+  existingConfig: ''
+  excludeGroupRole:
+#  - ""
+  excludeUsername:
+#  - ""
   # existingConfig: init-config
 
 service:

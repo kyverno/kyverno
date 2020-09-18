@@ -1,16 +1,32 @@
 package mutate
 
 import (
-	"github.com/nirmata/kyverno/pkg/engine/anchor"
+	"bytes"
+
+	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
 )
+
+type buffer struct {
+	*bytes.Buffer
+}
+
+func (buff buffer) UnmarshalJSON(b []byte) error {
+	buff.Reset()
+	buff.Write(b)
+	return nil
+}
+
+func (buff buffer) MarshalJSON() ([]byte, error) {
+	return buff.Bytes(), nil
+}
 
 // removeAnchor remove special characters around anchored key
 func removeAnchor(key string) string {
-	if anchor.IsConditionAnchor(key) {
+	if commonAnchors.IsConditionAnchor(key) {
 		return key[1 : len(key)-1]
 	}
 
-	if anchor.IsExistenceAnchor(key) || anchor.IsAddingAnchor(key) || anchor.IsEqualityAnchor(key) || anchor.IsNegationAnchor(key) {
+	if commonAnchors.IsExistenceAnchor(key) || commonAnchors.IsAddingAnchor(key) || commonAnchors.IsEqualityAnchor(key) || commonAnchors.IsNegationAnchor(key) {
 		return key[2 : len(key)-1]
 	}
 
@@ -36,9 +52,9 @@ func getAnchorAndElementsFromMap(anchorsMap map[string]interface{}) (map[string]
 	anchors := make(map[string]interface{})
 	elementsWithoutanchor := make(map[string]interface{})
 	for key, value := range anchorsMap {
-		if anchor.IsConditionAnchor(key) {
+		if commonAnchors.IsConditionAnchor(key) {
 			anchors[key] = value
-		} else if !anchor.IsAddingAnchor(key) {
+		} else if !commonAnchors.IsAddingAnchor(key) {
 			elementsWithoutanchor[key] = value
 		}
 	}

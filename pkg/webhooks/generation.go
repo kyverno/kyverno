@@ -2,13 +2,9 @@ package webhooks
 
 import (
 	"fmt"
-	"reflect"
-	"sort"
-	"strings"
-	"time"
-
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/config"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
@@ -16,11 +12,16 @@ import (
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"reflect"
+	"sort"
+	"strings"
+	"time"
 )
 
 //HandleGenerate handles admission-requests for policies with generate rules
-func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo) {
+func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo, dynamicConfig config.Interface) {
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	logger.V(4).Info("incoming request")
 	var engineResponses []response.EngineResponse
@@ -39,22 +40,46 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	// CREATE resources, do not have name, assigned in admission-request
 
 	policyContext := engine.PolicyContext{
-		NewResource:   *resource,
-		AdmissionInfo: userRequestInfo,
-		Context:       ctx,
+		NewResource:      *resource,
+		AdmissionInfo:    userRequestInfo,
+		Context:          ctx,
+		ExcludeGroupRole: dynamicConfig.GetExcludeGroupRole(),
 	}
 
 	// engine.Generate returns a list of rules that are applicable on this resource
+	var rules []response.RuleResponse
 	for _, policy := range policies {
 		policyContext.Policy = *policy
 		engineResponse := engine.Generate(policyContext)
-		if len(engineResponse.PolicyResponse.Rules) > 0 {
+		for _, rule := range engineResponse.PolicyResponse.Rules {
+			if !rule.Success {
+				grList, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
+				if err != nil {
+					logger.Error(err, "failed to list generate request")
+				}
+				for _, v := range grList.Items {
+					if engineResponse.PolicyResponse.Policy == v.Spec.Policy && engineResponse.PolicyResponse.Resource.Name == v.Spec.Resource.Name && engineResponse.PolicyResponse.Resource.Kind == v.Spec.Resource.Kind && engineResponse.PolicyResponse.Resource.Namespace == v.Spec.Resource.Namespace {
+						err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(), &metav1.DeleteOptions{})
+						if err != nil {
+							logger.Error(err, "failed to update gr")
+						}
+					}
+				}
+			}else{
+				rules = append(rules,rule)
+			}
+		}
+
+
+		if len(rules) > 0 {
+			engineResponse.PolicyResponse.Rules = rules
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
 			ws.statusListener.Send(generateStats{
 				resp: engineResponse,
 			})
 		}
+
 	}
 
 	// Adds Generate Request to a channel(queue size 1000) to generators

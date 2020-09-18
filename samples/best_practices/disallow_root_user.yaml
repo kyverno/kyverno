@@ -9,6 +9,7 @@ metadata:
       least privileged user ID when building the container image and require that 
       application containers run as non root users.
 spec:
+  validationFailureAction: audit
   rules:
   - name: validate-runAsNonRoot
     match:
@@ -16,14 +17,19 @@ spec:
         kinds:
         - Pod
     validate:
-      message: "Running as root user is not allowed. Set runAsNonRoot to true"
+      message: "Running as root is not allowed. Set runAsNonRoot to true, or use runAsUser"
       anyPattern:
       - spec:
           securityContext:
-            # https://github.com/kubernetes/api/blob/7dc09db16fb8ff2eee16c65dc066c85ab3abb7ce/core/v1/types.go#L3165
             runAsNonRoot: true
+      - spec:
+          securityContext:
+            runAsUser: ">0"
       - spec:
           containers:
           - securityContext:
-              # https://github.com/kubernetes/api/blob/7dc09db16fb8ff2eee16c65dc066c85ab3abb7ce/core/v1/types.go#L5742
               runAsNonRoot: true
+      - spec:
+          containers:
+          - securityContext:
+              runAsUser: ">0"

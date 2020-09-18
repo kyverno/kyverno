@@ -25,7 +25,7 @@ func (wrc *WebhookRegistrationClient) constructVerifyMutatingWebhookConfig(caDat
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				"deployments/*",
+				[]string{"deployments/*"},
 				"apps",
 				"v1",
 				[]admregapi.OperationType{admregapi.Update},
@@ -49,7 +49,7 @@ func (wrc *WebhookRegistrationClient) constructDebugVerifyMutatingWebhookConfig(
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				"deployments/*",
+				[]string{"deployments/*"},
 				"apps",
 				"v1",
 				[]admregapi.OperationType{admregapi.Update},
@@ -70,7 +70,7 @@ func (wrc *WebhookRegistrationClient) removeVerifyWebhookMutatingWebhookConfig(w
 	}
 
 	logger := wrc.log.WithValues("name", mutatingConfig)
-	err = wrc.client.DeleteResource(MutatingWebhookConfigurationKind, "", mutatingConfig, false)
+	err = wrc.client.DeleteResource("", MutatingWebhookConfigurationKind, "", mutatingConfig, false)
 	if errorsapi.IsNotFound(err) {
 		logger.V(5).Info("verify webhook configuration not found")
 		return
