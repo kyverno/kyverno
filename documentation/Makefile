@@ -1,15 +1,22 @@
-serve:
+yarn:
+	yarn
+
+serve: yarn
 	hugo server \
-	--buildDrafts \
-	--buildFuture \
-	--disableFastRender \
-	--ignoreCache
+		--buildDrafts \
+		--buildFuture \
+		--disableFastRender
 
 production-build:
-	hugo
+	hugo \
+		--minify
 
 preview-build:
 	hugo \
-	--baseURL $(DEPLOY_PRIME_URL) \
-	--buildDrafts \
-	--buildFuture
+		--baseURL $(DEPLOY_PRIME_URL) \
+		--buildDrafts \
+		--buildFuture \
+		--minify
+
+open:
+	open https://cncf-hugo-starter.netlify.com

@@ -1,47 +1,50 @@
 {{ $home   := site.BaseURL }}
-{{ $logo   := site.Params.logos.navbar | relURL }}
-{{ $menu   := site.Menus.navbar }}
+{{ $here   := .RelPermalink }}
+{{ $title  := site.Title }}
+{{ $logo   := site.Params.logos.navbar }}
+{{ $menu   := site.Menus.main }}
 {{ $social := site.Params.social }}
-{{ $config := site.Params.navbar }}
-{{ $shadow := $config.shadow }}
-{{ $fixed  := $config.fixed }}
-<nav class="navbar{{ if $shadow }} has-shadow{{ end }}{{ if $fixed }} is-fixed-top{{ end }}">
+<nav class="navbar is-white is-fixed-top has-bottom-border" role="navigation" aria-label="main navigation">
   <div class="container">
     <div class="navbar-brand">
       <a class="navbar-item" href="{{ $home }}">
-        <img src="{{ $logo }}" alt="Project navbar logo">
+        {{ if $logo }}
+        {{ $url := printf "img/logos/%s" $logo | relURL }}
+        <img src="{{ $url }}">
+        {{ else }}
+        {{ $title }}
+        {{ end }}
       </a>
 
-      <a role="button" class="navbar-burger burger" aria-label="menu" aria-expanded="false" data-target="navMenu">
+      {{ if or $social $menu }}
+      <a role="button" class="navbar-burger" data-target="navbar-menu" aria-label="menu" aria-expanded="false">
         <span aria-hidden="true"></span>
         <span aria-hidden="true"></span>
         <span aria-hidden="true"></span>
       </a>
+      {{ end }}
     </div>
 
-    <div class="navbar-menu" id="navMenu">
-      <div class="navbar-end">
-        {{ range $menu }}
-        <a class="navbar-item" href="{{ .URL }}">
+    {{ if or $social $menu }}
+    <div class="navbar-menu" id="navbar-menu">
+      {{ with $menu }}
+      <div class="navbar-start">
+        {{ range . }}
+        {{ $isHere := eq .URL $here }}
+        {{ $isExternal := hasPrefix .URL "http" }}
+        <a class="navbar-item{{ if $isHere }} is-active{{ end }}" href="{{ .URL }}"{{ if $isExternal }} target="_blank"{{ end }}>
           {{ .Name }}
         </a>
         {{ end }}
-
-        <div class="navbar-item">
-          <div class="buttons">
-            {{ range $social }}
-            <a class="button is-{{ .color | default "white" }} has-text-weight-bold" href="{{ .url }}" target="_blank">
-              <span class="icon">
-                <i class="fab fa-{{ .icon }}"></i>
-              </span>
-              <span>
-                {{ .name }}
-              </span>
-            </a>
-            {{ end }}
-          </div>
-        </div>
       </div>
+      {{ end }}
+
+      {{ with $social }}
+      <div class="navbar-end">
+        {{ partial "social-buttons.html" . }}
+      </div>
+      {{ end }}
     </div>
+    {{ end }}
   </div>
 </nav>

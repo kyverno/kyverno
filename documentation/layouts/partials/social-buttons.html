@@ -1,0 +1,17 @@
+{{ range . }}
+{{ $color := .color | default "white" }}
+<div class="navbar-item">
+  <a class="button is-{{ $color }}">
+    {{ with .icon }}
+    <span class="icon">
+      <i class="{{ . }}"></i>
+    </span>
+    {{ end }}
+    {{ with .name }}
+    <span>
+      {{ . }}
+    </span>
+    {{ end }}
+  </a>
+</div>
+{{ end }}

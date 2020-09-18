@@ -1,7 +1,5 @@
-{{ $title      := site.Title }}
-{{ $description := site.Params.description | markdownify }}
-{{ $detail := site.Params.detail | markdownify }}
-
+{{ $title := site.Title }}
+{{ $desc  := site.Params.description | markdownify }}
 <section  id="intro">
   <div class="intro-header">
     <div class="container header-container">

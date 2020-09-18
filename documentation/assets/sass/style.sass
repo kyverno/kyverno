@@ -1,181 +1,188 @@
-{{- $fonts    := site.Params.fonts }}
-{{- $fontSlice := (slice) }}
-
-{{- $fontsUrl := printf "https://fonts.googleapis.com/css?family=%s" (delimit $fontSlice "|") }}
-{{- $sansSerifFont := site.Params.sansseriffont }}
-{{- $monospaceFont := site.Params.monospacefont }}
-{{- $fontAwesomeVersion := site.Params.fontawesomeversion }}
-{{- $fontAwesomeUrl     := printf "https://use.fontawesome.com/releases/v%s/css/all.css" $fontAwesomeVersion }}
-
 @charset "utf-8"
+{{ $extraColors := site.Params.colors.extra }}
+{{ $fontAwesomeVersion := site.Params.font_awesome_version }}
+{{ $fonts := site.Params.fonts }}
+{{ if $fonts }}
+{{ $fontSlice := (slice) }}
+{{ range $fonts }}
+{{ $fontSlice = $fontSlice | append (printf "%s:%s" (replace .name " " "+") (delimit .sizes ",")) }}
+{{ end }}
+{{ $fontsUrl := printf "https://fonts.googleapis.com/css?family=%s" (delimit $fontSlice "|") }}
+@import url("{{ $fontsUrl }}")
+{{ end }}
 
-// External imports
-@import url({{ $fontsUrl }})
-@import url({{ $fontAwesomeUrl }})
+{{ with $fontAwesomeVersion }}
+{{ $fontAwesomeUrl := printf "https://use.fontawesome.com/releases/v%s/css/all.css" . }}
+@import url("{{ $fontAwesomeUrl }}")
+{{ end }}
 
-// Project-specific colors and variables
-$twitter-blue: #1da1f2
-$slack-green: #74cdb0
-$stack-overflow-orange: #f48024
-$cncf-blue: #df795a
+// Site-specific variables here
+
+// colors
+// 1 = lightest, 10 = darkest. These are an optical gradient - no opportunity for Sass color math
+$cncf-blue: #426cab
 $cncf-green: #76c5d5
-$breakpoint:   (64.063em, 90em)
 
+$nirmata-red-1: #df795a
+
+
+$cncf-blue-1: #F0F5F7
+$cncf-blue-2: #E4F2F4
+$cncf-blue-3: #CDEEF2
+$cncf-blue-4: #B2E0EA
+$cncf-blue-5: $cncf-green
+$cncf-blue-6: #5BAECE
+$cncf-blue-7: #4583BB
+$cncf-blue-8: $cncf-blue
+$cncf-blue-9: #1E4D94
+$cncf-blue-10: #072C63
+
+$cncf-violet-1: #FFF5FA
+$cncf-violet-2: #FCE2ED
+$cncf-violet-3: #FAC6DD
+$cncf-violet-4: #F492BE
+$cncf-violet-5: #E70266
+$cncf-violet-6: #B30163
+$cncf-violet-7: #840363
+$cncf-violet-8: #521A60
+$cncf-violet-9: #32225E
+$cncf-violet-10: #0F1433
+
+// Extra colors specified in config
+{{ with $extraColors }}
+{{ range . }}
+${{ .name }}: '{{ .hex }}'
+{{ end }}
+{{ end }}
+
+// Initial Bulma imports
 @import "bulma/sass/utilities/initial-variables"
 @import "bulma/sass/utilities/functions"
 
-// Bulma variable overwrites
+// Bulma-specific overrides
 $primary: $cncf-blue
-$family-sans-serif: "{{ $sansSerifFont }}", BlinkMacSystemFont, -apple-system, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", "Helvetica", "Arial", sans-serif
-$family-code: "{{ $monospaceFont }}", monospace
-$navbar-burger-color: $primary
-$code: $primary
-$section-padding: 1.5rem
-
-@import "bulma/sass/utilities/derived-variables"
-
-$colors: mergeColorMaps(("twitter-blue": ($twitter-blue, $white), "slack-green": ($slack-green, $white)), $colors)
-
-@import "bulma/bulma"
-@import "bulma-dashboard/src/bulma-dashboard"
-
-html
-    width: 100%;
-    height: 100%;
-    font-size: 16px;
-
+$link: $cncf-blue-8
+$info: $cncf-blue-6
 
 .card
-  margin: 1.5rem 0
+  height: 100%
 
-  &.is-shadowless
-    box-shadow: none
+// Type scale – major third (multiply by 1.25)
+$size-1: 3.052rem
+$size-2: 2.441rem
+$size-3: 1.953rem
+$size-4: 1.563rem
+$size-5: 1.25rem
+$size-6: 1rem
+$size-7: 0.833rem
 
-  .card-content
-    padding: 0
+$weight-light: 200
+$weight-normal: $weight-medium
+$weight-medium: 400
+$weight-bold: 600
 
-.dashboard-panel
-  &.left
-    border-right: 1px solid $grey-lighter
-    flex-basis: 20%
+// Font overrides
+{{ if $fonts }}
+// Sans-serif font
+{{ with (index (where $fonts ".type" "sans_serif") 0).name }}
+$family-sans-serif: "{{ . }}", BlinkMacSystemFont, -apple-system, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", "Helvetica", "Arial", sans-serif
+{{ end }}
 
-  &-main
-    &-toc
-      ul
-        li
-          font-size: 1.25rem
+// Monospace font
+{{ with (index (where $fonts ".type" "monospace") 0).name }}
+$family-monospace: "{{ . }}", monospace
+{{ end }}
+{{ end }}
 
-          & + li
-            margin-top: .25rem
+$font-heading: {{ $.Site.Params.heading_font | default "'Fira Sans', sans-serif" }}
 
-          &.is-active
-            color: $cncf-blue
+@for $i from 1 through 6
+  h#{$i}
+    font-family: $font-heading
 
-.is-active
-  a
-    color: $cncf-blue
-
-
-.dashboard-panel-logo
-  width: 40%
-  margin-bottom: 1rem
-
-.page
-  display: flex
-  flex-direction: column
-  min-height: 100vh
-
-.main
-    flex: 1
-
-.intro-header
-    padding-top: 40px;
-    text-align: center;
-    color: #f8f8f8;
-
-.intro-message
-    margin-top: 80px;
-    color: rgb(51, 51, 51);
-    text-align: left;
-    padding-bottom: 10%;
-    margin-top: -30px;
-    text-align: center;
-
-
-.intro-message
+.container
+  h1
+    font-size: $size-1
+    font-weight: 200
+  h2
+    font-size: $size-2
+    font-weight: 100
   h3
-    font-family: -apple-system-headline, 'HelveticaNeue-Light', 'Helvetica Neue', Helvetica, sans-serif;
+    font-size: $size-3
+    font-weight: 300
+  h4
+    font-size: $size-4
+    font-weight: 500
+  h5
+    font-size: $size-5
+    font-weight: 600
+  h6
+    font-size: $size-6
+    font-weight: 700
 
+// Final Bulma imports
+@import "bulma/sass/utilities/derived-variables"
 
-.intro-message
-    h1
-        font-family: -apple-system-subheadline, 'HelveticaNeue-UltraLight', 'Helvetica Neue', Helvetica, sans-serif;
-        font-size: 3em;
+// Bulma variable overrdides that require derived variables like $dark
+$footer-background-color: $dark
+$menu-list-border-left: 0px
 
-body
-    font-family: -apple-system-headline, 'Helvetica Neue', Helvetica, sans-serif;
+{{ with $extraColors }}
+{{ range . }}
+$colors: mergeColorMaps(("{{ .name }}": ({{ .hex }}, $white)), $colors)
+{{ end }}
+{{ end }}
 
+// Bulma core
+@import "bulma/sass/utilities/_all"
+@import "bulma/sass/base/_all"
+@import "bulma/sass/elements/container"
+@import "bulma/sass/grid/columns"
+@import "bulma/sass/grid/tiles"
+@import "bulma/sass/layout/hero"
+@import "bulma/sass/layout/section"
+@import "bulma/sass/layout/footer"
 
-.intro-divider
-  text-align: center;
-  color: #f8f8f8;
-  width: 100%;
-  border-top: 1px solid #f8f8f8;
-  border-bottom: 1px solid rgba(0,0,0,0.2);
+// Elements
 
-.intro-image
-  height: 100%;
-  min-height: 380px;
-  margin-top: 10px;
-  background: url(https://kyverno.io/img/kyverno.png) no-repeat center center;
-  background-size: 280px;
+// @import "bulma/sass/elements/box"
+@import "bulma/sass/elements/button"
+// @import "bulma/sass/elements/content"
+@import "bulma/sass/elements/icon"
+// @import "bulma/sass/elements/image"
+// @import "bulma/sass/elements/notification"
+// @import "bulma/sass/elements/progress"
+// @import "bulma/sass/elements/table"
+// @import "bulma/sass/elements/tag"
+@import "bulma/sass/elements/title"
+// @import "bulma/sass/elements/other"
 
+// Forms
+// @import "bulma/sass/form/shared"
+// @import "bulma/sass/form/input-textarea"
+// @import "bulma/sass/form/checkbox-radio"
+// @import "bulma/sass/form/select"
+// @import "bulma/sass/form/file"
+// @import "bulma/sass/form/tools"
 
-.network-name
-  text-transform: uppercase;
-  font-size: 14px;
-  font-weight: 400;
-  letter-spacing: 2px;
+// Components
+// @import "bulma/sass/components/breadcrumb"
+// @import "bulma/sass/components/card"
+// @import "bulma/sass/components/dropdown"
+// @import "bulma/sass/components/level"
+// @import "bulma/sass/components/list"
+// @import "bulma/sass/components/media"
+@import "bulma/sass/components/menu"
+// @import "bulma/sass/components/message"
+// @import "bulma/sass/components/modal"
+@import "bulma/sass/components/navbar"
+// @import "bulma/sass/components/pagination"
+// @import "bulma/sass/components/panel"
+// @import "bulma/sass/components/tabs"
 
+// Grid
 
-.container
-  width: 80%;
-  line-height: 1.2em;
-
-
-.header-container
-  width: 100%;
-  margin-bottom: 10px;
-
-
-.container
-  ul
-     line-height: 1.6em;
-
-.container pre
-  margin-top: 4px;
-  margin-bottom: 20px;
-  line-height: 1.6em;
-
-
-.container
-   h3
-      margin-top: 20px;
-      margin-bottom: 10px;
-
-.content-section-a
-  padding: 10px 0;
-  background-color: #f8f8f8;
-
-
-.content-section-b
-  padding: 50px 0;
-  border-top: 1px solid #e7e7e7;
-  border-bottom: 1px solid #e7e7e7;
-
-
-.section-heading-spacer
-  float: left;
-  width: 200px;
-  border-top: 3px solid #e7e7e7;
-
+// Custom Sass imports
+@import "content"
+@import "helpers"
+@import "docs"

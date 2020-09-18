@@ -1,0 +1,14 @@
+<div class="container">
+  <section class="columns">
+    <section class="column is-four-fifths">
+      {{ if ne .Kind "section" }}
+      <div class="page-meta is-clearfix">
+          {{ partial "breadcrumb.html" . }}
+          {{ partial "github-edit.html" . }}
+      </div>
+      {{ end }}
+    <h1 class="title">{{ .Page.Title | markdownify }}</h1>
+    <p class="subtitle">{{ .Page.Description | markdownify }}</p>
+  </section>
+</section>
+</div>

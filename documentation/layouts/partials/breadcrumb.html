@@ -1,0 +1,20 @@
+{{ define "breadcrumb" }}
+{{ if .p1.Parent }}
+  {{ template "breadcrumb" (dict "p1" .p1.Parent "p2" .p2) }}
+{{ else if not .p1.IsHome }}
+  {{ template "breadcrumb" (dict "p1" .p1.Site.Home "p2" .p2) }}
+{{ end }}
+
+{{ $isHere := eq .p1 .p2 }}
+<li {{ if $isHere }} class="is-active"{{ end }}>
+  / <a href="{{ .p1.RelPermalink }}">
+    {{ .p1.Title | markdownify }}
+  </a>
+</li>
+{{ end }}
+
+<div class="breadcrumb is-pulled-left" aria-label="breadcrumbs">
+  <ul>
+    {{ template "breadcrumb" (dict "p1" . "p2" .) }}
+  </ul>
+</div>

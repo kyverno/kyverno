@@ -1,0 +1,78 @@
+/* Header & Hero */
+
+.single-hero .hero-body
+  padding: 1.5rem
+  code
+    border-radius: 2px
+    padding: 0.1rem 0.2rem 0.1rem 0.2rem
+
+.docs-title
+  //background: linear-gradient(99.62deg, $cncf-blue-6 3.15%, $cncf-violet-10 88.41%)
+  background-color: $nirmata-red-1
+  h1, p
+    color: #ffffff
+
+.title
+  @extend .title
+  font-weight: 200
+  font-size: 3.815rem
+  margin-top: 1rem
+  margin-bottom: 1.5rem
+
+.subtitle
+  font-weight: 200
+
+.breadcrumb ul li
+  display: inline
+
+/* Nav */
+nav
+  ul
+    @extend .menu-list
+  ul ul li
+    border-left: 1px solid $cncf-blue-1
+  .menu-list ul, ul li ul
+    margin: 0
+
+/* Body */
+.hashlink
+  @extend .icon
+  font-size: 1rem
+  height: 1rem
+  width: 1rem
+
+.headline-hash
+  display: none
+
+@for $i from 1 through 6
+  h#{$i}
+    &:hover > .headline-hash
+      display: inline
+
+.content
+  table
+    background-color: $white
+    thead th
+      border-bottom: 1px solid $cncf-blue-5
+      background-color: $cncf-blue-5
+      font-size: $size-7
+      font-weight: 600
+      letter-spacing: 0.02rem
+      text-transform: uppercase
+    td
+      border-bottom: 1px solid $cncf-blue-2
+      background-color: $cncf-blue-2
+
+code
+  background-color: $white-ter
+  color: $cncf-violet-5
+  padding: 0.1rem 0.35rem 0.1rem 0.3rem
+  border-radius: 2px
+  pre
+    background-color: transparent
+
+.docs-section-nav
+  border-left: 1px solid #ebebeb
+  hr
+    height: 1px
+    color: #ebebeb

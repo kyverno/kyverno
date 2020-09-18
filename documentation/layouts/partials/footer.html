@@ -1,9 +1,10 @@
-{{ $year  := now.Year }}
-{{ $title := site.Title }}
-<footer class="footer has-text-centered">
+{{ with site.Copyright }}
+{{ $year := now.Year }}
+<footer class="footer">
   <div class="container">
-    <p class="has-text-weight-light">
-      &copy; {{ $year }} The {{ $title }} authors
+    <p class="title is-size-6 has-text-light has-text-weight-light">
+      &copy; {{ $year }} {{ . }}
     </p>
   </div>
 </footer>
+{{ end }}

@@ -1,9 +1,8 @@
 ---
-title: "Docs"
-description: "index of the docs section"
-draft: false
-toc: true
-slug : /
+title: Home
+slug: /home
+description: Kyverno is a policy engine designed for Kubernetes.
+weight: 1
 ---
 
 # Kyverno - Kubernetes Native Policy Management

@@ -1,0 +1,8 @@
+<div class="github-edit is-pulled-right">
+    {{ $repoUrl := .Site.Params.repositoryUrl }}
+    {{ $filePath := .File.Path }}
+    {{ $editUrl := print $repoUrl "/content/" $filePath }}
+    <button class="button is-small"><a href="{{ $editUrl }}" target="_blank">
+      <i class="fas fa-pen"></i> &nbsp; Edit on GitHub
+    </a></button>
+</div>

@@ -1,0 +1,5 @@
+{{ $favicon := site.Params.favicon }}
+{{ with $favicon }}
+{{ $url := . | relURL }}
+<link rel="shortcut icon" href="{{ $url }}">
+{{ end }}

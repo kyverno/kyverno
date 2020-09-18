@@ -1,18 +1,23 @@
-{{ $isHome         := .IsHome }}
-{{ $navbarFixedTop := site.Params.navbar.fixed }}
+{{ $lang := site.LanguageCode }}
 <!DOCTYPE html>
-<html>
+<html{{ with $lang }} lang="{{ . }}"{{ end }}>
   <head>
-    {{ partial "meta.html" . }}
-    <title>{{ block "title" . }}{{ site.Title }}{{ end }}</title>
+    <title>
+      {{ block "title" . }}
+        {{ site.Title }}
+      {{ end }}
+    </title>
     {{ partial "css.html" . }}
+    {{ partial "favicon.html" . }}
   </head>
-  <body class="page{{ if and $isHome $navbarFixedTop }} has-navbar-fixed-top{{ end }}">
-    <div class="main">
+
+    <body class="is-page has-navbar-fixed-top">
+    <main class="is-main">
+      {{ partial "navbar.html" . }}
       {{ block "main" . }}
       {{ end }}
-    </div>
-
-    {{ partial "javascript.html" . }}
+    </main>
+    <!-- {{ partial "footer.html" . }} -->
+    {{ partial "javascript.html" }}
   </body>
 </html>

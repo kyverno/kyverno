@@ -1,10 +1,16 @@
-function navbarBurger() {
-  $(".navbar-burger").click(function() {
-    $(".navbar-burger").toggleClass("is-active");
-    $(".navbar-menu").toggleClass("is-active");
+const navbarBurger = () => {
+  const burger = $(".navbar-burger"),
+    menu = $(".navbar-menu");
+
+  burger.click(() => {
+
+
+    [burger, menu].forEach((el) => el.toggleClass('is-active'));
   });
 }
 
-$(function() {
+$(() => {
+  console.log("Welcome to the CNCF's Hugo + Netlify starter");
+
   navbarBurger();
 });

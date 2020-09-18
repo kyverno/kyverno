@@ -1,0 +1,21 @@
+{{ define "main" }}
+
+  <header class="single-hero hero has-bottom-margin-sm docs-title">
+    <div class="hero-body">
+      {{ partial "single-header.html" . }}
+    </div>
+  </header>
+  <div class="container is-white has-top-margin">
+      {{ partial "navbar.html" . }}
+      <section class="columns is-variable is-8">
+        <section class="column  is-three-fifths">
+          {{ partial "docs/content.html" . }}
+        </section>
+        <section class="column is-one-fifth docs-section-nav">
+          {{ partial "section-nav.html" . }}
+          <hr />
+          {{ partial "docs/docs-nav.html" . }}
+        </section>
+      </section>
+    </div>
+{{ end }}

@@ -1,0 +1,33 @@
+{{ $allSections  := site.Sections }} <!-- "blog" and "docs" -->
+{{ $docsSections := where $allSections "Section" "docs" }} <!-- "getting-started" and "deployment" -->
+{{ $thisUrl      := .RelPermalink }} <!-- the URL of the current page -->
+
+{{ range $docsSections }}
+{{ $isThisPage := eq .RelPermalink $thisUrl }}
+<nav class="menu">
+      <p class="menu-label">Documentation:</p>
+      <ul class="menu-list">
+        <li><a{{ if $isThisPage }} class="is-active"{{ end }} href="{{ .RelPermalink }}">{{ .CurrentSection.Title | markdownify }}</a>
+        {{ range .RegularPages }}
+          <ul>
+            <li>
+            <a{{ if $isThisPage }} class="is-active"{{ end }} href="{{ .RelPermalink }}">
+              {{ .Title | markdownify }}
+            </a>
+            </li>
+          </ul>
+        {{ end }}
+        </li>
+    {{ range .Sections }}
+        <li><a{{ if $isThisPage }} class="is-active"{{ end }} href="{{ .RelPermalink }}">{{ .CurrentSection.Title | markdownify }}</a>
+          <ul>
+            {{ range .CurrentSection.RegularPages }}
+            <li>
+                <a{{ if $isThisPage }} class="is-active"{{ end }} href="{{ .RelPermalink }}">{{ .Page.Title | markdownify }}</a>
+            </li>
+            {{ end }}
+          </ul>
+        </li>
+    {{ end }}
+{{ end }}
+</nav>
