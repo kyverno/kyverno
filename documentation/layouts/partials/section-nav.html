@@ -1,6 +1,9 @@
 {{ $allSections  := site.Sections }} <!-- "blog" and "docs" -->
 {{ $docsSections := where $allSections "Section" "docs" }} <!-- "getting-started" and "deployment" -->
 {{ $thisUrl      := .RelPermalink }} <!-- the URL of the current page -->
+{{ if in (print .URL) "samples"}}
+  {{ $docsSections = where $allSections "Section" "samples" }} <!-- "getting-started" and "deployment" -->
+{{ end }}
 
 {{ range $docsSections }}
 {{ $isThisPage := eq .RelPermalink $thisUrl }}

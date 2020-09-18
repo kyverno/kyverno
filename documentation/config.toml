@@ -74,14 +74,20 @@ url = "/docs/home"
 weight = 1
 
 [[menu.main]]
+name = "Samples"
+url = "/samples/home"
+weight = 2
+
+
+[[menu.main]]
 name = "Nirmata"
 url = "https://nirmata.com"
-weight = 2
+weight = 3
 
 [[menu.main]]
 name = "Resources"
 url = "/resources"
-weight = 3
+weight = 4
 
 [[params.features]]
 title = "Policy definitions as Kubernetes resources"
