@@ -74,7 +74,7 @@ url = "/docs/home"
 weight = 1
 
 [[menu.main]]
-name = "Samples"
+name = "Best Practice"
 url = "/samples/home"
 weight = 2
 

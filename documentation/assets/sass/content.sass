@@ -157,16 +157,12 @@ $content-table-foot-cell-color: $text-strong !default
     font-size: $size-large
 
 .intro-header
-    padding-top: 40px;
     text-align: center;
     color: #f8f8f8;
 
 .intro-message
-    margin-top: 80px;
     color: rgb(51, 51, 51);
     text-align: left;
-    padding-bottom: 10%;
-    margin-top: -30px;
     text-align: center;
 
 
@@ -178,7 +174,10 @@ $content-table-foot-cell-color: $text-strong !default
 .intro-message
     h1
         font-family: -apple-system-subheadline, 'HelveticaNeue-UltraLight', 'Helvetica Neue', Helvetica, sans-serif;
-        font-size: 3em;
+        font-size: 5em;
+        font-weight: 500;
+        line-height: 1.0;
+        color: rgb(51, 51, 51)
 
 body
     font-family: -apple-system-headline, 'Helvetica Neue', Helvetica, sans-serif;
@@ -192,7 +191,6 @@ body
   border-bottom: 1px solid rgba(0,0,0,0.2);
 
 .intro-image
-  height: 100%;
   min-height: 380px;
   margin-top: 10px;
   background: url(/img/logos/Kyverno.png) no-repeat center center;
@@ -200,6 +198,7 @@ body
 
 .container
    h3
-      margin-top: 30px
-      margin-bottom: 25px
+    line-height: 2.0;
 
+.container
+   overflow-y: hidden;
