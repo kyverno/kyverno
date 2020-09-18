@@ -52,3 +52,16 @@ spec:
           - securityContext:
               runAsUser: ">0"
 ````
+
+## Install Policy 
+```
+kubectl apply -f https://raw.githubusercontent.com/nirmata/kyverno/master/samples/best_practices/disallow_root_user.yaml
+```
+
+## Test Policy
+
+Create a pod with root user permission
+
+```
+kubectl apply -f https://raw.githubusercontent.com/nirmata/kyverno/master/test/resources/deny_runasrootuser.yaml
+```
