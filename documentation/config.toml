@@ -80,7 +80,7 @@ weight = 2
 
 [[menu.main]]
 name = "Resources"
-url = "/docs/resources"
+url = "/resources"
 weight = 3
 
 [[params.features]]
