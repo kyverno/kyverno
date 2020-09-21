@@ -255,7 +255,7 @@ type ResourceDescription struct {
 	// Specifies list of namespaces
 	Namespaces []string `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 	// Specifies map of annotations
-	Annotations map[string]string `json:"annotations,omitempty" yaml:"namespaces,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 	// Specifies the set of selectors
 	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
 }

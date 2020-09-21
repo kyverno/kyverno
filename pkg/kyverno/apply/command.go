@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"reflect"
 
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -71,7 +72,7 @@ func Command() *cobra.Command {
 		Policies []Policy `json:"policies"`
 	}
 
-	valuesMap := make(map[string]map[string]*Resource)
+	valuesMap := make(map[string]map[string]Resource)
 
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
 
@@ -110,9 +111,9 @@ func Command() *cobra.Command {
 				}
 
 				for _, p := range values.Policies {
-					pmap := make(map[string]*Resource)
+					pmap := make(map[string]Resource)
 					for _, r := range p.Resources {
-						pmap[r.Name] = &r
+						pmap[r.Name] = r
 					}
 					valuesMap[p.Name] = pmap
 				}
@@ -214,7 +215,7 @@ func Command() *cobra.Command {
 				for _, resource := range resources {
 					// get values from file for this policy resource combination
 					thisPolicyResouceValues := make(map[string]string)
-					if len(valuesMap[policy.GetName()]) != 0 && valuesMap[policy.GetName()][resource.GetName()] != nil {
+					if len(valuesMap[policy.GetName()]) != 0 && !reflect.DeepEqual(valuesMap[policy.GetName()][resource.GetName()], Resource{}) {
 						thisPolicyResouceValues = valuesMap[policy.GetName()][resource.GetName()].Values
 					}
 
@@ -414,11 +415,19 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 				rc.error++
 			}
 
-			mutatedResource := string(yamlEncodedResource)
-			if len(strings.TrimSpace(mutatedResource)) > 0 {
-				fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
-				fmt.Printf("\n" + mutatedResource)
-				fmt.Printf("\n")
+			if mutateLogPath == "" {
+				mutatedResource := string(yamlEncodedResource)
+				if len(strings.TrimSpace(mutatedResource)) > 0 {
+					fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
+					fmt.Printf("\n" + mutatedResource)
+					fmt.Printf("\n")
+				}
+			} else {
+				err := printMutatedOutput(mutateLogPath, mutateLogPathIsDir, string(yamlEncodedResource), resource.GetName()+"-mutated")
+				if err != nil {
+					return sanitizedError.NewWithError("failed to print mutated result", err)
+				}
+				fmt.Printf("\n\nMutation:\nMutation has been applied succesfully. Check the files.")
 			}
 
 		} else {
@@ -533,7 +542,6 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 							return sanitizedError.NewWithError(fmt.Sprintf("failed to create directory"), err)
 						}
 					}
-
 				}
 
 				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0644)
