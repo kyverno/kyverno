@@ -64,7 +64,7 @@ func Test_VariableSubstitutionOverlay(t *testing.T) {
 		}
 	}
 	`)
-	expectedPatch := []byte(`{ "op": "add", "path": "/metadata/labels", "value":{"appname":"check-root-user"} }`)
+	expectedPatch := []byte(`{"op":"add","path":"/metadata/labels","value":{"appname":"check-root-user"}}`)
 
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
