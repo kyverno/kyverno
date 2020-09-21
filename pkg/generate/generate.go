@@ -9,7 +9,6 @@ import (
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
 	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -51,7 +50,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	// build context
 	ctx := context.NewContext()
 
-	policy, err := c.pLister.Get(gr.Spec.Policy)
+	policyObj, err := c.pLister.Get(gr.Spec.Policy)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			for _, e := range gr.Status.GeneratedResources {
@@ -96,7 +95,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 
 	policyContext := engine.PolicyContext{
 		NewResource:      resource,
-		Policy:           *policy,
+		Policy:           *policyObj,
 		Context:          ctx,
 		AdmissionInfo:    gr.Spec.Context.UserRequestInfo,
 		ExcludeGroupRole: c.Config.GetExcludeGroupRole(),
@@ -108,7 +107,8 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		logger.V(4).Info("policy does not apply to resource")
 		return nil, fmt.Errorf("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 	}
-	var rules []response.RuleResponse
+
+	// Removing GR if rule is failed. Used when the generate condition failed but gr exist
 	for _, r := range engineResponse.PolicyResponse.Rules {
 		if !r.Success {
 			grList, err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
@@ -121,21 +121,6 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 					if err != nil {
 						logger.Error(err, " failed to delete generate request")
 					}
-				}
-			}
-		} else {
-			rules = append(rules, r)
-		}
-	}
-	engineResponse.PolicyResponse.Rules = []response.RuleResponse{}
-
-	for _, v := range policy.Spec.Rules {
-		for _, r := range rules {
-			if policy.Name == engineResponse.PolicyResponse.Policy && r.Name == v.Name {
-				if len(v.MatchResources.ResourceDescription.Kinds) > 0 && (len(v.MatchResources.ResourceDescription.Annotations) == 0 || len(v.MatchResources.ResourceDescription.Selector.MatchLabels) == 0) {
-					continue
-				} else {
-					engineResponse.PolicyResponse.Rules = append(engineResponse.PolicyResponse.Rules, r)
 				}
 			}
 		}
@@ -173,18 +158,15 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 
 		processExisting := false
 
-		for _, v := range policy.Spec.Rules {
-			if policy.Name == gr.Spec.Policy {
-				if len(v.MatchResources.ResourceDescription.Kinds) > 0 && (len(v.MatchResources.ResourceDescription.Annotations) == 0 || len(v.MatchResources.ResourceDescription.Selector.MatchLabels) == 0) {
-					processExisting = func() bool {
-						rcreationTime := resource.GetCreationTimestamp()
-						pcreationTime := policy.GetCreationTimestamp()
-						return rcreationTime.Before(&pcreationTime)
-					}()
-				}
+		if len(rule.MatchResources.Kinds) > 0 {
+			if len(rule.MatchResources.Annotations) == 0 && rule.MatchResources.Selector == nil {
+				processExisting = func() bool {
+					rcreationTime := resource.GetCreationTimestamp()
+					pcreationTime := policy.GetCreationTimestamp()
+					return rcreationTime.Before(&pcreationTime)
+				}()
 			}
 		}
-
 		genResource, err := applyRule(log, c.client, rule, resource, ctx, policy.Name, gr, processExisting)
 
 		if err != nil {
@@ -301,6 +283,8 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		rdata, mode, err = manageClone(log, genAPIVersion, genKind, genNamespace, genName, genCopy, client, resource)
 	}
 
+	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
+
 	if err != nil {
 		return noGenResource, err
 	}
@@ -312,7 +296,6 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	if processExisting {
 		return noGenResource, nil
 	}
-	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
 
 	// build the resource template
 	newResource := &unstructured.Unstructured{}
@@ -345,6 +328,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		logger.V(4).Info("creating new resource")
 		_, err = client.CreateResource(genAPIVersion, genKind, genNamespace, newResource, false)
 		if err != nil {
+			logger.Error(err, "failed to create resource", "resource", newResource.GetName())
 			// Failed to create resource
 			return noGenResource, err
 		}
@@ -379,7 +363,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 				return noGenResource, err
 			}
 			logger.V(4).Info("updated new resource")
-		}else{
+		} else {
 			resource := &unstructured.Unstructured{}
 			resource.SetUnstructuredContent(rdata)
 			resource.SetLabels(label)

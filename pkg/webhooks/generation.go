@@ -65,11 +65,10 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 						}
 					}
 				}
-			}else{
-				rules = append(rules,rule)
+			} else {
+				rules = append(rules, rule)
 			}
 		}
-
 
 		if len(rules) > 0 {
 			engineResponse.PolicyResponse.Rules = rules

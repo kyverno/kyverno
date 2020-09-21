@@ -29,9 +29,9 @@ import (
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	"github.com/nirmata/kyverno/pkg/webhooks"
 	webhookgenerate "github.com/nirmata/kyverno/pkg/webhooks/generate"
-	kubeinformers "k8s.io/client-go/informers"
-	crdInformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	apiextension "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	crdInformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/klog"
 	"k8s.io/klog/klogr"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
@@ -342,7 +342,6 @@ func main() {
 	go auditHandler.Run(10, stopCh)
 	go openAPISyncNew.Run(1, stopCh)
 	// openAPISync.Run(1, stopCh)
-	
 
 	// verifies if the admission control is enabled and active
 	// resync: 60 seconds

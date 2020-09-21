@@ -70,8 +70,8 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 			}
 			for _, resList := range res {
 				for _, r := range resList.APIResources {
-					if r.Namespaced == false {
-						if clusterResourcesMap[r.Kind] != nil {
+					if !r.Namespaced {
+						if _, ok := clusterResourcesMap[r.Kind]; !ok {
 							clusterResourcesMap[r.Kind] = &Empty
 						}
 					}
