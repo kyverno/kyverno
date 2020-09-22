@@ -108,6 +108,7 @@ See [docs](https://github.com/nirmata/kyverno/#documentation) for complete detai
   - [Preconditions](documentation/writing-policies-preconditions.md)
   - [Auto-Generation of Pod Controller Policies](documentation/writing-policies-autogen.md)
   - [Background Processing](documentation/writing-policies-background.md)
+  - [Configmap Reference](documentation/writing-policies-configmap-reference.md)
 - [Testing Policies](documentation/testing-policies.md)
 - [Policy Violations](documentation/policy-violations.md)
 - [Kyverno CLI](documentation/kyverno-cli.md)
