@@ -13,7 +13,9 @@ While `match` & `exclude` conditions allow filtering requests based on resource 
 
 The following operators are currently supported for preconditon evaluation:
 - Equal
+- Equals
 - NotEqual
+- NotEquals
 - In
 - NotIn
 

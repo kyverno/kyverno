@@ -95,13 +95,29 @@ func Test_preProcessStrategicMergePatch_Deployment(t *testing.T) {
 	}
 }
 
-
 func Test_preProcessStrategicMergePatch_Annotation(t *testing.T) {
 	rawPolicy := []byte(`{"metadata":{"annotations":{"+(cluster-autoscaler.kubernetes.io/safe-to-evict)":true}},"spec":{"volumes":[{"(hostPath)":{"path":"*"}}]}}`)
 
 	rawResource := []byte(`{"kind":"Pod","apiVersion":"v1","metadata":{"name":"nginx","annotations":{"cluster-autoscaler.kubernetes.io/safe-to-evict":"false"}},"spec":{"containers":[{"name":"nginx","image":"nginx:latest","imagePullPolicy":"Never","volumeMounts":[{"mountPath":"/cache","name":"cache-volume"}]}],"volumes":[{"name":"cache-volume","hostPath":{"path":"/data","type":"Directory"}}]}}`)
 
 	expected := `{"metadata":{"annotations":{}},"spec":{"volumes":[{"name":"cache-volume"}]}}`
+
+	preProcessedPolicy, err := preProcessStrategicMergePatch(string(rawPolicy), string(rawResource))
+	assert.NilError(t, err)
+	output, err := preProcessedPolicy.String()
+	assert.NilError(t, err)
+	re := regexp.MustCompile("\\n")
+	if !assertnew.Equal(t, strings.ReplaceAll(expected, " ", ""), strings.ReplaceAll(re.ReplaceAllString(output, ""), " ", "")) {
+		t.FailNow()
+	}
+}
+
+func Test_preProcessStrategicMergePatch_BlankAnnotation(t *testing.T) {
+	rawPolicy := []byte(`{"metadata":{"annotations":{"+(cluster-autoscaler.kubernetes.io/safe-to-evict)":true},"labels":{"+(add-labels)":"add"}},"spec":{"volumes":[{"(hostPath)":{"path":"*"}}]}}`)
+
+	rawResource := []byte(`{"kind":"Pod","apiVersion":"v1","metadata":{"name":"nginx"},"spec":{"containers":[{"name":"nginx","image":"nginx:latest","imagePullPolicy":"Never","volumeMounts":[{"mountPath":"/cache","name":"cache-volume"}]}],"volumes":[{"name":"cache-volume","hostPath":{"path":"/data","type":"Directory"}}]}}`)
+
+	expected := `{"metadata":{"annotations":{"cluster-autoscaler.kubernetes.io/safe-to-evict":true},"labels":{"add-labels":"add"}},"spec":{"volumes":[{"name":"cache-volume"}]}}`
 
 	preProcessedPolicy, err := preProcessStrategicMergePatch(string(rawPolicy), string(rawResource))
 	assert.NilError(t, err)
