@@ -25,10 +25,10 @@ spec:
         kinds: 
         - Pod
     mutate: 
-      overlay:
+      patchStrategicMerge:
         metadata:
           annotations:
-            +(cluster-autoscaler.kubernetes.io/safe-to-evict): true
+            +(cluster-autoscaler.kubernetes.io/safe-to-evict): "true"
         spec:          
           volumes: 
           - (emptyDir): {}
@@ -38,10 +38,10 @@ spec:
         kinds: 
         - Pod
     mutate: 
-      overlay:
+      patchStrategicMerge:
         metadata:
           annotations:
-            +(cluster-autoscaler.kubernetes.io/safe-to-evict): true
+            +(cluster-autoscaler.kubernetes.io/safe-to-evict): "true"
         spec:          
           volumes: 
           - (hostPath):
