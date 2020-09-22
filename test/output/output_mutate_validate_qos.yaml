@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: 
+  creationTimestamp: "2020-09-21T12:56:35Z"
   labels:
     test: qos
   name: qos-demo
@@ -13,7 +13,7 @@ spec:
   strategy: {}
   template:
     metadata:
-      creationTimestamp: 
+      creationTimestamp: "2020-09-21T12:56:35Z"
       labels:
         app: nginx
     spec:
