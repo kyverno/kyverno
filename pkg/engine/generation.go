@@ -9,6 +9,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/response"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
+	"github.com/nirmata/kyverno/pkg/resourcecache"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -23,17 +24,20 @@ func Generate(policyContext PolicyContext) (resp response.EngineResponse) {
 	admissionInfo := policyContext.AdmissionInfo
 	ctx := policyContext.Context
 
+	resCache := policyContext.ResourceCache
+	jsonContext := policyContext.JSONContext
 	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name, "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
 
-	return filterRules(policy, resource, admissionInfo, ctx, logger, policyContext.ExcludeGroupRole)
+	return filterRules(policy, resource, admissionInfo, ctx, logger, policyContext.ExcludeGroupRole, resCache, jsonContext)
 }
 
-func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface, log logr.Logger, excludeGroupRole []string) *response.RuleResponse {
+func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface, log logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context) *response.RuleResponse {
 	if !rule.HasGenerate() {
 		return nil
 	}
 
 	startTime := time.Now()
+
 	if err := MatchesResourceDescription(resource, rule, admissionInfo, excludeGroupRole); err != nil {
 		return &response.RuleResponse{
 			Name:    rule.Name,
@@ -44,6 +48,12 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 			},
 		}
 	}
+	// add configmap json data to context
+	if err := AddResourceToContext(log, rule.Context, resCache, jsonContext); err != nil {
+		log.Info("cannot add configmaps to context", "reason", err.Error())
+		return nil
+	}
+
 	// operate on the copy of the conditions, as we perform variable substitution
 	copyConditions := copyConditions(rule.Conditions)
 
@@ -63,7 +73,7 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	}
 }
 
-func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface, log logr.Logger, excludeGroupRole []string) response.EngineResponse {
+func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface, log logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context) response.EngineResponse {
 	resp := response.EngineResponse{
 		PolicyResponse: response.PolicyResponse{
 			Policy: policy.Name,
@@ -75,7 +85,7 @@ func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		},
 	}
 	for _, rule := range policy.Spec.Rules {
-		if ruleResp := filterRule(rule, resource, admissionInfo, ctx, log, excludeGroupRole); ruleResp != nil {
+		if ruleResp := filterRule(rule, resource, admissionInfo, ctx, log, excludeGroupRole, resCache, jsonContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}

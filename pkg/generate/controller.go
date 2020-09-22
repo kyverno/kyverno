@@ -11,6 +11,7 @@ import (
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policystatus"
+	"github.com/nirmata/kyverno/pkg/resourcecache"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -58,7 +59,8 @@ type Controller struct {
 	policyStatusListener policystatus.Listener
 	log                  logr.Logger
 
-	Config config.Interface
+	Config   config.Interface
+	resCache resourcecache.ResourceCacheIface
 }
 
 //NewController returns an instance of the Generate-Request Controller
@@ -72,6 +74,7 @@ func NewController(
 	policyStatus policystatus.Listener,
 	log logr.Logger,
 	dynamicConfig config.Interface,
+	resCache resourcecache.ResourceCacheIface,
 ) *Controller {
 	c := Controller{
 		client:        client,
@@ -84,6 +87,7 @@ func NewController(
 		log:                  log,
 		policyStatusListener: policyStatus,
 		Config:               dynamicConfig,
+		resCache:             resCache,
 	}
 	c.statusControl = StatusControl{client: kyvernoclient}
 

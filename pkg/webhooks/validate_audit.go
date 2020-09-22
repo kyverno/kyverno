@@ -12,6 +12,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/policycache"
 	"github.com/nirmata/kyverno/pkg/policystatus"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/resourcecache"
 	"github.com/nirmata/kyverno/pkg/userinfo"
 	"github.com/pkg/errors"
 	"k8s.io/api/admission/v1beta1"
@@ -52,6 +53,7 @@ type auditHandler struct {
 
 	log           logr.Logger
 	configHandler config.Interface
+	resCache      resourcecache.ResourceCacheIface
 }
 
 // NewValidateAuditHandler returns a new instance of audit policy handler
@@ -62,7 +64,8 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	log logr.Logger,
-	dynamicConfig config.Interface) AuditHandler {
+	dynamicConfig config.Interface,
+	resCache resourcecache.ResourceCacheIface) AuditHandler {
 
 	return &auditHandler{
 		pCache:         pCache,
@@ -76,6 +79,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		crbSynced:      crbInformer.Informer().HasSynced,
 		log:            log,
 		configHandler:  dynamicConfig,
+		resCache:       resCache,
 	}
 }
 
@@ -167,7 +171,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		return errors.Wrap(err, "failed to load service account in context")
 	}
 
-	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.pvGenerator, logger, h.configHandler)
+	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.pvGenerator, logger, h.configHandler, h.resCache)
 	return nil
 }
 

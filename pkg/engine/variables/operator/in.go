@@ -3,6 +3,7 @@ package operator
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/engine/context"
@@ -64,6 +65,14 @@ func ValidateStringPattern(key string, value interface{}) (invalidType bool, key
 			if reflect.TypeOf(val) != stringType {
 				return true, false
 			}
+			if key == val {
+				keyExists = true
+			}
+		}
+	case string:
+		valuesAvaliable = strings.TrimSpace(valuesAvaliable)
+		vars := strings.Split(valuesAvaliable, ",")
+		for _, val := range vars {
 			if key == val {
 				keyExists = true
 			}

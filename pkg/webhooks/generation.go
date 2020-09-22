@@ -44,6 +44,8 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		AdmissionInfo:    userRequestInfo,
 		Context:          ctx,
 		ExcludeGroupRole: dynamicConfig.GetExcludeGroupRole(),
+		ResourceCache:    ws.resCache,
+		JSONContext:      ctx,
 	}
 
 	// engine.Generate returns a list of rules that are applicable on this resource
@@ -65,11 +67,10 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 						}
 					}
 				}
-			}else{
-				rules = append(rules,rule)
+			} else {
+				rules = append(rules, rule)
 			}
 		}
-
 
 		if len(rules) > 0 {
 			engineResponse.PolicyResponse.Rules = rules

@@ -1,22 +1,27 @@
 package engine
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
-	"strings"
-	"time"
-
+	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/utils"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
+	"time"
 
 	"github.com/minio/minio/pkg/wildcard"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/resourcecache"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 //EngineStats stores in the statistics for a single application of resource
@@ -277,4 +282,56 @@ func SkipPolicyApplication(policy kyverno.ClusterPolicy, resource unstructured.U
 	}
 
 	return false
+}
+
+// AddResourceToContext - Add the Configmap JSON to Context.
+// it will read configmaps (can be extended to get other type of resource like secrets, namespace etc) from the informer cache
+// and add the configmap data to context
+func AddResourceToContext(logger logr.Logger, contexts []kyverno.ContextEntry, resCache resourcecache.ResourceCacheIface, ctx *context.Context) error {
+	if len(contexts) == 0 {
+		return nil
+	}
+	// get GVR Cache for "configmaps"
+	// can get cache for other resources if the informers are enabled in resource cache
+	gvrC := resCache.GetGVRCache("configmaps")
+	if gvrC != nil {
+		lister := gvrC.GetLister()
+		for _, context := range contexts {
+			contextData := make(map[string]interface{})
+			name := context.ConfigMap.Name
+			namespace := context.ConfigMap.Namespace
+			if namespace == "" {
+				namespace = "default"
+			}
+			key := fmt.Sprintf("%s/%s", namespace, name)
+			obj, err := lister.Get(key)
+			if err != nil {
+				logger.Error(err, fmt.Sprintf("failed to read configmap %s/%s from cache", namespace, name))
+				continue
+			}
+			unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+			if err != nil {
+				logger.Error(err, "failed to convert context runtime object to unstructured")
+				continue
+			}
+			// extract configmap data
+			contextData["data"] = unstructuredObj["data"]
+			contextData["metadata"] = unstructuredObj["metadata"]
+			contextNamedData := make(map[string]interface{})
+			contextNamedData[context.Name] = contextData
+			jdata, err := json.Marshal(contextNamedData)
+			if err != nil {
+				logger.Error(err, "failed to unmarshal context data")
+				continue
+			}
+			// add data to context
+			err = ctx.AddJSON(jdata)
+			if err != nil {
+				logger.Error(err, "failed to load context json")
+				continue
+			}
+		}
+		return nil
+	}
+	return errors.New("configmaps GVR Cache not found")
 }

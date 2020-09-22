@@ -19,6 +19,7 @@ import (
 	client "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/resourcecache"
 	"github.com/nirmata/kyverno/pkg/webhookconfig"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -99,11 +100,13 @@ type PolicyController struct {
 	// policy violation generator
 	pvGenerator policyviolation.GeneratorInterface
 
-
 	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 
 	log logr.Logger
+
+	// resCache - controls creation and fetching of resource informer cache
+	resCache resourcecache.ResourceCacheIface
 }
 
 // NewPolicyController create a new PolicyController
@@ -118,7 +121,9 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	pvGenerator policyviolation.GeneratorInterface,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	namespaces informers.NamespaceInformer,
-	log logr.Logger) (*PolicyController, error) {
+	log logr.Logger,
+	resCache resourcecache.ResourceCacheIface,
+) (*PolicyController, error) {
 
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
@@ -139,6 +144,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		pvGenerator:            pvGenerator,
 		resourceWebhookWatcher: resourceWebhookWatcher,
 		log:                    log,
+		resCache:               resCache,
 	}
 
 	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}
@@ -319,7 +325,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced,pc.grListerSynced) {
+	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced, pc.grListerSynced) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
@@ -400,7 +406,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	if errors.IsNotFound(err) {
 		for _, v := range grList {
 			if key == v.Spec.Policy {
-				err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(),&metav1.DeleteOptions{})
+				err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(), &metav1.DeleteOptions{})
 				if err != nil {
 					logger.Error(err, "failed to delete gr")
 				}
@@ -417,16 +423,15 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	for _, v := range grList {
 		if policy.Name == v.Spec.Policy {
 			v.SetLabels(map[string]string{
-				"policy-update" :fmt.Sprintf("revision-count-%d",rand.Intn(100000)),
+				"policy-update": fmt.Sprintf("revision-count-%d", rand.Intn(100000)),
 			})
-			_,err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(v)
+			_, err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(v)
 			if err != nil {
 				logger.Error(err, "failed to update gr")
 				return err
 			}
 		}
 	}
-
 
 	pc.resourceWebhookWatcher.RegisterResourceWebhook()
 

@@ -23,6 +23,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/policy"
 	"github.com/nirmata/kyverno/pkg/policystatus"
 	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/nirmata/kyverno/pkg/resourcecache"
 	"github.com/nirmata/kyverno/pkg/signal"
 	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/nirmata/kyverno/pkg/version"
@@ -104,6 +105,15 @@ func main() {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
+
+	// ======================= resource cache ====================
+	rCache, err := resourcecache.NewResourceCache(log.Log, clientConfig, client, []string{"configmaps"}, []string{})
+	if err != nil {
+		setupLog.Error(err, "Failed to create resource cache")
+		os.Exit(1)
+	}
+	rCache.RunAllInformers(log.Log)
+	// ===========================================================
 
 	// CRD CHECK
 	// - verify if the CRD for Policy & PolicyViolation are available
@@ -201,6 +211,7 @@ func main() {
 		rWebhookWatcher,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
+		rCache,
 	)
 
 	if err != nil {
@@ -223,6 +234,7 @@ func main() {
 		statusSync.Listener,
 		log.Log.WithName("GenerateController"),
 		configData,
+		rCache,
 	)
 
 	// GENERATE REQUEST CLEANUP
@@ -251,6 +263,7 @@ func main() {
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		log.Log.WithName("ValidateAuditHandler"),
 		configData,
+		rCache,
 	)
 
 	// CONFIGURE CERTIFICATES
@@ -309,6 +322,7 @@ func main() {
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
+		rCache,
 	)
 
 	if err != nil {

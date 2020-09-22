@@ -99,6 +99,8 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		Context:          ctx,
 		AdmissionInfo:    gr.Spec.Context.UserRequestInfo,
 		ExcludeGroupRole: c.Config.GetExcludeGroupRole(),
+		ResourceCache:    c.resCache,
+		JSONContext:      ctx,
 	}
 
 	// check if the policy still applies to the resource
@@ -148,6 +150,9 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 	policy := policyContext.Policy
 	resource := policyContext.NewResource
 	ctx := policyContext.Context
+
+	resCache := policyContext.ResourceCache
+	jsonContext := policyContext.JSONContext
 	// To manage existing resources, we compare the creation time for the default resource to be generated and policy creation time
 
 	ruleNameToProcessingTime := make(map[string]time.Duration)
@@ -168,6 +173,13 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 				}()
 			}
 		}
+
+		// add configmap json data to context
+		if err := engine.AddResourceToContext(log, rule.Context, resCache, jsonContext); err != nil {
+			log.Info("cannot add configmaps to context", "reason", err.Error())
+			return nil, err
+		}
+
 		genResource, err := applyRule(log, c.client, rule, resource, ctx, policy.Name, gr, processExisting)
 
 		if err != nil {

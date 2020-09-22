@@ -27,6 +27,9 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	policy := policyContext.Policy
 	patchedResource := policyContext.NewResource
 	ctx := policyContext.Context
+
+	resCache := policyContext.ResourceCache
+	jsonContext := policyContext.JSONContext
 	logger := log.Log.WithName("EngineMutate").WithValues("policy", policy.Name, "kind", patchedResource.GetKind(),
 		"namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
 
@@ -57,6 +60,11 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		}
 		if err := MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource); err != nil {
 			logger.V(3).Info("resource not matched", "reason", err.Error())
+			continue
+		}
+		// add configmap json data to context
+		if err := AddResourceToContext(logger, rule.Context, resCache, jsonContext); err != nil {
+			logger.V(4).Info("cannot add configmaps to context", "reason", err.Error())
 			continue
 		}
 
