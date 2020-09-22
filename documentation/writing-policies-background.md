@@ -17,4 +17,4 @@ spec:
 
 The default value of `background` is `true`. When a policy is created or modified, the policy validation logic will report an error if a rule uses `userInfo` and does not set `background` to `false`.
 
-<small>*Read Next >> [Configmap Lookup](documentation/writing-policies-configmap-reference.md)*</small>
+<small>*Read Next >> [Configmap Lookup](/documentation/writing-policies-configmap-reference.md)*</small>
