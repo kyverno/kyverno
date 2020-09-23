@@ -8,43 +8,86 @@ The Configmap Reference allows the reference of configmap values inside kyverno 
 
 # Defining Rule Context
 
-To refer Configmap inside any Rule provide the context inside each rule defining the list of configmaps which will be referenced in that Rule.
+To reference values from a ConfigMap inside any Rule, define a context inside the rule with one or more ConfigMap declarations.
 
-```
+````yaml
   rules:
-    - name: add-sidecar-pod
+    - name: example-configmap-lookup
       # added context to define the configmap information which will be referred 
       context:
       # unique name to identify configmap
-      - name: mycmapRef
+      - name: dictionary
         configMap: 
           # configmap name - name of the configmap which will be referred
           name: mycmap
           # configmap namepsace - namespace of the configmap which will be referred
-```
+          namespace: test
+````
 
 Referenced Configmap Definition
 
-```
+````yaml
 apiVersion: v1
 data:
-  env: production, sandbox, staging
+  env: production
 kind: ConfigMap
 metadata:
   name: mycmap
-```
+````
 
 # Referring Value
 
-The configmaps that are defined inside rule context can be referred using the unique name that is used to identify configmap inside context.
+A ConfigMap that is defined inside the rule context can be referred to using its unique name within the context.
 
-We can refer it's value using a JMESPATH
+ConfigMap values can be references using a JMESPATH expression `{{<name>.<data>.<key>}}`.
 
-`{{<name>.<data>.<key>}}`
+For the example above, we can refer to a ConfigMap value using {{dictionary.data.env}}. The variable will be substituted with production during policy execution.
 
-So for the above context we can refer it's value using
+# Handling Array Values
 
-`{{mycmapRef.data.env}}`
+The ConfigMap value can be an array of string values in JSON format. Kyverno will parse the JSON string to a list of strings, so set operations like In and NotIn can then be applied.
+
+For example, a list of allowed roles can be stored in a ConfigMap, and the Kyverno policy can refer to this list to deny the requests where the role does not match the one of the values in the list.
+
+Here are the allowed roles in the ConfigMap
+````yaml
+apiVersion: v1
+data:
+  allowed-roles: "[\"cluster-admin\", \"cluster-operator\", \"tenant-admin\"]"
+kind: ConfigMap
+metadata:
+  name: roles-dictionary
+  namespace: test
+````
+
+
+This is a rule to deny the Deployment operation, if the value of annotation `role` is not in the allowed list:
+````yaml
+spec:
+  validationFailureAction: enforce
+  rules:
+  - name: validate-role-annotation
+    context:
+      - name: roles-dictionary
+        configMap: 
+          name: roles-dictionary
+          namespace: test
+    match:
+      resources:
+        kinds:
+        - Deployment
+    preconditions:
+    - key: "{{ request.object.metadata.annotations.role }}"
+      operator: NotEquals
+      value: ""
+    validate:
+      message: "role {{ request.object.metadata.annotations.role }} is not in the allowed list {{ \"roles-dictionary\".data.\"allowed-roles\" }}"
+      deny:
+        conditions: 
+        - key: "{{ request.object.metadata.annotations.role }}"
+          operator: NotIn
+          value:  "{{ \"roles-dictionary\".data.\"allowed-roles\" }}"
+````
 
 
 

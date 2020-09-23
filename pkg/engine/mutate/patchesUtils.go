@@ -29,7 +29,6 @@ func generatePatches(src, dst []byte) ([][]byte, error) {
 		}
 
 		patchesBytes = append(patchesBytes, pbytes)
-		// fmt.Printf("generated patch %s\n", p)
 	}
 
 	return patchesBytes, err

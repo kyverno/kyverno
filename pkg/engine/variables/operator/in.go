@@ -1,9 +1,9 @@
 package operator
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/engine/context"
@@ -48,7 +48,7 @@ func (in InHandler) Evaluate(key, value interface{}) bool {
 }
 
 func (in InHandler) validateValuewithStringPattern(key string, value interface{}) (keyExists bool) {
-	invalidType, keyExists := ValidateStringPattern(key, value)
+	invalidType, keyExists := ValidateStringPattern(key, value, in.log)
 	if invalidType {
 		in.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
@@ -57,7 +57,7 @@ func (in InHandler) validateValuewithStringPattern(key string, value interface{}
 	return keyExists
 }
 
-func ValidateStringPattern(key string, value interface{}) (invalidType bool, keyExists bool) {
+func ValidateStringPattern(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
 	stringType := reflect.TypeOf("")
 	switch valuesAvaliable := value.(type) {
 	case []interface{}:
@@ -69,10 +69,19 @@ func ValidateStringPattern(key string, value interface{}) (invalidType bool, key
 				keyExists = true
 			}
 		}
+	// add to handle the configMap lookup, as configmap.data
+	// takes string-string map, when looking for a value of array
+	// data:
+	//   key: "[\"value1\", \"value2\"]"
+	// it will first unmarshal it to string slice, then compare
 	case string:
-		valuesAvaliable = strings.TrimSpace(valuesAvaliable)
-		vars := strings.Split(valuesAvaliable, ",")
-		for _, val := range vars {
+		var arr []string
+		if err := json.Unmarshal([]byte(valuesAvaliable), &arr); err != nil {
+			log.Error(err, "failed to unmarshal to string slice", "value", value)
+			return invalidType, keyExists
+		}
+
+		for _, val := range arr {
 			if key == val {
 				keyExists = true
 			}

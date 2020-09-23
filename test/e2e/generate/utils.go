@@ -1,14 +1,15 @@
 package generate
 
 import (
+	"os"
+	"time"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
 	"sigs.k8s.io/yaml"
-	"time"
 )
 
 type E2EClient struct {
@@ -103,7 +104,6 @@ func (e2e *E2EClient) ListNamespacedResources(gvr schema.GroupVersionResource, n
 func (e2e *E2EClient) CreateNamespacedResourceYaml(gvr schema.GroupVersionResource, namespace string, resourceData []byte) (*unstructured.Unstructured, error) {
 	resource := unstructured.Unstructured{}
 	err := yaml.Unmarshal(resourceData, &resource)
-	// fmt.Println(resource)
 	if err != nil {
 		return nil, err
 	}
