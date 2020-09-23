@@ -8,7 +8,7 @@ The Configmap Reference allows the reference of configmap values inside kyverno 
 
 # Defining Rule Context
 
-To refer Configmap inside any Rule provide the context inside each rule defining the list of configmaps which will be referenced in that Rule.
+To reference values from a ConfigMap inside any Rule, define a context inside the rule with one or more ConfigMap declarations.
 
 ````yaml
   rules:
@@ -37,19 +37,19 @@ metadata:
 
 # Referring Value
 
-The configmaps that are defined inside rule context can be referred using the unique name that is used to identify configmap inside context.
+A ConfigMap that is defined inside the rule context can be referred to using its unique name within the context.
 
-We can refer it's value using a JMESPATH `{{<name>.<data>.<key>}}`. 
+ConfigMap values can be references using a JMESPATH expression `{{<name>.<data>.<key>}}`.
 
-For the above context we can refer it's value by `{{dictionary.data.env}}`, which will be substitued with `production` during policy application.
+For the example above, we can refer to a ConfigMap value using {{dictionary.data.env}}. The variable will be substituted with production during policy execution.
 
-# Deal with Array of Values
+# Handling Array Values
 
-The substitute variable can be an array of values. It allows the JSON format when defining it in the configMap.
+The ConfigMap value can be an array of string values in JSON format. Kyverno will parse the JSON string to a list of strings, so set operations like In and NotIn can then be applied.
 
-For example, a list of allowed roles can be stored in configMap, and the kyverno policy can refer to this list to deny the disallowed request.
+For example, a list of allowed roles can be stored in a ConfigMap, and the Kyverno policy can refer to this list to deny the requests where the role does not match the one of the values in the list.
 
-Here is the allowed roles in configMap:
+Here are the allowed roles in the ConfigMap
 ````yaml
 apiVersion: v1
 data:
