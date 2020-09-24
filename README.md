@@ -12,7 +12,12 @@ Kyverno is a policy engine built for Kubernetes:
 * generate and synchronize defaults across namespaces
 * block or report violations 
 * test using kubectl 
- 
+
+Watch a 3 minute video review of Kyverno on Coffee and Cloud Native with [Adrian Goins](https://github.com/oskapt):
+
+[![Kyyverno review on Coffee and Cloud Native](https://img.youtube.com/vi/DW2u6LhNMh0/0.jpg)](https://www.youtube.com/watch?v=DW2u6LhNMh0&feature=youtu.be&t=116)
+
+
 ## Quick Start
 
 **NOTE** : Your Kubernetes cluster version must be above v1.14 which adds webhook timeouts. 
