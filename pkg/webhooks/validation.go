@@ -1,10 +1,11 @@
 package webhooks
 
 import (
-	"github.com/nirmata/kyverno/pkg/config"
 	"reflect"
 	"sort"
 	"time"
+
+	"github.com/nirmata/kyverno/pkg/config"
 
 	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/event"

@@ -1,6 +1,7 @@
 package policyviolation
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -14,6 +15,7 @@ import (
 
 //NamespacedPV ...
 type namespacedPV struct {
+	ctx context.Context
 	// dynamic client
 	dclient *client.Client
 	// get/list namespaced policy violation
@@ -26,12 +28,13 @@ type namespacedPV struct {
 	policyStatusListener policystatus.Listener
 }
 
-func newNamespacedPV(log logr.Logger, dclient *client.Client,
+func newNamespacedPV(ctx context.Context, log logr.Logger, dclient *client.Client,
 	nspvLister kyvernolister.PolicyViolationLister,
 	kyvernoInterface kyvernov1.KyvernoV1Interface,
 	policyStatus policystatus.Listener,
 ) *namespacedPV {
 	nspv := namespacedPV{
+		ctx:                  ctx,
 		dclient:              dclient,
 		nspvLister:           nspvLister,
 		kyvernoInterface:     kyvernoInterface,
@@ -105,7 +108,7 @@ func (nspv *namespacedPV) createPV(newPv *kyverno.PolicyViolation) error {
 	newPv.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 
 	// create resource
-	_, err = nspv.kyvernoInterface.PolicyViolations(newPv.GetNamespace()).Create(newPv)
+	_, err = nspv.kyvernoInterface.PolicyViolations(newPv.GetNamespace()).Create(nspv.ctx, newPv, metav1.CreateOptions{})
 	if err != nil {
 		logger.Error(err, "failed to create namespaced policy violation")
 		return err
@@ -131,7 +134,7 @@ func (nspv *namespacedPV) updatePV(newPv, oldPv *kyverno.PolicyViolation) error 
 	newPv.SetResourceVersion(oldPv.ResourceVersion)
 	newPv.SetOwnerReferences(oldPv.GetOwnerReferences())
 	// update resource
-	_, err = nspv.kyvernoInterface.PolicyViolations(newPv.GetNamespace()).Update(newPv)
+	_, err = nspv.kyvernoInterface.PolicyViolations(newPv.GetNamespace()).Update(nspv.ctx, newPv, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update namespaced policy violation: %v", err)
 	}

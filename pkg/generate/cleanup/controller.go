@@ -1,6 +1,7 @@
 package cleanup
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -27,6 +28,7 @@ const (
 
 //Controller manages life-cycle of generate-requests
 type Controller struct {
+	ctx context.Context
 	// dyanmic client implementation
 	client *dclient.Client
 	// typed client for kyverno CRDs

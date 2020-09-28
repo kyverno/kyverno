@@ -3,6 +3,9 @@ package generate
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"time"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
@@ -14,8 +17,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"reflect"
-	"time"
 )
 
 func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
@@ -113,13 +114,13 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	// Removing GR if rule is failed. Used when the generate condition failed but gr exist
 	for _, r := range engineResponse.PolicyResponse.Rules {
 		if !r.Success {
-			grList, err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
+			grList, err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(c.ctx, metav1.ListOptions{})
 			if err != nil {
 				continue
 			}
 			for _, v := range grList.Items {
 				if engineResponse.PolicyResponse.Policy == v.Spec.Policy && engineResponse.PolicyResponse.Resource.Name == v.Spec.Resource.Name && engineResponse.PolicyResponse.Resource.Kind == v.Spec.Resource.Kind && engineResponse.PolicyResponse.Resource.Namespace == v.Spec.Resource.Namespace {
-					err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(), &metav1.DeleteOptions{})
+					err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(c.ctx, v.GetName(), metav1.DeleteOptions{})
 					if err != nil {
 						logger.Error(err, " failed to delete generate request")
 					}
@@ -127,7 +128,6 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 			}
 		}
 	}
-
 
 	// Apply the generate rule on resource
 	return c.applyGeneratePolicy(logger, policyContext, gr)

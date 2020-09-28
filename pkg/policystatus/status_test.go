@@ -1,11 +1,13 @@
 package policystatus
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/labels"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/labels"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	lv1 "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
@@ -78,7 +80,7 @@ func TestKeyToMutex(t *testing.T) {
 	expectedCache := `{"policy1":{"rulesAppliedCount":100}}`
 
 	stopCh := make(chan struct{})
-	s := NewSync(nil, dummyLister{}, dummyNsLister{})
+	s := NewSync(context.Background(), nil, dummyLister{}, dummyNsLister{})
 	for i := 0; i < 100; i++ {
 		go s.updateStatusCache(stopCh)
 	}

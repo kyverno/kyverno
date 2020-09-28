@@ -106,7 +106,7 @@ func (c *Client) submitAndApproveCertificateRequest(req *certificates.Certificat
 		Reason:  "NKP-Approve",
 		Message: "This CSR was approved by Nirmata kyverno controller",
 	})
-	res, err = certClient.UpdateApproval(res)
+	res, err = certClient.UpdateApproval(c.ctx, res, metav1.UpdateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("Unable to approve certificate request: %v", err)
 	}

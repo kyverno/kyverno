@@ -16,8 +16,8 @@ import (
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 
-	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
 	"github.com/googleapis/gnostic/compiler"
+	openapi_v2 "github.com/googleapis/gnostic/openapiv2"
 	"k8s.io/kube-openapi/pkg/util/proto"
 	"k8s.io/kube-openapi/pkg/util/proto/validation"
 	log "sigs.k8s.io/controller-runtime/pkg/log"

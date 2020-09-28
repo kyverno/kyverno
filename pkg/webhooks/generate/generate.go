@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -28,6 +29,7 @@ type GeneratorChannel struct {
 
 // Generator defines the implmentation to mange generate request resource
 type Generator struct {
+	ctx context.Context
 	// channel to receive request
 	ch     chan GeneratorChannel
 	client *kyvernoclient.Clientset
@@ -36,8 +38,9 @@ type Generator struct {
 }
 
 //NewGenerator returns a new instance of Generate-Request resource generator
-func NewGenerator(client *kyvernoclient.Clientset, stopCh <-chan struct{}, log logr.Logger) *Generator {
+func NewGenerator(ctx context.Context, client *kyvernoclient.Clientset, stopCh <-chan struct{}, log logr.Logger) *Generator {
 	gen := &Generator{
+		ctx:    ctx,
 		ch:     make(chan GeneratorChannel, 1000),
 		client: client,
 		stopCh: stopCh,
@@ -91,7 +94,7 @@ func (g *Generator) processApply() {
 func (g *Generator) generate(grSpec kyverno.GenerateRequestSpec, action v1beta1.Operation) error {
 	// create/update a generate request
 
-	if err := retryApplyResource(g.client, grSpec, g.log, action); err != nil {
+	if err := retryApplyResource(g.ctx, g.client, grSpec, g.log, action); err != nil {
 		return err
 	}
 	return nil
@@ -100,7 +103,8 @@ func (g *Generator) generate(grSpec kyverno.GenerateRequestSpec, action v1beta1.
 // -> receiving channel to take requests to create request
 // use worker pattern to read and create the CR resource
 
-func retryApplyResource(client *kyvernoclient.Clientset,
+func retryApplyResource(ctx context.Context,
+	client *kyvernoclient.Clientset,
 	grSpec kyverno.GenerateRequestSpec,
 	log logr.Logger,
 	action v1beta1.Operation,
@@ -120,7 +124,7 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 		// generate requests created in kyverno namespace
 		isExist := false
 		if action == v1beta1.Create || action == v1beta1.Update {
-			grList, err := client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
+			grList, err := client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
@@ -133,7 +137,7 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 					v.Spec.Context = gr.Spec.Context
 					v.Spec.Policy = gr.Spec.Policy
 					v.Spec.Resource = gr.Spec.Resource
-					_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(&grList.Items[i])
+					_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(ctx, &grList.Items[i], metav1.UpdateOptions{})
 					if err != nil {
 						return err
 					}
@@ -142,7 +146,7 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 			}
 			if !isExist {
 				gr.SetGenerateName("gr-")
-				_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Create(&gr)
+				_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Create(ctx, &gr, metav1.CreateOptions{})
 				if err != nil {
 					return err
 				}

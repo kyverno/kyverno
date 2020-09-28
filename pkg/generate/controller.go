@@ -1,6 +1,9 @@
 package generate
 
 import (
+	"context"
+	"time"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
@@ -19,7 +22,6 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"time"
 )
 
 const (
@@ -28,6 +30,7 @@ const (
 
 // Controller manages the life-cycle for Generate-Requests and applies generate rule
 type Controller struct {
+	ctx context.Context
 	// dyanmic client implementation
 	client *dclient.Client
 	// typed client for kyverno CRDs
@@ -65,6 +68,7 @@ type Controller struct {
 
 //NewController returns an instance of the Generate-Request Controller
 func NewController(
+	ctx context.Context,
 	kyvernoclient *kyvernoclient.Clientset,
 	client *dclient.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
@@ -77,6 +81,7 @@ func NewController(
 	resCache resourcecache.ResourceCacheIface,
 ) *Controller {
 	c := Controller{
+		ctx:           ctx,
 		client:        client,
 		kyvernoClient: kyvernoclient,
 		eventGen:      eventGen,

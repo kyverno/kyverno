@@ -1,6 +1,7 @@
 package policystatus
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned"
 	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -46,6 +48,7 @@ func (l Listener) Send(s statusUpdater) {
 //since it contains access to all the persistant data present
 //in this package.
 type Sync struct {
+	ctx      context.Context
 	cache    *cache
 	Listener Listener
 	client   *versioned.Clientset
@@ -59,8 +62,9 @@ type cache struct {
 	keyToMutex *keyToMutex
 }
 
-func NewSync(c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister, nsLister kyvernolister.PolicyLister) *Sync {
+func NewSync(ctx context.Context, c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister, nsLister kyvernolister.PolicyLister) *Sync {
 	return &Sync{
+		ctx: ctx,
 		cache: &cache{
 			dataMu:     sync.RWMutex{},
 			data:       make(map[string]v1.PolicyStatus),
@@ -145,7 +149,7 @@ func (s *Sync) updatePolicyStatus() {
 			}
 
 			policy.Status = status
-			_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(policy)
+			_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(s.ctx, policy, metav1.UpdateOptions{})
 			if err != nil {
 				s.cache.dataMu.Lock()
 				delete(s.cache.data, policyName)
@@ -161,7 +165,7 @@ func (s *Sync) updatePolicyStatus() {
 				continue
 			}
 			policy.Status = status
-			_, err = s.client.KyvernoV1().Policies(namespace).UpdateStatus(policy)
+			_, err = s.client.KyvernoV1().Policies(namespace).UpdateStatus(s.ctx, policy, metav1.UpdateOptions{})
 			if err != nil {
 				s.cache.dataMu.Lock()
 				delete(s.cache.data, key)

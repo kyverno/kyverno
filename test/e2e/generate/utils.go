@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"context"
 	"os"
 	"time"
 
@@ -13,10 +14,14 @@ import (
 )
 
 type E2EClient struct {
+	ctx    context.Context
 	Client dynamic.Interface
 }
 
 func NewE2EClient() (*E2EClient, error) {
+	e2eClient := new(E2EClient)
+	e2eClient.ctx = context.Background()
+
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {
 		kubeconfig = os.Getenv("HOME") + "/.kube/config"
@@ -25,7 +30,6 @@ func NewE2EClient() (*E2EClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	e2eClient := new(E2EClient)
 	dClient, err := dynamic.NewForConfig(config)
 	e2eClient.Client = dClient
 	return e2eClient, err
@@ -54,12 +58,12 @@ func (e2e *E2EClient) CleanClusterPolicies(gvr schema.GroupVersionResource) erro
 
 // GetNamespacedResource ...
 func (e2e *E2EClient) GetNamespacedResource(gvr schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error) {
-	return e2e.Client.Resource(gvr).Namespace(namespace).Get(name, metav1.GetOptions{})
+	return e2e.Client.Resource(gvr).Namespace(namespace).Get(e2e.ctx, name, metav1.GetOptions{})
 }
 
 // GetClusterResource ...
 func (e2e *E2EClient) GetClusteredResource(gvr schema.GroupVersionResource, name string) (*unstructured.Unstructured, error) {
-	return e2e.Client.Resource(gvr).Get(name, metav1.GetOptions{})
+	return e2e.Client.Resource(gvr).Get(e2e.ctx, name, metav1.GetOptions{})
 }
 
 // GetWithRetry :- Retry Operation till the end of retry or until it is Passed, retryCount is the Wait duration after each retry,
@@ -77,27 +81,27 @@ func GetWithRetry(sleepInterval time.Duration, retryCount int, retryFunc func() 
 
 // DeleteNamespacedResource ...
 func (e2e *E2EClient) DeleteNamespacedResource(gvr schema.GroupVersionResource, namespace, name string) error {
-	return e2e.Client.Resource(gvr).Namespace(namespace).Delete(name, &metav1.DeleteOptions{})
+	return e2e.Client.Resource(gvr).Namespace(namespace).Delete(e2e.ctx, name, metav1.DeleteOptions{})
 }
 
 // DeleteClusterResource ...
 func (e2e *E2EClient) DeleteClusteredResource(gvr schema.GroupVersionResource, name string) error {
-	return e2e.Client.Resource(gvr).Delete(name, &metav1.DeleteOptions{})
+	return e2e.Client.Resource(gvr).Delete(e2e.ctx, name, metav1.DeleteOptions{})
 }
 
 // CreateNamespacedResource ...
 func (e2e *E2EClient) CreateNamespacedResource(gvr schema.GroupVersionResource, namespace string, resourceData *unstructured.Unstructured) (*unstructured.Unstructured, error) {
-	return e2e.Client.Resource(gvr).Namespace(namespace).Create(resourceData, metav1.CreateOptions{})
+	return e2e.Client.Resource(gvr).Namespace(namespace).Create(e2e.ctx, resourceData, metav1.CreateOptions{})
 }
 
 // CreateClusteredResource ...
 func (e2e *E2EClient) CreateClusteredResource(gvr schema.GroupVersionResource, resourceData *unstructured.Unstructured) (*unstructured.Unstructured, error) {
-	return e2e.Client.Resource(gvr).Create(resourceData, metav1.CreateOptions{})
+	return e2e.Client.Resource(gvr).Create(e2e.ctx, resourceData, metav1.CreateOptions{})
 }
 
 // ListNamespacedResources ...
 func (e2e *E2EClient) ListNamespacedResources(gvr schema.GroupVersionResource, namespace string) (*unstructured.UnstructuredList, error) {
-	return e2e.Client.Resource(gvr).Namespace(namespace).List(metav1.ListOptions{})
+	return e2e.Client.Resource(gvr).Namespace(namespace).List(e2e.ctx, metav1.ListOptions{})
 }
 
 // CreateNamespacedResource creates namespaced resources like Pods, Services, Deployments etc
@@ -107,7 +111,7 @@ func (e2e *E2EClient) CreateNamespacedResourceYaml(gvr schema.GroupVersionResour
 	if err != nil {
 		return nil, err
 	}
-	result, err := e2e.Client.Resource(gvr).Namespace(namespace).Create(&resource, metav1.CreateOptions{})
+	result, err := e2e.Client.Resource(gvr).Namespace(namespace).Create(e2e.ctx, &resource, metav1.CreateOptions{})
 	return result, err
 }
 

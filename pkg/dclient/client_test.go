@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"testing"
 
 	"github.com/nirmata/kyverno/pkg/config"
@@ -100,7 +101,7 @@ func TestEventInterface(t *testing.T) {
 	if err != nil {
 		t.Errorf("GetEventsInterface not working: %s", err)
 	}
-	_, err = iEvent.List(meta.ListOptions{})
+	_, err = iEvent.List(context.Background(), meta.ListOptions{})
 	if err != nil {
 		t.Errorf("Testing Event interface not working: %s", err)
 	}
@@ -111,7 +112,7 @@ func TestCSRInterface(t *testing.T) {
 	if err != nil {
 		t.Errorf("GetCSRInterface not working: %s", err)
 	}
-	_, err = iCSR.List(meta.ListOptions{})
+	_, err = iCSR.List(context.Background(), meta.ListOptions{})
 	if err != nil {
 		t.Errorf("Testing CSR interface not working: %s", err)
 	}

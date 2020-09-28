@@ -1,6 +1,7 @@
 package policyviolation
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"strconv"
@@ -29,6 +30,7 @@ const workQueueRetryLimit = 3
 
 //Generator creates PV
 type Generator struct {
+	ctx              context.Context
 	dclient          *dclient.Client
 	kyvernoInterface kyvernov1.KyvernoV1Interface
 	// get/list cluster policy violation
@@ -104,13 +106,15 @@ type GeneratorInterface interface {
 }
 
 // NewPVGenerator returns a new instance of policy violation generator
-func NewPVGenerator(client *kyvernoclient.Clientset,
+func NewPVGenerator(ctx context.Context,
+	client *kyvernoclient.Clientset,
 	dclient *dclient.Client,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	nspvInformer kyvernoinformer.PolicyViolationInformer,
 	policyStatus policystatus.Listener,
 	log logr.Logger) *Generator {
 	gen := Generator{
+		ctx:                  ctx,
 		kyvernoInterface:     client.KyvernoV1(),
 		dclient:              dclient,
 		cpvLister:            pvInformer.Lister(),
@@ -232,10 +236,10 @@ func (gen *Generator) syncHandler(info Info) error {
 	builder := newPvBuilder()
 	if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
-		handler = newClusterPV(gen.log.WithName("ClusterPV"), gen.dclient, gen.cpvLister, gen.kyvernoInterface, gen.policyStatusListener)
+		handler = newClusterPV(gen.ctx, gen.log.WithName("ClusterPV"), gen.dclient, gen.cpvLister, gen.kyvernoInterface, gen.policyStatusListener)
 	} else {
 		// namespaced resources generated a namespaced policy violation in the namespace of the resource
-		handler = newNamespacedPV(gen.log.WithName("NamespacedPV"), gen.dclient, gen.nspvLister, gen.kyvernoInterface, gen.policyStatusListener)
+		handler = newNamespacedPV(gen.ctx, gen.log.WithName("NamespacedPV"), gen.dclient, gen.nspvLister, gen.kyvernoInterface, gen.policyStatusListener)
 	}
 
 	failure := false

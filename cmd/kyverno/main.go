@@ -82,6 +82,15 @@ func main() {
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
+
+	// by default http.Server waits indefinitely for connections to return to idle and then shuts down
+	// adding a threshold will handle zombie connections
+	// adjust the context deadline to 5 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer func() {
+		cancel()
+	}()
+
 	clientConfig, err := config.CreateClientConfig(kubeconfig, log.Log)
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
@@ -100,7 +109,7 @@ func main() {
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := dclient.NewClient(clientConfig, 5*time.Minute, stopCh, log.Log)
+	client, err := dclient.NewClient(ctx, clientConfig, 5*time.Minute, stopCh, log.Log)
 	if err != nil {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
@@ -180,13 +189,16 @@ func main() {
 
 	// Policy Status Handler - deals with all logic related to policy status
 	statusSync := policystatus.NewSync(
+		ctx,
 		pclient,
 		pInformer.Kyverno().V1().ClusterPolicies().Lister(),
 		pInformer.Kyverno().V1().Policies().Lister())
 
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
-	pvgen := policyviolation.NewPVGenerator(pclient,
+	pvgen := policyviolation.NewPVGenerator(
+		ctx,
+		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicyViolations(),
 		pInformer.Kyverno().V1().PolicyViolations(),
@@ -198,7 +210,9 @@ func main() {
 	// - reconciliation policy and policy violation
 	// - process policy on existing resources
 	// - status aggregator: receives stats when a policy is applied & updates the policy status
-	policyCtrl, err := policy.NewPolicyController(pclient,
+	policyCtrl, err := policy.NewPolicyController(
+		ctx,
+		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
@@ -220,11 +234,12 @@ func main() {
 	}
 
 	// GENERATE REQUEST GENERATOR
-	grgen := webhookgenerate.NewGenerator(pclient, stopCh, log.Log.WithName("GenerateRequestGenerator"))
+	grgen := webhookgenerate.NewGenerator(ctx, pclient, stopCh, log.Log.WithName("GenerateRequestGenerator"))
 
 	// GENERATE CONTROLLER
 	// - applies generate rules on resources based on generate requests created by webhook
 	grc := generate.NewController(
+		ctx,
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
@@ -290,7 +305,7 @@ func main() {
 	}
 
 	// Sync openAPI definitions of resources
-	openAPISync := openapi.NewCRDSync(client, openAPIController)
+	openAPISync := openapi.NewCRDSync(ctx, client, openAPIController)
 
 	supportMutateValidate := utils.HigherThanKubernetesVersion(client, log.Log, 1, 14, 0)
 
@@ -301,6 +316,7 @@ func main() {
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
 	server, err := webhooks.NewWebhookServer(
+		ctx,
 		pclient,
 		client,
 		tlsPair,
@@ -354,14 +370,6 @@ func main() {
 	server.RunAsync(stopCh)
 
 	<-stopCh
-
-	// by default http.Server waits indefinitely for connections to return to idle and then shuts down
-	// adding a threshold will handle zombie connections
-	// adjust the context deadline to 5 seconds
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer func() {
-		cancel()
-	}()
 
 	// cleanup webhookconfigurations followed by webhook shutdown
 	server.Stop(ctx)

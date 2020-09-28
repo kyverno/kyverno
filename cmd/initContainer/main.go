@@ -4,6 +4,7 @@ Cleans up stale webhookconfigurations created by kyverno that were not cleanedup
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -53,7 +54,7 @@ func main() {
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := client.NewClient(clientConfig, 15*time.Minute, stopCh, log.Log)
+	client, err := client.NewClient(context.Background(), clientConfig, 15*time.Minute, stopCh, log.Log)
 	if err != nil {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)

@@ -2,6 +2,11 @@ package webhooks
 
 import (
 	"fmt"
+	"reflect"
+	"sort"
+	"strings"
+	"time"
+
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/config"
@@ -14,10 +19,6 @@ import (
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"reflect"
-	"sort"
-	"strings"
-	"time"
 )
 
 //HandleGenerate handles admission-requests for policies with generate rules
@@ -55,13 +56,13 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		engineResponse := engine.Generate(policyContext)
 		for _, rule := range engineResponse.PolicyResponse.Rules {
 			if !rule.Success {
-				grList, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
+				grList, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(ws.ctx, metav1.ListOptions{})
 				if err != nil {
 					logger.Error(err, "failed to list generate request")
 				}
 				for _, v := range grList.Items {
 					if engineResponse.PolicyResponse.Policy == v.Spec.Policy && engineResponse.PolicyResponse.Resource.Name == v.Spec.Resource.Name && engineResponse.PolicyResponse.Resource.Kind == v.Spec.Resource.Kind && engineResponse.PolicyResponse.Resource.Namespace == v.Spec.Resource.Namespace {
-						err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(), &metav1.DeleteOptions{})
+						err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(ws.ctx, v.GetName(), metav1.DeleteOptions{})
 						if err != nil {
 							logger.Error(err, "failed to update gr")
 						}

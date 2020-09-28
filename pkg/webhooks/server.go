@@ -44,6 +44,7 @@ import (
 
 // WebhookServer contains configured TLS server with MutationWebhook.
 type WebhookServer struct {
+	ctx           context.Context
 	server        http.Server
 	client        *client.Client
 	kyvernoClient *kyvernoclient.Clientset
@@ -121,6 +122,7 @@ type WebhookServer struct {
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
+	ctx context.Context,
 	kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	tlsPair *tlsutils.TlsPemPair,
@@ -157,6 +159,7 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
+		ctx:           ctx,
 		client:        client,
 		kyvernoClient: kyvernoClient,
 		pLister:       pInformer.Lister(),
