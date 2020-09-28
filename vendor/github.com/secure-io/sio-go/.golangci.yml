@@ -1,0 +1,30 @@
+linters-settings:
+  golint:
+    min-confidence: 0
+
+  misspell:
+    locale: US
+
+linters:
+  disable-all: true
+  enable:
+    - typecheck
+    - goimports
+    - misspell
+    - govet
+    - golint
+    - ineffassign
+    - gosimple
+    - deadcode
+    - unparam
+    - unused
+    - structcheck
+
+issues:
+  exclude-use-default: false
+  exclude:
+      - should have a package comment
+      - don't use ALL_CAPS in Go names
+
+service:
+  golangci-lint-version: 1.20.0 # use the fixed version to not introduce new linters unexpectedly

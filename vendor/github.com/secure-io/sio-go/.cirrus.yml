@@ -1,0 +1,18 @@
+task:
+   matrix:
+      - name: golang-ci
+        container:
+           image: golang:latest
+  
+   modules_cache:
+       fingerprint_script: cat go.sum
+       folder: $GOPATH/pkg/mod
+   check_script:
+       - curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.20.0
+       - $(go env GOPATH)/bin/golangci-lint run --config ./.golangci.yml
+   build_script:
+      - go build -tags gofuzz ./...
+   test_script: 
+      - go test -tags gofuzz ./...
+
+     
