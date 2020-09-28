@@ -88,6 +88,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	// kyverno: change to support multiple versions
 	logr "github.com/go-logr/logr/020"
 )
 
