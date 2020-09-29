@@ -45,6 +45,8 @@ github.com/go-errors/errors
 # github.com/go-logr/logr v0.2.0 => github.com/go-logr/logr v0.1.0
 ## explicit
 github.com/go-logr/logr
+# github.com/go-logr/logr/020 v0.2.0 => github.com/go-logr/logr v0.2.0
+## explicit
 # github.com/go-ole/go-ole v1.2.4
 github.com/go-ole/go-ole
 github.com/go-ole/go-ole/oleutil
@@ -213,8 +215,6 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
-# github.com/ory/go-acc v0.2.1
-## explicit
 # github.com/peterbourgon/diskv v2.0.1+incompatible
 github.com/peterbourgon/diskv
 # github.com/pkg/errors v0.9.1
@@ -278,6 +278,7 @@ golang.org/x/crypto/internal/subtle
 golang.org/x/crypto/poly1305
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/net v0.0.0-20200707034311-ab3426394381
+## explicit
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/html

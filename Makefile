@@ -137,17 +137,17 @@ CODE_COVERAGE_FILE_TXT := $(CODE_COVERAGE_FILE).txt
 CODE_COVERAGE_FILE_HTML := $(CODE_COVERAGE_FILE).html
 
 ## targets
-$(GO_ACC):
-	@echo "	downloading testing tools"
-	go get -v github.com/ory/go-acc
-	$(eval export PATH=$(GO_ACC):$(PATH))
+# $(GO_ACC):
+# 	@echo "	downloading testing tools"
+# 	go get -v github.com/ory/go-acc
+# 	$(eval export PATH=$(GO_ACC):$(PATH))
 # go test provides code coverage per packages only.
 # go-acc merges the result for pks so that it be used by	
 # go tool cover for reporting
 
 # go get downloads and installs the binary
 # we temporarily add the GO_ACC to the path
-test-all: $(GO_ACC)
+test-all:
 	@echo "running unit tests"
 	# go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
 	go test ./...

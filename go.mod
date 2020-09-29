@@ -11,6 +11,7 @@ require (
 	github.com/gardener/controller-manager-library v0.2.0 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-logr/logr v0.2.0
+	github.com/go-logr/logr/020 v0.2.0 // indirect
 	github.com/go-openapi/spec v0.19.5 // indirect
 	github.com/go-openapi/strfmt v0.19.5 // indirect
 	github.com/go-openapi/validate v0.19.8 // indirect
@@ -23,7 +24,6 @@ require (
 	github.com/minio/minio v0.0.0-20200114012931-30922148fbb5
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
-	github.com/ory/go-acc v0.2.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.2.1 // indirect
 	github.com/prometheus/common v0.4.1 // indirect
@@ -31,6 +31,7 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.4.0
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	google.golang.org/appengine v1.6.5 // indirect
