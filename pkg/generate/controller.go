@@ -94,7 +94,7 @@ func NewController(
 		Config:               dynamicConfig,
 		resCache:             resCache,
 	}
-	c.statusControl = StatusControl{client: kyvernoclient}
+	c.statusControl = StatusControl{client: kyvernoclient, ctx: ctx}
 
 	pInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePolicy, // We only handle updates to policy
