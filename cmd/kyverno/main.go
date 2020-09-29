@@ -83,14 +83,6 @@ func main() {
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
 
-	// by default http.Server waits indefinitely for connections to return to idle and then shuts down
-	// adding a threshold will handle zombie connections
-	// adjust the context deadline to 5 seconds
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer func() {
-		cancel()
-	}()
-
 	clientConfig, err := config.CreateClientConfig(kubeconfig, log.Log)
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
@@ -109,7 +101,7 @@ func main() {
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := dclient.NewClient(ctx, clientConfig, 5*time.Minute, stopCh, log.Log)
+	client, err := dclient.NewClient(clientConfig, 5*time.Minute, stopCh, log.Log)
 	if err != nil {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
@@ -143,7 +135,9 @@ func main() {
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	kubedynamicInformer := client.NewDynamicSharedInformerFactory(resyncPeriod)
 
+	ctx := context.Background()
 	webhookRegistrationClient := webhookconfig.NewWebhookRegistrationClient(
+		ctx,
 		clientConfig,
 		client,
 		serverIP,
@@ -282,7 +276,7 @@ func main() {
 	)
 
 	// CONFIGURE CERTIFICATES
-	tlsPair, err := client.InitTLSPemPair(clientConfig, fqdncn)
+	tlsPair, err := client.InitTLSPemPair(ctx, clientConfig, fqdncn)
 	if err != nil {
 		setupLog.Error(err, "Failed to initialize TLS key/certificate pair")
 		os.Exit(1)

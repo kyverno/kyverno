@@ -1,6 +1,8 @@
 package event
 
 import (
+	"context"
+
 	"github.com/go-logr/logr"
 
 	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
@@ -21,6 +23,7 @@ import (
 
 //Generator generate events
 type Generator struct {
+	ctx    context.Context
 	client *client.Client
 	// list/get cluster policy
 	pLister kyvernolister.ClusterPolicyLister
@@ -46,6 +49,7 @@ type Interface interface {
 func NewEventGenerator(client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer, log logr.Logger) *Generator {
 
 	gen := Generator{
+		ctx:                  context.Background(),
 		client:               client,
 		pLister:              pInformer.Lister(),
 		queue:                workqueue.NewNamedRateLimitingQueue(rateLimiter(), eventWorkQueueName),
@@ -182,7 +186,7 @@ func (gen *Generator) syncHandler(key Info) error {
 			return err
 		}
 	default:
-		robj, err = gen.client.GetResource("", key.Kind, key.Namespace, key.Name)
+		robj, err = gen.client.GetResource(gen.ctx, "", key.Kind, key.Namespace, key.Name)
 		if err != nil {
 			logger.Error(err, "failed to get resource", "kind", key.Kind, "name", key.Name, "namespace", key.Namespace)
 			return err

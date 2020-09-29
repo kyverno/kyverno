@@ -14,7 +14,7 @@ func (wrc *WebhookRegistrationClient) readCaData() []byte {
 	var caData []byte
 	// Check if ca is defined in the secret tls-ca
 	// assume the key and signed cert have been defined in secret tls.kyverno
-	if caData = wrc.client.ReadRootCASecret(); len(caData) != 0 {
+	if caData = wrc.client.ReadRootCASecret(wrc.ctx); len(caData) != 0 {
 		logger.V(4).Info("read CA from secret")
 		return caData
 	}
@@ -47,7 +47,7 @@ func extractCA(config *rest.Config) (result []byte) {
 
 func (wrc *WebhookRegistrationClient) constructOwner() v1.OwnerReference {
 	logger := wrc.log
-	kubePolicyDeployment, err := wrc.client.GetKubePolicyDeployment()
+	kubePolicyDeployment, err := wrc.client.GetKubePolicyDeployment(wrc.ctx)
 
 	if err != nil {
 		logger.Error(err, "failed to construct OwnerReference")

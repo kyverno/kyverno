@@ -1,6 +1,7 @@
 package checker
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -73,7 +74,7 @@ func (t *LastReqTime) Run(pLister kyvernolister.ClusterPolicyLister, eventGen ev
 	maxDeadline := deadline * time.Duration(MaxRetryCount)
 	ticker := time.NewTicker(defaultResync)
 	/// interface to update and increment kyverno webhook status via annotations
-	statuscontrol := NewVerifyControl(client, eventGen, logger.WithName("StatusControl"))
+	statuscontrol := NewVerifyControl(context.Background(), client, eventGen, logger.WithName("StatusControl"))
 	// send the initial update status
 	if checkIfPolicyWithMutateAndGenerateExists(pLister, logger) {
 		if err := statuscontrol.SuccessStatus(); err != nil {

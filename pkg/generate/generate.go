@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -11,7 +12,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/config"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
 	"github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/engine/context"
+	kyvernocontext "github.com/nirmata/kyverno/pkg/engine/context"
 	"github.com/nirmata/kyverno/pkg/engine/validate"
 	"github.com/nirmata/kyverno/pkg/engine/variables"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,7 +27,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	var genResources []kyverno.ResourceSpec
 
 	// 1 - Check if the resource exists
-	resource, err = getResource(c.client, gr.Spec.Resource)
+	resource, err = getResource(c.ctx, c.client, gr.Spec.Resource)
 	if err != nil {
 		// Dont update status
 		logger.Error(err, "resource does not exist or is yet to be created, requeueing")
@@ -49,20 +50,20 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	// Get the list of rules to be applied
 	// get policy
 	// build context
-	ctx := context.NewContext()
+	ctx := kyvernocontext.NewContext()
 
 	policyObj, err := c.pLister.Get(gr.Spec.Policy)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			for _, e := range gr.Status.GeneratedResources {
-				resp, err := c.client.GetResource(e.APIVersion, e.Kind, e.Namespace, e.Name)
+				resp, err := c.client.GetResource(c.ctx, e.APIVersion, e.Kind, e.Namespace, e.Name)
 				if err != nil {
 					logger.Error(err, "Generated resource failed to get", "Resource", e.Name)
 				}
 
 				labels := resp.GetLabels()
 				if labels["policy.kyverno.io/synchronize"] == "enable" {
-					if err := c.client.DeleteResource(resp.GetAPIVersion(), resp.GetKind(), resp.GetNamespace(), resp.GetName(), false); err != nil {
+					if err := c.client.DeleteResource(c.ctx, resp.GetAPIVersion(), resp.GetKind(), resp.GetNamespace(), resp.GetName(), false); err != nil {
 						logger.Error(err, "Generated resource is not deleted", "Resource", e.Name)
 					}
 				}
@@ -180,7 +181,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 			return nil, err
 		}
 
-		genResource, err := applyRule(log, c.client, rule, resource, ctx, policy.Name, gr, processExisting)
+		genResource, err := applyRule(c.ctx, log, c.client, rule, resource, ctx, policy.Name, gr, processExisting)
 
 		if err != nil {
 			return nil, err
@@ -238,7 +239,7 @@ func updateGenerateExecutionTime(newTime time.Duration, oldAverageTimeString str
 	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }
 
-func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy string, gr kyverno.GenerateRequest, processExisting bool) (kyverno.ResourceSpec, error) {
+func applyRule(ctx context.Context, log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, evalCtx kyvernocontext.EvalInterface, policy string, gr kyverno.GenerateRequest, processExisting bool) (kyverno.ResourceSpec, error) {
 	var rdata map[string]interface{}
 	var err error
 	var mode ResourceMode
@@ -252,7 +253,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	// format : {{<variable_name}}
 	// - if there is variables that are not defined the context -> results in error and rule is not applied
 	// - valid variables are replaced with the values
-	object, err := variables.SubstituteVars(log, ctx, genUnst.Object)
+	object, err := variables.SubstituteVars(log, evalCtx, genUnst.Object)
 	if err != nil {
 		return noGenResource, err
 	}
@@ -291,9 +292,9 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		return noGenResource, err
 	}
 	if genData != nil {
-		rdata, mode, err = manageData(log, genAPIVersion, genKind, genNamespace, genName, genData, client, resource)
+		rdata, mode, err = manageData(ctx, log, genAPIVersion, genKind, genNamespace, genName, genData, client, resource)
 	} else {
-		rdata, mode, err = manageClone(log, genAPIVersion, genKind, genNamespace, genName, genCopy, client, resource)
+		rdata, mode, err = manageClone(ctx, log, genAPIVersion, genKind, genNamespace, genName, genCopy, client, resource)
 	}
 
 	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
@@ -339,7 +340,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		newResource.SetResourceVersion("")
 		// Create the resource
 		logger.V(4).Info("creating new resource")
-		_, err = client.CreateResource(genAPIVersion, genKind, genNamespace, newResource, false)
+		_, err = client.CreateResource(ctx, genAPIVersion, genKind, genNamespace, newResource, false)
 		if err != nil {
 			logger.Error(err, "failed to create resource", "resource", newResource.GetName())
 			// Failed to create resource
@@ -369,7 +370,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 			logger.V(4).Info("updating existing resource")
 			// Update the resource
 			newResource.SetLabels(label)
-			_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
+			_, err := client.UpdateResource(ctx, genAPIVersion, genKind, genNamespace, newResource, false)
 			if err != nil {
 				logger.Error(err, "updating existing resource")
 				// Failed to update resource
@@ -380,7 +381,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 			resource := &unstructured.Unstructured{}
 			resource.SetUnstructuredContent(rdata)
 			resource.SetLabels(label)
-			_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, resource, false)
+			_, err := client.UpdateResource(ctx, genAPIVersion, genKind, genNamespace, resource, false)
 			if err != nil {
 				logger.Error(err, "updating existing resource")
 				// Failed to update resource
@@ -394,9 +395,9 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	return newGenResource, nil
 }
 
-func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data map[string]interface{}, client *dclient.Client, resource unstructured.Unstructured) (map[string]interface{}, ResourceMode, error) {
+func manageData(ctx context.Context, log logr.Logger, apiVersion, kind, namespace, name string, data map[string]interface{}, client *dclient.Client, resource unstructured.Unstructured) (map[string]interface{}, ResourceMode, error) {
 	// check if resource to be generated exists
-	obj, err := client.GetResource(apiVersion, kind, namespace, name)
+	obj, err := client.GetResource(ctx, apiVersion, kind, namespace, name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Error(err, "resource does not exist, will try to create", "genKind", kind, "genAPIVersion", apiVersion, "genNamespace", namespace, "genName", name)
@@ -412,7 +413,7 @@ func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data 
 	return updateObj.UnstructuredContent(), Update, nil
 }
 
-func manageClone(log logr.Logger, apiVersion, kind, namespace, name string, clone map[string]interface{}, client *dclient.Client, resource unstructured.Unstructured) (map[string]interface{}, ResourceMode, error) {
+func manageClone(ctx context.Context, log logr.Logger, apiVersion, kind, namespace, name string, clone map[string]interface{}, client *dclient.Client, resource unstructured.Unstructured) (map[string]interface{}, ResourceMode, error) {
 	newRNs, _, err := unstructured.NestedString(clone, "namespace")
 	if err != nil {
 		return nil, Skip, err
@@ -429,13 +430,13 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name string, clon
 	}
 
 	// check if the resource as reference in clone exists?
-	obj, err := client.GetResource(apiVersion, kind, newRNs, newRName)
+	obj, err := client.GetResource(ctx, apiVersion, kind, newRNs, newRName)
 	if err != nil {
 		return nil, Skip, fmt.Errorf("reference clone resource %s/%s/%s/%s not found. %v", apiVersion, kind, newRNs, newRName, err)
 	}
 
 	// check if resource to be generated exists
-	newResource, err := client.GetResource(apiVersion, kind, namespace, name)
+	newResource, err := client.GetResource(ctx, apiVersion, kind, namespace, name)
 	if err == nil {
 		obj.SetUID(newResource.GetUID())
 		obj.SetSelfLink(newResource.GetSelfLink())

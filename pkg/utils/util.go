@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -88,7 +89,7 @@ func CleanupOldCrd(client *dclient.Client, log logr.Logger) {
 	logger := log.WithName("CleanupOldCrd")
 	gvr := client.DiscoveryClient.GetGVRFromKind("NamespacedPolicyViolation")
 	if !reflect.DeepEqual(gvr, (schema.GroupVersionResource{})) {
-		if err := client.DeleteResource("", "CustomResourceDefinition", "", "namespacedpolicyviolations.kyverno.io", false); err != nil {
+		if err := client.DeleteResource(context.Background(), "", "CustomResourceDefinition", "", "namespacedpolicyviolations.kyverno.io", false); err != nil {
 			logger.Error(err, "Failed to remove prevous CRD", "kind", "namespacedpolicyviolation")
 		}
 	}

@@ -36,11 +36,10 @@ type Client struct {
 	clientConfig    *rest.Config
 	kclient         kubernetes.Interface
 	DiscoveryClient IDiscovery
-	ctx             context.Context
 }
 
 //NewClient creates new instance of client
-func NewClient(ctx context.Context, config *rest.Config, resync time.Duration, stopCh <-chan struct{}, log logr.Logger) (*Client, error) {
+func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}, log logr.Logger) (*Client, error) {
 
 	dclient, err := dynamic.NewForConfig(config)
 	if err != nil {
@@ -51,7 +50,6 @@ func NewClient(ctx context.Context, config *rest.Config, resync time.Duration, s
 		return nil, err
 	}
 	client := Client{
-		ctx:          ctx,
 		client:       dclient,
 		clientConfig: config,
 		kclient:      kclient,
@@ -76,8 +74,8 @@ func (c *Client) NewDynamicSharedInformerFactory(defaultResync time.Duration) dy
 }
 
 //GetKubePolicyDeployment returns kube policy depoyment value
-func (c *Client) GetKubePolicyDeployment() (*apps.Deployment, error) {
-	kubePolicyDeployment, err := c.GetResource("", "Deployment", config.KubePolicyNamespace, config.KubePolicyDeploymentName)
+func (c *Client) GetKubePolicyDeployment(ctx context.Context) (*apps.Deployment, error) {
+	kubePolicyDeployment, err := c.GetResource(ctx, "", "Deployment", config.KubePolicyNamespace, config.KubePolicyDeploymentName)
 	if err != nil {
 		return nil, err
 	}
@@ -127,13 +125,13 @@ func (c *Client) getGroupVersionMapper(apiVersion string, kind string) schema.Gr
 }
 
 // GetResource returns the resource in unstructured/json format
-func (c *Client) GetResource(apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
-	return c.getResourceInterface(apiVersion, kind, namespace).Get(c.ctx, name, meta.GetOptions{}, subresources...)
+func (c *Client) GetResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	return c.getResourceInterface(apiVersion, kind, namespace).Get(ctx, name, meta.GetOptions{}, subresources...)
 }
 
 //PatchResource patches the resource
-func (c *Client) PatchResource(apiVersion string, kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
-	return c.getResourceInterface(apiVersion, kind, namespace).Patch(c.ctx, name, patchTypes.JSONPatchType, patch, meta.PatchOptions{})
+func (c *Client) PatchResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
+	return c.getResourceInterface(apiVersion, kind, namespace).Patch(ctx, name, patchTypes.JSONPatchType, patch, meta.PatchOptions{})
 }
 
 // GetDynamicInterface fetches underlying dynamic interface
@@ -143,59 +141,59 @@ func (c *Client) GetDynamicInterface() dynamic.Interface {
 
 // ListResource returns the list of resources in unstructured/json format
 // Access items using []Items
-func (c *Client) ListResource(apiVersion string, kind string, namespace string, lselector *meta.LabelSelector) (*unstructured.UnstructuredList, error) {
+func (c *Client) ListResource(ctx context.Context, apiVersion string, kind string, namespace string, lselector *meta.LabelSelector) (*unstructured.UnstructuredList, error) {
 	options := meta.ListOptions{}
 	if lselector != nil {
 		options = meta.ListOptions{LabelSelector: helperv1.FormatLabelSelector(lselector)}
 	}
-	return c.getResourceInterface(apiVersion, kind, namespace).List(c.ctx, options)
+	return c.getResourceInterface(apiVersion, kind, namespace).List(ctx, options)
 }
 
 // DeleteResource deletes the specified resource
-func (c *Client) DeleteResource(apiVersion string, kind string, namespace string, name string, dryRun bool) error {
+func (c *Client) DeleteResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, dryRun bool) error {
 	options := meta.DeleteOptions{}
 	if dryRun {
 		options = meta.DeleteOptions{DryRun: []string{meta.DryRunAll}}
 	}
-	return c.getResourceInterface(apiVersion, kind, namespace).Delete(c.ctx, name, options)
+	return c.getResourceInterface(apiVersion, kind, namespace).Delete(ctx, name, options)
 
 }
 
 // CreateResource creates object for the specified resource/namespace
-func (c *Client) CreateResource(apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+func (c *Client) CreateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
 	options := meta.CreateOptions{}
 	if dryRun {
 		options = meta.CreateOptions{DryRun: []string{meta.DryRunAll}}
 	}
 	// convert typed to unstructured obj
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
-		return c.getResourceInterface(apiVersion, kind, namespace).Create(c.ctx, unstructuredObj, options)
+		return c.getResourceInterface(apiVersion, kind, namespace).Create(ctx, unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("Unable to create resource ")
 }
 
 // UpdateResource updates object for the specified resource/namespace
-func (c *Client) UpdateResource(apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+func (c *Client) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
 	options := meta.UpdateOptions{}
 	if dryRun {
 		options = meta.UpdateOptions{DryRun: []string{meta.DryRunAll}}
 	}
 	// convert typed to unstructured obj
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
-		return c.getResourceInterface(apiVersion, kind, namespace).Update(c.ctx, unstructuredObj, options)
+		return c.getResourceInterface(apiVersion, kind, namespace).Update(ctx, unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("Unable to update resource ")
 }
 
 // UpdateStatusResource updates the resource "status" subresource
-func (c *Client) UpdateStatusResource(apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+func (c *Client) UpdateStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
 	options := meta.UpdateOptions{}
 	if dryRun {
 		options = meta.UpdateOptions{DryRun: []string{meta.DryRunAll}}
 	}
 	// convert typed to unstructured obj
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
-		return c.getResourceInterface(apiVersion, kind, namespace).UpdateStatus(c.ctx, unstructuredObj, options)
+		return c.getResourceInterface(apiVersion, kind, namespace).UpdateStatus(ctx, unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("Unable to update resource ")
 }

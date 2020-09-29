@@ -1,6 +1,8 @@
 package generate
 
 import (
+	"context"
+
 	"github.com/go-logr/logr"
 	"github.com/nirmata/kyverno/pkg/auth"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
@@ -20,13 +22,15 @@ type Operations interface {
 
 //Auth provides implementation to check if caller/self/kyverno has access to perofrm operations
 type Auth struct {
+	ctx    context.Context
 	client *dclient.Client
 	log    logr.Logger
 }
 
 //NewAuth returns a new instance of Auth for operations
-func NewAuth(client *dclient.Client, log logr.Logger) *Auth {
+func NewAuth(ctx context.Context, client *dclient.Client, log logr.Logger) *Auth {
 	a := Auth{
+		ctx:    ctx,
 		client: client,
 		log:    log,
 	}
@@ -35,7 +39,7 @@ func NewAuth(client *dclient.Client, log logr.Logger) *Auth {
 
 // CanICreate returns 'true' if self can 'create' resource
 func (a *Auth) CanICreate(kind, namespace string) (bool, error) {
-	canI := auth.NewCanI(a.client, kind, namespace, "create", a.log)
+	canI := auth.NewCanI(a.ctx, a.client, kind, namespace, "create", a.log)
 	ok, err := canI.RunAccessCheck()
 	if err != nil {
 		return false, err
@@ -45,7 +49,7 @@ func (a *Auth) CanICreate(kind, namespace string) (bool, error) {
 
 // CanIUpdate returns 'true' if self can 'update' resource
 func (a *Auth) CanIUpdate(kind, namespace string) (bool, error) {
-	canI := auth.NewCanI(a.client, kind, namespace, "update", a.log)
+	canI := auth.NewCanI(a.ctx, a.client, kind, namespace, "update", a.log)
 	ok, err := canI.RunAccessCheck()
 	if err != nil {
 		return false, err
@@ -55,7 +59,7 @@ func (a *Auth) CanIUpdate(kind, namespace string) (bool, error) {
 
 // CanIDelete returns 'true' if self can 'delete' resource
 func (a *Auth) CanIDelete(kind, namespace string) (bool, error) {
-	canI := auth.NewCanI(a.client, kind, namespace, "delete", a.log)
+	canI := auth.NewCanI(a.ctx, a.client, kind, namespace, "delete", a.log)
 	ok, err := canI.RunAccessCheck()
 	if err != nil {
 		return false, err
@@ -65,7 +69,7 @@ func (a *Auth) CanIDelete(kind, namespace string) (bool, error) {
 
 // CanIGet returns 'true' if self can 'get' resource
 func (a *Auth) CanIGet(kind, namespace string) (bool, error) {
-	canI := auth.NewCanI(a.client, kind, namespace, "get", a.log)
+	canI := auth.NewCanI(a.ctx, a.client, kind, namespace, "get", a.log)
 	ok, err := canI.RunAccessCheck()
 	if err != nil {
 		return false, err

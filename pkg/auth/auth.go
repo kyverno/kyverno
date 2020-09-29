@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -13,6 +14,7 @@ import (
 
 //CanIOptions provides utility to check if user has authorization for the given operation
 type CanIOptions struct {
+	ctx       context.Context
 	namespace string
 	verb      string
 	kind      string
@@ -21,8 +23,9 @@ type CanIOptions struct {
 }
 
 //NewCanI returns a new instance of operation access controller evaluator
-func NewCanI(client *client.Client, kind, namespace, verb string, log logr.Logger) *CanIOptions {
+func NewCanI(ctx context.Context, client *client.Client, kind, namespace, verb string, log logr.Logger) *CanIOptions {
 	o := CanIOptions{
+		ctx:    ctx,
 		client: client,
 		log:    log,
 	}
@@ -67,7 +70,7 @@ func (o *CanIOptions) RunAccessCheck() (bool, error) {
 	logger := o.log.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name)
 
 	// Create the Resource
-	resp, err := o.client.CreateResource("", "SelfSubjectAccessReview", "", sar, false)
+	resp, err := o.client.CreateResource(o.ctx, "", "SelfSubjectAccessReview", "", sar, false)
 	if err != nil {
 		logger.Error(err, "failed to create resource")
 		return false, err

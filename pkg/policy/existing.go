@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"sync"
@@ -62,12 +63,12 @@ func (pc *PolicyController) listResources(policy *kyverno.ClusterPolicy) map[str
 			}
 
 			if !resourceSchema.Namespaced {
-				rMap := getResourcesPerNamespace(k, pc.client, "", rule, pc.configHandler, pc.log)
+				rMap := getResourcesPerNamespace(pc.ctx, k, pc.client, "", rule, pc.configHandler, pc.log)
 				mergeResources(resourceMap, rMap)
 			} else {
 				namespaces := getNamespacesForRule(&rule, pc.nsLister, pc.log)
 				for _, ns := range namespaces {
-					rMap := getResourcesPerNamespace(k, pc.client, ns, rule, pc.configHandler, pc.log)
+					rMap := getResourcesPerNamespace(pc.ctx, k, pc.client, ns, rule, pc.configHandler, pc.log)
 					mergeResources(resourceMap, rMap)
 				}
 			}
@@ -153,7 +154,7 @@ func getAllNamespaces(nslister listerv1.NamespaceLister, log logr.Logger) []stri
 	return results
 }
 
-func getResourcesPerNamespace(kind string, client *client.Client, namespace string, rule kyverno.Rule, configHandler config.Interface, log logr.Logger) map[string]unstructured.Unstructured {
+func getResourcesPerNamespace(ctx context.Context, kind string, client *client.Client, namespace string, rule kyverno.Rule, configHandler config.Interface, log logr.Logger) map[string]unstructured.Unstructured {
 	resourceMap := map[string]unstructured.Unstructured{}
 	ls := rule.MatchResources.Selector
 
@@ -161,7 +162,7 @@ func getResourcesPerNamespace(kind string, client *client.Client, namespace stri
 		namespace = ""
 	}
 
-	list, err := client.ListResource("", kind, namespace, ls)
+	list, err := client.ListResource(ctx, "", kind, namespace, ls)
 	if err != nil {
 		log.Error(err, "failed to list resources", "kind", kind, "namespace", namespace)
 		return nil

@@ -54,7 +54,7 @@ func main() {
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := client.NewClient(context.Background(), clientConfig, 15*time.Minute, stopCh, log.Log)
+	client, err := client.NewClient(clientConfig, 15*time.Minute, stopCh, log.Log)
 	if err != nil {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
@@ -104,11 +104,11 @@ func main() {
 	}
 }
 
-func removeWebhookIfExists(client *client.Client, kind string, name string) error {
+func removeWebhookIfExists(ctx context.Context, client *client.Client, kind string, name string) error {
 	logger := log.Log.WithName("removeExistingWebhook").WithValues("kind", kind, "name", name)
 	var err error
 	// Get resource
-	_, err = client.GetResource("", kind, "", name)
+	_, err = client.GetResource(ctx, "", kind, "", name)
 	if errors.IsNotFound(err) {
 		logger.V(4).Info("resource not found")
 		return nil
@@ -118,7 +118,7 @@ func removeWebhookIfExists(client *client.Client, kind string, name string) erro
 		return err
 	}
 	// Delete resource
-	err = client.DeleteResource("", kind, "", name, false)
+	err = client.DeleteResource(ctx, "", kind, "", name, false)
 	if err != nil {
 		logger.Error(err, "failed to delete resource")
 		return err
@@ -174,11 +174,12 @@ func gen(done <-chan struct{}, stopCh <-chan struct{}, requests ...request) <-ch
 func process(client *client.Client, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
 	logger := log.Log.WithName("process")
 	out := make(chan error)
+	ctx := context.Background()
 	go func() {
 		defer close(out)
 		for req := range requests {
 			select {
-			case out <- removeWebhookIfExists(client, req.kind, req.name):
+			case out <- removeWebhookIfExists(ctx, client, req.kind, req.name):
 			case <-done:
 				logger.Info("done")
 				return

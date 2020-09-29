@@ -527,12 +527,18 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 
 // Stop TLS server and returns control after the server is shut down
 func (ws *WebhookServer) Stop(ctx context.Context) {
+	// by default http.Server waits indefinitely for connections to return to idle and then shuts down
+	// adding a threshold will handle zombie connections
+	// adjust the context deadline to 5 seconds
+	ctxnew, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	logger := ws.log
 	// cleanUp
 	// remove the static webhookconfigurations
 	go ws.webhookRegistrationClient.RemoveWebhookConfigurations(ws.cleanUp)
 	// shutdown http.Server with context timeout
-	err := ws.server.Shutdown(ctx)
+	err := ws.server.Shutdown(ctxnew)
 	if err != nil {
 		// Error from closing listeners, or context timeout:
 		logger.Error(err, "shutting down server")

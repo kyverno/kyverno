@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -23,10 +24,10 @@ type Generate struct {
 }
 
 //NewGenerateFactory returns a new instance of Generate validation checker
-func NewGenerateFactory(client *dclient.Client, rule kyverno.Generation, log logr.Logger) *Generate {
+func NewGenerateFactory(ctx context.Context, client *dclient.Client, rule kyverno.Generation, log logr.Logger) *Generate {
 	g := Generate{
 		rule:      rule,
-		authCheck: NewAuth(client, log),
+		authCheck: NewAuth(ctx, client, log),
 		log:       log,
 	}
 

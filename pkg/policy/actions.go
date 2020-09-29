@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"fmt"
 
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
@@ -50,7 +51,7 @@ func validateActions(idx int, rule kyverno.Rule, client *dclient.Client, mock bo
 				return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			}
 		} else {
-			checker = generate.NewGenerateFactory(client, rule.Generation, log.Log)
+			checker = generate.NewGenerateFactory(context.Background(), client, rule.Generation, log.Log)
 			if path, err := checker.Validate(); err != nil {
 				return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			}

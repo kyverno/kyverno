@@ -2,6 +2,7 @@ package testrunner
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"os"
@@ -170,14 +171,14 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 }
 
 func createNamespace(client *client.Client, ns *unstructured.Unstructured) error {
-	_, err := client.CreateResource("", "Namespace", "", ns, false)
+	_, err := client.CreateResource(context.Background(), "", "Namespace", "", ns, false)
 	return err
 }
 func validateGeneratedResources(t *testing.T, client *client.Client, policy kyverno.ClusterPolicy, namespace string, expected []kyverno.ResourceSpec) {
 	t.Log("--validate if resources are generated---")
 	// list of expected generated resources
 	for _, resource := range expected {
-		if _, err := client.GetResource("", resource.Kind, namespace, resource.Name); err != nil {
+		if _, err := client.GetResource(context.Background(), "", resource.Kind, namespace, resource.Name); err != nil {
 			t.Errorf("generated resource %s/%s/%s not found. %v", resource.Kind, namespace, resource.Name, err)
 		}
 	}

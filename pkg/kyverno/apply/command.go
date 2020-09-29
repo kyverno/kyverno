@@ -6,39 +6,27 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"reflect"
-
-	"github.com/nirmata/kyverno/pkg/engine/context"
-	"k8s.io/apimachinery/pkg/util/yaml"
-
 	"os"
 	"path/filepath"
-
+	"reflect"
 	"strings"
 	"time"
 
+	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	client "github.com/nirmata/kyverno/pkg/dclient"
-
-	"github.com/nirmata/kyverno/pkg/utils"
-
+	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/nirmata/kyverno/pkg/engine/context"
+	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
 	"github.com/nirmata/kyverno/pkg/kyverno/common"
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
-
 	policy2 "github.com/nirmata/kyverno/pkg/policy"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"github.com/nirmata/kyverno/pkg/engine"
-
-	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
-
-	"k8s.io/apimachinery/pkg/runtime"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
 	yamlv2 "gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes/scheme"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
@@ -165,7 +153,7 @@ func Command() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				dClient, err = client.NewClient(builtincontext.Background(), restConfig, 5*time.Minute, make(chan struct{}), log.Log)
+				dClient, err = client.NewClient(restConfig, 5*time.Minute, make(chan struct{}), log.Log)
 				if err != nil {
 					return err
 				}
@@ -297,7 +285,7 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Clien
 	var resources []*unstructured.Unstructured
 
 	for _, kind := range resourceTypes {
-		resourceList, err := dClient.ListResource("", kind, "", nil)
+		resourceList, err := dClient.ListResource(builtincontext.Background(), "", kind, "", nil)
 		if err != nil {
 			return nil, err
 		}

@@ -1,6 +1,8 @@
 package cleanup
 
 import (
+	"context"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	dclient "github.com/nirmata/kyverno/pkg/dclient"
@@ -13,8 +15,8 @@ func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
 	// then we dont delete the generated resources
 
 	// 2- The trigger resource is deleted, then delete the generated resources
-	if !ownerResourceExists(logger, c.client, gr) {
-		if err := deleteGeneratedResources(logger, c.client, gr); err != nil {
+	if !ownerResourceExists(c.ctx, logger, c.client, gr) {
+		if err := deleteGeneratedResources(c.ctx, logger, c.client, gr); err != nil {
 			return err
 		}
 		// - trigger-resource is deleted
@@ -25,8 +27,8 @@ func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
 	return nil
 }
 
-func ownerResourceExists(log logr.Logger, client *dclient.Client, gr kyverno.GenerateRequest) bool {
-	_, err := client.GetResource("", gr.Spec.Resource.Kind, gr.Spec.Resource.Namespace, gr.Spec.Resource.Name)
+func ownerResourceExists(ctx context.Context, log logr.Logger, client *dclient.Client, gr kyverno.GenerateRequest) bool {
+	_, err := client.GetResource(ctx, "", gr.Spec.Resource.Kind, gr.Spec.Resource.Namespace, gr.Spec.Resource.Name)
 	// trigger resources has been deleted
 	if apierrors.IsNotFound(err) {
 		return false
@@ -39,9 +41,9 @@ func ownerResourceExists(log logr.Logger, client *dclient.Client, gr kyverno.Gen
 	return true
 }
 
-func deleteGeneratedResources(log logr.Logger, client *dclient.Client, gr kyverno.GenerateRequest) error {
+func deleteGeneratedResources(ctx context.Context, log logr.Logger, client *dclient.Client, gr kyverno.GenerateRequest) error {
 	for _, genResource := range gr.Status.GeneratedResources {
-		err := client.DeleteResource("", genResource.Kind, genResource.Namespace, genResource.Name, false)
+		err := client.DeleteResource(ctx, "", genResource.Kind, genResource.Namespace, genResource.Name, false)
 		if apierrors.IsNotFound(err) {
 			log.Error(err, "resource not foundl will not delete", "genKind", gr.Spec.Resource.Kind, "genNamespace", gr.Spec.Resource.Namespace, "genName", gr.Spec.Resource.Name)
 			continue
