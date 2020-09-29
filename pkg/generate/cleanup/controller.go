@@ -60,6 +60,7 @@ type Controller struct {
 
 //NewController returns a new controller instance to manage generate-requests
 func NewController(
+	ctx context.Context,
 	kyvernoclient *kyvernoclient.Clientset,
 	client *dclient.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
@@ -68,6 +69,7 @@ func NewController(
 	log logr.Logger,
 ) *Controller {
 	c := Controller{
+		ctx:           ctx,
 		kyvernoClient: kyvernoclient,
 		client:        client,
 		//TODO: do the math for worst case back off and make sure cleanup runs after that
