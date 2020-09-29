@@ -35,10 +35,6 @@ jobs:
       - name: golangci-lint
         uses: reviewdog/action-golangci-lint@v1
       -
-        name: Go Get
-        run: |
-          go get ./...
-      -
         name: Build
         run: |
           make initContainer
