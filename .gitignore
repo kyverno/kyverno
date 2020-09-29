@@ -1,4 +1,10 @@
-./certs
+certs/rootCA.crt
+certs/rootCA.key
+certs/rootCA.key
+certs/rootCA.srl
+certs/webhook.crt
+certs/webhook.csr
+certs/webhook.key
 Gopkg.lock
 .vscode
 gh-pages/public
