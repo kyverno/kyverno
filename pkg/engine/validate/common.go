@@ -16,6 +16,8 @@ func convertToString(value interface{}) (string, error) {
 		return strconv.FormatInt(typed, 10), nil
 	case int:
 		return strconv.Itoa(typed), nil
+	case nil:
+		return "", fmt.Errorf("found nil interface")
 	default:
 		return "", fmt.Errorf("Could not convert %T to string", value)
 	}

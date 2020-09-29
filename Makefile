@@ -148,7 +148,7 @@ $(GO_ACC):
 # go get downloads and installs the binary
 # we temporarily add the GO_ACC to the path
 test-all: $(GO_ACC)
-	@echo "	running unit tests"
+	@echo "running unit tests"
 	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
 
 code-cov-report: $(CODE_COVERAGE_FILE_TXT)

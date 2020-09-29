@@ -15,6 +15,7 @@ import (
 	"github.com/nirmata/kyverno/pkg/event"
 	"github.com/nirmata/kyverno/pkg/policystatus"
 	"github.com/nirmata/kyverno/pkg/resourcecache"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -297,6 +298,10 @@ func (c *Controller) syncGenerateRequest(key string) error {
 
 	gr, err := c.grLister.Get(grName)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+
 		logger.Error(err, "failed to list generate requests")
 		return err
 	}
