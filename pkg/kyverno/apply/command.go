@@ -430,8 +430,6 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 				fmt.Printf("\n\nMutation:\nMutation has been applied succesfully. Check the files.")
 			}
 
-		} else {
-			fmt.Printf("\n\nMutation:\nMutation skipped. Resource not matches the policy\n")
 		}
 	}
 
