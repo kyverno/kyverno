@@ -28,23 +28,20 @@ helm install kyverno --namespace kyverno kyverno/kyverno
 
 ## Install Kyverno using YAMLs
 
-The Kyverno policy engine runs as an admission webhook and requires a CA-signed certificate and key to setup secure TLS communication with the kube-apiserver (the CA can be self-signed). 
-
-There are 2 ways to configure the secure communications link between Kyverno and the kube-apiserver.
-
-### Kyverno Flags 
-
-1. `excludeGroupRole` : excludeGroupRole role expected string with Comma seperated group role. It will exclude all the group role from the user request. Default we are using `system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler`.
-2. `excludeUsername` : excludeUsername expected string with Comma seperated kubernetes username. In generate request if user enable `Synchronize` in generate policy then only kyverno can update/delete generated resource but admin can exclude specific username who have access of delete/update generated resource.
-3. `filterK8Resources`: k8s resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. For example --filterKind "[Deployment, kyverno, kyverno]" --filterKind "[Deployment, kyverno, kyverno],[Events, *, *].
+The Kyverno policy engine runs as an admission webhook and requires a CA-signed certificate and key to setup secure TLS communication with the kube-apiserver (the CA can be self-signed). There are 2 ways to configure the secure communications link between Kyverno and the kube-apiserver.
 
 ### Option 1: Use kube-controller-manager to generate a CA-signed certificate
 
-Kyverno can request a CA signed certificate-key pair from `kube-controller-manager`. This method requires that the kube-controller-manager is configured to act as a certificate signer. To verify that this option is enabled for your cluster, check the command-line args for the kube-controller-manager. If `--cluster-signing-cert-file` and `--cluster-signing-key-file` are passed to the controller manager with paths to your CA's key-pair, then you can proceed to install Kyverno using this method.
+Kyverno can request a CA signed certificate-key pair from `kube-controller-manager`. To install Kyverno in a cluster that supports certificate signing, run the following command on a host with kubectl `cluster-admin` access: 
+
+```sh
+## Install Kyverno
+kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
+```
+
+This method requires that the kube-controller-manager is configured to act as a certificate signer. To verify that this option is enabled for your cluster, check the command-line args for the kube-controller-manager. If `--cluster-signing-cert-file` and `--cluster-signing-key-file` are passed to the controller manager with paths to your CA's key-pair, then you can proceed to install Kyverno using this method.
 
 **Deploying on EKS requires enabling a command-line argument `--fqdn-as-cn` in the 'kyverno' container in the deployment, due to a current limitation with the certificates returned by EKS for CSR(bug: https://github.com/awslabs/amazon-eks-ami/issues/341)**
-
-To install Kyverno in a cluster that supports certificate signing, run the following command on a host with kubectl `cluster-admin` access:
 
 Note that the above command will install the last released (stable) version of Kyverno. If you want to install the latest version, you can edit the [install.yaml] and update the image tag. 
 
@@ -70,11 +67,12 @@ kubectl describe pod <kyverno-pod-name> -n <namespace>
 kubectl logs <kyverno-pod-name> -n <namespace>
 ````
 
+
 ### Option 2: Use your own CA-signed certificate
 
 You can install your own CA-signed certificate, or generate a self-signed CA and use it to sign a certifcate. Once you have a CA and X.509 certificate-key pair, you can install these as Kubernetes secrets in your cluster. If Kyverno finds these secrets, it uses them. Otherwise it will request the kube-controller-manager to generate a certificate (see Option 1 above).
 
-#### 1. Generate a self-signed CA and signed certificate-key pair
+#### 2.1. Generate a self-signed CA and signed certificate-key pair
 
 **Note: using a separate self-signed root CA is difficult to manage and not recommeded for production use.** 
 
@@ -95,7 +93,7 @@ Among the files that will be generated, you can use the following files to creat
 - webhooks.crt
 - webhooks.key
 
-#### 2. Configure secrets for the CA and TLS certificate-key pair
+#### 2.2. Configure secrets for the CA and TLS certificate-key pair
 
 To create the required secrets, use the following commands (do not change the secret names):
 
@@ -115,7 +113,7 @@ Secret | Data | Content
 
 Kyverno uses secrets created above to setup TLS communication with the kube-apiserver and specify the CA bundle to be used to validate the webhook server's certificate in the admission webhook configurations.
 
-#### 3. Configure Kyverno Role
+#### 2.3. Configure Kyverno Role
 Kyverno, in `foreground` mode, leverages admission webhooks to manage incoming api-requests, and `background` mode applies the policies on existing resources. It uses ServiceAccount `kyverno-service-account`, which is bound to multiple ClusterRole, which defines the default resources and operations that are permitted.
 
 ClusterRoles used by kyverno:
@@ -165,7 +163,7 @@ subjects:
   namespace: kyverno
 ```
 
-#### 4. Install Kyverno
+#### 2.4. Install Kyverno
 
 To install a specific version, download [install.yaml] and then change the image tag.
 
@@ -220,6 +218,11 @@ kubectl logs <kyverno-pod-name> -n <namespace>
 
 Here is a script that generates a self-signed CA, a TLS certificate-key pair, and the corresponding kubernetes secrets: [helper script](/scripts/generate-self-signed-cert-and-k8secrets.sh)
 
+# Kyverno Flags 
+
+1. `excludeGroupRole` : excludeGroupRole role expected string with Comma seperated group role. It will exclude all the group role from the user request. Default we are using `system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler`.
+2. `excludeUsername` : excludeUsername expected string with Comma seperated kubernetes username. In generate request if user enable `Synchronize` in generate policy then only kyverno can update/delete generated resource but admin can exclude specific username who have access of delete/update generated resource.
+3. `filterK8Resources`: k8s resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. For example --filterKind "[Deployment, kyverno, kyverno]" --filterKind "[Deployment, kyverno, kyverno],[Events, *, *].
 
 
 # Configure a namespace admin to access policy violations
