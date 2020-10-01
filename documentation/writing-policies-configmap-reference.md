@@ -1,14 +1,14 @@
 <small>*[documentation](/README.md#documentation) / [Writing Policies](/documentation/writing-policies.md) / Configmap Lookup*</small>
 
-# Configmap Reference in Kyverno Policy
+# Using ConfigMaps for Variables
 
-There are many cases where the values that are passed into kyverno policies are dynamic, In such a cases the values are added/ modified inside policy itself.
+There are many cases where the values that are passed into Kyverno policies are dynamic or need to be vary based on the execution environment.
 
-The Configmap Reference allows the reference of configmap values inside kyverno policy rules as a JMESPATH, So for any required changes in the values of a policy, a modification has to be done on the referred configmap.
+Kyverno supports using Kubernetes [ConfigMaps](https://kubernetes.io/docs/concepts/configuration/configmap/) to manage variable values outside of a policy definition. 
 
-# Defining Rule Context
+# Defining ConfigMaps in a Rule Context
 
-To reference values from a ConfigMap inside any Rule, define a context inside the rule with one or more ConfigMap declarations.
+To refer to values from a ConfigMap inside any Rule, define a context inside the rule with one or more ConfigMap declarations.
 
 ````yaml
   rules:
@@ -24,7 +24,7 @@ To reference values from a ConfigMap inside any Rule, define a context inside th
           namespace: test
 ````
 
-Referenced Configmap Definition
+Sample ConfigMap Definition
 
 ````yaml
 apiVersion: v1
@@ -35,21 +35,20 @@ metadata:
   name: mycmap
 ````
 
-# Referring Value
+# Looking up values
 
-A ConfigMap that is defined inside the rule context can be referred to using its unique name within the context.
+A ConfigMap that is defined in a rule context can be referred to using its unique name within the context. ConfigMap values can be referenced using a JMESPATH style expression `{{<name>.<data>.<key>}}`.
 
-ConfigMap values can be references using a JMESPATH expression `{{<name>.<data>.<key>}}`.
-
-For the example above, we can refer to a ConfigMap value using {{dictionary.data.env}}. The variable will be substituted with production during policy execution.
+For the example above, we can refer to a ConfigMap value using `{{dictionary.data.env}}`. The variable will be substituted with the value `production` during policy execution.
 
 # Handling Array Values
 
 The ConfigMap value can be an array of string values in JSON format. Kyverno will parse the JSON string to a list of strings, so set operations like In and NotIn can then be applied.
 
-For example, a list of allowed roles can be stored in a ConfigMap, and the Kyverno policy can refer to this list to deny the requests where the role does not match the one of the values in the list.
+For example, a list of allowed roles can be stored in a ConfigMap, and the Kyverno policy can refer to this list to deny the requests where the role does not match one of the values in the list.
 
-Here are the allowed roles in the ConfigMap
+Here are the allowed roles in the ConfigMap:
+
 ````yaml
 apiVersion: v1
 data:
@@ -60,8 +59,8 @@ metadata:
   namespace: test
 ````
 
+Here is a rule to block a Deployment if the value of annotation `role` is not in the allowed list:
 
-This is a rule to deny the Deployment operation, if the value of annotation `role` is not in the allowed list:
 ````yaml
 spec:
   validationFailureAction: enforce
