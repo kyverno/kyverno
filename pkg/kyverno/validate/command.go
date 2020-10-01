@@ -16,8 +16,8 @@ import (
 
 	_ "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
 
-	yamlv2 "gopkg.in/yaml.v2"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
+	yaml "sigs.k8s.io/yaml"
 )
 
 func Command() *cobra.Command {
@@ -82,7 +82,7 @@ func Command() *cobra.Command {
 							return err
 						}
 						if outputType == "yaml" {
-							yamlPolicy, _ := yamlv2.Marshal(p)
+							yamlPolicy, _ := yaml.Marshal(p)
 							fmt.Println(string(yamlPolicy))
 						} else {
 							jsonPolicy, _ := json.MarshalIndent(p, "", "  ")
