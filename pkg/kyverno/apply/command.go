@@ -129,37 +129,30 @@ func Command() *cobra.Command {
 			}
 
 			var resources []*unstructured.Unstructured
-			//var resource *unstructured.Unstructured
 			if resourcePaths[0] == "-" {
 				if isInputFromPipe() {
+					resourceStr := ""
 					scanner := bufio.NewScanner(os.Stdin)
-					yamlBytes := scanner.Bytes()
+					for scanner.Scan() {
+						// fmt.Println(scanner.Text())
+						resourceStr = resourceStr + scanner.Text() + "\n"
+					}
+					fmt.Println("resourceStr: ", resourceStr)
 
+					// scanner := bufio.NewScanner(os.Stdin)
+					yamlBytes := []byte(resourceStr)
+					// fmt.Println("yamlBytes: ", yamlBytes)
 					resources, err = getResource(yamlBytes)
+					fmt.Println(resources)
 
 					if err != nil {
 						fmt.Println("error: ", err)
 					}
 
-					// for scanner.Scan() {
-					// 	fmt.Println(scanner.Text())
-					// }
-
-					// if scanner.Err() != nil {
-					// 	fmt.Println("error")
-					// }
-
-					// resource, err := somefunction(scanner.Bytes())
-					// err = yamlv2.Unmarshal(scanner.Bytes(), &resource)
-					// if err != nil {
-					// 	fmt.Println("error: ", err)
-					// }
-					// fmt.Println("resource: ", resource)
 				}
 			} else if len(resourcePaths) == 0 && !cluster {
 				return sanitizedError.NewWithError(fmt.Sprintf("resource file(s) or cluster required"), err)
 			}
-			os.Exit(0)
 
 			var mutateLogPathIsDir bool
 			if mutateLogPath != "" {
@@ -200,9 +193,11 @@ func Command() *cobra.Command {
 				}
 			}
 
-			resources, err = getResources(policies, resourcePaths, dClient)
-			if err != nil {
-				return sanitizedError.NewWithError("failed to load resources", err)
+			if resourcePaths[0] != "-" {
+				resources, err = getResources(policies, resourcePaths, dClient)
+				if err != nil {
+					return sanitizedError.NewWithError("failed to load resources", err)
+				}
 			}
 
 			mutatedPolicies, err := mutatePolices(policies)
@@ -349,7 +344,7 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Clien
 	return resources, nil
 }
 
-func getFileBytes (path string) ([]byte, error) {
+func getFileBytes(path string) ([]byte, error) {
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
