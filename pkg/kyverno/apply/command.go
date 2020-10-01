@@ -128,22 +128,7 @@ func Command() *cobra.Command {
 				}
 			}
 
-			var resources []*unstructured.Unstructured
-			if resourcePaths[0] == "-" {
-				if isInputFromPipe() {
-					resourceStr := ""
-					scanner := bufio.NewScanner(os.Stdin)
-					for scanner.Scan() {
-						resourceStr = resourceStr + scanner.Text() + "\n"
-					}
-
-					yamlBytes := []byte(resourceStr)
-					resources, err = getResource(yamlBytes)
-					if err != nil {
-						fmt.Println("error: ", err)
-					}
-				}
-			} else if len(resourcePaths) == 0 && !cluster {
+			if len(resourcePaths) == 0 && !cluster {
 				return sanitizedError.NewWithError(fmt.Sprintf("resource file(s) or cluster required"), err)
 			}
 
@@ -186,7 +171,22 @@ func Command() *cobra.Command {
 				}
 			}
 
-			if resourcePaths[0] != "-" {
+			var resources []*unstructured.Unstructured
+			if resourcePaths[0] == "-" {
+				if isInputFromPipe() {
+					resourceStr := ""
+					scanner := bufio.NewScanner(os.Stdin)
+					for scanner.Scan() {
+						resourceStr = resourceStr + scanner.Text() + "\n"
+					}
+
+					yamlBytes := []byte(resourceStr)
+					resources, err = getResource(yamlBytes)
+					if err != nil {
+						return sanitizedError.NewWithError("failed to extract the resources", err)
+					}
+				}
+			} else {
 				resources, err = getResources(policies, resourcePaths, dClient)
 				if err != nil {
 					return sanitizedError.NewWithError("failed to load resources", err)
