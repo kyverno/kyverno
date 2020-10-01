@@ -134,21 +134,14 @@ func Command() *cobra.Command {
 					resourceStr := ""
 					scanner := bufio.NewScanner(os.Stdin)
 					for scanner.Scan() {
-						// fmt.Println(scanner.Text())
 						resourceStr = resourceStr + scanner.Text() + "\n"
 					}
-					fmt.Println("resourceStr: ", resourceStr)
 
-					// scanner := bufio.NewScanner(os.Stdin)
 					yamlBytes := []byte(resourceStr)
-					// fmt.Println("yamlBytes: ", yamlBytes)
 					resources, err = getResource(yamlBytes)
-					fmt.Println(resources)
-
 					if err != nil {
 						fmt.Println("error: ", err)
 					}
-
 				}
 			} else if len(resourcePaths) == 0 && !cluster {
 				return sanitizedError.NewWithError(fmt.Sprintf("resource file(s) or cluster required"), err)
