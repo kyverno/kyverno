@@ -75,7 +75,6 @@ func (c *crdSyncNew) processNextItem() bool {
 }
 
 func (c *crdSyncNew) syncToStdout(key string) error {
-	fmt.Println("Key:", key)
 	res, err := c.crdLister.Get(key)
 	if err != nil {
 		return err
