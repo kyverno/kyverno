@@ -4,26 +4,26 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/runtime"
 	prun "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/runtime"
 
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	client "github.com/nirmata/kyverno/pkg/dclient"
-	"k8s.io/apimachinery/pkg/util/wait"
+	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	crdInformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
 	crdLister "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type crdSyncNew struct {
-	client     *client.Client
-	controller *Controller
-	crdLister crdLister.CustomResourceDefinitionLister
+	client          *client.Client
+	controller      *Controller
+	crdLister       crdLister.CustomResourceDefinitionLister
 	crdListerSynced cache.InformerSynced
-	queue    workqueue.RateLimitingInterface
+	queue           workqueue.RateLimitingInterface
 }
 
 func NewCRDSyncNew(client *client.Client, controller *Controller, crdInformer crdInformer.CustomResourceDefinitionInformer) *crdSyncNew {
@@ -34,12 +34,11 @@ func NewCRDSyncNew(client *client.Client, controller *Controller, crdInformer cr
 	cs := &crdSyncNew{
 		controller: controller,
 		client:     client,
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "crds"),
+		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "crds"),
 	}
 
 	crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			// controller.ParseCRD(unstructured.Unstructured{Object: obj.(map[string]interface{})})
 			key, err := cache.MetaNamespaceKeyFunc(obj)
 			if err == nil {
 				cs.queue.Add(key)
@@ -82,10 +81,10 @@ func (c *crdSyncNew) syncToStdout(key string) error {
 		return err
 	}
 	unstructuredObj, err := prun.DefaultUnstructuredConverter.ToUnstructured(res)
-	if err != nil{
+	if err != nil {
 		return err
 	}
-	c.controller.ParseCRD(unstructured.Unstructured{Object:unstructuredObj})
+	c.controller.ParseCRD(unstructured.Unstructured{Object: unstructuredObj})
 	return nil
 }
 
