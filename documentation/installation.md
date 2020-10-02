@@ -50,9 +50,6 @@ Also, by default kyverno is installed in "kyverno" namespace. To install in diff
 To check the Kyverno controller status, run the command:
 
 ```sh
-## Install Kyverno
-kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
-
 ## Check pod status
 kubectl get pods -n <namespace>
 ````
@@ -80,28 +77,61 @@ If you already have a CA and a signed certificate, you can directly proceed to S
 
 Here are the commands to create a self-signed root CA, and generate a signed certificate and key using openssl (you can customize the certificate attributes for your deployment):
 
+1. Create a self-signed CA 
+
 ````bash
 openssl genrsa -out rootCA.key 4096
 openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 1024 -out rootCA.crt  -subj "/C=US/ST=test/L=test /O=test /OU=PIB/CN=*.kyverno.svc/emailAddress=test@test.com"
-openssl genrsa -out webhook.key 4096
-openssl req -new -key webhook.key -out webhook.csr  -subj "/C=US/ST=test /L=test /O=test /OU=PIB/CN=kyverno-svc.kyverno.svc/emailAddress=test@test.com"
-openssl x509 -req -in webhook.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out webhook.crt -days 1024 -sha256
 ````
 
-Among the files that will be generated, you can use the following files to create Kubernetes secrets:
+2. Create a keypair
+
+````bash
+openssl genrsa -out webhook.key 4096
+openssl req -new -key webhook.key -out webhook.csr  -subj "/C=US/ST=test /L=test /O=test /OU=PIB/CN=kyverno-svc.kyverno.svc/emailAddress=test@test.com"
+````
+
+3. Create a **webhook.ext file** with the Subject Alternate Names (SAN) to use. This is required with Kubernetes 1.19+ and Go 1.15+.
+
+````
+subjectAltName = DNS:kyverno-svc,DNS:kyverno-svc.kyverno,DNS:kyverno-svc.kyverno.svc
+````
+
+4. Sign the keypair with the CA passing in the extension
+
+````bash
+openssl x509 -req -in webhook.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out webhook.crt -days 1024 -sha256 -extfile webhook.ext
+````
+
+5. Verify the contents of the certificate
+
+````bash
+ openssl x509 -in webhook.crt -text -noout
+````
+
+The certificate must contain the SAN information in the X509v3 extensions section:
+
+````
+X509v3 extensions:                                                                                                                              
+    X509v3 Subject Alternative Name:                                                                                                            
+        DNS:kyverno-svc, DNS:kyverno-svc.kyverno, DNS:kyverno-svc.kyverno.svc          
+````
+
+
+#### 2.2. Configure secrets for the CA and TLS certificate-key pair
+
+You can now use the following files to create secrets:
 - rootCA.crt
 - webhooks.crt
 - webhooks.key
-
-#### 2.2. Configure secrets for the CA and TLS certificate-key pair
 
 To create the required secrets, use the following commands (do not change the secret names):
 
 ````bash
 kubectl create ns <namespace>
-kubectl -n <namespace> create secret tls kyverno-svc.kyverno.svc.kyverno-tls-pair --cert=webhook.crt --key=webhook.key
-kubectl -n <namespace> annotate secret kyverno-svc.kyverno.svc.kyverno-tls-pair self-signed-cert=true
-kubectl -n <namespace> create secret generic kyverno-svc.kyverno.svc.kyverno-tls-ca --from-file=rootCA.crt
+kubectl create secret tls kyverno-svc.kyverno.svc.kyverno-tls-pair --cert=webhook.crt --key=webhook.key -n <namespace> 
+kubectl annotate secret kyverno-svc.kyverno.svc.kyverno-tls-pair self-signed-cert=true -n <namespace> 
+kubectl create secret generic kyverno-svc.kyverno.svc.kyverno-tls-ca --from-file=rootCA.crt -n <namespace> 
 ````
 
 **NOTE: The annotation on the TLS pair secret is used by Kyverno to identify the use of self-signed certificates and checks for the required root CA secret**
@@ -112,6 +142,15 @@ Secret | Data | Content
 `kyverno-svc.kyverno.svc.kyverno-tls-ca` | tls.key & tls.crt  | key and signed certificate
 
 Kyverno uses secrets created above to setup TLS communication with the kube-apiserver and specify the CA bundle to be used to validate the webhook server's certificate in the admission webhook configurations.
+
+#### 2.3. Install Kyverno
+
+You can now install kyverno by downloading and updating the [install.yaml], or using the command below (assumes that the namespace is **kyverno**):
+
+```sh
+kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
+```
+
 
 # Configure Kyverno permissions
 Kyverno, in `foreground` mode, leverages admission webhooks to manage incoming api-requests, and `background` mode applies the policies on existing resources. It uses ServiceAccount `kyverno-service-account`, which is bound to multiple ClusterRole, which defines the default resources and operations that are permitted.
