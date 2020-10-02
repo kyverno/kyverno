@@ -36,7 +36,7 @@ yay -S kyverno-git
 
 ## Commands
 
-#### Version
+### Version
 
 Prints the version of kyverno used by the CLI.
 
@@ -45,7 +45,7 @@ Example:
 kyverno version
 ```
 
-#### Validate
+### Validate
 Validates a policy, can validate multiple policy resource description files or even an entire folder containing policy resource description 
 files. Currently supports files with resource description in yaml.
 
@@ -68,7 +68,7 @@ Example:
 kyverno validate /path/to/policy1.yaml -c /path/to/crd.yaml -c /path/to/folderFullOfCRDs
 ```
 
-#### Apply
+### Apply
 Applies policies on resources, and supports applying multiple policies on multiple resources in a single command.
 Also supports applying the given policies to an entire cluster. The current kubectl context will be used to access the cluster.
 
@@ -82,6 +82,11 @@ kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml
 Apply to all matching resources in a cluster:
 ```
 kyverno apply /path/to/policy.yaml --cluster > policy-results.txt
+```
+
+The resources can also be passed from stdin:
+```
+kustomize build nginx/overlays/envs/prod/ | kyverno apply /path/to/policy.yaml --resource -
 ```
 
 Apply multiple policies to multiple resources:

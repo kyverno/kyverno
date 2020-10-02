@@ -1,6 +1,7 @@
 package apply
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -170,9 +171,26 @@ func Command() *cobra.Command {
 				}
 			}
 
-			resources, err := getResources(policies, resourcePaths, dClient)
-			if err != nil {
-				return sanitizedError.NewWithError("failed to load resources", err)
+			var resources []*unstructured.Unstructured
+			if resourcePaths[0] == "-" {
+				if isInputFromPipe() {
+					resourceStr := ""
+					scanner := bufio.NewScanner(os.Stdin)
+					for scanner.Scan() {
+						resourceStr = resourceStr + scanner.Text() + "\n"
+					}
+
+					yamlBytes := []byte(resourceStr)
+					resources, err = getResource(yamlBytes)
+					if err != nil {
+						return sanitizedError.NewWithError("failed to extract the resources", err)
+					}
+				}
+			} else {
+				resources, err = getResources(policies, resourcePaths, dClient)
+				if err != nil {
+					return sanitizedError.NewWithError("failed to load resources", err)
+				}
 			}
 
 			mutatedPolicies, err := mutatePolices(policies)
@@ -279,7 +297,11 @@ func getResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	}
 
 	for _, resourcePath := range resourcePaths {
-		getResources, err := getResource(resourcePath)
+		resourceBytes, err := getFileBytes(resourcePath)
+		if err != nil {
+			return nil, err
+		}
+		getResources, err := getResource(resourceBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -315,60 +337,30 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Clien
 	return resources, nil
 }
 
-func getResource(path string) ([]*unstructured.Unstructured, error) {
-
-	resources := make([]*unstructured.Unstructured, 0)
-	getResourceErrors := make([]error, 0)
-
+func getFileBytes(path string) ([]byte, error) {
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
+	return file, err
+}
 
-	files, splitDocError := utils.SplitYAMLDocuments(file)
+func getResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
+	resources := make([]*unstructured.Unstructured, 0)
+	var getErrString string
+
+	files, splitDocError := utils.SplitYAMLDocuments(resourceBytes)
 	if splitDocError != nil {
 		return nil, splitDocError
 	}
 
 	for _, resourceYaml := range files {
-
-		decode := scheme.Codecs.UniversalDeserializer().Decode
-		resourceObject, metaData, err := decode(resourceYaml, nil, nil)
+		resource, err := convertResourceToUnstructured(resourceYaml)
 		if err != nil {
-			getResourceErrors = append(getResourceErrors, err)
-			continue
-		}
-
-		resourceUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&resourceObject)
-		if err != nil {
-			getResourceErrors = append(getResourceErrors, err)
-			continue
-		}
-
-		resourceJSON, err := json.Marshal(resourceUnstructured)
-		if err != nil {
-			getResourceErrors = append(getResourceErrors, err)
-			continue
-		}
-
-		resource, err := engineutils.ConvertToUnstructured(resourceJSON)
-		if err != nil {
-			getResourceErrors = append(getResourceErrors, err)
-			continue
-		}
-
-		resource.SetGroupVersionKind(*metaData)
-
-		if resource.GetNamespace() == "" {
-			resource.SetNamespace("default")
+			getErrString = getErrString + err.Error() + "\n"
 		}
 
 		resources = append(resources, resource)
-	}
-
-	var getErrString string
-	for _, getResourceError := range getResourceErrors {
-		getErrString = getErrString + getResourceError.Error() + "\n"
 	}
 
 	if getErrString != "" {
@@ -376,6 +368,36 @@ func getResource(path string) ([]*unstructured.Unstructured, error) {
 	}
 
 	return resources, nil
+}
+
+func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error) {
+	decode := scheme.Codecs.UniversalDeserializer().Decode
+	resourceObject, metaData, err := decode(resourceYaml, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resourceUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&resourceObject)
+	if err != nil {
+		return nil, err
+	}
+
+	resourceJSON, err := json.Marshal(resourceUnstructured)
+	if err != nil {
+		return nil, err
+	}
+
+	resource, err := engineutils.ConvertToUnstructured(resourceJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	resource.SetGroupVersionKind(*metaData)
+
+	if resource.GetNamespace() == "" {
+		resource.SetNamespace("default")
+	}
+	return resource, nil
 }
 
 // applyPolicyOnResource - function to apply policy on resource
@@ -565,4 +587,9 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 	}
 
 	return nil
+}
+
+func isInputFromPipe() bool {
+	fileInfo, _ := os.Stdin.Stat()
+	return fileInfo.Mode()&os.ModeCharDevice == 0
 }
