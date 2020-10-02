@@ -50,9 +50,6 @@ Also, by default kyverno is installed in "kyverno" namespace. To install in diff
 To check the Kyverno controller status, run the command:
 
 ```sh
-## Install Kyverno
-kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
-
 ## Check pod status
 kubectl get pods -n <namespace>
 ````
@@ -80,28 +77,61 @@ If you already have a CA and a signed certificate, you can directly proceed to S
 
 Here are the commands to create a self-signed root CA, and generate a signed certificate and key using openssl (you can customize the certificate attributes for your deployment):
 
+1. Create a self-signed CA 
+
 ````bash
 openssl genrsa -out rootCA.key 4096
 openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 1024 -out rootCA.crt  -subj "/C=US/ST=test/L=test /O=test /OU=PIB/CN=*.kyverno.svc/emailAddress=test@test.com"
-openssl genrsa -out webhook.key 4096
-openssl req -new -key webhook.key -out webhook.csr  -subj "/C=US/ST=test /L=test /O=test /OU=PIB/CN=kyverno-svc.kyverno.svc/emailAddress=test@test.com"
-openssl x509 -req -in webhook.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out webhook.crt -days 1024 -sha256
 ````
 
-Among the files that will be generated, you can use the following files to create Kubernetes secrets:
+2. Create a keypair
+
+````bash
+openssl genrsa -out webhook.key 4096
+openssl req -new -key webhook.key -out webhook.csr  -subj "/C=US/ST=test /L=test /O=test /OU=PIB/CN=kyverno-svc.kyverno.svc/emailAddress=test@test.com"
+````
+
+3. Create a **webhook.ext file** with the Subject Alternate Names (SAN) to use. This is required with Kubernetes 1.19+ and Go 1.15+.
+
+````
+subjectAltName = DNS:kyverno-svc,DNS:kyverno-svc.kyverno,DNS:kyverno-svc.kyverno.svc
+````
+
+4. Sign the keypair with the CA passing in the extension
+
+````bash
+openssl x509 -req -in webhook.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out webhook.crt -days 1024 -sha256 -extfile webhook.ext
+````
+
+5. Verify the contents of the certificate
+
+````bash
+ openssl x509 -in webhook.crt -text -noout
+````
+
+The certificate must contain the SAN information in the X509v3 extensions section:
+
+````
+X509v3 extensions:                                                                                                                              
+    X509v3 Subject Alternative Name:                                                                                                            
+        DNS:kyverno-svc, DNS:kyverno-svc.kyverno, DNS:kyverno-svc.kyverno.svc          
+````
+
+
+#### 2.2. Configure secrets for the CA and TLS certificate-key pair
+
+You can now use the following files to create secrets:
 - rootCA.crt
 - webhooks.crt
 - webhooks.key
-
-#### 2.2. Configure secrets for the CA and TLS certificate-key pair
 
 To create the required secrets, use the following commands (do not change the secret names):
 
 ````bash
 kubectl create ns <namespace>
-kubectl -n <namespace> create secret tls kyverno-svc.kyverno.svc.kyverno-tls-pair --cert=webhook.crt --key=webhook.key
-kubectl annotate secret kyverno-svc.kyverno.svc.kyverno-tls-pair -n <namespace> self-signed-cert=true
-kubectl -n <namespace> create secret generic kyverno-svc.kyverno.svc.kyverno-tls-ca --from-file=rootCA.crt
+kubectl create secret tls kyverno-svc.kyverno.svc.kyverno-tls-pair --cert=webhook.crt --key=webhook.key -n <namespace> 
+kubectl annotate secret kyverno-svc.kyverno.svc.kyverno-tls-pair self-signed-cert=true -n <namespace> 
+kubectl create secret generic kyverno-svc.kyverno.svc.kyverno-tls-ca --from-file=rootCA.crt -n <namespace> 
 ````
 
 **NOTE: The annotation on the TLS pair secret is used by Kyverno to identify the use of self-signed certificates and checks for the required root CA secret**
@@ -113,7 +143,16 @@ Secret | Data | Content
 
 Kyverno uses secrets created above to setup TLS communication with the kube-apiserver and specify the CA bundle to be used to validate the webhook server's certificate in the admission webhook configurations.
 
-#### 2.3. Configure Kyverno Role
+#### 2.3. Install Kyverno
+
+You can now install kyverno by downloading and updating the [install.yaml], or using the command below (assumes that the namespace is **kyverno**):
+
+```sh
+kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
+```
+
+
+# Configure Kyverno permissions
 Kyverno, in `foreground` mode, leverages admission webhooks to manage incoming api-requests, and `background` mode applies the policies on existing resources. It uses ServiceAccount `kyverno-service-account`, which is bound to multiple ClusterRole, which defines the default resources and operations that are permitted.
 
 ClusterRoles used by kyverno:
@@ -163,7 +202,7 @@ subjects:
   namespace: kyverno
 ```
 
-#### 2.4. Install Kyverno
+# Custom installations
 
 To install a specific version, download [install.yaml] and then change the image tag.
 
@@ -218,14 +257,14 @@ kubectl logs <kyverno-pod-name> -n <namespace>
 
 Here is a script that generates a self-signed CA, a TLS certificate-key pair, and the corresponding kubernetes secrets: [helper script](/scripts/generate-self-signed-cert-and-k8secrets.sh)
 
-# Kyverno Flags 
+# Configure Kyverno flags 
 
 1. `excludeGroupRole` : excludeGroupRole role expected string with Comma seperated group role. It will exclude all the group role from the user request. Default we are using `system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler`.
 2. `excludeUsername` : excludeUsername expected string with Comma seperated kubernetes username. In generate request if user enable `Synchronize` in generate policy then only kyverno can update/delete generated resource but admin can exclude specific username who have access of delete/update generated resource.
 3. `filterK8Resources`: k8s resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. For example --filterKind "[Deployment, kyverno, kyverno]" --filterKind "[Deployment, kyverno, kyverno],[Events, *, *].
 
 
-# Configure a namespace admin to access policy violations
+# Configure access to policy violations
 
 During Kyverno installation, it creates a ClusterRole `kyverno:policyviolations` which has the `list,get,watch` operations on resource `policyviolations`. To grant access to a namespace admin, configure the following YAML file then apply to the cluster.
 
@@ -255,17 +294,8 @@ subjects:
 #   kind: Group
 #   name: 
 ````
-# Installing outside of the cluster (debug mode)
 
-To build Kyverno in a development environment see: https://github.com/nirmata/kyverno/wiki/Building
-
-To run controller in this mode you should prepare a TLS key/certificate pair for debug webhook, then start controller with kubeconfig and the server address.
-
-1. Run `sudo scripts/deploy-controller-debug.sh --service=localhost --serverIP=<server_IP>`, where <server_IP> is the IP address of the host where controller runs. This scripts will generate a TLS certificate for debug webhook server and register this webhook in the cluster. It also registers a CustomResource policy.
-
-2. Start the controller using the following command: `sudo KYVERNO_NAMESPACE=<namespace> KYVERNO_SVC=<service_name> go run ./cmd/kyverno/main.go --kubeconfig=~/.kube/config --serverIP=<server_IP>`. In case environment variable "KYVERNO_NAMESPACE" and "KYVERNO_SVC" is not passed kyverno will run in its default namespace "kyverno" and with default service name "kyverno-svc".
-
-# Filter Kubernetes resources that admission webhook should not process
+# Filter resources that Kyverno should not process
 The admission webhook checks if a policy is applicable on all admission requests. The Kubernetes kinds that are not be processed can be filtered by adding a `ConfigMap` in namespace `kyverno` and specifying the resources to be filtered under `data.resourceFilters`. The default name of this `ConfigMap` is `init-config` but can be changed by modifying the value of the environment variable `INIT_CONFIG` in the kyverno deployment dpec. `data.resourceFilters` must be a sequence of one or more `[<Kind>,<Namespace>,<Name>]` entries with `*` as wildcard. Thus, an item `[Node,*,*]` means that admissions of `Node` in any namespace and with any name will be ignored.
 
 By default we have specified Nodes, Events, APIService & SubjectAccessReview as the kinds to be skipped in the default configuration [install.yaml].
@@ -282,6 +312,19 @@ data:
 ```
 
 To modify the `ConfigMap`, either directly edit the `ConfigMap` `init-config` in the default configuration [install.yaml] and redeploy it or modify the `ConfigMap` use `kubectl`.  Changes to the `ConfigMap` through `kubectl` will automatically be picked up at runtime.
+
+
+
+# Installing outside of the cluster (debug mode)
+
+To build Kyverno in a development environment see: https://github.com/nirmata/kyverno/wiki/Building
+
+To run controller in this mode you should prepare a TLS key/certificate pair for debug webhook, then start controller with kubeconfig and the server address.
+
+1. Run `sudo scripts/deploy-controller-debug.sh --service=localhost --serverIP=<server_IP>`, where <server_IP> is the IP address of the host where controller runs. This scripts will generate a TLS certificate for debug webhook server and register this webhook in the cluster. It also registers a CustomResource policy.
+
+2. Start the controller using the following command: `sudo KYVERNO_NAMESPACE=<namespace> KYVERNO_SVC=<service_name> go run ./cmd/kyverno/main.go --kubeconfig=~/.kube/config --serverIP=<server_IP>`. In case environment variable "KYVERNO_NAMESPACE" and "KYVERNO_SVC" is not passed kyverno will run in its default namespace "kyverno" and with default service name "kyverno-svc".
+
 
 
 ---
