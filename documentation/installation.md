@@ -100,7 +100,7 @@ To create the required secrets, use the following commands (do not change the se
 ````bash
 kubectl create ns <namespace>
 kubectl -n <namespace> create secret tls kyverno-svc.kyverno.svc.kyverno-tls-pair --cert=webhook.crt --key=webhook.key
-kubectl annotate secret kyverno-svc.kyverno.svc.kyverno-tls-pair -n <namespace> self-signed-cert=true
+kubectl -n <namespace> annotate secret kyverno-svc.kyverno.svc.kyverno-tls-pair self-signed-cert=true
 kubectl -n <namespace> create secret generic kyverno-svc.kyverno.svc.kyverno-tls-ca --from-file=rootCA.crt
 ````
 
