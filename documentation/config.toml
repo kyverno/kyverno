@@ -69,20 +69,14 @@ type = "monospace"
 
 
 [[menu.main]]
-name = "Docs"
+name = "Documentation"
 url = "/docs/home"
 weight = 1
 
 [[menu.main]]
-name = "Best Practice"
+name = "Sample Policies"
 url = "/samples/home"
 weight = 2
-
-
-[[menu.main]]
-name = "Nirmata"
-url = "https://nirmata.com"
-weight = 3
 
 [[menu.main]]
 name = "Resources"
