@@ -156,8 +156,7 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 						resourceMap[constant.Cluster] = make(map[string]unstructured.Unstructured)
 					}
 					policy.MergeResources(resourceMap[constant.Cluster], rMap)
-				}
-				if resourceSchema.Namespaced {
+				}else  {
 					namespaces := policy.GetNamespacesForRule(&rule, np.Lister(), log.Log)
 					for _, ns := range namespaces {
 						if ns == n {
@@ -165,13 +164,16 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 							for _, r := range rMap {
 								labels := r.GetLabels()
 								_, okChart := labels["app"]
-								_, okRelease := labels["release"]
-								if okChart && okRelease {
+
+								if okChart  {
 									if len(resourceMap[constant.App]) == 0 {
 										resourceMap[constant.App] = make(map[string]unstructured.Unstructured)
 									}
 									policy.MergeResources(resourceMap[constant.App], rMap)
 								} else {
+									fmt.Println(r.GetName())
+									fmt.Println( labels["app"])
+									fmt.Println("========")
 									if len(resourceMap[constant.Namespace]) == 0 {
 										resourceMap[constant.Namespace] = make(map[string]unstructured.Unstructured)
 									}
@@ -184,7 +186,6 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 				}
 			}
 		}
-
 		if p.HasAutoGenAnnotation() {
 			switch scope {
 			case constant.Cluster:
@@ -261,6 +262,7 @@ func createReport(kclient *kyvernoclient.Clientset, name string, results []polic
 			}
 		}
 		availablepr, action := mergeReport(availablepr, results, removePolicy)
+
 		if action == "Create" {
 			availablepr.SetLabels(map[string]string{
 				"policy-state": "state",
@@ -325,9 +327,8 @@ func createResults(policyContext engine.PolicyContext, key string, results map[s
 		var appname string
 		labels := policyContext.NewResource.GetLabels()
 		_, okChart := labels["app"]
-		_, okRelease := labels["release"]
 		if key == constant.App {
-			if okChart && okRelease {
+			if okChart  {
 				appname = fmt.Sprintf("policyreport-app-%s--%s", labels["app"], policyContext.NewResource.GetNamespace())
 			}
 		} else if key == constant.Namespace {
@@ -466,14 +467,16 @@ func configmapScan(scope string, wg *sync.WaitGroup, restConfig *rest.Config, lo
 					labels := resource.GetLabels()
 					_, okChart := labels["app"]
 					_, okRelease := labels["release"]
-					// Increase Count
+
 					if k == constant.Cluster {
 						appname = fmt.Sprintf("clusterpolicyreport")
-					} else if k == constant.App {
+					}
+					if k == constant.App {
 						if okChart && okRelease {
 							appname = fmt.Sprintf("policyreport-app-%s--%s", labels["app"], v.Resource.GetNamespace())
 						}
-					} else {
+					}
+					if  k == constant.Namespace {
 						if !okChart && !okRelease {
 							appname = fmt.Sprintf("policyreport-ns-%s", v.Resource.GetNamespace())
 						}
@@ -506,74 +509,81 @@ func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1
 	} else {
 		action = "Update"
 	}
-	rules := make(map[string]policyreportv1alpha1.PolicyReportResult)
-	var key string
+	rules := make(map[string]*policyreportv1alpha1.PolicyReportResult,0)
+
 	for _, v := range pr.Results {
 		for _, r := range v.Resources {
-			key = fmt.Sprintf("%s-%s-%s", v.Policy, v.Rule, pr.GetName())
+			key := fmt.Sprintf("%s-%s-%s", v.Policy, v.Rule, pr.GetName())
 			if _, ok := rules[key]; ok {
 				isExist := false
 				for _, resourceStatus := range rules[key].Resources {
 					if resourceStatus.Resource.APIVersion == r.Resource.APIVersion && r.Resource.Kind == resourceStatus.Resource.Kind && r.Resource.Namespace == resourceStatus.Resource.Namespace && r.Resource.Name == resourceStatus.Resource.Name {
 						isExist = true
-						pr = changeCount(string(r.Status), string(resourceStatus.Status), pr)
 						resourceStatus = r
 					}
 				}
 				if !isExist {
-					pr = changeCount(string(r.Status), "", pr)
-					rules[key].Resources[len(rules[key].Resources)] = r
+					rules[key].Resources = append(rules[key].Resources,r)
 				}
 			} else {
-				rules[key] = policyreportv1alpha1.PolicyReportResult{
+				rules[key] = &policyreportv1alpha1.PolicyReportResult{
 					Policy:    v.Policy,
 					Rule:      v.Rule,
 					Message:   v.Message,
 					Resources: make([]*policyreportv1alpha1.ResourceStatus, 0),
 				}
-				rules[key].Resources[len(rules[key].Resources)] = r
+
+				rules[key].Resources = append(rules[key].Resources,r)
 			}
 		}
 	}
 	for _, v := range results {
 		for _, r := range v.Resources {
-			key = fmt.Sprintf("%s-%s-%s", v.Policy, v.Rule, pr.GetName())
+			key := fmt.Sprintf("%s-%s-%s", v.Policy, v.Rule, pr.GetName())
 			if _, ok := rules[key]; ok {
 				isExist := false
 				for _, resourceStatus := range rules[key].Resources {
 					if resourceStatus.Resource.APIVersion == r.Resource.APIVersion && r.Resource.Kind == resourceStatus.Resource.Kind && r.Resource.Namespace == resourceStatus.Resource.Namespace && r.Resource.Name == resourceStatus.Resource.Name {
 						isExist = true
 						resourceStatus = r
-						pr = changeCount(string(r.Status), string(resourceStatus.Status), pr)
 					}
 				}
 				if !isExist {
-					rules[key].Resources[len(rules[key].Resources)] = r
-					pr = changeCount(string(r.Status), "", pr)
+					rules[key].Resources = append(rules[key].Resources,r)
 				}
 			} else {
-				rules[key] = policyreportv1alpha1.PolicyReportResult{
+				rules[key] = &policyreportv1alpha1.PolicyReportResult{
 					Policy:    v.Policy,
 					Rule:      v.Rule,
 					Message:   v.Message,
-					Resources: make([]*policyreportv1alpha1.ResourceStatus, 0),
+					Resources: make([]*policyreportv1alpha1.ResourceStatus,0),
 				}
-				pr = changeCount(string(r.Status), "", pr)
-				rules[key].Resources[len(rules[key].Resources)] = r
+				rules[key].Resources = append(rules[key].Resources,r)
 			}
 		}
 	}
 
 	if len(removePolicy) > 0 {
 		for _, v := range removePolicy {
-			for i, r := range pr.Results {
+			for k, r := range rules {
 				if r.Policy == v {
-					for _, v := range r.Resources {
-						pr = changeCount("", string(v.Status), pr)
-					}
-					pr.Results = append(pr.Results[:i], pr.Results[i+1:]...)
+					delete(rules,k)
 				}
 			}
+		}
+	}
+	pr.Summary.Pass = 0
+	pr.Summary.Fail = 0
+	pr.Results = make([]*policyreportv1alpha1.PolicyReportResult,0)
+	for k,_ := range rules {
+		pr.Results = append(pr.Results,rules[k])
+		for _,r := range rules[k].Resources {
+			if  string(r.Status) == "Pass" {
+				pr.Summary.Pass++
+			}else{
+				pr.Summary.Fail++
+			}
+
 		}
 	}
 	return pr, action
@@ -627,34 +637,6 @@ func mergeClusterReport(pr *policyreportv1alpha1.ClusterPolicyReport, results []
 		}
 	}
 	return pr, action
-}
-
-func changeCount(status, oldStatus string, report *policyreportv1alpha1.PolicyReport) *policyreportv1alpha1.PolicyReport {
-	switch oldStatus {
-	case "Pass":
-		if report.Summary.Pass--; report.Summary.Pass < 0 {
-			report.Summary.Pass = 0
-		}
-		break
-	case "Fail":
-		if report.Summary.Fail--; report.Summary.Fail < 0 {
-			report.Summary.Fail = 0
-		}
-		break
-	default:
-		break
-	}
-	switch status {
-	case "Pass":
-		report.Summary.Pass++
-		break
-	case "Fail":
-		report.Summary.Fail++
-		break
-	default:
-		break
-	}
-	return report
 }
 
 func changeClusterReportCount(status, oldStatus string, report *policyreportv1alpha1.ClusterPolicyReport) *policyreportv1alpha1.ClusterPolicyReport {

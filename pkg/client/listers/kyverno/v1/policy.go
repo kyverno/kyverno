@@ -63,6 +63,7 @@ type PolicyNamespaceLister interface {
 	List(selector labels.Selector) (ret []*v1.Policy, err error)
 	// Get retrieves the Policy from the indexer for a given namespace and name.
 	Get(name string) (*v1.Policy, error)
+	PolicyNamespaceListerExpansion
 }
 
 // policyNamespaceLister implements the PolicyNamespaceLister
