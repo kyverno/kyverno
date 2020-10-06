@@ -9,6 +9,7 @@ import (
 	"reflect"
 
 	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/openapi"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"os"
@@ -151,12 +152,17 @@ func Command() *cobra.Command {
 				}
 			}
 
-			policies, openAPIController, err := common.GetPoliciesValidation(policyPaths)
+			policies, err := common.GetPoliciesValidation(policyPaths)
 			if err != nil {
 				if !sanitizedError.IsErrorSanitized(err) {
 					return sanitizedError.NewWithError("failed to mutate policies.", err)
 				}
 				return err
+			}
+
+			openAPIController, err := openapi.NewOpenAPIController()
+			if err != nil {
+				return sanitizedError.NewWithError("failed to initialize openAPIController", err)
 			}
 
 			var dClient *client.Client

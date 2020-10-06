@@ -53,7 +53,6 @@ func Command() *cobra.Command {
 			}
 
 			var policies []*v1.ClusterPolicy
-			var openAPIController *openapi.Controller
 			if policyPaths[0] == "-" {
 				if common.IsInputFromPipe() {
 					policyStr := ""
@@ -63,16 +62,32 @@ func Command() *cobra.Command {
 					}
 
 					yamlBytes := []byte(policyStr)
-					policies, errs := utils.GetPolicy(yamlBytes)
-					if errs != nil {
-						return sanitizedError.NewWithError("failed to extract the resources", err)
+					var getErrors []error
+					policies, getErrors = utils.GetPolicy(yamlBytes)
+					var errString string
+
+					for _, err := range getErrors {
+						if err != nil {
+							errString += err.Error() + "\n"
+						}
+					}
+					if errString != "" {
+						return sanitizedError.NewWithError("failed to extract the resources", errors.New(errString))
 					}
 				}
 			} else {
-				policies, openAPIController, err = common.GetPoliciesValidation(policyPaths)
+				policies, err = common.GetPoliciesValidation(policyPaths)
 				if err != nil {
+					if !sanitizedError.IsErrorSanitized(err) {
+						return sanitizedError.NewWithError("failed to mutate policies.", err)
+					}
 					return err
 				}
+			}
+
+			openAPIController, err := openapi.NewOpenAPIController()
+			if err != nil {
+				return sanitizedError.NewWithError("failed to initialize openAPIController", err)
 			}
 
 			// if CRD's are passed, add these to OpenAPIController
