@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/nirmata/kyverno/pkg/kyverno/common"
 	"reflect"
 	"strings"
+
+	"github.com/nirmata/kyverno/pkg/kyverno/common"
 
 	"github.com/minio/minio/pkg/wildcard"
 
@@ -287,6 +288,11 @@ func doesMatchAndExcludeConflict(rule kyverno.Rule) bool {
 				}
 			}
 		}
+	}
+
+	if (rule.MatchResources.ResourceDescription.Selector == nil && rule.ExcludeResources.ResourceDescription.Selector != nil) ||
+		(rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector == nil) {
+		return false
 	}
 
 	return true
