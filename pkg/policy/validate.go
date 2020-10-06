@@ -290,7 +290,8 @@ func doesMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		}
 	}
 
-	if rule.MatchResources.ResourceDescription.Selector == nil && rule.ExcludeResources.ResourceDescription.Selector != nil {
+	if (rule.MatchResources.ResourceDescription.Selector == nil && rule.ExcludeResources.ResourceDescription.Selector != nil) ||
+		(rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector == nil) {
 		return false
 	}
 
