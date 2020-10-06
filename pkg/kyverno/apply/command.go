@@ -173,7 +173,7 @@ func Command() *cobra.Command {
 
 			var resources []*unstructured.Unstructured
 			if resourcePaths[0] == "-" {
-				if isInputFromPipe() {
+				if common.IsInputFromPipe() {
 					resourceStr := ""
 					scanner := bufio.NewScanner(os.Stdin)
 					for scanner.Scan() {
@@ -587,9 +587,4 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 	}
 
 	return nil
-}
-
-func isInputFromPipe() bool {
-	fileInfo, _ := os.Stdin.Stat()
-	return fileInfo.Mode()&os.ModeCharDevice == 0
 }

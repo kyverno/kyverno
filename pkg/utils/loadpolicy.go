@@ -6,20 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // GetPolicy - Extracts policies from a YAML
-func GetPolicy(path string) (clusterPolicies []*v1.ClusterPolicy, errors []error) {
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		errors = append(errors, fmt.Errorf(fmt.Sprintf("failed to load file: %v. error: %v", path, err)))
-		return clusterPolicies, errors
-	}
-
+func GetPolicy(file []byte) (clusterPolicies []*v1.ClusterPolicy, errors []error) {
 	policies, err := SplitYAMLDocuments(file)
 	if err != nil {
 		errors = append(errors, err)
@@ -35,7 +28,7 @@ func GetPolicy(path string) (clusterPolicies []*v1.ClusterPolicy, errors []error
 
 		policy := &v1.ClusterPolicy{}
 		if err := json.Unmarshal(policyBytes, policy); err != nil {
-			errors = append(errors, fmt.Errorf(fmt.Sprintf("failed to decode policy in %s. error: %v", path, err)))
+			errors = append(errors, fmt.Errorf(fmt.Sprintf("failed to decode policy. error: %v", err)))
 			continue
 		}
 

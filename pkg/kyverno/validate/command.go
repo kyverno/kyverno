@@ -1,11 +1,14 @@
 package validate
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 
+	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/openapi"
 	"github.com/nirmata/kyverno/pkg/utils"
 
 	"github.com/nirmata/kyverno/pkg/kyverno/common"
@@ -45,9 +48,31 @@ func Command() *cobra.Command {
 				}
 			}
 
-			policies, openAPIController, err := common.GetPoliciesValidation(policyPaths)
-			if err != nil {
-				return err
+			if len(policyPaths) == 0 {
+				return sanitizedError.NewWithError(fmt.Sprintf("policy file(s) required"), err)
+			}
+
+			var policies []*v1.ClusterPolicy
+			var openAPIController *openapi.Controller
+			if policyPaths[0] == "-" {
+				if common.IsInputFromPipe() {
+					policyStr := ""
+					scanner := bufio.NewScanner(os.Stdin)
+					for scanner.Scan() {
+						policyStr = policyStr + scanner.Text() + "\n"
+					}
+
+					yamlBytes := []byte(policyStr)
+					policies, errs := utils.GetPolicy(yamlBytes)
+					if errs != nil {
+						return sanitizedError.NewWithError("failed to extract the resources", err)
+					}
+				}
+			} else {
+				policies, openAPIController, err = common.GetPoliciesValidation(policyPaths)
+				if err != nil {
+					return err
+				}
 			}
 
 			// if CRD's are passed, add these to OpenAPIController

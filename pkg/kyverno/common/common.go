@@ -57,7 +57,13 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 
 			policies = append(policies, policiesFromDir...)
 		} else {
-			getPolicies, getErrors := utils.GetPolicy(path)
+			file, err := ioutil.ReadFile(path)
+			if err != nil {
+				log.Error(err, fmt.Sprintf("failed to load file: %v", path))
+				return nil, sanitizedError.NewWithError(("failed to load file"), err)
+				// return clusterPolicies, errors
+			}
+			getPolicies, getErrors := utils.GetPolicy(file)
 			var errString string
 			for _, err := range getErrors {
 				if err != nil {
@@ -241,4 +247,10 @@ func GetCRD(path string) (unstructuredCrds []*unstructured.Unstructured, err err
 	}
 
 	return unstructuredCrds, nil
+}
+
+// IsInputFromPipe - check if input is passed using pipe
+func IsInputFromPipe() bool {
+	fileInfo, _ := os.Stdin.Stat()
+	return fileInfo.Mode()&os.ModeCharDevice == 0
 }
