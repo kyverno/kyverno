@@ -1,6 +1,7 @@
 package policymutation
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,8 +26,11 @@ func Test_Exclude(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-
-	policies, errs := utils.GetPolicy(baseDir + "/samples/best_practices/disallow_bind_mounts.yaml")
+	file, err := ioutil.ReadFile(baseDir + "/samples/best_practices/disallow_bind_mounts.yaml")
+	if err != nil {
+		t.Log(err)
+	}
+	policies, errs := utils.GetPolicy(file)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -53,8 +57,11 @@ func Test_CronJobOnly(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-
-	policies, errs := utils.GetPolicy(baseDir + "/samples/best_practices/disallow_bind_mounts.yaml")
+	file, err := ioutil.ReadFile(baseDir + "/samples/best_practices/disallow_bind_mounts.yaml")
+	if err != nil {
+		t.Log(err)
+	}
+	policies, errs := utils.GetPolicy(file)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -83,7 +90,11 @@ func Test_CronJob_hasExclude(t *testing.T) {
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
 
-	policies, errs := utils.GetPolicy(baseDir + "/samples/best_practices/disallow_bind_mounts.yaml")
+	file, err := ioutil.ReadFile(baseDir + "/samples/best_practices/disallow_bind_mounts.yaml")
+	if err != nil {
+		t.Log(err)
+	}
+	policies, errs := utils.GetPolicy(file)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -115,8 +126,11 @@ func Test_CronJobAndDeployment(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-
-	policies, errs := utils.GetPolicy(baseDir + "/samples/best_practices/disallow_bind_mounts.yaml")
+	file, err := ioutil.ReadFile(baseDir + "/samples/best_practices/disallow_bind_mounts.yaml")
+	if err != nil {
+		t.Log(err)
+	}
+	policies, errs := utils.GetPolicy(file)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}

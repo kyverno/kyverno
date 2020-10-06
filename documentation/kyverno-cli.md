@@ -40,18 +40,23 @@ yay -S kyverno-git
 
 Prints the version of kyverno used by the CLI.
 
-Example: 
+Example:
+
 ```
 kyverno version
 ```
 
 ### Validate
 Validates a policy, can validate multiple policy resource description files or even an entire folder containing policy resource description 
-files. Currently supports files with resource description in yaml.
+files. Currently supports files with resource description in yaml. The policies can also be passed from stdin.
 
 Example:
 ```
 kyverno validate /path/to/policy1.yaml /path/to/policy2.yaml /path/to/folderFullOfPolicies
+```
+Passing policy from stdin:
+```
+kustomize build nginx/overlays/envs/prod/ | kyverno validate -
 ```
 
 Use the -o <yaml/json> flag to display the mutated policy.

@@ -60,7 +60,6 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 			if err != nil {
 				log.Error(err, fmt.Sprintf("failed to load file: %v", path))
 				return nil, sanitizedError.NewWithError(("failed to load file"), err)
-				// return clusterPolicies, errors
 			}
 			getPolicies, getErrors := utils.GetPolicy(file)
 			var errString string
