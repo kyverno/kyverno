@@ -19,7 +19,7 @@ func currentDir() (string, error) {
 		return "", nil
 	}
 
-	return filepath.Join(homedir, "github.com/nirmata/kyverno"), nil
+	return filepath.Join(homedir, "github.com/kyverno/kyverno"), nil
 }
 
 func Test_Exclude(t *testing.T) {

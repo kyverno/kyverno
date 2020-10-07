@@ -12,7 +12,7 @@ keywords:
   - admissions controller
 home: https://kyverno.io/
 sources:
-  - https://github.com/nirmata/kyverno
+  - https://github.com/kyverno/kyverno
 maintainers:
   - name: Nirmata
     url: https://kyverno.io/

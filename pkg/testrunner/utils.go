@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	projectPath = envOr("PROJECT_PATH", "src/github.com/nirmata/kyverno")
+	projectPath = envOr("PROJECT_PATH", "src/github.com/kyverno/kyverno")
 )
 
 // LoadFile loads file in byte buffer
