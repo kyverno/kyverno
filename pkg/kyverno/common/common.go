@@ -20,7 +20,6 @@ import (
 	"github.com/go-logr/logr"
 	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
-	"github.com/nirmata/kyverno/pkg/openapi"
 	"github.com/nirmata/kyverno/pkg/policymutation"
 	"github.com/nirmata/kyverno/pkg/utils"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
@@ -57,7 +56,12 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 
 			policies = append(policies, policiesFromDir...)
 		} else {
-			getPolicies, getErrors := utils.GetPolicy(path)
+			file, err := ioutil.ReadFile(path)
+			if err != nil {
+				log.Error(err, fmt.Sprintf("failed to load file: %v", path))
+				return nil, sanitizedError.NewWithError(("failed to load file"), err)
+			}
+			getPolicies, getErrors := utils.GetPolicy(file)
 			var errString string
 			for _, err := range getErrors {
 				if err != nil {
@@ -78,21 +82,15 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 }
 
 //GetPoliciesValidation - validating policies
-func GetPoliciesValidation(policyPaths []string) ([]*v1.ClusterPolicy, *openapi.Controller, error) {
+func GetPoliciesValidation(policyPaths []string) ([]*v1.ClusterPolicy, error) {
 	policies, err := GetPolicies(policyPaths)
 	if err != nil {
 		if !sanitizedError.IsErrorSanitized(err) {
-			return nil, nil, sanitizedError.NewWithError((fmt.Sprintf("failed to parse %v path/s.", policyPaths)), err)
+			return nil, sanitizedError.NewWithError((fmt.Sprintf("failed to parse %v path/s.", policyPaths)), err)
 		}
-		return nil, nil, err
+		return nil, err
 	}
-
-	openAPIController, err := openapi.NewOpenAPIController()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return policies, openAPIController, nil
+	return policies, nil
 }
 
 // PolicyHasVariables - check for variables in the policy
@@ -241,4 +239,10 @@ func GetCRD(path string) (unstructuredCrds []*unstructured.Unstructured, err err
 	}
 
 	return unstructuredCrds, nil
+}
+
+// IsInputFromPipe - check if input is passed using pipe
+func IsInputFromPipe() bool {
+	fileInfo, _ := os.Stdin.Stat()
+	return fileInfo.Mode()&os.ModeCharDevice == 0
 }

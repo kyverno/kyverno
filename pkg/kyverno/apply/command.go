@@ -9,6 +9,7 @@ import (
 	"reflect"
 
 	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/nirmata/kyverno/pkg/openapi"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"os"
@@ -151,12 +152,17 @@ func Command() *cobra.Command {
 				}
 			}
 
-			policies, openAPIController, err := common.GetPoliciesValidation(policyPaths)
+			policies, err := common.GetPoliciesValidation(policyPaths)
 			if err != nil {
 				if !sanitizedError.IsErrorSanitized(err) {
 					return sanitizedError.NewWithError("failed to mutate policies.", err)
 				}
 				return err
+			}
+
+			openAPIController, err := openapi.NewOpenAPIController()
+			if err != nil {
+				return sanitizedError.NewWithError("failed to initialize openAPIController", err)
 			}
 
 			var dClient *client.Client
@@ -173,7 +179,7 @@ func Command() *cobra.Command {
 
 			var resources []*unstructured.Unstructured
 			if resourcePaths[0] == "-" {
-				if isInputFromPipe() {
+				if common.IsInputFromPipe() {
 					resourceStr := ""
 					scanner := bufio.NewScanner(os.Stdin)
 					for scanner.Scan() {
@@ -587,9 +593,4 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 	}
 
 	return nil
-}
-
-func isInputFromPipe() bool {
-	fileInfo, _ := os.Stdin.Stat()
-	return fileInfo.Mode()&os.ModeCharDevice == 0
 }

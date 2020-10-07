@@ -1,11 +1,14 @@
 package validate
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 
+	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	"github.com/nirmata/kyverno/pkg/openapi"
 	"github.com/nirmata/kyverno/pkg/utils"
 
 	"github.com/nirmata/kyverno/pkg/kyverno/common"
@@ -45,9 +48,46 @@ func Command() *cobra.Command {
 				}
 			}
 
-			policies, openAPIController, err := common.GetPoliciesValidation(policyPaths)
+			if len(policyPaths) == 0 {
+				return sanitizedError.NewWithError(fmt.Sprintf("policy file(s) required"), err)
+			}
+
+			var policies []*v1.ClusterPolicy
+			if policyPaths[0] == "-" {
+				if common.IsInputFromPipe() {
+					policyStr := ""
+					scanner := bufio.NewScanner(os.Stdin)
+					for scanner.Scan() {
+						policyStr = policyStr + scanner.Text() + "\n"
+					}
+
+					yamlBytes := []byte(policyStr)
+					var getErrors []error
+					policies, getErrors = utils.GetPolicy(yamlBytes)
+					var errString string
+
+					for _, err := range getErrors {
+						if err != nil {
+							errString += err.Error() + "\n"
+						}
+					}
+					if errString != "" {
+						return sanitizedError.NewWithError("failed to extract the resources", errors.New(errString))
+					}
+				}
+			} else {
+				policies, err = common.GetPoliciesValidation(policyPaths)
+				if err != nil {
+					if !sanitizedError.IsErrorSanitized(err) {
+						return sanitizedError.NewWithError("failed to mutate policies.", err)
+					}
+					return err
+				}
+			}
+
+			openAPIController, err := openapi.NewOpenAPIController()
 			if err != nil {
-				return err
+				return sanitizedError.NewWithError("failed to initialize openAPIController", err)
 			}
 
 			// if CRD's are passed, add these to OpenAPIController
