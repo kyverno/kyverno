@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/response"
+	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 )
 
 func Test_GenerateStats(t *testing.T) {

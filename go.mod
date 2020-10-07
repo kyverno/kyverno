@@ -1,4 +1,4 @@
-module github.com/nirmata/kyverno
+module github.com/kyverno/kyverno
 
 go 1.13
 

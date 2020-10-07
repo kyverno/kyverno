@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/nirmata/kyverno/pkg/engine/response"
-	"github.com/nirmata/kyverno/pkg/event"
-	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/policyviolation"
 )
 
 // for each policy-resource response

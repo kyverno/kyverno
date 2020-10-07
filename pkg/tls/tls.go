@@ -62,7 +62,7 @@ func CertificateGenerateRequest(privateKey *rsa.PrivateKey, props TlsCertificate
 	dnsNames[2] = commonName
 	csCommonName := props.Service
 	if fqdncn {
-		// use FQDN as CommonName as a workaournd for https://github.com/nirmata/kyverno/issues/542
+		// use FQDN as CommonName as a workaournd for https://github.com/kyverno/kyverno/issues/542
 		csCommonName = commonName
 	}
 	var ips []net.IP

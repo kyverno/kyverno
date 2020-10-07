@@ -176,7 +176,7 @@ kustomize-crd:
 	# Generate install_debug.yaml that for developer testing
 	kustomize build ./definitions/debug > ./definitions/install_debug.yaml
 
-# guidance https://github.com/nirmata/kyverno/wiki/Generate-a-Release
+# guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
 release: 
 	kustomize build ./definitions > ./definitions/install.yaml
 	kustomize build ./definitions > ./definitions/release/install.yaml

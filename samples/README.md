@@ -43,7 +43,7 @@ To apply these policies to your cluster, install Kyverno and import the policies
 **Install Kyverno**
 
 ````sh
-kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
+kubectl create -f https://github.com/kyverno/kyverno/raw/master/definitions/install.yaml
 ````
 <small>[(installation docs)](../documentation/installation.md)</small>
 

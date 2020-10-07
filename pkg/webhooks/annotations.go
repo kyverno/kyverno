@@ -8,7 +8,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
-	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 )
 
 const (

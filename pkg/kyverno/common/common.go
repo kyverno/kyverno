@@ -18,10 +18,10 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
-	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
-	"github.com/nirmata/kyverno/pkg/policymutation"
-	"github.com/nirmata/kyverno/pkg/utils"
+	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	"github.com/kyverno/kyverno/pkg/policymutation"
+	"github.com/kyverno/kyverno/pkg/utils"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 

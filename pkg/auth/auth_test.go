@@ -5,9 +5,9 @@ package auth
 // 	"time"
 
 // 	"github.com/golang/glog"
-// 	"github.com/nirmata/kyverno/pkg/config"
-// 	dclient "github.com/nirmata/kyverno/pkg/dclient"
-// 	"github.com/nirmata/kyverno/pkg/signal"
+// 	"github.com/kyverno/kyverno/pkg/config"
+// 	dclient "github.com/kyverno/kyverno/pkg/dclient"
+// 	"github.com/kyverno/kyverno/pkg/signal"
 // )
 
 // func Test_Auth_pass(t *testing.T) {

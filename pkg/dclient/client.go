@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
-	"github.com/nirmata/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/config"
 	apps "k8s.io/api/apps/v1"
 	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/api/core/v1"

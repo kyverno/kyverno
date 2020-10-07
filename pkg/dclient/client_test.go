@@ -3,7 +3,7 @@ package client
 import (
 	"testing"
 
-	"github.com/nirmata/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/config"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"

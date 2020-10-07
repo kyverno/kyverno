@@ -7,14 +7,14 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/nirmata/kyverno/pkg/kyverno/common"
+	"github.com/kyverno/kyverno/pkg/kyverno/common"
 
 	"github.com/minio/minio/pkg/wildcard"
 
-	"github.com/nirmata/kyverno/pkg/openapi"
+	"github.com/kyverno/kyverno/pkg/openapi"
 
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	dclient "github.com/nirmata/kyverno/pkg/dclient"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

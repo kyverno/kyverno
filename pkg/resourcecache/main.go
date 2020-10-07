@@ -4,7 +4,7 @@ import (
 	// "fmt"
 	// "time"
 	"github.com/go-logr/logr"
-	dclient "github.com/nirmata/kyverno/pkg/dclient"
+	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic/dynamicinformer"

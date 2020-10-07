@@ -9,7 +9,7 @@ builds:
   env:
   - CGO_ENABLED=0
   ldflags:
-  - -s -w -X github.com/nirmata/kyverno/pkg/version.BuildVersion={{.Version}} -X github.com/nirmata/kyverno/pkg/version.BuildHash={{ .FullCommit }} -X github.com/nirmata/kyverno/pkg/version.BuildTime={{ .Date }}
+  - -s -w -X github.com/kyverno/kyverno/pkg/version.BuildVersion={{.Version}} -X github.com/kyverno/kyverno/pkg/version.BuildHash={{ .FullCommit }} -X github.com/kyverno/kyverno/pkg/version.BuildTime={{ .Date }}
   goos:
     - linux
     - darwin

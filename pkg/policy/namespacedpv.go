@@ -1,7 +1,7 @@
 package policy
 
 import (
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	cache "k8s.io/client-go/tools/cache"
 )

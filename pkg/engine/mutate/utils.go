@@ -3,7 +3,7 @@ package mutate
 import (
 	"bytes"
 
-	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
+	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 )
 
 type buffer struct {

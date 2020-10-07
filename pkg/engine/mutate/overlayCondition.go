@@ -6,8 +6,8 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
-	"github.com/nirmata/kyverno/pkg/engine/validate"
+	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
+	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
