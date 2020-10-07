@@ -23,9 +23,9 @@ jobs:
         with:
           go-version: 1.14
 
-      - name :  docker images build
+      - name :  docker images publish
         run: |
-          make docker-build-all
+          make docker-publish-all
 
       - name :  Create Kind Cluster and setup kustomize
         run: |
