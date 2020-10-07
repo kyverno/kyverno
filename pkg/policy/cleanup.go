@@ -5,9 +5,9 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/response"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	"k8s.io/apimachinery/pkg/labels"
 )
 

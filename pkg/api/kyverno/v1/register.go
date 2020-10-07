@@ -5,7 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/nirmata/kyverno/pkg/api/kyverno"
+	"github.com/kyverno/kyverno/pkg/api/kyverno"
 )
 
 // SchemeGroupVersion is group version used to register these objects

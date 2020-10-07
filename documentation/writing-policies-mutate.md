@@ -320,7 +320,7 @@ The anchor processing behavior for mutate conditions is as follows:
 
 ## Additional Details
 
-Additional details on mutation overlay behaviors are available on the wiki: [Mutation Overlay](https://github.com/nirmata/kyverno/wiki/Mutation-Overlay)
+Additional details on mutation overlay behaviors are available on the wiki: [Mutation Overlay](https://github.com/kyverno/kyverno/wiki/Mutation-Overlay)
 
 ---
 <small>*Read Next >> [Generate Resources](/documentation/writing-policies-generate.md)*</small>

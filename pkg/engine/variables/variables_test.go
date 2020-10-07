@@ -5,11 +5,11 @@ import (
 	"reflect"
 	"testing"
 
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
 func Test_variablesub1(t *testing.T) {

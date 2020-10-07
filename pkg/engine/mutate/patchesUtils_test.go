@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/utils"
+	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

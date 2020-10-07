@@ -5,9 +5,9 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	"github.com/nirmata/kyverno/pkg/config"
-	dclient "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/config"
+	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/event"
 )
 
 var deployName string = config.KubePolicyDeploymentName

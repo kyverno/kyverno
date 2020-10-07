@@ -2,7 +2,8 @@ package validate
 
 import (
 	"container/list"
-	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
+
+	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 )
 
 // Checks if pattern has anchors

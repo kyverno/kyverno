@@ -2,9 +2,9 @@ package variables
 
 import (
 	"github.com/go-logr/logr"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/variables/operator"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/variables/operator"
 )
 
 //Evaluate evaluates the condition

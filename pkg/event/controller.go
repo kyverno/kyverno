@@ -3,11 +3,11 @@ package event
 import (
 	"github.com/go-logr/logr"
 
-	"github.com/nirmata/kyverno/pkg/client/clientset/versioned/scheme"
-	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/constant"
-	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
+	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/constant"
+	client "github.com/kyverno/kyverno/pkg/dclient"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"

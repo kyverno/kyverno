@@ -28,7 +28,7 @@ Install Kyverno:
 kubectl create -f https://raw.githubusercontent.com/nirmata/kyverno/master/definitions/release/install.yaml
 ```
 
-You can also install Kyverno using a [Helm chart](https://github.com/nirmata/kyverno/blob/master/documentation/installation.md#install-kyverno-using-helm).
+You can also install Kyverno using a [Helm chart](https://github.com/kyverno/kyverno/blob/master/documentation/installation.md#install-kyverno-using-helm).
 
 Add the policy below. It contains a single validation rule that requires that all pods have 
 a `app.kubernetes.io/name` label. Kyverno supports different rule types to validate, 
@@ -96,10 +96,10 @@ Clean up by deleting all cluster policies:
 kubectl delete cpol --all
 ```
 
-As a next step, browse the [sample policies](https://github.com/nirmata/kyverno/blob/master/samples/README.md) 
-and learn about [writing policies](https://github.com/nirmata/kyverno/blob/master/documentation/writing-policies.md). 
-You can test policies using the [Kyverno cli](https://github.com/nirmata/kyverno/blob/master/documentation/kyverno-cli.md). 
-See [docs](https://github.com/nirmata/kyverno/#documentation) for complete details.
+As a next step, browse the [sample policies](https://github.com/kyverno/kyverno/blob/master/samples/README.md) 
+and learn about [writing policies](https://github.com/kyverno/kyverno/blob/master/documentation/writing-policies.md). 
+You can test policies using the [Kyverno cli](https://github.com/kyverno/kyverno/blob/master/documentation/kyverno-cli.md). 
+See [docs](https://github.com/kyverno/kyverno/#documentation) for complete details.
 
 ## Documentation
 
@@ -118,11 +118,11 @@ See [docs](https://github.com/nirmata/kyverno/#documentation) for complete detai
 - [Policy Violations](documentation/policy-violations.md)
 - [Kyverno CLI](documentation/kyverno-cli.md)
 - [Sample Policies](/samples/README.md)
-- [API Documentation](https://htmlpreview.github.io/?https://github.com/nirmata/kyverno/blob/master/documentation/index.html)
+- [API Documentation](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/master/documentation/index.html)
 
 ## License
 
-[Apache License 2.0](https://github.com/nirmata/kyverno/blob/master/LICENSE)
+[Apache License 2.0](https://github.com/kyverno/kyverno/blob/master/LICENSE)
 
 ## Community
 
@@ -132,7 +132,7 @@ To attend our next monthly community meeting join the [Kyverno group](https://gr
 
 ### Getting Help
 
-- For feature requests and bugs, file an [issue](https://github.com/nirmata/kyverno/issues).
+- For feature requests and bugs, file an [issue](https://github.com/kyverno/kyverno/issues).
 - For discussions or questions, join the **#kyverno** channel on the [Kubernetes Slack](https://kubernetes.slack.com/) or the [mailing list](https://groups.google.com/g/kyverno).
 
 ### Contributing
@@ -141,8 +141,8 @@ Thanks for your interest in contributing!
 
 - Please review and agree to abide with the [Code of Conduct](/CODE_OF_CONDUCT.md) before contributing.
 - We encourage all contributions and encourage you to read our [contribution guidelines](./CONTRIBUTING.md).
-- See the [Wiki](https://github.com/nirmata/kyverno/wiki) for developer documentation.
-- Browse through the [open issues](https://github.com/nirmata/kyverno/issues)
+- See the [Wiki](https://github.com/kyverno/kyverno/wiki) for developer documentation.
+- Browse through the [open issues](https://github.com/kyverno/kyverno/issues)
 
 ## Presentations and Articles
 
@@ -175,5 +175,5 @@ Tools like [Kustomize](https://github.com/kubernetes-sigs/kustomize) can be used
 
 ## Roadmap
 
-See [Milestones](https://github.com/nirmata/kyverno/milestones) and [Issues](https://github.com/nirmata/kyverno/issues).
+See [Milestones](https://github.com/kyverno/kyverno/milestones) and [Issues](https://github.com/kyverno/kyverno/issues).
 

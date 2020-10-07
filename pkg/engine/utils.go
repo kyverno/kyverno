@@ -9,19 +9,19 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/kyverno/kyverno/pkg/utils"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/minio/minio/pkg/wildcard"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/resourcecache"
+	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -176,7 +176,7 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 
 	userGroups := append(userInfo.Groups, userInfo.Username)
 
-	// TODO: see issue https://github.com/nirmata/kyverno/issues/861
+	// TODO: see issue https://github.com/kyverno/kyverno/issues/861
 	for _, e := range dynamicConfig {
 		ruleSubjects = append(ruleSubjects,
 			rbacv1.Subject{Kind: "Group", Name: e},

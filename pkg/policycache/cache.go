@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 )
 
 type pMap struct {

@@ -3,7 +3,7 @@ package policyviolation
 import (
 	"testing"
 
-	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )

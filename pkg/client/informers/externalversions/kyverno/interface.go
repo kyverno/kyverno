@@ -19,8 +19,8 @@ limitations under the License.
 package kyverno
 
 import (
-	internalinterfaces "github.com/nirmata/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/nirmata/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
+	v1 "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 )
 
 // Interface provides access to each of this group's versions.

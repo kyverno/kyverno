@@ -57,7 +57,7 @@ Parameter | Description | Default
 `affinity` | node/pod affinities | `nil`
 `createSelfSignedCert` | generate a self signed cert and certificate authority. Kyverno defaults to using kube-controller-manager CA-signed certificate or existing cert secret if false. | `false`
 `config.existingConfig` | existing Kubernetes configmap to use for the resource filters configuration | `nil`
-`config.resourceFilters` | list of filter of resource types to be skipped by kyverno policy engine. See [documentation](https://github.com/nirmata/kyverno/blob/master/documentation/installation.md#filter-kubernetes-resources-that-admission-webhook-should-not-process) for details | `["[Event,*,*]","[*,kube-system,*]","[*,kube-public,*]","[*,kube-node-lease,*]","[Node,*,*]","[APIService,*,*]","[TokenReview,*,*]","[SubjectAccessReview,*,*]","[*,kyverno,*]"]`
+`config.resourceFilters` | list of filter of resource types to be skipped by kyverno policy engine. See [documentation](https://github.com/kyverno/kyverno/blob/master/documentation/installation.md#filter-kubernetes-resources-that-admission-webhook-should-not-process) for details | `["[Event,*,*]","[*,kube-system,*]","[*,kube-public,*]","[*,kube-node-lease,*]","[Node,*,*]","[APIService,*,*]","[TokenReview,*,*]","[SubjectAccessReview,*,*]","[*,kyverno,*]"]`
 `extraArgs` | list of extra arguments to give the binary | `[]`
 `fullnameOverride` | override the expanded name of the chart | `nil`
 `generatecontrollerExtraResources` | extra resource type Kyverno is allowed to generate | `[]`
@@ -107,6 +107,6 @@ $ helm install --namespace kyverno kyverno ./charts/kyverno -f values.yaml
 
 ## TLS Configuration
 
-If `createSelfSignedCert` is `true`, Helm will take care of the steps of creating an external self-signed certificate describe in option 2 of the [installation documentation](https://github.com/nirmata/kyverno/blob/master/documentation/installation.md#option-2-use-your-own-ca-signed-certificate)
+If `createSelfSignedCert` is `true`, Helm will take care of the steps of creating an external self-signed certificate describe in option 2 of the [installation documentation](https://github.com/kyverno/kyverno/blob/master/documentation/installation.md#option-2-use-your-own-ca-signed-certificate)
 
 If `createSelfSignedCert` is `false`, Kyverno will generate a pair using the kube-controller-manager., or you can provide your own TLS CA and signed-key pair and create the secret yourself as described in the documentation.

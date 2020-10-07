@@ -3,19 +3,20 @@ package generate
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"time"
+
 	"github.com/go-logr/logr"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/config"
-	dclient "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/validate"
-	"github.com/nirmata/kyverno/pkg/engine/variables"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
+	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/validate"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"reflect"
-	"time"
 )
 
 func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
@@ -127,7 +128,6 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 			}
 		}
 	}
-
 
 	// Apply the generate rule on resource
 	return c.applyGeneratePolicy(logger, policyContext, gr)

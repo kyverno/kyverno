@@ -8,13 +8,13 @@ import (
 	"strings"
 	"sync"
 
-	data "github.com/nirmata/kyverno/api"
-	"github.com/nirmata/kyverno/pkg/engine/utils"
+	data "github.com/kyverno/kyverno/api"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
 
-	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 
 	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
 	"github.com/googleapis/gnostic/compiler"

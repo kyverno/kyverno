@@ -1,7 +1,7 @@
 package common
 
 import (
-	"github.com/nirmata/kyverno/pkg/engine/anchor/common"
+	"github.com/kyverno/kyverno/pkg/engine/anchor/common"
 )
 
 // AnchorKey - contains map of anchors

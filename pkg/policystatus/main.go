@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )

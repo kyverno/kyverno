@@ -3,7 +3,7 @@ package webhooks
 import (
 	"time"
 
-	policyvalidate "github.com/nirmata/kyverno/pkg/policy"
+	policyvalidate "github.com/kyverno/kyverno/pkg/policy"
 
 	v1beta1 "k8s.io/api/admission/v1beta1"
 

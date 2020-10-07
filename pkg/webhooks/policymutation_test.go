@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/utils"
-	"github.com/nirmata/kyverno/pkg/policymutation"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/policymutation"
 
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"

@@ -3,12 +3,13 @@ package policystatus
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/labels"
 	"testing"
 	"time"
 
-	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	lv1 "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	"k8s.io/apimachinery/pkg/labels"
+
+	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	lv1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 )
 
 type dummyStore struct {

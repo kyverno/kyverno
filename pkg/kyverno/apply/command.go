@@ -8,8 +8,8 @@ import (
 	"io/ioutil"
 	"reflect"
 
-	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/openapi"
+	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/openapi"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"os"
@@ -18,26 +18,26 @@ import (
 	"strings"
 	"time"
 
-	client "github.com/nirmata/kyverno/pkg/dclient"
+	client "github.com/kyverno/kyverno/pkg/dclient"
 
-	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/kyverno/kyverno/pkg/utils"
 
-	"github.com/nirmata/kyverno/pkg/kyverno/common"
-	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
+	"github.com/kyverno/kyverno/pkg/kyverno/common"
+	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 
-	policy2 "github.com/nirmata/kyverno/pkg/policy"
+	policy2 "github.com/kyverno/kyverno/pkg/policy"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/nirmata/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine"
 
-	engineutils "github.com/nirmata/kyverno/pkg/engine/utils"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/spf13/cobra"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/cli-runtime/pkg/genericclioptions"

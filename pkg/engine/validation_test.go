@@ -6,10 +6,10 @@ import (
 
 	"k8s.io/api/admission/v1beta1"
 
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/utils"
-	utils2 "github.com/nirmata/kyverno/pkg/utils"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
+	utils2 "github.com/kyverno/kyverno/pkg/utils"
 	"gotest.tools/assert"
 )
 

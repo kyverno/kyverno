@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/nirmata/kyverno/pkg/engine/anchor"
-	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
-	"github.com/nirmata/kyverno/pkg/engine/common"
-	"github.com/nirmata/kyverno/pkg/engine/operator"
+	"github.com/kyverno/kyverno/pkg/engine/anchor"
+	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
+	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/kyverno/kyverno/pkg/engine/operator"
 )
 
 // ValidateResourceWithPattern is a start of element-by-element validation process

@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/nirmata/kyverno/pkg/openapi"
+	"github.com/kyverno/kyverno/pkg/openapi"
 
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"gotest.tools/assert"
 )
 

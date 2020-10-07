@@ -3,11 +3,11 @@ package policy
 import (
 	"fmt"
 
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	dclient "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/policy/generate"
-	"github.com/nirmata/kyverno/pkg/policy/mutate"
-	"github.com/nirmata/kyverno/pkg/policy/validate"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/policy/generate"
+	"github.com/kyverno/kyverno/pkg/policy/mutate"
+	"github.com/kyverno/kyverno/pkg/policy/validate"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 

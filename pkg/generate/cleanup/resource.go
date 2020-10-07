@@ -1,8 +1,8 @@
 package cleanup
 
 import (
-	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	"github.com/nirmata/kyverno/pkg/config"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

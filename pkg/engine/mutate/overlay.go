@@ -15,9 +15,9 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
-	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
-	"github.com/nirmata/kyverno/pkg/engine/response"
-	"github.com/nirmata/kyverno/pkg/engine/utils"
+	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
+	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
 )
 
 // ProcessOverlay processes mutation overlay on the resource
