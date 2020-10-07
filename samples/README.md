@@ -52,7 +52,7 @@ kubectl create -f https://github.com/kyverno/kyverno/raw/master/definitions/inst
 To start applying policies to your cluster, first clone the repo:
 
 ````bash
-git clone https://github.com/nirmata/kyverno.git
+git clone https://github.com/kyverno/kyverno.git
 cd kyverno
 ````
 

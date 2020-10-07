@@ -4,7 +4,7 @@ metadata:
   name: kyverno
 spec:
   version: {{ .TagName }}
-  homepage: https://github.com/nirmata/kyverno
+  homepage: https://github.com/kyverno/kyverno
   platforms:
     - selector:
         matchLabels:
