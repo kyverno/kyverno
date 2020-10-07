@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: require-pod-probes
   annotations:
+    pod-policies.kyverno.io/autogen-controllers: DaemonSet,Deployment,StatefulSet
     policies.kyverno.io/category: Workload Management
     policies.kyverno.io/description: Liveness and readiness probes need to be configured to 
       correctly manage a pods lifecycle during deployments, restarts, and upgrades. For each 
