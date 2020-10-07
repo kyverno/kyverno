@@ -101,9 +101,9 @@ func GenerateCACert() (*KeyPair, *TlsPemPair, error) {
 	return caCert, pemPair, nil
 }
 
-// GenerateCertPEM takes the results of GenerateCACert and uses it to create the
+// GenerateCertPem takes the results of GenerateCACert and uses it to create the
 // PEM-encoded public certificate and private key, respectively
-func GenerateCertPEM(caCert *KeyPair, props TlsCertificateProps, fqdncn bool) (*TlsPemPair, error) {
+func GenerateCertPem(caCert *KeyPair, props TlsCertificateProps, fqdncn bool) (*TlsPemPair, error) {
 	now := time.Now()
 	begin := now.Add(-1 * time.Hour)
 	end := now.Add(certValidityDuration)

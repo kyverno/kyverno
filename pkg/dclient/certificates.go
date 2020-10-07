@@ -24,29 +24,29 @@ func (c *Client) InitTLSPemPair(configuration *rest.Config, fqdncn bool) (*tls.T
 	}
 
 	logger.Info("Building key/certificate pair for TLS")
-	tlsPair, err := c.buildTLSPemPair(certProps, fqdncn)
+	tlsPair, err := c.buildTlsPemPair(certProps, fqdncn)
 	if err != nil {
 		return nil, err
 	}
-	if err = c.WriteTlsPair(certProps, tlsPair); err != nil {
+	if err = c.WriteTlsPairToSecret(certProps, tlsPair); err != nil {
 		return nil, fmt.Errorf("Unable to save TLS pair to the cluster: %v", err)
 	}
 
 	return tlsPair, nil
 }
 
-//buildTLSPemPair Issues TLS certificate for webhook server using self-signed CA cert
+//buildTlsPemPair Issues TLS certificate for webhook server using self-signed CA cert
 // Returns signed and approved TLS certificate in PEM format
-func (c *Client) buildTLSPemPair(props tls.TlsCertificateProps, fqdncn bool) (*tls.TlsPemPair, error) {
+func (c *Client) buildTlsPemPair(props tls.TlsCertificateProps, fqdncn bool) (*tls.TlsPemPair, error) {
 	caCert, caPEM, err := tls.GenerateCACert()
 	if err != nil {
 		return nil, err
 	}
 
-	if err := c.WriteCACert(caPEM, props); err != nil {
+	if err := c.WriteCACertToSecret(caPEM, props); err != nil {
 		return nil, err
 	}
-	return tls.GenerateCertPEM(caCert, props, fqdncn)
+	return tls.GenerateCertPem(caCert, props, fqdncn)
 }
 
 //ReadRootCASecret returns the RootCA from the pre-defined secret
@@ -120,7 +120,7 @@ func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 	return &pemPair
 }
 
-func (c *Client) WriteCACert(caPEM *tls.TlsPemPair, props tls.TlsCertificateProps) error {
+func (c *Client) WriteCACertToSecret(caPEM *tls.TlsPemPair, props tls.TlsCertificateProps) error {
 	logger := c.log.WithName("CAcert")
 	name := generateRootCASecretName(props)
 
@@ -170,9 +170,9 @@ func (c *Client) WriteCACert(caPEM *tls.TlsPemPair, props tls.TlsCertificateProp
 	return nil
 }
 
-//WriteTlsPair Writes the pair of TLS certificate and key to the specified secret.
+//WriteTlsPairToSecret Writes the pair of TLS certificate and key to the specified secret.
 // Updates existing secret or creates new one.
-func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPemPair) error {
+func (c *Client) WriteTlsPairToSecret(props tls.TlsCertificateProps, pemPair *tls.TlsPemPair) error {
 	logger := c.log.WithName("WriteTlsPair")
 	name := generateTLSPairSecretName(props)
 	secretUnstr, err := c.GetResource("", Secrets, props.Namespace, name)
