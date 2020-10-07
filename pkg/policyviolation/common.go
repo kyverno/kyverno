@@ -6,9 +6,9 @@ import (
 	"time"
 
 	backoff "github.com/cenkalti/backoff"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	client "github.com/nirmata/kyverno/pkg/dclient"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	client "github.com/kyverno/kyverno/pkg/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"

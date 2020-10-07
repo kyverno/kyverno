@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )

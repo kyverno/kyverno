@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
-	"github.com/nirmata/kyverno/pkg/policy/common"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
+	"github.com/kyverno/kyverno/pkg/policy/common"
 )
 
 // Mutate provides implementation to validate 'mutate' rule

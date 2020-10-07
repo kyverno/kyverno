@@ -1,8 +1,8 @@
 package mutate
 
 import (
+	anchor "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"github.com/minio/minio/pkg/wildcard"
-	anchor "github.com/nirmata/kyverno/pkg/engine/anchor/common"
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
 

@@ -4,9 +4,9 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/nirmata/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 
-	"github.com/nirmata/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/event"
 )
 
 //generateEvents generates event info for the engine responses

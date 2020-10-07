@@ -7,14 +7,14 @@ import (
 	"fmt"
 	"os"
 
-	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/openapi"
-	"github.com/nirmata/kyverno/pkg/utils"
+	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/openapi"
+	"github.com/kyverno/kyverno/pkg/utils"
 
-	"github.com/nirmata/kyverno/pkg/kyverno/common"
-	"github.com/nirmata/kyverno/pkg/kyverno/sanitizedError"
+	"github.com/kyverno/kyverno/pkg/kyverno/common"
+	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 
-	policy2 "github.com/nirmata/kyverno/pkg/policy"
+	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/spf13/cobra"
 
 	_ "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"

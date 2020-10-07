@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/config"
-	tls "github.com/nirmata/kyverno/pkg/tls"
+	"github.com/kyverno/kyverno/pkg/config"
+	tls "github.com/kyverno/kyverno/pkg/tls"
 	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,7 +59,7 @@ func (c *Client) generateTLSPemPair(props tls.TlsCertificateProps, fqdncn bool) 
 
 	tlsCert, err := c.fetchCertificateFromRequest(certRequest, 10)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to configure a certificate for the Kyverno controller. A CA certificate is required to allow the Kubernetes API Server to communicate with Kyverno. You can either provide a certificate or configure your cluster to allow certificate signing. Please refer to https://github.com/nirmata/kyverno/installation.md.: %v", err)
+		return nil, fmt.Errorf("Failed to configure a certificate for the Kyverno controller. A CA certificate is required to allow the Kubernetes API Server to communicate with Kyverno. You can either provide a certificate or configure your cluster to allow certificate signing. Please refer to https://github.com/kyverno/kyverno/installation.md.: %v", err)
 	}
 
 	return &tls.TlsPemPair{

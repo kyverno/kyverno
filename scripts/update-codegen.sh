@@ -13,7 +13,7 @@ esac
 NIRMATA_DIR=$(dirname ${BASH_SOURCE})/..
 NIRMATA_ROOT=$(${linkutil} -f ${NIRMATA_DIR})
 
-# instructions to build project https://github.com/nirmata/kyverno/wiki/Building
+# instructions to build project https://github.com/kyverno/kyverno/wiki/Building
 
 # get relative path to code generation script
 CODEGEN_PKG="${GOPATH}/src/k8s.io/code-generator"

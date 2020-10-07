@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	kyvernov1 "github.com/nirmata/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
-	kyvernolister "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
-	client "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/policystatus"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
+	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/policystatus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/config"
-	client "github.com/nirmata/kyverno/pkg/dclient"
-	"github.com/nirmata/kyverno/pkg/signal"
-	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/kyverno/kyverno/pkg/config"
+	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/signal"
+	"github.com/kyverno/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
@@ -60,7 +60,7 @@ func main() {
 	}
 
 	// Exit for unsupported version of kubernetes cluster
-	// https://github.com/nirmata/kyverno/issues/700
+	// https://github.com/kyverno/kyverno/issues/700
 	// - supported from v1.12.7+
 	if !utils.HigherThanKubernetesVersion(client, log.Log, 1, 12, 7) {
 		os.Exit(1)

@@ -36,7 +36,7 @@ Kyverno can request a CA signed certificate-key pair from `kube-controller-manag
 
 ```sh
 ## Install Kyverno
-kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
+kubectl create -f https://github.com/kyverno/kyverno/raw/master/definitions/install.yaml
 ```
 
 This method requires that the kube-controller-manager is configured to act as a certificate signer. To verify that this option is enabled for your cluster, check the command-line args for the kube-controller-manager. If `--cluster-signing-cert-file` and `--cluster-signing-key-file` are passed to the controller manager with paths to your CA's key-pair, then you can proceed to install Kyverno using this method.
@@ -148,7 +148,7 @@ Kyverno uses secrets created above to setup TLS communication with the kube-apis
 You can now install kyverno by downloading and updating the [install.yaml], or using the command below (assumes that the namespace is **kyverno**):
 
 ```sh
-kubectl create -f https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
+kubectl create -f https://github.com/kyverno/kyverno/raw/master/definitions/install.yaml
 ```
 
 
@@ -317,7 +317,7 @@ To modify the `ConfigMap`, either directly edit the `ConfigMap` `init-config` in
 
 # Installing outside of the cluster (debug mode)
 
-To build Kyverno in a development environment see: https://github.com/nirmata/kyverno/wiki/Building
+To build Kyverno in a development environment see: https://github.com/kyverno/kyverno/wiki/Building
 
 To run controller in this mode you should prepare a TLS key/certificate pair for debug webhook, then start controller with kubeconfig and the server address.
 
@@ -330,4 +330,4 @@ To run controller in this mode you should prepare a TLS key/certificate pair for
 ---
 <small>*Read Next >> [Writing Policies](/documentation/writing-policies.md)*</small>
 
-[install.yaml]: https://github.com/nirmata/kyverno/raw/master/definitions/install.yaml
+[install.yaml]: https://github.com/kyverno/kyverno/raw/master/definitions/install.yaml

@@ -1,27 +1,28 @@
 package webhooks
 
 import (
-	"github.com/nirmata/kyverno/pkg/config"
 	"reflect"
 	"sort"
 	"time"
 
-	"github.com/go-logr/logr"
-	"github.com/nirmata/kyverno/pkg/event"
-	"github.com/nirmata/kyverno/pkg/policystatus"
-	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/kyverno/kyverno/pkg/config"
 
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	"github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/engine/context"
-	"github.com/nirmata/kyverno/pkg/engine/response"
-	"github.com/nirmata/kyverno/pkg/policyviolation"
+	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/policystatus"
+	"github.com/kyverno/kyverno/pkg/utils"
+
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/policyviolation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/nirmata/kyverno/pkg/resourcecache"
+	"github.com/kyverno/kyverno/pkg/resourcecache"
 )
 
 // HandleValidation handles validating webhook admission request

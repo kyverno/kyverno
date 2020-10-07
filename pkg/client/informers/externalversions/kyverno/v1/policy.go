@@ -21,10 +21,10 @@ package v1
 import (
 	time "time"
 
-	kyvernov1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	versioned "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	internalinterfaces "github.com/nirmata/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/nirmata/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
+	v1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"

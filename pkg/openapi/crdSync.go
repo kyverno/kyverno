@@ -19,8 +19,8 @@ import (
 	"github.com/googleapis/gnostic/compiler"
 
 	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
-	"github.com/nirmata/kyverno/pkg/constant"
-	client "github.com/nirmata/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/constant"
+	client "github.com/kyverno/kyverno/pkg/dclient"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	v1 "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 )
 
 func Test_Stats(t *testing.T) {

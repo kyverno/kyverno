@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	assert "github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"

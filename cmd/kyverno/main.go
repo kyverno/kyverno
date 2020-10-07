@@ -9,27 +9,27 @@ import (
 	"os"
 	"time"
 
-	"github.com/nirmata/kyverno/pkg/openapi"
-	"github.com/nirmata/kyverno/pkg/policycache"
+	"github.com/kyverno/kyverno/pkg/openapi"
+	"github.com/kyverno/kyverno/pkg/policycache"
 
-	"github.com/nirmata/kyverno/pkg/checker"
-	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	kyvernoinformer "github.com/nirmata/kyverno/pkg/client/informers/externalversions"
-	"github.com/nirmata/kyverno/pkg/config"
-	dclient "github.com/nirmata/kyverno/pkg/dclient"
-	event "github.com/nirmata/kyverno/pkg/event"
-	"github.com/nirmata/kyverno/pkg/generate"
-	generatecleanup "github.com/nirmata/kyverno/pkg/generate/cleanup"
-	"github.com/nirmata/kyverno/pkg/policy"
-	"github.com/nirmata/kyverno/pkg/policystatus"
-	"github.com/nirmata/kyverno/pkg/policyviolation"
-	"github.com/nirmata/kyverno/pkg/resourcecache"
-	"github.com/nirmata/kyverno/pkg/signal"
-	"github.com/nirmata/kyverno/pkg/utils"
-	"github.com/nirmata/kyverno/pkg/version"
-	"github.com/nirmata/kyverno/pkg/webhookconfig"
-	"github.com/nirmata/kyverno/pkg/webhooks"
-	webhookgenerate "github.com/nirmata/kyverno/pkg/webhooks/generate"
+	"github.com/kyverno/kyverno/pkg/checker"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
+	"github.com/kyverno/kyverno/pkg/config"
+	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	event "github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/generate"
+	generatecleanup "github.com/kyverno/kyverno/pkg/generate/cleanup"
+	"github.com/kyverno/kyverno/pkg/policy"
+	"github.com/kyverno/kyverno/pkg/policystatus"
+	"github.com/kyverno/kyverno/pkg/policyviolation"
+	"github.com/kyverno/kyverno/pkg/resourcecache"
+	"github.com/kyverno/kyverno/pkg/signal"
+	"github.com/kyverno/kyverno/pkg/utils"
+	"github.com/kyverno/kyverno/pkg/version"
+	"github.com/kyverno/kyverno/pkg/webhookconfig"
+	"github.com/kyverno/kyverno/pkg/webhooks"
+	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/generate"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/klog"
 	"k8s.io/klog/klogr"
@@ -71,7 +71,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Generate CSR with CN as FQDN due to https://github.com/nirmata/kyverno/issues/542
+	// Generate CSR with CN as FQDN due to https://github.com/kyverno/kyverno/issues/542
 	flag.BoolVar(&fqdncn, "fqdn-as-cn", false, "use FQDN as Common Name in CSR")
 	flag.Parse()
 

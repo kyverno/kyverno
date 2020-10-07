@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/nirmata/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
 //NewNotInHandler returns handler to manage NotIn operations

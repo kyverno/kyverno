@@ -10,11 +10,11 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
-	"github.com/nirmata/kyverno/pkg/common"
-	"github.com/nirmata/kyverno/pkg/engine"
-	"github.com/nirmata/kyverno/pkg/utils"
+	"github.com/kyverno/kyverno/pkg/common"
+	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/utils"
 
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 )
 
 func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, []string) {
@@ -351,8 +351,8 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log l
 // otherwise (without the pointer), it will be set to empty value
 // - an empty struct in this case, some may fail the schema validation
 // TODO(shuting) may related to:
-// https://github.com/nirmata/kyverno/pull/549#discussion_r360088556
-// https://github.com/nirmata/kyverno/issues/568
+// https://github.com/kyverno/kyverno/pull/549#discussion_r360088556
+// https://github.com/kyverno/kyverno/issues/568
 
 type kyvernoRule struct {
 	Name             string                    `json:"name"`

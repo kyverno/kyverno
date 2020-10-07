@@ -5,11 +5,11 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	dclient "github.com/nirmata/kyverno/pkg/dclient"
-	commonAnchors "github.com/nirmata/kyverno/pkg/engine/anchor/common"
-	"github.com/nirmata/kyverno/pkg/engine/variables"
-	"github.com/nirmata/kyverno/pkg/policy/common"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/policy/common"
 )
 
 // Generate provides implementation to validate 'generate' rule
@@ -67,7 +67,7 @@ func (g *Generate) Validate() (string, error) {
 
 	// Kyverno generate-controller create/update/deletes the resources specified in generate rule of policy
 	// kyverno uses SA 'kyverno-service-account' and has default ClusterRoles and ClusterRoleBindings
-	// instuctions to modify the RBAC for kyverno are mentioned at https://github.com/nirmata/kyverno/blob/master/documentation/installation.md
+	// instuctions to modify the RBAC for kyverno are mentioned at https://github.com/kyverno/kyverno/blob/master/documentation/installation.md
 	// - operations required: create/update/delete/get
 	// If kind and namespace contain variables, then we cannot resolve then so we skip the processing
 	if err := g.canIGenerate(kind, namespace); err != nil {

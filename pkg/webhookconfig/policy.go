@@ -3,7 +3,7 @@ package webhookconfig
 import (
 	"fmt"
 
-	"github.com/nirmata/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/config"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

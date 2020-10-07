@@ -1,8 +1,8 @@
 package generate
 
 import (
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	dclient "github.com/nirmata/kyverno/pkg/dclient"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 

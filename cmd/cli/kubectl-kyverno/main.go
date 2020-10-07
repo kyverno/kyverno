@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/nirmata/kyverno/pkg/kyverno"
+	"github.com/kyverno/kyverno/pkg/kyverno"
 )
 
 func main() {

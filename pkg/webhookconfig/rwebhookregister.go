@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	checker "github.com/nirmata/kyverno/pkg/checker"
+	checker "github.com/kyverno/kyverno/pkg/checker"
 	"github.com/tevino/abool"
 	mconfiginformer "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	mconfiglister "k8s.io/client-go/listers/admissionregistration/v1beta1"

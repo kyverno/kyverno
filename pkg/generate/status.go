@@ -1,9 +1,9 @@
 package generate
 
 import (
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	kyvernoclient "github.com/nirmata/kyverno/pkg/client/clientset/versioned"
-	"github.com/nirmata/kyverno/pkg/config"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 

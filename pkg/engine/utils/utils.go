@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	kyverno "github.com/nirmata/kyverno/pkg/api/kyverno/v1"
-	commonAnchor "github.com/nirmata/kyverno/pkg/engine/anchor/common"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )

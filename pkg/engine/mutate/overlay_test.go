@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/nirmata/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
