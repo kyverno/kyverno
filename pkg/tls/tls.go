@@ -1,7 +1,6 @@
 package tls
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -47,18 +46,6 @@ func TLSPrivateKeyToPem(rsaKey *rsa.PrivateKey) []byte {
 	}
 
 	return pem.EncodeToMemory(privateKey)
-}
-
-func pemEncode(certificateDER []byte, key *rsa.PrivateKey) ([]byte, []byte, error) {
-	certBuf := &bytes.Buffer{}
-	if err := pem.Encode(certBuf, &pem.Block{Type: "CERTIFICATE", Bytes: certificateDER}); err != nil {
-		return nil, nil, fmt.Errorf("encoding cert: %v", err)
-	}
-	keyBuf := &bytes.Buffer{}
-	if err := pem.Encode(keyBuf, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}); err != nil {
-		return nil, nil, fmt.Errorf("encoding key: %v", err)
-	}
-	return certBuf.Bytes(), keyBuf.Bytes(), nil
 }
 
 func TLSCertificateToPem(certificateDER []byte) []byte {
@@ -171,19 +158,7 @@ func GenerateCertPEM(caCert *KeyPair, props TlsCertificateProps, fqdncn bool) (*
 		PrivateKey:  TLSPrivateKeyToPem(key),
 	}
 
-	// certPEM := TLSCertificateToPem(der)
-	// keyPEM := TLSPrivateKeyToPem(key)
 	return pemPair, nil
-}
-
-//TlsCertificateRequestToPem Creates PEM block from raw certificate request
-func certificateRequestToPem(csrRaw []byte) []byte {
-	csrBlock := &pem.Block{
-		Type:  "CERTIFICATE REQUEST",
-		Bytes: csrRaw,
-	}
-
-	return pem.EncodeToMemory(csrBlock)
 }
 
 //GenerateInClusterServiceName The generated service name should be the common name for TLS certificate

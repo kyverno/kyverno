@@ -22,20 +22,16 @@ func (c *Client) InitTLSPemPair(configuration *rest.Config, fqdncn bool) (*tls.T
 	if err != nil {
 		return nil, err
 	}
-	tlsPair := c.ReadTlsPair(certProps)
-	if tls.IsTLSPairShouldBeUpdated(tlsPair) {
-		logger.Info("Generating new key/certificate pair for TLS")
-		// tlsPair, err = c.generateTLSPemPair(certProps, fqdncn)
-		tlsPair, err = c.buildTLSPemPair(certProps, fqdncn)
-		if err != nil {
-			return nil, err
-		}
-		if err = c.WriteTlsPair(certProps, tlsPair); err != nil {
-			return nil, fmt.Errorf("Unable to save TLS pair to the cluster: %v", err)
-		}
-		return tlsPair, nil
+
+	logger.Info("Building key/certificate pair for TLS")
+	tlsPair, err := c.buildTLSPemPair(certProps, fqdncn)
+	if err != nil {
+		return nil, err
 	}
-	logger.Info("Using existing TLS key/certificate pair")
+	if err = c.WriteTlsPair(certProps, tlsPair); err != nil {
+		return nil, fmt.Errorf("Unable to save TLS pair to the cluster: %v", err)
+	}
+
 	return tlsPair, nil
 }
 
@@ -154,7 +150,7 @@ func (c *Client) WriteCACert(caPEM *tls.TlsPemPair, props tls.TlsCertificateProp
 		}
 		return err
 	}
-	// secret := v1.Secret{}
+
 	if _, ok := secretUnstr.GetAnnotations()[selfSignedAnnotation]; !ok {
 		secretUnstr.SetAnnotations(map[string]string{selfSignedAnnotation: "true"})
 	}
@@ -179,7 +175,7 @@ func (c *Client) WriteCACert(caPEM *tls.TlsPemPair, props tls.TlsCertificateProp
 func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPemPair) error {
 	logger := c.log.WithName("WriteTlsPair")
 	name := generateTLSPairSecretName(props)
-	_, err := c.GetResource("", Secrets, props.Namespace, name)
+	secretUnstr, err := c.GetResource("", Secrets, props.Namespace, name)
 	if err != nil {
 		secret := &v1.Secret{
 			TypeMeta: metav1.TypeMeta{
@@ -203,18 +199,21 @@ func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPem
 		}
 		return err
 	}
-	secret := v1.Secret{}
 
-	if secret.Data == nil {
-		secret.Data = make(map[string][]byte)
+	dataMap := map[string]interface{}{
+		v1.TLSCertKey:       base64.StdEncoding.EncodeToString(pemPair.Certificate),
+		v1.TLSPrivateKeyKey: base64.StdEncoding.EncodeToString(pemPair.PrivateKey),
 	}
-	secret.Data[v1.TLSCertKey] = pemPair.Certificate
-	secret.Data[v1.TLSPrivateKeyKey] = pemPair.PrivateKey
 
-	_, err = c.UpdateResource("", Secrets, props.Namespace, secret, false)
+	if err := unstructured.SetNestedMap(secretUnstr.Object, dataMap, "data"); err != nil {
+		return err
+	}
+
+	_, err = c.UpdateResource("", Secrets, props.Namespace, secretUnstr, false)
 	if err != nil {
 		return err
 	}
+
 	logger.Info("secret updated", "name", name, "namespace", props.Namespace)
 	return nil
 }
