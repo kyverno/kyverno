@@ -165,7 +165,7 @@ test-e2e:
 
 # godownloader create downloading script for kyverno-cli
 godownloader:
-	godownloader .goreleaser.yml --repo nirmata/kyverno -o ./scripts/install-cli.sh  --source="raw"
+	godownloader .goreleaser.yml --repo kyverno/kyverno -o ./scripts/install-cli.sh  --source="raw"
 
 # kustomize-crd will create install.yaml 
 kustomize-crd:
