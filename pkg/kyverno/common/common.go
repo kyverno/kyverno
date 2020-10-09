@@ -22,18 +22,15 @@ import (
 	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/utils"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // GetPolicies - Extracting the policies from multiple YAML
 func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
-	log := log.Log
 	for _, path := range paths {
 		path = filepath.Clean(path)
 
 		fileDesc, err := os.Stat(path)
 		if err != nil {
-			log.Error(err, "failed to describe file")
 			return nil, err
 		}
 
@@ -50,16 +47,14 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 
 			policiesFromDir, err := GetPolicies(listOfFiles)
 			if err != nil {
-				log.Error(err, fmt.Sprintf("failed to extract policies from %v", listOfFiles))
-				return nil, sanitizedError.NewWithError(("failed to extract policies"), err)
+				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to extract policies from %v", listOfFiles), err)
 			}
 
 			policies = append(policies, policiesFromDir...)
 		} else {
 			file, err := ioutil.ReadFile(path)
 			if err != nil {
-				log.Error(err, fmt.Sprintf("failed to load file: %v", path))
-				return nil, sanitizedError.NewWithError(("failed to load file"), err)
+				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to load file %v", path), err)
 			}
 			getPolicies, getErrors := utils.GetPolicy(file)
 			var errString string
@@ -166,14 +161,12 @@ func MutatePolicy(policy *v1.ClusterPolicy, logger logr.Logger) (*v1.ClusterPoli
 
 // GetCRDs - Extracting the crds from multiple YAML
 func GetCRDs(paths []string) (unstructuredCrds []*unstructured.Unstructured, err error) {
-	log := log.Log
 	unstructuredCrds = make([]*unstructured.Unstructured, 0)
 	for _, path := range paths {
 		path = filepath.Clean(path)
 
 		fileDesc, err := os.Stat(path)
 		if err != nil {
-			log.Error(err, "failed to describe file")
 			return nil, err
 		}
 
@@ -190,15 +183,14 @@ func GetCRDs(paths []string) (unstructuredCrds []*unstructured.Unstructured, err
 
 			policiesFromDir, err := GetCRDs(listOfFiles)
 			if err != nil {
-				log.Error(err, fmt.Sprintf("failed to extract crds from %v", listOfFiles))
-				return nil, sanitizedError.NewWithError(("failed to extract crds"), err)
+				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to extract crds from %v", listOfFiles), err)
 			}
 
 			unstructuredCrds = append(unstructuredCrds, policiesFromDir...)
 		} else {
 			getCRDs, err := GetCRD(path)
 			if err != nil {
-				fmt.Printf("failed to extract crds: %s\n", err)
+				fmt.Printf("\nError: failed to extract crds from %s.  \nCause: %s\n", path, err)
 				os.Exit(2)
 			}
 			unstructuredCrds = append(unstructuredCrds, getCRDs...)
@@ -209,12 +201,10 @@ func GetCRDs(paths []string) (unstructuredCrds []*unstructured.Unstructured, err
 
 // GetCRD - Extracts crds from a YAML
 func GetCRD(path string) (unstructuredCrds []*unstructured.Unstructured, err error) {
-	log := log.Log
 	path = filepath.Clean(path)
 	unstructuredCrds = make([]*unstructured.Unstructured, 0)
 	yamlbytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Error(err, "failed to read file", "file", path)
 		return nil, err
 	}
 
@@ -227,12 +217,12 @@ func GetCRD(path string) (unstructuredCrds []*unstructured.Unstructured, err err
 		if err == io.EOF || len(b) == 0 {
 			break
 		} else if err != nil {
-			log.Error(err, "unable to read yaml")
+			fmt.Printf("\nError: unable to read crd from %s. Cause: %s\n", path, err)
+			os.Exit(2)
 		}
 		var u unstructured.Unstructured
 		err = yaml_v2.Unmarshal(b, &u)
 		if err != nil {
-			log.Error(err, "failed to convert file into unstructured object", "file", path)
 			return nil, err
 		}
 		unstructuredCrds = append(unstructuredCrds, &u)

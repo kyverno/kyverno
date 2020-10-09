@@ -93,9 +93,8 @@ func Command() *cobra.Command {
 			// if CRD's are passed, add these to OpenAPIController
 			if len(crdPaths) > 0 {
 				crds, err := common.GetCRDs(crdPaths)
-
 				if err != nil {
-					log.Error(err, "crd is invalid", "file", crdPaths)
+					fmt.Printf("\nError: crd is invalid. \nFile: %s \nCause: %s\n", crdPaths, err)
 					os.Exit(1)
 				}
 				for _, crd := range crds {
@@ -108,7 +107,7 @@ func Command() *cobra.Command {
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
 					fmt.Printf("Policy %s is invalid.\n", policy.Name)
-					log.Error(err, "policy "+policy.Name+" is invalid")
+					fmt.Printf("Error: invalid policy.\nCause: %s\n\n", err)
 					invalidPolicyFound = true
 				} else {
 					fmt.Printf("Policy %s is valid.\n\n", policy.Name)
