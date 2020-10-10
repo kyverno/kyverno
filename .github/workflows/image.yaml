@@ -1,4 +1,4 @@
-name: build
+name: image
 on:
   push:
     branches:
@@ -8,10 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: login to docker hub
-        if: github.event.pull_request.merged == true
         run: echo "${{ secrets.DOCKERIO_PASSWORD }}" | docker login -u "${{ secrets.DOCKERIO_USERNAME }}" --password-stdin
 
       - name: docker images publish
-        if: github.event.pull_request.merged == true
         run: |
           make docker-publish-all
