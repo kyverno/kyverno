@@ -24,6 +24,7 @@ jobs:
           go-version: 1.14
 
       - name: login to docker hub
+        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
         run: echo "${{ secrets.DOCKERIO_PASSWORD }}" | docker login -u "${{ secrets.DOCKERIO_USERNAME }}" --password-stdin
 
       - name :  docker images publish
