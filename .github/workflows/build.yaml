@@ -43,12 +43,3 @@ jobs:
           ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh -n kyverno  kyverno
           echo ">>> Run Kyverno e2e test"
           make test-e2e
-
-      - name: login to docker hub
-        if: github.event.pull_request.merged == true
-        run: echo "${{ secrets.DOCKERIO_PASSWORD }}" | docker login -u "${{ secrets.DOCKERIO_USERNAME }}" --password-stdin
-
-      - name: docker images publish
-        if: github.event.pull_request.merged == true
-        run: |
-          make docker-publish-all
