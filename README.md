@@ -1,6 +1,6 @@
 # Kyverno - Kubernetes Native Policy Management
 
-[![Build Status](https://travis-ci.org/nirmata/kyverno.svg?branch=master)](https://travis-ci.org/nirmata/kyverno) [![Go Report Card](https://goreportcard.com/badge/github.com/kyverno/kyverno)](https://goreportcard.com/report/github.com/kyverno/kyverno) ![License: Apache-2.0](https://img.shields.io/github/license/nirmata/kyverno?color=blue)
+[![Build Status](https://travis-ci.org/kyverno/kyverno.svg?branch=master)](https://travis-ci.org/kyverno/kyverno) [![Go Report Card](https://goreportcard.com/badge/github.com/kyverno/kyverno)](https://goreportcard.com/report/github.com/kyverno/kyverno) ![License: Apache-2.0](https://img.shields.io/github/license/kyverno/kyverno?color=blue)
 
 ![logo](documentation/images/Kyverno_Horizontal.png)
 
@@ -25,7 +25,7 @@ To check the version, enter `kubectl version`.
 
 Install Kyverno:
 ```console
-kubectl create -f https://raw.githubusercontent.com/nirmata/kyverno/master/definitions/release/install.yaml
+kubectl create -f https://raw.githubusercontent.com/kyverno/kyverno/master/definitions/release/install.yaml
 ```
 
 You can also install Kyverno using a [Helm chart](https://github.com/kyverno/kyverno/blob/master/documentation/installation.md#install-kyverno-using-helm).

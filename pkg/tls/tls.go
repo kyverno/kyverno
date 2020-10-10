@@ -7,12 +7,13 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
+	"fmt"
+	"math/big"
 	"net"
 	"time"
-
-	certificates "k8s.io/api/certificates/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+const certValidityDuration = 10 * 365 * 24 * time.Hour
 
 //TlsCertificateProps Properties of TLS certificate which should be issued for webhook server
 type TlsCertificateProps struct {
@@ -25,6 +26,11 @@ type TlsCertificateProps struct {
 type TlsPemPair struct {
 	Certificate []byte
 	PrivateKey  []byte
+}
+
+type KeyPair struct {
+	Cert *x509.Certificate
+	Key  *rsa.PrivateKey
 }
 
 //TLSGeneratePrivateKey Generates RSA private key
@@ -42,29 +48,80 @@ func TLSPrivateKeyToPem(rsaKey *rsa.PrivateKey) []byte {
 	return pem.EncodeToMemory(privateKey)
 }
 
-//TlsCertificateRequestToPem Creates PEM block from raw certificate request
-func certificateRequestToPem(csrRaw []byte) []byte {
-	csrBlock := &pem.Block{
-		Type:  "CERTIFICATE REQUEST",
-		Bytes: csrRaw,
+func TLSCertificateToPem(certificateDER []byte) []byte {
+	certificate := &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certificateDER,
 	}
 
-	return pem.EncodeToMemory(csrBlock)
+	return pem.EncodeToMemory(certificate)
 }
 
-//CertificateGenerateRequest Generates raw certificate signing request
-func CertificateGenerateRequest(privateKey *rsa.PrivateKey, props TlsCertificateProps, fqdncn bool) (*certificates.CertificateSigningRequest, error) {
+// GenerateCACert creates the self-signed CA cert and private key
+// it will be used to sign the webhook server certificate
+func GenerateCACert() (*KeyPair, *TlsPemPair, error) {
+	now := time.Now()
+	begin := now.Add(-1 * time.Hour)
+	end := now.Add(certValidityDuration)
+	templ := &x509.Certificate{
+		SerialNumber: big.NewInt(0),
+		Subject: pkix.Name{
+			CommonName: "*.kyverno.svc",
+		},
+		NotBefore:             begin,
+		NotAfter:              end,
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error generating key: %v", err)
+	}
+	der, err := x509.CreateCertificate(rand.Reader, templ, templ, key.Public(), key)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error creating certificate: %v", err)
+	}
+
+	pemPair := &TlsPemPair{
+		Certificate: TLSCertificateToPem(der),
+		PrivateKey:  TLSPrivateKeyToPem(key),
+	}
+
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error parsing certificate %v", err)
+	}
+
+	caCert := &KeyPair{
+		Cert: cert,
+		Key:  key,
+	}
+
+	return caCert, pemPair, nil
+}
+
+// GenerateCertPem takes the results of GenerateCACert and uses it to create the
+// PEM-encoded public certificate and private key, respectively
+func GenerateCertPem(caCert *KeyPair, props TlsCertificateProps, fqdncn bool) (*TlsPemPair, error) {
+	now := time.Now()
+	begin := now.Add(-1 * time.Hour)
+	end := now.Add(certValidityDuration)
+
 	dnsNames := make([]string, 3)
-	dnsNames[0] = props.Service
-	dnsNames[1] = props.Service + "." + props.Namespace
+	dnsNames[0] = fmt.Sprintf("%s", props.Service)
+	csCommonName := dnsNames[0]
+
+	dnsNames[1] = fmt.Sprintf("%s.%s", props.Service, props.Namespace)
 	// The full service name is the CommonName for the certificate
 	commonName := GenerateInClusterServiceName(props)
-	dnsNames[2] = commonName
-	csCommonName := props.Service
+	dnsNames[2] = fmt.Sprintf("%s", commonName)
+
 	if fqdncn {
 		// use FQDN as CommonName as a workaournd for https://github.com/kyverno/kyverno/issues/542
 		csCommonName = commonName
 	}
+
 	var ips []net.IP
 	apiServerIP := net.ParseIP(props.ApiServerHost)
 	if apiServerIP != nil {
@@ -73,39 +130,35 @@ func CertificateGenerateRequest(privateKey *rsa.PrivateKey, props TlsCertificate
 		dnsNames = append(dnsNames, props.ApiServerHost)
 	}
 
-	csrTemplate := x509.CertificateRequest{
+	templ := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
 			CommonName: csCommonName,
 		},
-		SignatureAlgorithm: x509.SHA256WithRSA,
-		DNSNames:           dnsNames,
-		IPAddresses:        ips,
+		DNSNames: dnsNames,
+		// IPAddresses:           ips,
+		NotBefore:             begin,
+		NotAfter:              end,
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
 	}
 
-	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &csrTemplate, privateKey)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error generating key for webhook %v", err)
+	}
+	der, err := x509.CreateCertificate(rand.Reader, templ, caCert.Cert, key.Public(), caCert.Key)
+	if err != nil {
+		return nil, fmt.Errorf("error creating certificate for webhook %v", err)
 	}
 
-	return &certificates.CertificateSigningRequest{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "certificates.k8s.io/v1beta1",
-			Kind:       "CertificateSigningRequest",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: props.Service + "." + props.Namespace + ".cert-request",
-		},
-		Spec: certificates.CertificateSigningRequestSpec{
-			Request: certificateRequestToPem(csrBytes),
-			Groups:  []string{"system:masters", "system:authenticated"},
-			Usages: []certificates.KeyUsage{
-				certificates.UsageDigitalSignature,
-				certificates.UsageKeyEncipherment,
-				certificates.UsageServerAuth,
-				certificates.UsageClientAuth,
-			},
-		},
-	}, nil
+	pemPair := &TlsPemPair{
+		Certificate: TLSCertificateToPem(der),
+		PrivateKey:  TLSPrivateKeyToPem(key),
+	}
+
+	return pemPair, nil
 }
 
 //GenerateInClusterServiceName The generated service name should be the common name for TLS certificate

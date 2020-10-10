@@ -1,16 +1,15 @@
 package client
 
 import (
-	"errors"
+	"encoding/base64"
 	"fmt"
 	"net/url"
-	"time"
 
 	"github.com/kyverno/kyverno/pkg/config"
 	tls "github.com/kyverno/kyverno/pkg/tls"
-	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/rest"
 )
 
@@ -23,123 +22,31 @@ func (c *Client) InitTLSPemPair(configuration *rest.Config, fqdncn bool) (*tls.T
 	if err != nil {
 		return nil, err
 	}
-	tlsPair := c.ReadTlsPair(certProps)
-	if tls.IsTLSPairShouldBeUpdated(tlsPair) {
-		logger.Info("Generating new key/certificate pair for TLS")
-		tlsPair, err = c.generateTLSPemPair(certProps, fqdncn)
-		if err != nil {
-			return nil, err
-		}
-		if err = c.WriteTlsPair(certProps, tlsPair); err != nil {
-			return nil, fmt.Errorf("Unable to save TLS pair to the cluster: %v", err)
-		}
-		return tlsPair, nil
+
+	logger.Info("Building key/certificate pair for TLS")
+	tlsPair, err := c.buildTlsPemPair(certProps, fqdncn)
+	if err != nil {
+		return nil, err
 	}
-	logger.Info("Using existing TLS key/certificate pair")
+	if err = c.WriteTlsPairToSecret(certProps, tlsPair); err != nil {
+		return nil, fmt.Errorf("Unable to save TLS pair to the cluster: %v", err)
+	}
+
 	return tlsPair, nil
 }
 
-//generateTlsPemPair Issues TLS certificate for webhook server using given PEM private key
+//buildTlsPemPair Issues TLS certificate for webhook server using self-signed CA cert
 // Returns signed and approved TLS certificate in PEM format
-func (c *Client) generateTLSPemPair(props tls.TlsCertificateProps, fqdncn bool) (*tls.TlsPemPair, error) {
-	privateKey, err := tls.TLSGeneratePrivateKey()
+func (c *Client) buildTlsPemPair(props tls.TlsCertificateProps, fqdncn bool) (*tls.TlsPemPair, error) {
+	caCert, caPEM, err := tls.GenerateCACert()
 	if err != nil {
 		return nil, err
 	}
 
-	certRequest, err := tls.CertificateGenerateRequest(privateKey, props, fqdncn)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to create certificate request: %v", err)
-	}
-
-	certRequest, err = c.submitAndApproveCertificateRequest(certRequest)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to submit and approve certificate request: %v", err)
-	}
-
-	tlsCert, err := c.fetchCertificateFromRequest(certRequest, 10)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to configure a certificate for the Kyverno controller. A CA certificate is required to allow the Kubernetes API Server to communicate with Kyverno. You can either provide a certificate or configure your cluster to allow certificate signing. Please refer to https://github.com/kyverno/kyverno/installation.md.: %v", err)
-	}
-
-	return &tls.TlsPemPair{
-		Certificate: tlsCert,
-		PrivateKey:  tls.TLSPrivateKeyToPem(privateKey),
-	}, nil
-}
-
-// Submits and approves certificate request, returns request which need to be fetched
-func (c *Client) submitAndApproveCertificateRequest(req *certificates.CertificateSigningRequest) (*certificates.CertificateSigningRequest, error) {
-	logger := c.log.WithName("submitAndApproveCertificateRequest")
-	certClient, err := c.GetCSRInterface()
-	if err != nil {
+	if err := c.WriteCACertToSecret(caPEM, props); err != nil {
 		return nil, err
 	}
-	csrList, err := c.ListResource("", CSRs, "", nil)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to list existing certificate requests: %v", err)
-	}
-
-	for _, csr := range csrList.Items {
-		if csr.GetName() == req.ObjectMeta.Name {
-			err := c.DeleteResource("", CSRs, "", csr.GetName(), false)
-			if err != nil {
-				return nil, fmt.Errorf("Unable to delete existing certificate request: %v", err)
-			}
-			logger.Info("Old certificate request is deleted")
-			break
-		}
-	}
-
-	unstrRes, err := c.CreateResource("", CSRs, "", req, false)
-	if err != nil {
-		return nil, err
-	}
-	logger.Info("Certificate request created", "name", unstrRes.GetName())
-
-	res, err := convertToCSR(unstrRes)
-	if err != nil {
-		return nil, err
-	}
-	res.Status.Conditions = append(res.Status.Conditions, certificates.CertificateSigningRequestCondition{
-		Type:    certificates.CertificateApproved,
-		Reason:  "NKP-Approve",
-		Message: "This CSR was approved by Nirmata kyverno controller",
-	})
-	res, err = certClient.UpdateApproval(res)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to approve certificate request: %v", err)
-	}
-	logger.Info("Certificate request is approved", "name", res.ObjectMeta.Name)
-
-	return res, nil
-}
-
-// Fetches certificate from given request. Tries to obtain certificate for maxWaitSeconds
-func (c *Client) fetchCertificateFromRequest(req *certificates.CertificateSigningRequest, maxWaitSeconds uint8) ([]byte, error) {
-	// TODO: react of SIGINT and SIGTERM
-	timeStart := time.Now()
-	for time.Since(timeStart) < time.Duration(maxWaitSeconds)*time.Second {
-		unstrR, err := c.GetResource("", CSRs, "", req.ObjectMeta.Name)
-		if err != nil {
-			return nil, err
-		}
-		r, err := convertToCSR(unstrR)
-		if err != nil {
-			return nil, err
-		}
-
-		if r.Status.Certificate != nil {
-			return r.Status.Certificate, nil
-		}
-
-		for _, condition := range r.Status.Conditions {
-			if condition.Type == certificates.CertificateDenied {
-				return nil, errors.New(condition.String())
-			}
-		}
-	}
-	return nil, fmt.Errorf("Cerificate fetch timeout is reached: %d seconds", maxWaitSeconds)
+	return tls.GenerateCertPem(caCert, props, fqdncn)
 }
 
 //ReadRootCASecret returns the RootCA from the pre-defined secret
@@ -213,12 +120,62 @@ func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 	return &pemPair
 }
 
-//WriteTlsPair Writes the pair of TLS certificate and key to the specified secret.
+func (c *Client) WriteCACertToSecret(caPEM *tls.TlsPemPair, props tls.TlsCertificateProps) error {
+	logger := c.log.WithName("CAcert")
+	name := generateRootCASecretName(props)
+
+	secretUnstr, err := c.GetResource("", Secrets, props.Namespace, name)
+	if err != nil {
+		secret := &v1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: props.Namespace,
+				Annotations: map[string]string{
+					selfSignedAnnotation: "true",
+				},
+			},
+			Data: map[string][]byte{
+				rootCAKey: caPEM.Certificate,
+			},
+			Type: v1.SecretTypeOpaque,
+		}
+
+		_, err := c.CreateResource("", Secrets, props.Namespace, secret, false)
+		if err == nil {
+			logger.Info("secret created", "name", name, "namespace", props.Namespace)
+		}
+		return err
+	}
+
+	if _, ok := secretUnstr.GetAnnotations()[selfSignedAnnotation]; !ok {
+		secretUnstr.SetAnnotations(map[string]string{selfSignedAnnotation: "true"})
+	}
+
+	dataMap := map[string]interface{}{
+		rootCAKey: base64.StdEncoding.EncodeToString(caPEM.Certificate)}
+
+	if err := unstructured.SetNestedMap(secretUnstr.Object, dataMap, "data"); err != nil {
+		return err
+	}
+
+	_, err = c.UpdateResource("", Secrets, props.Namespace, secretUnstr, false)
+	if err != nil {
+		return err
+	}
+	logger.Info("secret updated", "name", name, "namespace", props.Namespace)
+	return nil
+}
+
+//WriteTlsPairToSecret Writes the pair of TLS certificate and key to the specified secret.
 // Updates existing secret or creates new one.
-func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPemPair) error {
+func (c *Client) WriteTlsPairToSecret(props tls.TlsCertificateProps, pemPair *tls.TlsPemPair) error {
 	logger := c.log.WithName("WriteTlsPair")
 	name := generateTLSPairSecretName(props)
-	_, err := c.GetResource("", Secrets, props.Namespace, name)
+	secretUnstr, err := c.GetResource("", Secrets, props.Namespace, name)
 	if err != nil {
 		secret := &v1.Secret{
 			TypeMeta: metav1.TypeMeta{
@@ -242,18 +199,21 @@ func (c *Client) WriteTlsPair(props tls.TlsCertificateProps, pemPair *tls.TlsPem
 		}
 		return err
 	}
-	secret := v1.Secret{}
 
-	if secret.Data == nil {
-		secret.Data = make(map[string][]byte)
+	dataMap := map[string]interface{}{
+		v1.TLSCertKey:       base64.StdEncoding.EncodeToString(pemPair.Certificate),
+		v1.TLSPrivateKeyKey: base64.StdEncoding.EncodeToString(pemPair.PrivateKey),
 	}
-	secret.Data[v1.TLSCertKey] = pemPair.Certificate
-	secret.Data[v1.TLSPrivateKeyKey] = pemPair.PrivateKey
 
-	_, err = c.UpdateResource("", Secrets, props.Namespace, secret, false)
+	if err := unstructured.SetNestedMap(secretUnstr.Object, dataMap, "data"); err != nil {
+		return err
+	}
+
+	_, err = c.UpdateResource("", Secrets, props.Namespace, secretUnstr, false)
 	if err != nil {
 		return err
 	}
+
 	logger.Info("secret updated", "name", name, "namespace", props.Namespace)
 	return nil
 }
