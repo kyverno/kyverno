@@ -45,10 +45,10 @@ jobs:
           make test-e2e
 
       - name: login to docker hub
-        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+        if: github.event.pull_request.merged == true
         run: echo "${{ secrets.DOCKERIO_PASSWORD }}" | docker login -u "${{ secrets.DOCKERIO_USERNAME }}" --password-stdin
 
       - name: docker images publish
-        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+        if: github.event.pull_request.merged == true
         run: |
           make docker-publish-all
