@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/kyverno/kyverno.svg?branch=master)](https://travis-ci.org/kyverno/kyverno) [![Go Report Card](https://goreportcard.com/badge/github.com/kyverno/kyverno)](https://goreportcard.com/report/github.com/kyverno/kyverno) ![License: Apache-2.0](https://img.shields.io/github/license/kyverno/kyverno?color=blue)
 
-![logo](documentation/images/Kyverno_Horizontal.png)
+![logo](resources/images/Kyverno_Horizontal.png)
 
 Kyverno is a policy engine built for Kubernetes:
 * policies as Kubernetes resources (no new language to learn!)
@@ -96,29 +96,11 @@ Clean up by deleting all cluster policies:
 kubectl delete cpol --all
 ```
 
+
 As a next step, browse the [sample policies](https://github.com/kyverno/kyverno/blob/master/samples/README.md) 
-and learn about [writing policies](https://github.com/kyverno/kyverno/blob/master/documentation/writing-policies.md). 
-You can test policies using the [Kyverno cli](https://github.com/kyverno/kyverno/blob/master/documentation/kyverno-cli.md). 
-See [docs](https://github.com/kyverno/kyverno/#documentation) for complete details.
-
-## Documentation
-
-- [Getting Started](documentation/installation.md)
-- [Writing Policies](documentation/writing-policies.md)
-  - [Selecting Resources](/documentation/writing-policies-match-exclude.md)
-  - [Validating Resources](documentation/writing-policies-validate.md)
-  - [Mutating Resources](documentation/writing-policies-mutate.md)
-  - [Generating Resources](documentation/writing-policies-generate.md)
-  - [Variable Substitution](documentation/writing-policies-variables.md)
-  - [Preconditions](documentation/writing-policies-preconditions.md)
-  - [Auto-Generation of Pod Controller Policies](documentation/writing-policies-autogen.md)
-  - [Background Processing](documentation/writing-policies-background.md)
-  - [Using ConfigMaps for variables](documentation/writing-policies-configmap-reference.md)
-- [Testing Policies](documentation/testing-policies.md)
-- [Policy Violations](documentation/policy-violations.md)
-- [Kyverno CLI](documentation/kyverno-cli.md)
-- [Sample Policies](/samples/README.md)
-- [API Documentation](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/master/documentation/index.html)
+and learn about [writing policies](https://kyverno.io/docs/writing-policies/). 
+You can test policies using the [Kyverno cli](https://kyverno.io/docs/kyverno-cli/).
+See [docs](https://kyverno.io/docs) for complete details.
 
 ## License
 
