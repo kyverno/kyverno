@@ -8,7 +8,7 @@ You can install Kyverno using the Helm chart or YAML files in this repository.
 
 Add the nirmata Helm repository
 ```sh
-helm repo add kyverno https://nirmata.github.io/kyverno/
+helm repo add kyverno https://kyverno.github.io/kyverno/
 ```
 
 Create a namespace and then install the kyverno helm chart.
