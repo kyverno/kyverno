@@ -30,7 +30,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: 981825fc3baf31d4a96c7ddfce78010fc4859dd0983974f06fe51cc7e2f546b5
     home: https://kyverno.io/
-    icon: https://github.com/nirmata/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -43,7 +43,7 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/nirmata/kyverno
+    - https://github.com/kyverno/kyverno
     urls:
     - kyverno-1.1.12.tgz
     version: 1.1.12
@@ -53,7 +53,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: ff3d523b5f3bc51ecea3298a5525243783c74f8e376ed07c77e2ae45a9a135f9
     home: https://kyverno.io/
-    icon: https://github.com/nirmata/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -66,7 +66,7 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/nirmata/kyverno
+    - https://github.com/kyverno/kyverno
     urls:
     - kyverno-1.1.11.tgz
     version: 1.1.11
@@ -76,7 +76,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: 00422185695d4013fe3f39d4cc65b48cf45c892dda2c9cea4c2297ed7e29db6d
     home: https://kyverno.io/
-    icon: https://github.com/nirmata/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -89,7 +89,7 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/nirmata/kyverno
+    - https://github.com/kyverno/kyverno
     urls:
     - kyverno-1.1.10.tgz
     version: 1.1.10
@@ -111,7 +111,7 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/nirmata/kyverno
+    - https://github.com/kyverno/kyverno
     urls:
     - kyverno-1.1.9.tgz
     version: 1.1.9
@@ -133,7 +133,7 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/nirmata/kyverno
+    - https://github.com/kyverno/kyverno
     urls:
     - kyverno-1.1.8.tgz
     version: 1.1.8
@@ -155,7 +155,7 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/nirmata/kyverno
+    - https://github.com/kyverno/kyverno
     urls:
     - kyverno-1.1.7.tgz
     version: 1.1.7
@@ -177,7 +177,7 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/nirmata/kyverno
+    - https://github.com/kyverno/kyverno
     urls:
     - kyverno-1.1.7-rc4.tgz
     version: 1.1.7-rc4
@@ -199,7 +199,7 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/nirmata/kyverno
+    - https://github.com/kyverno/kyverno
     urls:
     - kyverno-1.1.7-rc3.tgz
     version: 1.1.7-rc3
@@ -221,7 +221,7 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/nirmata/kyverno
+    - https://github.com/kyverno/kyverno
     urls:
     - kyverno-1.1.7-rc2.tgz
     version: 1.1.7-rc2
@@ -243,7 +243,7 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/nirmata/kyverno
+    - https://github.com/kyverno/kyverno
     urls:
     - kyverno-1.1.7-rc1.tgz
     version: 1.1.7-rc1
@@ -265,7 +265,7 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/nirmata/kyverno
+    - https://github.com/kyverno/kyverno
     urls:
     - kyverno-1.1.6.tgz
     version: 1.1.6
@@ -287,7 +287,7 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/nirmata/kyverno
+    - https://github.com/kyverno/kyverno
     urls:
     - kyverno-0.0.1.tgz
     version: 0.0.1
@@ -309,7 +309,7 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/nirmata/kyverno
+    - https://github.com/kyverno/kyverno
     urls:
     - helm-charts/kyverno-0.0.1.tgz
     version: 0.0.1
