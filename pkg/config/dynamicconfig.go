@@ -41,7 +41,8 @@ type ConfigData struct {
 	restrictDevelopmentUsername []string
 	// hasynced
 	cmSycned cache.InformerSynced
-	log      logr.Logger
+
+	log logr.Logger
 }
 
 // ToFilter checks if the given resource is set to be filtered in the configuration

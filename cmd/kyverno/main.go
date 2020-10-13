@@ -9,18 +9,20 @@ import (
 	"os"
 	"time"
 
-	"github.com/kyverno/kyverno/pkg/openapi"
-	"github.com/kyverno/kyverno/pkg/policycache"
-
 	"github.com/kyverno/kyverno/pkg/checker"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
+	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
 	generatecleanup "github.com/kyverno/kyverno/pkg/generate/cleanup"
+	"github.com/kyverno/kyverno/pkg/jobs"
+	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policy"
+	"github.com/kyverno/kyverno/pkg/policycache"
+	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/policyviolation"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
@@ -42,6 +44,7 @@ var (
 	kubeconfig                     string
 	serverIP                       string
 	webhookTimeout                 int
+	backgroundSync                 int
 	runValidationInMutatingWebhook string
 	profile                        bool
 	//TODO: this has been added to backward support command line arguments
@@ -51,8 +54,9 @@ var (
 	excludeGroupRole string
 	excludeUsername  string
 	// User FQDN as CSR CN
-	fqdncn   bool
-	setupLog = log.Log.WithName("setup")
+	fqdncn       bool
+	policyReport bool
+	setupLog     = log.Log.WithName("setup")
 )
 
 func main() {
@@ -66,6 +70,7 @@ func main() {
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
+	flag.BoolVar(&policyReport, "policyreport", false, "Set this flag for enabling policy report")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -78,7 +83,10 @@ func main() {
 	if profile {
 		go http.ListenAndServe("localhost:6060", nil)
 	}
-
+	os.Setenv("POLICY-TYPE", common.PolicyViolation)
+	if policyReport {
+		os.Setenv("POLICY-TYPE", common.PolicyReport)
+	}
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
@@ -184,15 +192,39 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies().Lister(),
 		pInformer.Kyverno().V1().Policies().Lister())
 
+	// Job Controller
+	// - Create Jobs for report
+	jobController := jobs.NewJobsJob(client, configData, log.Log.WithName("jobController"))
+
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
-	pvgen := policyviolation.NewPVGenerator(pclient,
-		client,
-		pInformer.Kyverno().V1().ClusterPolicyViolations(),
-		pInformer.Kyverno().V1().PolicyViolations(),
-		statusSync.Listener,
-		log.Log.WithName("PolicyViolationGenerator"),
-	)
+	var pvgen *policyviolation.Generator
+	if os.Getenv("POLICY-TYPE") == common.PolicyViolation {
+		pvgen = policyviolation.NewPVGenerator(pclient,
+			client,
+			pInformer.Kyverno().V1().ClusterPolicyViolations(),
+			pInformer.Kyverno().V1().PolicyViolations(),
+			pInformer.Policy().V1alpha1().ClusterPolicyReports(),
+			pInformer.Policy().V1alpha1().PolicyReports(),
+			statusSync.Listener,
+			jobController,
+			log.Log.WithName("PolicyViolationGenerator"),
+			stopCh,
+		)
+	}
+	// POLICY Report GENERATOR
+	// -- generate policy report
+	var prgen *policyreport.Generator
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		prgen = policyreport.NewPRGenerator(pclient,
+			client,
+			pInformer.Policy().V1alpha1().ClusterPolicyReports(),
+			pInformer.Policy().V1alpha1().PolicyReports(),
+			statusSync.Listener,
+			jobController,
+			log.Log.WithName("PolicyReportGenerator"),
+		)
+	}
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
@@ -208,10 +240,12 @@ func main() {
 		configData,
 		eventGenerator,
 		pvgen,
+		prgen,
 		rWebhookWatcher,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
 		rCache,
+		jobController,
 	)
 
 	if err != nil {
@@ -259,6 +293,7 @@ func main() {
 		eventGenerator,
 		statusSync.Listener,
 		pvgen,
+		prgen,
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		log.Log.WithName("ValidateAuditHandler"),
@@ -315,6 +350,7 @@ func main() {
 		statusSync.Listener,
 		configData,
 		pvgen,
+		prgen,
 		grgen,
 		rWebhookWatcher,
 		auditHandler,
@@ -337,14 +373,22 @@ func main() {
 	go grgen.Run(1)
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
-	go policyCtrl.Run(3, stopCh)
+	go policyCtrl.Run(2, stopCh)
+
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		go prgen.Run(2, stopCh)
+	} else {
+		go pvgen.Run(2, stopCh)
+	}
 	go eventGenerator.Run(3, stopCh)
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
 	go pvgen.Run(1, stopCh)
+
 	go statusSync.Run(1, stopCh)
 	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)
+	go jobController.Run(2, stopCh)
 	openAPISync.Run(1, stopCh)
 
 	// verifies if the admission control is enabled and active
@@ -353,6 +397,11 @@ func main() {
 	// max deadline: deadline*3 (set the deployment annotation as false)
 	server.RunAsync(stopCh)
 
+	// Create a sync Job for policy report
+	jobController.Add(jobs.JobInfo{
+		JobType: "POLICYSYNC",
+		JobData: "",
+	})
 	<-stopCh
 
 	// by default http.Server waits indefinitely for connections to return to idle and then shuts down

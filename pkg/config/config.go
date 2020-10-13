@@ -58,6 +58,12 @@ var (
 	KubePolicyNamespace = getKyvernoNameSpace()
 	// KubePolicyDeploymentName define the default deployment namespace
 	KubePolicyDeploymentName = "kyverno"
+	// Kyverno CLI Image
+	KyvernoCliImage = "evalsocket/kyverno-cli:latest"
+
+	// ConfimapNameForPolicyReport
+	ConfimapNameForPolicyReport = "kyverno-event"
+
 	//WebhookServiceName default kyverno webhook service name
 	WebhookServiceName = getWebhookServiceName()
 

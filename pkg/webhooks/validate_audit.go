@@ -9,6 +9,7 @@ import (
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policycache"
+	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/policyviolation"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
@@ -45,6 +46,7 @@ type auditHandler struct {
 	eventGen       event.Interface
 	statusListener policystatus.Listener
 	pvGenerator    policyviolation.GeneratorInterface
+	prGenerator    policyreport.GeneratorInterface
 
 	rbLister  rbaclister.RoleBindingLister
 	rbSynced  cache.InformerSynced
@@ -61,6 +63,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	eventGen event.Interface,
 	statusListener policystatus.Listener,
 	pvGenerator policyviolation.GeneratorInterface,
+	prGenerator policyreport.GeneratorInterface,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	log logr.Logger,
@@ -78,6 +81,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		crbLister:      crbInformer.Lister(),
 		crbSynced:      crbInformer.Informer().HasSynced,
 		log:            log,
+		prGenerator:    prGenerator,
 		configHandler:  dynamicConfig,
 		resCache:       resCache,
 	}
@@ -171,7 +175,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		return errors.Wrap(err, "failed to load service account in context")
 	}
 
-	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.pvGenerator, logger, h.configHandler, h.resCache)
+	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.pvGenerator, h.prGenerator, logger, h.configHandler, h.resCache)
 	return nil
 }
 

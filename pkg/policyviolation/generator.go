@@ -2,6 +2,7 @@ package policyviolation
 
 import (
 	"errors"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -12,11 +13,14 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	policyreportinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/constant"
-	"github.com/kyverno/kyverno/pkg/policystatus"
-
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/jobs"
+	"github.com/kyverno/kyverno/pkg/policyreport"
+	"github.com/kyverno/kyverno/pkg/policystatus"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,6 +47,8 @@ type Generator struct {
 	queue                workqueue.RateLimitingInterface
 	dataStore            *dataStore
 	policyStatusListener policystatus.Listener
+	prgen                *policyreport.Generator
+	job                  *jobs.Job
 }
 
 //NewDataStore returns an instance of data store
@@ -108,8 +114,12 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 	dclient *dclient.Client,
 	pvInformer kyvernoinformer.ClusterPolicyViolationInformer,
 	nspvInformer kyvernoinformer.PolicyViolationInformer,
+	prInformer policyreportinformer.ClusterPolicyReportInformer,
+	nsprInformer policyreportinformer.PolicyReportInformer,
 	policyStatus policystatus.Listener,
-	log logr.Logger) *Generator {
+	job *jobs.Job,
+	log logr.Logger,
+	stopChna <-chan struct{}) *Generator {
 	gen := Generator{
 		kyvernoInterface:     client.KyvernoV1(),
 		dclient:              dclient,
@@ -120,6 +130,7 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:            newDataStore(),
 		log:                  log,
+		job:                  job,
 		policyStatusListener: policyStatus,
 	}
 	return &gen
@@ -228,6 +239,10 @@ func (gen *Generator) processNextWorkItem() bool {
 
 func (gen *Generator) syncHandler(info Info) error {
 	logger := gen.log
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		gen.prgen.Add(policyreport.Info(info))
+		return nil
+	}
 	var handler pvGenerator
 	builder := newPvBuilder()
 	if info.Resource.GetNamespace() == "" {

@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/policyreport"
+
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -102,6 +104,9 @@ type WebhookServer struct {
 	// policy violation generator
 	pvGenerator policyviolation.GeneratorInterface
 
+	// policy report generator
+	prGenerator policyreport.GeneratorInterface
+
 	// generate request generator
 	grGenerator *generate.Generator
 
@@ -135,6 +140,7 @@ func NewWebhookServer(
 	statusSync policystatus.Listener,
 	configHandler config.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
+	prGenerator policyreport.GeneratorInterface,
 	grGenerator *generate.Generator,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	auditHandler AuditHandler,
@@ -178,6 +184,7 @@ func NewWebhookServer(
 		cleanUp:                   cleanUp,
 		lastReqTime:               resourceWebhookWatcher.LastReqTime,
 		pvGenerator:               pvGenerator,
+		prGenerator:               prGenerator,
 		grGenerator:               grGenerator,
 		resourceWebhookWatcher:    resourceWebhookWatcher,
 		auditHandler:              auditHandler,
@@ -354,7 +361,7 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 			ws.auditHandler.Add(request.DeepCopy())
 
 			// VALIDATION
-			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log, ws.configHandler, ws.resCache)
+			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.prGenerator, ws.log, ws.configHandler, ws.resCache)
 			if !ok {
 				logger.Info("admission request denied")
 				return &v1beta1.AdmissionResponse{
@@ -480,7 +487,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		logger.Error(err, "failed to load service account in context")
 	}
 
-	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log, ws.configHandler, ws.resCache)
+	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.prGenerator, ws.log, ws.configHandler, ws.resCache)
 	if !ok {
 		logger.Info("admission request denied")
 		return &v1beta1.AdmissionResponse{

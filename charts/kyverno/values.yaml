@@ -127,3 +127,10 @@ service:
 # 3) Let Helm generate a self signed cert, by setting createSelfSignedCert true
 # If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false
 createSelfSignedCert: false
+
+
+job:
+  name: policyreport-background-scan
+  enableBackgroundScan : true
+  schedule : "*/6 * * * *"
+  image : "nirmata/kyverno-cli:latest"

@@ -22,6 +22,7 @@ func (pc *PolicyController) cleanUp(ers []response.EngineResponse) {
 		// clean up after the policy has been corrected
 		pc.cleanUpPolicyViolation(er.PolicyResponse)
 	}
+
 }
 
 func (pc *PolicyController) cleanUpPolicyViolation(pResponse response.PolicyResponse) {

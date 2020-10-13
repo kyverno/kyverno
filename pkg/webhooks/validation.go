@@ -1,28 +1,28 @@
 package webhooks
 
 import (
+	"os"
 	"reflect"
 	"sort"
 	"time"
 
-	"github.com/kyverno/kyverno/pkg/config"
-
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/policystatus"
-	"github.com/kyverno/kyverno/pkg/utils"
-
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/common"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/policyreport"
+	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/policyviolation"
+	"github.com/kyverno/kyverno/pkg/resourcecache"
+	"github.com/kyverno/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 )
 
 // HandleValidation handles validating webhook admission request
@@ -37,6 +37,7 @@ func HandleValidation(
 	statusListener policystatus.Listener,
 	eventGen event.Interface,
 	pvGenerator policyviolation.GeneratorInterface,
+	prGenerator policyreport.GeneratorInterface,
 	log logr.Logger,
 	dynamicConfig config.Interface,
 	resCache resourcecache.ResourceCacheIface) (bool, string) {
@@ -127,8 +128,13 @@ func HandleValidation(
 	// ADD POLICY VIOLATIONS
 	// violations are created with resource on "audit"
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger)
-	pvGenerator.Add(pvInfos...)
-
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		for _, v := range pvInfos {
+			prGenerator.Add(policyreport.Info(v))
+		}
+	} else {
+		pvGenerator.Add(pvInfos...)
+	}
 	return true, ""
 }
 

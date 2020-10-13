@@ -1,9 +1,13 @@
 package webhooks
 
 import (
+	"os"
 	"reflect"
 	"sort"
 	"time"
+
+	"github.com/kyverno/kyverno/pkg/common"
+	"github.com/kyverno/kyverno/pkg/policyreport"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -91,6 +95,13 @@ func (ws *WebhookServer) HandleMutation(
 	// generate violation when response fails
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger)
 	ws.pvGenerator.Add(pvInfos...)
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		for _, v := range pvInfos {
+			ws.prGenerator.Add(policyreport.Info(v))
+		}
+	} else {
+		ws.pvGenerator.Add(pvInfos...)
+	}
 
 	// REPORTING EVENTS
 	// Scenario 1:

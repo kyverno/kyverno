@@ -37,7 +37,6 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		logger.Error(err, "failed to convert RAR resource to unstructured format")
 		return
 	}
-
 	// CREATE resources, do not have name, assigned in admission-request
 
 	policyContext := engine.PolicyContext{

@@ -4,6 +4,8 @@ import (
 	"flag"
 	"os"
 
+	"github.com/kyverno/kyverno/pkg/kyverno/report"
+
 	"github.com/kyverno/kyverno/pkg/kyverno/validate"
 
 	"github.com/kyverno/kyverno/pkg/kyverno/apply"
@@ -27,6 +29,7 @@ func CLI() {
 	commands := []*cobra.Command{
 		version.Command(),
 		apply.Command(),
+		report.Command(),
 		validate.Command(),
 	}
 
