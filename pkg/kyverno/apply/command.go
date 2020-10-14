@@ -178,7 +178,7 @@ func Command() *cobra.Command {
 			}
 
 			var resources []*unstructured.Unstructured
-			if resourcePaths[0] == "-" {
+			if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
 				if common.IsInputFromPipe() {
 					resourceStr := ""
 					scanner := bufio.NewScanner(os.Stdin)
