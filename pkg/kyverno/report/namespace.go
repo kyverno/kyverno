@@ -37,7 +37,6 @@ func NamespaceCommand() *cobra.Command {
 				os.Exit(1)
 			}
 
-			var stopCh <-chan struct{}
 			var wg sync.WaitGroup
 			if mode == "cli" {
 				if namespace != "" {
@@ -57,9 +56,8 @@ func NamespaceCommand() *cobra.Command {
 				wg.Add(1)
 				go configmapScan(constant.Namespace, &wg, restConfig, logger)
 			}
+
 			wg.Wait()
-			os.Exit(0)
-			<-stopCh
 			return nil
 		},
 	}

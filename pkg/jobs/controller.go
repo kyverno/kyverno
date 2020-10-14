@@ -6,19 +6,14 @@ import (
 	"sync"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
+	"github.com/cenkalti/backoff"
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/constant"
+	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	v1 "k8s.io/api/batch/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
-	"github.com/go-logr/logr"
-
-	"github.com/kyverno/kyverno/pkg/constant"
-
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
@@ -37,7 +32,7 @@ type Job struct {
 	mux           sync.Mutex
 }
 
-// Job Info Define Job Type
+// JobInfo defines Job Type
 type JobInfo struct {
 	JobType string
 	JobData string
@@ -143,17 +138,19 @@ func (j *Job) handleErr(err error, key interface{}) {
 
 	// retires requests if there is error
 	if j.queue.NumRequeues(key) < workQueueRetryLimit {
-		logger.Error(err, "failed to sync policy violation", "key", key)
+		logger.Error(err, "failed to sync queued jobs", "key", key)
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.
 		j.queue.AddRateLimited(key)
 		return
 	}
+
 	j.queue.Forget(key)
 	// remove from data store
 	if keyHash, ok := key.(string); ok {
 		j.dataStore.delete(keyHash)
 	}
+
 	logger.Error(err, "dropping key out of the queue", "key", key)
 }
 
@@ -163,29 +160,20 @@ func (j *Job) processNextWorkItem() bool {
 	if shutdown {
 		return false
 	}
+	defer j.queue.Done(obj)
 
-	err := func(obj interface{}) error {
-		defer j.queue.Done(obj)
-		var keyHash string
-		var ok bool
-
-		if keyHash, ok = obj.(string); !ok {
-			j.queue.Forget(obj)
-			logger.Info("incorrect type; expecting type 'string'", "obj", obj)
-			return nil
-		}
-
-		// lookup data store
-		info := j.dataStore.lookup(keyHash)
-		err := j.syncHandler(info)
-		j.handleErr(err, obj)
-		return nil
-	}(obj)
-
-	if err != nil {
-		logger.Error(err, "failed to process item")
+	var keyHash string
+	var ok bool
+	if keyHash, ok = obj.(string); !ok {
+		j.queue.Forget(obj)
+		logger.Info("incorrect type; expecting type 'string'", "obj", obj)
 		return true
 	}
+
+	// lookup data store
+	info := j.dataStore.lookup(keyHash)
+	err := j.syncHandler(info)
+	j.handleErr(err, keyHash)
 
 	return true
 }
@@ -196,32 +184,52 @@ func (j *Job) syncHandler(info JobInfo) error {
 	}()
 	j.mux.Lock()
 
+	var err error
 	var wg sync.WaitGroup
 	if info.JobType == constant.BackgroundPolicySync {
 		wg.Add(1)
-		go j.syncKyverno(&wg, constant.All, constant.BackgroundPolicySync, info.JobData)
-	} else if info.JobType == constant.ConfiigmapMode {
-		if info.JobData != "" {
-			str := strings.Split(info.JobData, ",")
-			if len(str) > 1 {
-				wg.Add(1)
-				go j.syncKyverno(&wg, constant.All, constant.ConfiigmapMode, "")
-			} else {
-				wg.Add(len(str))
-				for _, scope := range str {
-					go j.syncKyverno(&wg, scope, constant.ConfiigmapMode, "")
-				}
+		go func() {
+			err = j.syncKyverno(&wg, constant.All, constant.BackgroundPolicySync, info.JobData)
+		}()
+	}
+
+	if info.JobType == constant.ConfigmapMode {
+		// shuting?
+		if info.JobData == "" {
+			return nil
+		}
+
+		scopes := strings.Split(info.JobData, ",")
+		if len(scopes) == 1 {
+			wg.Add(1)
+			go func() {
+				err = j.syncKyverno(&wg, constant.All, constant.ConfigmapMode, "")
+			}()
+		} else {
+			wg.Add(len(scopes))
+			for _, scope := range scopes {
+				go func(scope string) {
+					err = j.syncKyverno(&wg, scope, constant.ConfigmapMode, "")
+				}(scope)
 			}
 		}
 	}
-	return nil
+
+	wg.Wait()
+	return err
 }
 
-func (j *Job) syncKyverno(wg *sync.WaitGroup, scope, jobType, data string) {
-	var args []string
-	var mode string
+func (j *Job) syncKyverno(wg *sync.WaitGroup, scope, jobType, data string) error {
+	defer wg.Done()
+
+	mode := "cli"
+	args := []string{
+		"report",
+		"all",
+		fmt.Sprintf("--mode=%s", "configmap"),
+	}
+
 	if jobType == constant.BackgroundPolicySync || jobType == constant.BackgroundSync {
-		mode = "cli"
 		switch scope {
 		case constant.App:
 			args = []string{
@@ -229,66 +237,67 @@ func (j *Job) syncKyverno(wg *sync.WaitGroup, scope, jobType, data string) {
 				"app",
 				fmt.Sprintf("--mode=%s", mode),
 			}
-			break
 		case constant.Namespace:
 			args = []string{
 				"report",
 				"namespace",
 				fmt.Sprintf("--mode=%s", mode),
 			}
-			break
 		case constant.Cluster:
 			args = []string{
 				"report",
 				"cluster",
 				fmt.Sprintf("--mode=%s", mode),
 			}
-			break
 		case constant.All:
 			args = []string{
 				"report",
 				"all",
 				fmt.Sprintf("--mode=%s", mode),
 			}
-			break
-		}
-	} else {
-		args = []string{
-			"report",
-			"all",
-			fmt.Sprintf("--mode=%s", "configmap"),
 		}
 	}
 
 	if jobType == constant.BackgroundPolicySync && data != "" {
 		args = append(args, fmt.Sprintf("-p=%s", data))
 	}
-	deadline := time.Now().Add(100 * time.Second)
-	for {
-		resourceList, err := j.dclient.ListResource("", "Job", config.KubePolicyNamespace, &metav1.LabelSelector{
-			MatchLabels: map[string]string{
-				"scope": scope,
-				"type":  jobType,
-			},
-		})
-		if err != nil {
-			j.log.Error(err, "failed to get job")
-		}
-		if len(resourceList.Items) == 0 {
-			go j.CreateJob(args, jobType, scope, wg)
-			wg.Wait()
-			break
-		}
-		if time.Now().After(deadline) {
-			break
-		}
-		time.Sleep(10 * time.Second)
+
+	resourceList, err := j.dclient.ListResource("", "Job", config.KubePolicyNamespace, &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"scope": scope,
+			"type":  jobType,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list jobs: %v", err)
 	}
-	wg.Done()
+
+	exbackoff := &backoff.ExponentialBackOff{
+		InitialInterval:     backoff.DefaultInitialInterval,
+		RandomizationFactor: backoff.DefaultRandomizationFactor,
+		Multiplier:          backoff.DefaultMultiplier,
+		MaxInterval:         time.Second,
+		MaxElapsedTime:      5 * time.Minute,
+		Clock:               backoff.SystemClock,
+	}
+
+	exbackoff.Reset()
+	err = backoff.Retry(func() error {
+		if len(resourceList.Items) != 0 {
+			return fmt.Errorf("found %d Jobs", len(resourceList.Items))
+		}
+		return nil
+	}, exbackoff)
+
+	if err != nil {
+		return err
+	}
+
+	return j.CreateJob(args, jobType, scope)
 }
 
 // CreateJob will create Job template for background scan
-func (j *Job) CreateJob(args []string, jobType, scope string, wg *sync.WaitGroup) {
+func (j *Job) CreateJob(args []string, jobType, scope string) error {
 	job := &v1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: config.KubePolicyNamespace,
@@ -314,38 +323,11 @@ func (j *Job) CreateJob(args []string, jobType, scope string, wg *sync.WaitGroup
 			},
 		},
 	}
+
 	job.SetGenerateName("kyverno-policyreport-")
-	resource, err := j.dclient.CreateResource("", "Job", config.KubePolicyNamespace, job, false)
-	if err != nil {
-		return
+	if _, err := j.dclient.CreateResource("", "Job", config.KubePolicyNamespace, job, false); err != nil {
+		return fmt.Errorf("failed to create job: %v", err)
 	}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.UnstructuredContent(), &job); err != nil {
-		j.log.Error(err, "Error in converting job Default Unstructured Converter", "job_name", job.GetName())
-		return
-	}
-	deadline := time.Now().Add(100 * time.Second)
-	for {
-		time.Sleep(20 * time.Second)
-		resource, err := j.dclient.GetResource("", "Job", config.KubePolicyNamespace, job.GetName())
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				j.log.Error(err, "job is already deleted", "job_name", job.GetName())
-				break
-			}
-			continue
-		}
-		job := v1.Job{}
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.UnstructuredContent(), &job); err != nil {
-			j.log.Error(err, "Error in converting job Default Unstructured Converter", "job_name", job.GetName())
-			continue
-		}
-		if job.Status.Succeeded > 0 && time.Now().After(deadline) {
-			if err := j.dclient.DeleteResource("", "Job", config.KubePolicyNamespace, job.GetName(), false); err != nil {
-				j.log.Error(err, "Error in deleting jobs", "job_name", job.GetName())
-				continue
-			}
-			break
-		}
-	}
-	wg.Done()
+
+	return nil
 }

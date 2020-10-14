@@ -360,7 +360,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 			return
 		}
 	} else {
-		if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced) {
+		if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced, pc.grListerSynced) {
 			logger.Info("failed to sync informer cache")
 			return
 		}
@@ -369,13 +369,16 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 
 	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
 		go func(pc *PolicyController) {
-			for k := range time.Tick(constant.PolicyReportPolicyChangeResync) {
-				pc.log.V(2).Info("Policy Background sync at", "time", k.String())
-				if len(pc.policySync.policy) > 0 {
-					pc.job.Add(jobs.JobInfo{
-						JobType: "POLICYSYNC",
-						JobData: strings.Join(pc.policySync.policy, ","),
-					})
+			ticker := time.Tick(constant.PolicyReportPolicyChangeResync)
+			for {
+				select {
+				case <-ticker:
+					if len(pc.policySync.policy) > 0 {
+						pc.job.Add(jobs.JobInfo{
+							JobType: "POLICYSYNC",
+							JobData: strings.Join(pc.policySync.policy, ","),
+						})
+					}
 				}
 			}
 		}(pc)

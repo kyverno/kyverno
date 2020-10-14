@@ -212,6 +212,7 @@ func main() {
 			stopCh,
 		)
 	}
+
 	// POLICY Report GENERATOR
 	// -- generate policy report
 	var prgen *policyreport.Generator
@@ -383,7 +384,6 @@ func main() {
 	go eventGenerator.Run(3, stopCh)
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
-	go pvgen.Run(1, stopCh)
 
 	go statusSync.Run(1, stopCh)
 	go pCacheController.Run(1, stopCh)

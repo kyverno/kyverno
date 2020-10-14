@@ -8,23 +8,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/jobs"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	policyreportclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	policyreportv1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha1"
 	policyreportinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
-	policyreportlister "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
-
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/constant"
-	"github.com/kyverno/kyverno/pkg/policystatus"
-
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/jobs"
+	"github.com/kyverno/kyverno/pkg/policystatus"
+	v1 "k8s.io/api/core/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -38,22 +33,15 @@ const workQueueRetryLimit = 3
 type Generator struct {
 	dclient *dclient.Client
 
-	policyreportInterface policyreportv1alpha1.PolicyV1alpha1Interface
-
-	// get/list cluster policy report
-	cprLister policyreportlister.ClusterPolicyReportLister
-	// get/ist namespaced policy report
-	nsprLister policyreportlister.PolicyReportLister
 	// returns true if the cluster policy store has been synced at least once
 	prSynced cache.InformerSynced
 	// returns true if the namespaced cluster policy store has been synced at at least once
-	log                  logr.Logger
 	nsprSynced           cache.InformerSynced
+	log                  logr.Logger
 	queue                workqueue.RateLimitingInterface
 	dataStore            *dataStore
 	policyStatusListener policystatus.Listener
 
-	configmap         *v1.ConfigMap
 	inMemoryConfigMap *PVEvent
 	mux               sync.Mutex
 	job               *jobs.Job
@@ -132,17 +120,13 @@ func NewPRGenerator(client *policyreportclient.Clientset,
 	job *jobs.Job,
 	log logr.Logger) *Generator {
 	gen := Generator{
-		policyreportInterface: client.PolicyV1alpha1(),
-		dclient:               dclient,
-		cprLister:             prInformer.Lister(),
-		prSynced:              prInformer.Informer().HasSynced,
-		nsprLister:            nsprInformer.Lister(),
-		nsprSynced:            nsprInformer.Informer().HasSynced,
-		queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
-		dataStore:             newDataStore(),
-		log:                   log,
-		policyStatusListener:  policyStatus,
-		configmap:             nil,
+		dclient:              dclient,
+		prSynced:             prInformer.Informer().HasSynced,
+		nsprSynced:           nsprInformer.Informer().HasSynced,
+		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+		dataStore:            newDataStore(),
+		log:                  log,
+		policyStatusListener: policyStatus,
 		inMemoryConfigMap: &PVEvent{
 			App:       make(map[string][]Info),
 			Namespace: make(map[string][]Info),
@@ -183,30 +167,33 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	go func(gen *Generator) {
-		for k := range time.Tick(constant.PolicyReportResourceChangeResync) {
-			gen.log.V(2).Info("Configmap sync at ", "time", k.String())
-			err := gen.createConfigmap()
-			scops := []string{}
-			if len(gen.inMemoryConfigMap.Namespace) > 0 {
-				scops = append(scops, constant.Namespace)
-			}
-			if len(gen.inMemoryConfigMap.App) > 0 {
-				scops = append(scops, constant.App)
-			}
-			if len(gen.inMemoryConfigMap.Cluster["cluster"]) > 0 {
-				scops = append(scops, constant.Cluster)
-			}
-			gen.job.Add(jobs.JobInfo{
-				JobType: constant.ConfiigmapMode,
-				JobData: strings.Join(scops, ","),
-			})
-			if err != nil {
-				gen.log.Error(err, "configmap error")
-			}
-			gen.inMemoryConfigMap = &PVEvent{
-				App:       make(map[string][]Info),
-				Namespace: make(map[string][]Info),
-				Cluster:   make(map[string][]Info),
+		ticker := time.Tick(constant.PolicyReportResourceChangeResync)
+		for {
+			select {
+			case <-ticker:
+				err := gen.createConfigmap()
+				scops := []string{}
+				if len(gen.inMemoryConfigMap.Namespace) > 0 {
+					scops = append(scops, constant.Namespace)
+				}
+				if len(gen.inMemoryConfigMap.App) > 0 {
+					scops = append(scops, constant.App)
+				}
+				if len(gen.inMemoryConfigMap.Cluster["cluster"]) > 0 {
+					scops = append(scops, constant.Cluster)
+				}
+				gen.job.Add(jobs.JobInfo{
+					JobType: constant.ConfigmapMode,
+					JobData: strings.Join(scops, ","),
+				})
+				if err != nil {
+					gen.log.Error(err, "configmap error")
+				}
+				gen.inMemoryConfigMap = &PVEvent{
+					App:       make(map[string][]Info),
+					Namespace: make(map[string][]Info),
+					Cluster:   make(map[string][]Info),
+				}
 			}
 		}
 	}(gen)
@@ -329,17 +316,17 @@ func (gen *Generator) syncHandler(info Info) error {
 	if okChart && okRelease {
 		gen.inMemoryConfigMap.App[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.App[info.Resource.GetNamespace()], info)
 		return nil
-	} else if info.Resource.GetNamespace() == "" {
+	}
+
+	if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation
 		gen.inMemoryConfigMap.Cluster["cluster"] = append(gen.inMemoryConfigMap.Cluster["cluster"], info)
-
-		return nil
-	} else {
-		// namespaced resources generated a namespaced policy violation in the namespace of the resource
-		if _, ok := gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()]; ok {
-			gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()], info)
-		}
-		gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()], info)
 		return nil
 	}
+
+	// namespaced resources generated a namespaced policy violation in the namespace of the resource
+	if _, ok := gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()]; ok {
+		gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.Namespace[info.Resource.GetNamespace()], info)
+	}
+	return nil
 }

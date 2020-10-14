@@ -31,9 +31,10 @@ func (pc *PolicyController) cleanupAndReport(engineResponses []response.EngineRe
 		for _, v := range pvInfos {
 			pc.prGenerator.Add(policyreport.Info(v))
 		}
-	} else {
-		pc.pvGenerator.Add(pvInfos...)
+		return
 	}
+
+	pc.pvGenerator.Add(pvInfos...)
 
 	// cleanup existing violations if any
 	// if there is any error in clean up, we dont re-queue the resource

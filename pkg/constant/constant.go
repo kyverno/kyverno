@@ -22,7 +22,7 @@ const (
 )
 
 const (
-	ConfiigmapMode       string = "CONFIGMAP"
+	ConfigmapMode        string = "CONFIGMAP"
 	BackgroundPolicySync string = "POLICYSYNC"
 	BackgroundSync       string = "SYNC"
 )

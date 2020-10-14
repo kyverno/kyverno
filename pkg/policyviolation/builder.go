@@ -2,11 +2,9 @@ package policyviolation
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 )
 
@@ -19,10 +17,8 @@ func GeneratePVsFromEngineResponse(ers []response.EngineResponse, log logr.Logge
 			continue
 		}
 		// skip when response succeed
-		if os.Getenv("POLICY-TYPE") != common.PolicyReport {
-			if er.IsSuccessful() {
-				continue
-			}
+		if er.IsSuccessful() {
+			continue
 		}
 		// build policy violation info
 		pvInfos = append(pvInfos, buildPVInfo(er))
@@ -85,14 +81,13 @@ func buildPVInfo(er response.EngineResponse) Info {
 func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 	var violatedRules []kyverno.ViolatedRule
 	for _, rule := range er.PolicyResponse.Rules {
+		if rule.Success {
+			continue
+		}
 		vrule := kyverno.ViolatedRule{
 			Name:    rule.Name,
 			Type:    rule.Type,
 			Message: rule.Message,
-		}
-		vrule.Check = "Fail"
-		if rule.Success {
-			vrule.Check = "Pass"
 		}
 		violatedRules = append(violatedRules, vrule)
 	}
