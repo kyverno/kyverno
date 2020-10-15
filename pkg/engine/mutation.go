@@ -62,6 +62,9 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 			logger.V(3).Info("resource not matched", "reason", err.Error())
 			continue
 		}
+
+
+
 		// add configmap json data to context
 		if err := AddResourceToContext(logger, rule.Context, resCache, jsonContext); err != nil {
 			logger.V(4).Info("cannot add configmaps to context", "reason", err.Error())

@@ -32,11 +32,11 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 	var p kyverno.ClusterPolicy
 	err = json.Unmarshal(policyRaw, &p)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal policy admission request err %v", err)
+		return fmt.Errorf("failed to unmarshal policy: %v", err)
 	}
 
 	if common.PolicyHasVariables(p) && common.PolicyHasNonAllowedVariables(p) {
-		return fmt.Errorf("policy contains non allowed variables")
+		return fmt.Errorf("policy contains reserved variables (serviceAccountName, serviceAccountNamespace)")
 	}
 
 	if path, err := validateUniqueRuleName(p); err != nil {
@@ -49,16 +49,25 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 	}
 
 	for i, rule := range p.Spec.Rules {
+
 		// validate resource description
 		if path, err := validateResources(rule); err != nil {
 			return fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
 		}
+
 		// validate rule types
 		// only one type of rule is allowed per rule
 		if err := validateRuleType(rule); err != nil {
 			// as there are more than 1 operation in rule, not need to evaluate it further
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
+
+		if err := validateRuleContext(rule); err != nil {
+			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
+		}
+
+
+
 		// validate Cluster Resources in namespaced cluster policy
 		// For namespaced cluster policy, ClusterResource type field and values are not allowed in match and exclude
 		if !mock && p.ObjectMeta.Namespace != "" {
@@ -86,7 +95,7 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 			return checkClusterResourceInMatchAndExclude(rule, clusterResources)
 		}
 
-		if doesMatchAndExcludeConflict(rule) {
+		if doMatchAndExcludeConflict(rule) {
 			return fmt.Errorf("path: spec.rules[%v]: rule is matching an empty set", rule.Name)
 		}
 
@@ -147,16 +156,17 @@ func checkInvalidFields(policyRaw []byte) error {
 				break
 			}
 		}
+
 		if !ok {
-			return fmt.Errorf("unknown field \"%s\" in policy admission request", requestField)
+			return fmt.Errorf("unknown field \"%s\" in policy", requestField)
 		}
 	}
 	return nil
 }
 
-// doesMatchAndExcludeConflict checks if the resultant
+// doMatchAndExcludeConflict checks if the resultant
 // of match and exclude block is not an empty set
-func doesMatchAndExcludeConflict(rule kyverno.Rule) bool {
+func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 
 	if reflect.DeepEqual(rule.ExcludeResources, kyverno.ExcludeResources{}) {
 		return false
@@ -436,6 +446,30 @@ func validateRuleType(r kyverno.Rule) error {
 	} else if operationCount != 1 {
 		return fmt.Errorf("multiple operations defined in the rule '%s', only one type of operation is allowed per rule", r.Name)
 	}
+	return nil
+}
+
+func validateRuleContext(rule kyverno.Rule) (error) {
+	if rule.Context == nil || len(rule.Context) == 0 {
+		return nil
+	}
+
+	for _, entry := range rule.Context {
+		if entry.Name == ""{
+			return fmt.Errorf("a name is required for context entries")
+		}
+		
+		if entry.ConfigMap != nil {
+			if entry.ConfigMap.Name == "" {
+				return fmt.Errorf("a name is required for configMap context entry")
+			}
+
+			if entry.ConfigMap.Namespace == "" {
+				return fmt.Errorf("a namespace is required for configMap context entry")
+			}
+		}
+	}
+
 	return nil
 }
 

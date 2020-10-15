@@ -1033,7 +1033,7 @@ func Test_doesMatchExcludeConflict(t *testing.T) {
 		var rule kyverno.Rule
 		_ = json.Unmarshal(testcase.rule, &rule)
 
-		if doesMatchAndExcludeConflict(rule) != testcase.expectedOutput {
+		if doMatchAndExcludeConflict(rule) != testcase.expectedOutput {
 			t.Errorf("Testcase [%d] failed - description - %v", i+1, testcase.description)
 		}
 	}

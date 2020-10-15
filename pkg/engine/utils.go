@@ -286,35 +286,40 @@ func SkipPolicyApplication(policy kyverno.ClusterPolicy, resource unstructured.U
 }
 
 // AddResourceToContext - Add the Configmap JSON to Context.
-// it will read configmaps (can be extended to get other type of resource like secrets, namespace etc) from the informer cache
-// and add the configmap data to context
-func AddResourceToContext(logger logr.Logger, contexts []kyverno.ContextEntry, resCache resourcecache.ResourceCacheIface, ctx *context.Context) error {
-	if len(contexts) == 0 {
+// it will read configmaps (can be extended to get other type of resource like secrets, namespace etc)
+// from the informer cache and add the configmap data to context
+func AddResourceToContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCacheIface, ctx *context.Context) error {
+	if len(contextEntries) == 0 {
 		return nil
 	}
+
 	// get GVR Cache for "configmaps"
 	// can get cache for other resources if the informers are enabled in resource cache
 	gvrC := resCache.GetGVRCache("configmaps")
+
 	if gvrC != nil {
 		lister := gvrC.GetLister()
-		for _, context := range contexts {
+		for _, context := range contextEntries {
 			contextData := make(map[string]interface{})
 			name := context.ConfigMap.Name
 			namespace := context.ConfigMap.Namespace
 			if namespace == "" {
 				namespace = "default"
 			}
+
 			key := fmt.Sprintf("%s/%s", namespace, name)
 			obj, err := lister.Get(key)
 			if err != nil {
 				logger.Error(err, fmt.Sprintf("failed to read configmap %s/%s from cache", namespace, name))
 				continue
 			}
+
 			unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 			if err != nil {
 				logger.Error(err, "failed to convert context runtime object to unstructured")
 				continue
 			}
+
 			// extract configmap data
 			contextData["data"] = unstructuredObj["data"]
 			contextData["metadata"] = unstructuredObj["metadata"]
@@ -325,6 +330,7 @@ func AddResourceToContext(logger logr.Logger, contexts []kyverno.ContextEntry, r
 				logger.Error(err, "failed to unmarshal context data")
 				continue
 			}
+
 			// add data to context
 			err = ctx.AddJSON(jdata)
 			if err != nil {
