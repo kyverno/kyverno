@@ -28,9 +28,6 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	patchedResource := policyContext.NewResource
 	ctx := policyContext.Context
 
-	result := policyContext.Client.GetDiscoveryCache().RESTClient().Get().Do()
-	result.
-
 	resCache := policyContext.ResourceCache
 	jsonContext := policyContext.JSONContext
 	logger := log.Log.WithName("EngineMutate").WithValues("policy", policy.Name, "kind", patchedResource.GetKind(),
