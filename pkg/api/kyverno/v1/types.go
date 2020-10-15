@@ -156,39 +156,48 @@ type Spec struct {
 	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
 }
 
-// Rule is set of mutation, validation and generation actions
+// Rule contains a mutation, validation, or generation action
 // for the single resource description
 type Rule struct {
-	// Specifies rule name
+	// A unique label for the rule
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-	// Specifies resources for which the rule has to be applied.
-	// If it's defined, "kind" inside MatchResources block is required.
+
+	// Defines variables that can be used during rule execution.
+	// +optional
+	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+
+	// Selects resources for which the policy rule should be applied.
+	// If it's defined, "kinds" inside MatchResources block is required.
 	// +optional
 	MatchResources MatchResources `json:"match,omitempty" yaml:"match,omitempty"`
-	// Specifies resources for which rule can be excluded
+
+	// Selects resources for which the policy rule should not be applied.
 	// +optional
 	ExcludeResources ExcludeResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
-	// Allows controlling policy rule execution
+
+	// Allows condition-based control of the policy rule execution.
 	// +optional
 	Conditions []Condition `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
-	// Specifies patterns to mutate resources
+
+	// Modifies matching resources.
 	// +optional
 	Mutation Mutation `json:"mutate,omitempty" yaml:"mutate,omitempty"`
-	// Specifies patterns to validate resources
+
+	// Checks matching resources.
 	// +optional
 	Validation Validation `json:"validate,omitempty" yaml:"validate,omitempty"`
-	// Specifies patterns to create additional resources
+
+	// Generates new resources.
 	// +optional
 	Generation Generation `json:"generate,omitempty" yaml:"generate,omitempty"`
-
-	// Context
-	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
 }
 
 type ContextEntry struct {
 	Name      string             `json:"name,omitempty" yaml:"name,omitempty"`
-	ConfigMap ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
+	Path      string             `json:"path,omitempty" yaml:"path,omitempty"`
+	ConfigMap *ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
 }
+
 type ConfigMapReference struct {
 	Name      string `json:"name,omitempty" yaml:"name,omitempty"`
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
