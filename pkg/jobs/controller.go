@@ -14,6 +14,7 @@ import (
 	v1 "k8s.io/api/batch/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
@@ -58,7 +59,6 @@ type dataStore struct {
 func (ds *dataStore) add(keyHash string, info JobInfo) {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
-	// queue the key hash
 	ds.data[keyHash] = info
 }
 
@@ -74,14 +74,12 @@ func (ds *dataStore) delete(keyHash string) {
 	delete(ds.data, keyHash)
 }
 
-// make the struct hashable
-
 //JobsInterface provides API to create PVs
 type JobsInterface interface {
 	Add(infos ...JobInfo)
 }
 
-// NewJobsJob returns a new instance of policy violation generator
+// NewJobsJob returns a new instance of jobs generator
 func NewJobsJob(dclient *dclient.Client,
 	configHandler config.Interface,
 	log logr.Logger) *Job {
@@ -96,16 +94,14 @@ func NewJobsJob(dclient *dclient.Client,
 }
 
 func (j *Job) enqueue(info JobInfo) {
-	// add to data map
 	keyHash := info.toKey()
-	// add to
-	// queue the key hash
 
 	j.dataStore.add(keyHash, info)
 	j.queue.Add(keyHash)
+	j.log.V(4).Info("job added to the queue", "keyhash", keyHash)
 }
 
-//Add queues a policy violation create request
+//Add queues a job creation request
 func (j *Job) Add(infos ...JobInfo) {
 	for _, info := range infos {
 		j.enqueue(info)
@@ -146,7 +142,6 @@ func (j *Job) handleErr(err error, key interface{}) {
 	}
 
 	j.queue.Forget(key)
-	// remove from data store
 	if keyHash, ok := key.(string); ok {
 		j.dataStore.delete(keyHash)
 	}
@@ -222,6 +217,8 @@ func (j *Job) syncHandler(info JobInfo) error {
 func (j *Job) syncKyverno(wg *sync.WaitGroup, scope, jobType, data string) error {
 	defer wg.Done()
 
+	go j.cleanupCompletedJobs()
+
 	mode := "cli"
 	args := []string{
 		"report",
@@ -262,16 +259,6 @@ func (j *Job) syncKyverno(wg *sync.WaitGroup, scope, jobType, data string) error
 		args = append(args, fmt.Sprintf("-p=%s", data))
 	}
 
-	resourceList, err := j.dclient.ListResource("", "Job", config.KubePolicyNamespace, &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"scope": scope,
-			"type":  jobType,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to list jobs: %v", err)
-	}
-
 	exbackoff := &backoff.ExponentialBackOff{
 		InitialInterval:     backoff.DefaultInitialInterval,
 		RandomizationFactor: backoff.DefaultRandomizationFactor,
@@ -282,7 +269,17 @@ func (j *Job) syncKyverno(wg *sync.WaitGroup, scope, jobType, data string) error
 	}
 
 	exbackoff.Reset()
-	err = backoff.Retry(func() error {
+	err := backoff.Retry(func() error {
+		resourceList, err := j.dclient.ListResource("", "Job", config.KubePolicyNamespace, &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"scope": scope,
+				"type":  jobType,
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list jobs: %v", err)
+		}
+
 		if len(resourceList.Items) != 0 {
 			return fmt.Errorf("found %d Jobs", len(resourceList.Items))
 		}
@@ -298,6 +295,9 @@ func (j *Job) syncKyverno(wg *sync.WaitGroup, scope, jobType, data string) error
 
 // CreateJob will create Job template for background scan
 func (j *Job) CreateJob(args []string, jobType, scope string) error {
+	ttl := new(int32)
+	*ttl = 60
+
 	job := &v1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: config.KubePolicyNamespace,
@@ -313,7 +313,7 @@ func (j *Job) CreateJob(args []string, jobType, scope string) error {
 						{
 							Name:            strings.ToLower(fmt.Sprintf("%s-%s", jobType, scope)),
 							Image:           config.KyvernoCliImage,
-							ImagePullPolicy: "Always",
+							ImagePullPolicy: apiv1.PullNever,
 							Args:            args,
 						},
 					},
@@ -324,10 +324,69 @@ func (j *Job) CreateJob(args []string, jobType, scope string) error {
 		},
 	}
 
+	job.Spec.TTLSecondsAfterFinished = ttl
 	job.SetGenerateName("kyverno-policyreport-")
 	if _, err := j.dclient.CreateResource("", "Job", config.KubePolicyNamespace, job, false); err != nil {
 		return fmt.Errorf("failed to create job: %v", err)
 	}
 
 	return nil
+}
+
+func (j *Job) cleanupCompletedJobs() {
+	logger := j.log.WithName("cleanup jobs")
+
+	exbackoff := &backoff.ExponentialBackOff{
+		InitialInterval:     backoff.DefaultInitialInterval,
+		RandomizationFactor: backoff.DefaultRandomizationFactor,
+		Multiplier:          backoff.DefaultMultiplier,
+		MaxInterval:         time.Second,
+		MaxElapsedTime:      2 * time.Minute,
+		Clock:               backoff.SystemClock,
+	}
+
+	exbackoff.Reset()
+	err := backoff.Retry(func() error {
+		resourceList, err := j.dclient.ListResource("", "Job", config.KubePolicyNamespace, nil)
+		if err != nil {
+			return fmt.Errorf("failed to list jobs : %v", err)
+		}
+
+		if err != nil {
+			return fmt.Errorf("failed to list pods : %v", err)
+		}
+
+		for _, job := range resourceList.Items {
+			succeeded, ok, _ := unstructured.NestedInt64(job.Object, "status", "succeeded")
+			if ok && succeeded > 0 {
+				if errnew := j.dclient.DeleteResource("", "Job", job.GetNamespace(), job.GetName(), false); errnew != nil {
+					err = errnew
+					continue
+				}
+
+				podList, errNew := j.dclient.ListResource("", "Pod", config.KubePolicyNamespace, &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"job-name": job.GetName(),
+					},
+				})
+
+				if errNew != nil {
+					err = errNew
+					continue
+				}
+
+				for _, pod := range podList.Items {
+					if errpod := j.dclient.DeleteResource("", "Pod", pod.GetNamespace(), pod.GetName(), false); errpod != nil {
+						logger.Error(errpod, "failed to delete pod", "name", pod.GetName())
+						err = errpod
+					}
+				}
+			}
+		}
+		return err
+	}, exbackoff)
+
+	if err != nil {
+		logger.Error(err, "failed to clean up completed jobs")
+	}
 }

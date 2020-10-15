@@ -26,13 +26,30 @@ import (
 
 // PolicyReportSummary provides a status count summary
 type PolicyReportSummary struct {
-	Pass  int `json:"pass"`
-	Fail  int `json:"fail"`
-	Warn  int `json:"warn"`
+
+	// Pass provides the count of policies whose requirements were met
+	Pass int `json:"pass"`
+
+	// Fail provides the count of policies whose requirements were not met
+	Fail int `json:"fail"`
+
+	// Warn provides the count of unscored policies whose requirements were not met
+	Warn int `json:"warn"`
+
+	// Error provides the count of policies that could not be evaluated
 	Error int `json:"error"`
-	Skip  int `json:"skip"`
+
+	// Skip indicates the count of policies that were not selected for evaluation
+	Skip int `json:"skip"`
 }
 
+// PolicyStatus has one of the following values:
+//   - Pass: indicates that the policy requirements are met
+//   - Fail: indicates that the policy requirements are not met
+//   - Warn: indicates that the policy requirements and not met, and the policy is not scored
+//   - Error: indicates that the policy could not be evaluated
+//   - Skip: indicates that the policy was not selected based on user inputs or applicability
+//
 // +kubebuilder:validation:Enum=Pass;Fail;Warn;Error;Skip
 type PolicyStatus string
 
@@ -46,11 +63,15 @@ type PolicyReportResult struct {
 	// +optional
 	Rule string `json:"rule,omitempty"`
 
-	// Resources is an optional reference to the resource check bu the policy rule
-	Resources []*ResourceStatus `json:"resources"`
+	// Resources is an optional reference to the resource checked by the policy and rule
+	// +optional
+	Resources []*ResourceStatus `json:"resources,omitempty"`
 
 	// Message is a short user friendly description of the policy rule
 	Message string `json:"message,omitempty"`
+
+	// Status indicates the result of the policy rule check
+	Status PolicyStatus `json:"status,omitempty"`
 
 	// Scored indicates if this policy rule is scored
 	Scored bool `json:"scored,omitempty"`
@@ -66,7 +87,7 @@ type ResourceStatus struct {
 	Resource *corev1.ObjectReference `json:"resource"`
 
 	// Status indicates the result of the policy rule check
-	Status PolicyStatus `json:"status"`
+	Status PolicyStatus `json:"status,omitempty"`
 }
 
 // +genclient

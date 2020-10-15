@@ -2,10 +2,6 @@ package policy
 
 import (
 	"fmt"
-	"os"
-
-	"github.com/kyverno/kyverno/pkg/common"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -25,13 +21,6 @@ func (pc *PolicyController) cleanupAndReport(engineResponses []response.EngineRe
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger)
 	for i := range pvInfos {
 		pvInfos[i].FromSync = true
-	}
-
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		for _, v := range pvInfos {
-			pc.prGenerator.Add(policyreport.Info(v))
-		}
-		return
 	}
 
 	pc.pvGenerator.Add(pvInfos...)

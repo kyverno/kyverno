@@ -212,7 +212,7 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 		}
 
 		results := make(map[string][]policyreportv1alpha1.PolicyReportResult)
-		for key, _ := range resourceMap {
+		for key := range resourceMap {
 			for _, resource := range resourceMap[key] {
 				policyContext := engine.PolicyContext{
 					NewResource:      resource,
@@ -225,7 +225,7 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 			}
 		}
 
-		for k, _ := range results {
+		for k := range results {
 			if k == "" {
 				continue
 			}
@@ -346,6 +346,7 @@ func createResults(policyContext engine.PolicyContext, key string, results map[s
 					Policy:  pv.Spec.Policy,
 					Rule:    e.Name,
 					Message: e.Message,
+					Status:  policyreportv1alpha1.PolicyStatus(e.Check),
 				}
 				rd := &policyreportv1alpha1.ResourceStatus{
 					Resource: &corev1.ObjectReference{
@@ -354,7 +355,6 @@ func createResults(policyContext engine.PolicyContext, key string, results map[s
 						APIVersion: pv.Spec.APIVersion,
 						Name:       pv.Spec.Name,
 					},
-					Status: policyreportv1alpha1.PolicyStatus(e.Check),
 				}
 				result.Resources = append(result.Resources, rd)
 				results[appname] = append(results[appname], *result)
@@ -443,6 +443,7 @@ func configmapScan(scope string, wg *sync.WaitGroup, restConfig *rest.Config, lo
 						Policy:  pv.Spec.Policy,
 						Rule:    r.Name,
 						Message: r.Message,
+						Status:  policyreportv1alpha1.PolicyStatus(r.Check),
 					}
 					rd := &policyreportv1alpha1.ResourceStatus{
 						Resource: &corev1.ObjectReference{
@@ -451,7 +452,6 @@ func configmapScan(scope string, wg *sync.WaitGroup, restConfig *rest.Config, lo
 							APIVersion: pv.Spec.APIVersion,
 							Name:       pv.Spec.Name,
 						},
-						Status: policyreportv1alpha1.PolicyStatus(r.Check),
 					}
 					result.Resources = append(result.Resources, rd)
 
@@ -531,6 +531,7 @@ func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1
 					Policy:    v.Policy,
 					Rule:      v.Rule,
 					Message:   v.Message,
+					Status:    v.Status,
 					Resources: make([]*policyreportv1alpha1.ResourceStatus, 0),
 				}
 
@@ -557,6 +558,7 @@ func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1
 					Policy:    v.Policy,
 					Rule:      v.Rule,
 					Message:   v.Message,
+					Status:    v.Status,
 					Resources: make([]*policyreportv1alpha1.ResourceStatus, 0),
 				}
 				rules[key].Resources = append(rules[key].Resources, r)
@@ -576,7 +578,7 @@ func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1
 	pr.Summary.Pass = 0
 	pr.Summary.Fail = 0
 	pr.Results = make([]*policyreportv1alpha1.PolicyReportResult, 0)
-	for k, _ := range rules {
+	for k := range rules {
 		pr.Results = append(pr.Results, rules[k])
 		for _, r := range rules[k].Resources {
 			if string(r.Status) == "Pass" {
