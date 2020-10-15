@@ -458,11 +458,7 @@ func validateRuleContext(rule kyverno.Rule) (error) {
 		if entry.Name == ""{
 			return fmt.Errorf("a name is required for context entries")
 		}
-
-		if entry.Path == "" && entry.ConfigMap == nil {
-			return fmt.Errorf("path or configMap required for context entries")
-		}
-
+		
 		if entry.ConfigMap != nil {
 			if entry.ConfigMap.Name == "" {
 				return fmt.Errorf("a name is required for configMap context entry")

@@ -194,7 +194,6 @@ type Rule struct {
 
 type ContextEntry struct {
 	Name      string             `json:"name,omitempty" yaml:"name,omitempty"`
-	Path      string             `json:"path,omitempty" yaml:"path,omitempty"`
 	ConfigMap *ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
 }
 
