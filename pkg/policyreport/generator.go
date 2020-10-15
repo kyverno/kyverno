@@ -36,11 +36,10 @@ type Generator struct {
 	// returns true if the cluster policy store has been synced at least once
 	prSynced cache.InformerSynced
 	// returns true if the namespaced cluster policy store has been synced at at least once
-	nsprSynced           cache.InformerSynced
-	log                  logr.Logger
-	queue                workqueue.RateLimitingInterface
-	dataStore            *dataStore
-	policyStatusListener policystatus.Listener
+	nsprSynced cache.InformerSynced
+	log        logr.Logger
+	queue      workqueue.RateLimitingInterface
+	dataStore  *dataStore
 
 	inMemoryConfigMap *PVEvent
 	mux               sync.Mutex
@@ -101,7 +100,6 @@ func (i Info) toKey() string {
 // make the struct hashable
 
 type PVEvent struct {
-	App       map[string][]Info
 	Namespace map[string][]Info
 	Cluster   map[string][]Info
 }
@@ -120,15 +118,13 @@ func NewPRGenerator(client *policyreportclient.Clientset,
 	job *jobs.Job,
 	log logr.Logger) *Generator {
 	gen := Generator{
-		dclient:              dclient,
-		prSynced:             prInformer.Informer().HasSynced,
-		nsprSynced:           nsprInformer.Informer().HasSynced,
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
-		dataStore:            newDataStore(),
-		log:                  log,
-		policyStatusListener: policyStatus,
+		dclient:    dclient,
+		prSynced:   prInformer.Informer().HasSynced,
+		nsprSynced: nsprInformer.Informer().HasSynced,
+		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+		dataStore:  newDataStore(),
+		log:        log,
 		inMemoryConfigMap: &PVEvent{
-			App:       make(map[string][]Info),
 			Namespace: make(map[string][]Info),
 			Cluster:   make(map[string][]Info),
 		},
@@ -176,9 +172,6 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 				if len(gen.inMemoryConfigMap.Namespace) > 0 {
 					scops = append(scops, constant.Namespace)
 				}
-				if len(gen.inMemoryConfigMap.App) > 0 {
-					scops = append(scops, constant.App)
-				}
 				if len(gen.inMemoryConfigMap.Cluster["cluster"]) > 0 {
 					scops = append(scops, constant.Cluster)
 				}
@@ -190,7 +183,6 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 					gen.log.Error(err, "configmap error")
 				}
 				gen.inMemoryConfigMap = &PVEvent{
-					App:       make(map[string][]Info),
 					Namespace: make(map[string][]Info),
 					Cluster:   make(map[string][]Info),
 				}
@@ -285,9 +277,8 @@ func (gen *Generator) createConfigmap() error {
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(configmap.UnstructuredContent(), &cm); err != nil {
 		return err
 	}
-	rawData, _ := json.Marshal(gen.inMemoryConfigMap.App)
-	cm.Data[constant.App] = string(rawData)
-	rawData, _ = json.Marshal(gen.inMemoryConfigMap.Cluster)
+
+	rawData, _ := json.Marshal(gen.inMemoryConfigMap.Cluster)
 	cm.Data[constant.Cluster] = string(rawData)
 	rawData, _ = json.Marshal(gen.inMemoryConfigMap.Namespace)
 	cm.Data[constant.Namespace] = string(rawData)
@@ -300,23 +291,8 @@ func (gen *Generator) createConfigmap() error {
 }
 
 func (gen *Generator) syncHandler(info Info) error {
-	logger := gen.log
-	defer func() {
-		gen.mux.Unlock()
-	}()
 	gen.mux.Lock()
-	resource, err := gen.dclient.GetResource(info.Resource.GetAPIVersion(), info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName())
-	if err != nil {
-		logger.Error(err, "failed to get resource")
-		return err
-	}
-	labels := resource.GetLabels()
-	_, okChart := labels["app"]
-	_, okRelease := labels["release"]
-	if okChart && okRelease {
-		gen.inMemoryConfigMap.App[info.Resource.GetNamespace()] = append(gen.inMemoryConfigMap.App[info.Resource.GetNamespace()], info)
-		return nil
-	}
+	defer gen.mux.Unlock()
 
 	if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation

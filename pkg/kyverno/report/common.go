@@ -162,24 +162,12 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 					for _, ns := range namespaces {
 						if ns == n {
 							rMap := policy.GetResourcesPerNamespace(k, dClient, ns, rule, configData, log.Log)
-							for _, r := range rMap {
-								labels := r.GetLabels()
-								_, okChart := labels["app"]
 
-								if okChart {
-									if len(resourceMap[constant.App]) == 0 {
-										resourceMap[constant.App] = make(map[string]unstructured.Unstructured)
-									}
-									policy.MergeResources(resourceMap[constant.App], rMap)
-								} else {
-									if len(resourceMap[constant.Namespace]) == 0 {
-										resourceMap[constant.Namespace] = make(map[string]unstructured.Unstructured)
-									}
-									policy.MergeResources(resourceMap[constant.Namespace], rMap)
-								}
+							if len(resourceMap[constant.Namespace]) == 0 {
+								resourceMap[constant.Namespace] = make(map[string]unstructured.Unstructured)
 							}
+							policy.MergeResources(resourceMap[constant.Namespace], rMap)
 						}
-
 					}
 				}
 			}
@@ -189,22 +177,14 @@ func backgroundScan(n, scope, policychange string, wg *sync.WaitGroup, restConfi
 			case constant.Cluster:
 				resourceMap[constant.Cluster] = policy.ExcludePod(resourceMap[constant.Cluster], log.Log)
 				delete(resourceMap, constant.Namespace)
-				delete(resourceMap, constant.App)
 				break
 			case constant.Namespace:
 				resourceMap[constant.Namespace] = policy.ExcludePod(resourceMap[constant.Namespace], log.Log)
-				delete(resourceMap, constant.Cluster)
-				delete(resourceMap, constant.App)
-				break
-			case constant.App:
-				resourceMap[constant.App] = policy.ExcludePod(resourceMap[constant.App], log.Log)
-				delete(resourceMap, constant.Namespace)
 				delete(resourceMap, constant.Cluster)
 				break
 			case constant.All:
 				resourceMap[constant.Cluster] = policy.ExcludePod(resourceMap[constant.Cluster], log.Log)
 				resourceMap[constant.Namespace] = policy.ExcludePod(resourceMap[constant.Namespace], log.Log)
-				resourceMap[constant.App] = policy.ExcludePod(resourceMap[constant.App], log.Log)
 			}
 		}
 
@@ -240,17 +220,12 @@ func createReport(kclient *kyvernoclient.Clientset, name string, results []polic
 	var scope, ns string
 	if strings.Contains(name, "clusterpolicyreport") {
 		scope = constant.Cluster
-	} else if strings.Contains(name, "policyreport-app-") {
-		scope = constant.App
-		ns = strings.ReplaceAll(name, "policyreport-app-", "")
-		str := strings.Split(ns, "--")
-		ns = str[1]
 	} else if strings.Contains(name, "policyreport-ns-") {
 		scope = constant.Namespace
 		ns = strings.ReplaceAll(name, "policyreport-ns-", "")
 	}
 
-	if scope == constant.App || scope == constant.Namespace {
+	if scope == constant.Namespace {
 		availablepr, err := kclient.PolicyV1alpha1().PolicyReports(ns).Get(name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -323,17 +298,12 @@ func createResults(policyContext engine.PolicyContext, key string, results map[s
 
 	for _, v := range pv {
 		var appname string
-		labels := policyContext.NewResource.GetLabels()
-		_, okChart := labels["app"]
-		if key == constant.App {
-			if okChart {
-				appname = fmt.Sprintf("policyreport-app-%s--%s", labels["app"], policyContext.NewResource.GetNamespace())
-			}
-		} else if key == constant.Namespace {
+		if key == constant.Namespace {
 			appname = fmt.Sprintf("policyreport-ns-%s", policyContext.NewResource.GetNamespace())
 		} else {
 			appname = fmt.Sprintf("clusterpolicyreport")
 		}
+
 		if appname != "" {
 			builder := policyreport.NewPrBuilder()
 			pv := builder.Generate(v)
@@ -365,6 +335,7 @@ func configmapScan(scope string, wg *sync.WaitGroup, restConfig *rest.Config, lo
 	defer func() {
 		wg.Done()
 	}()
+
 	lgr := logger.WithValues("scope", scope)
 	dClient, err := client.NewClient(restConfig, 5*time.Minute, make(chan struct{}), lgr)
 	if err != nil {
@@ -396,37 +367,23 @@ func configmapScan(scope string, wg *sync.WaitGroup, restConfig *rest.Config, lo
 		}
 		response[constant.Cluster] = temp
 		delete(job.Data, constant.Namespace)
-		delete(job.Data, constant.App)
-	} else if scope == constant.App {
-		if err := json.Unmarshal([]byte(job.Data[constant.App]), &temp); err != nil {
-			lgr.Error(err, "Error in json marshal of namespace data")
-		}
-		response[constant.App] = temp
-		delete(job.Data, constant.Cluster)
-		delete(job.Data, constant.Namespace)
 	} else if scope == constant.Namespace {
 		if err := json.Unmarshal([]byte(job.Data[constant.Namespace]), &temp); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
 		response[constant.Namespace] = temp
 		delete(job.Data, constant.Cluster)
-		delete(job.Data, constant.App)
 	} else {
 		if err := json.Unmarshal([]byte(job.Data[constant.Cluster]), &temp); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
 		response[constant.Cluster] = temp
-		temp = make(map[string][]policyreport.Info)
-		if err := json.Unmarshal([]byte(job.Data[constant.App]), &temp); err != nil {
-			lgr.Error(err, "Error in json marshal of namespace data")
-		}
-		response[constant.App] = temp
+
 		temp = make(map[string][]policyreport.Info)
 		if err := json.Unmarshal([]byte(job.Data[constant.Namespace]), &temp); err != nil {
 			lgr.Error(err, "Error in json marshal of namespace data")
 		}
 		response[constant.Namespace] = temp
-		temp = make(map[string][]policyreport.Info)
 	}
 	var results = make(map[string][]policyreportv1alpha1.PolicyReportResult)
 	var ns []string
@@ -457,28 +414,14 @@ func configmapScan(scope string, wg *sync.WaitGroup, restConfig *rest.Config, lo
 					}
 
 					var appname string
-					resource, err := dClient.GetResource(v.Resource.GetAPIVersion(), v.Resource.GetKind(), v.Resource.GetNamespace(), v.Resource.GetName())
-					if err != nil {
-						lgr.Error(err, "failed to get resource")
-						continue
-					}
-					labels := resource.GetLabels()
-					_, okChart := labels["app"]
-					_, okRelease := labels["release"]
-
 					if k == constant.Cluster {
 						appname = fmt.Sprintf("clusterpolicyreport")
 					}
-					if k == constant.App {
-						if okChart && okRelease {
-							appname = fmt.Sprintf("policyreport-app-%s--%s", labels["app"], v.Resource.GetNamespace())
-						}
-					}
+
 					if k == constant.Namespace {
-						if !okChart && !okRelease {
-							appname = fmt.Sprintf("policyreport-ns-%s", v.Resource.GetNamespace())
-						}
+						appname = fmt.Sprintf("policyreport-ns-%s", v.Resource.GetNamespace())
 					}
+
 					results[appname] = append(results[appname], *result)
 				}
 			}

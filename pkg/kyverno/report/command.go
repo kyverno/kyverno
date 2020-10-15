@@ -25,7 +25,6 @@ func Command() *cobra.Command {
 			return err
 		},
 	}
-	cmd.AddCommand(AppCommand())
 	cmd.AddCommand(NamespaceCommand())
 	cmd.AddCommand(ClusterCommand())
 	cmd.AddCommand(AllReportsCommand())

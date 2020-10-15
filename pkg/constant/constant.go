@@ -15,7 +15,6 @@ const (
 )
 
 const (
-	App       string = "App"
 	Namespace string = "Namespace"
 	Cluster   string = "Cluster"
 	All       string = "All"

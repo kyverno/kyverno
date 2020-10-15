@@ -228,12 +228,6 @@ func (j *Job) syncKyverno(wg *sync.WaitGroup, scope, jobType, data string) error
 
 	if jobType == constant.BackgroundPolicySync || jobType == constant.BackgroundSync {
 		switch scope {
-		case constant.App:
-			args = []string{
-				"report",
-				"app",
-				fmt.Sprintf("--mode=%s", mode),
-			}
 		case constant.Namespace:
 			args = []string{
 				"report",
