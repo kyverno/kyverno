@@ -1613,14 +1613,17 @@ metadata:
   name: kyverno:policyreport
 rules:
 - apiGroups:
-  - policy.kubernetes.io
+  - "*"
   resources:
-  - policyreport
-  - clusterpolicyreport
+  - policyreports
+  - clusterpolicyreports
+  - jobs
+  - pods
   verbs:
   - get
   - list
   - watch
+  - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
@@ -1735,6 +1738,19 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: kyverno:policycontroller
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kyverno:policyreport
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:policyreport
 subjects:
 - kind: ServiceAccount
   name: kyverno-service-account
