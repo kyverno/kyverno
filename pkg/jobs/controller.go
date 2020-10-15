@@ -313,7 +313,7 @@ func (j *Job) CreateJob(args []string, jobType, scope string) error {
 						{
 							Name:            strings.ToLower(fmt.Sprintf("%s-%s", jobType, scope)),
 							Image:           config.KyvernoCliImage,
-							ImagePullPolicy: apiv1.PullNever,
+							ImagePullPolicy: apiv1.PullAlways,
 							Args:            args,
 						},
 					},

@@ -281,7 +281,6 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.4
-  creationTimestamp: null
   name: clusterpolicyreports.policy.kubernetes.io
 spec:
   additionalPrinterColumns:
@@ -316,6 +315,8 @@ spec:
     kind: ClusterPolicyReport
     listKind: ClusterPolicyReportList
     plural: clusterpolicyreports
+    shortNames:
+    - cpolr
     singular: clusterpolicyreport
   scope: Namespaced
   subresources: {}
@@ -1006,7 +1007,6 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.4
-  creationTimestamp: null
   name: policyreports.policy.kubernetes.io
 spec:
   additionalPrinterColumns:
@@ -1041,6 +1041,8 @@ spec:
     kind: PolicyReport
     listKind: PolicyReportList
     plural: policyreports
+    shortNames:
+    - polr
     singular: policyreport
   scope: Namespaced
   subresources: {}
@@ -1613,7 +1615,7 @@ metadata:
   name: kyverno:policyreport
 rules:
 - apiGroups:
-  - policy.kubernetes.io
+  - '*'
   resources:
   - policyreports
   - clusterpolicyreports
