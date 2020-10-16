@@ -1,13 +1,14 @@
-# Kyverno - Kubernetes Native Policy Management
+# Kyverno [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Kubernetes%20Native%20Policy%20Management.%20No%20new%20language%20required%21&url=https://github.com/kyverno/kyverno/&hashtags=kubernetes,devops)
+
+**Kubernetes Native Policy Management**
 
 ![build](https://github.com/kyverno/kyverno/workflows/build/badge.svg) ![prereleaser](https://github.com/kyverno/kyverno/workflows/prereleaser/badge.svg) [![Go Report Card](https://goreportcard.com/badge/github.com/kyverno/kyverno)](https://goreportcard.com/report/github.com/kyverno/kyverno) ![License: Apache-2.0](https://img.shields.io/github/license/kyverno/kyverno?color=blue)
 
-![logo](documentation/images/Kyverno_Horizontal.png)
+<a href="https://kyverno.io" rel="kyverno.io">![logo](documentation/images/Kyverno_Horizontal.png)</a>
 
-
-<hr/>
-
-> Kyverno is a policy engine designed for Kubernetes. It can validate, mutate, and generate configurations using admission controls and background scans. Kyverno policies are Kubernetes resources and do not require learning a new language. Kyverno is designed to work nicely with tools you already use like `kubectl`, `kustomize`, and `Git`.
+<p class="callout info" style="font-size: 2000%;">
+Kyverno is a policy engine designed for Kubernetes. It can validate, mutate, and generate configurations using admission controls and background scans. Kyverno policies are Kubernetes resources and do not require learning a new language. Kyverno is designed to work nicely with tools you already use like `kubectl`, `kustomize`, and `Git`.
+</p>
 
 ## Documentation
 
