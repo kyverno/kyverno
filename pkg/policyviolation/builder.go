@@ -2,9 +2,11 @@ package policyviolation
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 )
 
@@ -16,10 +18,14 @@ func GeneratePVsFromEngineResponse(ers []response.EngineResponse, log logr.Logge
 			log.V(4).Info("resource does no have a name assigned yet, not creating a policy violation", "resource", er.PolicyResponse.Resource)
 			continue
 		}
+
 		// skip when response succeed
-		if er.IsSuccessful() {
-			continue
+		if os.Getenv("POLICY-TYPE") != common.PolicyReport {
+			if er.IsSuccessful() {
+				continue
+			}
 		}
+
 		// build policy violation info
 		pvInfos = append(pvInfos, buildPVInfo(er))
 	}

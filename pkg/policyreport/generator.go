@@ -15,7 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/constant"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/jobs"
+	"github.com/kyverno/kyverno/pkg/policyreport/jobs"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	v1 "k8s.io/api/core/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
