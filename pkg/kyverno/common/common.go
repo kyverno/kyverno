@@ -19,38 +19,60 @@ import (
 	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/utils"
+	client "github.com/kyverno/kyverno/pkg/dclient"
 )
 
 // GetPolicies - Extracting the policies from multiple YAML
-func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
+func GetPolicies(paths []string,cluster bool, dClient *client.Client) (policies []*v1.ClusterPolicy, error error) {
 	for _, path := range paths {
+
+		fmt.Println("------------------ -3 ")
+
 		path = filepath.Clean(path)
+		fmt.Println("------------------ -2 ")
 
 		fileDesc, err := os.Stat(path)
 		if err != nil {
-			return nil, err
+			fmt.Println(err)
+			p, err := getPolicyFromCluster(path, cluster, dClient)
+
+			if err != nil {
+				return nil, err
+			}
+			policies = append(policies, p)
+			continue
 		}
+		fmt.Println("------------------ -1 ")
 
 		if fileDesc.IsDir() {
+			fmt.Println("------------------ 0 ")
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
+				fmt.Println("------------------1")
 				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
 			}
 
+			fmt.Println("------------------2")
 			listOfFiles := make([]string, 0)
 			for _, file := range files {
 				listOfFiles = append(listOfFiles, filepath.Join(path, file.Name()))
 			}
 
-			policiesFromDir, err := GetPolicies(listOfFiles)
+			fmt.Println("------------------3")
+			policiesFromDir, err := GetPolicies(listOfFiles, cluster, dClient)
 			if err != nil {
 				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to extract policies from %v", listOfFiles), err)
 			}
+			fmt.Println("------------------4")
 
 			policies = append(policies, policiesFromDir...)
 		} else {
+			fmt.Println("------------------5")
 			file, err := ioutil.ReadFile(path)
 			if err != nil {
+				fmt.Println("------------------6")
+				// check if cluster flag is passed and get the policy from cluster
+				getPolicyFromCluster(path, cluster, dClient)
 				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to load file %v", path), err)
 			}
 			getPolicies, getErrors := utils.GetPolicy(file)
@@ -73,9 +95,61 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 	return policies, nil
 }
 
-//GetPoliciesValidation - validating policies
-func GetPoliciesValidation(policyPaths []string) ([]*v1.ClusterPolicy, error) {
-	policies, err := GetPolicies(policyPaths)
+func getPolicyFromCluster(policyName string,cluster bool,  dClient *client.Client) (*v1.ClusterPolicy, error){
+	fmt.Println("getPolicyFromCluster:", policyName, cluster, dClient)
+
+	if !cluster {
+		return &v1.ClusterPolicy{}, nil
+	}
+	//var policy []*unstructured.Unstructured
+	policy, err := dClient.GetResource("", "ClusterPolicy", "", policyName, "")
+
+	fmt.Println("********************* 1")
+	fmt.Println(policy)
+
+	policyBytes, err := json.Marshal(policy.Object)
+	if err != nil {
+		fmt.Println("********************* 2")
+		fmt.Println(err)
+		return &v1.ClusterPolicy{}, err
+	}
+
+	var p v1.ClusterPolicy
+	err = json.Unmarshal(policyBytes, &p)
+
+	if err != nil {
+		fmt.Println("********************* 3")
+		fmt.Println(err)
+		return &v1.ClusterPolicy{}, err
+	}
+
+	if err != nil {
+		fmt.Println("Error Occurred while fetching policy from cluster ", err)
+	}
+
+	//for _, kind := range resourceTypes {
+	//	resourceList, err := dClient.ListResource("", kind, "", nil)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//	version := resourceList.GetAPIVersion()
+	//	for _, resource := range resourceList.Items {
+	//		resource.SetGroupVersionKind(schema.GroupVersionKind{
+	//			Group:   "",
+	//			Version: version,
+	//			Kind:    kind,
+	//		})
+	//		resources = append(resources, resource.DeepCopy())
+	//	}
+	//}
+
+	return &p, nil
+}
+
+//ValidateAndGetPolicies - validating policies
+func ValidateAndGetPolicies(policyPaths []string, cluster bool, dClient *client.Client) ([]*v1.ClusterPolicy, error) {
+	policies, err := GetPolicies(policyPaths, cluster, dClient)
 	if err != nil {
 		if !sanitizedError.IsErrorSanitized(err) {
 			return nil, sanitizedError.NewWithError((fmt.Sprintf("failed to parse %v path/s.", policyPaths)), err)

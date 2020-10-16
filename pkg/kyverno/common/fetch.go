@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"fmt"
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
@@ -40,6 +41,7 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 
 		resources, err = getResourcesOfTypeFromCluster(resourceTypes, dClient)
 		if err != nil {
+			fmt.Println("$$$$$$$$$$$$$$$$$$$$$$$$")
 			return nil, err
 		}
 	}
@@ -47,10 +49,12 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	for _, resourcePath := range resourcePaths {
 		resourceBytes, err := getFileBytes(resourcePath)
 		if err != nil {
+			fmt.Println("######################## 1")
 			return nil, err
 		}
 		getResources, err := GetResource(resourceBytes)
 		if err != nil {
+			fmt.Println("######################## 2")
 			return nil, err
 		}
 
@@ -64,17 +68,20 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 
 // GetResource converts raw bytes to unstructured object
 func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@@@ 1")
 	resources := make([]*unstructured.Unstructured, 0)
 	var getErrString string
 
 	files, splitDocError := utils.SplitYAMLDocuments(resourceBytes)
 	if splitDocError != nil {
+		fmt.Println("@@@@@@@@@@@@@@@@@@@@@@ 2")
 		return nil, splitDocError
 	}
 
 	for _, resourceYaml := range files {
 		resource, err := convertResourceToUnstructured(resourceYaml)
 		if err != nil {
+			fmt.Println("@@@@@@@@@@@@@@@@@@@@@@ 3")
 			getErrString = getErrString + err.Error() + "\n"
 		}
 
@@ -82,6 +89,7 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	}
 
 	if getErrString != "" {
+		fmt.Println("@@@@@@@@@@@@@@@@@@@@@@ 4")
 		return nil, errors.New(getErrString)
 	}
 
@@ -89,11 +97,18 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 }
 
 func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Client) ([]*unstructured.Unstructured, error) {
+
+	fmt.Println("^^^^^^^^^^^^^^^^^^^ 1")
+
 	var resources []*unstructured.Unstructured
 
 	for _, kind := range resourceTypes {
+		fmt.Println("kind:", kind)
+
 		resourceList, err := dClient.ListResource("", kind, "", nil)
 		if err != nil {
+			fmt.Println("^^^^^^^^^^^^^^^^^^^ 2")
+			fmt.Println(err)
 			return nil, err
 		}
 
@@ -107,6 +122,7 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Clien
 			resources = append(resources, resource.DeepCopy())
 		}
 	}
+	fmt.Println("^^^^^^^^^^^^^^^^^^^ 3")
 
 	return resources, nil
 }
@@ -123,21 +139,25 @@ func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructu
 	decode := scheme.Codecs.UniversalDeserializer().Decode
 	resourceObject, metaData, err := decode(resourceYaml, nil, nil)
 	if err != nil {
+		fmt.Println("!!!!!!!!!!!!!!!!! 1")
 		return nil, err
 	}
 
 	resourceUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&resourceObject)
 	if err != nil {
+		fmt.Println("!!!!!!!!!!!!!!!!! 2")
 		return nil, err
 	}
 
 	resourceJSON, err := json.Marshal(resourceUnstructured)
 	if err != nil {
+		fmt.Println("!!!!!!!!!!!!!!!!! 3")
 		return nil, err
 	}
 
 	resource, err := engineutils.ConvertToUnstructured(resourceJSON)
 	if err != nil {
+		fmt.Println("!!!!!!!!!!!!!!!!! 4")
 		return nil, err
 	}
 

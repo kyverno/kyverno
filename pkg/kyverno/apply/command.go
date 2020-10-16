@@ -39,8 +39,8 @@ type resultCounts struct {
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
-	var cluster bool
-	var mutateLogPath, variablesString, valuesFile string
+	var cluster, policy_report bool
+	var mutateLogPath, variablesString, valuesFile, scope string
 	variables := make(map[string]string)
 
 	type Resource struct {
@@ -75,10 +75,25 @@ func Command() *cobra.Command {
 				}
 			}()
 
+			fmt.Println("+++++++++++++++++++++++++++ 1")
+
+			// base validations
 			if valuesFile != "" && variablesString != "" {
 				return sanitizedError.NewWithError("pass the values either using set flag or values_file flag", err)
 			}
 
+			fmt.Println("+++++++++++++++++++++++++++ 2")
+			// get the variables from (-s) param
+			if variablesString != "" {
+				kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
+				for _, kvpair := range kvpairs {
+					kvs := strings.Split(strings.Trim(kvpair, " "), "=")
+					variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
+				}
+			}
+
+			fmt.Println("+++++++++++++++++++++++++++ 3")
+			// get the variable values from valuesFile (-f)
 			if valuesFile != "" {
 				yamlFile, err := ioutil.ReadFile(valuesFile)
 				if err != nil {
@@ -104,13 +119,38 @@ func Command() *cobra.Command {
 				}
 			}
 
-			if variablesString != "" {
-				kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
-				for _, kvpair := range kvpairs {
-					kvs := strings.Split(strings.Trim(kvpair, " "), "=")
-					variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
+			fmt.Println("+++++++++++++++++++++++++++ 4")
+
+			openAPIController, err := openapi.NewOpenAPIController()
+			if err != nil {
+				return sanitizedError.NewWithError("failed to initialize openAPIController", err)
+			}
+
+			var dClient *client.Client
+			if cluster {
+				restConfig, err := kubernetesConfig.ToRESTConfig()
+				if err != nil {
+					return err
+				}
+				dClient, err = client.NewClient(restConfig, 5*time.Minute, make(chan struct{}), log.Log)
+				if err != nil {
+					return err
 				}
 			}
+
+			fmt.Println("+++++++++++++++++++++++++++ 5")
+
+			policies, err := common.ValidateAndGetPolicies(policyPaths, cluster, dClient)
+			if err != nil {
+				if !sanitizedError.IsErrorSanitized(err) {
+					return sanitizedError.NewWithError("failed to mutate policies.", err)
+				}
+				return err
+			}
+
+			fmt.Println("+++++++++++++++++++++++++++ 6")
+
+
 
 			if len(resourcePaths) == 0 && !cluster {
 				return sanitizedError.NewWithError(fmt.Sprintf("resource file(s) or cluster required"), err)
@@ -135,30 +175,8 @@ func Command() *cobra.Command {
 				}
 			}
 
-			policies, err := common.GetPoliciesValidation(policyPaths)
-			if err != nil {
-				if !sanitizedError.IsErrorSanitized(err) {
-					return sanitizedError.NewWithError("failed to mutate policies.", err)
-				}
-				return err
-			}
 
-			openAPIController, err := openapi.NewOpenAPIController()
-			if err != nil {
-				return sanitizedError.NewWithError("failed to initialize openAPIController", err)
-			}
 
-			var dClient *client.Client
-			if cluster {
-				restConfig, err := kubernetesConfig.ToRESTConfig()
-				if err != nil {
-					return err
-				}
-				dClient, err = client.NewClient(restConfig, 5*time.Minute, make(chan struct{}), log.Log)
-				if err != nil {
-					return err
-				}
-			}
 
 			var resources []*unstructured.Unstructured
 			if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
@@ -257,6 +275,8 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&mutateLogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
 	cmd.Flags().StringVarP(&variablesString, "set", "s", "", "Variables that are required")
 	cmd.Flags().StringVarP(&valuesFile, "values_file", "f", "", "File containing values for policy variables")
+	cmd.Flags().BoolVarP(&policy_report, "policy_report", "", false, "Generates policy report when passed (default policyviolation r")
+	cmd.Flags().StringVarP(&scope, "scope", "", "", "Optional parameter passed with cluster flag")
 	return cmd
 }
 
