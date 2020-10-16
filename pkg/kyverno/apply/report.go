@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"strings"
 
-	policyreportv1alpha1 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -24,7 +25,11 @@ func buildPolicyReports(resps []response.EngineResponse) (res []*unstructured.Un
 	resultsMap := buildPolicyResults(resps)
 	for scope, result := range resultsMap {
 		if scope == clusterpolicyreport {
-			report := &policyreportv1alpha1.ClusterPolicyReport{
+			report := &report.ClusterPolicyReport{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "policy.kubernetes.io/v1alpha1",
+					Kind:       "ClusterPolicyReport",
+				},
 				Results: result,
 				Summary: calculateSummary(result),
 			}
@@ -34,7 +39,11 @@ func buildPolicyReports(resps []response.EngineResponse) (res []*unstructured.Un
 				log.Log.Error(err, "failed to serilize policy report", "name", report.Name, "scope", scope)
 			}
 		} else {
-			report := &policyreportv1alpha1.PolicyReport{
+			report := &report.PolicyReport{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "policy.kubernetes.io/v1alpha1",
+					Kind:       "PolicyReport",
+				},
 				Results: result,
 				Summary: calculateSummary(result),
 			}
@@ -42,6 +51,10 @@ func buildPolicyReports(resps []response.EngineResponse) (res []*unstructured.Un
 			ns := strings.ReplaceAll(scope, "policyreport-ns-", "")
 			report.SetName(scope)
 			report.SetNamespace(ns)
+
+			if raw, err = json.Marshal(report); err != nil {
+				log.Log.Error(err, "failed to serilize policy report", "name", report.Name, "scope", scope)
+			}
 		}
 
 		reportUnstructured, err := engineutils.ConvertToUnstructured(raw)
@@ -49,6 +62,7 @@ func buildPolicyReports(resps []response.EngineResponse) (res []*unstructured.Un
 			log.Log.Error(err, "failed to convert policy report", "scope", scope)
 			continue
 		}
+
 		res = append(res, reportUnstructured)
 	}
 
@@ -57,8 +71,8 @@ func buildPolicyReports(resps []response.EngineResponse) (res []*unstructured.Un
 
 // buildPolicyResults returns a string-PolicyReportResult map
 // the key of the map is one of "clusterpolicyreport", "policyreport-ns-<namespace>"
-func buildPolicyResults(resps []response.EngineResponse) map[string][]*policyreportv1alpha1.PolicyReportResult {
-	results := make(map[string][]*policyreportv1alpha1.PolicyReportResult)
+func buildPolicyResults(resps []response.EngineResponse) map[string][]*report.PolicyReportResult {
+	results := make(map[string][]*report.PolicyReportResult)
 	infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
 
 	for _, info := range infos {
@@ -71,45 +85,46 @@ func buildPolicyResults(resps []response.EngineResponse) map[string][]*policyrep
 			appname = fmt.Sprintf(clusterpolicyreport)
 		}
 
-		result := &policyreportv1alpha1.PolicyReportResult{
-			Policy: info.PolicyName,
-			Resources: []*corev1.ObjectReference{
-				{
-					Kind:       info.Resource.GetKind(),
-					Namespace:  info.Resource.GetNamespace(),
-					APIVersion: info.Resource.GetAPIVersion(),
-					Name:       info.Resource.GetName(),
-					UID:        info.Resource.GetUID(),
-				},
-			},
-		}
-
 		for _, rule := range info.Rules {
+			result := report.PolicyReportResult{
+				Policy: info.PolicyName,
+				Resources: []*corev1.ObjectReference{
+					{
+						Kind:       info.Resource.GetKind(),
+						Namespace:  info.Resource.GetNamespace(),
+						APIVersion: info.Resource.GetAPIVersion(),
+						Name:       info.Resource.GetName(),
+						UID:        info.Resource.GetUID(),
+					},
+				},
+				Scored: true,
+			}
+
 			result.Rule = rule.Name
 			result.Message = rule.Message
-			result.Status = policyreportv1alpha1.PolicyStatus(rule.Check)
-			results[appname] = append(results[appname], result)
+			result.Status = report.PolicyStatus(rule.Check)
+			results[appname] = append(results[appname], &result)
 		}
 	}
 
 	return mergeSucceededResults(results)
 }
 
-func mergeSucceededResults(results map[string][]*policyreportv1alpha1.PolicyReportResult) map[string][]*policyreportv1alpha1.PolicyReportResult {
-	resultsNew := make(map[string][]*policyreportv1alpha1.PolicyReportResult)
+func mergeSucceededResults(results map[string][]*report.PolicyReportResult) map[string][]*report.PolicyReportResult {
+	resultsNew := make(map[string][]*report.PolicyReportResult)
 
 	for scope, scopedResults := range results {
 
-		resourcesMap := make(map[string]*policyreportv1alpha1.PolicyReportResult)
+		resourcesMap := make(map[string]*report.PolicyReportResult)
 		for _, result := range scopedResults {
-			if result.Status != policyreportv1alpha1.PolicyStatus("Pass") {
+			if result.Status != report.PolicyStatus("pass") {
 				resultsNew[scope] = append(resultsNew[scope], result)
 				continue
 			}
 
 			key := fmt.Sprintf("%s/%s", result.Policy, result.Rule)
 			if r, ok := resourcesMap[key]; !ok {
-				resourcesMap[key] = &policyreportv1alpha1.PolicyReportResult{}
+				resourcesMap[key] = &report.PolicyReportResult{}
 				resourcesMap[key] = result
 			} else {
 				r.Resources = append(r.Resources, result.Resources...)
@@ -123,12 +138,11 @@ func mergeSucceededResults(results map[string][]*policyreportv1alpha1.PolicyRepo
 				continue
 			}
 
-			r := &policyreportv1alpha1.PolicyReportResult{
+			r := &report.PolicyReportResult{
 				Policy:    names[0],
 				Rule:      names[1],
 				Resources: v.Resources,
-				Status:    policyreportv1alpha1.PolicyStatus("Pass"),
-				Scored:    true,
+				Status:    report.PolicyStatus(v.Status),
 			}
 
 			resultsNew[scope] = append(resultsNew[scope], r)
@@ -137,18 +151,18 @@ func mergeSucceededResults(results map[string][]*policyreportv1alpha1.PolicyRepo
 	return resultsNew
 }
 
-func calculateSummary(results []*policyreportv1alpha1.PolicyReportResult) (summary policyreportv1alpha1.PolicyReportSummary) {
+func calculateSummary(results []*report.PolicyReportResult) (summary report.PolicyReportSummary) {
 	for _, res := range results {
 		switch string(res.Status) {
-		case "Pass":
-			summary.Pass++
-		case "Fail":
+		case report.StatusPass:
+			summary.Pass += len(res.Resources)
+		case report.StatusFail:
 			summary.Fail++
-		case "Warn":
+		case "warn":
 			summary.Warn++
-		case "Error":
+		case "error":
 			summary.Error++
-		case "Skip":
+		case "skip":
 			summary.Skip++
 		}
 	}
