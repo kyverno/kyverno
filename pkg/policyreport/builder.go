@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 )
@@ -96,9 +97,9 @@ func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 			Type:    rule.Type,
 			Message: rule.Message,
 		}
-		vrule.Check = "Fail"
+		vrule.Check = report.StatusFail
 		if rule.Success {
-			vrule.Check = "Pass"
+			vrule.Check = report.StatusPass
 		}
 		violatedRules = append(violatedRules, vrule)
 	}

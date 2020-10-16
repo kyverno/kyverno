@@ -6,7 +6,7 @@ package report
 
 // 	"github.com/go-logr/logr"
 // 	kyvernov1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-// 	policyreportv1alpha1 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+// 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 // 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 // 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 // 	"github.com/kyverno/kyverno/pkg/config"
@@ -188,7 +188,7 @@ package report
 // 			}
 // 		}
 
-// 		results := make(map[string][]policyreportv1alpha1.PolicyReportResult)
+// 		results := make(map[string][]policyreport.PolicyReportResult)
 // 		for key := range resourceMap {
 // 			for _, resource := range resourceMap[key] {
 // 				policyContext := engine.PolicyContext{
@@ -215,7 +215,7 @@ package report
 // 	}
 // }
 
-// func createReport(kclient *kyvernoclient.Clientset, name string, results []policyreportv1alpha1.PolicyReportResult, removePolicy []string, lgr logr.Logger) error {
+// func createReport(kclient *kyvernoclient.Clientset, name string, results []policyreport.PolicyReportResult, removePolicy []string, lgr logr.Logger) error {
 
 // 	var scope, ns string
 // 	if strings.Contains(name, "clusterpolicyreport") {
@@ -280,7 +280,7 @@ package report
 // 	return nil
 // }
 
-// func createResults(policyContext engine.PolicyContext, key string, results map[string][]policyreportv1alpha1.PolicyReportResult) map[string][]policyreportv1alpha1.PolicyReportResult {
+// func createResults(policyContext engine.PolicyContext, key string, results map[string][]policyreport.PolicyReportResult) map[string][]policyreport.PolicyReportResult {
 
 // 	var engineResponses []response.EngineResponse
 // 	engineResponse := engine.Validate(policyContext)
@@ -309,19 +309,19 @@ package report
 // 			pv := builder.Generate(v)
 
 // 			for _, e := range pv.Spec.ViolatedRules {
-// 				result := &policyreportv1alpha1.PolicyReportResult{
+// 				result := &policyreport.PolicyReportResult{
 // 					Policy:  pv.Spec.Policy,
 // 					Rule:    e.Name,
 // 					Message: e.Message,
 // 				}
-// 				rd := &policyreportv1alpha1.ResourceStatus{
+// 				rd := &policyreport.ResourceStatus{
 // 					Resource: &corev1.ObjectReference{
 // 						Kind:       pv.Spec.Kind,
 // 						Namespace:  pv.Spec.Namespace,
 // 						APIVersion: pv.Spec.APIVersion,
 // 						Name:       pv.Spec.Name,
 // 					},
-// 					Status: policyreportv1alpha1.PolicyStatus(e.Check),
+// 					Status: policyreport.PolicyStatus(e.Check),
 // 				}
 // 				result.Resources = append(result.Resources, rd)
 // 				results[appname] = append(results[appname], *result)
@@ -385,7 +385,7 @@ package report
 // 		}
 // 		response[constant.Namespace] = temp
 // 	}
-// 	var results = make(map[string][]policyreportv1alpha1.PolicyReportResult)
+// 	var results = make(map[string][]policyreport.PolicyReportResult)
 // 	var ns []string
 // 	for k := range response {
 // 		for n, infos := range response[k] {
@@ -393,19 +393,19 @@ package report
 // 				for _, r := range v.Rules {
 // 					builder := policyreport.NewPrBuilder()
 // 					pv := builder.Generate(v)
-// 					result := &policyreportv1alpha1.PolicyReportResult{
+// 					result := &policyreport.PolicyReportResult{
 // 						Policy:  pv.Spec.Policy,
 // 						Rule:    r.Name,
 // 						Message: r.Message,
 // 					}
-// 					rd := &policyreportv1alpha1.ResourceStatus{
+// 					rd := &policyreport.ResourceStatus{
 // 						Resource: &corev1.ObjectReference{
 // 							Kind:       pv.Spec.Kind,
 // 							Namespace:  pv.Spec.Namespace,
 // 							APIVersion: pv.Spec.APIVersion,
 // 							Name:       pv.Spec.Name,
 // 						},
-// 						Status: policyreportv1alpha1.PolicyStatus(r.Check),
+// 						Status: policyreport.PolicyStatus(r.Check),
 // 					}
 // 					result.Resources = append(result.Resources, rd)
 
@@ -439,7 +439,7 @@ package report
 // 	}
 // }
 
-// func mergeReport(pr *policyreportv1alpha1.PolicyReport, results []policyreportv1alpha1.PolicyReportResult, removePolicy []string) (*policyreportv1alpha1.PolicyReport, string) {
+// func mergeReport(pr *policyreport.PolicyReport, results []policyreport.PolicyReportResult, removePolicy []string) (*policyreport.PolicyReport, string) {
 // 	labels := pr.GetLabels()
 // 	var action string
 // 	if labels["policy-state"] == "init" {
@@ -450,7 +450,7 @@ package report
 // 	} else {
 // 		action = "Update"
 // 	}
-// 	rules := make(map[string]*policyreportv1alpha1.PolicyReportResult, 0)
+// 	rules := make(map[string]*policyreport.PolicyReportResult, 0)
 
 // 	for _, v := range pr.Results {
 // 		for _, r := range v.Resources {
@@ -467,12 +467,12 @@ package report
 // 					rules[key].Resources = append(rules[key].Resources, r)
 // 				}
 // 			} else {
-// 				rules[key] = &policyreportv1alpha1.PolicyReportResult{
+// 				rules[key] = &policyreport.PolicyReportResult{
 // 					Policy:  v.Policy,
 // 					Rule:    v.Rule,
 // 					Message: v.Message,
 // 					// Status:    v.Status,
-// 					Resources: make([]*policyreportv1alpha1.ResourceStatus, 0),
+// 					Resources: make([]*policyreport.ResourceStatus, 0),
 // 				}
 
 // 				rules[key].Resources = append(rules[key].Resources, r)
@@ -494,12 +494,12 @@ package report
 // 					rules[key].Resources = append(rules[key].Resources, r)
 // 				}
 // 			} else {
-// 				rules[key] = &policyreportv1alpha1.PolicyReportResult{
+// 				rules[key] = &policyreport.PolicyReportResult{
 // 					Policy:  v.Policy,
 // 					Rule:    v.Rule,
 // 					Message: v.Message,
 // 					// Status:    v.Status,
-// 					Resources: make([]*policyreportv1alpha1.ResourceStatus, 0),
+// 					Resources: make([]*policyreport.ResourceStatus, 0),
 // 				}
 // 				rules[key].Resources = append(rules[key].Resources, r)
 // 			}
@@ -517,7 +517,7 @@ package report
 // 	}
 // 	pr.Summary.Pass = 0
 // 	pr.Summary.Fail = 0
-// 	pr.Results = make([]*policyreportv1alpha1.PolicyReportResult, 0)
+// 	pr.Results = make([]*policyreport.PolicyReportResult, 0)
 // 	for k := range rules {
 // 		pr.Results = append(pr.Results, rules[k])
 // 		for _, r := range rules[k].Resources {
@@ -532,7 +532,7 @@ package report
 // 	return pr, action
 // }
 
-// func mergeClusterReport(pr *policyreportv1alpha1.ClusterPolicyReport, results []policyreportv1alpha1.PolicyReportResult, removePolicy []string) (*policyreportv1alpha1.ClusterPolicyReport, string) {
+// func mergeClusterReport(pr *policyreport.ClusterPolicyReport, results []policyreport.PolicyReportResult, removePolicy []string) (*policyreport.ClusterPolicyReport, string) {
 // 	labels := pr.GetLabels()
 // 	var action string
 // 	if labels["policy-state"] == "init" {
@@ -582,7 +582,7 @@ package report
 // 	return pr, action
 // }
 
-// func changeClusterReportCount(status, oldStatus string, report *policyreportv1alpha1.ClusterPolicyReport) *policyreportv1alpha1.ClusterPolicyReport {
+// func changeClusterReportCount(status, oldStatus string, report *policyreport.ClusterPolicyReport) *policyreport.ClusterPolicyReport {
 // 	switch oldStatus {
 // 	case "Pass":
 // 		if report.Summary.Pass--; report.Summary.Pass < 0 {
@@ -610,14 +610,14 @@ package report
 // 	return report
 // }
 
-// func initPolicyReport(scope, namespace, name string) *policyreportv1alpha1.PolicyReport {
-// 	availablepr := &policyreportv1alpha1.PolicyReport{
+// func initPolicyReport(scope, namespace, name string) *policyreport.PolicyReport {
+// 	availablepr := &policyreport.PolicyReport{
 // 		Scope: &corev1.ObjectReference{
 // 			Kind:      scope,
 // 			Namespace: namespace,
 // 		},
-// 		Summary: policyreportv1alpha1.PolicyReportSummary{},
-// 		Results: []*policyreportv1alpha1.PolicyReportResult{},
+// 		Summary: policyreport.PolicyReportSummary{},
+// 		Results: []*policyreport.PolicyReportResult{},
 // 	}
 // 	labelMap := map[string]string{
 // 		"policy-scope": scope,
@@ -629,13 +629,13 @@ package report
 // 	return availablepr
 // }
 
-// func initClusterPolicyReport(scope, name string) *policyreportv1alpha1.ClusterPolicyReport {
-// 	availablepr := &policyreportv1alpha1.ClusterPolicyReport{
+// func initClusterPolicyReport(scope, name string) *policyreport.ClusterPolicyReport {
+// 	availablepr := &policyreport.ClusterPolicyReport{
 // 		Scope: &corev1.ObjectReference{
 // 			Kind: scope,
 // 		},
-// 		Summary: policyreportv1alpha1.PolicyReportSummary{},
-// 		Results: []*policyreportv1alpha1.PolicyReportResult{},
+// 		Summary: policyreport.PolicyReportSummary{},
+// 		Results: []*policyreport.PolicyReportResult{},
 // 	}
 // 	labelMap := map[string]string{
 // 		"policy-scope": scope,
