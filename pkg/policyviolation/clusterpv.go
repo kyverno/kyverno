@@ -1,6 +1,7 @@
 package policyviolation
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -106,7 +107,7 @@ func (cpv *clusterPV) createPV(newPv *kyverno.ClusterPolicyViolation) error {
 	newPv.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 
 	// create resource
-	_, err = cpv.kyvernoInterface.ClusterPolicyViolations().Create(newPv)
+	_, err = cpv.kyvernoInterface.ClusterPolicyViolations().Create(context.TODO(), newPv, metav1.CreateOptions{})
 	if err != nil {
 		logger.Error(err, "failed to create cluster policy violation")
 		return err
@@ -134,7 +135,7 @@ func (cpv *clusterPV) updatePV(newPv, oldPv *kyverno.ClusterPolicyViolation) err
 	newPv.SetOwnerReferences(oldPv.GetOwnerReferences())
 
 	// update resource
-	_, err = cpv.kyvernoInterface.ClusterPolicyViolations().Update(newPv)
+	_, err = cpv.kyvernoInterface.ClusterPolicyViolations().Update(context.TODO(), newPv, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update cluster policy violation: %v", err)
 	}

@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -125,12 +126,12 @@ func (c *Client) getGroupVersionMapper(apiVersion string, kind string) schema.Gr
 
 // GetResource returns the resource in unstructured/json format
 func (c *Client) GetResource(apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
-	return c.getResourceInterface(apiVersion, kind, namespace).Get(name, meta.GetOptions{}, subresources...)
+	return c.getResourceInterface(apiVersion, kind, namespace).Get(context.TODO(), name, meta.GetOptions{}, subresources...)
 }
 
 //PatchResource patches the resource
 func (c *Client) PatchResource(apiVersion string, kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
-	return c.getResourceInterface(apiVersion, kind, namespace).Patch(name, patchTypes.JSONPatchType, patch, meta.PatchOptions{})
+	return c.getResourceInterface(apiVersion, kind, namespace).Patch(context.TODO(), name, patchTypes.JSONPatchType, patch, meta.PatchOptions{})
 }
 
 // GetDynamicInterface fetches underlying dynamic interface
@@ -145,7 +146,7 @@ func (c *Client) ListResource(apiVersion string, kind string, namespace string, 
 	if lselector != nil {
 		options = meta.ListOptions{LabelSelector: helperv1.FormatLabelSelector(lselector)}
 	}
-	return c.getResourceInterface(apiVersion, kind, namespace).List(options)
+	return c.getResourceInterface(apiVersion, kind, namespace).List(context.TODO(), options)
 }
 
 // DeleteResource deletes the specified resource
@@ -154,7 +155,7 @@ func (c *Client) DeleteResource(apiVersion string, kind string, namespace string
 	if dryRun {
 		options = meta.DeleteOptions{DryRun: []string{meta.DryRunAll}}
 	}
-	return c.getResourceInterface(apiVersion, kind, namespace).Delete(name, &options)
+	return c.getResourceInterface(apiVersion, kind, namespace).Delete(context.TODO(), name, options)
 
 }
 
@@ -166,7 +167,7 @@ func (c *Client) CreateResource(apiVersion string, kind string, namespace string
 	}
 	// convert typed to unstructured obj
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
-		return c.getResourceInterface(apiVersion, kind, namespace).Create(unstructuredObj, options)
+		return c.getResourceInterface(apiVersion, kind, namespace).Create(context.TODO(), unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("Unable to create resource ")
 }
@@ -179,7 +180,7 @@ func (c *Client) UpdateResource(apiVersion string, kind string, namespace string
 	}
 	// convert typed to unstructured obj
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
-		return c.getResourceInterface(apiVersion, kind, namespace).Update(unstructuredObj, options)
+		return c.getResourceInterface(apiVersion, kind, namespace).Update(context.TODO(), unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("Unable to update resource ")
 }
@@ -192,7 +193,7 @@ func (c *Client) UpdateStatusResource(apiVersion string, kind string, namespace 
 	}
 	// convert typed to unstructured obj
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
-		return c.getResourceInterface(apiVersion, kind, namespace).UpdateStatus(unstructuredObj, options)
+		return c.getResourceInterface(apiVersion, kind, namespace).UpdateStatus(context.TODO(), unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("Unable to update resource ")
 }

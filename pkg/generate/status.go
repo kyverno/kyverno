@@ -1,9 +1,12 @@
 package generate
 
 import (
+	"context"
+
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -24,7 +27,7 @@ func (sc StatusControl) Failed(gr kyverno.GenerateRequest, message string, genRe
 	gr.Status.Message = message
 	// Update Generated Resources
 	gr.Status.GeneratedResources = genResources
-	_, err := sc.client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).UpdateStatus(&gr)
+	_, err := sc.client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).UpdateStatus(context.TODO(), &gr, v1.UpdateOptions{})
 	if err != nil {
 		log.Log.Error(err, "failed to update generate request status", "name", gr.Name)
 		return err
@@ -40,7 +43,7 @@ func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyver
 	// Update Generated Resources
 	gr.Status.GeneratedResources = genResources
 
-	_, err := sc.client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).UpdateStatus(&gr)
+	_, err := sc.client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).UpdateStatus(context.TODO(), &gr, v1.UpdateOptions{})
 	if err != nil {
 		log.Log.Error(err, "failed to update generate request status", "name", gr.Name)
 		return err

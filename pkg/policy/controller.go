@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"os"
@@ -459,7 +460,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	if errors.IsNotFound(err) {
 		for _, v := range grList {
 			if key == v.Spec.Policy {
-				err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(), &metav1.DeleteOptions{})
+				err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
 				if err != nil {
 					logger.Error(err, "failed to delete gr")
 				}
@@ -483,7 +484,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 			v.SetLabels(map[string]string{
 				"policy-update": fmt.Sprintf("revision-count-%d", rand.Intn(100000)),
 			})
-			_, err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(v)
+			_, err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
 			if err != nil {
 				logger.Error(err, "failed to update gr")
 				return err
@@ -581,10 +582,10 @@ type RealPVControl struct {
 
 //DeleteClusterPolicyViolation deletes the policy violation
 func (r RealPVControl) DeleteClusterPolicyViolation(name string) error {
-	return r.Client.KyvernoV1().ClusterPolicyViolations().Delete(name, &metav1.DeleteOptions{})
+	return r.Client.KyvernoV1().ClusterPolicyViolations().Delete(context.TODO(), name, metav1.DeleteOptions{})
 }
 
 //DeleteNamespacedPolicyViolation deletes the namespaced policy violation
 func (r RealPVControl) DeleteNamespacedPolicyViolation(ns, name string) error {
-	return r.Client.KyvernoV1().PolicyViolations(ns).Delete(name, &metav1.DeleteOptions{})
+	return r.Client.KyvernoV1().PolicyViolations(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
 }

@@ -65,7 +65,7 @@ type PolicyReportResult struct {
 
 	// Resources is an optional reference to the resource checked by the policy and rule
 	// +optional
-	Resources []*ResourceStatus `json:"resources,omitempty"`
+	Resources []*corev1.ObjectReference `json:"resources,omitempty"`
 
 	// Message is a short user friendly description of the policy rule
 	Message string `json:"message,omitempty"`
@@ -78,16 +78,6 @@ type PolicyReportResult struct {
 
 	// Data provides additional information for the policy rule
 	Data map[string]string `json:"data,omitempty"`
-}
-
-// ResourceStatus provides the resource status
-type ResourceStatus struct {
-
-	// Resource is an optional reference to the resource check bu the policy rule
-	Resource *corev1.ObjectReference `json:"resource"`
-
-	// Status indicates the result of the policy rule check
-	Status PolicyStatus `json:"status,omitempty"`
 }
 
 // +genclient

@@ -19,6 +19,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	time "time"
 
 	policyreportv1alpha1 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
@@ -60,13 +61,13 @@ func NewFilteredClusterPolicyReportInformer(client versioned.Interface, resyncPe
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PolicyV1alpha1().ClusterPolicyReports().List(options)
+				return client.PolicyV1alpha1().ClusterPolicyReports().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PolicyV1alpha1().ClusterPolicyReports().Watch(options)
+				return client.PolicyV1alpha1().ClusterPolicyReports().Watch(context.TODO(), options)
 			},
 		},
 		&policyreportv1alpha1.ClusterPolicyReport{},
