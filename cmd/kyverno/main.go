@@ -18,7 +18,7 @@ import (
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
 	generatecleanup "github.com/kyverno/kyverno/pkg/generate/cleanup"
-	"github.com/kyverno/kyverno/pkg/jobs"
+	"github.com/kyverno/kyverno/pkg/policyreport/jobs"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policycache"
