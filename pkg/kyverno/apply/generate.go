@@ -114,12 +114,12 @@ func mergeResults(report *unstructured.Unstructured, results *[]interface{}) {
 	}
 
 	if ok {
-		*results = append(*results, entries)
+		*results = append(*results, entries...)
 	}
 }
 
-func updateSummary(results []interface{}) map[string]int {
-	summary := make(map[string]int)
+func updateSummary(results []interface{}) map[string]interface{} {
+	summary := make(map[string]interface{})
 
 	for _, result := range results {
 		typedResult, ok := result.(map[string]interface{})
@@ -134,15 +134,25 @@ func updateSummary(results []interface{}) map[string]int {
 				continue
 			}
 
-			summary["pass"] += len(resources)
+			pass, _ := summary["pass"].(int64)
+			pass += int64(len(resources))
+			summary["pass"] = pass
 		case report.StatusFail:
-			summary["fail"]++
+			fail, _ := summary["fail"].(int64)
+			fail++
+			summary["fail"] = fail
 		case "warn":
-			summary["warn"]++
+			warn, _ := summary["warn"].(int64)
+			warn++
+			summary["warn"] = warn
 		case "error":
-			summary["error"]++
+			e, _ := summary["error"].(int64)
+			e++
+			summary["error"] = e
 		case "skip":
-			summary["skip"]++
+			skip, _ := summary["skip"].(int64)
+			skip++
+			summary["skip"] = skip
 		}
 	}
 
