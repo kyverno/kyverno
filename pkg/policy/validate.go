@@ -36,7 +36,7 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 	}
 
 	if common.PolicyHasVariables(p) && common.PolicyHasNonAllowedVariables(p) {
-		return fmt.Errorf("policy contains reserved variables (serviceAccountName, serviceAccountNamespace)")
+		return fmt.Errorf("policy contains unknown variables")
 	}
 
 	if path, err := validateUniqueRuleName(p); err != nil {
@@ -458,7 +458,7 @@ func validateRuleContext(rule kyverno.Rule) (error) {
 		if entry.Name == ""{
 			return fmt.Errorf("a name is required for context entries")
 		}
-		
+
 		if entry.ConfigMap != nil {
 			if entry.ConfigMap.Name == "" {
 				return fmt.Errorf("a name is required for configMap context entry")
