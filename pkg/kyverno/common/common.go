@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"log"
 	"os"
 	"path/filepath"
 	yaml_v2 "sigs.k8s.io/yaml"
@@ -108,7 +107,6 @@ func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) bool {
 			}
 		}
 
-		log.Printf("matches all %v, matches allowed %v %v", matchesAll, ALLOWED_VARIABLES, matchesAllowed)
 		return true
 	}
 
