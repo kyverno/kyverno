@@ -284,10 +284,8 @@ func (gen *Generator) createConfigmap() error {
 	cm.Data[constant.Namespace] = string(rawData)
 
 	_, err = gen.dclient.UpdateResource("", "ConfigMap", config.KubePolicyNamespace, cm, false)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	return err
 }
 
 func (gen *Generator) syncHandler(info Info) error {

@@ -1,7 +1,6 @@
 package apply
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -119,8 +118,6 @@ func Test_mergeClusterReport(t *testing.T) {
 
 	entries, _, err := unstructured.NestedSlice(cpolr.UnstructuredContent(), "results")
 	assert.NilError(t, err)
-	fmt.Println(entries)
-	fmt.Println(expectedResults)
 
 	assert.Assert(t, reflect.DeepEqual(entries, expectedResults), entries...)
 
@@ -148,6 +145,6 @@ func Test_updateSummary(t *testing.T) {
 	}
 
 	summary := updateSummary(results)
-	assert.Assert(t, summary["pass"] == 5, summary["pass"])
-	assert.Assert(t, summary["fail"] == 3, summary["fail"])
+	assert.Assert(t, summary["pass"].(int64) == 5, summary["pass"])
+	assert.Assert(t, summary["fail"].(int64) == 3, summary["fail"])
 }
