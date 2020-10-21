@@ -12,12 +12,14 @@
 <a href="https://kyverno.io" rel="kyverno.io">![logo](documentation/images/Kyverno_Horizontal.png)</a>
 
 <p class="callout info" style="font-size: 2000%;">
-Kyverno is a policy engine designed for Kubernetes. It can validate, mutate, and generate configurations using admission controls and background scans. Kyverno policies are Kubernetes resources and do not require learning a new language. Kyverno is designed to work nicely with tools you already use like `kubectl`, `kustomize`, and `Git`.
+Kyverno is a policy engine designed for Kubernetes. It can validate, mutate, and generate configurations using admission controls and background scans. Kyverno policies are Kubernetes resources and do not require learning a new language. Kyverno is designed to work nicely with tools you already use like kubectl, kustomize, and Git.
 </p>
 
 ## Documentation
 
-Kyverno guides and reference documents are available at: <a href="https://kyverno.io/">kyverno.io</a>.
+Kyverno guides and reference documents are available at: <a href="https://kyverno.io/">kyverno.io</a>. 
+
+Try the [quick start guide](https://kyverno.io/docs/introduction/#quick-start) to install Kyverno and create your first policy.
 
 ## Contributing
 
