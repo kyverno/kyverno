@@ -16,25 +16,29 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/utils"
-	client "github.com/kyverno/kyverno/pkg/dclient"
 )
 
 // GetPolicies - Extracting the policies from multiple YAML
-func GetPolicies(paths []string,cluster bool, dClient *client.Client) (policies []*v1.ClusterPolicy, error error) {
+func GetPolicies(paths []string, cluster bool, dClient *client.Client, namespace string) (policies []*v1.ClusterPolicy, error error) {
+	if len(paths) == 0 {
+		// get the policies from the cluster based on the scope
+		ps, err := getPoliciesFromCluster(cluster, dClient, namespace)
+		if err != nil {
+			return policies, err
+		}
+		return ps, nil
+	}
+
 	for _, path := range paths {
-
-		fmt.Println("------------------ -3 ")
-
 		path = filepath.Clean(path)
-		fmt.Println("------------------ -2 ")
-
 		fileDesc, err := os.Stat(path)
 		if err != nil {
 			fmt.Println(err)
-			p, err := getPolicyFromCluster(path, cluster, dClient)
+			p, err := getPolicyFromCluster(path, cluster, dClient, namespace)
 
 			if err != nil {
 				return nil, err
@@ -42,37 +46,26 @@ func GetPolicies(paths []string,cluster bool, dClient *client.Client) (policies 
 			policies = append(policies, p)
 			continue
 		}
-		fmt.Println("------------------ -1 ")
-
 		if fileDesc.IsDir() {
-			fmt.Println("------------------ 0 ")
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
-				fmt.Println("------------------1")
 				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
 			}
-
-			fmt.Println("------------------2")
 			listOfFiles := make([]string, 0)
 			for _, file := range files {
 				listOfFiles = append(listOfFiles, filepath.Join(path, file.Name()))
 			}
-
-			fmt.Println("------------------3")
-			policiesFromDir, err := GetPolicies(listOfFiles, cluster, dClient)
+			policiesFromDir, err := GetPolicies(listOfFiles, cluster, dClient, namespace)
 			if err != nil {
 				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to extract policies from %v", listOfFiles), err)
 			}
-			fmt.Println("------------------4")
 
 			policies = append(policies, policiesFromDir...)
 		} else {
-			fmt.Println("------------------5")
 			file, err := ioutil.ReadFile(path)
 			if err != nil {
-				fmt.Println("------------------6")
 				// check if cluster flag is passed and get the policy from cluster
-				getPolicyFromCluster(path, cluster, dClient)
+				getPolicyFromCluster(path, cluster, dClient, namespace)
 				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to load file %v", path), err)
 			}
 			getPolicies, getErrors := utils.GetPolicy(file)
@@ -95,21 +88,15 @@ func GetPolicies(paths []string,cluster bool, dClient *client.Client) (policies 
 	return policies, nil
 }
 
-func getPolicyFromCluster(policyName string,cluster bool,  dClient *client.Client) (*v1.ClusterPolicy, error){
-	fmt.Println("getPolicyFromCluster:", policyName, cluster, dClient)
-
+func getPolicyFromCluster(policyName string, cluster bool, dClient *client.Client, namespace string) (*v1.ClusterPolicy, error) {
 	if !cluster {
 		return &v1.ClusterPolicy{}, nil
 	}
 	//var policy []*unstructured.Unstructured
-	policy, err := dClient.GetResource("", "ClusterPolicy", "", policyName, "")
-
-	fmt.Println("********************* 1")
-	fmt.Println(policy)
+	policy, err := dClient.GetResource("", "ClusterPolicy", namespace, policyName, "")
 
 	policyBytes, err := json.Marshal(policy.Object)
 	if err != nil {
-		fmt.Println("********************* 2")
 		fmt.Println(err)
 		return &v1.ClusterPolicy{}, err
 	}
@@ -118,7 +105,6 @@ func getPolicyFromCluster(policyName string,cluster bool,  dClient *client.Clien
 	err = json.Unmarshal(policyBytes, &p)
 
 	if err != nil {
-		fmt.Println("********************* 3")
 		fmt.Println(err)
 		return &v1.ClusterPolicy{}, err
 	}
@@ -147,9 +133,43 @@ func getPolicyFromCluster(policyName string,cluster bool,  dClient *client.Clien
 	return &p, nil
 }
 
+func getPoliciesFromCluster(cluster bool, dClient *client.Client, namespace string) ([]*v1.ClusterPolicy, error) {
+	res := make([]*v1.ClusterPolicy, 0)
+	if !cluster {
+		return res, nil
+	}
+
+	policyList, err := dClient.ListResource("", "ClusterPolicy", namespace, nil)
+	if err != nil {
+		fmt.Println("----------error: ", err)
+		return res, err
+	}
+
+	for _, policy := range policyList.Items {
+		policyBytes, err := json.Marshal(policy.Object)
+		if err != nil {
+			fmt.Println(err)
+			return res, err
+		}
+
+		var p v1.ClusterPolicy
+		err = json.Unmarshal(policyBytes, &p)
+
+		if err != nil {
+			fmt.Println(err)
+			return res, err
+		}
+
+		res = append(res, &p)
+		//resources = append(resources, resource.DeepCopy())
+	}
+
+	return res, nil
+}
+
 //ValidateAndGetPolicies - validating policies
-func ValidateAndGetPolicies(policyPaths []string, cluster bool, dClient *client.Client) ([]*v1.ClusterPolicy, error) {
-	policies, err := GetPolicies(policyPaths, cluster, dClient)
+func ValidateAndGetPolicies(policyPaths []string, cluster bool, dClient *client.Client, namespace string) ([]*v1.ClusterPolicy, error) {
+	policies, err := GetPolicies(policyPaths, cluster, dClient, namespace)
 	if err != nil {
 		if !sanitizedError.IsErrorSanitized(err) {
 			return nil, sanitizedError.NewWithError((fmt.Sprintf("failed to parse %v path/s.", policyPaths)), err)
@@ -190,7 +210,6 @@ func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) bool {
 // MutatePolicy - applies mutation to a policy
 func MutatePolicy(policy *v1.ClusterPolicy, logger logr.Logger) (*v1.ClusterPolicy, error) {
 	patches, _ := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
-
 	if len(patches) == 0 {
 		return policy, nil
 	}
@@ -206,6 +225,7 @@ func MutatePolicy(policy *v1.ClusterPolicy, logger logr.Logger) (*v1.ClusterPoli
 	if err != nil {
 		return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to unmarshal patches for %s policy", policy.Name), err)
 	}
+
 	patch, err := jsonpatch.DecodePatch(patches)
 	if err != nil {
 		return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to decode patch for %s policy", policy.Name), err)

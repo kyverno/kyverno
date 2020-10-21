@@ -3,8 +3,8 @@ package common
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"fmt"
+	"io/ioutil"
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
@@ -20,41 +20,68 @@ import (
 // the resources are fetched from
 // - local paths to resources, if given
 // - the k8s cluster, if given
-func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient *client.Client) ([]*unstructured.Unstructured, error) {
-	var resources []*unstructured.Unstructured
+func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient *client.Client, cluster bool, namespace string) ([]*unstructured.Unstructured, error) {
+	fmt.Println("GetResources called")
+	//var resources []*unstructured.Unstructured
+	resources := make([]*unstructured.Unstructured, 0)
 	var err error
 
-	if dClient != nil {
-		var resourceTypesMap = make(map[string]bool)
-		var resourceTypes []string
-		for _, policy := range policies {
-			for _, rule := range policy.Spec.Rules {
-				for _, kind := range rule.MatchResources.Kinds {
-					resourceTypesMap[kind] = true
-				}
+	var resourceTypesMap = make(map[string]bool)
+	var resourceTypes []string
+	for _, policy := range policies {
+		for _, rule := range policy.Spec.Rules {
+			for _, kind := range rule.MatchResources.Kinds {
+				resourceTypesMap[kind] = true
 			}
 		}
+	}
 
-		for kind := range resourceTypesMap {
-			resourceTypes = append(resourceTypes, kind)
+	for kind := range resourceTypesMap {
+		resourceTypes = append(resourceTypes, kind)
+	}
+
+
+	var resourceMap map[string]map[string]*unstructured.Unstructured
+	if cluster && dClient != nil {
+		resourceMap, err = getResourcesOfTypeFromCluster(resourceTypes, dClient, namespace)
+		if err != nil {
+			return nil, err
 		}
 
-		resources, err = getResourcesOfTypeFromCluster(resourceTypes, dClient)
-		if err != nil {
-			fmt.Println("$$$$$$$$$$$$$$$$$$$$$$$$")
-			return nil, err
+		if len(resourcePaths) == 0 {
+			for _, rm := range resourceMap {
+				for _, rr := range rm {
+					resources = append(resources, rr)
+				}
+			}
 		}
 	}
 
 	for _, resourcePath := range resourcePaths {
 		resourceBytes, err := getFileBytes(resourcePath)
 		if err != nil {
-			fmt.Println("######################## 1")
-			return nil, err
+			// check in the cluster for the given resource name
+			// what if two resources have same name ?
+			//r, err := getResourceFromCluster(resourceTypes, resourcePath, dClient)
+			//if err != nil {
+
+			//}
+			if cluster {
+				for _, rm := range resourceMap {
+					for rn, rr := range rm {
+						if rn == resourcePath {
+							resources = append(resources, rr)
+							continue
+						}
+					}
+				}
+			} else {
+				return nil, err
+			}
 		}
+
 		getResources, err := GetResource(resourceBytes)
 		if err != nil {
-			fmt.Println("######################## 2")
 			return nil, err
 		}
 
@@ -62,58 +89,65 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 			resources = append(resources, resource)
 		}
 	}
-
 	return resources, nil
+}
+
+func getResourceFromCluster(resourceTypes []string, resourceName string, dClient *client.Client) (*unstructured.Unstructured, error) {
+	var resource *unstructured.Unstructured
+	for _, kind := range resourceTypes {
+		r, err := dClient.GetResource("", kind, "", resourceName, "")
+
+		if err != nil {
+			continue
+		} else {
+			return r, nil
+		}
+	}
+
+	return resource, nil
 }
 
 // GetResource converts raw bytes to unstructured object
 func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
-	fmt.Println("@@@@@@@@@@@@@@@@@@@@@@ 1")
 	resources := make([]*unstructured.Unstructured, 0)
 	var getErrString string
 
 	files, splitDocError := utils.SplitYAMLDocuments(resourceBytes)
 	if splitDocError != nil {
-		fmt.Println("@@@@@@@@@@@@@@@@@@@@@@ 2")
 		return nil, splitDocError
 	}
 
 	for _, resourceYaml := range files {
 		resource, err := convertResourceToUnstructured(resourceYaml)
 		if err != nil {
-			fmt.Println("@@@@@@@@@@@@@@@@@@@@@@ 3")
 			getErrString = getErrString + err.Error() + "\n"
 		}
-
 		resources = append(resources, resource)
 	}
 
 	if getErrString != "" {
-		fmt.Println("@@@@@@@@@@@@@@@@@@@@@@ 4")
 		return nil, errors.New(getErrString)
 	}
 
 	return resources, nil
 }
 
-func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Client) ([]*unstructured.Unstructured, error) {
-
-	fmt.Println("^^^^^^^^^^^^^^^^^^^ 1")
+// output is a ma
+func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Client, namespace string) (map[string]map[string]*unstructured.Unstructured, error) {
+	r := make(map[string]map[string]*unstructured.Unstructured)
 
 	var resources []*unstructured.Unstructured
 
 	for _, kind := range resourceTypes {
-		fmt.Println("kind:", kind)
-
-		resourceList, err := dClient.ListResource("", kind, "", nil)
+		r[kind] = make(map[string]*unstructured.Unstructured)
+		resourceList, err := dClient.ListResource("", kind, namespace, nil)
 		if err != nil {
-			fmt.Println("^^^^^^^^^^^^^^^^^^^ 2")
 			fmt.Println(err)
 			return nil, err
 		}
-
 		version := resourceList.GetAPIVersion()
 		for _, resource := range resourceList.Items {
+			r[kind][resource.GetName()] = resource.DeepCopy()
 			resource.SetGroupVersionKind(schema.GroupVersionKind{
 				Group:   "",
 				Version: version,
@@ -122,9 +156,8 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Clien
 			resources = append(resources, resource.DeepCopy())
 		}
 	}
-	fmt.Println("^^^^^^^^^^^^^^^^^^^ 3")
 
-	return resources, nil
+	return r, nil
 }
 
 func getFileBytes(path string) ([]byte, error) {
@@ -137,27 +170,24 @@ func getFileBytes(path string) ([]byte, error) {
 
 func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error) {
 	decode := scheme.Codecs.UniversalDeserializer().Decode
+	fmt.Println("--------resourceYaml:                 ", string(resourceYaml))
 	resourceObject, metaData, err := decode(resourceYaml, nil, nil)
 	if err != nil {
-		fmt.Println("!!!!!!!!!!!!!!!!! 1")
 		return nil, err
 	}
 
 	resourceUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&resourceObject)
 	if err != nil {
-		fmt.Println("!!!!!!!!!!!!!!!!! 2")
 		return nil, err
 	}
 
 	resourceJSON, err := json.Marshal(resourceUnstructured)
 	if err != nil {
-		fmt.Println("!!!!!!!!!!!!!!!!! 3")
 		return nil, err
 	}
 
 	resource, err := engineutils.ConvertToUnstructured(resourceJSON)
 	if err != nil {
-		fmt.Println("!!!!!!!!!!!!!!!!! 4")
 		return nil, err
 	}
 
@@ -166,5 +196,6 @@ func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructu
 	if resource.GetNamespace() == "" {
 		resource.SetNamespace("default")
 	}
+
 	return resource, nil
 }

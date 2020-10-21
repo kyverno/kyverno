@@ -42,7 +42,6 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 		}
 		updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
 	}
-
 	patches = append(patches, patch...)
 
 	convertPatch, errs := convertPatchToJSON6902(policy, log)
@@ -54,11 +53,9 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 		}
 		updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
 	}
-
 	patches = append(patches, convertPatch...)
 
 	overlaySMPPatches, errs := convertOverlayToStrategicMerge(policy, log)
-
 	if len(errs) > 0 {
 		var errMsgs []string
 		for _, err := range errs {
@@ -67,7 +64,6 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 		}
 		updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
 	}
-
 	patches = append(patches, overlaySMPPatches...)
 
 	return utils.JoinPatches(patches), updateMsgs
@@ -285,7 +281,6 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log l
 
 	for _, rule := range policy.Spec.Rules {
 		patchPostion := insertIdx
-
 		convertToPatches := func(genRule kyvernoRule, patchPostion int) []byte {
 			operation := "add"
 			if existingAutoGenRule, alreadyExists := ruleMap[genRule.Name]; alreadyExists {
@@ -328,7 +323,9 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log l
 		genRule := generateRuleForControllers(rule, stripCronJob(controllers), log)
 		if !reflect.DeepEqual(genRule, kyvernoRule{}) {
 			pbytes := convertToPatches(genRule, patchPostion)
-			rulePatches = append(rulePatches, pbytes)
+			if pbytes != nil {
+				rulePatches = append(rulePatches, pbytes)
+			}
 			insertIdx++
 			patchPostion = insertIdx
 		}
@@ -337,11 +334,12 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log l
 		genRule = generateCronJobRule(rule, controllers, log)
 		if !reflect.DeepEqual(genRule, kyvernoRule{}) {
 			pbytes := convertToPatches(genRule, patchPostion)
-			rulePatches = append(rulePatches, pbytes)
+			if pbytes != nil {
+				rulePatches = append(rulePatches, pbytes)
+			}
 			insertIdx++
 		}
 	}
-
 	return
 }
 

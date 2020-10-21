@@ -39,8 +39,8 @@ type resultCounts struct {
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
-	var cluster, policy_report bool
-	var mutateLogPath, variablesString, valuesFile, scope string
+	var cluster, policyReport bool
+	var mutateLogPath, variablesString, valuesFile, namespace string
 	variables := make(map[string]string)
 
 	type Resource struct {
@@ -75,14 +75,11 @@ func Command() *cobra.Command {
 				}
 			}()
 
-			fmt.Println("+++++++++++++++++++++++++++ 1")
-
 			// base validations
 			if valuesFile != "" && variablesString != "" {
 				return sanitizedError.NewWithError("pass the values either using set flag or values_file flag", err)
 			}
 
-			fmt.Println("+++++++++++++++++++++++++++ 2")
 			// get the variables from (-s) param
 			if variablesString != "" {
 				kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
@@ -92,7 +89,6 @@ func Command() *cobra.Command {
 				}
 			}
 
-			fmt.Println("+++++++++++++++++++++++++++ 3")
 			// get the variable values from valuesFile (-f)
 			if valuesFile != "" {
 				yamlFile, err := ioutil.ReadFile(valuesFile)
@@ -119,8 +115,6 @@ func Command() *cobra.Command {
 				}
 			}
 
-			fmt.Println("+++++++++++++++++++++++++++ 4")
-
 			openAPIController, err := openapi.NewOpenAPIController()
 			if err != nil {
 				return sanitizedError.NewWithError("failed to initialize openAPIController", err)
@@ -138,9 +132,11 @@ func Command() *cobra.Command {
 				}
 			}
 
-			fmt.Println("+++++++++++++++++++++++++++ 5")
+			if len(policyPaths) == 0 && !cluster {
+				return sanitizedError.NewWithError(fmt.Sprintf("policy file(s) or cluster required"), err)
+			}
 
-			policies, err := common.ValidateAndGetPolicies(policyPaths, cluster, dClient)
+			policies, err := common.ValidateAndGetPolicies(policyPaths, cluster, dClient, namespace)
 			if err != nil {
 				if !sanitizedError.IsErrorSanitized(err) {
 					return sanitizedError.NewWithError("failed to mutate policies.", err)
@@ -148,8 +144,9 @@ func Command() *cobra.Command {
 				return err
 			}
 
-			fmt.Println("+++++++++++++++++++++++++++ 6")
-
+			// POLICIES ...
+			fmt.Println("------------------------------------------------------------------")
+			fmt.Println("Got Policies:", len(policies))
 
 
 			if len(resourcePaths) == 0 && !cluster {
@@ -175,32 +172,51 @@ func Command() *cobra.Command {
 				}
 			}
 
-
-
-
 			var resources []*unstructured.Unstructured
-			if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
-				if common.IsInputFromPipe() {
-					resourceStr := ""
-					scanner := bufio.NewScanner(os.Stdin)
-					for scanner.Scan() {
-						resourceStr = resourceStr + scanner.Text() + "\n"
-					}
+			if len(resourcePaths) > 0 {
+				if resourcePaths[0] == "-" {
+					if common.IsInputFromPipe() {
+						resourceStr := ""
+						scanner := bufio.NewScanner(os.Stdin)
+						for scanner.Scan() {
+							resourceStr = resourceStr + scanner.Text() + "\n"
+						}
 
-					yamlBytes := []byte(resourceStr)
-					resources, err = common.GetResource(yamlBytes)
+						yamlBytes := []byte(resourceStr)
+						resources, err = common.GetResource(yamlBytes)
+						if err != nil {
+							return sanitizedError.NewWithError("failed to extract the resources", err)
+						}
+					}
+				} else if cluster {
+					resources, err = common.GetResources(policies, resourcePaths, dClient, cluster, namespace)
 					if err != nil {
-						return sanitizedError.NewWithError("failed to extract the resources", err)
+						return sanitizedError.NewWithError("failed to load resources", err)
 					}
 				}
 			} else {
-				resources, err = common.GetResources(policies, resourcePaths, dClient)
+				resources, err = common.GetResources(policies, resourcePaths, dClient, cluster, namespace)
 				if err != nil {
 					return sanitizedError.NewWithError("failed to load resources", err)
 				}
 			}
 
+			fmt.Println("------------------------------------------------------------------")
+			fmt.Println("Got Resources:", len(resources))
+			for _, resource := range resources {
+				fmt.Println(resource.GetName())
+			}
+
+
+			fmt.Println("++++++++++++++++++++++++++++++++++++++++++")
+			fmt.Println("Before Mutate Policy: ", len(policies))
+
 			mutatedPolicies, err := mutatePolices(policies)
+
+			fmt.Println("++++++++++++++++++++++++++++++++++++++++++")
+			fmt.Println("Mutate Policy: ", len(mutatedPolicies))
+
+
 			msgPolicies := "1 policy"
 			if len(mutatedPolicies) > 1 {
 				msgPolicies = fmt.Sprintf("%d policies", len(policies))
@@ -211,14 +227,19 @@ func Command() *cobra.Command {
 				msgResources = fmt.Sprintf("%d resources", len(resources))
 			}
 
-			fmt.Printf("\napplying %s to %s \n", msgPolicies, msgResources)
+			//if len(mutatedPolicies) == 0 || len(resources) == 0 {
+			//	return
+			//}
 
-			if len(mutatedPolicies) == 0 || len(resources) == 0 {
-				return
+			if len(mutatedPolicies) > 0 && len(resources) > 0 {
+				fmt.Printf("\napplying %s to %s \n", msgPolicies, msgResources)
 			}
 
 			rc := &resultCounts{}
 			for _, policy := range mutatedPolicies {
+
+				fmt.Println("______________________")
+				fmt.Println(policy)
 
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
@@ -238,6 +259,9 @@ func Command() *cobra.Command {
 				}
 
 				for _, resource := range resources {
+					fmt.Println("Inside loop ....")
+					fmt.Println(resource)
+
 					// get values from file for this policy resource combination
 					thisPolicyResouceValues := make(map[string]string)
 					if len(valuesMap[policy.GetName()]) != 0 && !reflect.DeepEqual(valuesMap[policy.GetName()][resource.GetName()], Resource{}) {
@@ -275,13 +299,16 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&mutateLogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
 	cmd.Flags().StringVarP(&variablesString, "set", "s", "", "Variables that are required")
 	cmd.Flags().StringVarP(&valuesFile, "values_file", "f", "", "File containing values for policy variables")
-	cmd.Flags().BoolVarP(&policy_report, "policy_report", "", false, "Generates policy report when passed (default policyviolation r")
-	cmd.Flags().StringVarP(&scope, "scope", "", "", "Optional parameter passed with cluster flag")
+	cmd.Flags().BoolVarP(&policyReport, "policy_report", "", false, "Generates policy report when passed (default policyviolation r")
+	//cmd.Flags().StringVarP(&policyScope, "policy_scope", "", "", "Optional Policy parameter passed with cluster flag")
+	//cmd.Flags().StringVarP(&resourceScope, "resource_scope", "", "", "Optional Resource parameter passed with cluster flag")
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
 	return cmd
 }
 
 // applyPolicyOnResource - function to apply policy on resource
 func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured, mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, rc *resultCounts) error {
+	fmt.Println("applyPolicyOnResource called")
 	responseError := false
 
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
@@ -373,6 +400,10 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	} else {
 		rc.pass++
 	}
+
+	fmt.Println("---------------------")
+	fmt.Println(rc)
+
 	return nil
 }
 
