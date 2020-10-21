@@ -17,7 +17,9 @@ Kyverno is a policy engine designed for Kubernetes. It can validate, mutate, and
 
 ## Documentation
 
-Kyverno guides and reference documents are available at: <a href="https://kyverno.io/">kyverno.io</a>.
+Kyverno guides and reference documents are available at: <a href="https://kyverno.io/">kyverno.io</a>. 
+
+Try the [quick start guide](https://kyverno.io/docs/introduction/#quick-start) to install Kyverno and create your first policy.
 
 ## Contributing
 
