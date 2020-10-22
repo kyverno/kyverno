@@ -17,13 +17,24 @@ spec:
         app: kyverno
     spec:
       serviceAccountName: kyverno-service-account
+      securityContext:
+        runAsNonRoot: true
       initContainers:
         - name: kyverno-pre
           image: nirmata/kyvernopre:v1.1.9
           imagePullPolicy: Always
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - all
       containers:
         - name: kyverno
-          image: nirmata/kyverno:v1.1.9
+          image: nirmata/kyverno:latest
           imagePullPolicy: Always
           args:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]"
@@ -33,7 +44,9 @@ spec:
           # - "--profile"
           - "-v=2"
           ports:
-            - containerPort: 443
+            - containerPort: 9443
+              name: https
+              protocol: TCP
           env:
             - name: INIT_CONFIG
               value: init-config
@@ -43,6 +56,15 @@ spec:
                   fieldPath: metadata.namespace
             - name: KYVERNO_SVC
               value: kyverno-svc
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - all
           resources:
             requests:
               memory: "50Mi"
@@ -69,4 +91,3 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 4
             successThreshold: 1
-

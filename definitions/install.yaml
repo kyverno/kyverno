@@ -1043,7 +1043,7 @@ metadata:
 spec:
   ports:
   - port: 443
-    targetPort: 9443
+    targetPort: https
   selector:
     app: kyverno
 ---
@@ -1064,9 +1064,6 @@ spec:
       labels:
         app: kyverno
     spec:
-      hostNetwork: false
-      hostPID: false
-      hostIPC: false
       containers:
       - args:
         - --filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]
@@ -1080,13 +1077,13 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: nirmata/kyverno:v1.2.0-22-g704e1aad
-        imagePullPolicy: Never
+        image: nirmata/kyverno:v1.2.0
+        imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 4
           httpGet:
             path: /health/liveness
-            port: 9443
+            port: 443
             scheme: HTTPS
           initialDelaySeconds: 5
           periodSeconds: 10
@@ -1095,11 +1092,13 @@ spec:
         name: kyverno
         ports:
         - containerPort: 9443
+          name: https
+          protocol: TCP
         readinessProbe:
           failureThreshold: 4
           httpGet:
             path: /health/readiness
-            port: 9443
+            port: 443
             scheme: HTTPS
           initialDelaySeconds: 5
           periodSeconds: 10
@@ -1112,23 +1111,27 @@ spec:
             cpu: 100m
             memory: 50Mi
         securityContext:
-          runAsUser: 1000
-          runAsNonRoot: true
-          privileged: false
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - all
+            - all
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
       initContainers:
       - image: nirmata/kyvernopre:v1.2.0
         imagePullPolicy: Always
         name: kyverno-pre
         securityContext:
-          runAsUser: 1000
-          runAsNonRoot: true
-          privileged: false
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - all
+            - all
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+      securityContext:
+        runAsNonRoot: true
       serviceAccountName: kyverno-service-account

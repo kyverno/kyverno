@@ -1043,7 +1043,7 @@ metadata:
 spec:
   ports:
   - port: 443
-    targetPort: 443
+    targetPort: https
   selector:
     app: kyverno
 ---
@@ -1091,7 +1091,9 @@ spec:
           timeoutSeconds: 5
         name: kyverno
         ports:
-        - containerPort: 443
+        - containerPort: 9443
+          name: https
+          protocol: TCP
         readinessProbe:
           failureThreshold: 4
           httpGet:
@@ -1108,8 +1110,28 @@ spec:
           requests:
             cpu: 100m
             memory: 50Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - all
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
       initContainers:
       - image: nirmata/kyvernopre:v1.2.0
         imagePullPolicy: Always
         name: kyverno-pre
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - all
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+      securityContext:
+        runAsNonRoot: true
       serviceAccountName: kyverno-service-account
