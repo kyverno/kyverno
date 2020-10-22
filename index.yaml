@@ -2,8 +2,31 @@ apiVersion: v1
 entries:
   kyverno:
   - apiVersion: v1
+    appVersion: v1.2.1
+    created: "2020-10-22T20:12:35.627071216Z"
+    description: Kubernetes Native Policy Management
+    digest: f50dec98f09a2c43cba43d033c8839c8033df2a85fead98f6ae28980f7b72e5f
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.10.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    urls:
+    - kyverno-1.2.1.tgz
+    version: 1.2.1
+  - apiVersion: v1
     appVersion: v1.2.0
-    created: "2020-10-08T20:46:51.128684998Z"
+    created: "2020-10-22T20:12:35.626126901Z"
     description: Kubernetes Native Policy Management
     digest: ac4beee71de8260fa38bcfbd0c702f15ab393a678ebc3875cbb2bcd5022027f5
     home: https://kyverno.io/
@@ -26,11 +49,11 @@ entries:
     version: 1.2.0
   - apiVersion: v1
     appVersion: v1.1.12
-    created: "2020-10-08T20:46:51.092968699Z"
+    created: "2020-10-22T20:12:35.615595935Z"
     description: Kubernetes Native Policy Management
     digest: 981825fc3baf31d4a96c7ddfce78010fc4859dd0983974f06fe51cc7e2f546b5
     home: https://kyverno.io/
-    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/nirmata/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -43,17 +66,17 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/kyverno/kyverno
+    - https://github.com/nirmata/kyverno
     urls:
     - kyverno-1.1.12.tgz
     version: 1.1.12
   - apiVersion: v1
     appVersion: v1.1.11
-    created: "2020-10-08T20:46:51.091938596Z"
+    created: "2020-10-22T20:12:35.61459762Z"
     description: Kubernetes Native Policy Management
     digest: ff3d523b5f3bc51ecea3298a5525243783c74f8e376ed07c77e2ae45a9a135f9
     home: https://kyverno.io/
-    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/nirmata/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -66,17 +89,17 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/kyverno/kyverno
+    - https://github.com/nirmata/kyverno
     urls:
     - kyverno-1.1.11.tgz
     version: 1.1.11
   - apiVersion: v1
     appVersion: v1.1.10
-    created: "2020-10-08T20:46:51.090840293Z"
+    created: "2020-10-22T20:12:35.613715006Z"
     description: Kubernetes Native Policy Management
     digest: 00422185695d4013fe3f39d4cc65b48cf45c892dda2c9cea4c2297ed7e29db6d
     home: https://kyverno.io/
-    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/nirmata/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -89,13 +112,13 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/kyverno/kyverno
+    - https://github.com/nirmata/kyverno
     urls:
     - kyverno-1.1.10.tgz
     version: 1.1.10
   - apiVersion: v1
     appVersion: v1.1.9
-    created: "2020-10-08T20:46:51.127638795Z"
+    created: "2020-10-22T20:12:35.625078185Z"
     description: Kubernetes Native Policy Management
     digest: 92ea360e34f11a9702d93709e7db471f924cf7dc4772a1939f283a555f375dfd
     home: https://kyverno.io/
@@ -111,13 +134,13 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/kyverno/kyverno
+    - https://github.com/nirmata/kyverno
     urls:
     - kyverno-1.1.9.tgz
     version: 1.1.9
   - apiVersion: v1
     appVersion: v1.1.8
-    created: "2020-10-08T20:46:51.126500892Z"
+    created: "2020-10-22T20:12:35.623651062Z"
     description: Kubernetes Native Policy Management
     digest: c9ec4ba5c167cd340cf9b9b28b2215fa79c3cf4ba2ff0c15780f63cccb5ea7c7
     home: https://kyverno.io/
@@ -133,13 +156,13 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/kyverno/kyverno
+    - https://github.com/nirmata/kyverno
     urls:
     - kyverno-1.1.8.tgz
     version: 1.1.8
   - apiVersion: v1
     appVersion: v1.1.7
-    created: "2020-10-08T20:46:51.099438617Z"
+    created: "2020-10-22T20:12:35.622379542Z"
     description: Kubernetes Native Policy Management
     digest: 11793a44e5d02a1c7d3da960cbcdd6ffd7a8086b4fee2bdf96fe4a9d9cf94221
     home: https://kyverno.io/
@@ -155,13 +178,13 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/kyverno/kyverno
+    - https://github.com/nirmata/kyverno
     urls:
     - kyverno-1.1.7.tgz
     version: 1.1.7
   - apiVersion: v1
     appVersion: v1.1.7-rc4
-    created: "2020-10-08T20:46:51.098462414Z"
+    created: "2020-10-22T20:12:35.620654015Z"
     description: Kubernetes Native Policy Management
     digest: 4cd7930de3481c1faee9bbb8dca43a0e2f8c61aa2109e7c3b13e68588e38aec6
     home: https://kyverno.io/
@@ -177,13 +200,13 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/kyverno/kyverno
+    - https://github.com/nirmata/kyverno
     urls:
     - kyverno-1.1.7-rc4.tgz
     version: 1.1.7-rc4
   - apiVersion: v1
     appVersion: v1.1.7-rc3
-    created: "2020-10-08T20:46:51.097519212Z"
+    created: "2020-10-22T20:12:35.619304394Z"
     description: Kubernetes Native Policy Management
     digest: 5dd9ef0b9e62429459799da8ed321640c9fb4aac707aeb67eed42df02bb4d287
     home: https://kyverno.io/
@@ -199,13 +222,13 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/kyverno/kyverno
+    - https://github.com/nirmata/kyverno
     urls:
     - kyverno-1.1.7-rc3.tgz
     version: 1.1.7-rc3
   - apiVersion: v1
     appVersion: v1.1.7-rc2
-    created: "2020-10-08T20:46:51.095899907Z"
+    created: "2020-10-22T20:12:35.61839798Z"
     description: Kubernetes Native Policy Management
     digest: b73be8fd958b090262f6bac6e6077ca5f627a3d8d41a9eb95c0de1674da74b15
     home: https://kyverno.io/
@@ -221,13 +244,13 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/kyverno/kyverno
+    - https://github.com/nirmata/kyverno
     urls:
     - kyverno-1.1.7-rc2.tgz
     version: 1.1.7-rc2
   - apiVersion: v1
     appVersion: v1.1.7-rc1
-    created: "2020-10-08T20:46:51.094899404Z"
+    created: "2020-10-22T20:12:35.617497565Z"
     description: Kubernetes Native Policy Management
     digest: b0c29a95280dab94e5bca807e423588894f08828534922c1b2b0e7a3e6cdfb93
     home: https://kyverno.io/
@@ -243,13 +266,13 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/kyverno/kyverno
+    - https://github.com/nirmata/kyverno
     urls:
     - kyverno-1.1.7-rc1.tgz
     version: 1.1.7-rc1
   - apiVersion: v1
     appVersion: v1.1.6
-    created: "2020-10-08T20:46:51.093915902Z"
+    created: "2020-10-22T20:12:35.616567851Z"
     description: Kubernetes Native Policy Management
     digest: 9b2a1cf9bebb4bed5168d1c591132b461b91048cd85872c35a389bd48941ca20
     home: https://kyverno.io/
@@ -265,13 +288,13 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/kyverno/kyverno
+    - https://github.com/nirmata/kyverno
     urls:
     - kyverno-1.1.6.tgz
     version: 1.1.6
   - apiVersion: v1
     appVersion: v1.1.5
-    created: "2020-10-08T20:46:51.08969949Z"
+    created: "2020-10-22T20:12:35.612801391Z"
     description: Kubernetes Native Policy Management
     digest: 1c97920d5024cd7f79cf9c0df55a2cd4fcc8d883ea94f3cf6525e234ba884093
     home: https://kyverno.io/
@@ -287,13 +310,13 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/kyverno/kyverno
+    - https://github.com/nirmata/kyverno
     urls:
     - kyverno-0.0.1.tgz
     version: 0.0.1
   - apiVersion: v1
     appVersion: v1.1.5
-    created: "2020-10-08T20:46:51.129647001Z"
+    created: "2020-10-22T20:12:35.628031132Z"
     description: Kubernetes Native Policy Management
     digest: 1a7d948c005fcf04dc6f98a44a0f666727a60cfcf09c3a3e0052751938841ee5
     home: https://kyverno.io/
@@ -309,8 +332,8 @@ entries:
       url: https://kyverno.io/
     name: kyverno
     sources:
-    - https://github.com/kyverno/kyverno
+    - https://github.com/nirmata/kyverno
     urls:
     - helm-charts/kyverno-0.0.1.tgz
     version: 0.0.1
-generated: "2020-10-08T20:46:51.079516762Z"
+generated: "2020-10-22T20:12:35.611660773Z"
