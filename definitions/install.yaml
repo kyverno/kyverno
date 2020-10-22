@@ -1070,7 +1070,7 @@ spec:
       containers:
       - args:
         - --filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*]
-        - -v=3
+        - -v=2
         env:
         - name: INIT_CONFIG
           value: init-config
