@@ -1077,13 +1077,13 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: nirmata/kyverno:v1.2.0
+        image: nirmata/kyverno:v1.2.1
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 4
           httpGet:
             path: /health/liveness
-            port: 443
+            port: 9443
             scheme: HTTPS
           initialDelaySeconds: 5
           periodSeconds: 10
@@ -1098,7 +1098,7 @@ spec:
           failureThreshold: 4
           httpGet:
             path: /health/readiness
-            port: 443
+            port: 9443
             scheme: HTTPS
           initialDelaySeconds: 5
           periodSeconds: 10
@@ -1120,7 +1120,7 @@ spec:
           runAsNonRoot: true
           runAsUser: 1000
       initContainers:
-      - image: nirmata/kyvernopre:v1.2.0
+      - image: nirmata/kyvernopre:v1.2.1
         imagePullPolicy: Always
         name: kyverno-pre
         securityContext:
