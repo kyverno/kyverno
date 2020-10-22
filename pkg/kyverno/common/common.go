@@ -7,13 +7,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"os"
+	"path/filepath"
 	yaml_v2 "sigs.k8s.io/yaml"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -91,29 +88,28 @@ func GetPoliciesValidation(policyPaths []string) ([]*v1.ClusterPolicy, error) {
 // PolicyHasVariables - check for variables in the policy
 func PolicyHasVariables(policy v1.ClusterPolicy) bool {
 	policyRaw, _ := json.Marshal(policy)
-	regex := regexp.MustCompile(`\{\{[^{}]*\}\}`)
-	return len(regex.FindAllStringSubmatch(string(policyRaw), -1)) > 0
+	matches := REGEX_VARIABLES.FindAllStringSubmatch(string(policyRaw), -1)
+	return len(matches) > 0
 }
 
-// PolicyHasNonAllowedVariables - checks for non whitelisted variables in the policy
+// PolicyHasNonAllowedVariables - checks for unexpected variables in the policy
 func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) bool {
 	policyRaw, _ := json.Marshal(policy)
 
-	allVarsRegex := regexp.MustCompile(`\{\{[^{}]*\}\}`)
+	matchesAll := REGEX_VARIABLES.FindAllStringSubmatch(string(policyRaw), -1)
+	matchesAllowed := ALLOWED_VARIABLES.FindAllStringSubmatch(string(policyRaw), -1)
 
-	allowedList := []string{`request\.`, `serviceAccountName`, `serviceAccountNamespace`}
-	regexStr := `\{\{(` + strings.Join(allowedList, "|") + `)[^{}]*\}\}`
-	matchedVarsRegex := regexp.MustCompile(regexStr)
-
-	if len(allVarsRegex.FindAllStringSubmatch(string(policyRaw), -1)) > len(matchedVarsRegex.FindAllStringSubmatch(string(policyRaw), -1)) {
+	if len(matchesAll) > len(matchesAllowed) {
 		// If rules contains Context then skip this validation
 		for _, rule := range policy.Spec.Rules {
 			if len(rule.Context) > 0 {
 				return false
 			}
 		}
+
 		return true
 	}
+
 	return false
 }
 
