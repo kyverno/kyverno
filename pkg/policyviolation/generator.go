@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/constant"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/policyreport/jobs"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -48,7 +47,6 @@ type Generator struct {
 	dataStore            *dataStore
 	policyStatusListener policystatus.Listener
 	prgen                *policyreport.Generator
-	job                  *jobs.Job
 }
 
 //NewDataStore returns an instance of data store
@@ -117,7 +115,6 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 	prInformer policyreportinformer.ClusterPolicyReportInformer,
 	nsprInformer policyreportinformer.PolicyReportInformer,
 	policyStatus policystatus.Listener,
-	job *jobs.Job,
 	log logr.Logger,
 	stopChna <-chan struct{}) *Generator {
 	gen := Generator{
@@ -130,7 +127,6 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:            newDataStore(),
 		log:                  log,
-		job:                  job,
 		policyStatusListener: policyStatus,
 	}
 	return &gen

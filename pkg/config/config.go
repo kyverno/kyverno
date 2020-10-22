@@ -61,9 +61,6 @@ var (
 	// Kyverno CLI Image
 	KyvernoCliImage = "nirmata/kyverno-cli:latest"
 
-	// ConfimapNameForPolicyReport
-	ConfimapNameForPolicyReport = "kyverno-event"
-
 	//WebhookServiceName default kyverno webhook service name
 	WebhookServiceName = getWebhookServiceName()
 

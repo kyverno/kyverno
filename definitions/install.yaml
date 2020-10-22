@@ -1452,7 +1452,6 @@ rules:
   - networkpolicies
   - secrets
   - configmaps
-  - jobs
   - resourcequotas
   - limitranges
   - clusterroles
@@ -1619,7 +1618,6 @@ rules:
   resources:
   - policyreports
   - clusterpolicyreports
-  - jobs
   - pods
   verbs:
   - get
@@ -1794,14 +1792,6 @@ metadata:
   namespace: kyverno
 ---
 apiVersion: v1
-data:
-  App: ""
-kind: ConfigMap
-metadata:
-  name: kyverno-event
-  namespace: kyverno
----
-apiVersion: v1
 kind: Service
 metadata:
   labels:
@@ -1881,26 +1871,3 @@ spec:
         imagePullPolicy: Always
         name: kyverno-pre
       serviceAccountName: kyverno-service-account
----
-apiVersion: batch/v1beta1
-kind: CronJob
-metadata:
-  name: policyreport-background-scan
-  namespace: kyverno
-spec:
-  concurrencyPolicy: Forbid
-  failedJobsHistoryLimit: 4
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          containers:
-          - args:
-            - report
-            - all
-            image: evalsocket/kyverno-cli:latest
-            name: policyreport-background-scan
-          restartPolicy: OnFailure
-  schedule: '*/6 * * * *'
-  successfulJobsHistoryLimit: 4
-  suspend: true

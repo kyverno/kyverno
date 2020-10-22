@@ -22,7 +22,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/policyreport/jobs"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/policyviolation"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
@@ -192,10 +191,6 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies().Lister(),
 		pInformer.Kyverno().V1().Policies().Lister())
 
-	// Job Controller
-	// - Create Jobs for report
-	jobController := jobs.NewJobsJob(client, configData, log.Log.WithName("jobController"))
-
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
 	var pvgen *policyviolation.Generator
@@ -207,7 +202,6 @@ func main() {
 			pInformer.Policy().V1alpha1().ClusterPolicyReports(),
 			pInformer.Policy().V1alpha1().PolicyReports(),
 			statusSync.Listener,
-			jobController,
 			log.Log.WithName("PolicyViolationGenerator"),
 			stopCh,
 		)
@@ -222,7 +216,6 @@ func main() {
 			pInformer.Policy().V1alpha1().ClusterPolicyReports(),
 			pInformer.Policy().V1alpha1().PolicyReports(),
 			statusSync.Listener,
-			jobController,
 			log.Log.WithName("PolicyReportGenerator"),
 		)
 	}
@@ -246,7 +239,6 @@ func main() {
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
 		rCache,
-		jobController,
 	)
 
 	if err != nil {
@@ -388,7 +380,6 @@ func main() {
 	go statusSync.Run(1, stopCh)
 	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)
-	go jobController.Run(2, stopCh)
 	openAPISync.Run(1, stopCh)
 
 	// verifies if the admission control is enabled and active
@@ -397,11 +388,6 @@ func main() {
 	// max deadline: deadline*3 (set the deployment annotation as false)
 	server.RunAsync(stopCh)
 
-	// Create a sync Job for policy report
-	jobController.Add(jobs.JobInfo{
-		JobType: "POLICYSYNC",
-		JobData: "",
-	})
 	<-stopCh
 
 	// by default http.Server waits indefinitely for connections to return to idle and then shuts down

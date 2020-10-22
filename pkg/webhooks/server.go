@@ -10,14 +10,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/kyverno/kyverno/pkg/policyreport"
-
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/checker"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -28,8 +24,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
+	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/policyviolation"
+	"github.com/kyverno/kyverno/pkg/resourcecache"
 	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	userinfo "github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -37,11 +35,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 )
 
 // WebhookServer contains configured TLS server with MutationWebhook.

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/policyreport/jobs"
 	"github.com/kyverno/kyverno/pkg/policyviolation"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
@@ -112,8 +110,6 @@ type PolicyController struct {
 	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 
-	job *jobs.Job
-
 	policySync *PolicySync
 
 	// resCache - controls creation and fetching of resource informer cache
@@ -142,8 +138,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
-	resCache resourcecache.ResourceCacheIface,
-	job *jobs.Job) (*PolicyController, error) {
+	resCache resourcecache.ResourceCacheIface) (*PolicyController, error) {
 
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
@@ -164,7 +159,6 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		pvGenerator:            pvGenerator,
 		prGenerator:            prGenerator,
 		resourceWebhookWatcher: resourceWebhookWatcher,
-		job:                    job,
 		log:                    log,
 		resCache:               resCache,
 	}
@@ -366,23 +360,6 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 			return
 		}
 
-	}
-
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		go func(pc *PolicyController) {
-			ticker := time.Tick(constant.PolicyReportPolicyChangeResync)
-			for {
-				select {
-				case <-ticker:
-					if len(pc.policySync.policy) > 0 {
-						pc.job.Add(jobs.JobInfo{
-							JobType: "POLICYSYNC",
-							JobData: strings.Join(pc.policySync.policy, ","),
-						})
-					}
-				}
-			}
-		}(pc)
 	}
 
 	for i := 0; i < workers; i++ {
