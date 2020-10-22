@@ -74,7 +74,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /health/liveness
-              port: 443
+              port: 9443
               scheme: HTTPS
             initialDelaySeconds: 5
             periodSeconds: 10
@@ -84,7 +84,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /health/readiness
-              port: 443
+              port: 9443
               scheme: HTTPS
             initialDelaySeconds: 5
             periodSeconds: 10
