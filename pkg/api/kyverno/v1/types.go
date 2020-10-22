@@ -193,7 +193,7 @@ type Rule struct {
 }
 
 type ContextEntry struct {
-	Name      string             `json:"name,omitempty" yaml:"name,omitempty"`
+	Name      string              `json:"name,omitempty" yaml:"name,omitempty"`
 	ConfigMap *ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
 }
 

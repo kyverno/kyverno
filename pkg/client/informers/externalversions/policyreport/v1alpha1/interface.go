@@ -26,8 +26,12 @@ import (
 type Interface interface {
 	// ClusterPolicyReports returns a ClusterPolicyReportInformer.
 	ClusterPolicyReports() ClusterPolicyReportInformer
+	// ClusterReportRequests returns a ClusterReportRequestInformer.
+	ClusterReportRequests() ClusterReportRequestInformer
 	// PolicyReports returns a PolicyReportInformer.
 	PolicyReports() PolicyReportInformer
+	// ReportRequests returns a ReportRequestInformer.
+	ReportRequests() ReportRequestInformer
 }
 
 type version struct {
@@ -46,7 +50,17 @@ func (v *version) ClusterPolicyReports() ClusterPolicyReportInformer {
 	return &clusterPolicyReportInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// ClusterReportRequests returns a ClusterReportRequestInformer.
+func (v *version) ClusterReportRequests() ClusterReportRequestInformer {
+	return &clusterReportRequestInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
 // PolicyReports returns a PolicyReportInformer.
 func (v *version) PolicyReports() PolicyReportInformer {
 	return &policyReportInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// ReportRequests returns a ReportRequestInformer.
+func (v *version) ReportRequests() ReportRequestInformer {
+	return &reportRequestInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

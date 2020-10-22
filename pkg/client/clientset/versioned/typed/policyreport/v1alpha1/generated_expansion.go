@@ -20,4 +20,8 @@ package v1alpha1
 
 type ClusterPolicyReportExpansion interface{}
 
+type ClusterReportRequestExpansion interface{}
+
 type PolicyReportExpansion interface{}
+
+type ReportRequestExpansion interface{}

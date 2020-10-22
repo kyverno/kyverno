@@ -26,7 +26,6 @@ import (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1
@@ -36,10 +35,9 @@ import (
 // +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=`.summary.error`
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.skip`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:resource:shortName=cpolr
 
-// ClusterPolicyReport is the Schema for the clusterpolicyreports API
-type ClusterPolicyReport struct {
+// ClusterReportRequest is the Schema for the reportrequests API
+type ClusterReportRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
@@ -63,13 +61,13 @@ type ClusterPolicyReport struct {
 
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// ClusterPolicyReportList contains a list of ClusterPolicyReport
-type ClusterPolicyReportList struct {
+// ClusterReportRequestList contains a list of ClusterReportRequest
+type ClusterReportRequestList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ClusterPolicyReport `json:"items"`
+	Items           []ClusterReportRequest `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ClusterPolicyReport{}, &ClusterPolicyReportList{})
+	SchemeBuilder.Register(&ClusterReportRequest{}, &ClusterReportRequestList{})
 }

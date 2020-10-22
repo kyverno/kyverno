@@ -1,12 +1,9 @@
 /*
 Copyright 2020 The Kubernetes authors.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -58,7 +55,14 @@ type PolicyReportSummary struct {
 // +kubebuilder:validation:Enum=Pass;Fail;Warn;Error;Skip
 type PolicyStatus string
 
-// PolicyReportResult provides the result for an individual policy or rule
+// PolicySeverity has one of the following values:
+//   - High
+//   - Low
+//   - Medium
+// +kubebuilder:validation:Enum=High;Low;Medium
+type PolicySeverity string
+
+// PolicyReportResult provides the result for an individual policy
 type PolicyReportResult struct {
 
 	// Policy is the name of the policy
@@ -72,6 +76,13 @@ type PolicyReportResult struct {
 	// +optional
 	Resources []*corev1.ObjectReference `json:"resources,omitempty"`
 
+	// ResourceSelector is an optional selector for policy results that apply to multiple resources.
+	// For example, a policy result may apply to all pods that match a label.
+	// Either a Resource or a ResourceSelector can be specified. If neither are provided, the
+	// result is assumed to be for the policy report scope.
+	// +optional
+	ResourceSelector *metav1.LabelSelector `json:"resourceSelector,omitempty"`
+
 	// Message is a short user friendly description of the policy rule
 	Message string `json:"message,omitempty"`
 
@@ -83,6 +94,14 @@ type PolicyReportResult struct {
 
 	// Data provides additional information for the policy rule
 	Data map[string]string `json:"data,omitempty"`
+
+	// Category indicates policy category
+	// +optional
+	Category string `json:"category,omitempty"`
+
+	// Severity indicates policy severity
+	// +optional
+	Severity PolicySeverity `json:"severity,omitempty"`
 }
 
 // +genclient
@@ -96,6 +115,7 @@ type PolicyReportResult struct {
 // +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=`.summary.error`
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.skip`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:resource:shortName=polr
 
 // PolicyReport is the Schema for the policyreports API
 type PolicyReport struct {

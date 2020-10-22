@@ -169,10 +169,6 @@ godownloader:
 
 # kustomize-crd will create install.yaml 
 kustomize-crd:
-	# Create CRD for helm deployment Helm
-	curl -o ./definitions/crds/policy.kubernetes.io_clusterpolicyreports.yaml https://raw.githubusercontent.com/kubernetes-sigs/wg-policy-prototypes/master/policy-report/crd/policy.kubernetes.io_clusterpolicyreports.yaml
-	curl -o ./definitions/crds/policy.kubernetes.io_policyreports.yaml https://raw.githubusercontent.com/kubernetes-sigs/wg-policy-prototypes/master/policy-report/crd/policy.kubernetes.io_policyreports.yaml
-
 	# Create CRD for helm deployment Helm 
 	kustomize build ./definitions/crds > ./charts/kyverno/crds/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
@@ -184,6 +180,27 @@ kustomize-crd:
 release: 
 	kustomize build ./definitions > ./definitions/install.yaml
 	kustomize build ./definitions > ./definitions/release/install.yaml
+
+report-crd: controller-gen
+	$(CONTROLLER_GEN) crd:trivialVersions=true paths="./pkg/api/policyreport/v1alpha1" output:dir=./definitions/crds
+	$(CONTROLLER_GEN) object paths=./pkg/api/policyreport/v1alpha1
+
+# find or download controller-gen
+# download controller-gen if necessary
+controller-gen:
+ifeq (, $(shell which controller-gen))
+	@{ \
+	set -e ;\
+	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$CONTROLLER_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.5 ;\
+	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+	}
+CONTROLLER_GEN=$(GOBIN)/controller-gen
+else
+CONTROLLER_GEN=$(shell which controller-gen)
+endif
 
 # Run go fmt against code
 fmt:

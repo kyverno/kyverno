@@ -6,7 +6,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.5
   creationTimestamp: null
-  name: clusterpolicyreports.policy.kubernetes.io
+  name: reportrequests.policy.kubernetes.io
 spec:
   additionalPrinterColumns:
   - JSONPath: .scope.kind
@@ -37,18 +37,15 @@ spec:
     type: date
   group: policy.kubernetes.io
   names:
-    kind: ClusterPolicyReport
-    listKind: ClusterPolicyReportList
-    plural: clusterpolicyreports
-    shortNames:
-    - cpolr
-    singular: clusterpolicyreport
+    kind: ReportRequest
+    listKind: ReportRequestList
+    plural: reportrequests
+    singular: reportrequest
   scope: Namespaced
   subresources: {}
   validation:
     openAPIV3Schema:
-      description: ClusterPolicyReport is the Schema for the clusterpolicyreports
-        API
+      description: ReportRequest is the Schema for the reportrequests API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation

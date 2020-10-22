@@ -68,8 +68,12 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		// Group=policy.kubernetes.io, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("clusterpolicyreports"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policy().V1alpha1().ClusterPolicyReports().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("clusterreportrequests"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policy().V1alpha1().ClusterReportRequests().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("policyreports"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Policy().V1alpha1().PolicyReports().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("reportrequests"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Policy().V1alpha1().ReportRequests().Informer()}, nil
 
 	}
 

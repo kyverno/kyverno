@@ -32,8 +32,16 @@ func (c *FakePolicyV1alpha1) ClusterPolicyReports() v1alpha1.ClusterPolicyReport
 	return &FakeClusterPolicyReports{c}
 }
 
+func (c *FakePolicyV1alpha1) ClusterReportRequests(namespace string) v1alpha1.ClusterReportRequestInterface {
+	return &FakeClusterReportRequests{c, namespace}
+}
+
 func (c *FakePolicyV1alpha1) PolicyReports(namespace string) v1alpha1.PolicyReportInterface {
 	return &FakePolicyReports{c, namespace}
+}
+
+func (c *FakePolicyV1alpha1) ReportRequests(namespace string) v1alpha1.ReportRequestInterface {
+	return &FakeReportRequests{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

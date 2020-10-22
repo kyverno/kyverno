@@ -27,7 +27,9 @@ import (
 type PolicyV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	ClusterPolicyReportsGetter
+	ClusterReportRequestsGetter
 	PolicyReportsGetter
+	ReportRequestsGetter
 }
 
 // PolicyV1alpha1Client is used to interact with features provided by the policy.kubernetes.io group.
@@ -39,8 +41,16 @@ func (c *PolicyV1alpha1Client) ClusterPolicyReports() ClusterPolicyReportInterfa
 	return newClusterPolicyReports(c)
 }
 
+func (c *PolicyV1alpha1Client) ClusterReportRequests(namespace string) ClusterReportRequestInterface {
+	return newClusterReportRequests(c, namespace)
+}
+
 func (c *PolicyV1alpha1Client) PolicyReports(namespace string) PolicyReportInterface {
 	return newPolicyReports(c, namespace)
+}
+
+func (c *PolicyV1alpha1Client) ReportRequests(namespace string) ReportRequestInterface {
+	return newReportRequests(c, namespace)
 }
 
 // NewForConfig creates a new PolicyV1alpha1Client for the given config.

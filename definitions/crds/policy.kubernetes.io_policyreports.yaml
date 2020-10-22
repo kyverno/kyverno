@@ -40,6 +40,8 @@ spec:
     kind: PolicyReport
     listKind: PolicyReportList
     plural: policyreports
+    shortNames:
+    - polr
     singular: policyreport
   scope: Namespaced
   subresources: {}
