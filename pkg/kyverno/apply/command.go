@@ -148,7 +148,6 @@ func Command() *cobra.Command {
 			fmt.Println("------------------------------------------------------------------")
 			fmt.Println("Got Policies:", len(policies))
 
-
 			if len(resourcePaths) == 0 && !cluster {
 				return sanitizedError.NewWithError(fmt.Sprintf("resource file(s) or cluster required"), err)
 			}
@@ -193,6 +192,11 @@ func Command() *cobra.Command {
 					if err != nil {
 						return sanitizedError.NewWithError("failed to load resources", err)
 					}
+				} else {
+					resources, err = common.GetResources(policies, resourcePaths, dClient, cluster, namespace)
+					if err != nil {
+						return sanitizedError.NewWithError("failed to load resources", err)
+					}
 				}
 			} else {
 				resources, err = common.GetResources(policies, resourcePaths, dClient, cluster, namespace)
@@ -207,7 +211,6 @@ func Command() *cobra.Command {
 				fmt.Println(resource.GetName())
 			}
 
-
 			fmt.Println("++++++++++++++++++++++++++++++++++++++++++")
 			fmt.Println("Before Mutate Policy: ", len(policies))
 
@@ -215,7 +218,6 @@ func Command() *cobra.Command {
 
 			fmt.Println("++++++++++++++++++++++++++++++++++++++++++")
 			fmt.Println("Mutate Policy: ", len(mutatedPolicies))
-
 
 			msgPolicies := "1 policy"
 			if len(mutatedPolicies) > 1 {

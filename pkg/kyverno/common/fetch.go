@@ -40,7 +40,6 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 		resourceTypes = append(resourceTypes, kind)
 	}
 
-
 	var resourceMap map[string]map[string]*unstructured.Unstructured
 	if cluster && dClient != nil {
 		resourceMap, err = getResourcesOfTypeFromCluster(resourceTypes, dClient, namespace)
@@ -170,7 +169,6 @@ func getFileBytes(path string) ([]byte, error) {
 
 func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error) {
 	decode := scheme.Codecs.UniversalDeserializer().Decode
-	fmt.Println("--------resourceYaml:                 ", string(resourceYaml))
 	resourceObject, metaData, err := decode(resourceYaml, nil, nil)
 	if err != nil {
 		return nil, err
