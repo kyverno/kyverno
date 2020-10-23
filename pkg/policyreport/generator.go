@@ -9,7 +9,9 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	policyreportclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	reportrequest "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha1"
 	policyreportinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
+	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/constant"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/policystatus"
@@ -23,17 +25,45 @@ import (
 const workQueueName = "policy-violation-controller"
 const workQueueRetryLimit = 3
 
-//Generator creates PV
+// Generator creates report request
 type Generator struct {
-	dclient *dclient.Client
+	dclient                *dclient.Client
+	reportRequestInterface reportrequest.PolicyV1alpha1Interface
 
-	// returns true if the cluster policy store has been synced at least once
-	prSynced cache.InformerSynced
-	// returns true if the namespaced cluster policy store has been synced at at least once
-	nsprSynced cache.InformerSynced
-	log        logr.Logger
-	queue      workqueue.RateLimitingInterface
-	dataStore  *dataStore
+	reportRequestLister        policyreport.ReportRequestLister
+	clusterReportRequestLister policyreport.ClusterReportRequestLister
+
+	// returns true if the cluster report request store has been synced at least once
+	reportReqSynced cache.InformerSynced
+	// returns true if the namespaced report request store has been synced at at least once
+	clusterReportReqSynced cache.InformerSynced
+
+	queue     workqueue.RateLimitingInterface
+	dataStore *dataStore
+
+	log logr.Logger
+}
+
+// NewReportRequestGenerator returns a new instance of report request generator
+func NewReportRequestGenerator(client *policyreportclient.Clientset,
+	dclient *dclient.Client,
+	reportReqInformer policyreportinformer.ReportRequestInformer,
+	clusterReportReqInformer policyreportinformer.ClusterReportRequestInformer,
+	policyStatus policystatus.Listener,
+	log logr.Logger) *Generator {
+	gen := Generator{
+		reportRequestInterface:     client.PolicyV1alpha1(),
+		dclient:                    dclient,
+		clusterReportRequestLister: clusterReportReqInformer.Lister(),
+		clusterReportReqSynced:     clusterReportReqInformer.Informer().HasSynced,
+		reportRequestLister:        reportReqInformer.Lister(),
+		reportReqSynced:            reportReqInformer.Informer().HasSynced,
+		queue:                      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+		dataStore:                  newDataStore(),
+		log:                        log,
+	}
+
+	return &gen
 }
 
 //NewDataStore returns an instance of data store
@@ -87,8 +117,6 @@ func (i Info) toKey() string {
 	return strings.Join(keys, "/")
 }
 
-// make the struct hashable
-
 type PVEvent struct {
 	Namespace map[string][]Info
 	Cluster   map[string][]Info
@@ -99,31 +127,8 @@ type GeneratorInterface interface {
 	Add(infos ...Info)
 }
 
-// NewPRGenerator returns a new instance of policy violation generator
-func NewPRGenerator(client *policyreportclient.Clientset,
-	dclient *dclient.Client,
-	prInformer policyreportinformer.ClusterPolicyReportInformer,
-	nsprInformer policyreportinformer.PolicyReportInformer,
-	policyStatus policystatus.Listener,
-	log logr.Logger) *Generator {
-	gen := Generator{
-		dclient:    dclient,
-		prSynced:   prInformer.Informer().HasSynced,
-		nsprSynced: nsprInformer.Informer().HasSynced,
-		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
-		dataStore:  newDataStore(),
-		log:        log,
-	}
-
-	return &gen
-}
-
 func (gen *Generator) enqueue(info Info) {
-	// add to data map
 	keyHash := info.toKey()
-	// add to
-	// queue the key hash
-
 	gen.dataStore.add(keyHash, info)
 	gen.queue.Add(keyHash)
 }
@@ -142,7 +147,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("start")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, gen.prSynced, gen.nsprSynced) {
+	if !cache.WaitForCacheSync(stopCh, gen.reportReqSynced, gen.clusterReportReqSynced) {
 		logger.Info("failed to sync informer cache")
 	}
 
@@ -167,7 +172,7 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 
 	// retires requests if there is error
 	if gen.queue.NumRequeues(key) < workQueueRetryLimit {
-		logger.Error(err, "failed to sync policy violation", "key", key)
+		logger.Error(err, "failed to sync report request", "key", key)
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.
 		gen.queue.AddRateLimited(key)
@@ -215,7 +220,6 @@ func (gen *Generator) processNextWorkItem() bool {
 
 	if err != nil {
 		logger.Error(err, "failed to process item")
-		return true
 	}
 
 	return true

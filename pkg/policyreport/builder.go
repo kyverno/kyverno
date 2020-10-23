@@ -35,22 +35,21 @@ func GeneratePRsFromEngineResponse(ers []response.EngineResponse, log logr.Logge
 // Builder builds Policy Violation struct
 // this is base type of namespaced and cluster policy violation
 type Builder interface {
-	generate(info Info) kyverno.PolicyViolationTemplate
-	build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.PolicyViolationTemplate
+	build(info Info)
 }
 
-type pvBuilder struct{}
+type requestBuilder struct{}
 
-func NewPrBuilder() *pvBuilder {
-	return &pvBuilder{}
+func NewBuilder() *requestBuilder {
+	return &requestBuilder{}
 }
 
-func (pvb *pvBuilder) Generate(info Info) kyverno.PolicyViolationTemplate {
+func (pvb *requestBuilder) Generate(info Info) kyverno.PolicyViolationTemplate {
 	pv := pvb.build(info.PolicyName, info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName(), info.Rules)
 	return *pv
 }
 
-func (pvb *pvBuilder) build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.PolicyViolationTemplate {
+func (pvb *requestBuilder) build(policy, kind, namespace, name string, rules []kyverno.ViolatedRule) *kyverno.PolicyViolationTemplate {
 
 	pv := &kyverno.PolicyViolationTemplate{
 		Spec: kyverno.PolicyViolationSpec{

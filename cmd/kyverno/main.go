@@ -194,27 +194,25 @@ func main() {
 	// POLICY VIOLATION GENERATOR
 	// -- generate policy violation
 	var pvgen *policyviolation.Generator
-	if os.Getenv("POLICY-TYPE") == common.PolicyViolation {
-		pvgen = policyviolation.NewPVGenerator(pclient,
-			client,
-			pInformer.Kyverno().V1().ClusterPolicyViolations(),
-			pInformer.Kyverno().V1().PolicyViolations(),
-			pInformer.Policy().V1alpha1().ClusterPolicyReports(),
-			pInformer.Policy().V1alpha1().PolicyReports(),
-			statusSync.Listener,
-			log.Log.WithName("PolicyViolationGenerator"),
-			stopCh,
-		)
-	}
+	pvgen = policyviolation.NewPVGenerator(pclient,
+		client,
+		pInformer.Kyverno().V1().ClusterPolicyViolations(),
+		pInformer.Kyverno().V1().PolicyViolations(),
+		pInformer.Policy().V1alpha1().ClusterPolicyReports(),
+		pInformer.Policy().V1alpha1().PolicyReports(),
+		statusSync.Listener,
+		log.Log.WithName("PolicyViolationGenerator"),
+		stopCh,
+	)
 
 	// POLICY Report GENERATOR
 	// -- generate policy report
 	var prgen *policyreport.Generator
 	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		prgen = policyreport.NewPRGenerator(pclient,
+		prgen = policyreport.NewReportRequestGenerator(pclient,
 			client,
-			pInformer.Policy().V1alpha1().ClusterPolicyReports(),
-			pInformer.Policy().V1alpha1().PolicyReports(),
+			pInformer.Policy().V1alpha1().ReportRequests(),
+			pInformer.Policy().V1alpha1().ClusterReportRequests(),
 			statusSync.Listener,
 			log.Log.WithName("PolicyReportGenerator"),
 		)
@@ -363,20 +361,19 @@ func main() {
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
 	kubedynamicInformer.Start(stopCh)
+
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		go prgen.Run(2, stopCh)
+	}
+
 	go grgen.Run(1)
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
 	go policyCtrl.Run(2, stopCh)
-
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		go prgen.Run(2, stopCh)
-	} else {
-		go pvgen.Run(2, stopCh)
-	}
+	go pvgen.Run(2, stopCh)
 	go eventGenerator.Run(3, stopCh)
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
-
 	go statusSync.Run(1, stopCh)
 	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)

@@ -1,7 +1,6 @@
 package webhooks
 
 import (
-	"os"
 	"reflect"
 	"sort"
 	"time"
@@ -9,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -128,13 +126,7 @@ func HandleValidation(
 	// ADD POLICY VIOLATIONS
 	// violations are created with resource on "audit"
 	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger)
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		for _, v := range pvInfos {
-			prGenerator.Add(policyreport.Info(v))
-		}
-	} else {
-		pvGenerator.Add(pvInfos...)
-	}
+	pvGenerator.Add(pvInfos...)
 	return true, ""
 }
 

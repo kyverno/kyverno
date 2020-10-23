@@ -143,6 +143,13 @@ func (gen *Generator) enqueue(info Info) {
 
 //Add queues a policy violation create request
 func (gen *Generator) Add(infos ...Info) {
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		for _, v := range infos {
+			gen.prgen.Add(policyreport.Info(v))
+		}
+		return
+	}
+
 	for _, info := range infos {
 		gen.enqueue(info)
 	}
@@ -234,12 +241,9 @@ func (gen *Generator) processNextWorkItem() bool {
 }
 
 func (gen *Generator) syncHandler(info Info) error {
-	logger := gen.log
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		gen.prgen.Add(policyreport.Info(info))
-		return nil
-	}
 	var handler pvGenerator
+
+	logger := gen.log
 	builder := newPvBuilder()
 	if info.Resource.GetNamespace() == "" {
 		// cluster scope resource generate a clusterpolicy violation

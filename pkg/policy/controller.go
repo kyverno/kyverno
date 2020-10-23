@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -78,16 +77,16 @@ type PolicyController struct {
 	// nsLister can list/get namespacecs from the shared informer's store
 	nsLister listerv1.NamespaceLister
 
-	// pListerSynced returns true if the Policy store has been synced at least once
+	// pListerSynced returns true if the cluster policy store has been synced at least once
 	pListerSynced cache.InformerSynced
 
-	// npListerSynced returns true if the Policy store has been synced at least once
+	// npListerSynced returns true if the namespace policy store has been synced at least once
 	npListerSynced cache.InformerSynced
 
-	// pvListerSynced returns true if the Policy store has been synced at least once
+	// pvListerSynced returns true if the cluster policy violation store has been synced at least once
 	cpvListerSynced cache.InformerSynced
 
-	// pvListerSynced returns true if the Policy Violation store has been synced at least once
+	// pvListerSynced returns true if the policy violation store has been synced at least once
 	nspvListerSynced cache.InformerSynced
 
 	// nsListerSynced returns true if the namespace store has been synced at least once
@@ -110,18 +109,10 @@ type PolicyController struct {
 	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
 
-	policySync *PolicySync
-
 	// resCache - controls creation and fetching of resource informer cache
 	resCache resourcecache.ResourceCacheIface
 
 	log logr.Logger
-}
-
-// PolicySync Policy Report Job
-type PolicySync struct {
-	mux    sync.Mutex
-	policy []string
 }
 
 // NewPolicyController create a new PolicyController
@@ -181,10 +172,6 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		pc.cpvListerSynced = cpvInformer.Informer().HasSynced
 		pc.nspvLister = nspvInformer.Lister()
 		pc.nspvListerSynced = nspvInformer.Informer().HasSynced
-	} else {
-		pc.policySync = &PolicySync{
-			policy: make([]string, 0),
-		}
 	}
 
 	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -349,17 +336,14 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.nsListerSynced) {
-			logger.Info("failed to sync informer cache")
-			return
-		}
-	} else {
-		if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced, pc.grListerSynced) {
-			logger.Info("failed to sync informer cache")
-			return
-		}
+	cacheSyncs := []cache.InformerSynced{pc.pListerSynced, pc.nsListerSynced}
+	if os.Getenv("POLICY-TYPE") == common.PolicyViolation {
+		cacheSyncs = []cache.InformerSynced{pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced, pc.grListerSynced}
+	}
 
+	if !cache.WaitForCacheSync(stopCh, cacheSyncs...) {
+		logger.Info("failed to sync informer cache")
+		return
 	}
 
 	for i := 0; i < workers; i++ {
@@ -418,14 +402,13 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		logger.V(4).Info("finished syncing policy", "key", key, "processingTime", time.Since(startTime).String())
 	}()
 
-	namespace, key, isNamespacedPolicy := getIsNamespacedPolicy(key)
-	var policy *kyverno.ClusterPolicy
-	var err error
 	grList, err := pc.grLister.List(labels.Everything())
 	if err != nil {
 		logger.Error(err, "failed to list generate request")
 	}
 
+	var policy *kyverno.ClusterPolicy
+	namespace, key, isNamespacedPolicy := parseNamespacedPolicy(key)
 	if !isNamespacedPolicy {
 		policy, err = pc.pLister.Get(key)
 	} else {
@@ -434,28 +417,28 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		policy = ConvertPolicyToClusterPolicy(nspolicy)
 	}
 
-	if errors.IsNotFound(err) {
-		for _, v := range grList {
-			if key == v.Spec.Policy {
-				err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
-				if err != nil {
-					logger.Error(err, "failed to delete gr")
-				}
-			}
-		}
-		if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-			pc.policySync.mux.Lock()
-			pc.policySync.policy = append(pc.policySync.policy, key)
-			pc.policySync.mux.Unlock()
-			return nil
-		}
-		go pc.deletePolicyViolations(key)
+	if err != nil {
 		// remove webhook configurations if there are no policies
 		if err := pc.removeResourceWebhookConfiguration(); err != nil {
 			logger.Error(err, "failed to remove resource webhook configurations")
 		}
-		return nil
+
+		if errors.IsNotFound(err) {
+			for _, v := range grList {
+				if key == v.Spec.Policy {
+					err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
+					if err != nil {
+						logger.Error(err, "failed to delete gr")
+					}
+				}
+			}
+
+			go pc.deletePolicyViolations(key)
+			return nil
+		}
+		return err
 	}
+
 	for _, v := range grList {
 		if policy.Name == v.Spec.Policy {
 			v.SetLabels(map[string]string{
@@ -463,21 +446,14 @@ func (pc *PolicyController) syncPolicy(key string) error {
 			})
 			_, err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
 			if err != nil {
-				logger.Error(err, "failed to update gr")
-				return err
+				logger.Error(err, "failed to update gr", "policy", policy.GetName(), "gr", v.GetName())
 			}
 		}
 	}
 
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		pc.policySync.mux.Lock()
-		pc.policySync.policy = append(pc.policySync.policy, key)
-		pc.policySync.mux.Unlock()
-	} else {
-		pc.resourceWebhookWatcher.RegisterResourceWebhook()
-		engineResponses := pc.processExistingResources(policy)
-		pc.cleanupAndReport(engineResponses)
-	}
+	pc.resourceWebhookWatcher.RegisterResourceWebhook()
+	engineResponses := pc.processExistingResources(policy)
+	pc.cleanupAndReport(engineResponses)
 	return nil
 }
 
