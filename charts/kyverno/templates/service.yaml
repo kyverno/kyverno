@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: {{ template "kyverno.serviceName" . }}
   labels: {{ include "kyverno.labels" . | nindent 4 }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "kyverno.namespace" . }}
   {{- with .Values.service.annotations }}
   annotations: {{ tpl (toYaml .) $ | nindent 4 }}
   {{- end }}
