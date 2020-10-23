@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: {{ template "kyverno.fullname" . }}
   labels: {{ include "kyverno.labels" . | nindent 4 }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "kyverno.namespace" . }}
 spec:
   selector:
     matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
@@ -41,6 +41,15 @@ spec:
         - name: kyverno-pre
           image: {{ .Values.initImage.repository }}:{{ default .Chart.AppVersion (default .Values.image.tag .Values.initImage.tag) }}
           imagePullPolicy: {{ default .Values.image.pullPolicy .Values.initImage.pullPolicy }}
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - all
       containers:
         - name: kyverno
           image: {{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}
@@ -51,8 +60,17 @@ spec:
           {{- with .Values.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - all
           ports:
-          - containerPort: 443
+          - containerPort: 9443
             name: https
             protocol: TCP
           env:

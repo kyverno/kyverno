@@ -5,8 +5,12 @@ import (
 	"strconv"
 )
 
-// convertToString converts value to string
-func convertToString(value interface{}) (string, error) {
+// convertNumberToString converts value to string
+func convertNumberToString(value interface{}) (string, error) {
+	if value == nil {
+		return "0", nil
+	}
+
 	switch typed := value.(type) {
 	case string:
 		return string(typed), nil
@@ -17,7 +21,7 @@ func convertToString(value interface{}) (string, error) {
 	case int:
 		return strconv.Itoa(typed), nil
 	default:
-		return "", fmt.Errorf("Could not convert %T to string", value)
+		return "", fmt.Errorf("could not convert %v to string", typed)
 	}
 }
 

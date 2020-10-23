@@ -43,7 +43,7 @@ import (
 
 // WebhookServer contains configured TLS server with MutationWebhook.
 type WebhookServer struct {
-	server        http.Server
+	server        *http.Server
 	client        *client.Client
 	kyvernoClient *kyvernoclient.Clientset
 
@@ -213,8 +213,8 @@ func NewWebhookServer(
 		w.WriteHeader(http.StatusOK)
 	})
 
-	ws.server = http.Server{
-		Addr:         ":443", // Listen on port for HTTPS requests
+	ws.server = &http.Server{
+		Addr:         ":9443", // Listen on port for HTTPS requests
 		TLSConfig:    &tlsConfig,
 		Handler:      mux,
 		ReadTimeout:  15 * time.Second,
@@ -511,12 +511,12 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 		logger.Info("failed to sync informer cache")
 	}
 
-	go func(ws *WebhookServer) {
+	go func () {
 		logger.V(3).Info("started serving requests", "addr", ws.server.Addr)
 		if err := ws.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
 			logger.Error(err, "failed to listen to requests")
 		}
-	}(ws)
+	}()
 	logger.Info("starting")
 
 	// verifies if the admission control is enabled and active
