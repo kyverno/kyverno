@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: {{ template "kyverno.fullname" . }}
   labels: {{ include "kyverno.labels" . | nindent 4 }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "kyverno.namespace" . }}
 spec:
   selector:
     matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}

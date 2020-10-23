@@ -70,6 +70,7 @@ Parameter | Description | Default
 `initImage.tag` | Init image tag | `nil`
 `livenessProbe` | liveness probe configuration | `{}`
 `nameOverride` | override the name of the chart | `nil`
+`namespace` | namespace the chart deploy to | `nil`
 `nodeSelector` | node labels for pod assignment | `{}`
 `podAnnotations` | annotations to add to each pod | `{}`
 `podLabels` | additional labels to add to each pod | `{}`

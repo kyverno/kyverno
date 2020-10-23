@@ -47,6 +47,16 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- printf "%s" (default (include "kyverno.fullname" .) .Values.config.existingConfig) -}}
 {{- end -}}
 
+
+{{/* Get the namespace name. */}}
+{{- define "kyverno.namespace" -}}
+{{- if .Values.namespace -}}
+    {{- .Values.namespace -}}
+{{- else -}}
+    {{- .Release.Namespace -}}
+{{- end -}}
+{{- end -}}
+
 {{/* Create the name of the service to use */}}
 {{- define "kyverno.serviceName" -}}
 {{- printf "%s-svc" (include "kyverno.fullname" .) | trunc 63 | trimSuffix "-" -}}
