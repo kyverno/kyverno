@@ -41,8 +41,8 @@ func (c *PolicyV1alpha1Client) ClusterPolicyReports() ClusterPolicyReportInterfa
 	return newClusterPolicyReports(c)
 }
 
-func (c *PolicyV1alpha1Client) ClusterReportRequests(namespace string) ClusterReportRequestInterface {
-	return newClusterReportRequests(c, namespace)
+func (c *PolicyV1alpha1Client) ClusterReportRequests() ClusterReportRequestInterface {
+	return newClusterReportRequests(c)
 }
 
 func (c *PolicyV1alpha1Client) PolicyReports(namespace string) PolicyReportInterface {

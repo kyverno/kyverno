@@ -29,8 +29,8 @@ import (
 type ClusterReportRequestLister interface {
 	// List lists all ClusterReportRequests in the indexer.
 	List(selector labels.Selector) (ret []*v1alpha1.ClusterReportRequest, err error)
-	// ClusterReportRequests returns an object that can list and get ClusterReportRequests.
-	ClusterReportRequests(namespace string) ClusterReportRequestNamespaceLister
+	// Get retrieves the ClusterReportRequest from the index for a given name.
+	Get(name string) (*v1alpha1.ClusterReportRequest, error)
 	ClusterReportRequestListerExpansion
 }
 
@@ -52,38 +52,9 @@ func (s *clusterReportRequestLister) List(selector labels.Selector) (ret []*v1al
 	return ret, err
 }
 
-// ClusterReportRequests returns an object that can list and get ClusterReportRequests.
-func (s *clusterReportRequestLister) ClusterReportRequests(namespace string) ClusterReportRequestNamespaceLister {
-	return clusterReportRequestNamespaceLister{indexer: s.indexer, namespace: namespace}
-}
-
-// ClusterReportRequestNamespaceLister helps list and get ClusterReportRequests.
-type ClusterReportRequestNamespaceLister interface {
-	// List lists all ClusterReportRequests in the indexer for a given namespace.
-	List(selector labels.Selector) (ret []*v1alpha1.ClusterReportRequest, err error)
-	// Get retrieves the ClusterReportRequest from the indexer for a given namespace and name.
-	Get(name string) (*v1alpha1.ClusterReportRequest, error)
-	ClusterReportRequestNamespaceListerExpansion
-}
-
-// clusterReportRequestNamespaceLister implements the ClusterReportRequestNamespaceLister
-// interface.
-type clusterReportRequestNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all ClusterReportRequests in the indexer for a given namespace.
-func (s clusterReportRequestNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.ClusterReportRequest, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.ClusterReportRequest))
-	})
-	return ret, err
-}
-
-// Get retrieves the ClusterReportRequest from the indexer for a given namespace and name.
-func (s clusterReportRequestNamespaceLister) Get(name string) (*v1alpha1.ClusterReportRequest, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
+// Get retrieves the ClusterReportRequest from the index for a given name.
+func (s *clusterReportRequestLister) Get(name string) (*v1alpha1.ClusterReportRequest, error) {
+	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err
 	}

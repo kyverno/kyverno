@@ -33,7 +33,7 @@ import (
 // ClusterReportRequestsGetter has a method to return a ClusterReportRequestInterface.
 // A group's client should implement this interface.
 type ClusterReportRequestsGetter interface {
-	ClusterReportRequests(namespace string) ClusterReportRequestInterface
+	ClusterReportRequests() ClusterReportRequestInterface
 }
 
 // ClusterReportRequestInterface has methods to work with ClusterReportRequest resources.
@@ -52,14 +52,12 @@ type ClusterReportRequestInterface interface {
 // clusterReportRequests implements ClusterReportRequestInterface
 type clusterReportRequests struct {
 	client rest.Interface
-	ns     string
 }
 
 // newClusterReportRequests returns a ClusterReportRequests
-func newClusterReportRequests(c *PolicyV1alpha1Client, namespace string) *clusterReportRequests {
+func newClusterReportRequests(c *PolicyV1alpha1Client) *clusterReportRequests {
 	return &clusterReportRequests{
 		client: c.RESTClient(),
-		ns:     namespace,
 	}
 }
 
@@ -67,7 +65,6 @@ func newClusterReportRequests(c *PolicyV1alpha1Client, namespace string) *cluste
 func (c *clusterReportRequests) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ClusterReportRequest, err error) {
 	result = &v1alpha1.ClusterReportRequest{}
 	err = c.client.Get().
-		Namespace(c.ns).
 		Resource("clusterreportrequests").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -84,7 +81,6 @@ func (c *clusterReportRequests) List(ctx context.Context, opts v1.ListOptions) (
 	}
 	result = &v1alpha1.ClusterReportRequestList{}
 	err = c.client.Get().
-		Namespace(c.ns).
 		Resource("clusterreportrequests").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -101,7 +97,6 @@ func (c *clusterReportRequests) Watch(ctx context.Context, opts v1.ListOptions) 
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Namespace(c.ns).
 		Resource("clusterreportrequests").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -112,7 +107,6 @@ func (c *clusterReportRequests) Watch(ctx context.Context, opts v1.ListOptions) 
 func (c *clusterReportRequests) Create(ctx context.Context, clusterReportRequest *v1alpha1.ClusterReportRequest, opts v1.CreateOptions) (result *v1alpha1.ClusterReportRequest, err error) {
 	result = &v1alpha1.ClusterReportRequest{}
 	err = c.client.Post().
-		Namespace(c.ns).
 		Resource("clusterreportrequests").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(clusterReportRequest).
@@ -125,7 +119,6 @@ func (c *clusterReportRequests) Create(ctx context.Context, clusterReportRequest
 func (c *clusterReportRequests) Update(ctx context.Context, clusterReportRequest *v1alpha1.ClusterReportRequest, opts v1.UpdateOptions) (result *v1alpha1.ClusterReportRequest, err error) {
 	result = &v1alpha1.ClusterReportRequest{}
 	err = c.client.Put().
-		Namespace(c.ns).
 		Resource("clusterreportrequests").
 		Name(clusterReportRequest.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -138,7 +131,6 @@ func (c *clusterReportRequests) Update(ctx context.Context, clusterReportRequest
 // Delete takes name of the clusterReportRequest and deletes it. Returns an error if one occurs.
 func (c *clusterReportRequests) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
-		Namespace(c.ns).
 		Resource("clusterreportrequests").
 		Name(name).
 		Body(&opts).
@@ -153,7 +145,6 @@ func (c *clusterReportRequests) DeleteCollection(ctx context.Context, opts v1.De
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Namespace(c.ns).
 		Resource("clusterreportrequests").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -166,7 +157,6 @@ func (c *clusterReportRequests) DeleteCollection(ctx context.Context, opts v1.De
 func (c *clusterReportRequests) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ClusterReportRequest, err error) {
 	result = &v1alpha1.ClusterReportRequest{}
 	err = c.client.Patch(pt).
-		Namespace(c.ns).
 		Resource("clusterreportrequests").
 		Name(name).
 		SubResource(subresources...).

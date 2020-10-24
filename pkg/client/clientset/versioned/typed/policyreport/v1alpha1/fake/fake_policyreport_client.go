@@ -32,8 +32,8 @@ func (c *FakePolicyV1alpha1) ClusterPolicyReports() v1alpha1.ClusterPolicyReport
 	return &FakeClusterPolicyReports{c}
 }
 
-func (c *FakePolicyV1alpha1) ClusterReportRequests(namespace string) v1alpha1.ClusterReportRequestInterface {
-	return &FakeClusterReportRequests{c, namespace}
+func (c *FakePolicyV1alpha1) ClusterReportRequests() v1alpha1.ClusterReportRequestInterface {
+	return &FakeClusterReportRequests{c}
 }
 
 func (c *FakePolicyV1alpha1) PolicyReports(namespace string) v1alpha1.PolicyReportInterface {

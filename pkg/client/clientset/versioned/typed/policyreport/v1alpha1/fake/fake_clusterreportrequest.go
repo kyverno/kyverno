@@ -33,7 +33,6 @@ import (
 // FakeClusterReportRequests implements ClusterReportRequestInterface
 type FakeClusterReportRequests struct {
 	Fake *FakePolicyV1alpha1
-	ns   string
 }
 
 var clusterreportrequestsResource = schema.GroupVersionResource{Group: "policy.kubernetes.io", Version: "v1alpha1", Resource: "clusterreportrequests"}
@@ -43,8 +42,7 @@ var clusterreportrequestsKind = schema.GroupVersionKind{Group: "policy.kubernete
 // Get takes name of the clusterReportRequest, and returns the corresponding clusterReportRequest object, and an error if there is any.
 func (c *FakeClusterReportRequests) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ClusterReportRequest, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(clusterreportrequestsResource, c.ns, name), &v1alpha1.ClusterReportRequest{})
-
+		Invokes(testing.NewRootGetAction(clusterreportrequestsResource, name), &v1alpha1.ClusterReportRequest{})
 	if obj == nil {
 		return nil, err
 	}
@@ -54,8 +52,7 @@ func (c *FakeClusterReportRequests) Get(ctx context.Context, name string, option
 // List takes label and field selectors, and returns the list of ClusterReportRequests that match those selectors.
 func (c *FakeClusterReportRequests) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ClusterReportRequestList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(clusterreportrequestsResource, clusterreportrequestsKind, c.ns, opts), &v1alpha1.ClusterReportRequestList{})
-
+		Invokes(testing.NewRootListAction(clusterreportrequestsResource, clusterreportrequestsKind, opts), &v1alpha1.ClusterReportRequestList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -76,15 +73,13 @@ func (c *FakeClusterReportRequests) List(ctx context.Context, opts v1.ListOption
 // Watch returns a watch.Interface that watches the requested clusterReportRequests.
 func (c *FakeClusterReportRequests) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(clusterreportrequestsResource, c.ns, opts))
-
+		InvokesWatch(testing.NewRootWatchAction(clusterreportrequestsResource, opts))
 }
 
 // Create takes the representation of a clusterReportRequest and creates it.  Returns the server's representation of the clusterReportRequest, and an error, if there is any.
 func (c *FakeClusterReportRequests) Create(ctx context.Context, clusterReportRequest *v1alpha1.ClusterReportRequest, opts v1.CreateOptions) (result *v1alpha1.ClusterReportRequest, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(clusterreportrequestsResource, c.ns, clusterReportRequest), &v1alpha1.ClusterReportRequest{})
-
+		Invokes(testing.NewRootCreateAction(clusterreportrequestsResource, clusterReportRequest), &v1alpha1.ClusterReportRequest{})
 	if obj == nil {
 		return nil, err
 	}
@@ -94,8 +89,7 @@ func (c *FakeClusterReportRequests) Create(ctx context.Context, clusterReportReq
 // Update takes the representation of a clusterReportRequest and updates it. Returns the server's representation of the clusterReportRequest, and an error, if there is any.
 func (c *FakeClusterReportRequests) Update(ctx context.Context, clusterReportRequest *v1alpha1.ClusterReportRequest, opts v1.UpdateOptions) (result *v1alpha1.ClusterReportRequest, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(clusterreportrequestsResource, c.ns, clusterReportRequest), &v1alpha1.ClusterReportRequest{})
-
+		Invokes(testing.NewRootUpdateAction(clusterreportrequestsResource, clusterReportRequest), &v1alpha1.ClusterReportRequest{})
 	if obj == nil {
 		return nil, err
 	}
@@ -105,14 +99,13 @@ func (c *FakeClusterReportRequests) Update(ctx context.Context, clusterReportReq
 // Delete takes name of the clusterReportRequest and deletes it. Returns an error if one occurs.
 func (c *FakeClusterReportRequests) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(clusterreportrequestsResource, c.ns, name), &v1alpha1.ClusterReportRequest{})
-
+		Invokes(testing.NewRootDeleteAction(clusterreportrequestsResource, name), &v1alpha1.ClusterReportRequest{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeClusterReportRequests) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(clusterreportrequestsResource, c.ns, listOpts)
+	action := testing.NewRootDeleteCollectionAction(clusterreportrequestsResource, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.ClusterReportRequestList{})
 	return err
@@ -121,8 +114,7 @@ func (c *FakeClusterReportRequests) DeleteCollection(ctx context.Context, opts v
 // Patch applies the patch and returns the patched clusterReportRequest.
 func (c *FakeClusterReportRequests) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ClusterReportRequest, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(clusterreportrequestsResource, c.ns, name, pt, data, subresources...), &v1alpha1.ClusterReportRequest{})
-
+		Invokes(testing.NewRootPatchSubresourceAction(clusterreportrequestsResource, name, pt, data, subresources...), &v1alpha1.ClusterReportRequest{})
 	if obj == nil {
 		return nil, err
 	}

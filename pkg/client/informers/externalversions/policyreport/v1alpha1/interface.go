@@ -52,7 +52,7 @@ func (v *version) ClusterPolicyReports() ClusterPolicyReportInformer {
 
 // ClusterReportRequests returns a ClusterReportRequestInformer.
 func (v *version) ClusterReportRequests() ClusterReportRequestInformer {
-	return &clusterReportRequestInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+	return &clusterReportRequestInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // PolicyReports returns a PolicyReportInformer.

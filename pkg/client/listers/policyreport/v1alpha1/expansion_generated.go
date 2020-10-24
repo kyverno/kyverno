@@ -26,10 +26,6 @@ type ClusterPolicyReportListerExpansion interface{}
 // ClusterReportRequestLister.
 type ClusterReportRequestListerExpansion interface{}
 
-// ClusterReportRequestNamespaceListerExpansion allows custom methods to be added to
-// ClusterReportRequestNamespaceLister.
-type ClusterReportRequestNamespaceListerExpansion interface{}
-
 // PolicyReportListerExpansion allows custom methods to be added to
 // PolicyReportLister.
 type PolicyReportListerExpansion interface{}
