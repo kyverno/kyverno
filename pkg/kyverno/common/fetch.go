@@ -3,7 +3,6 @@ package common
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -21,7 +20,6 @@ import (
 // - local paths to resources, if given
 // - the k8s cluster, if given
 func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient *client.Client, cluster bool, namespace string) ([]*unstructured.Unstructured, error) {
-	fmt.Println("GetResources called")
 	//var resources []*unstructured.Unstructured
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
@@ -141,7 +139,7 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Clien
 		r[kind] = make(map[string]*unstructured.Unstructured)
 		resourceList, err := dClient.ListResource("", kind, namespace, nil)
 		if err != nil {
-			fmt.Println(err)
+			//fmt.Println(err)
 			return nil, err
 		}
 		version := resourceList.GetAPIVersion()

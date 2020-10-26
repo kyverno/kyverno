@@ -17,7 +17,7 @@ import (
 
 const clusterpolicyreport = "clusterpolicyreport"
 
-// resps is the engine reponses generated for a single policy
+// resps is the engine responses generated for a single policy
 func buildPolicyReports(resps []response.EngineResponse) (res []*unstructured.Unstructured) {
 	var raw []byte
 	var err error

@@ -37,7 +37,7 @@ func GetPolicies(paths []string, cluster bool, dClient *client.Client, namespace
 		path = filepath.Clean(path)
 		fileDesc, err := os.Stat(path)
 		if err != nil {
-			fmt.Println(err)
+			//fmt.Println(err)
 			p, err := getPolicyFromCluster(path, cluster, dClient, namespace)
 
 			if err != nil {
@@ -97,7 +97,7 @@ func getPolicyFromCluster(policyName string, cluster bool, dClient *client.Clien
 
 	policyBytes, err := json.Marshal(policy.Object)
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
 		return &v1.ClusterPolicy{}, err
 	}
 
@@ -105,7 +105,7 @@ func getPolicyFromCluster(policyName string, cluster bool, dClient *client.Clien
 	err = json.Unmarshal(policyBytes, &p)
 
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
 		return &v1.ClusterPolicy{}, err
 	}
 
@@ -141,14 +141,14 @@ func getPoliciesFromCluster(cluster bool, dClient *client.Client, namespace stri
 
 	policyList, err := dClient.ListResource("", "ClusterPolicy", namespace, nil)
 	if err != nil {
-		fmt.Println("----------error: ", err)
+		//fmt.Println("----------error: ", err)
 		return res, err
 	}
 
 	for _, policy := range policyList.Items {
 		policyBytes, err := json.Marshal(policy.Object)
 		if err != nil {
-			fmt.Println(err)
+			//fmt.Println(err)
 			return res, err
 		}
 
@@ -156,7 +156,7 @@ func getPoliciesFromCluster(cluster bool, dClient *client.Client, namespace stri
 		err = json.Unmarshal(policyBytes, &p)
 
 		if err != nil {
-			fmt.Println(err)
+			//fmt.Println(err)
 			return res, err
 		}
 

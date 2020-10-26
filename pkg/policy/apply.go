@@ -74,7 +74,7 @@ func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, 
 func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse response.EngineResponse, log logr.Logger) (response.EngineResponse, error) {
 	rawResource, err := resource.MarshalJSON()
 	if err != nil {
-		log.Error(err, "faield to marshall resource")
+		log.Error(err, "failed to marshall resource")
 		return response.EngineResponse{}, err
 	}
 
