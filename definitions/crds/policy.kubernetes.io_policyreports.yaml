@@ -17,19 +17,19 @@ spec:
     name: Name
     priority: 1
     type: string
-  - JSONPath: .summary.pass
+  - JSONPath: .summary.Pass
     name: Pass
     type: integer
-  - JSONPath: .summary.fail
+  - JSONPath: .summary.Fail
     name: Fail
     type: integer
-  - JSONPath: .summary.warn
+  - JSONPath: .summary.Warn
     name: Warn
     type: integer
-  - JSONPath: .summary.error
+  - JSONPath: .summary.Error
     name: Error
     type: integer
-  - JSONPath: .summary.skip
+  - JSONPath: .summary.Skip
     name: Skip
     type: integer
   - JSONPath: .metadata.creationTimestamp
@@ -300,32 +300,32 @@ spec:
         summary:
           description: PolicyReportSummary provides a summary of results
           properties:
-            error:
+            Error:
               description: Error provides the count of policies that could not be
                 evaluated
               type: integer
-            fail:
+            Fail:
               description: Fail provides the count of policies whose requirements
                 were not met
               type: integer
-            pass:
+            Pass:
               description: Pass provides the count of policies whose requirements
                 were met
               type: integer
-            skip:
+            Skip:
               description: Skip indicates the count of policies that were not selected
                 for evaluation
               type: integer
-            warn:
+            Warn:
               description: Warn provides the count of unscored policies whose requirements
                 were not met
               type: integer
           required:
-          - error
-          - fail
-          - pass
-          - skip
-          - warn
+          - Error
+          - Fail
+          - Pass
+          - Skip
+          - Warn
           type: object
       type: object
   version: v1alpha1

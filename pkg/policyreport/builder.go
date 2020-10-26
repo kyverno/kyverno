@@ -87,8 +87,7 @@ func (pvb *requestBuilder) build(info Info) (*unstructured.Unstructured, error) 
 		}
 
 		req := &unstructured.Unstructured{Object: obj}
-		kind, apiversion := rr.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
-		set(req, kind, apiversion, fmt.Sprintf("reportrequest-%s-%s", info.PolicyName, info.Resource.GetName()), info)
+		set(req, fmt.Sprintf("reportrequest-%s-%s", info.PolicyName, info.Resource.GetName()), info)
 		return req, nil
 	}
 
@@ -102,17 +101,20 @@ func (pvb *requestBuilder) build(info Info) (*unstructured.Unstructured, error) 
 		return nil, err
 	}
 	req := &unstructured.Unstructured{Object: obj}
-	kind, apiversion := rr.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
-	set(req, kind, apiversion, fmt.Sprintf("%s-%s", clusterreportrequest, info.Resource.GetName()), info)
+	set(req, fmt.Sprintf("%s-%s", clusterreportrequest, info.Resource.GetName()), info)
 	return req, nil
 }
 
-func set(obj *unstructured.Unstructured, kind, apiversion, name string, info Info) {
+func set(obj *unstructured.Unstructured, name string, info Info) {
 	resource := info.Resource
 	obj.SetName(name)
 	obj.SetNamespace(resource.GetNamespace())
-	obj.SetKind(kind)
-	obj.SetAPIVersion(apiversion)
+	obj.SetAPIVersion("policy.kubernetes.io/v1alpha1")
+	if resource.GetNamespace() == "" {
+		obj.SetKind("ClusterReportRequest")
+	} else {
+		obj.SetKind("ReportRequest")
+	}
 
 	obj.SetLabels(map[string]string{
 		"policy":   info.PolicyName,
@@ -127,6 +129,7 @@ func set(obj *unstructured.Unstructured, kind, apiversion, name string, info Inf
 
 	controllerFlag := true
 	blockOwnerDeletionFlag := true
+
 	obj.SetOwnerReferences([]metav1.OwnerReference{
 		{
 			APIVersion:         resource.GetAPIVersion(),

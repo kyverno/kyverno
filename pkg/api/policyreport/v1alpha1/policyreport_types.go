@@ -22,27 +22,27 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 const (
-	StatusPass = "pass"
-	StatusFail = "fail"
+	StatusPass = "Pass"
+	StatusFail = "Fail"
 )
 
 // PolicyReportSummary provides a status count summary
 type PolicyReportSummary struct {
 
 	// Pass provides the count of policies whose requirements were met
-	Pass int `json:"pass"`
+	Pass int `json:"Pass"`
 
 	// Fail provides the count of policies whose requirements were not met
-	Fail int `json:"fail"`
+	Fail int `json:"Fail"`
 
 	// Warn provides the count of unscored policies whose requirements were not met
-	Warn int `json:"warn"`
+	Warn int `json:"Warn"`
 
 	// Error provides the count of policies that could not be evaluated
-	Error int `json:"error"`
+	Error int `json:"Error"`
 
 	// Skip indicates the count of policies that were not selected for evaluation
-	Skip int `json:"skip"`
+	Skip int `json:"Skip"`
 }
 
 // PolicyStatus has one of the following values:
@@ -109,11 +109,11 @@ type PolicyReportResult struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1
-// +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=`.summary.pass`
-// +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=`.summary.fail`
-// +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=`.summary.warn`
-// +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=`.summary.error`
-// +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.skip`
+// +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=`.summary.Pass`
+// +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=`.summary.Fail`
+// +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=`.summary.Warn`
+// +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=`.summary.Error`
+// +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.Skip`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:shortName=polr
 

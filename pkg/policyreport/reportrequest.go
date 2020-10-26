@@ -19,6 +19,7 @@ import (
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -27,7 +28,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-const workQueueName = "policy-violation-controller"
+const workQueueName = "report-request-controller"
 const workQueueRetryLimit = 3
 
 // Generator creates report request
@@ -75,7 +76,7 @@ func NewReportRequestGenerator(client *policyreportclient.Clientset,
 	return &gen
 }
 
-//NewDataStore returns an instance of data store
+// NewDataStore returns an instance of data store
 func newDataStore() *dataStore {
 	ds := dataStore{
 		data: make(map[string]Info),
@@ -126,12 +127,7 @@ func (i Info) toKey() string {
 	return strings.Join(keys, "/")
 }
 
-type PVEvent struct {
-	Namespace map[string][]Info
-	Cluster   map[string][]Info
-}
-
-//GeneratorInterface provides API to create PVs
+// GeneratorInterface provides API to create PVs
 type GeneratorInterface interface {
 	Add(infos ...Info)
 }
@@ -142,7 +138,7 @@ func (gen *Generator) enqueue(info Info) {
 	gen.queue.Add(keyHash)
 }
 
-//Add queues a policy violation create request
+// Add queues a policy violation create request
 func (gen *Generator) Add(infos ...Info) {
 	for _, info := range infos {
 		gen.enqueue(info)
@@ -252,52 +248,69 @@ func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) erro
 		}
 	}()
 
+	logger := gen.log.WithName("reportRequestGenerator")
+	reportReq.SetCreationTimestamp(v1.Now())
 	if reportReq.GetNamespace() == "" {
 		old, err := gen.clusterReportRequestLister.Get(reportReq.GetName())
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				return updateReportRequest(gen.dclient, old, reportReq)
+				if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), reportReq.GetNamespace(), reportReq, false); err != nil {
+					return fmt.Errorf("failed to create clusterReportRequest: %v", err)
+				}
+
+				logger.V(3).Info("successfully created clusterReportRequest", "namespace", reportReq.GetNamespace, "name", reportReq.GetName())
+				return nil
 			}
-			return fmt.Errorf("unable to get clusterReportRequest: %v", err)
+			return fmt.Errorf("unable to get %s: %v", reportReq.GetKind(), err)
 		}
 
-		_, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), reportReq.GetNamespace(), reportReq, false)
-		return fmt.Errorf("failed to create clusterReportRequest: %v", err)
+		return updateReportRequest(gen.dclient, old, reportReq, logger)
 	}
 
 	old, err := gen.reportRequestLister.ReportRequests(reportReq.GetNamespace()).Get(reportReq.GetName())
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return updateReportRequest(gen.dclient, old, reportReq)
+			if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), reportReq.GetNamespace(), reportReq, false); err != nil {
+				return fmt.Errorf("failed to create %s: %v", reportReq.GetKind(), err)
+			}
+
+			logger.V(3).Info("successfully created reportRequest", "namespace", reportReq.GetNamespace, "name", reportReq.GetName())
+			return nil
 		}
 		return fmt.Errorf("unable to get existing reportRequest %v", err)
 	}
 
-	_, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), reportReq.GetNamespace(), reportReq, false)
-	return fmt.Errorf("failed to create reportRequest: %v", err)
+	return updateReportRequest(gen.dclient, old, reportReq, logger)
 }
 
-func updateReportRequest(dClient *client.Client, old interface{}, new *unstructured.Unstructured) (err error) {
+func updateReportRequest(dClient *client.Client, old interface{}, new *unstructured.Unstructured, log logr.Logger) (err error) {
 	oldUnstructed := make(map[string]interface{})
 	if oldTyped, ok := old.(*report.ReportRequest); ok {
 		if oldUnstructed, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
 			return fmt.Errorf("unable to convert reportRequest: %v", err)
 		}
 		new.SetResourceVersion(oldTyped.GetResourceVersion())
+		new.SetUID(oldTyped.GetUID())
 	} else {
 		oldTyped := old.(*report.ClusterReportRequest)
 		if oldUnstructed, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
 			return fmt.Errorf("unable to convert clusterReportRequest: %v", err)
 		}
+		new.SetUID(oldTyped.GetUID())
 		new.SetResourceVersion(oldTyped.GetResourceVersion())
 	}
 
 	if !hasResultsChanged(oldUnstructed, new.UnstructuredContent()) {
+		log.V(4).Info("unchanged report request", "namespace", new.GetNamespace(), "name", new.GetName())
 		return nil
 	}
 	// TODO(shuting): set annotation / label
-	_, err = dClient.UpdateResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new, false)
-	return fmt.Errorf("failed to update report request: %v", err)
+	if _, err = dClient.UpdateResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new, false); err != nil {
+		return fmt.Errorf("failed to update report request: %v", err)
+	}
+
+	log.V(4).Info("successfully updated report request", "kind", new.GetKind(), "namespace", new.GetNamespace(), "name", new.GetName())
+	return
 }
 
 func hasResultsChanged(old, new map[string]interface{}) bool {

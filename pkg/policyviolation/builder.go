@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 )
@@ -87,13 +88,19 @@ func buildPVInfo(er response.EngineResponse) Info {
 func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 	var violatedRules []kyverno.ViolatedRule
 	for _, rule := range er.PolicyResponse.Rules {
-		if rule.Success {
-			continue
+		if os.Getenv("POLICY-TYPE") != common.PolicyReport {
+			if rule.Success {
+				continue
+			}
 		}
 		vrule := kyverno.ViolatedRule{
 			Name:    rule.Name,
 			Type:    rule.Type,
 			Message: rule.Message,
+		}
+		vrule.Check = report.StatusFail
+		if rule.Success {
+			vrule.Check = report.StatusPass
 		}
 		violatedRules = append(violatedRules, vrule)
 	}

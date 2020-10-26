@@ -115,6 +115,7 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 	prInformer policyreportinformer.ClusterPolicyReportInformer,
 	nsprInformer policyreportinformer.PolicyReportInformer,
 	policyStatus policystatus.Listener,
+	prgen *policyreport.Generator,
 	log logr.Logger,
 	stopChna <-chan struct{}) *Generator {
 	gen := Generator{
@@ -126,6 +127,7 @@ func NewPVGenerator(client *kyvernoclient.Clientset,
 		nspvSynced:           nspvInformer.Informer().HasSynced,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:            newDataStore(),
+		prgen:                prgen,
 		log:                  log,
 		policyStatusListener: policyStatus,
 	}

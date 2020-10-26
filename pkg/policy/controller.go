@@ -453,7 +453,9 @@ func (pc *PolicyController) syncPolicy(key string) error {
 
 	pc.resourceWebhookWatcher.RegisterResourceWebhook()
 	engineResponses := pc.processExistingResources(policy)
-	pc.cleanupAndReport(engineResponses)
+	if os.Getenv("POLICY-TYPE") == common.PolicyViolation {
+		pc.cleanupAndReport(engineResponses)
+	}
 	return nil
 }
 

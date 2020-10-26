@@ -191,20 +191,6 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies().Lister(),
 		pInformer.Kyverno().V1().Policies().Lister())
 
-	// POLICY VIOLATION GENERATOR
-	// -- generate policy violation
-	var pvgen *policyviolation.Generator
-	pvgen = policyviolation.NewPVGenerator(pclient,
-		client,
-		pInformer.Kyverno().V1().ClusterPolicyViolations(),
-		pInformer.Kyverno().V1().PolicyViolations(),
-		pInformer.Policy().V1alpha1().ClusterPolicyReports(),
-		pInformer.Policy().V1alpha1().PolicyReports(),
-		statusSync.Listener,
-		log.Log.WithName("PolicyViolationGenerator"),
-		stopCh,
-	)
-
 	// POLICY Report GENERATOR
 	// -- generate policy report
 	var prgen *policyreport.Generator
@@ -217,6 +203,21 @@ func main() {
 			log.Log.WithName("PolicyReportGenerator"),
 		)
 	}
+
+	// POLICY VIOLATION GENERATOR
+	// -- generate policy violation
+	var pvgen *policyviolation.Generator
+	pvgen = policyviolation.NewPVGenerator(pclient,
+		client,
+		pInformer.Kyverno().V1().ClusterPolicyViolations(),
+		pInformer.Kyverno().V1().PolicyViolations(),
+		pInformer.Policy().V1alpha1().ClusterPolicyReports(),
+		pInformer.Policy().V1alpha1().PolicyReports(),
+		statusSync.Listener,
+		prgen,
+		log.Log.WithName("PolicyViolationGenerator"),
+		stopCh,
+	)
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
