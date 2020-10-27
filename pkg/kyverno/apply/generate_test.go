@@ -21,7 +21,7 @@ func Test_mergeClusterReport(t *testing.T) {
 				"results": []interface{}{
 					map[string]interface{}{
 						"policy":    "ns-polr-1",
-						"status":    "pass",
+						"status":    "Pass",
 						"resources": make([]interface{}, 10),
 					},
 				},
@@ -37,7 +37,7 @@ func Test_mergeClusterReport(t *testing.T) {
 				"results": []interface{}{
 					map[string]interface{}{
 						"policy":    "ns-polr-2",
-						"status":    "pass",
+						"status":    "Pass",
 						"resources": make([]interface{}, 5),
 					},
 				},
@@ -51,7 +51,7 @@ func Test_mergeClusterReport(t *testing.T) {
 				"results": []interface{}{
 					map[string]interface{}{
 						"policy":    "polr-3",
-						"status":    "pass",
+						"status":    "Pass",
 						"resources": make([]interface{}, 1),
 					},
 				},
@@ -67,7 +67,7 @@ func Test_mergeClusterReport(t *testing.T) {
 				"results": []interface{}{
 					map[string]interface{}{
 						"policy": "cpolr-4",
-						"status": "fail",
+						"status": "Fail",
 					},
 				},
 			},
@@ -82,7 +82,7 @@ func Test_mergeClusterReport(t *testing.T) {
 				"results": []interface{}{
 					map[string]interface{}{
 						"policy": "cpolr-5",
-						"status": "fail",
+						"status": "Fail",
 					},
 				},
 			},
@@ -92,21 +92,21 @@ func Test_mergeClusterReport(t *testing.T) {
 	expectedResults := []interface{}{
 		map[string]interface{}{
 			"policy":    "ns-polr-2",
-			"status":    "pass",
+			"status":    "Pass",
 			"resources": make([]interface{}, 5),
 		},
 		map[string]interface{}{
 			"policy":    "polr-3",
-			"status":    "pass",
+			"status":    "Pass",
 			"resources": make([]interface{}, 1),
 		},
 		map[string]interface{}{
 			"policy": "cpolr-4",
-			"status": "fail",
+			"status": "Fail",
 		},
 		map[string]interface{}{
 			"policy": "cpolr-5",
-			"status": "fail",
+			"status": "Fail",
 		},
 	}
 
@@ -123,28 +123,28 @@ func Test_mergeClusterReport(t *testing.T) {
 
 	summary, _, err := unstructured.NestedMap(cpolr.UnstructuredContent(), "summary")
 	assert.NilError(t, err)
-	assert.Assert(t, summary["pass"].(int64) == 6, summary["pass"])
-	assert.Assert(t, summary["fail"].(int64) == 2, summary["fail"])
+	assert.Assert(t, summary["Pass"].(int64) == 6, summary["Pass"])
+	assert.Assert(t, summary["Fail"].(int64) == 2, summary["Fail"])
 }
 
 func Test_updateSummary(t *testing.T) {
 	results := []interface{}{
 		map[string]interface{}{
-			"status":    "pass",
+			"status":    "Pass",
 			"resources": make([]interface{}, 5),
 		},
 		map[string]interface{}{
-			"status": "fail",
+			"status": "Fail",
 		},
 		map[string]interface{}{
-			"status": "fail",
+			"status": "Fail",
 		},
 		map[string]interface{}{
-			"status": "fail",
+			"status": "Fail",
 		},
 	}
 
 	summary := updateSummary(results)
-	assert.Assert(t, summary["pass"].(int64) == 5, summary["pass"])
-	assert.Assert(t, summary["fail"].(int64) == 3, summary["fail"])
+	assert.Assert(t, summary["Pass"].(int64) == 5, summary["Pass"])
+	assert.Assert(t, summary["Fail"].(int64) == 3, summary["Fail"])
 }

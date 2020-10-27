@@ -75,15 +75,15 @@ func Test_buildPolicyReports(t *testing.T) {
 			assert.Assert(t, report.GetKind() == "ClusterPolicyReport")
 			assert.Assert(t, len(report.UnstructuredContent()["results"].([]interface{})) == 2)
 			assert.Assert(t,
-				report.UnstructuredContent()["summary"].(map[string]interface{})["pass"].(int64) == 1,
-				report.UnstructuredContent()["summary"].(map[string]interface{})["pass"].(int64))
+				report.UnstructuredContent()["summary"].(map[string]interface{})["Pass"].(int64) == 1,
+				report.UnstructuredContent()["summary"].(map[string]interface{})["Pass"].(int64))
 		} else {
 			assert.Assert(t, report.GetName() == "policyreport-ns-policy1-namespace")
 			assert.Assert(t, report.GetKind() == "PolicyReport")
 			assert.Assert(t, len(report.UnstructuredContent()["results"].([]interface{})) == 2)
 			assert.Assert(t,
-				report.UnstructuredContent()["summary"].(map[string]interface{})["pass"].(int64) == 1,
-				report.UnstructuredContent()["summary"].(map[string]interface{})["pass"].(int64))
+				report.UnstructuredContent()["summary"].(map[string]interface{})["Pass"].(int64) == 1,
+				report.UnstructuredContent()["summary"].(map[string]interface{})["Pass"].(int64))
 		}
 	}
 }
@@ -100,9 +100,9 @@ func Test_buildPolicyResults(t *testing.T) {
 		for _, r := range result {
 			switch r.Rule {
 			case "policy1-rule1", "clusterpolicy2-rule1":
-				assert.Assert(t, r.Status == report.PolicyStatus("pass"))
+				assert.Assert(t, r.Status == report.PolicyStatus("Pass"))
 			case "policy1-rule2", "clusterpolicy2-rule2":
-				assert.Assert(t, r.Status == report.PolicyStatus("fail"))
+				assert.Assert(t, r.Status == report.PolicyStatus("Fail"))
 			}
 		}
 	}
@@ -112,7 +112,7 @@ func Test_mergeSucceededResults(t *testing.T) {
 	resultsMap := map[string][]*report.PolicyReportResult{
 		clusterpolicyreport: {
 			{
-				Status: report.PolicyStatus("pass"),
+				Status: report.PolicyStatus("Pass"),
 				Policy: "clusterpolicy",
 				Rule:   "clusterrule",
 				Resources: []*v1.ObjectReference{
@@ -125,7 +125,7 @@ func Test_mergeSucceededResults(t *testing.T) {
 				},
 			},
 			{
-				Status: report.PolicyStatus("pass"),
+				Status: report.PolicyStatus("Pass"),
 				Policy: "clusterpolicy",
 				Rule:   "clusterrule",
 				Resources: []*v1.ObjectReference{
@@ -138,7 +138,7 @@ func Test_mergeSucceededResults(t *testing.T) {
 				},
 			},
 			{
-				Status: report.PolicyStatus("fail"),
+				Status: report.PolicyStatus("Fail"),
 				Policy: "clusterpolicy",
 				Rule:   "clusterrule",
 				Resources: []*v1.ObjectReference{
@@ -151,7 +151,7 @@ func Test_mergeSucceededResults(t *testing.T) {
 
 		"policyreport-ns-test1": {
 			{
-				Status: report.PolicyStatus("pass"),
+				Status: report.PolicyStatus("Pass"),
 				Policy: "test1-policy",
 				Rule:   "test1-rule",
 				Resources: []*v1.ObjectReference{
@@ -164,7 +164,7 @@ func Test_mergeSucceededResults(t *testing.T) {
 				},
 			},
 			{
-				Status: report.PolicyStatus("pass"),
+				Status: report.PolicyStatus("Pass"),
 				Policy: "test1-policy",
 				Rule:   "test1-rule",
 				Resources: []*v1.ObjectReference{
@@ -177,7 +177,7 @@ func Test_mergeSucceededResults(t *testing.T) {
 				},
 			},
 			{
-				Status: report.PolicyStatus("fail"),
+				Status: report.PolicyStatus("Fail"),
 				Policy: "test1-policy",
 				Rule:   "test1-rule",
 				Resources: []*v1.ObjectReference{
@@ -189,7 +189,7 @@ func Test_mergeSucceededResults(t *testing.T) {
 		},
 		"policyreport-ns-test2": {
 			{
-				Status: report.PolicyStatus("pass"),
+				Status: report.PolicyStatus("Pass"),
 				Policy: "test2-policy",
 				Rule:   "test2-rule",
 				Resources: []*v1.ObjectReference{
@@ -208,10 +208,10 @@ func Test_mergeSucceededResults(t *testing.T) {
 	assert.Assert(t, len(results) == len(resultsMap), len(results), len(resultsMap))
 	for key, result := range results {
 		if key == clusterpolicyreport {
-			assert.Assert(t, len(result) == 2)
+			assert.Assert(t, len(result) == 3, len(result))
 			for _, res := range result {
-				if res.Status == report.PolicyStatus("pass") {
-					assert.Assert(t, len(res.Resources) == 4, len(res.Resources))
+				if res.Status == report.PolicyStatus("Pass") {
+					assert.Assert(t, len(res.Resources) == 2, len(res.Resources))
 				} else {
 					assert.Assert(t, len(res.Resources) == 1, len(res.Resources))
 				}
@@ -219,10 +219,10 @@ func Test_mergeSucceededResults(t *testing.T) {
 		}
 
 		if key == "policyreport-ns-test1" {
-			assert.Assert(t, len(result) == 2, len(result))
+			assert.Assert(t, len(result) == 3, len(result))
 			for _, res := range result {
-				if res.Status == report.PolicyStatus("pass") {
-					assert.Assert(t, len(res.Resources) == 4, len(res.Resources))
+				if res.Status == report.PolicyStatus("Pass") {
+					assert.Assert(t, len(res.Resources) == 2, len(res.Resources))
 				} else {
 					assert.Assert(t, len(res.Resources) == 1, len(res.Resources))
 				}
@@ -239,17 +239,17 @@ func Test_calculateSummary(t *testing.T) {
 	results := []*report.PolicyReportResult{
 		{
 			Resources: make([]*v1.ObjectReference, 5),
-			Status:    report.PolicyStatus("pass"),
+			Status:    report.PolicyStatus("Pass"),
 		},
-		{Status: report.PolicyStatus("fail")},
-		{Status: report.PolicyStatus("fail")},
-		{Status: report.PolicyStatus("fail")},
+		{Status: report.PolicyStatus("Fail")},
+		{Status: report.PolicyStatus("Fail")},
+		{Status: report.PolicyStatus("Fail")},
 		{
 			Resources: make([]*v1.ObjectReference, 1),
-			Status:    report.PolicyStatus("pass")},
+			Status:    report.PolicyStatus("Pass")},
 		{
 			Resources: make([]*v1.ObjectReference, 4),
-			Status:    report.PolicyStatus("pass"),
+			Status:    report.PolicyStatus("Pass"),
 		},
 	}
 
