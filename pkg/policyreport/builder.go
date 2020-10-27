@@ -19,6 +19,13 @@ const (
 	clusterreportrequest = "clusterreportrequest"
 )
 
+func generatePolicyReportName(ns string) string {
+	if ns == "" {
+		return clusterpolicyreport
+	}
+	return fmt.Sprintf("policyreport-ns-%s", ns)
+}
+
 //GeneratePRsFromEngineResponse generate Violations from engine responses
 func GeneratePRsFromEngineResponse(ers []response.EngineResponse, log logr.Logger) (pvInfos []Info) {
 	for _, er := range ers {
@@ -149,11 +156,11 @@ func calculateSummary(results []*report.PolicyReportResult) (summary report.Poli
 			summary.Pass++
 		case report.StatusFail:
 			summary.Fail++
-		case "warn":
+		case "Warn":
 			summary.Warn++
-		case "error":
+		case "Error":
 			summary.Error++
-		case "skip":
+		case "Skip":
 			summary.Skip++
 		}
 	}

@@ -248,7 +248,7 @@ func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) erro
 		}
 	}()
 
-	logger := gen.log.WithName("reportRequestGenerator")
+	logger := gen.log.WithName("sync")
 	reportReq.SetCreationTimestamp(v1.Now())
 	if reportReq.GetNamespace() == "" {
 		old, err := gen.clusterReportRequestLister.Get(reportReq.GetName())
@@ -258,7 +258,7 @@ func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) erro
 					return fmt.Errorf("failed to create clusterReportRequest: %v", err)
 				}
 
-				logger.V(3).Info("successfully created clusterReportRequest", "namespace", reportReq.GetNamespace, "name", reportReq.GetName())
+				logger.V(3).Info("successfully created clusterReportRequest", "namespace", reportReq.GetNamespace(), "name", reportReq.GetName())
 				return nil
 			}
 			return fmt.Errorf("unable to get %s: %v", reportReq.GetKind(), err)

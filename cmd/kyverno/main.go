@@ -193,13 +193,23 @@ func main() {
 
 	// POLICY Report GENERATOR
 	// -- generate policy report
-	var prgen *policyreport.Generator
+	var reportReqGen *policyreport.Generator
+	var prgen *policyreport.ReportGenerator
 	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		prgen = policyreport.NewReportRequestGenerator(pclient,
+		reportReqGen = policyreport.NewReportRequestGenerator(pclient,
 			client,
 			pInformer.Policy().V1alpha1().ReportRequests(),
 			pInformer.Policy().V1alpha1().ClusterReportRequests(),
 			statusSync.Listener,
+			log.Log.WithName("ReportRequestGenerator"),
+		)
+
+		prgen = policyreport.NewReportGenerator(client,
+			pInformer.Policy().V1alpha1().ClusterPolicyReports(),
+			pInformer.Policy().V1alpha1().PolicyReports(),
+			pInformer.Policy().V1alpha1().ReportRequests(),
+			pInformer.Policy().V1alpha1().ClusterReportRequests(),
+			kubeInformer.Core().V1().Namespaces(),
 			log.Log.WithName("PolicyReportGenerator"),
 		)
 	}
@@ -214,7 +224,7 @@ func main() {
 		pInformer.Policy().V1alpha1().ClusterPolicyReports(),
 		pInformer.Policy().V1alpha1().PolicyReports(),
 		statusSync.Listener,
-		prgen,
+		reportReqGen,
 		log.Log.WithName("PolicyViolationGenerator"),
 		stopCh,
 	)
@@ -233,7 +243,7 @@ func main() {
 		configData,
 		eventGenerator,
 		pvgen,
-		prgen,
+		reportReqGen,
 		rWebhookWatcher,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
@@ -285,7 +295,7 @@ func main() {
 		eventGenerator,
 		statusSync.Listener,
 		pvgen,
-		prgen,
+		reportReqGen,
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		log.Log.WithName("ValidateAuditHandler"),
@@ -342,7 +352,7 @@ func main() {
 		statusSync.Listener,
 		configData,
 		pvgen,
-		prgen,
+		reportReqGen,
 		grgen,
 		rWebhookWatcher,
 		auditHandler,
@@ -364,7 +374,8 @@ func main() {
 	kubedynamicInformer.Start(stopCh)
 
 	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		go prgen.Run(2, stopCh)
+		go reportReqGen.Run(2, stopCh)
+		go prgen.Run(1, stopCh)
 	}
 
 	go grgen.Run(1)
