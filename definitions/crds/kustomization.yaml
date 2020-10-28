@@ -5,5 +5,5 @@ resources:
 - ./crds.yaml
 - ./policy.kubernetes.io_clusterpolicyreports.yaml
 - ./policy.kubernetes.io_policyreports.yaml
-- ./policy.kubernetes.io_clusterreportrequests.yaml
-- ./policy.kubernetes.io_reportrequests.yaml
+- ./policy.kubernetes.io_clusterreportchangerequests.yaml
+- ./policy.kubernetes.io_reportchangerequests.yaml

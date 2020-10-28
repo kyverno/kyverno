@@ -14,7 +14,7 @@ type deletedResource struct {
 }
 
 func getDeletedResources(aggregatedRequests interface{}) (resources []deletedResource) {
-	if requests, ok := aggregatedRequests.([]*report.ClusterReportRequest); ok {
+	if requests, ok := aggregatedRequests.([]*report.ClusterReportChangeRequest); ok {
 		for _, request := range requests {
 			var dr deletedResource
 			if resource, ok := request.GetLabels()["delete"]; ok {
@@ -22,7 +22,7 @@ func getDeletedResources(aggregatedRequests interface{}) (resources []deletedRes
 				resources = append(resources, dr)
 			}
 		}
-	} else if requests, ok := aggregatedRequests.([]*report.ReportRequest); ok {
+	} else if requests, ok := aggregatedRequests.([]*report.ReportChangeRequest); ok {
 		for _, request := range requests {
 			var dr deletedResource
 			if resource, ok := request.GetLabels()["delete"]; ok {

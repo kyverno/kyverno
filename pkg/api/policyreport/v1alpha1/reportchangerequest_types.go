@@ -26,7 +26,6 @@ import (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1
@@ -37,8 +36,8 @@ import (
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.Skip`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
-// ClusterReportRequest is the Schema for the reportrequests API
-type ClusterReportRequest struct {
+// ReportChangeRequest is the Schema for the ReportChangeRequests API
+type ReportChangeRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
@@ -62,13 +61,13 @@ type ClusterReportRequest struct {
 
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// ClusterReportRequestList contains a list of ClusterReportRequest
-type ClusterReportRequestList struct {
+// ReportChangeRequestList contains a list of ReportChangeRequest
+type ReportChangeRequestList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ClusterReportRequest `json:"items"`
+	Items           []ReportChangeRequest `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ClusterReportRequest{}, &ClusterReportRequestList{})
+	SchemeBuilder.Register(&ReportChangeRequest{}, &ReportChangeRequestList{})
 }

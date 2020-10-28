@@ -186,10 +186,10 @@ rules:
   - policyviolations/status
   - generaterequests
   - generaterequests/status
-  - reportrequests
-  - reportrequests/status
-  - clusterreportrequests
-  - clusterreportrequests/status
+  - reportchangerequests
+  - reportchangerequests/status
+  - clusterreportchangerequests
+  - clusterreportchangerequests/status
   verbs:
   - create
   - delete

@@ -689,7 +689,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.5
   creationTimestamp: null
-  name: clusterreportrequests.policy.kubernetes.io
+  name: clusterreportchangerequests.policy.kubernetes.io
 spec:
   additionalPrinterColumns:
   - JSONPath: .scope.kind
@@ -720,15 +720,16 @@ spec:
     type: date
   group: policy.kubernetes.io
   names:
-    kind: ClusterReportRequest
-    listKind: ClusterReportRequestList
-    plural: clusterreportrequests
-    singular: clusterreportrequest
+    kind: ClusterReportChangeRequest
+    listKind: ClusterReportChangeRequestList
+    plural: clusterreportchangerequests
+    singular: clusterreportchangerequest
   scope: Namespaced
   subresources: {}
   validation:
     openAPIV3Schema:
-      description: ClusterReportRequest is the Schema for the reportrequests API
+      description: ClusterReportChangeRequest is the Schema for the ClusterReportChangeRequests
+        API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -1750,7 +1751,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.5
   creationTimestamp: null
-  name: reportrequests.policy.kubernetes.io
+  name: reportchangerequests.policy.kubernetes.io
 spec:
   additionalPrinterColumns:
   - JSONPath: .scope.kind
@@ -1781,15 +1782,16 @@ spec:
     type: date
   group: policy.kubernetes.io
   names:
-    kind: ReportRequest
-    listKind: ReportRequestList
-    plural: reportrequests
-    singular: reportrequest
+    kind: ReportChangeRequest
+    listKind: ReportChangeRequestList
+    plural: reportchangerequests
+    singular: reportchangerequest
   scope: Namespaced
   subresources: {}
   validation:
     openAPIV3Schema:
-      description: ReportRequest is the Schema for the reportrequests API
+      description: ReportChangeRequest is the Schema for the ReportChangeRequests
+        API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -2104,10 +2106,10 @@ rules:
   - policyviolations/status
   - generaterequests
   - generaterequests/status
-  - reportrequests
-  - reportrequests/status
-  - clusterreportrequests
-  - clusterreportrequests/status
+  - reportchangerequests
+  - reportchangerequests/status
+  - clusterreportchangerequests
+  - clusterreportchangerequests/status
   verbs:
   - create
   - delete
@@ -2462,7 +2464,7 @@ subjects:
 apiVersion: v1
 data:
   excludeGroupRole: system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler
-  resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportRequest,*,*][ClusterReportRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]'
+  resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]'
 kind: ConfigMap
 metadata:
   name: init-config
@@ -2501,7 +2503,7 @@ spec:
     spec:
       containers:
       - args:
-        - --filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportRequest,*,*][ClusterReportRequest,*,*]
+        - --filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]
         - -v=2
         env:
         - name: INIT_CONFIG

@@ -6,7 +6,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.5
   creationTimestamp: null
-  name: reportrequests.policy.kubernetes.io
+  name: reportchangerequests.policy.kubernetes.io
 spec:
   additionalPrinterColumns:
   - JSONPath: .scope.kind
@@ -37,15 +37,16 @@ spec:
     type: date
   group: policy.kubernetes.io
   names:
-    kind: ReportRequest
-    listKind: ReportRequestList
-    plural: reportrequests
-    singular: reportrequest
+    kind: ReportChangeRequest
+    listKind: ReportChangeRequestList
+    plural: reportchangerequests
+    singular: reportchangerequest
   scope: Namespaced
   subresources: {}
   validation:
     openAPIV3Schema:
-      description: ReportRequest is the Schema for the reportrequests API
+      description: ReportChangeRequest is the Schema for the ReportChangeRequests
+        API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation

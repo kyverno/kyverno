@@ -32,59 +32,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// ReportRequestInformer provides access to a shared informer and lister for
-// ReportRequests.
-type ReportRequestInformer interface {
+// ReportChangeRequestInformer provides access to a shared informer and lister for
+// ReportChangeRequests.
+type ReportChangeRequestInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ReportRequestLister
+	Lister() v1alpha1.ReportChangeRequestLister
 }
 
-type reportRequestInformer struct {
+type reportChangeRequestInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewReportRequestInformer constructs a new informer for ReportRequest type.
+// NewReportChangeRequestInformer constructs a new informer for ReportChangeRequest type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewReportRequestInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredReportRequestInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewReportChangeRequestInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredReportChangeRequestInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredReportRequestInformer constructs a new informer for ReportRequest type.
+// NewFilteredReportChangeRequestInformer constructs a new informer for ReportChangeRequest type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredReportRequestInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredReportChangeRequestInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PolicyV1alpha1().ReportRequests(namespace).List(context.TODO(), options)
+				return client.PolicyV1alpha1().ReportChangeRequests(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PolicyV1alpha1().ReportRequests(namespace).Watch(context.TODO(), options)
+				return client.PolicyV1alpha1().ReportChangeRequests(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&policyreportv1alpha1.ReportRequest{},
+		&policyreportv1alpha1.ReportChangeRequest{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *reportRequestInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredReportRequestInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *reportChangeRequestInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredReportChangeRequestInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *reportRequestInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&policyreportv1alpha1.ReportRequest{}, f.defaultInformer)
+func (f *reportChangeRequestInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&policyreportv1alpha1.ReportChangeRequest{}, f.defaultInformer)
 }
 
-func (f *reportRequestInformer) Lister() v1alpha1.ReportRequestLister {
-	return v1alpha1.NewReportRequestLister(f.Informer().GetIndexer())
+func (f *reportChangeRequestInformer) Lister() v1alpha1.ReportChangeRequestLister {
+	return v1alpha1.NewReportChangeRequestLister(f.Informer().GetIndexer())
 }

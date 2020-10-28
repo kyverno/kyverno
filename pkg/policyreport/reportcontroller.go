@@ -34,19 +34,17 @@ const (
 type ReportGenerator struct {
 	dclient *dclient.Client
 
-	// reportInterface reportrequest.PolicyV1alpha1Interface
-
 	reportLister policyreport.PolicyReportLister
 	reportSynced cache.InformerSynced
 
 	clusterReportLister policyreport.ClusterPolicyReportLister
 	clusterReportSynced cache.InformerSynced
 
-	reportRequestLister policyreport.ReportRequestLister
-	reportReqSynced     cache.InformerSynced
+	reportChangeRequestLister policyreport.ReportChangeRequestLister
+	reportReqSynced           cache.InformerSynced
 
-	clusterReportRequestLister policyreport.ClusterReportRequestLister
-	clusterReportReqSynced     cache.InformerSynced
+	clusterReportChangeRequestLister policyreport.ClusterReportChangeRequestLister
+	clusterReportReqSynced           cache.InformerSynced
 
 	nsLister       listerv1.NamespaceLister
 	nsListerSynced cache.InformerSynced
@@ -61,8 +59,8 @@ func NewReportGenerator(
 	dclient *dclient.Client,
 	clusterReportInformer policyreportinformer.ClusterPolicyReportInformer,
 	reportInformer policyreportinformer.PolicyReportInformer,
-	reportReqInformer policyreportinformer.ReportRequestInformer,
-	clusterReportReqInformer policyreportinformer.ClusterReportRequestInformer,
+	reportReqInformer policyreportinformer.ReportChangeRequestInformer,
+	clusterReportReqInformer policyreportinformer.ClusterReportChangeRequestInformer,
 	namespace informers.NamespaceInformer,
 	log logr.Logger) *ReportGenerator {
 
@@ -74,23 +72,23 @@ func NewReportGenerator(
 
 	reportReqInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    gen.addReportRequest,
-			UpdateFunc: gen.updateReportRequest,
+			AddFunc:    gen.addReportChangeRequest,
+			UpdateFunc: gen.updateReportChangeRequest,
 		})
 
 	clusterReportReqInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    gen.addClusterReportRequest,
-			UpdateFunc: gen.updateClusterReportRequest,
+			AddFunc:    gen.addClusterReportChangeRequest,
+			UpdateFunc: gen.updateClusterReportChangeRequest,
 		})
 
 	gen.clusterReportLister = clusterReportInformer.Lister()
 	gen.clusterReportSynced = clusterReportInformer.Informer().HasSynced
 	gen.reportLister = reportInformer.Lister()
 	gen.reportSynced = reportInformer.Informer().HasSynced
-	gen.clusterReportRequestLister = clusterReportReqInformer.Lister()
+	gen.clusterReportChangeRequestLister = clusterReportReqInformer.Lister()
 	gen.clusterReportReqSynced = clusterReportReqInformer.Informer().HasSynced
-	gen.reportRequestLister = reportReqInformer.Lister()
+	gen.reportChangeRequestLister = reportReqInformer.Lister()
 	gen.reportReqSynced = reportReqInformer.Informer().HasSynced
 	gen.nsLister = namespace.Lister()
 	gen.nsListerSynced = namespace.Informer().HasSynced
@@ -98,8 +96,8 @@ func NewReportGenerator(
 	return gen
 }
 
-func (g *ReportGenerator) addReportRequest(obj interface{}) {
-	r := obj.(*report.ReportRequest)
+func (g *ReportGenerator) addReportChangeRequest(obj interface{}) {
+	r := obj.(*report.ReportChangeRequest)
 	ns := r.GetLabels()["namespace"]
 	if ns == "" {
 		ns = "default"
@@ -108,9 +106,9 @@ func (g *ReportGenerator) addReportRequest(obj interface{}) {
 	g.queue.Add(ns)
 }
 
-func (g *ReportGenerator) updateReportRequest(old interface{}, cur interface{}) {
-	oldReq := old.(*report.ReportRequest)
-	curReq := cur.(*report.ReportRequest)
+func (g *ReportGenerator) updateReportChangeRequest(old interface{}, cur interface{}) {
+	oldReq := old.(*report.ReportChangeRequest)
+	curReq := cur.(*report.ReportChangeRequest)
 	if reflect.DeepEqual(oldReq.Results, curReq.Results) {
 		return
 	}
@@ -122,14 +120,14 @@ func (g *ReportGenerator) updateReportRequest(old interface{}, cur interface{}) 
 	g.queue.Add(ns)
 }
 
-func (g *ReportGenerator) addClusterReportRequest(obj interface{}) {
-	_ = obj.(*report.ClusterReportRequest)
+func (g *ReportGenerator) addClusterReportChangeRequest(obj interface{}) {
+	_ = obj.(*report.ClusterReportChangeRequest)
 	g.queue.Add("")
 }
 
-func (g *ReportGenerator) updateClusterReportRequest(old interface{}, cur interface{}) {
-	oldReq := old.(*report.ClusterReportRequest)
-	curReq := cur.(*report.ClusterReportRequest)
+func (g *ReportGenerator) updateClusterReportChangeRequest(old interface{}, cur interface{}) {
+	oldReq := old.(*report.ClusterReportChangeRequest)
+	curReq := cur.(*report.ClusterReportChangeRequest)
 
 	if reflect.DeepEqual(oldReq.Results, curReq.Results) {
 		return
@@ -209,7 +207,7 @@ func (g *ReportGenerator) syncHandler(namespace string) error {
 
 	new, aggregatedRequests, err := g.aggregateReports(namespace)
 	if err != nil {
-		return fmt.Errorf("failed to aggregate reportRequest results %v", err)
+		return fmt.Errorf("failed to aggregate reportChangeRequest results %v", err)
 	}
 
 	var old interface{}
@@ -259,11 +257,11 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 	if namespace == "" {
 		requests, err := g.clusterReportLister.List(labels.Everything())
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to list ClusterReportRequests within: %v", err)
+			return nil, nil, fmt.Errorf("unable to list ClusterReportChangeRequests within: %v", err)
 		}
 
 		if report, aggregatedRequests, err = mergeRequests(nil, requests); err != nil {
-			return nil, nil, fmt.Errorf("unable to merge ClusterReportRequests results: %v", err)
+			return nil, nil, fmt.Errorf("unable to merge ClusterReportChangeRequests results: %v", err)
 		}
 	} else {
 		ns, err := g.nsLister.Get(namespace)
@@ -272,9 +270,9 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 		}
 
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{"namespace": namespace}))
-		requests, err := g.reportRequestLister.ReportRequests(config.KubePolicyNamespace).List(selector)
+		requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KubePolicyNamespace).List(selector)
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to list reportRequests within namespace %s: %v", ns, err)
+			return nil, nil, fmt.Errorf("unable to list reportChangeRequests within namespace %s: %v", ns, err)
 		}
 
 		if report, aggregatedRequests, err = mergeRequests(ns, requests); err != nil {
@@ -288,8 +286,8 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
 	results := []*report.PolicyReportResult{}
 
-	if requests, ok := requestsGeneral.([]*report.ClusterReportRequest); ok {
-		aggregatedRequests := []*report.ClusterReportRequest{}
+	if requests, ok := requestsGeneral.([]*report.ClusterReportChangeRequest); ok {
+		aggregatedRequests := []*report.ClusterReportChangeRequest{}
 		for _, request := range requests {
 			if request.GetDeletionTimestamp() != nil {
 				continue
@@ -315,8 +313,8 @@ func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured
 		return req, aggregatedRequests, nil
 	}
 
-	if requests, ok := requestsGeneral.([]*report.ReportRequest); ok {
-		aggregatedRequests := []*report.ReportRequest{}
+	if requests, ok := requestsGeneral.([]*report.ReportChangeRequest); ok {
+		aggregatedRequests := []*report.ReportChangeRequest{}
 		for _, request := range requests {
 			if request.GetDeletionTimestamp() != nil {
 				continue
@@ -425,9 +423,9 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 
 func (g *ReportGenerator) cleanupReportRequets(requestsGeneral interface{}) {
 	defer g.log.V(5).Info("successfully cleaned up report requests")
-	if requests, ok := requestsGeneral.([]*report.ReportRequest); ok {
+	if requests, ok := requestsGeneral.([]*report.ReportChangeRequest); ok {
 		for _, request := range requests {
-			if err := g.dclient.DeleteResource(request.APIVersion, "ReportRequest", config.KubePolicyNamespace, request.Name, false); err != nil {
+			if err := g.dclient.DeleteResource(request.APIVersion, "ReportChangeRequest", config.KubePolicyNamespace, request.Name, false); err != nil {
 				if !apierrors.IsNotFound(err) {
 					g.log.Error(err, "failed to delete report request")
 				}
@@ -435,11 +433,11 @@ func (g *ReportGenerator) cleanupReportRequets(requestsGeneral interface{}) {
 		}
 	}
 
-	if requests, ok := requestsGeneral.([]*report.ClusterReportRequest); ok {
+	if requests, ok := requestsGeneral.([]*report.ClusterReportChangeRequest); ok {
 		for _, request := range requests {
-			if err := g.dclient.DeleteResource(request.APIVersion, "ClusterReportRequest", "", request.Name, false); err != nil {
+			if err := g.dclient.DeleteResource(request.APIVersion, "ClusterReportChangeRequest", "", request.Name, false); err != nil {
 				if !apierrors.IsNotFound(err) {
-					g.log.Error(err, "failed to delete clusterReportRequest")
+					g.log.Error(err, "failed to delete clusterReportChangeRequest")
 				}
 			}
 		}

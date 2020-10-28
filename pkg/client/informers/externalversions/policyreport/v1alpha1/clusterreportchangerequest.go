@@ -32,58 +32,58 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// ClusterReportRequestInformer provides access to a shared informer and lister for
-// ClusterReportRequests.
-type ClusterReportRequestInformer interface {
+// ClusterReportChangeRequestInformer provides access to a shared informer and lister for
+// ClusterReportChangeRequests.
+type ClusterReportChangeRequestInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ClusterReportRequestLister
+	Lister() v1alpha1.ClusterReportChangeRequestLister
 }
 
-type clusterReportRequestInformer struct {
+type clusterReportChangeRequestInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewClusterReportRequestInformer constructs a new informer for ClusterReportRequest type.
+// NewClusterReportChangeRequestInformer constructs a new informer for ClusterReportChangeRequest type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewClusterReportRequestInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredClusterReportRequestInformer(client, resyncPeriod, indexers, nil)
+func NewClusterReportChangeRequestInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredClusterReportChangeRequestInformer(client, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredClusterReportRequestInformer constructs a new informer for ClusterReportRequest type.
+// NewFilteredClusterReportChangeRequestInformer constructs a new informer for ClusterReportChangeRequest type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredClusterReportRequestInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredClusterReportChangeRequestInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PolicyV1alpha1().ClusterReportRequests().List(context.TODO(), options)
+				return client.PolicyV1alpha1().ClusterReportChangeRequests().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PolicyV1alpha1().ClusterReportRequests().Watch(context.TODO(), options)
+				return client.PolicyV1alpha1().ClusterReportChangeRequests().Watch(context.TODO(), options)
 			},
 		},
-		&policyreportv1alpha1.ClusterReportRequest{},
+		&policyreportv1alpha1.ClusterReportChangeRequest{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *clusterReportRequestInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredClusterReportRequestInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *clusterReportChangeRequestInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredClusterReportChangeRequestInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *clusterReportRequestInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&policyreportv1alpha1.ClusterReportRequest{}, f.defaultInformer)
+func (f *clusterReportChangeRequestInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&policyreportv1alpha1.ClusterReportChangeRequest{}, f.defaultInformer)
 }
 
-func (f *clusterReportRequestInformer) Lister() v1alpha1.ClusterReportRequestLister {
-	return v1alpha1.NewClusterReportRequestLister(f.Informer().GetIndexer())
+func (f *clusterReportChangeRequestInformer) Lister() v1alpha1.ClusterReportChangeRequestLister {
+	return v1alpha1.NewClusterReportChangeRequestLister(f.Informer().GetIndexer())
 }

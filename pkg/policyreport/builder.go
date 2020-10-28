@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	clusterreportrequest = "clusterreportrequest"
+	clusterreportchangerequest = "clusterreportchangerequest"
 )
 
 func generatePolicyReportName(ns string) string {
@@ -88,7 +88,7 @@ func (pvb *requestBuilder) build(info Info) (req *unstructured.Unstructured, err
 	}
 
 	if info.Resource.GetNamespace() != "" {
-		rr := &report.ReportRequest{
+		rr := &report.ReportChangeRequest{
 			Summary: calculateSummary(results),
 			Results: results,
 		}
@@ -99,9 +99,9 @@ func (pvb *requestBuilder) build(info Info) (req *unstructured.Unstructured, err
 		}
 
 		req = &unstructured.Unstructured{Object: obj}
-		set(req, fmt.Sprintf("reportrequest-%s-%s-%s", info.PolicyName, info.Resource.GetNamespace(), info.Resource.GetName()), info)
+		set(req, fmt.Sprintf("reportchangerequest-%s-%s-%s", info.PolicyName, info.Resource.GetNamespace(), info.Resource.GetName()), info)
 	} else {
-		rr := &report.ClusterReportRequest{
+		rr := &report.ClusterReportChangeRequest{
 			Summary: calculateSummary(results),
 			Results: results,
 		}
@@ -111,7 +111,7 @@ func (pvb *requestBuilder) build(info Info) (req *unstructured.Unstructured, err
 			return nil, err
 		}
 		req = &unstructured.Unstructured{Object: obj}
-		set(req, fmt.Sprintf("%s-%s", clusterreportrequest, info.Resource.GetName()), info)
+		set(req, fmt.Sprintf("%s-%s", clusterreportchangerequest, info.Resource.GetName()), info)
 	}
 
 	if len(info.Rules) == 0 && info.PolicyName == "" {
@@ -128,9 +128,9 @@ func set(obj *unstructured.Unstructured, name string, info Info) {
 	obj.SetNamespace(config.KubePolicyNamespace)
 	obj.SetAPIVersion("policy.kubernetes.io/v1alpha1")
 	if resource.GetNamespace() == "" {
-		obj.SetKind("ClusterReportRequest")
+		obj.SetKind("ClusterReportChangeRequest")
 	} else {
-		obj.SetKind("ReportRequest")
+		obj.SetKind("ReportChangeRequest")
 	}
 
 	obj.SetLabels(map[string]string{
