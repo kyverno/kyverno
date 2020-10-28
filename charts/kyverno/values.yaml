@@ -98,6 +98,10 @@ config:
   - "[TokenReview,*,*]"
   - "[SubjectAccessReview,*,*]"
   - "[*,kyverno,*]"
+  - "[Binding,*,*]"
+  - "[ReplicaSet,*,*]"
+  - "[ReportRequest,*,*]"
+  - "[ClusterReportRequest,*,*]"
   # Or give the name of an existing config map (ignores default/provided resourceFilters)
   existingConfig: ''
   excludeGroupRole:
