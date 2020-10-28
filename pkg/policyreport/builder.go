@@ -9,6 +9,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/common"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	v1 "k8s.io/api/core/v1"
@@ -98,7 +99,7 @@ func (pvb *requestBuilder) build(info Info) (req *unstructured.Unstructured, err
 		}
 
 		req = &unstructured.Unstructured{Object: obj}
-		set(req, fmt.Sprintf("reportrequest-%s-%s", info.PolicyName, info.Resource.GetName()), info)
+		set(req, fmt.Sprintf("reportrequest-%s-%s-%s", info.PolicyName, info.Resource.GetNamespace(), info.Resource.GetName()), info)
 	} else {
 		rr := &report.ClusterReportRequest{
 			Summary: calculateSummary(results),
@@ -115,7 +116,8 @@ func (pvb *requestBuilder) build(info Info) (req *unstructured.Unstructured, err
 
 	if len(info.Rules) == 0 && info.PolicyName == "" {
 		req.SetLabels(map[string]string{
-			"delete": generatedDeletedResourceLabel(info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName())})
+			"namespace": info.Resource.GetNamespace(),
+			"delete":    generatedDeletedResourceLabel(info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName())})
 	}
 	return req, nil
 }
@@ -123,7 +125,7 @@ func (pvb *requestBuilder) build(info Info) (req *unstructured.Unstructured, err
 func set(obj *unstructured.Unstructured, name string, info Info) {
 	resource := info.Resource
 	obj.SetName(name)
-	obj.SetNamespace(resource.GetNamespace())
+	obj.SetNamespace(config.KubePolicyNamespace)
 	obj.SetAPIVersion("policy.kubernetes.io/v1alpha1")
 	if resource.GetNamespace() == "" {
 		obj.SetKind("ClusterReportRequest")
@@ -132,8 +134,9 @@ func set(obj *unstructured.Unstructured, name string, info Info) {
 	}
 
 	obj.SetLabels(map[string]string{
-		"policy":   info.PolicyName,
-		"resource": resource.GetKind() + "-" + resource.GetName(),
+		"namespace": resource.GetNamespace(),
+		"policy":    info.PolicyName,
+		"resource":  resource.GetKind() + "-" + resource.GetNamespace() + "-" + resource.GetName(),
 	})
 
 	if info.FromSync {

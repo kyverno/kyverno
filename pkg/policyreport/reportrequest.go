@@ -14,6 +14,7 @@ import (
 	reportrequest "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha1"
 	policyreportinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
 	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/constant"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
@@ -254,11 +255,11 @@ func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) erro
 		old, err := gen.clusterReportRequestLister.Get(reportReq.GetName())
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), reportReq.GetNamespace(), reportReq, false); err != nil {
+				if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), "", reportReq, false); err != nil {
 					return fmt.Errorf("failed to create clusterReportRequest: %v", err)
 				}
 
-				logger.V(3).Info("successfully created clusterReportRequest", "namespace", reportReq.GetNamespace(), "name", reportReq.GetName())
+				logger.V(3).Info("successfully created clusterReportRequest", "name", reportReq.GetName())
 				return nil
 			}
 			return fmt.Errorf("unable to get %s: %v", reportReq.GetKind(), err)
@@ -267,14 +268,14 @@ func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) erro
 		return updateReportRequest(gen.dclient, old, reportReq, logger)
 	}
 
-	old, err := gen.reportRequestLister.ReportRequests(reportReq.GetNamespace()).Get(reportReq.GetName())
+	old, err := gen.reportRequestLister.ReportRequests(config.KubePolicyNamespace).Get(reportReq.GetName())
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), reportReq.GetNamespace(), reportReq, false); err != nil {
+			if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), config.KubePolicyNamespace, reportReq, false); err != nil {
 				return fmt.Errorf("failed to create %s: %v", reportReq.GetKind(), err)
 			}
 
-			logger.V(3).Info("successfully created reportRequest", "namespace", reportReq.GetNamespace, "name", reportReq.GetName())
+			logger.V(3).Info("successfully created reportRequest", "name", reportReq.GetName())
 			return nil
 		}
 		return fmt.Errorf("unable to get existing reportRequest %v", err)
@@ -301,15 +302,15 @@ func updateReportRequest(dClient *client.Client, old interface{}, new *unstructu
 	}
 
 	if !hasResultsChanged(oldUnstructed, new.UnstructuredContent()) {
-		log.V(4).Info("unchanged report request", "namespace", new.GetNamespace(), "name", new.GetName())
+		log.V(4).Info("unchanged report request", "name", new.GetName())
 		return nil
 	}
 	// TODO(shuting): set annotation / label
-	if _, err = dClient.UpdateResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new, false); err != nil {
+	if _, err = dClient.UpdateResource(new.GetAPIVersion(), new.GetKind(), config.KubePolicyNamespace, new, false); err != nil {
 		return fmt.Errorf("failed to update report request: %v", err)
 	}
 
-	log.V(4).Info("successfully updated report request", "kind", new.GetKind(), "namespace", new.GetNamespace(), "name", new.GetName())
+	log.V(4).Info("successfully updated report request", "kind", new.GetKind(), "name", new.GetName())
 	return
 }
 

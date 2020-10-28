@@ -8,6 +8,7 @@ import (
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	policyreportinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
 	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/constant"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	v1 "k8s.io/api/core/v1"
@@ -99,7 +100,7 @@ func NewReportGenerator(
 
 func (g *ReportGenerator) addReportRequest(obj interface{}) {
 	r := obj.(*report.ReportRequest)
-	ns := r.GetNamespace()
+	ns := r.GetLabels()["namespace"]
 	if ns == "" {
 		ns = "default"
 	}
@@ -114,7 +115,7 @@ func (g *ReportGenerator) updateReportRequest(old interface{}, cur interface{}) 
 		return
 	}
 
-	ns := curReq.GetNamespace()
+	ns := curReq.GetLabels()["namespace"]
 	if ns == "" {
 		ns = "default"
 	}
@@ -270,7 +271,8 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 			return nil, nil, fmt.Errorf("unable to get namespace %s: %v", ns.GetName(), err)
 		}
 
-		requests, err := g.reportRequestLister.ReportRequests(ns.GetName()).List(labels.Everything())
+		selector := labels.SelectorFromSet(labels.Set(map[string]string{"namespace": namespace}))
+		requests, err := g.reportRequestLister.ReportRequests(config.KubePolicyNamespace).List(selector)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to list reportRequests within namespace %s: %v", ns, err)
 		}
@@ -425,7 +427,7 @@ func (g *ReportGenerator) cleanupReportRequets(requestsGeneral interface{}) {
 	defer g.log.V(5).Info("successfully cleaned up report requests")
 	if requests, ok := requestsGeneral.([]*report.ReportRequest); ok {
 		for _, request := range requests {
-			if err := g.dclient.DeleteResource(request.APIVersion, "ReportRequest", request.Namespace, request.Name, false); err != nil {
+			if err := g.dclient.DeleteResource(request.APIVersion, "ReportRequest", config.KubePolicyNamespace, request.Name, false); err != nil {
 				if !apierrors.IsNotFound(err) {
 					g.log.Error(err, "failed to delete report request")
 				}
@@ -435,7 +437,7 @@ func (g *ReportGenerator) cleanupReportRequets(requestsGeneral interface{}) {
 
 	if requests, ok := requestsGeneral.([]*report.ClusterReportRequest); ok {
 		for _, request := range requests {
-			if err := g.dclient.DeleteResource(request.APIVersion, "ClusterReportRequest", request.Namespace, request.Name, false); err != nil {
+			if err := g.dclient.DeleteResource(request.APIVersion, "ClusterReportRequest", "", request.Name, false); err != nil {
 				if !apierrors.IsNotFound(err) {
 					g.log.Error(err, "failed to delete clusterReportRequest")
 				}
