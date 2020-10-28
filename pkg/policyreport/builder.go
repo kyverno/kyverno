@@ -9,6 +9,7 @@ import (
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -61,6 +62,10 @@ func NewBuilder() *requestBuilder {
 func (pvb *requestBuilder) build(info Info) (*unstructured.Unstructured, error) {
 	results := []*report.PolicyReportResult{}
 	for _, rule := range info.Rules {
+		if rule.Type != utils.Validation.String() {
+			continue
+		}
+
 		result := &report.PolicyReportResult{
 			Policy: info.PolicyName,
 			Resources: []*v1.ObjectReference{

@@ -321,12 +321,6 @@ spec:
               description: Warn provides the count of unscored policies whose requirements
                 were not met
               type: integer
-          required:
-          - Error
-          - Fail
-          - Pass
-          - Skip
-          - Warn
           type: object
       type: object
   version: v1alpha1

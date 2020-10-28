@@ -11,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go v1.28.9 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/containerd/fifo v0.0.0-20200410184934-f15a3290365b // indirect
+	github.com/cornelk/hashmap v1.0.1
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
 	github.com/docker/go-connections v0.4.0 // indirect

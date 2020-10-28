@@ -88,7 +88,7 @@ func buildPVInfo(er response.EngineResponse) Info {
 func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 	var violatedRules []kyverno.ViolatedRule
 	for _, rule := range er.PolicyResponse.Rules {
-		if os.Getenv("POLICY-TYPE") != common.PolicyReport {
+		if os.Getenv("POLICY-TYPE") == common.PolicyViolation {
 			if rule.Success {
 				continue
 			}

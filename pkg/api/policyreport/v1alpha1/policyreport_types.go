@@ -22,26 +22,34 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 const (
-	StatusPass = "Pass"
-	StatusFail = "Fail"
+	StatusPass  = "Pass"
+	StatusFail  = "Fail"
+	StatusWarn  = "Warn"
+	StatusError = "Error"
+	StatusSkip  = "Skip"
 )
 
 // PolicyReportSummary provides a status count summary
 type PolicyReportSummary struct {
 
 	// Pass provides the count of policies whose requirements were met
+	// +optional
 	Pass int `json:"Pass"`
 
 	// Fail provides the count of policies whose requirements were not met
+	// +optional
 	Fail int `json:"Fail"`
 
 	// Warn provides the count of unscored policies whose requirements were not met
+	// +optional
 	Warn int `json:"Warn"`
 
 	// Error provides the count of policies that could not be evaluated
+	// +optional
 	Error int `json:"Error"`
 
 	// Skip indicates the count of policies that were not selected for evaluation
+	// +optional
 	Skip int `json:"Skip"`
 }
 
