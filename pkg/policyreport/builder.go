@@ -3,6 +3,7 @@ package policyreport
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -11,7 +12,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -59,7 +59,7 @@ type requestBuilder struct{}
 func NewBuilder() *requestBuilder {
 	return &requestBuilder{}
 }
-func (pvb *requestBuilder) build(info Info) (*unstructured.Unstructured, error) {
+func (pvb *requestBuilder) build(info Info) (req *unstructured.Unstructured, err error) {
 	results := []*report.PolicyReportResult{}
 	for _, rule := range info.Rules {
 		if rule.Type != utils.Validation.String() {
@@ -86,8 +86,7 @@ func (pvb *requestBuilder) build(info Info) (*unstructured.Unstructured, error) 
 		results = append(results, result)
 	}
 
-	ns := info.Resource.GetNamespace()
-	if ns != "" {
+	if info.Resource.GetNamespace() != "" {
 		rr := &report.ReportRequest{
 			Summary: calculateSummary(results),
 			Results: results,
@@ -98,22 +97,26 @@ func (pvb *requestBuilder) build(info Info) (*unstructured.Unstructured, error) 
 			return nil, err
 		}
 
-		req := &unstructured.Unstructured{Object: obj}
+		req = &unstructured.Unstructured{Object: obj}
 		set(req, fmt.Sprintf("reportrequest-%s-%s", info.PolicyName, info.Resource.GetName()), info)
-		return req, nil
+	} else {
+		rr := &report.ClusterReportRequest{
+			Summary: calculateSummary(results),
+			Results: results,
+		}
+
+		obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(rr)
+		if err != nil {
+			return nil, err
+		}
+		req = &unstructured.Unstructured{Object: obj}
+		set(req, fmt.Sprintf("%s-%s", clusterreportrequest, info.Resource.GetName()), info)
 	}
 
-	rr := &report.ClusterPolicyReport{
-		Summary: calculateSummary(results),
-		Results: results,
+	if len(info.Rules) == 0 && info.PolicyName == "" {
+		req.SetLabels(map[string]string{
+			"delete": generatedDeletedResourceLabel(info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName())})
 	}
-
-	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(rr)
-	if err != nil {
-		return nil, err
-	}
-	req := &unstructured.Unstructured{Object: obj}
-	set(req, fmt.Sprintf("%s-%s", clusterreportrequest, info.Resource.GetName()), info)
 	return req, nil
 }
 
@@ -138,20 +141,6 @@ func set(obj *unstructured.Unstructured, name string, info Info) {
 			"fromSync": "true",
 		})
 	}
-
-	controllerFlag := true
-	blockOwnerDeletionFlag := true
-
-	obj.SetOwnerReferences([]metav1.OwnerReference{
-		{
-			APIVersion:         resource.GetAPIVersion(),
-			Kind:               resource.GetKind(),
-			Name:               resource.GetName(),
-			UID:                resource.GetUID(),
-			Controller:         &controllerFlag,
-			BlockOwnerDeletion: &blockOwnerDeletionFlag,
-		},
-	})
 }
 
 func calculateSummary(results []*report.PolicyReportResult) (summary report.PolicyReportSummary) {
@@ -201,4 +190,25 @@ func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 		violatedRules = append(violatedRules, vrule)
 	}
 	return violatedRules
+}
+
+func generatedDeletedResourceLabel(kind, namespace, name string) string {
+	if namespace == "" {
+		return kind + "-" + name
+	}
+	return kind + "-" + namespace + "-" + name
+}
+
+func getDeletedResourceLabelValue(value string) (kind, namespace, name string) {
+	resource := strings.Split(value, "-")
+
+	if len(resource) == 2 {
+		return resource[0], "", resource[1]
+	}
+
+	if len(resource) != 3 {
+		return "", "", ""
+	}
+
+	return resource[0], resource[1], resource[2]
 }

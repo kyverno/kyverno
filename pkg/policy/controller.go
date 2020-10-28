@@ -395,6 +395,11 @@ func (pc *PolicyController) handleErr(err error, key interface{}) {
 }
 
 func (pc *PolicyController) syncPolicy(key string) error {
+	// TODO(shuting):
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		return nil
+	}
+
 	logger := pc.log
 	startTime := time.Now()
 	logger.V(4).Info("started syncing policy", "key", key, "startTime", startTime)

@@ -314,15 +314,8 @@ func updateReportRequest(dClient *client.Client, old interface{}, new *unstructu
 }
 
 func hasResultsChanged(old, new map[string]interface{}) bool {
-	oldRes, ok := old["results"]
-	if !ok {
-		return false
-	}
-
-	newRes, ok := new["results"]
-	if !ok {
-		return false
-	}
+	oldRes := old["results"]
+	newRes := new["results"]
 
 	return !reflect.DeepEqual(oldRes, newRes)
 }

@@ -244,7 +244,7 @@ func (g *ReportGenerator) syncHandler(namespace string) error {
 		}
 	}
 
-	if err := g.updateReport(old, new); err != nil {
+	if err := g.updateReport(old, new, aggregatedRequests); err != nil {
 		return err
 	}
 
@@ -292,7 +292,9 @@ func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured
 			if request.GetDeletionTimestamp() != nil {
 				continue
 			}
-			results = append(results, request.Results...)
+			if len(request.Results) != 0 {
+				results = append(results, request.Results...)
+			}
 			aggregatedRequests = append(aggregatedRequests, request)
 		}
 
@@ -317,7 +319,9 @@ func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured
 			if request.GetDeletionTimestamp() != nil {
 				continue
 			}
-			results = append(results, request.Results...)
+			if len(request.Results) != 0 {
+				results = append(results, request.Results...)
+			}
 			aggregatedRequests = append(aggregatedRequests, request)
 		}
 
@@ -367,7 +371,7 @@ func setReport(report *unstructured.Unstructured, ns *v1.Namespace) {
 	})
 }
 
-func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstructured) (err error) {
+func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstructured, aggregatedRequests interface{}) (err error) {
 	if new == nil {
 		g.log.V(4).Info("empty report to update")
 		return nil
@@ -398,7 +402,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		new.SetResourceVersion(oldTyped.GetResourceVersion())
 	}
 
-	obj, err := updateResults(oldUnstructed, new.UnstructuredContent())
+	obj, err := updateResults(oldUnstructed, new.UnstructuredContent(), aggregatedRequests)
 	if err != nil {
 		return fmt.Errorf("failed to update results entry: %v", err)
 	}
@@ -418,11 +422,13 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 }
 
 func (g *ReportGenerator) cleanupReportRequets(requestsGeneral interface{}) {
-	defer g.log.V(2).Info("successfully cleaned up report requests ")
+	defer g.log.V(5).Info("successfully cleaned up report requests")
 	if requests, ok := requestsGeneral.([]*report.ReportRequest); ok {
 		for _, request := range requests {
 			if err := g.dclient.DeleteResource(request.APIVersion, "ReportRequest", request.Namespace, request.Name, false); err != nil {
-				g.log.Error(err, "failed to delete report request")
+				if !apierrors.IsNotFound(err) {
+					g.log.Error(err, "failed to delete report request")
+				}
 			}
 		}
 	}
@@ -430,7 +436,9 @@ func (g *ReportGenerator) cleanupReportRequets(requestsGeneral interface{}) {
 	if requests, ok := requestsGeneral.([]*report.ClusterReportRequest); ok {
 		for _, request := range requests {
 			if err := g.dclient.DeleteResource(request.APIVersion, "ClusterReportRequest", request.Namespace, request.Name, false); err != nil {
-				g.log.Error(err, "failed to delete clusterReportRequest")
+				if !apierrors.IsNotFound(err) {
+					g.log.Error(err, "failed to delete clusterReportRequest")
+				}
 			}
 		}
 	}

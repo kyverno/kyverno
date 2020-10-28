@@ -9,14 +9,44 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func updateResults(oldReport, newReport map[string]interface{}) (map[string]interface{}, error) {
-	oldResults := hashResults(oldReport)
-	newresults := newReport["results"].([]interface{})
+type deletedResource struct {
+	kind, ns, name string
+}
 
-	for _, res := range newresults {
-		resMap := res.(map[string]interface{})
-		if key, ok := generateHashKey(resMap); ok {
-			oldResults.Set(key, res)
+func getDeletedResources(aggregatedRequests interface{}) (resources []deletedResource) {
+	if requests, ok := aggregatedRequests.([]*report.ClusterReportRequest); ok {
+		for _, request := range requests {
+			var dr deletedResource
+			if resource, ok := request.GetLabels()["delete"]; ok {
+				dr.kind, dr.ns, dr.name = getDeletedResourceLabelValue(resource)
+				resources = append(resources, dr)
+			}
+		}
+	} else if requests, ok := aggregatedRequests.([]*report.ReportRequest); ok {
+		for _, request := range requests {
+			var dr deletedResource
+			if resource, ok := request.GetLabels()["delete"]; ok {
+				dr.kind, dr.ns, dr.name = getDeletedResourceLabelValue(resource)
+				resources = append(resources, dr)
+			}
+		}
+	}
+	return
+}
+
+func updateResults(oldReport, newReport map[string]interface{}, aggregatedRequests interface{}) (map[string]interface{}, error) {
+	deleteResources := getDeletedResources(aggregatedRequests)
+	oldResults := hashResults(oldReport, deleteResources)
+
+	if newresults, ok := newReport["results"].([]interface{}); ok {
+		for _, res := range newresults {
+			resMap, ok := res.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if key, ok := generateHashKey(resMap, deletedResource{}); ok {
+				oldResults.Set(key, res)
+			}
 		}
 	}
 
@@ -32,7 +62,7 @@ func updateResults(oldReport, newReport map[string]interface{}) (map[string]inte
 	return newReport, nil
 }
 
-func hashResults(policyReport map[string]interface{}) *hashmap.HashMap {
+func hashResults(policyReport map[string]interface{}, deleteResources []deletedResource) *hashmap.HashMap {
 	resultsHash := &hashmap.HashMap{}
 
 	results, ok := policyReport["results"]
@@ -41,8 +71,16 @@ func hashResults(policyReport map[string]interface{}) *hashmap.HashMap {
 	}
 
 	for _, result := range results.([]interface{}) {
-		if key, ok := generateHashKey(result.(map[string]interface{})); ok {
-			resultsHash.Set(key, result)
+		if len(deleteResources) != 0 {
+			for _, dr := range deleteResources {
+				if key, ok := generateHashKey(result.(map[string]interface{}), dr); ok {
+					resultsHash.Set(key, result)
+				}
+			}
+		} else {
+			if key, ok := generateHashKey(result.(map[string]interface{}), deletedResource{}); ok {
+				resultsHash.Set(key, result)
+			}
 		}
 	}
 	return resultsHash
@@ -62,13 +100,19 @@ func getResultsFromHash(resHash *hashmap.HashMap) []interface{} {
 	return results
 }
 
-func generateHashKey(result map[string]interface{}) (string, bool) {
+func generateHashKey(result map[string]interface{}, dr deletedResource) (string, bool) {
 	resources := result["resources"].([]interface{})
 	if len(resources) < 1 {
 		return "", false
 	}
 
 	resource := resources[0].(map[string]interface{})
+	if !reflect.DeepEqual(dr, deletedResource{}) {
+		if resource["kind"] == dr.kind && resource["name"] == dr.name && resource["namespace"] == dr.ns {
+			return "", false
+		}
+	}
+
 	return fmt.Sprintf(
 		"%s-%s-%s-%s-%s",
 		result["policy"],

@@ -88,22 +88,6 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	return resources, nil
 }
 
-// shuting?
-// // GetPoliciesFromCluster fetches the policies from the cluster
-// func GetPoliciesFromCluster(pNames []string, dClient *client.Client) ([]*v1.ClusterPolicy, error) {
-// 	resourceTyeps := []string{"ClusterPolicy", "Policy"}
-// 	policies, err := getResourcesOfTypeFromCluster(resourceTyeps, dClient)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// // if its a namespace policy, fill in namespaces in match / exclude? when converting to cluster policy
-// 	var cpols []*v1.ClusterPolicy
-// 	for _, p := range policies {
-// 		cpols = append(cpols, policy.ConvertPolicyToClusterPolicy(p))
-// 	}
-// }
-
 func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Client) ([]*unstructured.Unstructured, error) {
 	var resources []*unstructured.Unstructured
 
