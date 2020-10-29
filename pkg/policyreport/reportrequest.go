@@ -237,6 +237,10 @@ func (gen *Generator) syncHandler(info Info) error {
 		return fmt.Errorf("unable to build reportChangeRequest: %v", err)
 	}
 
+	if reportChangeRequestUnstructured == nil {
+		return nil
+	}
+
 	return gen.sync(reportChangeRequestUnstructured, info)
 }
 

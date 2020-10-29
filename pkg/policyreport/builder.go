@@ -49,7 +49,7 @@ func GeneratePRsFromEngineResponse(ers []response.EngineResponse, log logr.Logge
 	return pvInfos
 }
 
-// Builder builds report request struct
+// Builder builds report change request struct
 // this is base type of namespaced and cluster policy report
 type Builder interface {
 	build(info Info) (*unstructured.Unstructured, error)
@@ -85,6 +85,10 @@ func (pvb *requestBuilder) build(info Info) (req *unstructured.Unstructured, err
 		result.Message = rule.Message
 		result.Status = report.PolicyStatus(rule.Check)
 		results = append(results, result)
+	}
+
+	if len(results) == 0 {
+		return nil, nil
 	}
 
 	if info.Resource.GetNamespace() != "" {
