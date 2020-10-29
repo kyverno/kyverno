@@ -2,8 +2,10 @@ package policy
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policyviolation"
@@ -28,7 +30,9 @@ func (pc *PolicyController) cleanupAndReport(engineResponses []response.EngineRe
 	// cleanup existing violations if any
 	// if there is any error in clean up, we dont re-queue the resource
 	// it will be re-tried in the next controller cache resync
-	pc.cleanUp(engineResponses)
+	if os.Getenv("POLICY-TYPE") == common.PolicyViolation {
+		pc.cleanUp(engineResponses)
+	}
 }
 
 func generateEvents(log logr.Logger, ers []response.EngineResponse) []event.Info {

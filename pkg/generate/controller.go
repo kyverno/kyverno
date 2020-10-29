@@ -156,6 +156,18 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 		// Two different versions of the same replica set will always have different RVs.
 		return
 	}
+
+	var policyHasGenerate bool
+	for _, rule := range curP.Spec.Rules {
+		if rule.HasGenerate() {
+			policyHasGenerate = true
+		}
+	}
+
+	if !policyHasGenerate {
+		return
+	}
+
 	logger.V(4).Info("updating policy", "name", oldP.Name)
 	// get the list of GR for the current Policy version
 	grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(curP.Name)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -240,6 +241,10 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 		return
 	}
 
+	if reflect.DeepEqual(oldP.Spec, curP.Spec) {
+		return
+	}
+
 	logger.V(4).Info("updating policy", "name", oldP.Name)
 	pc.enqueuePolicy(curP)
 }
@@ -285,6 +290,10 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	curP := cur.(*kyverno.Policy)
 	ncurP := ConvertPolicyToClusterPolicy(curP)
 	if !pc.canBackgroundProcess(ncurP) {
+		return
+	}
+
+	if reflect.DeepEqual(oldP.Spec, curP.Spec) {
 		return
 	}
 
@@ -336,7 +345,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	cacheSyncs := []cache.InformerSynced{pc.pListerSynced, pc.nsListerSynced}
+	cacheSyncs := []cache.InformerSynced{pc.pListerSynced, pc.nsListerSynced, pc.grListerSynced}
 	if os.Getenv("POLICY-TYPE") == common.PolicyViolation {
 		cacheSyncs = []cache.InformerSynced{pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced, pc.grListerSynced}
 	}
@@ -395,11 +404,6 @@ func (pc *PolicyController) handleErr(err error, key interface{}) {
 }
 
 func (pc *PolicyController) syncPolicy(key string) error {
-	// TODO(shuting):
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		return nil
-	}
-
 	logger := pc.log
 	startTime := time.Now()
 	logger.V(4).Info("started syncing policy", "key", key, "startTime", startTime)
@@ -458,9 +462,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 
 	pc.resourceWebhookWatcher.RegisterResourceWebhook()
 	engineResponses := pc.processExistingResources(policy)
-	if os.Getenv("POLICY-TYPE") == common.PolicyViolation {
-		pc.cleanupAndReport(engineResponses)
-	}
+	pc.cleanupAndReport(engineResponses)
 	return nil
 }
 
