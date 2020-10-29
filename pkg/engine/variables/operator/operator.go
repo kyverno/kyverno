@@ -4,6 +4,7 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"strings"
 )
 
 //OperatorHandler provides interface to manage types
@@ -21,21 +22,30 @@ type VariableSubstitutionHandler = func(log logr.Logger, ctx context.EvalInterfa
 
 //CreateOperatorHandler returns the operator handler based on the operator used in condition
 func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyverno.ConditionOperator, subHandler VariableSubstitutionHandler) OperatorHandler {
-	switch op {
-	case kyverno.Equal:
+	str := strings.ToLower(string(op))
+	switch str {
+
+	case strings.ToLower(string(kyverno.Equal)):
 		return NewEqualHandler(log, ctx, subHandler)
-	case kyverno.NotEqual:
-		return NewNotEqualHandler(log, ctx, subHandler)
-	case kyverno.Equals:
+
+	case strings.ToLower(string(kyverno.Equals)):
 		return NewEqualHandler(log, ctx, subHandler)
-	case kyverno.NotEquals:
+
+	case strings.ToLower(string(kyverno.NotEqual)):
 		return NewNotEqualHandler(log, ctx, subHandler)
-	case kyverno.In:
+
+	case strings.ToLower(string(kyverno.NotEquals)):
+		return NewNotEqualHandler(log, ctx, subHandler)
+
+	case strings.ToLower(string(kyverno.In)):
 		return NewInHandler(log, ctx, subHandler)
-	case kyverno.NotIn:
+
+	case strings.ToLower(string(kyverno.NotIn)):
 		return NewNotInHandler(log, ctx, subHandler)
+
 	default:
-		log.Info("operator not supported", "operator", string(op))
+		log.Info("operator not supported", "operator", str)
 	}
+
 	return nil
 }

@@ -20,7 +20,7 @@ func (ws *WebhookServer) policyValidation(request *v1beta1.AdmissionRequest) *v1
 
 	//TODO: can this happen? wont this be picked by OpenAPI spec schema ?
 	if err := policyvalidate.Validate(request.Object.Raw, ws.client, false, ws.openAPIController); err != nil {
-		logger.Error(err, "faield to validate policy")
+		logger.Error(err, "failed to validate policy")
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
