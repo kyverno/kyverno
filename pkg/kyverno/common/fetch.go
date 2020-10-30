@@ -50,6 +50,9 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 					resources = append(resources, rr)
 				}
 			}
+			if resources != nil{
+				resourceFromCluster = true
+			}
 		}
 	}
 

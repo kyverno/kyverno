@@ -96,7 +96,9 @@ func getPolicyFromCluster(policyName string, cluster bool, dClient *client.Clien
 		return &v1.ClusterPolicy{}, nil
 	}
 
-	policy, err := dClient.GetResource("", "ClusterPolicy", namespace, policyName, "")
+	//check here----------------------------------
+	kind := "ClusterPolicy"
+	policy, err := dClient.GetResource("", kind, namespace, policyName, "")
 	fmt.Println("------------policy :  ", policy)
 	policyBytes, err := json.Marshal(policy.Object)
 	if err != nil {
