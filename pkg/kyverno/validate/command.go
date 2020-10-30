@@ -79,7 +79,7 @@ func Command() *cobra.Command {
 			} else {
 				cluster := false
 				var dClient *client.Client
-				policies, err = common.ValidateAndGetPolicies(policyPaths, cluster, dClient, "")
+				policies, _, err = common.ValidateAndGetPolicies(policyPaths, cluster, dClient, "")
 				if err != nil {
 					if !sanitizedError.IsErrorSanitized(err) {
 						return sanitizedError.NewWithError("failed to mutate policies.", err)

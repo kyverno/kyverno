@@ -19,12 +19,13 @@ import (
 // the resources are fetched from
 // - local paths to resources, if given
 // - the k8s cluster, if given
-func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient *client.Client, cluster bool, namespace string) ([]*unstructured.Unstructured, error) {
+func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient *client.Client, cluster bool, namespace string) ([]*unstructured.Unstructured, bool, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
-
+	var resourceFromCluster bool
 	var resourceTypesMap = make(map[string]bool)
 	var resourceTypes []string
+
 	for _, policy := range policies {
 		for _, rule := range policy.Spec.Rules {
 			for _, kind := range rule.MatchResources.Kinds {
@@ -41,9 +42,8 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	if cluster && dClient != nil {
 		resourceMap, err = getResourcesOfTypeFromCluster(resourceTypes, dClient, namespace)
 		if err != nil {
-			return nil, err
+			return nil, resourceFromCluster, err
 		}
-
 		if len(resourcePaths) == 0 {
 			for _, rm := range resourceMap {
 				for _, rr := range rm {
@@ -65,6 +65,7 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 			if cluster {
 				for _, rm := range resourceMap {
 					for rn, rr := range rm {
+						resourceFromCluster = true
 						if rn == resourcePath {
 							resources = append(resources, rr)
 							continue
@@ -72,20 +73,19 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 					}
 				}
 			} else {
-				return nil, err
+				return nil, resourceFromCluster, err
 			}
 		}
 
 		getResources, err := GetResource(resourceBytes)
 		if err != nil {
-			return nil, err
+			return nil, resourceFromCluster, err
 		}
-
 		for _, resource := range getResources {
 			resources = append(resources, resource)
 		}
 	}
-	return resources, nil
+	return resources, resourceFromCluster, nil
 }
 
 func getResourceFromCluster(resourceTypes []string, resourceName string, dClient *client.Client) (*unstructured.Unstructured, error) {
@@ -128,7 +128,6 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	return resources, nil
 }
 
-// output is a ma
 func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Client, namespace string) (map[string]map[string]*unstructured.Unstructured, error) {
 	r := make(map[string]map[string]*unstructured.Unstructured)
 
@@ -151,7 +150,6 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Clien
 			resources = append(resources, resource.DeepCopy())
 		}
 	}
-
 	return r, nil
 }
 
