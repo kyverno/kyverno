@@ -3,6 +3,7 @@ package policyreport
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/go-logr/logr"
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	labels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers/core/v1"
@@ -96,14 +98,42 @@ func NewReportGenerator(
 	return gen
 }
 
-func (g *ReportGenerator) addReportChangeRequest(obj interface{}) {
-	r := obj.(*report.ReportChangeRequest)
-	ns := r.GetLabels()["namespace"]
-	if ns == "" {
-		ns = "default"
+const deletedPolicyKey string = "deletedpolicy"
+
+// the key of queue can be
+// - <namespace name> for the resource
+// - "" for cluster wide resource
+// - "deletedpolicy/policyName/ruleName(optional)" for a deleted policy or rule
+func generateCacheKey(changeRequest interface{}) string {
+	if request, ok := changeRequest.(*report.ReportChangeRequest); ok {
+		label := request.GetLabels()
+		policy := label[deletedLabelPolicy]
+		rule := label[deletedLabelRule]
+		if rule != "" || policy != "" {
+			return strings.Join([]string{deletedPolicyKey, policy, rule}, "/")
+		}
+
+		ns := label["namespace"]
+		if ns == "" {
+			ns = "default"
+		}
+		return ns
+	} else if request, ok := changeRequest.(*report.ClusterReportChangeRequest); ok {
+		label := request.GetLabels()
+		policy := label[deletedLabelPolicy]
+		rule := label[deletedLabelRule]
+		if rule != "" || policy != "" {
+			return strings.Join([]string{deletedPolicyKey, policy, rule}, "/")
+		}
+		return ""
 	}
 
-	g.queue.Add(ns)
+	return ""
+}
+
+func (g *ReportGenerator) addReportChangeRequest(obj interface{}) {
+	key := generateCacheKey(obj)
+	g.queue.Add(key)
 }
 
 func (g *ReportGenerator) updateReportChangeRequest(old interface{}, cur interface{}) {
@@ -113,16 +143,13 @@ func (g *ReportGenerator) updateReportChangeRequest(old interface{}, cur interfa
 		return
 	}
 
-	ns := curReq.GetLabels()["namespace"]
-	if ns == "" {
-		ns = "default"
-	}
-	g.queue.Add(ns)
+	key := generateCacheKey(cur)
+	g.queue.Add(key)
 }
 
 func (g *ReportGenerator) addClusterReportChangeRequest(obj interface{}) {
-	_ = obj.(*report.ClusterReportChangeRequest)
-	g.queue.Add("")
+	key := generateCacheKey(obj)
+	g.queue.Add(key)
 }
 
 func (g *ReportGenerator) updateClusterReportChangeRequest(old interface{}, cur interface{}) {
@@ -168,14 +195,14 @@ func (g *ReportGenerator) processNextWorkItem() bool {
 	}
 
 	defer g.queue.Done(key)
-	ns, ok := key.(string)
+	keyStr, ok := key.(string)
 	if !ok {
 		g.queue.Forget(key)
 		g.log.Info("incorrect type; expecting type 'string'", "obj", key)
 		return true
 	}
 
-	err := g.syncHandler(ns)
+	err := g.syncHandler(keyStr)
 	g.handleErr(err, key)
 
 	return true
@@ -202,48 +229,137 @@ func (g *ReportGenerator) handleErr(err error, key interface{}) {
 
 // syncHandler reconciles clusterPolicyReport if namespace == ""
 // otherwise it updates policyrReport
-func (g *ReportGenerator) syncHandler(namespace string) error {
-	log := g.log.WithName("sync")
+func (g *ReportGenerator) syncHandler(key string) error {
+	if policy, rule, ok := isDeletedPolicyKey(key); ok {
+		return g.removePolicyEntryFromReport(policy, rule)
+	}
 
+	namespace := key
 	new, aggregatedRequests, err := g.aggregateReports(namespace)
 	if err != nil {
 		return fmt.Errorf("failed to aggregate reportChangeRequest results %v", err)
 	}
 
 	var old interface{}
+	if old, err = g.createReportIfNotPresent(namespace, new, aggregatedRequests); err != nil || old == nil {
+		return err
+	}
+
+	if err := g.updateReport(old, new, aggregatedRequests); err != nil {
+		return err
+	}
+
+	g.cleanupReportRequets(aggregatedRequests)
+	return nil
+}
+
+// createReportIfNotPresent creates cluster / policyReport if not present
+// return the existing report if exist
+func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstructured.Unstructured, aggregatedRequests interface{}) (report interface{}, err error) {
+	log := g.log.WithName("createReportIfNotPresent")
 	if namespace != "" {
-		old, err = g.reportLister.PolicyReports(namespace).Get(generatePolicyReportName((namespace)))
+		report, err = g.reportLister.PolicyReports(namespace).Get(generatePolicyReportName((namespace)))
 		if err != nil {
 			if apierrors.IsNotFound(err) && new != nil {
 				if _, err := g.dclient.CreateResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new, false); err != nil {
-					return fmt.Errorf("failed to create policyReport: %v", err)
+					return nil, fmt.Errorf("failed to create policyReport: %v", err)
 				}
 
 				log.V(2).Info("successfully created policyReport", "namespace", new.GetNamespace(), "name", new.GetName())
 				g.cleanupReportRequets(aggregatedRequests)
-				return nil
+				return nil, nil
 			}
 
-			return fmt.Errorf("unable to get policyReport: %v", err)
+			return nil, fmt.Errorf("unable to get policyReport: %v", err)
 		}
 	} else {
-		old, err = g.clusterReportLister.Get(generatePolicyReportName((namespace)))
+		report, err = g.clusterReportLister.Get(generatePolicyReportName((namespace)))
 		if err != nil {
-			if apierrors.IsNotFound(err) && new != nil {
-				if _, err := g.dclient.CreateResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new, false); err != nil {
-					return fmt.Errorf("failed to create ClusterPolicyReport: %v", err)
+			if apierrors.IsNotFound(err) {
+				if new != nil {
+					if _, err := g.dclient.CreateResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new, false); err != nil {
+						return nil, fmt.Errorf("failed to create ClusterPolicyReport: %v", err)
+					}
+
+					log.V(2).Info("successfully created ClusterPolicyReport")
+					g.cleanupReportRequets(aggregatedRequests)
+					return nil, nil
 				}
-
-				log.V(2).Info("successfully created ClusterPolicyReport")
-				g.cleanupReportRequets(aggregatedRequests)
-				return nil
+				return nil, nil
 			}
+			return nil, fmt.Errorf("unable to get ClusterPolicyReport: %v", err)
+		}
+	}
+	return report, nil
+}
 
-			return fmt.Errorf("unable to get ClusterPolicyReport: %v", err)
+func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName string) error {
+	cpolrs, err := g.clusterReportLister.List(labels.Everything())
+	if err != nil {
+		return fmt.Errorf("failed to list clusterPolicyReport %v", err)
+	}
+
+	for _, cpolr := range cpolrs {
+		newRes := []*report.PolicyReportResult{}
+		for _, result := range cpolr.Results {
+			if ruleName != "" && result.Rule == ruleName && result.Policy == policyName {
+				continue
+			} else if ruleName == "" && result.Policy == policyName {
+				continue
+			}
+			newRes = append(newRes, result)
+		}
+		cpolr.Summary = calculateSummary(newRes)
+		gv := report.SchemeGroupVersion
+		cpolr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "ClusterPolicyReport"})
+		if _, err := g.dclient.UpdateResource("", "ClusterPolicyReport", "", cpolr, false); err != nil {
+			return fmt.Errorf("failed to update clusterPolicyReport %s %v", cpolr.Name, err)
 		}
 	}
 
-	if err := g.updateReport(old, new, aggregatedRequests); err != nil {
+	namespaces, err := g.dclient.ListResource("", "Namespace", "", nil)
+	if err != nil {
+		return fmt.Errorf("unable to list namespace %v", err)
+	}
+
+	policyReports := []*report.PolicyReport{}
+	for _, ns := range namespaces.Items {
+		reports, err := g.reportLister.PolicyReports(ns.GetName()).List(labels.Everything())
+		if err != nil {
+			return fmt.Errorf("unable to list policyReport for namespace %s %v", ns.GetName(), err)
+		}
+		policyReports = append(policyReports, reports...)
+	}
+
+	for _, r := range policyReports {
+		newRes := []*report.PolicyReportResult{}
+		for _, result := range r.Results {
+			if ruleName != "" && result.Rule == ruleName && result.Policy == policyName {
+				continue
+			} else if ruleName == "" && result.Policy == policyName {
+				continue
+			}
+			newRes = append(newRes, result)
+		}
+
+		r.Summary = calculateSummary(newRes)
+		gv := report.SchemeGroupVersion
+		gvk := schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "PolicyReport"}
+		r.SetGroupVersionKind(gvk)
+		if _, err := g.dclient.UpdateResource("", "PolicyReport", r.GetNamespace(), r, false); err != nil {
+			return fmt.Errorf("failed to update PolicyReport %s %v", r.GetName(), err)
+		}
+	}
+
+	labelset := labels.Set(map[string]string{deletedLabelPolicy: policyName})
+	if ruleName != "" {
+		labelset = labels.Set(map[string]string{
+			deletedLabelPolicy: policyName,
+			deletedLabelRule:   ruleName,
+		})
+	}
+	aggregatedRequests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KubePolicyNamespace).List(labels.SelectorFromSet(labelset))
+	if err != nil {
 		return err
 	}
 

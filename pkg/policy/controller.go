@@ -246,6 +246,9 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	}
 
 	logger.V(4).Info("updating policy", "name", oldP.Name)
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		pc.enqueueDeletedRule(oldP, curP)
+	}
 	pc.enqueuePolicy(curP)
 }
 
@@ -298,6 +301,9 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	}
 
 	logger.V(4).Info("updating namespace policy", "namespace", oldP.Namespace, "name", oldP.Name)
+	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+		pc.enqueueDeletedRule(ConvertPolicyToClusterPolicy(oldP), ncurP)
+	}
 	pc.enqueuePolicy(ncurP)
 }
 
@@ -323,6 +329,24 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	// we process policies that are not set of background processing as we need to perform policy violation
 	// cleanup when a policy is deleted.
 	pc.enqueuePolicy(pol)
+}
+
+func (pc *PolicyController) enqueueDeletedRule(old, cur *kyverno.ClusterPolicy) {
+	curRule := make(map[string]bool)
+	for _, rule := range cur.Spec.Rules {
+		curRule[rule.Name] = true
+	}
+
+	for _, rule := range old.Spec.Rules {
+		if !curRule[rule.Name] {
+			pc.pvGenerator.Add(policyviolation.Info{
+				PolicyName: cur.GetName(),
+				Rules: []kyverno.ViolatedRule{
+					{Name: rule.Name},
+				},
+			})
+		}
+	}
 }
 
 func (pc *PolicyController) enqueuePolicy(policy *kyverno.ClusterPolicy) {
@@ -442,6 +466,10 @@ func (pc *PolicyController) syncPolicy(key string) error {
 				}
 			}
 
+			if os.Getenv("POLICY-TYPE") == common.PolicyReport {
+				go pc.removeResultsEntryFromPolicyReport(key)
+				return nil
+			}
 			go pc.deletePolicyViolations(key)
 			return nil
 		}
@@ -464,6 +492,13 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	engineResponses := pc.processExistingResources(policy)
 	pc.cleanupAndReport(engineResponses)
 	return nil
+}
+
+func (pc *PolicyController) removeResultsEntryFromPolicyReport(policyName string) {
+	info := policyviolation.Info{
+		PolicyName: policyName,
+	}
+	pc.pvGenerator.Add(info)
 }
 
 func (pc *PolicyController) deletePolicyViolations(key string) {

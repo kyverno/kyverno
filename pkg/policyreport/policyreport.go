@@ -3,6 +3,7 @@ package policyreport
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/cornelk/hashmap"
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
@@ -16,19 +17,24 @@ type deletedResource struct {
 func getDeletedResources(aggregatedRequests interface{}) (resources []deletedResource) {
 	if requests, ok := aggregatedRequests.([]*report.ClusterReportChangeRequest); ok {
 		for _, request := range requests {
-			var dr deletedResource
-			if resource, ok := request.GetLabels()["delete"]; ok {
-				dr.kind, dr.ns, dr.name = getDeletedResourceLabelValue(resource)
-				resources = append(resources, dr)
+			labels := request.GetLabels()
+			dr := deletedResource{
+				kind: labels[deletedLabelResourceKind],
+				name: labels[deletedLabelResource],
+				ns:   labels["namespace"],
 			}
+
+			resources = append(resources, dr)
 		}
 	} else if requests, ok := aggregatedRequests.([]*report.ReportChangeRequest); ok {
 		for _, request := range requests {
-			var dr deletedResource
-			if resource, ok := request.GetLabels()["delete"]; ok {
-				dr.kind, dr.ns, dr.name = getDeletedResourceLabelValue(resource)
-				resources = append(resources, dr)
+			labels := request.GetLabels()
+			dr := deletedResource{
+				kind: labels[deletedLabelResourceKind],
+				name: labels[deletedLabelResource],
+				ns:   labels["namespace"],
 			}
+			resources = append(resources, dr)
 		}
 	}
 	return
@@ -133,22 +139,45 @@ func updateSummary(results []interface{}) map[string]interface{} {
 
 		switch typedResult["status"].(string) {
 		case report.StatusPass:
-			pass, _ := summary["Pass"].(int64)
-			summary["Pass"] = pass + 1
+			pass, _ := summary[report.StatusPass].(int64)
+			summary[report.StatusPass] = pass + 1
 		case report.StatusFail:
-			fail, _ := summary["Fail"].(int64)
-			summary["Fail"] = fail + 1
-		case "Warn":
-			warn, _ := summary["Warn"].(int64)
-			summary["warn"] = warn + 1
-		case "Error":
-			e, _ := summary["Error"].(int64)
-			summary["Error"] = e + 1
-		case "Skip":
-			skip, _ := summary["Skip"].(int64)
-			summary["Skip"] = skip + 1
+			fail, _ := summary[report.StatusFail].(int64)
+			summary[report.StatusFail] = fail + 1
+		case report.StatusWarn:
+			warn, _ := summary[report.StatusWarn].(int64)
+			summary[report.StatusWarn] = warn + 1
+		case report.StatusError:
+			e, _ := summary[report.StatusError].(int64)
+			summary[report.StatusError] = e + 1
+		case report.StatusSkip:
+			skip, _ := summary[report.StatusSkip].(int64)
+			summary[report.StatusSkip] = skip + 1
 		}
 	}
 
+	status := []string{report.StatusPass, report.StatusFail, report.StatusError, report.StatusSkip, report.StatusWarn}
+	for i := 0; i < 5; i++ {
+		if _, ok := summary[status[i]].(int64); !ok {
+			summary[status[i]] = int64(0)
+		}
+	}
 	return summary
+}
+
+func isDeletedPolicyKey(key string) (policyName, ruleName string, isDelete bool) {
+	policy := strings.Split(key, "/")
+
+	if policy[0] == deletedPolicyKey {
+		// deletedPolicyKey/policyName/ruleName
+		if len(policy) == 3 {
+			return policy[1], policy[2], true
+		}
+		// deletedPolicyKey/policyName
+		if len(policy) == 2 {
+			return policy[1], "", true
+		}
+	}
+
+	return "", "", false
 }

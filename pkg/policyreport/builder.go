@@ -3,7 +3,7 @@ package policyreport
 import (
 	"fmt"
 	"os"
-	"strings"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -18,7 +18,11 @@ import (
 )
 
 const (
-	clusterreportchangerequest = "clusterreportchangerequest"
+	clusterreportchangerequest string = "clusterreportchangerequest"
+	deletedLabelResource       string = "kyverno.io/delete.resource"
+	deletedLabelResourceKind   string = "kyverno.io/delete.resource.kind"
+	deletedLabelPolicy         string = "kyverno.io/delete.policy"
+	deletedLabelRule           string = "kyverno.io/delete.rule"
 )
 
 func generatePolicyReportName(ns string) string {
@@ -87,10 +91,6 @@ func (pvb *requestBuilder) build(info Info) (req *unstructured.Unstructured, err
 		results = append(results, result)
 	}
 
-	if len(results) == 0 {
-		return nil, nil
-	}
-
 	if info.Resource.GetNamespace() != "" {
 		rr := &report.ReportChangeRequest{
 			Summary: calculateSummary(results),
@@ -118,11 +118,37 @@ func (pvb *requestBuilder) build(info Info) (req *unstructured.Unstructured, err
 		set(req, fmt.Sprintf("%s-%s", clusterreportchangerequest, info.Resource.GetName()), info)
 	}
 
+	// deletion of a result entry
+	// - on resource deleteion:
+	//   - info.Rules == 0 && info.PolicyName == ""
+	//   - set label delete.resource=resourceKind-resourceNamespace-resourceName
+	// - on policy deleteion:
+	//   - info.PolicyName != "" && info.Resource == {}
+	//   - set label delete.policy=policyName
 	if len(info.Rules) == 0 && info.PolicyName == "" {
 		req.SetLabels(map[string]string{
-			"namespace": info.Resource.GetNamespace(),
-			"delete":    generatedDeletedResourceLabel(info.Resource.GetKind(), info.Resource.GetNamespace(), info.Resource.GetName())})
+			"namespace":              info.Resource.GetNamespace(),
+			deletedLabelResource:     info.Resource.GetName(),
+			deletedLabelResourceKind: info.Resource.GetKind()})
+	} else if info.PolicyName != "" && reflect.DeepEqual(info.Resource, unstructured.Unstructured{}) {
+		req.SetKind("ReportChangeRequest")
+
+		if len(info.Rules) == 0 {
+			req.SetLabels(map[string]string{
+				deletedLabelPolicy: info.PolicyName})
+
+			req.SetName(fmt.Sprintf("reportchangerequest-%s", info.PolicyName))
+		} else {
+			req.SetLabels(map[string]string{
+				deletedLabelPolicy: info.PolicyName,
+				deletedLabelRule:   info.Rules[0].Name})
+			req.SetName(fmt.Sprintf("reportchangerequest-%s-%s", info.PolicyName, info.Rules[0].Name))
+		}
+	} else if len(results) == 0 {
+		// return nil on empty result without a deletion
+		return nil, nil
 	}
+
 	return req, nil
 }
 
@@ -157,11 +183,11 @@ func calculateSummary(results []*report.PolicyReportResult) (summary report.Poli
 			summary.Pass++
 		case report.StatusFail:
 			summary.Fail++
-		case "Warn":
+		case report.StatusWarn:
 			summary.Warn++
-		case "Error":
+		case report.StatusError:
 			summary.Error++
-		case "Skip":
+		case report.StatusSkip:
 			summary.Skip++
 		}
 	}
@@ -197,25 +223,4 @@ func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 		violatedRules = append(violatedRules, vrule)
 	}
 	return violatedRules
-}
-
-func generatedDeletedResourceLabel(kind, namespace, name string) string {
-	if namespace == "" {
-		return kind + "-" + name
-	}
-	return kind + "-" + namespace + "-" + name
-}
-
-func getDeletedResourceLabelValue(value string) (kind, namespace, name string) {
-	resource := strings.Split(value, "-")
-
-	if len(resource) == 2 {
-		return resource[0], "", resource[1]
-	}
-
-	if len(resource) != 3 {
-		return "", "", ""
-	}
-
-	return resource[0], resource[1], resource[2]
 }
