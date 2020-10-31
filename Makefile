@@ -113,6 +113,8 @@ docker-publish-all: docker-publish-initContainer docker-publish-kyverno docker-p
 
 docker-build-all: docker-build-initContainer docker-build-kyverno docker-build-cli
 
+docker-tag-all: docker-tag-repo-initContainer docker-tag-repo-kyverno docker-tag-repo-cli
+
 ##################################
 # CI Testing
 ##################################

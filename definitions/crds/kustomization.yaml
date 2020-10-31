@@ -3,7 +3,7 @@ kind: Kustomization
 
 resources:
 - ./crds.yaml
-- ./policy.kubernetes.io_clusterpolicyreports.yaml
-- ./policy.kubernetes.io_policyreports.yaml
-- ./policy.kubernetes.io_clusterreportchangerequests.yaml
-- ./policy.kubernetes.io_reportchangerequests.yaml
+- ./policy.k8s.io_clusterpolicyreports.yaml
+- ./policy.k8s.io_policyreports.yaml
+- ./policy.k8s.io_clusterreportchangerequests.yaml
+- ./policy.k8s.io_reportchangerequests.yaml

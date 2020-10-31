@@ -460,7 +460,7 @@ func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured
 }
 
 func setReport(report *unstructured.Unstructured, ns *v1.Namespace) {
-	report.SetAPIVersion("policy.kubernetes.io/v1alpha1")
+	report.SetAPIVersion("policy.k8s.io/v1alpha1")
 
 	if ns == nil {
 		report.SetName(generatePolicyReportName(""))

@@ -282,7 +282,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.5
   creationTimestamp: null
-  name: clusterpolicyreports.policy.kubernetes.io
+  name: clusterpolicyreports.policy.k8s.io
 spec:
   additionalPrinterColumns:
   - JSONPath: .scope.kind
@@ -311,7 +311,7 @@ spec:
   - JSONPath: .metadata.creationTimestamp
     name: Age
     type: date
-  group: policy.kubernetes.io
+  group: policy.k8s.io
   names:
     kind: ClusterPolicyReport
     listKind: ClusterPolicyReportList
@@ -689,7 +689,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.5
   creationTimestamp: null
-  name: clusterreportchangerequests.policy.kubernetes.io
+  name: clusterreportchangerequests.policy.k8s.io
 spec:
   additionalPrinterColumns:
   - JSONPath: .scope.kind
@@ -718,7 +718,7 @@ spec:
   - JSONPath: .metadata.creationTimestamp
     name: Age
     type: date
-  group: policy.kubernetes.io
+  group: policy.k8s.io
   names:
     kind: ClusterReportChangeRequest
     listKind: ClusterReportChangeRequestList
@@ -1345,7 +1345,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.5
   creationTimestamp: null
-  name: policyreports.policy.kubernetes.io
+  name: policyreports.policy.k8s.io
 spec:
   additionalPrinterColumns:
   - JSONPath: .scope.kind
@@ -1374,7 +1374,7 @@ spec:
   - JSONPath: .metadata.creationTimestamp
     name: Age
     type: date
-  group: policy.kubernetes.io
+  group: policy.k8s.io
   names:
     kind: PolicyReport
     listKind: PolicyReportList
@@ -1751,7 +1751,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.5
   creationTimestamp: null
-  name: reportchangerequests.policy.kubernetes.io
+  name: reportchangerequests.policy.k8s.io
 spec:
   additionalPrinterColumns:
   - JSONPath: .scope.kind
@@ -1780,7 +1780,7 @@ spec:
   - JSONPath: .metadata.creationTimestamp
     name: Age
     type: date
-  group: policy.kubernetes.io
+  group: policy.k8s.io
   names:
     kind: ReportChangeRequest
     listKind: ReportChangeRequestList
@@ -2246,7 +2246,7 @@ metadata:
   name: kyverno:admin-policyreport
 rules:
 - apiGroups:
-  - policy.kubernetes.io
+  - policy.k8s.io/v1alpha1
   resources:
   - policyreport
   - clusterpolicyreport
@@ -2261,7 +2261,7 @@ metadata:
   name: kyverno:edit-policies-policyreport
 rules:
 - apiGroups:
-  - policy.kubernetes.io
+  - policy.k8s.io/v1alpha1
   resources:
   - policyreport
   - clusterpolicyreport
@@ -2326,7 +2326,7 @@ metadata:
   name: kyverno:view-clusterpolicyreport
 rules:
 - apiGroups:
-  - policy.kubernetes.io
+  - policy.k8s.io/v1alpha1
   resources:
   - clusterpolicyreport
   verbs:
@@ -2375,7 +2375,7 @@ metadata:
   name: kyverno:view-policyreport
 rules:
 - apiGroups:
-  - policy.kubernetes.io
+  - policy.k8s.io/v1alpha1
   resources:
   - policyreport
   verbs:

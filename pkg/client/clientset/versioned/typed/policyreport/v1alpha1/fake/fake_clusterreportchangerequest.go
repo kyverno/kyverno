@@ -35,9 +35,9 @@ type FakeClusterReportChangeRequests struct {
 	Fake *FakePolicyV1alpha1
 }
 
-var clusterreportchangerequestsResource = schema.GroupVersionResource{Group: "policy.kubernetes.io", Version: "v1alpha1", Resource: "clusterreportchangerequests"}
+var clusterreportchangerequestsResource = schema.GroupVersionResource{Group: "policy.k8s.io", Version: "v1alpha1", Resource: "clusterreportchangerequests"}
 
-var clusterreportchangerequestsKind = schema.GroupVersionKind{Group: "policy.kubernetes.io", Version: "v1alpha1", Kind: "ClusterReportChangeRequest"}
+var clusterreportchangerequestsKind = schema.GroupVersionKind{Group: "policy.k8s.io", Version: "v1alpha1", Kind: "ClusterReportChangeRequest"}
 
 // Get takes name of the clusterReportChangeRequest, and returns the corresponding clusterReportChangeRequest object, and an error if there is any.
 func (c *FakeClusterReportChangeRequests) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ClusterReportChangeRequest, err error) {

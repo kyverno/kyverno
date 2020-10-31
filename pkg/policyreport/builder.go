@@ -156,7 +156,7 @@ func set(obj *unstructured.Unstructured, name string, info Info) {
 	resource := info.Resource
 	obj.SetName(name)
 	obj.SetNamespace(config.KubePolicyNamespace)
-	obj.SetAPIVersion("policy.kubernetes.io/v1alpha1")
+	obj.SetAPIVersion("policy.k8s.io/v1alpha1")
 	if resource.GetNamespace() == "" {
 		obj.SetKind("ClusterReportChangeRequest")
 	} else {

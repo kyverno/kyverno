@@ -27,7 +27,7 @@ func buildPolicyReports(resps []response.EngineResponse) (res []*unstructured.Un
 		if scope == clusterpolicyreport {
 			report := &report.ClusterPolicyReport{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "policy.kubernetes.io/v1alpha1",
+					APIVersion: "policy.k8s.io/v1alpha1",
 					Kind:       "ClusterPolicyReport",
 				},
 				Results: result,
@@ -41,7 +41,7 @@ func buildPolicyReports(resps []response.EngineResponse) (res []*unstructured.Un
 		} else {
 			report := &report.PolicyReport{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "policy.kubernetes.io/v1alpha1",
+					APIVersion: "policy.k8s.io/v1alpha1",
 					Kind:       "PolicyReport",
 				},
 				Results: result,

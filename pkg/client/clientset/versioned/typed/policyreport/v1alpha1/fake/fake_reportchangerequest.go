@@ -36,9 +36,9 @@ type FakeReportChangeRequests struct {
 	ns   string
 }
 
-var reportchangerequestsResource = schema.GroupVersionResource{Group: "policy.kubernetes.io", Version: "v1alpha1", Resource: "reportchangerequests"}
+var reportchangerequestsResource = schema.GroupVersionResource{Group: "policy.k8s.io", Version: "v1alpha1", Resource: "reportchangerequests"}
 
-var reportchangerequestsKind = schema.GroupVersionKind{Group: "policy.kubernetes.io", Version: "v1alpha1", Kind: "ReportChangeRequest"}
+var reportchangerequestsKind = schema.GroupVersionKind{Group: "policy.k8s.io", Version: "v1alpha1", Kind: "ReportChangeRequest"}
 
 // Get takes name of the reportChangeRequest, and returns the corresponding reportChangeRequest object, and an error if there is any.
 func (c *FakeReportChangeRequests) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ReportChangeRequest, err error) {

@@ -16,7 +16,7 @@ limitations under the License.
 
 // Package v1alpha1 contains API Schema definitions for the policy v1alpha1 API group
 // +kubebuilder:object:generate=true
-// +groupName=policy.kubernetes.io
+// +groupName=policy.k8s.io
 package v1alpha1
 
 import (
@@ -26,10 +26,10 @@ import (
 
 // Package v1alpha1 contains API Schema definitions for the policy v1alpha1 API group
 // +kubebuilder:object:generate=true
-// +groupName=policy.kubernetes.io
+// +groupName=policy.k8s.io
 var (
 	// SchemeGroupVersion is group version used to register these objects
-	SchemeGroupVersion = schema.GroupVersion{Group: "policy.kubernetes.io", Version: "v1alpha1"}
+	SchemeGroupVersion = schema.GroupVersion{Group: "policy.k8s.io", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}

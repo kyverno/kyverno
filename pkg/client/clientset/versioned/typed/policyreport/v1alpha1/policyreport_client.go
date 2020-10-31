@@ -32,7 +32,7 @@ type PolicyV1alpha1Interface interface {
 	ReportChangeRequestsGetter
 }
 
-// PolicyV1alpha1Client is used to interact with features provided by the policy.kubernetes.io group.
+// PolicyV1alpha1Client is used to interact with features provided by the policy.k8s.io group.
 type PolicyV1alpha1Client struct {
 	restClient rest.Interface
 }

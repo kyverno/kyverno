@@ -36,9 +36,9 @@ type FakePolicyReports struct {
 	ns   string
 }
 
-var policyreportsResource = schema.GroupVersionResource{Group: "policy.kubernetes.io", Version: "v1alpha1", Resource: "policyreports"}
+var policyreportsResource = schema.GroupVersionResource{Group: "policy.k8s.io", Version: "v1alpha1", Resource: "policyreports"}
 
-var policyreportsKind = schema.GroupVersionKind{Group: "policy.kubernetes.io", Version: "v1alpha1", Kind: "PolicyReport"}
+var policyreportsKind = schema.GroupVersionKind{Group: "policy.k8s.io", Version: "v1alpha1", Kind: "PolicyReport"}
 
 // Get takes name of the policyReport, and returns the corresponding policyReport object, and an error if there is any.
 func (c *FakePolicyReports) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PolicyReport, err error) {
