@@ -134,25 +134,25 @@ func updateSummary(results []interface{}) map[string]interface{} {
 				continue
 			}
 
-			pass, _ := summary["Pass"].(int64)
+			pass, _ := summary[report.StatusPass].(int64)
 			pass += int64(len(resources))
-			summary["Pass"] = pass
+			summary[report.StatusPass] = pass
 		case report.StatusFail:
-			fail, _ := summary["Fail"].(int64)
+			fail, _ := summary[report.StatusFail].(int64)
 			fail++
-			summary["Fail"] = fail
-		case "Warn":
-			warn, _ := summary["Warn"].(int64)
+			summary[report.StatusFail] = fail
+		case report.StatusWarn:
+			warn, _ := summary[report.StatusWarn].(int64)
 			warn++
-			summary["warn"] = warn
-		case "Error":
-			e, _ := summary["Error"].(int64)
+			summary[report.StatusWarn] = warn
+		case report.StatusError:
+			e, _ := summary[report.StatusError].(int64)
 			e++
-			summary["Error"] = e
-		case "Skip":
-			skip, _ := summary["Skip"].(int64)
+			summary[report.StatusError] = e
+		case report.StatusSkip:
+			skip, _ := summary[report.StatusSkip].(int64)
 			skip++
-			summary["Skip"] = skip
+			summary[report.StatusSkip] = skip
 		}
 	}
 

@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	preport "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -75,15 +76,15 @@ func Test_buildPolicyReports(t *testing.T) {
 			assert.Assert(t, report.GetKind() == "ClusterPolicyReport")
 			assert.Assert(t, len(report.UnstructuredContent()["results"].([]interface{})) == 2)
 			assert.Assert(t,
-				report.UnstructuredContent()["summary"].(map[string]interface{})["Pass"].(int64) == 1,
-				report.UnstructuredContent()["summary"].(map[string]interface{})["Pass"].(int64))
+				report.UnstructuredContent()["summary"].(map[string]interface{})[preport.StatusPass].(int64) == 1,
+				report.UnstructuredContent()["summary"].(map[string]interface{})[preport.StatusPass].(int64))
 		} else {
 			assert.Assert(t, report.GetName() == "policyreport-ns-policy1-namespace")
 			assert.Assert(t, report.GetKind() == "PolicyReport")
 			assert.Assert(t, len(report.UnstructuredContent()["results"].([]interface{})) == 2)
 			assert.Assert(t,
-				report.UnstructuredContent()["summary"].(map[string]interface{})["Pass"].(int64) == 1,
-				report.UnstructuredContent()["summary"].(map[string]interface{})["Pass"].(int64))
+				report.UnstructuredContent()["summary"].(map[string]interface{})[preport.StatusPass].(int64) == 1,
+				report.UnstructuredContent()["summary"].(map[string]interface{})[preport.StatusPass].(int64))
 		}
 	}
 }
@@ -100,137 +101,10 @@ func Test_buildPolicyResults(t *testing.T) {
 		for _, r := range result {
 			switch r.Rule {
 			case "policy1-rule1", "clusterpolicy2-rule1":
-				assert.Assert(t, r.Status == report.PolicyStatus("Pass"))
+				assert.Assert(t, r.Status == report.PolicyStatus(preport.StatusPass))
 			case "policy1-rule2", "clusterpolicy2-rule2":
-				assert.Assert(t, r.Status == report.PolicyStatus("Fail"))
+				assert.Assert(t, r.Status == report.PolicyStatus(preport.StatusFail))
 			}
-		}
-	}
-}
-
-func Test_mergeSucceededResults(t *testing.T) {
-	resultsMap := map[string][]*report.PolicyReportResult{
-		clusterpolicyreport: {
-			{
-				Status: report.PolicyStatus("Pass"),
-				Policy: "clusterpolicy",
-				Rule:   "clusterrule",
-				Resources: []*v1.ObjectReference{
-					{
-						Name: "cluster-resource-1",
-					},
-					{
-						Name: "cluster-resource-2",
-					},
-				},
-			},
-			{
-				Status: report.PolicyStatus("Pass"),
-				Policy: "clusterpolicy",
-				Rule:   "clusterrule",
-				Resources: []*v1.ObjectReference{
-					{
-						Name: "cluster-resource-3",
-					},
-					{
-						Name: "cluster-resource-4",
-					},
-				},
-			},
-			{
-				Status: report.PolicyStatus("Fail"),
-				Policy: "clusterpolicy",
-				Rule:   "clusterrule",
-				Resources: []*v1.ObjectReference{
-					{
-						Name: "cluster-resource-5",
-					},
-				},
-			},
-		},
-
-		"policyreport-ns-test1": {
-			{
-				Status: report.PolicyStatus("Pass"),
-				Policy: "test1-policy",
-				Rule:   "test1-rule",
-				Resources: []*v1.ObjectReference{
-					{
-						Name: "resource-1",
-					},
-					{
-						Name: "resource-2",
-					},
-				},
-			},
-			{
-				Status: report.PolicyStatus("Pass"),
-				Policy: "test1-policy",
-				Rule:   "test1-rule",
-				Resources: []*v1.ObjectReference{
-					{
-						Name: "resource-3",
-					},
-					{
-						Name: "resource-4",
-					},
-				},
-			},
-			{
-				Status: report.PolicyStatus("Fail"),
-				Policy: "test1-policy",
-				Rule:   "test1-rule",
-				Resources: []*v1.ObjectReference{
-					{
-						Name: "resource-5",
-					},
-				},
-			},
-		},
-		"policyreport-ns-test2": {
-			{
-				Status: report.PolicyStatus("Pass"),
-				Policy: "test2-policy",
-				Rule:   "test2-rule",
-				Resources: []*v1.ObjectReference{
-					{
-						Name: "resource-1",
-					},
-					{
-						Name: "resource-2",
-					},
-				},
-			},
-		},
-	}
-
-	results := mergeSucceededResults(resultsMap)
-	assert.Assert(t, len(results) == len(resultsMap), len(results), len(resultsMap))
-	for key, result := range results {
-		if key == clusterpolicyreport {
-			assert.Assert(t, len(result) == 3, len(result))
-			for _, res := range result {
-				if res.Status == report.PolicyStatus("Pass") {
-					assert.Assert(t, len(res.Resources) == 2, len(res.Resources))
-				} else {
-					assert.Assert(t, len(res.Resources) == 1, len(res.Resources))
-				}
-			}
-		}
-
-		if key == "policyreport-ns-test1" {
-			assert.Assert(t, len(result) == 3, len(result))
-			for _, res := range result {
-				if res.Status == report.PolicyStatus("Pass") {
-					assert.Assert(t, len(res.Resources) == 2, len(res.Resources))
-				} else {
-					assert.Assert(t, len(res.Resources) == 1, len(res.Resources))
-				}
-			}
-		}
-
-		if key == "policyreport-ns-test2" {
-			assert.Assert(t, len(result[0].Resources) == 2, len(result[0].Resources))
 		}
 	}
 }
@@ -239,17 +113,17 @@ func Test_calculateSummary(t *testing.T) {
 	results := []*report.PolicyReportResult{
 		{
 			Resources: make([]*v1.ObjectReference, 5),
-			Status:    report.PolicyStatus("Pass"),
+			Status:    report.PolicyStatus(preport.StatusPass),
 		},
-		{Status: report.PolicyStatus("Fail")},
-		{Status: report.PolicyStatus("Fail")},
-		{Status: report.PolicyStatus("Fail")},
+		{Status: report.PolicyStatus(preport.StatusFail)},
+		{Status: report.PolicyStatus(preport.StatusFail)},
+		{Status: report.PolicyStatus(preport.StatusFail)},
 		{
 			Resources: make([]*v1.ObjectReference, 1),
-			Status:    report.PolicyStatus("Pass")},
+			Status:    report.PolicyStatus(preport.StatusPass)},
 		{
 			Resources: make([]*v1.ObjectReference, 4),
-			Status:    report.PolicyStatus("Pass"),
+			Status:    report.PolicyStatus(preport.StatusPass),
 		},
 	}
 

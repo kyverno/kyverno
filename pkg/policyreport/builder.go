@@ -88,6 +88,7 @@ func (pvb *requestBuilder) build(info Info) (req *unstructured.Unstructured, err
 		result.Rule = rule.Name
 		result.Message = rule.Message
 		result.Status = report.PolicyStatus(rule.Check)
+		fmt.Println("======status", result.Status)
 		results = append(results, result)
 	}
 

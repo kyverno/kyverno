@@ -22,11 +22,11 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 const (
-	StatusPass  = "Pass"
-	StatusFail  = "Fail"
-	StatusWarn  = "Warn"
-	StatusError = "Error"
-	StatusSkip  = "Skip"
+	StatusPass  = "pass"
+	StatusFail  = "fail"
+	StatusWarn  = "warn"
+	StatusError = "error"
+	StatusSkip  = "skip"
 )
 
 // PolicyReportSummary provides a status count summary
@@ -34,33 +34,33 @@ type PolicyReportSummary struct {
 
 	// Pass provides the count of policies whose requirements were met
 	// +optional
-	Pass int `json:"Pass"`
+	Pass int `json:"pass"`
 
 	// Fail provides the count of policies whose requirements were not met
 	// +optional
-	Fail int `json:"Fail"`
+	Fail int `json:"fail"`
 
 	// Warn provides the count of unscored policies whose requirements were not met
 	// +optional
-	Warn int `json:"Warn"`
+	Warn int `json:"warn"`
 
 	// Error provides the count of policies that could not be evaluated
 	// +optional
-	Error int `json:"Error"`
+	Error int `json:"error"`
 
 	// Skip indicates the count of policies that were not selected for evaluation
 	// +optional
-	Skip int `json:"Skip"`
+	Skip int `json:"skip"`
 }
 
 // PolicyStatus has one of the following values:
-//   - Pass: indicates that the policy requirements are met
-//   - Fail: indicates that the policy requirements are not met
-//   - Warn: indicates that the policy requirements and not met, and the policy is not scored
-//   - Error: indicates that the policy could not be evaluated
-//   - Skip: indicates that the policy was not selected based on user inputs or applicability
+//   - pass: indicates that the policy requirements are met
+//   - fail: indicates that the policy requirements are not met
+//   - warn: indicates that the policy requirements and not met, and the policy is not scored
+//   - error: indicates that the policy could not be evaluated
+//   - skip: indicates that the policy was not selected based on user inputs or applicability
 //
-// +kubebuilder:validation:Enum=Pass;Fail;Warn;Error;Skip
+// +kubebuilder:validation:Enum=pass;fail;warn;error;skip
 type PolicyStatus string
 
 // PolicySeverity has one of the following values:
@@ -117,11 +117,11 @@ type PolicyReportResult struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1
-// +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=`.summary.Pass`
-// +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=`.summary.Fail`
-// +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=`.summary.Warn`
-// +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=`.summary.Error`
-// +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.Skip`
+// +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=`.summary.pass`
+// +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=`.summary.fail`
+// +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=`.summary.warn`
+// +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=`.summary.error`
+// +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.skip`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:shortName=polr
 

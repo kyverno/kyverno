@@ -30,11 +30,11 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1
-// +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=`.summary.Pass`
-// +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=`.summary.Fail`
-// +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=`.summary.Warn`
-// +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=`.summary.Error`
-// +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.Skip`
+// +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=`.summary.pass`
+// +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=`.summary.fail`
+// +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=`.summary.warn`
+// +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=`.summary.error`
+// +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.skip`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ClusterReportChangeRequest is the Schema for the ClusterReportChangeRequests API

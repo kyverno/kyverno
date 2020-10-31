@@ -288,19 +288,19 @@ spec:
     name: Name
     priority: 1
     type: string
-  - JSONPath: .summary.Pass
+  - JSONPath: .summary.pass
     name: Pass
     type: integer
-  - JSONPath: .summary.Fail
+  - JSONPath: .summary.fail
     name: Fail
     type: integer
-  - JSONPath: .summary.Warn
+  - JSONPath: .summary.warn
     name: Warn
     type: integer
-  - JSONPath: .summary.Error
+  - JSONPath: .summary.error
     name: Error
     type: integer
-  - JSONPath: .summary.Skip
+  - JSONPath: .summary.skip
     name: Skip
     type: integer
   - JSONPath: .metadata.creationTimestamp
@@ -482,11 +482,11 @@ spec:
               status:
                 description: Status indicates the result of the policy rule check
                 enum:
-                - Pass
-                - Fail
-                - Warn
-                - Error
-                - Skip
+                - pass
+                - fail
+                - warn
+                - error
+                - skip
                 type: string
             required:
             - policy
@@ -572,23 +572,23 @@ spec:
         summary:
           description: PolicyReportSummary provides a summary of results
           properties:
-            Error:
+            error:
               description: Error provides the count of policies that could not be
                 evaluated
               type: integer
-            Fail:
+            fail:
               description: Fail provides the count of policies whose requirements
                 were not met
               type: integer
-            Pass:
+            pass:
               description: Pass provides the count of policies whose requirements
                 were met
               type: integer
-            Skip:
+            skip:
               description: Skip indicates the count of policies that were not selected
                 for evaluation
               type: integer
-            Warn:
+            warn:
               description: Warn provides the count of unscored policies whose requirements
                 were not met
               type: integer
@@ -695,19 +695,19 @@ spec:
     name: Name
     priority: 1
     type: string
-  - JSONPath: .summary.Pass
+  - JSONPath: .summary.pass
     name: Pass
     type: integer
-  - JSONPath: .summary.Fail
+  - JSONPath: .summary.fail
     name: Fail
     type: integer
-  - JSONPath: .summary.Warn
+  - JSONPath: .summary.warn
     name: Warn
     type: integer
-  - JSONPath: .summary.Error
+  - JSONPath: .summary.error
     name: Error
     type: integer
-  - JSONPath: .summary.Skip
+  - JSONPath: .summary.skip
     name: Skip
     type: integer
   - JSONPath: .metadata.creationTimestamp
@@ -887,11 +887,11 @@ spec:
               status:
                 description: Status indicates the result of the policy rule check
                 enum:
-                - Pass
-                - Fail
-                - Warn
-                - Error
-                - Skip
+                - pass
+                - fail
+                - warn
+                - error
+                - skip
                 type: string
             required:
             - policy
@@ -977,23 +977,23 @@ spec:
         summary:
           description: PolicyReportSummary provides a summary of results
           properties:
-            Error:
+            error:
               description: Error provides the count of policies that could not be
                 evaluated
               type: integer
-            Fail:
+            fail:
               description: Fail provides the count of policies whose requirements
                 were not met
               type: integer
-            Pass:
+            pass:
               description: Pass provides the count of policies whose requirements
                 were met
               type: integer
-            Skip:
+            skip:
               description: Skip indicates the count of policies that were not selected
                 for evaluation
               type: integer
-            Warn:
+            warn:
               description: Warn provides the count of unscored policies whose requirements
                 were not met
               type: integer
@@ -1351,19 +1351,19 @@ spec:
     name: Name
     priority: 1
     type: string
-  - JSONPath: .summary.Pass
+  - JSONPath: .summary.pass
     name: Pass
     type: integer
-  - JSONPath: .summary.Fail
+  - JSONPath: .summary.fail
     name: Fail
     type: integer
-  - JSONPath: .summary.Warn
+  - JSONPath: .summary.warn
     name: Warn
     type: integer
-  - JSONPath: .summary.Error
+  - JSONPath: .summary.error
     name: Error
     type: integer
-  - JSONPath: .summary.Skip
+  - JSONPath: .summary.skip
     name: Skip
     type: integer
   - JSONPath: .metadata.creationTimestamp
@@ -1544,11 +1544,11 @@ spec:
               status:
                 description: Status indicates the result of the policy rule check
                 enum:
-                - Pass
-                - Fail
-                - Warn
-                - Error
-                - Skip
+                - pass
+                - fail
+                - warn
+                - error
+                - skip
                 type: string
             required:
             - policy
@@ -1634,23 +1634,23 @@ spec:
         summary:
           description: PolicyReportSummary provides a summary of results
           properties:
-            Error:
+            error:
               description: Error provides the count of policies that could not be
                 evaluated
               type: integer
-            Fail:
+            fail:
               description: Fail provides the count of policies whose requirements
                 were not met
               type: integer
-            Pass:
+            pass:
               description: Pass provides the count of policies whose requirements
                 were met
               type: integer
-            Skip:
+            skip:
               description: Skip indicates the count of policies that were not selected
                 for evaluation
               type: integer
-            Warn:
+            warn:
               description: Warn provides the count of unscored policies whose requirements
                 were not met
               type: integer
@@ -1757,19 +1757,19 @@ spec:
     name: Name
     priority: 1
     type: string
-  - JSONPath: .summary.Pass
+  - JSONPath: .summary.pass
     name: Pass
     type: integer
-  - JSONPath: .summary.Fail
+  - JSONPath: .summary.fail
     name: Fail
     type: integer
-  - JSONPath: .summary.Warn
+  - JSONPath: .summary.warn
     name: Warn
     type: integer
-  - JSONPath: .summary.Error
+  - JSONPath: .summary.error
     name: Error
     type: integer
-  - JSONPath: .summary.Skip
+  - JSONPath: .summary.skip
     name: Skip
     type: integer
   - JSONPath: .metadata.creationTimestamp
@@ -1949,11 +1949,11 @@ spec:
               status:
                 description: Status indicates the result of the policy rule check
                 enum:
-                - Pass
-                - Fail
-                - Warn
-                - Error
-                - Skip
+                - pass
+                - fail
+                - warn
+                - error
+                - skip
                 type: string
             required:
             - policy
@@ -2039,23 +2039,23 @@ spec:
         summary:
           description: PolicyReportSummary provides a summary of results
           properties:
-            Error:
+            error:
               description: Error provides the count of policies that could not be
                 evaluated
               type: integer
-            Fail:
+            fail:
               description: Fail provides the count of policies whose requirements
                 were not met
               type: integer
-            Pass:
+            pass:
               description: Pass provides the count of policies whose requirements
                 were met
               type: integer
-            Skip:
+            skip:
               description: Skip indicates the count of policies that were not selected
                 for evaluation
               type: integer
-            Warn:
+            warn:
               description: Warn provides the count of unscored policies whose requirements
                 were not met
               type: integer
