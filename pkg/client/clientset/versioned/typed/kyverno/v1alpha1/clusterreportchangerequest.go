@@ -22,7 +22,7 @@ import (
 	"context"
 	"time"
 
-	v1alpha1 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	v1alpha1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
 	scheme "github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -55,7 +55,7 @@ type clusterReportChangeRequests struct {
 }
 
 // newClusterReportChangeRequests returns a ClusterReportChangeRequests
-func newClusterReportChangeRequests(c *PolicyV1alpha1Client) *clusterReportChangeRequests {
+func newClusterReportChangeRequests(c *KyvernoV1alpha1Client) *clusterReportChangeRequests {
 	return &clusterReportChangeRequests{
 		client: c.RESTClient(),
 	}

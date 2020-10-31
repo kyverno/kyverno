@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cornelk/hashmap"
+	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -15,7 +16,7 @@ type deletedResource struct {
 }
 
 func getDeletedResources(aggregatedRequests interface{}) (resources []deletedResource) {
-	if requests, ok := aggregatedRequests.([]*report.ClusterReportChangeRequest); ok {
+	if requests, ok := aggregatedRequests.([]*changerequest.ClusterReportChangeRequest); ok {
 		for _, request := range requests {
 			labels := request.GetLabels()
 			dr := deletedResource{
@@ -26,7 +27,7 @@ func getDeletedResources(aggregatedRequests interface{}) (resources []deletedRes
 
 			resources = append(resources, dr)
 		}
-	} else if requests, ok := aggregatedRequests.([]*report.ReportChangeRequest); ok {
+	} else if requests, ok := aggregatedRequests.([]*changerequest.ReportChangeRequest); ok {
 		for _, request := range requests {
 			labels := request.GetLabels()
 			dr := deletedResource{

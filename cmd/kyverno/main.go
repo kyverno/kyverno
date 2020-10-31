@@ -198,8 +198,8 @@ func main() {
 	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
 		reportReqGen = policyreport.NewReportChangeRequestGenerator(pclient,
 			client,
-			pInformer.Policy().V1alpha1().ReportChangeRequests(),
-			pInformer.Policy().V1alpha1().ClusterReportChangeRequests(),
+			pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
+			pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
 			statusSync.Listener,
 			log.Log.WithName("ReportChangeRequestGenerator"),
 		)
@@ -207,8 +207,8 @@ func main() {
 		prgen = policyreport.NewReportGenerator(client,
 			pInformer.Policy().V1alpha1().ClusterPolicyReports(),
 			pInformer.Policy().V1alpha1().PolicyReports(),
-			pInformer.Policy().V1alpha1().ReportChangeRequests(),
-			pInformer.Policy().V1alpha1().ClusterReportChangeRequests(),
+			pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
+			pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
 			kubeInformer.Core().V1().Namespaces(),
 			log.Log.WithName("PolicyReportGenerator"),
 		)

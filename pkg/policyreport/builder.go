@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	request "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -88,12 +89,11 @@ func (pvb *requestBuilder) build(info Info) (req *unstructured.Unstructured, err
 		result.Rule = rule.Name
 		result.Message = rule.Message
 		result.Status = report.PolicyStatus(rule.Check)
-		fmt.Println("======status", result.Status)
 		results = append(results, result)
 	}
 
 	if info.Resource.GetNamespace() != "" {
-		rr := &report.ReportChangeRequest{
+		rr := &request.ReportChangeRequest{
 			Summary: calculateSummary(results),
 			Results: results,
 		}
@@ -106,7 +106,7 @@ func (pvb *requestBuilder) build(info Info) (req *unstructured.Unstructured, err
 		req = &unstructured.Unstructured{Object: obj}
 		set(req, fmt.Sprintf("reportchangerequest-%s-%s-%s", info.PolicyName, info.Resource.GetNamespace(), info.Resource.GetName()), info)
 	} else {
-		rr := &report.ClusterReportChangeRequest{
+		rr := &request.ClusterReportChangeRequest{
 			Summary: calculateSummary(results),
 			Results: results,
 		}
@@ -157,7 +157,7 @@ func set(obj *unstructured.Unstructured, name string, info Info) {
 	resource := info.Resource
 	obj.SetName(name)
 	obj.SetNamespace(config.KubePolicyNamespace)
-	obj.SetAPIVersion("policy.k8s.io/v1alpha1")
+	obj.SetAPIVersion(request.SchemeGroupVersion.Group + "/" + request.SchemeGroupVersion.Version)
 	if resource.GetNamespace() == "" {
 		obj.SetKind("ClusterReportChangeRequest")
 	} else {

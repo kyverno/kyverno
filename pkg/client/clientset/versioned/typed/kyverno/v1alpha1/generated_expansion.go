@@ -18,6 +18,6 @@ limitations under the License.
 
 package v1alpha1
 
-type ClusterPolicyReportExpansion interface{}
+type ClusterReportChangeRequestExpansion interface{}
 
-type PolicyReportExpansion interface{}
+type ReportChangeRequestExpansion interface{}

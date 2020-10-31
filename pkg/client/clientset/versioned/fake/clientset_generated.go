@@ -22,6 +22,8 @@ import (
 	clientset "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	fakekyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1/fake"
+	kyvernov1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha1"
+	fakekyvernov1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha1/fake"
 	policyv1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha1"
 	fakepolicyv1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -81,6 +83,11 @@ var _ clientset.Interface = &Clientset{}
 // KyvernoV1 retrieves the KyvernoV1Client
 func (c *Clientset) KyvernoV1() kyvernov1.KyvernoV1Interface {
 	return &fakekyvernov1.FakeKyvernoV1{Fake: &c.Fake}
+}
+
+// KyvernoV1alpha1 retrieves the KyvernoV1alpha1Client
+func (c *Clientset) KyvernoV1alpha1() kyvernov1alpha1.KyvernoV1alpha1Interface {
+	return &fakekyvernov1alpha1.FakeKyvernoV1alpha1{Fake: &c.Fake}
 }
 
 // PolicyV1alpha1 retrieves the PolicyV1alpha1Client

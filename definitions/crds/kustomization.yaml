@@ -5,5 +5,5 @@ resources:
 - ./crds.yaml
 - ./policy.k8s.io_clusterpolicyreports.yaml
 - ./policy.k8s.io_policyreports.yaml
-- ./policy.k8s.io_clusterreportchangerequests.yaml
-- ./policy.k8s.io_reportchangerequests.yaml
+- ./kyverno.io_reportchangerequests.yaml
+- ./kyverno.io_clusterreportchangerequests.yaml

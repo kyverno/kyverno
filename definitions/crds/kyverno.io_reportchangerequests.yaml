@@ -6,7 +6,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.5
   creationTimestamp: null
-  name: reportchangerequests.policy.k8s.io
+  name: reportchangerequests.kyverno.io
 spec:
   additionalPrinterColumns:
   - JSONPath: .scope.kind
@@ -35,7 +35,7 @@ spec:
   - JSONPath: .metadata.creationTimestamp
     name: Age
     type: date
-  group: policy.k8s.io
+  group: kyverno.io
   names:
     kind: ReportChangeRequest
     listKind: ReportChangeRequestList

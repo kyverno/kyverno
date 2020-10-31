@@ -6,8 +6,11 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	requestinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
 	policyreportinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
+	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/constant"
@@ -42,10 +45,10 @@ type ReportGenerator struct {
 	clusterReportLister policyreport.ClusterPolicyReportLister
 	clusterReportSynced cache.InformerSynced
 
-	reportChangeRequestLister policyreport.ReportChangeRequestLister
+	reportChangeRequestLister requestlister.ReportChangeRequestLister
 	reportReqSynced           cache.InformerSynced
 
-	clusterReportChangeRequestLister policyreport.ClusterReportChangeRequestLister
+	clusterReportChangeRequestLister requestlister.ClusterReportChangeRequestLister
 	clusterReportReqSynced           cache.InformerSynced
 
 	nsLister       listerv1.NamespaceLister
@@ -61,8 +64,8 @@ func NewReportGenerator(
 	dclient *dclient.Client,
 	clusterReportInformer policyreportinformer.ClusterPolicyReportInformer,
 	reportInformer policyreportinformer.PolicyReportInformer,
-	reportReqInformer policyreportinformer.ReportChangeRequestInformer,
-	clusterReportReqInformer policyreportinformer.ClusterReportChangeRequestInformer,
+	reportReqInformer requestinformer.ReportChangeRequestInformer,
+	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
 	namespace informers.NamespaceInformer,
 	log logr.Logger) *ReportGenerator {
 
@@ -105,7 +108,7 @@ const deletedPolicyKey string = "deletedpolicy"
 // - "" for cluster wide resource
 // - "deletedpolicy/policyName/ruleName(optional)" for a deleted policy or rule
 func generateCacheKey(changeRequest interface{}) string {
-	if request, ok := changeRequest.(*report.ReportChangeRequest); ok {
+	if request, ok := changeRequest.(*changerequest.ReportChangeRequest); ok {
 		label := request.GetLabels()
 		policy := label[deletedLabelPolicy]
 		rule := label[deletedLabelRule]
@@ -118,7 +121,7 @@ func generateCacheKey(changeRequest interface{}) string {
 			ns = "default"
 		}
 		return ns
-	} else if request, ok := changeRequest.(*report.ClusterReportChangeRequest); ok {
+	} else if request, ok := changeRequest.(*changerequest.ClusterReportChangeRequest); ok {
 		label := request.GetLabels()
 		policy := label[deletedLabelPolicy]
 		rule := label[deletedLabelRule]
@@ -137,8 +140,8 @@ func (g *ReportGenerator) addReportChangeRequest(obj interface{}) {
 }
 
 func (g *ReportGenerator) updateReportChangeRequest(old interface{}, cur interface{}) {
-	oldReq := old.(*report.ReportChangeRequest)
-	curReq := cur.(*report.ReportChangeRequest)
+	oldReq := old.(*changerequest.ReportChangeRequest)
+	curReq := cur.(*changerequest.ReportChangeRequest)
 	if reflect.DeepEqual(oldReq.Results, curReq.Results) {
 		return
 	}
@@ -153,8 +156,8 @@ func (g *ReportGenerator) addClusterReportChangeRequest(obj interface{}) {
 }
 
 func (g *ReportGenerator) updateClusterReportChangeRequest(old interface{}, cur interface{}) {
-	oldReq := old.(*report.ClusterReportChangeRequest)
-	curReq := cur.(*report.ClusterReportChangeRequest)
+	oldReq := old.(*changerequest.ClusterReportChangeRequest)
+	curReq := cur.(*changerequest.ClusterReportChangeRequest)
 
 	if reflect.DeepEqual(oldReq.Results, curReq.Results) {
 		return
@@ -217,7 +220,7 @@ func (g *ReportGenerator) handleErr(err error, key interface{}) {
 
 	// retires requests if there is error
 	if g.queue.NumRequeues(key) < workQueueRetryLimit {
-		logger.Error(err, "failed to sync report request", "key", key)
+		logger.Error(err, "failed to sync policy report", "key", key)
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.
 		g.queue.AddRateLimited(key)
@@ -402,8 +405,8 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
 	results := []*report.PolicyReportResult{}
 
-	if requests, ok := requestsGeneral.([]*report.ClusterReportChangeRequest); ok {
-		aggregatedRequests := []*report.ClusterReportChangeRequest{}
+	if requests, ok := requestsGeneral.([]*changerequest.ClusterReportChangeRequest); ok {
+		aggregatedRequests := []*changerequest.ClusterReportChangeRequest{}
 		for _, request := range requests {
 			if request.GetDeletionTimestamp() != nil {
 				continue
@@ -429,8 +432,8 @@ func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured
 		return req, aggregatedRequests, nil
 	}
 
-	if requests, ok := requestsGeneral.([]*report.ReportChangeRequest); ok {
-		aggregatedRequests := []*report.ReportChangeRequest{}
+	if requests, ok := requestsGeneral.([]*changerequest.ReportChangeRequest); ok {
+		aggregatedRequests := []*changerequest.ReportChangeRequest{}
 		for _, request := range requests {
 			if request.GetDeletionTimestamp() != nil {
 				continue
@@ -539,7 +542,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 
 func (g *ReportGenerator) cleanupReportRequets(requestsGeneral interface{}) {
 	defer g.log.V(5).Info("successfully cleaned up report requests")
-	if requests, ok := requestsGeneral.([]*report.ReportChangeRequest); ok {
+	if requests, ok := requestsGeneral.([]*changerequest.ReportChangeRequest); ok {
 		for _, request := range requests {
 			if err := g.dclient.DeleteResource(request.APIVersion, "ReportChangeRequest", config.KubePolicyNamespace, request.Name, false); err != nil {
 				if !apierrors.IsNotFound(err) {
@@ -549,7 +552,7 @@ func (g *ReportGenerator) cleanupReportRequets(requestsGeneral interface{}) {
 		}
 	}
 
-	if requests, ok := requestsGeneral.([]*report.ClusterReportChangeRequest); ok {
+	if requests, ok := requestsGeneral.([]*changerequest.ClusterReportChangeRequest); ok {
 		for _, request := range requests {
 			if err := g.dclient.DeleteResource(request.APIVersion, "ClusterReportChangeRequest", "", request.Name, false); err != nil {
 				if !apierrors.IsNotFound(err) {

@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -26,6 +27,7 @@ import (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1
@@ -36,8 +38,8 @@ import (
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.skip`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
-// ReportChangeRequest is the Schema for the ReportChangeRequests API
-type ReportChangeRequest struct {
+// ClusterReportChangeRequest is the Schema for the ClusterReportChangeRequests API
+type ClusterReportChangeRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
@@ -52,22 +54,22 @@ type ReportChangeRequest struct {
 
 	// PolicyReportSummary provides a summary of results
 	// +optional
-	Summary PolicyReportSummary `json:"summary,omitempty"`
+	Summary report.PolicyReportSummary `json:"summary,omitempty"`
 
 	// PolicyReportResult provides result details
 	// +optional
-	Results []*PolicyReportResult `json:"results,omitempty"`
+	Results []*report.PolicyReportResult `json:"results,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// ReportChangeRequestList contains a list of ReportChangeRequest
-type ReportChangeRequestList struct {
+// ClusterReportChangeRequestList contains a list of ClusterReportChangeRequest
+type ClusterReportChangeRequestList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ReportChangeRequest `json:"items"`
+	Items           []ClusterReportChangeRequest `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ReportChangeRequest{}, &ReportChangeRequestList{})
+	SchemeBuilder.Register(&ClusterReportChangeRequest{}, &ClusterReportChangeRequestList{})
 }

@@ -21,7 +21,7 @@ package fake
 import (
 	"context"
 
-	v1alpha1 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	v1alpha1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,12 +32,12 @@ import (
 
 // FakeClusterReportChangeRequests implements ClusterReportChangeRequestInterface
 type FakeClusterReportChangeRequests struct {
-	Fake *FakePolicyV1alpha1
+	Fake *FakeKyvernoV1alpha1
 }
 
-var clusterreportchangerequestsResource = schema.GroupVersionResource{Group: "policy.k8s.io", Version: "v1alpha1", Resource: "clusterreportchangerequests"}
+var clusterreportchangerequestsResource = schema.GroupVersionResource{Group: "kyverno.io", Version: "v1alpha1", Resource: "clusterreportchangerequests"}
 
-var clusterreportchangerequestsKind = schema.GroupVersionKind{Group: "policy.k8s.io", Version: "v1alpha1", Kind: "ClusterReportChangeRequest"}
+var clusterreportchangerequestsKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v1alpha1", Kind: "ClusterReportChangeRequest"}
 
 // Get takes name of the clusterReportChangeRequest, and returns the corresponding clusterReportChangeRequest object, and an error if there is any.
 func (c *FakeClusterReportChangeRequests) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ClusterReportChangeRequest, err error) {

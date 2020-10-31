@@ -9,11 +9,10 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
 	policyreportclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	reportchangerequest "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha1"
-	policyreportinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
-	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
+	requestinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
+	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/constant"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -34,11 +33,10 @@ const workQueueRetryLimit = 3
 
 // Generator creates report request
 type Generator struct {
-	dclient                      *dclient.Client
-	reportChangeRequestInterface reportchangerequest.PolicyV1alpha1Interface
+	dclient *dclient.Client
 
-	reportChangeRequestLister        policyreport.ReportChangeRequestLister
-	clusterReportChangeRequestLister policyreport.ClusterReportChangeRequestLister
+	reportChangeRequestLister        requestlister.ReportChangeRequestLister
+	clusterReportChangeRequestLister requestlister.ClusterReportChangeRequestLister
 
 	// returns true if the cluster report request store has been synced at least once
 	reportReqSynced cache.InformerSynced
@@ -57,12 +55,11 @@ type Generator struct {
 // NewReportChangeRequestGenerator returns a new instance of report request generator
 func NewReportChangeRequestGenerator(client *policyreportclient.Clientset,
 	dclient *dclient.Client,
-	reportReqInformer policyreportinformer.ReportChangeRequestInformer,
-	clusterReportReqInformer policyreportinformer.ClusterReportChangeRequestInformer,
+	reportReqInformer requestinformer.ReportChangeRequestInformer,
+	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
 	policyStatus policystatus.Listener,
 	log logr.Logger) *Generator {
 	gen := Generator{
-		reportChangeRequestInterface:     client.PolicyV1alpha1(),
 		dclient:                          dclient,
 		clusterReportChangeRequestLister: clusterReportReqInformer.Lister(),
 		clusterReportReqSynced:           clusterReportReqInformer.Informer().HasSynced,
@@ -291,14 +288,14 @@ func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) erro
 
 func updateReportChangeRequest(dClient *client.Client, old interface{}, new *unstructured.Unstructured, log logr.Logger) (err error) {
 	oldUnstructed := make(map[string]interface{})
-	if oldTyped, ok := old.(*report.ReportChangeRequest); ok {
+	if oldTyped, ok := old.(*changerequest.ReportChangeRequest); ok {
 		if oldUnstructed, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
 			return fmt.Errorf("unable to convert reportChangeRequest: %v", err)
 		}
 		new.SetResourceVersion(oldTyped.GetResourceVersion())
 		new.SetUID(oldTyped.GetUID())
 	} else {
-		oldTyped := old.(*report.ClusterReportChangeRequest)
+		oldTyped := old.(*changerequest.ClusterReportChangeRequest)
 		if oldUnstructed, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
 			return fmt.Errorf("unable to convert clusterReportChangeRequest: %v", err)
 		}

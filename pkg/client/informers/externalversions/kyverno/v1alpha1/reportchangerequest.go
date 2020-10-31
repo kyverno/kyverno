@@ -22,10 +22,10 @@ import (
 	"context"
 	time "time"
 
-	policyreportv1alpha1 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	kyvernov1alpha1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
+	v1alpha1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -62,16 +62,16 @@ func NewFilteredReportChangeRequestInformer(client versioned.Interface, namespac
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PolicyV1alpha1().ReportChangeRequests(namespace).List(context.TODO(), options)
+				return client.KyvernoV1alpha1().ReportChangeRequests(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PolicyV1alpha1().ReportChangeRequests(namespace).Watch(context.TODO(), options)
+				return client.KyvernoV1alpha1().ReportChangeRequests(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&policyreportv1alpha1.ReportChangeRequest{},
+		&kyvernov1alpha1.ReportChangeRequest{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,7 +82,7 @@ func (f *reportChangeRequestInformer) defaultInformer(client versioned.Interface
 }
 
 func (f *reportChangeRequestInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&policyreportv1alpha1.ReportChangeRequest{}, f.defaultInformer)
+	return f.factory.InformerFor(&kyvernov1alpha1.ReportChangeRequest{}, f.defaultInformer)
 }
 
 func (f *reportChangeRequestInformer) Lister() v1alpha1.ReportChangeRequestLister {

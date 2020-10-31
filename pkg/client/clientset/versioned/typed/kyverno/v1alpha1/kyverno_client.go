@@ -19,32 +19,32 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	v1alpha1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 
-type PolicyV1alpha1Interface interface {
+type KyvernoV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	ClusterPolicyReportsGetter
-	PolicyReportsGetter
+	ClusterReportChangeRequestsGetter
+	ReportChangeRequestsGetter
 }
 
-// PolicyV1alpha1Client is used to interact with features provided by the policy.k8s.io group.
-type PolicyV1alpha1Client struct {
+// KyvernoV1alpha1Client is used to interact with features provided by the kyverno.io group.
+type KyvernoV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *PolicyV1alpha1Client) ClusterPolicyReports() ClusterPolicyReportInterface {
-	return newClusterPolicyReports(c)
+func (c *KyvernoV1alpha1Client) ClusterReportChangeRequests() ClusterReportChangeRequestInterface {
+	return newClusterReportChangeRequests(c)
 }
 
-func (c *PolicyV1alpha1Client) PolicyReports(namespace string) PolicyReportInterface {
-	return newPolicyReports(c, namespace)
+func (c *KyvernoV1alpha1Client) ReportChangeRequests(namespace string) ReportChangeRequestInterface {
+	return newReportChangeRequests(c, namespace)
 }
 
-// NewForConfig creates a new PolicyV1alpha1Client for the given config.
-func NewForConfig(c *rest.Config) (*PolicyV1alpha1Client, error) {
+// NewForConfig creates a new KyvernoV1alpha1Client for the given config.
+func NewForConfig(c *rest.Config) (*KyvernoV1alpha1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -53,12 +53,12 @@ func NewForConfig(c *rest.Config) (*PolicyV1alpha1Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &PolicyV1alpha1Client{client}, nil
+	return &KyvernoV1alpha1Client{client}, nil
 }
 
-// NewForConfigOrDie creates a new PolicyV1alpha1Client for the given config and
+// NewForConfigOrDie creates a new KyvernoV1alpha1Client for the given config and
 // panics if there is an error in the config.
-func NewForConfigOrDie(c *rest.Config) *PolicyV1alpha1Client {
+func NewForConfigOrDie(c *rest.Config) *KyvernoV1alpha1Client {
 	client, err := NewForConfig(c)
 	if err != nil {
 		panic(err)
@@ -66,9 +66,9 @@ func NewForConfigOrDie(c *rest.Config) *PolicyV1alpha1Client {
 	return client
 }
 
-// New creates a new PolicyV1alpha1Client for the given RESTClient.
-func New(c rest.Interface) *PolicyV1alpha1Client {
-	return &PolicyV1alpha1Client{c}
+// New creates a new KyvernoV1alpha1Client for the given RESTClient.
+func New(c rest.Interface) *KyvernoV1alpha1Client {
+	return &KyvernoV1alpha1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {
@@ -86,7 +86,7 @@ func setConfigDefaults(config *rest.Config) error {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *PolicyV1alpha1Client) RESTClient() rest.Interface {
+func (c *KyvernoV1alpha1Client) RESTClient() rest.Interface {
 	if c == nil {
 		return nil
 	}
