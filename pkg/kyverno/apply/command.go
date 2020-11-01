@@ -317,6 +317,10 @@ func printReportOrViolation(policyReport bool, engineResponses []response.Engine
 			yamlResp, _ := yaml1.Marshal(u)
 			fmt.Println(string(yamlResp))
 		}
+		fmt.Println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+		report, _ := generateCLIraw(resps)
+		yamlReport, _ := yaml1.Marshal(report)
+		fmt.Println(string(yamlReport))
 	} else {
 		rcCount := rc.pass + rc.fail + rc.warn + rc.error + rc.skip
 		if rcCount < len(resourcePaths) {
