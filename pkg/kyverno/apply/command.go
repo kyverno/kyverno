@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	yaml1 "sigs.k8s.io/yaml"
 	"strings"
 	"time"
 
@@ -28,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
-	yaml1 "sigs.k8s.io/yaml"
 )
 
 type resultCounts struct {
@@ -308,19 +308,19 @@ func printReportOrViolation(policyReport bool, engineResponses []response.Engine
 		resps := buildPolicyReports(engineResponses)
 		if len(resps) > 0 {
 			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT:")
+			//for _, u := range resps {
+			//	fmt.Println("----------------------------------------------------------------------")
+			//	yamlResp, _ := yaml1.Marshal(u)
+			//	fmt.Println(string(yamlResp))
+			//}
+			//fmt.Println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+			report, _ := generateCLIraw(resps)
+			yamlReport, _ := yaml1.Marshal(report)
+			fmt.Println(string(yamlReport))
 		} else {
-			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT: not generated")
+			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT: not generated as no validation failure")
 		}
 
-		for _, u := range resps {
-			fmt.Println("----------------------------------------------------------------------")
-			yamlResp, _ := yaml1.Marshal(u)
-			fmt.Println(string(yamlResp))
-		}
-		fmt.Println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-		report, _ := generateCLIraw(resps)
-		yamlReport, _ := yaml1.Marshal(report)
-		fmt.Println(string(yamlReport))
 	} else {
 		rcCount := rc.pass + rc.fail + rc.warn + rc.error + rc.skip
 		if rcCount < len(resourcePaths) {

@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/yaml"
 	"os"
 	"path/filepath"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	yaml_v2 "sigs.k8s.io/yaml"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -31,7 +32,7 @@ func GetPolicies(paths []string, cluster bool, dClient *client.Client, namespace
 			return policies, policiesFromCluster, sanitizedError.NewWithError(fmt.Sprintf("error occurred while fetching policy from cluster. Path:  %v", paths), err)
 		}
 		policiesFromCluster = true
-		return ps, policiesFromCluster,nil
+		return ps, policiesFromCluster, nil
 	} else {
 		for _, path := range paths {
 			path = filepath.Clean(path)
@@ -101,6 +102,10 @@ func getPolicyFromCluster(policyName string, cluster bool, dClient *client.Clien
 	kind := "ClusterPolicy"
 	policy, err := dClient.GetResource("", kind, namespace, policyName, "")
 	fmt.Println("------------policy :  ", policy)
+	if err != nil {
+		return &v1.ClusterPolicy{}, err
+	}
+
 	policyBytes, err := json.Marshal(policy.Object)
 	if err != nil {
 		return &v1.ClusterPolicy{}, sanitizedError.NewWithError(fmt.Sprintf("failed to marshal"), err)
@@ -112,7 +117,6 @@ func getPolicyFromCluster(policyName string, cluster bool, dClient *client.Clien
 	if err != nil {
 		return &v1.ClusterPolicy{}, sanitizedError.NewWithError(fmt.Sprintf("failed to unmarshal"), err)
 	}
-
 
 	return &p, nil
 }
