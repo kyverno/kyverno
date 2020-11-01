@@ -32,39 +32,11 @@ func GetPolicies(paths []string, cluster bool, dClient *client.Client, namespace
 		}
 		policiesFromCluster = true
 		return ps, policiesFromCluster,nil
-	}
-
-	for _, path := range paths {
-		path = filepath.Clean(path)
-		fileDesc, err := os.Stat(path)
-		if err != nil {
-			p, err := getPolicyFromCluster(path, cluster, dClient, namespace)
+	} else {
+		for _, path := range paths {
+			path = filepath.Clean(path)
+			fileDesc, err := os.Stat(path)
 			if err != nil {
-				return nil, policiesFromCluster, sanitizedError.NewWithError(fmt.Sprintf("error occurred while fetching policy from cluster. Path: %v", path), err)
-			}
-			policies = append(policies, p)
-			policiesFromCluster = true
-			continue
-		}
-		if fileDesc.IsDir() {
-			files, err := ioutil.ReadDir(path)
-			if err != nil {
-				return nil, policiesFromCluster, sanitizedError.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
-			}
-			listOfFiles := make([]string, 0)
-			for _, file := range files {
-				listOfFiles = append(listOfFiles, filepath.Join(path, file.Name()))
-			}
-			policiesFromDir, policiesFromCluster, err := GetPolicies(listOfFiles, cluster, dClient, namespace)
-			if err != nil {
-				return nil, policiesFromCluster, sanitizedError.NewWithError(fmt.Sprintf("failed to extract policies from %v", listOfFiles), err)
-			}
-
-			policies = append(policies, policiesFromDir...)
-		} else {
-			file, err := ioutil.ReadFile(path)
-			if err != nil {
-				// check if cluster flag is passed and get the policy from cluster
 				p, err := getPolicyFromCluster(path, cluster, dClient, namespace)
 				if err != nil {
 					return nil, policiesFromCluster, sanitizedError.NewWithError(fmt.Sprintf("error occurred while fetching policy from cluster. Path: %v", path), err)
@@ -73,21 +45,50 @@ func GetPolicies(paths []string, cluster bool, dClient *client.Client, namespace
 				policiesFromCluster = true
 				continue
 			}
-			getPolicies, getErrors := utils.GetPolicy(file)
-			var errString string
-			for _, err := range getErrors {
+			if fileDesc.IsDir() {
+				files, err := ioutil.ReadDir(path)
 				if err != nil {
-					errString += err.Error() + "\n"
+					return nil, policiesFromCluster, sanitizedError.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
 				}
-			}
-			if errString != "" {
-				fmt.Printf("failed to extract policies: %s\n", errString)
-				os.Exit(2)
-			}
+				listOfFiles := make([]string, 0)
+				for _, file := range files {
+					listOfFiles = append(listOfFiles, filepath.Join(path, file.Name()))
+				}
+				policiesFromDir, policiesFromCluster, err := GetPolicies(listOfFiles, cluster, dClient, namespace)
+				if err != nil {
+					return nil, policiesFromCluster, sanitizedError.NewWithError(fmt.Sprintf("failed to extract policies from %v", listOfFiles), err)
+				}
 
-			policies = append(policies, getPolicies...)
+				policies = append(policies, policiesFromDir...)
+			} else {
+				file, err := ioutil.ReadFile(path)
+				if err != nil {
+					// check if cluster flag is passed and get the policy from cluster
+					p, err := getPolicyFromCluster(path, cluster, dClient, namespace)
+					if err != nil {
+						return nil, policiesFromCluster, sanitizedError.NewWithError(fmt.Sprintf("error occurred while fetching policy from cluster. Path: %v", path), err)
+					}
+					policies = append(policies, p)
+					policiesFromCluster = true
+					continue
+				}
+				getPolicies, getErrors := utils.GetPolicy(file)
+				var errString string
+				for _, err := range getErrors {
+					if err != nil {
+						errString += err.Error() + "\n"
+					}
+				}
+				if errString != "" {
+					fmt.Printf("failed to extract policies: %s\n", errString)
+					os.Exit(2)
+				}
+
+				policies = append(policies, getPolicies...)
+			}
 		}
 	}
+
 	return policies, policiesFromCluster, nil
 }
 
