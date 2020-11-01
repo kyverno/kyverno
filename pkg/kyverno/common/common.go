@@ -103,7 +103,14 @@ func getPolicyFromCluster(policyName string, cluster bool, dClient *client.Clien
 	policy, err := dClient.GetResource("", kind, namespace, policyName, "")
 	fmt.Println("------------policy :  ", policy)
 	if err != nil {
-		return &v1.ClusterPolicy{}, err
+		fmt.Println("could not find clusterpolicy ... checking policy")
+		// try getting policy
+		kind := "Policy"
+		policy, err = dClient.GetResource("", kind, namespace, policyName, "")
+		if err != nil {
+			fmt.Println("error occurred while fetching policy", err)
+			return &v1.ClusterPolicy{}, err
+		}
 	}
 
 	policyBytes, err := json.Marshal(policy.Object)
@@ -127,25 +134,28 @@ func getPoliciesFromCluster(cluster bool, dClient *client.Client, namespace stri
 		return res, nil
 	}
 
-	policyList, err := dClient.ListResource("", "ClusterPolicy", namespace, nil)
-	if err != nil {
-		return res, err
-	}
-
-	for _, policy := range policyList.Items {
-		policyBytes, err := json.Marshal(policy.Object)
+	policyTypes := []string{"ClusterPolicy", "Policy"}
+	for _, policy := range policyTypes {
+		policyList, err := dClient.ListResource("", policy, namespace, nil)
 		if err != nil {
 			return res, err
 		}
 
-		var p v1.ClusterPolicy
-		err = json.Unmarshal(policyBytes, &p)
+		for _, policy := range policyList.Items {
+			policyBytes, err := json.Marshal(policy.Object)
+			if err != nil {
+				return res, err
+			}
 
-		if err != nil {
-			return res, err
+			var p v1.ClusterPolicy
+			err = json.Unmarshal(policyBytes, &p)
+
+			if err != nil {
+				return res, err
+			}
+
+			res = append(res, &p)
 		}
-
-		res = append(res, &p)
 	}
 
 	return res, nil
