@@ -312,6 +312,7 @@ func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName strin
 			}
 			newRes = append(newRes, result)
 		}
+		cpolr.Results = newRes
 		cpolr.Summary = calculateSummary(newRes)
 		gv := report.SchemeGroupVersion
 		cpolr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "ClusterPolicyReport"})
@@ -345,6 +346,7 @@ func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName strin
 			newRes = append(newRes, result)
 		}
 
+		r.Results = newRes
 		r.Summary = calculateSummary(newRes)
 		gv := report.SchemeGroupVersion
 		gvk := schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "PolicyReport"}

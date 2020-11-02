@@ -369,7 +369,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	cacheSyncs := []cache.InformerSynced{pc.pListerSynced, pc.nsListerSynced, pc.grListerSynced}
+	cacheSyncs := []cache.InformerSynced{pc.pListerSynced, pc.npListerSynced, pc.nsListerSynced, pc.grListerSynced}
 	if os.Getenv("POLICY-TYPE") == common.PolicyViolation {
 		cacheSyncs = []cache.InformerSynced{pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced, pc.grListerSynced}
 	}
