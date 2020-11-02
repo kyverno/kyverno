@@ -3,7 +3,10 @@ package common
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
+
+	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
@@ -53,14 +56,9 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	}
 
 	for _, resourcePath := range resourcePaths {
+		lenOfResource := len(resources)
 		resourceBytes, err := getFileBytes(resourcePath)
 		if err != nil {
-			// check in the cluster for the given resource name
-			// what if two resources have same name ?
-			//r, err := getResourceFromCluster(resourceTypes, resourcePath, dClient)
-			//if err != nil {
-
-			//}
 			if cluster {
 				for _, rm := range resourceMap {
 					for rn, rr := range rm {
@@ -72,6 +70,9 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 				}
 			} else {
 				return nil, err
+			}
+			if len(resources) <= lenOfResource {
+				return nil, sanitizedError.NewWithError(fmt.Sprintf("resource %s not found in cluster", resourcePath), errors.New("resource not found"))
 			}
 		}
 

@@ -301,7 +301,7 @@ func printReportOrViolation(policyReport bool, engineResponses []response.Engine
 	if policyReport {
 		resps := buildPolicyReports(engineResponses)
 		if len(resps) > 0 {
-			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT:")
+			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
 			report, _ := generateCLIraw(resps)
 			yamlReport, _ := yaml1.Marshal(report)
 			fmt.Println(string(yamlReport))
