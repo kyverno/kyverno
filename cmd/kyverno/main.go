@@ -69,7 +69,6 @@ func main() {
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
-	flag.BoolVar(&policyReport, "policyreport", false, "Set this flag for enabling policy report")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -82,10 +81,10 @@ func main() {
 	if profile {
 		go http.ListenAndServe("localhost:6060", nil)
 	}
-	os.Setenv("POLICY-TYPE", common.PolicyViolation)
-	if policyReport {
-		os.Setenv("POLICY-TYPE", common.PolicyReport)
-	}
+
+	// Policy report is enabled by default in Kyverno 1.3.0+
+	os.Setenv("POLICY-TYPE", common.PolicyReport)
+
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
