@@ -17,160 +17,68 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/utils"
 )
 
 // GetPolicies - Extracting the policies from multiple YAML
-func GetPolicies(paths []string, cluster bool, dClient *client.Client, namespace string) (policies []*v1.ClusterPolicy, policiesFromCluster bool, error error) {
-	if len(paths) == 0 {
-		// get the policies from the cluster based on the scope
-		ps, err := getPoliciesFromCluster(cluster, dClient, namespace)
+func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
+	for _, path := range paths {
+		path = filepath.Clean(path)
+		fileDesc, err := os.Stat(path)
 		if err != nil {
-			return policies, policiesFromCluster, sanitizedError.NewWithError(fmt.Sprintf("error occurred while fetching policy from cluster. Path:  %v", paths), err)
+			return nil, err
 		}
-		policiesFromCluster = true
-		return ps, policiesFromCluster, nil
-	} else {
-		for _, path := range paths {
-			path = filepath.Clean(path)
-			fileDesc, err := os.Stat(path)
+		if fileDesc.IsDir() {
+			files, err := ioutil.ReadDir(path)
 			if err != nil {
-				p, err := getPolicyFromCluster(path, cluster, dClient, namespace)
-				if err != nil {
-					return nil, policiesFromCluster, sanitizedError.NewWithError(fmt.Sprintf("error occurred while fetching policy from cluster. Path: %v", path), err)
-				}
-				policies = append(policies, p)
-				policiesFromCluster = true
-				continue
+				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
 			}
-			if fileDesc.IsDir() {
-				files, err := ioutil.ReadDir(path)
-				if err != nil {
-					return nil, policiesFromCluster, sanitizedError.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
-				}
-				listOfFiles := make([]string, 0)
-				for _, file := range files {
-					listOfFiles = append(listOfFiles, filepath.Join(path, file.Name()))
-				}
-				policiesFromDir, policiesFromCluster, err := GetPolicies(listOfFiles, cluster, dClient, namespace)
-				if err != nil {
-					return nil, policiesFromCluster, sanitizedError.NewWithError(fmt.Sprintf("failed to extract policies from %v", listOfFiles), err)
-				}
-
-				policies = append(policies, policiesFromDir...)
-			} else {
-				file, err := ioutil.ReadFile(path)
-				if err != nil {
-					// check if cluster flag is passed and get the policy from cluster
-					p, err := getPolicyFromCluster(path, cluster, dClient, namespace)
-					if err != nil {
-						return nil, policiesFromCluster, sanitizedError.NewWithError(fmt.Sprintf("error occurred while fetching policy from cluster. Path: %v", path), err)
-					}
-					policies = append(policies, p)
-					policiesFromCluster = true
-					continue
-				}
-				getPolicies, getErrors := utils.GetPolicy(file)
-				var errString string
-				for _, err := range getErrors {
-					if err != nil {
-						errString += err.Error() + "\n"
-					}
-				}
-				if errString != "" {
-					fmt.Printf("failed to extract policies: %s\n", errString)
-					os.Exit(2)
-				}
-
-				policies = append(policies, getPolicies...)
+			listOfFiles := make([]string, 0)
+			for _, file := range files {
+				listOfFiles = append(listOfFiles, filepath.Join(path, file.Name()))
 			}
-		}
-	}
-
-	return policies, policiesFromCluster, nil
-}
-
-func getPolicyFromCluster(policyName string, cluster bool, dClient *client.Client, namespace string) (*v1.ClusterPolicy, error) {
-	if !cluster {
-		return &v1.ClusterPolicy{}, nil
-	}
-
-	//check here----------------------------------
-	kind := "ClusterPolicy"
-	policy, err := dClient.GetResource("", kind, namespace, policyName, "")
-	fmt.Println("------------policy :  ", policy)
-	if err != nil {
-		fmt.Println("could not find clusterpolicy ... checking policy")
-		// try getting policy
-		kind := "Policy"
-		policy, err = dClient.GetResource("", kind, namespace, policyName, "")
-		if err != nil {
-			fmt.Println("error occurred while fetching policy", err)
-			return &v1.ClusterPolicy{}, err
-		}
-	}
-
-	policyBytes, err := json.Marshal(policy.Object)
-	if err != nil {
-		return &v1.ClusterPolicy{}, sanitizedError.NewWithError(fmt.Sprintf("failed to marshal"), err)
-	}
-
-	var p v1.ClusterPolicy
-	err = json.Unmarshal(policyBytes, &p)
-
-	if err != nil {
-		return &v1.ClusterPolicy{}, sanitizedError.NewWithError(fmt.Sprintf("failed to unmarshal"), err)
-	}
-
-	return &p, nil
-}
-
-func getPoliciesFromCluster(cluster bool, dClient *client.Client, namespace string) ([]*v1.ClusterPolicy, error) {
-	res := make([]*v1.ClusterPolicy, 0)
-	if !cluster {
-		return res, nil
-	}
-
-	policyTypes := []string{"ClusterPolicy", "Policy"}
-	for _, policy := range policyTypes {
-		policyList, err := dClient.ListResource("", policy, namespace, nil)
-		if err != nil {
-			return res, err
-		}
-
-		for _, policy := range policyList.Items {
-			policyBytes, err := json.Marshal(policy.Object)
+			policiesFromDir, err := GetPolicies(listOfFiles)
 			if err != nil {
-				return res, err
+				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to extract policies from %v", listOfFiles), err)
 			}
 
-			var p v1.ClusterPolicy
-			err = json.Unmarshal(policyBytes, &p)
-
+			policies = append(policies, policiesFromDir...)
+		} else {
+			file, err := ioutil.ReadFile(path)
 			if err != nil {
-				return res, err
+				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to load file %v", path), err)
+			}
+			getPolicies, getErrors := utils.GetPolicy(file)
+			var errString string
+			for _, err := range getErrors {
+				if err != nil {
+					errString += err.Error() + "\n"
+				}
+			}
+			if errString != "" {
+				fmt.Printf("failed to extract policies: %s\n", errString)
+				os.Exit(2)
 			}
 
-			res = append(res, &p)
+			policies = append(policies, getPolicies...)
 		}
 	}
 
-	return res, nil
+	return policies, nil
 }
 
 //ValidateAndGetPolicies - validating policies
-func ValidateAndGetPolicies(policyPaths []string, cluster bool, dClient *client.Client, namespace string) ([]*v1.ClusterPolicy, bool, error) {
-	policies, policiesFromCluster, err := GetPolicies(policyPaths, cluster, dClient, namespace)
+func ValidateAndGetPolicies(policyPaths []string) ([]*v1.ClusterPolicy, error) {
+	policies, err := GetPolicies(policyPaths)
 	if err != nil {
 		if !sanitizedError.IsErrorSanitized(err) {
-			return nil, policiesFromCluster, sanitizedError.NewWithError((fmt.Sprintf("failed to parse %v path/s.", policyPaths)), err)
+			return nil, sanitizedError.NewWithError((fmt.Sprintf("failed to parse %v path/s.", policyPaths)), err)
 		}
-		return nil, policiesFromCluster, err
+		return nil, err
 	}
-	return policies, policiesFromCluster, nil
+	return policies, nil
 }
 
 // PolicyHasVariables - check for variables in the policy

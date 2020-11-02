@@ -107,7 +107,6 @@ func buildPolicyResults(resps []response.EngineResponse) map[string][]*report.Po
 		}
 	}
 
-	//return mergeSucceededResults(results)
 	return results
 }
 

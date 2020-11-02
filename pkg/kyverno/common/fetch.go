@@ -19,10 +19,9 @@ import (
 // the resources are fetched from
 // - local paths to resources, if given
 // - the k8s cluster, if given
-func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient *client.Client, cluster bool, namespace string) ([]*unstructured.Unstructured, bool, error) {
+func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient *client.Client, cluster bool, namespace string) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
-	var resourceFromCluster bool
 	var resourceTypesMap = make(map[string]bool)
 	var resourceTypes []string
 
@@ -42,16 +41,13 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	if cluster && dClient != nil {
 		resourceMap, err = getResourcesOfTypeFromCluster(resourceTypes, dClient, namespace)
 		if err != nil {
-			return nil, resourceFromCluster, err
+			return nil, err
 		}
 		if len(resourcePaths) == 0 {
 			for _, rm := range resourceMap {
 				for _, rr := range rm {
 					resources = append(resources, rr)
 				}
-			}
-			if resources != nil{
-				resourceFromCluster = true
 			}
 		}
 	}
@@ -68,7 +64,6 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 			if cluster {
 				for _, rm := range resourceMap {
 					for rn, rr := range rm {
-						resourceFromCluster = true
 						if rn == resourcePath {
 							resources = append(resources, rr)
 							continue
@@ -76,19 +71,19 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 					}
 				}
 			} else {
-				return nil, resourceFromCluster, err
+				return nil, err
 			}
 		}
 
 		getResources, err := GetResource(resourceBytes)
 		if err != nil {
-			return nil, resourceFromCluster, err
+			return nil, err
 		}
 		for _, resource := range getResources {
 			resources = append(resources, resource)
 		}
 	}
-	return resources, resourceFromCluster, nil
+	return resources, nil
 }
 
 func getResourceFromCluster(resourceTypes []string, resourceName string, dClient *client.Client) (*unstructured.Unstructured, error) {
