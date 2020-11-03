@@ -60,9 +60,7 @@ func main() {
 	}
 
 	// Exit for unsupported version of kubernetes cluster
-	// https://github.com/kyverno/kyverno/issues/700
-	// - supported from v1.12.7+
-	if !utils.HigherThanKubernetesVersion(client, log.Log, 1, 12, 7) {
+	if !utils.HigherThanKubernetesVersion(client, log.Log, 1, 14, 0) {
 		os.Exit(1)
 	}
 

@@ -65,5 +65,31 @@ func Test_containsNs(t *testing.T) {
 	patterns = []string{}
 	res = ContainsNamepace(patterns, "test")
 	assert.Assert(t, res == false)
+}
 
+
+func Test_higherVersion(t *testing.T) {
+	v, err := isVersionHigher("invalid.version", 1, 1, 1)
+	assert.Assert(t, v == false && err != nil)
+
+	v, err = isVersionHigher("invalid-version", 0, 0, 0)
+	assert.Assert(t, v == false && err != nil)
+
+	v, err = isVersionHigher("v1.1.1", 1, 1, 1)
+	assert.Assert(t, v == false && err == nil)
+
+	v, err = isVersionHigher("v1.0.0", 1, 1, 1)
+	assert.Assert(t, v == false && err == nil)
+
+	v, err = isVersionHigher("v1.5.9", 1, 5, 8)
+	assert.Assert(t, v == true && err == nil)
+
+	v, err = isVersionHigher("v1.5.9+distro", 1, 5, 8)
+	assert.Assert(t, v == true && err == nil)
+
+	v, err = isVersionHigher("v1.5.9+distro", 1, 5, 8)
+	assert.Assert(t, v == true && err == nil)
+
+	v, err = isVersionHigher("v1.5.9-rc2", 1, 5, 9)
+	assert.Assert(t, v == false && err == nil)
 }
