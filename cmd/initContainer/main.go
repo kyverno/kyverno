@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/signal"
@@ -32,6 +33,8 @@ const (
 	validatingWebhookConfigKind string = "ValidatingWebhookConfiguration"
 	policyReportKind            string = "PolicyReport"
 	clusterPolicyReportKind     string = "ClusterPolicyReport"
+	policyViolation             string = "PolicyViolation"
+	clusterPolicyViolation      string = "ClusterPolicyViolation"
 )
 
 func main() {
@@ -82,6 +85,9 @@ func main() {
 		// policy report
 		{policyReportKind, ""},
 		{clusterPolicyReportKind, ""},
+		// clean up policy violation
+		{policyViolation, ""},
+		{clusterPolicyViolation, ""},
 	}
 
 	done := make(chan struct{})
@@ -116,6 +122,8 @@ func executeRequest(client *client.Client, req request) error {
 		return removePolicyReport(client, req.kind)
 	case clusterPolicyReportKind:
 		return removeClusterPolicyReport(client, req.kind)
+	case policyViolation, clusterPolicyViolation:
+		return removeViolationCRD(client)
 	}
 	return nil
 }
@@ -277,5 +285,20 @@ func removePolicyReport(client *client.Client, kind string) error {
 		}
 	}
 
+	return nil
+}
+
+func removeViolationCRD(client *client.Client) error {
+	if err := client.DeleteResource("", "CustomResourceDefinition", "", "policyviolations.kyverno.io", false); err != nil {
+		if !errors.IsNotFound(err) {
+			logger.Error(err, "failed to delete CRD policyViolation")
+		}
+	}
+
+	if err := client.DeleteResource("", "CustomResourceDefinition", "", "clusterpolicyviolations.kyverno.io", false); err != nil {
+		if !errors.IsNotFound(err) {
+			logger.Error(err, "failed to delete CRD clusterPolicyViolation")
+		}
+	}
 	return nil
 }
