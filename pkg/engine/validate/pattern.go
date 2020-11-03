@@ -205,7 +205,7 @@ func validateString(log logr.Logger, value interface{}, pattern string, operator
 			ok = false
 		}
 		if !ok {
-			log.Info("unexpected type : ", "type", fmt.Sprintf("%T", value), "value", value)
+			log.V(4).Info("unexpected type", "got", value, "expect", pattern)
 			return false
 		}
 
