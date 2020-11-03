@@ -26,7 +26,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/policystatus"
-	"github.com/kyverno/kyverno/pkg/policyviolation"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	userinfo "github.com/kyverno/kyverno/pkg/userinfo"
@@ -98,9 +97,6 @@ type WebhookServer struct {
 	// last request time
 	lastReqTime *checker.LastReqTime
 
-	// policy violation generator
-	pvGenerator policyviolation.GeneratorInterface
-
 	// policy report generator
 	prGenerator policyreport.GeneratorInterface
 
@@ -136,7 +132,6 @@ func NewWebhookServer(
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	statusSync policystatus.Listener,
 	configHandler config.Interface,
-	pvGenerator policyviolation.GeneratorInterface,
 	prGenerator policyreport.GeneratorInterface,
 	grGenerator *generate.Generator,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
@@ -180,7 +175,6 @@ func NewWebhookServer(
 		configHandler:             configHandler,
 		cleanUp:                   cleanUp,
 		lastReqTime:               resourceWebhookWatcher.LastReqTime,
-		pvGenerator:               pvGenerator,
 		prGenerator:               prGenerator,
 		grGenerator:               grGenerator,
 		resourceWebhookWatcher:    resourceWebhookWatcher,
@@ -358,7 +352,7 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 			ws.auditHandler.Add(request.DeepCopy())
 
 			// VALIDATION
-			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.prGenerator, ws.log, ws.configHandler, ws.resCache)
+			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.prGenerator, ws.log, ws.configHandler, ws.resCache)
 			if !ok {
 				logger.Info("admission request denied")
 				return &v1beta1.AdmissionResponse{
@@ -484,7 +478,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		logger.Error(err, "failed to load service account in context")
 	}
 
-	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.prGenerator, ws.log, ws.configHandler, ws.resCache)
+	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.prGenerator, ws.log, ws.configHandler, ws.resCache)
 	if !ok {
 		logger.Info("admission request denied")
 		return &v1beta1.AdmissionResponse{
@@ -511,7 +505,7 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 		logger.Info("failed to sync informer cache")
 	}
 
-	go func () {
+	go func() {
 		logger.V(3).Info("started serving requests", "addr", ws.server.Addr)
 		if err := ws.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
 			logger.Error(err, "failed to listen to requests")

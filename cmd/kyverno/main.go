@@ -23,7 +23,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/policystatus"
-	"github.com/kyverno/kyverno/pkg/policyviolation"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -96,8 +95,9 @@ func main() {
 
 	// KYVERNO CRD CLIENT
 	// access CRD resources
-	//		- Policy
-	//		- PolicyViolation
+	//		- ClusterPolicy, Policy
+	//		- ClusterPolicyReport, PolicyReport
+	//		- GenerateRequest
 	pclient, err := kyvernoclient.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create client")
@@ -122,7 +122,7 @@ func main() {
 	// ===========================================================
 
 	// CRD CHECK
-	// - verify if the CRD for Policy & PolicyViolation are available
+	// - verify if Kyverno CRDs are available
 	if !utils.CRDInstalled(client.DiscoveryClient, log.Log) {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
 		os.Exit(1)
@@ -157,8 +157,10 @@ func main() {
 
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
-	//		- Policy
-	//		- PolicyViolation
+	//		- ClusterPolicy, Policy
+	//		- ClusterPolicyReport, PolicyReport
+	//		- GenerateRequest
+	//		- ClusterReportChangeRequest, ReportChangeRequest
 	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, resyncPeriod)
 
 	// Configuration Data
@@ -191,38 +193,21 @@ func main() {
 	// -- generate policy report
 	var reportReqGen *policyreport.Generator
 	var prgen *policyreport.ReportGenerator
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		reportReqGen = policyreport.NewReportChangeRequestGenerator(pclient,
-			client,
-			pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
-			pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
-			statusSync.Listener,
-			log.Log.WithName("ReportChangeRequestGenerator"),
-		)
-
-		prgen = policyreport.NewReportGenerator(client,
-			pInformer.Policy().V1alpha1().ClusterPolicyReports(),
-			pInformer.Policy().V1alpha1().PolicyReports(),
-			pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
-			pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
-			kubeInformer.Core().V1().Namespaces(),
-			log.Log.WithName("PolicyReportGenerator"),
-		)
-	}
-
-	// POLICY VIOLATION GENERATOR
-	// -- generate policy violation
-	var pvgen *policyviolation.Generator
-	pvgen = policyviolation.NewPVGenerator(pclient,
+	reportReqGen = policyreport.NewReportChangeRequestGenerator(pclient,
 		client,
-		pInformer.Kyverno().V1().ClusterPolicyViolations(),
-		pInformer.Kyverno().V1().PolicyViolations(),
+		pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
+		pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
+		statusSync.Listener,
+		log.Log.WithName("ReportChangeRequestGenerator"),
+	)
+
+	prgen = policyreport.NewReportGenerator(client,
 		pInformer.Policy().V1alpha1().ClusterPolicyReports(),
 		pInformer.Policy().V1alpha1().PolicyReports(),
-		statusSync.Listener,
-		reportReqGen,
-		log.Log.WithName("PolicyViolationGenerator"),
-		stopCh,
+		pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
+		pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
+		kubeInformer.Core().V1().Namespaces(),
+		log.Log.WithName("PolicyReportGenerator"),
 	)
 
 	// POLICY CONTROLLER
@@ -233,12 +218,9 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
-		pInformer.Kyverno().V1().ClusterPolicyViolations(),
-		pInformer.Kyverno().V1().PolicyViolations(),
 		pInformer.Kyverno().V1().GenerateRequests(),
 		configData,
 		eventGenerator,
-		pvgen,
 		reportReqGen,
 		rWebhookWatcher,
 		kubeInformer.Core().V1().Namespaces(),
@@ -290,7 +272,6 @@ func main() {
 		pCacheController.Cache,
 		eventGenerator,
 		statusSync.Listener,
-		pvgen,
 		reportReqGen,
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
@@ -347,7 +328,6 @@ func main() {
 		webhookRegistrationClient,
 		statusSync.Listener,
 		configData,
-		pvgen,
 		reportReqGen,
 		grgen,
 		rWebhookWatcher,
@@ -369,16 +349,12 @@ func main() {
 	kubeInformer.Start(stopCh)
 	kubedynamicInformer.Start(stopCh)
 
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		go reportReqGen.Run(2, stopCh)
-		go prgen.Run(1, stopCh)
-	}
-
+	go reportReqGen.Run(2, stopCh)
+	go prgen.Run(1, stopCh)
 	go grgen.Run(1)
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
 	go policyCtrl.Run(2, stopCh)
-	go pvgen.Run(2, stopCh)
 	go eventGenerator.Run(3, stopCh)
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)

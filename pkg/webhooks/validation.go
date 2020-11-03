@@ -17,7 +17,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/policystatus"
-	"github.com/kyverno/kyverno/pkg/policyviolation"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -36,7 +35,6 @@ func HandleValidation(
 	userRequestInfo kyverno.RequestInfo,
 	statusListener policystatus.Listener,
 	eventGen event.Interface,
-	pvGenerator policyviolation.GeneratorInterface,
 	prGenerator policyreport.GeneratorInterface,
 	log logr.Logger,
 	dynamicConfig config.Interface,
@@ -125,14 +123,12 @@ func HandleValidation(
 		return false, getEnforceFailureErrorMsg(engineResponses)
 	}
 
-	// ADD POLICY VIOLATIONS
-	// violations are created with resource on "audit"
-	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger)
-	pvGenerator.Add(pvInfos...)
+	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
+	prGenerator.Add(prInfos...)
 
 	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
 		if request.Operation == v1beta1.Delete {
-			pvGenerator.Add(policyviolation.Info{
+			prGenerator.Add(policyreport.Info{
 				Resource: unstructured.Unstructured{
 					Object: map[string]interface{}{
 						"kind": oldR.GetKind(),
