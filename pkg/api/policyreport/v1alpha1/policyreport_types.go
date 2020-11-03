@@ -64,10 +64,10 @@ type PolicyReportSummary struct {
 type PolicyStatus string
 
 // PolicySeverity has one of the following values:
-//   - High
-//   - Low
-//   - Medium
-// +kubebuilder:validation:Enum=High;Low;Medium
+//   - high
+//   - low
+//   - medium
+// +kubebuilder:validation:Enum=high;low;medium
 type PolicySeverity string
 
 // PolicyReportResult provides the result for an individual policy

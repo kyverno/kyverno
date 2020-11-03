@@ -480,9 +480,9 @@ spec:
               severity:
                 description: Severity indicates policy severity
                 enum:
-                - High
-                - Low
-                - Medium
+                - high
+                - low
+                - medium
                 type: string
               status:
                 description: Status indicates the result of the policy rule check
@@ -813,9 +813,9 @@ spec:
               severity:
                 description: Severity indicates policy severity
                 enum:
-                - High
-                - Low
-                - Medium
+                - high
+                - low
+                - medium
                 type: string
               status:
                 description: Status indicates the result of the policy rule check
@@ -1470,9 +1470,9 @@ spec:
               severity:
                 description: Severity indicates policy severity
                 enum:
-                - High
-                - Low
-                - Medium
+                - high
+                - low
+                - medium
                 type: string
               status:
                 description: Status indicates the result of the policy rule check
@@ -1803,9 +1803,9 @@ spec:
               severity:
                 description: Severity indicates policy severity
                 enum:
-                - High
-                - Low
-                - Medium
+                - high
+                - low
+                - medium
                 type: string
               status:
                 description: Status indicates the result of the policy rule check
