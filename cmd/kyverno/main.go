@@ -134,9 +134,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// TODO: To be removed for v1.2.0
-	utils.CleanupOldCrd(client, log.Log)
-
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	kubedynamicInformer := client.NewDynamicSharedInformerFactory(resyncPeriod)
 
