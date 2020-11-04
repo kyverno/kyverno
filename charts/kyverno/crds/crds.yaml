@@ -10,8 +10,8 @@ spec:
     name: Background
     type: string
   - JSONPath: .spec.validationFailureAction
-    description: ValidationFailureAction provides choice to enforce rules to resources
-      during policy application.
+    description: ValidationFailureAction controls if a policy failure should disallow
+      (enforce) or allow and report (audit) the admission review request.
     name: Validation Failure Action
     type: string
   group: kyverno.io
@@ -432,8 +432,8 @@ spec:
     name: Background
     type: string
   - JSONPath: .spec.validationFailureAction
-    description: ValidationFailureAction controls if a policy failure should not disallow
-      an admission review request (enforce), or allow (audit) and report an error.
+    description: ValidationFailureAction controls if a policy failure should disallow
+      (enforce) or allow and report (audit) the admission review request.
     name: Validation Failure Action
     type: string
   group: kyverno.io
