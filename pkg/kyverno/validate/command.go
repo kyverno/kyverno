@@ -17,7 +17,7 @@ import (
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/spf13/cobra"
 
-	_ "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
+	//_ "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
 
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 	yaml "sigs.k8s.io/yaml"
@@ -104,6 +104,7 @@ func Command() *cobra.Command {
 
 			invalidPolicyFound := false
 			for _, policy := range policies {
+				fmt.Println("----------------------------------------------------------------------")
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
 					fmt.Printf("Policy %s is invalid.\n", policy.Name)
@@ -137,7 +138,7 @@ func Command() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&outputType, "output", "o", "", "Prints the mutated policy")
+	cmd.Flags().StringVarP(&outputType, "output", "o", "", "Prints the mutated policy in yaml or json format")
 	cmd.Flags().StringArrayVarP(&crdPaths, "crd", "c", []string{}, "Path to CRD files")
 	return cmd
 }
