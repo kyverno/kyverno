@@ -93,7 +93,8 @@ func (wrc *WebhookRegistrationClient) RemoveWebhookConfigurations(cleanUp chan<-
 // used to forward request to kyverno webhooks to apply policeis
 // Mutationg webhook is be used for Mutating purpose
 func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfiguration() error {
-	logger := wrc.log
+	logger := wrc.log.WithValues("kind", MutatingWebhookConfigurationKind)
+
 	var caData []byte
 	var config *admregapi.MutatingWebhookConfiguration
 
@@ -121,6 +122,8 @@ func (wrc *WebhookRegistrationClient) CreateResourceMutatingWebhookConfiguration
 		logger.Error(err, "failed to create resource mutating webhook configuration", "name", config.Name)
 		return err
 	}
+
+	logger.V(2).Info("created mutating webhook", "name", config.Name)
 	return nil
 }
 
@@ -152,6 +155,8 @@ func (wrc *WebhookRegistrationClient) CreateResourceValidatingWebhookConfigurati
 		logger.Error(err, "failed to create resource")
 		return err
 	}
+
+	logger.V(2).Info("created validating webhook", "name", config.Name)
 	return nil
 }
 

@@ -2,13 +2,13 @@ package event
 
 import (
 	"github.com/go-logr/logr"
-
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/constant"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	v1 "k8s.io/api/core/v1"
+	errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -138,7 +138,9 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 	}
 
 	gen.queue.Forget(key)
-	logger.Error(err, "failed to generate event", "key", key)
+	if !errors.IsNotFound(err) {
+		logger.Error(err, "failed to generate event", "key", key)
+	}
 }
 
 func (gen *Generator) processNextWorkItem() bool {
@@ -184,7 +186,9 @@ func (gen *Generator) syncHandler(key Info) error {
 	default:
 		robj, err = gen.client.GetResource("", key.Kind, key.Namespace, key.Name)
 		if err != nil {
-			logger.Error(err, "failed to get resource", "kind", key.Kind, "name", key.Name, "namespace", key.Namespace)
+			if !errors.IsNotFound(err) {
+				logger.Error(err, "failed to get resource", "kind", key.Kind, "name", key.Name, "namespace", key.Namespace)
+			}
 			return err
 		}
 	}
