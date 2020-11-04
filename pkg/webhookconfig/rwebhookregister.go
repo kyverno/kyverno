@@ -78,8 +78,6 @@ func (rww *ResourceWebhookRegister) createMutatingWebhook() {
 			rww.RegisterResourceWebhook()
 			return
 		}
-
-		rww.log.V(2).Info("created mutating webhook", "name", mutatingConfigName)
 	}
 }
 
@@ -103,8 +101,6 @@ func (rww *ResourceWebhookRegister) createValidateWebhook() {
 			rww.RegisterResourceWebhook()
 			return
 		}
-
-		rww.log.V(2).Info("created validating webhook", "name", validatingConfigName)
 	}
 }
 

@@ -20,6 +20,8 @@ func convertNumberToString(value interface{}) (string, error) {
 		return strconv.FormatInt(typed, 10), nil
 	case int:
 		return strconv.Itoa(typed), nil
+	case nil:
+		return "", fmt.Errorf("got empty string, expect %v", value)
 	default:
 		return "", fmt.Errorf("could not convert %v to string", typed)
 	}
