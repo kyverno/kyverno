@@ -8,6 +8,17 @@ kind: CustomResourceDefinition
 metadata:
   name: clusterpolicies.kyverno.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.background
+    description: Background controls if rules are applied to existing resources during
+      a background scan.
+    name: Background
+    type: string
+  - JSONPath: .spec.validationFailureAction
+    description: ValidationFailureAction controls if a policy failure should disallow
+      (enforce) or allow and report (audit) the admission review request.
+    name: Validation Failure Action
+    type: string
   group: kyverno.io
   names:
     kind: ClusterPolicy
@@ -419,6 +430,17 @@ kind: CustomResourceDefinition
 metadata:
   name: policies.kyverno.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.background
+    description: Background controls if rules are applied to existing resources during
+      a background scan.
+    name: Background
+    type: string
+  - JSONPath: .spec.validationFailureAction
+    description: ValidationFailureAction controls if a policy failure should disallow
+      (enforce) or allow and report (audit) the admission review request.
+    name: Validation Failure Action
+    type: string
   group: kyverno.io
   names:
     kind: Policy
