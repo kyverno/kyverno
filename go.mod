@@ -44,14 +44,14 @@ require (
 	github.com/onsi/gomega v1.8.1
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
-	github.com/pelletier/go-toml v1.6.0 // indirect
+	github.com/ory/go-acc v0.2.6 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.2.1
 	github.com/prometheus/common v0.7.0
 	github.com/rogpeppe/godef v1.1.2 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/viper v1.6.2 // indirect
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	google.golang.org/appengine v1.6.5 // indirect
