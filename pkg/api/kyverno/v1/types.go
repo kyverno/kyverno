@@ -148,7 +148,7 @@ type Policy struct {
 type Spec struct {
 	// Rules contains the list of rules to be applied to resources
 	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
-	// ValidationFailureAction provides choice to enforce rules to resources during policy violations.
+	// ValidationFailureAction provides choice to enforce rules to resources during policy application.
 	// Default value is "audit".
 	ValidationFailureAction string `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 	// Background provides choice for applying rules to existing resources.
@@ -193,7 +193,7 @@ type Rule struct {
 }
 
 type ContextEntry struct {
-	Name      string             `json:"name,omitempty" yaml:"name,omitempty"`
+	Name      string              `json:"name,omitempty" yaml:"name,omitempty"`
 	ConfigMap *ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
 }
 

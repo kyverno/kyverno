@@ -3,6 +3,15 @@ kind: CustomResourceDefinition
 metadata:
   name: clusterpolicies.kyverno.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.background
+    description: Background provides choice for applying rules to existing resources.
+    name: Background
+    type: string
+  - JSONPath: .spec.validationFailureAction
+    description: ValidationFailureAction provides choice to enforce rules to resources during policy application.
+    name: Validation FailureAction
+    type: string
   group: kyverno.io
   versions:
     - name: v1
@@ -277,6 +286,15 @@ kind: CustomResourceDefinition
 metadata:
   name: policies.kyverno.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.background
+    description: Background provides choice for applying rules to existing resources.
+    name: Background
+    type: string
+  - JSONPath: .spec.validationFailureAction
+    description: ValidationFailureAction provides choice to enforce rules to resources during policy application.
+    name: Validation FailureAction
+    type: string
   group: kyverno.io
   versions:
     - name: v1
