@@ -20,7 +20,6 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/policyviolation"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	v1 "k8s.io/api/core/v1"
@@ -54,9 +53,6 @@ type PolicyController struct {
 	eventGen      event.Interface
 	eventRecorder record.EventRecorder
 
-	//pvControl is used for adoptin/releasing policy violation
-	pvControl PVControlInterface
-
 	// Policys that need to be synced
 	queue workqueue.RateLimitingInterface
 
@@ -68,12 +64,6 @@ type PolicyController struct {
 
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestLister
-
-	// pvLister can list/get policy violation from the shared informer's store
-	cpvLister kyvernolister.ClusterPolicyViolationLister
-
-	// nspvLister can list/get namespaced policy violation from the shared informer's store
-	nspvLister kyvernolister.PolicyViolationLister
 
 	// nsLister can list/get namespacecs from the shared informer's store
 	nsLister listerv1.NamespaceLister
@@ -101,10 +91,7 @@ type PolicyController struct {
 	// helpers to validate against current loaded configuration
 	configHandler config.Interface
 
-	// policy violation generator
-	pvGenerator policyviolation.GeneratorInterface
-
-	// policy violation generator
+	// policy report generator
 	prGenerator policyreport.GeneratorInterface
 
 	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
@@ -121,11 +108,9 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
-	cpvInformer kyvernoinformer.ClusterPolicyViolationInformer,
-	nspvInformer kyvernoinformer.PolicyViolationInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
-	configHandler config.Interface, eventGen event.Interface,
-	pvGenerator policyviolation.GeneratorInterface,
+	configHandler config.Interface,
+	eventGen event.Interface,
 	prGenerator policyreport.GeneratorInterface,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	namespaces informers.NamespaceInformer,
@@ -148,31 +133,10 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		eventRecorder:          eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
 		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		configHandler:          configHandler,
-		pvGenerator:            pvGenerator,
 		prGenerator:            prGenerator,
 		resourceWebhookWatcher: resourceWebhookWatcher,
 		log:                    log,
 		resCache:               resCache,
-	}
-
-	pc.pvControl = RealPVControl{Client: kyvernoClient, Recorder: pc.eventRecorder}
-
-	if os.Getenv("POLICY-TYPE") != common.PolicyReport {
-		cpvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    pc.addClusterPolicyViolation,
-			UpdateFunc: pc.updateClusterPolicyViolation,
-			DeleteFunc: pc.deleteClusterPolicyViolation,
-		})
-
-		nspvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    pc.addNamespacedPolicyViolation,
-			UpdateFunc: pc.updateNamespacedPolicyViolation,
-			DeleteFunc: pc.deleteNamespacedPolicyViolation,
-		})
-		pc.cpvLister = cpvInformer.Lister()
-		pc.cpvListerSynced = cpvInformer.Informer().HasSynced
-		pc.nspvLister = nspvInformer.Lister()
-		pc.nspvListerSynced = nspvInformer.Informer().HasSynced
 	}
 
 	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -180,7 +144,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
 	})
-	// Policy informer event handler
+
 	npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addNsPolicy,
 		UpdateFunc: pc.updateNsPolicy,
@@ -339,7 +303,7 @@ func (pc *PolicyController) enqueueDeletedRule(old, cur *kyverno.ClusterPolicy) 
 
 	for _, rule := range old.Spec.Rules {
 		if !curRule[rule.Name] {
-			pc.pvGenerator.Add(policyviolation.Info{
+			pc.prGenerator.Add(policyreport.Info{
 				PolicyName: cur.GetName(),
 				Rules: []kyverno.ViolatedRule{
 					{Name: rule.Name},
@@ -369,12 +333,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	cacheSyncs := []cache.InformerSynced{pc.pListerSynced, pc.npListerSynced, pc.nsListerSynced, pc.grListerSynced}
-	if os.Getenv("POLICY-TYPE") == common.PolicyViolation {
-		cacheSyncs = []cache.InformerSynced{pc.pListerSynced, pc.cpvListerSynced, pc.nspvListerSynced, pc.nsListerSynced, pc.grListerSynced}
-	}
-
-	if !cache.WaitForCacheSync(stopCh, cacheSyncs...) {
+	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.npListerSynced, pc.nsListerSynced, pc.grListerSynced) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
@@ -466,11 +425,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 				}
 			}
 
-			if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-				go pc.removeResultsEntryFromPolicyReport(key)
-				return nil
-			}
-			go pc.deletePolicyViolations(key)
+			go pc.removeResultsEntryFromPolicyReport(key)
 			return nil
 		}
 		return err
@@ -495,94 +450,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 }
 
 func (pc *PolicyController) removeResultsEntryFromPolicyReport(policyName string) {
-	info := policyviolation.Info{
+	pc.prGenerator.Add(policyreport.Info{
 		PolicyName: policyName,
-	}
-	pc.pvGenerator.Add(info)
-}
-
-func (pc *PolicyController) deletePolicyViolations(key string) {
-	cpv, err := pc.deleteClusterPolicyViolations(key)
-	if err != nil {
-		pc.log.Error(err, "failed to delete policy violations", "policy", key)
-	}
-
-	npv, err := pc.deleteNamespacedPolicyViolations(key)
-	if err != nil {
-		pc.log.Error(err, "failed to delete policy violations", "policy", key)
-	}
-
-	pc.log.Info("deleted policy violations", "policy", key, "count", cpv+npv)
-}
-
-func (pc *PolicyController) deleteClusterPolicyViolations(policy string) (int, error) {
-	cpvList, err := pc.getClusterPolicyViolationForPolicy(policy)
-	if err != nil {
-		return 0, err
-	}
-
-	count := 0
-	for _, cpv := range cpvList {
-		if err := pc.pvControl.DeleteClusterPolicyViolation(cpv.Name); err != nil {
-			pc.log.Error(err, "failed to delete policy violation", "name", cpv.Name)
-		} else {
-			count++
-		}
-	}
-
-	return count, nil
-}
-
-func (pc *PolicyController) deleteNamespacedPolicyViolations(policy string) (int, error) {
-	nspvList, err := pc.getNamespacedPolicyViolationForPolicy(policy)
-	if err != nil {
-		return 0, err
-	}
-
-	count := 0
-	for _, nspv := range nspvList {
-		if err := pc.pvControl.DeleteNamespacedPolicyViolation(nspv.Namespace, nspv.Name); err != nil {
-			pc.log.Error(err, "failed to delete policy violation", "name", nspv.Name)
-		} else {
-			count++
-		}
-	}
-
-	return count, nil
-}
-
-func (pc *PolicyController) getNamespacedPolicyViolationForPolicy(policy string) ([]*kyverno.PolicyViolation, error) {
-	policySelector, err := buildPolicyLabel(policy)
-	if err != nil {
-		return nil, err
-	}
-	// Get List of cluster policy violation
-	nspvList, err := pc.nspvLister.List(policySelector)
-	if err != nil {
-		return nil, err
-	}
-	return nspvList, nil
-
-}
-
-//PVControlInterface provides interface to  operate on policy violation resource
-type PVControlInterface interface {
-	DeleteClusterPolicyViolation(name string) error
-	DeleteNamespacedPolicyViolation(ns, name string) error
-}
-
-// RealPVControl is the default implementation of PVControlInterface.
-type RealPVControl struct {
-	Client   kyvernoclient.Interface
-	Recorder record.EventRecorder
-}
-
-//DeleteClusterPolicyViolation deletes the policy violation
-func (r RealPVControl) DeleteClusterPolicyViolation(name string) error {
-	return r.Client.KyvernoV1().ClusterPolicyViolations().Delete(context.TODO(), name, metav1.DeleteOptions{})
-}
-
-//DeleteNamespacedPolicyViolation deletes the namespaced policy violation
-func (r RealPVControl) DeleteNamespacedPolicyViolation(ns, name string) error {
-	return r.Client.KyvernoV1().PolicyViolations(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	})
 }

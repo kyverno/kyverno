@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/policyviolation"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -86,11 +85,6 @@ func (ws *WebhookServer) HandleMutation(
 	if annPatches := generateAnnotationPatches(engineResponses, logger); annPatches != nil {
 		patches = append(patches, annPatches)
 	}
-
-	// AUDIT
-	// generate violation when response fails
-	pvInfos := policyviolation.GeneratePVsFromEngineResponse(engineResponses, logger)
-	ws.pvGenerator.Add(pvInfos...)
 
 	// REPORTING EVENTS
 	// Scenario 1:
