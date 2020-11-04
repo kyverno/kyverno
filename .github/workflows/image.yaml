@@ -2,7 +2,7 @@ name: image
 on:
   push:
     branches:
-      - 'master'
+      - 'main'
 jobs:
   push-images:
     runs-on: ubuntu-latest

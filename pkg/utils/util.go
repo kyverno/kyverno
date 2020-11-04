@@ -18,6 +18,8 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+var regexVersion = regexp.MustCompile(`v(\d+).(\d+).(\d+)\.*`)
+
 //Contains Check if strint is contained in a list of string
 func contains(list []string, element string, fn func(string, string) bool) bool {
 	for _, e := range list {
@@ -53,14 +55,6 @@ func NewKubeClient(config *rest.Config) (kubernetes.Interface, error) {
 		return nil, err
 	}
 	return kclient, nil
-}
-
-//Btoi converts boolean to int
-func Btoi(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
 }
 
 //CRDInstalled to check if the CRD is installed or not
@@ -128,41 +122,50 @@ func ConvertResource(raw []byte, group, version, kind, namespace string) (unstru
 	return *obj, nil
 }
 
-// HigherThanKubernetesVersion compare kuberneates client version to user given version
-func HigherThanKubernetesVersion(client *client.Client, log logr.Logger, k8smajor, k8sminor, k8ssub int) bool {
+// HigherThanKubernetesVersion compare Kubernetes client version to user given version
+func HigherThanKubernetesVersion(client *client.Client, log logr.Logger, major, minor, patch int) bool {
 	logger := log.WithName("CompareKubernetesVersion")
 	serverVersion, err := client.DiscoveryClient.GetServerVersion()
 	if err != nil {
 		logger.Error(err, "Failed to get kubernetes server version")
 		return false
 	}
-	exp := regexp.MustCompile(`v(\d*).(\d*).(\d*)`)
-	groups := exp.FindAllStringSubmatch(serverVersion.String(), -1)
+
+	b, err := isVersionHigher(serverVersion.String(), major, minor, patch)
+	if err != nil {
+		logger.Error(err, "serverVersion", serverVersion)
+		return false
+	}
+
+	return b
+}
+
+func isVersionHigher(version string, major int, minor int, patch int) (bool, error) {
+	groups := regexVersion.FindAllStringSubmatch(version, -1)
 	if len(groups) != 1 || len(groups[0]) != 4 {
-		logger.Error(err, "Failed to extract kubernetes server version", "serverVersion", serverVersion)
-		return false
+		return false, fmt.Errorf("invalid version %s. Expected {major}.{minor}.{patch}", version)
 	}
-	// convert string to int
-	// assuming the version are always intergers
-	major, err := strconv.Atoi(groups[0][1])
+
+	currentMajor, err := strconv.Atoi(groups[0][1])
 	if err != nil {
-		logger.Error(err, "Failed to extract kubernetes major server version", "serverVersion", serverVersion)
-		return false
+		return false, fmt.Errorf("failed to extract major version from %s", version)
 	}
-	minor, err := strconv.Atoi(groups[0][2])
+
+	currentMinor, err := strconv.Atoi(groups[0][2])
 	if err != nil {
-		logger.Error(err, "Failed to extract kubernetes minor server version", "serverVersion", serverVersion)
-		return false
+		return false, fmt.Errorf("failed to extract minor version from %s", version)
 	}
-	sub, err := strconv.Atoi(groups[0][3])
+
+	currentPatch, err := strconv.Atoi(groups[0][3])
 	if err != nil {
-		logger.Error(err, "Failed to extract kubernetes sub minor server version", "serverVersion", serverVersion)
-		return false
+		return false, fmt.Errorf("failed to extract minor version from %s", version)
 	}
-	if major <= k8smajor && minor <= k8sminor && sub < k8ssub {
-		return false
+
+	if currentMajor <= major && currentMinor <= minor && currentPatch <= patch {
+		return false, nil
 	}
-	return true
+
+	return true, nil
 }
 
 func SliceContains(slice []string, values ...string) bool {

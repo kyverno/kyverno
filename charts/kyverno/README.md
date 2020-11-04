@@ -1,20 +1,22 @@
-# kyverno
+# Kyverno
 
-[Kyverno](https://kyverno.io) is a Kubernetes Native Policy Management engine. It allows you to
+[Kyverno](https://kyverno.io) is a Kubernetes Native Policy Management engine. It allows you to:
 
-* Manage policies as Kubernetes resources.
-* Validate, mutate, and generate configurations for any resource.
+* Manage policies as Kubernetes resources (no new language required.)
+* Validate, mutate, and generate resource configurations.
 * Select resources based on labels and wildcards.
 * View policy enforcement as events.
-* Detect policy violations for existing resources.
+* Scan existing resources for violations.
+
+Access the complete user documentation and guides at: https://kyverno.io.
 
 ## TL;DR;
 
 ```console
-## Add the nirmata Helm repository
+## Add the Kyverno Helm repository
 $ helm repo add kyverno https://nirmata.github.io/kyverno
 
-## Install the kyverno helm chart
+## Install the Kyverno Helm chart
 $ helm install kyverno --namespace kyverno kyverno/kyverno
 ```
 
@@ -24,19 +26,27 @@ This chart bootstraps a Kyverno deployment on a [Kubernetes](http://kubernetes.i
 
 ## Installing the Chart
 
-Kyverno makes assumptions about naming of namespaces and resources. Therefore, the chart must be installed with the default release name `kyverno` (default if --name is omitted) and in the namespace 'kyverno':
+**Add the Kyverno Helm repository:**
+
+```console
+$ helm repo add kyverno https://nirmata.github.io/kyverno
+```
+
+**Create a namespace:**
+
+You can install Kyverno in any namespace. The examples use `kyverno` as the namespace.
+
+```console
+$ kubectl create namespace kyverno
+```
+
+**Install the Kyverno chart:**
 
 ```console
 $ helm install kyverno --namespace kyverno kyverno ./charts/kyverno
 ```
 
-Note that Helm by default expects the namespace to already exist before running helm install. Create the namespace using:
-
-```console
-$ kubectl create ns kyverno
-```
-
-The command deploys Kyverno on the Kubernetes cluster in the default configuration. The [configuration](#configuration) section lists the parameters that can be configured during installation.
+The command deploys Kyverno on the Kubernetes cluster with default configuration. The [installation](https://kyverno.io/docs/installation/) guide lists the parameters that can be configured during installation.
 
 ## Uninstalling the Chart
 
@@ -110,4 +120,8 @@ $ helm install --namespace kyverno kyverno ./charts/kyverno -f values.yaml
 
 If `createSelfSignedCert` is `true`, Helm will take care of the steps of creating an external self-signed certificate describe in option 2 of the [installation documentation](https://github.com/kyverno/kyverno/blob/master/documentation/installation.md#option-2-use-your-own-ca-signed-certificate)
 
-If `createSelfSignedCert` is `false`, Kyverno will generate a pair using the kube-controller-manager., or you can provide your own TLS CA and signed-key pair and create the secret yourself as described in the documentation.
+If `createSelfSignedCert` is `false`, Kyverno will generate a self-signed CA and a certificate, or you can provide your own TLS CA and signed-key pair and create the secret yourself as described in the documentation.
+
+## Kyverno CLI
+
+See: https://kyverno.io/docs/kyverno-cli/
