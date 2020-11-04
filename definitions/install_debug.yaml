@@ -10,13 +10,14 @@ metadata:
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.background
-    description: Background provides choice for applying rules to existing resources.
+    description: Background controls if rules are applied to existing resources during
+      a background scan.
     name: Background
     type: string
   - JSONPath: .spec.validationFailureAction
     description: ValidationFailureAction provides choice to enforce rules to resources
       during policy application.
-    name: Validation FailureAction
+    name: Validation Failure Action
     type: string
   group: kyverno.io
   names:
@@ -431,13 +432,14 @@ metadata:
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.background
-    description: Background provides choice for applying rules to existing resources.
+    description: Background controls if rules are applied to existing resources during
+      a background scan.
     name: Background
     type: string
   - JSONPath: .spec.validationFailureAction
-    description: ValidationFailureAction provides choice to enforce rules to resources
-      during policy application.
-    name: Validation FailureAction
+    description: ValidationFailureAction controls if a policy failure should not disallow
+      an admission review request (enforce), or allow (audit) and report an error.
+    name: Validation Failure Action
     type: string
   group: kyverno.io
   names:
