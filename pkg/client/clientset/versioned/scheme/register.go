@@ -27,8 +27,6 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 var Scheme = runtime.NewScheme()
@@ -38,8 +36,6 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	kyvernov1.AddToScheme,
 	kyvernov1alpha1.AddToScheme,
 	policyv1alpha1.AddToScheme,
-	appsv1.AddToScheme,
-	corev1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

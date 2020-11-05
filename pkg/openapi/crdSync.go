@@ -132,13 +132,13 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 	}
 
 	if openV3schema == nil {
-		log.Log.V(3).Info("skip adding schema, CRD has no properties", "name", crdName)
+		log.Log.V(4).Info("skip adding schema, CRD has no properties", "name", crdName)
 		return
 	}
 
 	schemaRaw, _ := json.Marshal(openV3schema)
 	if len(schemaRaw) < 1 {
-		log.Log.V(3).Info("could not parse crd schema", "name", crdName)
+		log.Log.V(4).Info("could not parse crd schema", "name", crdName)
 		return
 	}
 

@@ -10,10 +10,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
-
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	yaml1 "sigs.k8s.io/yaml"
-
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -205,8 +203,8 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 	cmd.Flags().StringVarP(&mutateLogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
 	cmd.Flags().StringVarP(&variablesString, "set", "s", "", "Variables that are required")
-	cmd.Flags().StringVarP(&valuesFile, "values_file", "f", "", "File containing values for policy variables")
-	cmd.Flags().BoolVarP(&policyReport, "policy_report", "", false, "Generates policy report when passed (default policyviolation r")
+	cmd.Flags().StringVarP(&valuesFile, "values-file", "f", "", "File containing values for policy variables")
+	cmd.Flags().BoolVarP(&policyReport, "policy-report", "", false, "Generates policy report when passed (default policyviolation r")
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
 	return cmd
 }

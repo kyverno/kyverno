@@ -9,7 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
+	"k8s.io/client-go/kubernetes/scheme"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils"
