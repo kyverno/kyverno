@@ -9,6 +9,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	request "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -60,12 +61,16 @@ type Builder interface {
 	build(info Info) (*unstructured.Unstructured, error)
 }
 
-type requestBuilder struct{}
-
-func NewBuilder() *requestBuilder {
-	return &requestBuilder{}
+type requestBuilder struct {
+	cpolLister kyvernolister.ClusterPolicyLister
+	polLister  kyvernolister.PolicyLister
 }
-func (pvb *requestBuilder) build(info Info) (req *unstructured.Unstructured, err error) {
+
+func NewBuilder(cpolLister kyvernolister.ClusterPolicyLister, polLister kyvernolister.PolicyLister) *requestBuilder {
+	return &requestBuilder{cpolLister: cpolLister, polLister: polLister}
+}
+
+func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured, err error) {
 	results := []*report.PolicyReportResult{}
 	for _, rule := range info.Rules {
 		if rule.Type != utils.Validation.String() {
@@ -83,7 +88,8 @@ func (pvb *requestBuilder) build(info Info) (req *unstructured.Unstructured, err
 					UID:        info.Resource.GetUID(),
 				},
 			},
-			Scored: true,
+			Scored:   true,
+			Category: builder.fetchCategory(info.PolicyName, info.Resource.GetNamespace()),
 		}
 
 		result.Rule = rule.Name
@@ -224,4 +230,24 @@ func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 		violatedRules = append(violatedRules, vrule)
 	}
 	return violatedRules
+}
+
+const categoryLabel string = "policies.kyverno.io/category"
+
+func (builder *requestBuilder) fetchCategory(policy, ns string) string {
+	cpol, err := builder.cpolLister.Get(policy)
+	if err == nil {
+		if ann := cpol.GetAnnotations(); ann != nil {
+			return ann[categoryLabel]
+		}
+	}
+
+	pol, err := builder.polLister.Policies("").Get(policy)
+	if err == nil {
+		if ann := pol.GetAnnotations(); ann != nil {
+			return ann[categoryLabel]
+		}
+	}
+
+	return ""
 }
