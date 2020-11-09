@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -23,6 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"k8s.io/apimachinery/pkg/runtime"
+	"strings"
 )
 
 //EngineStats stores in the statistics for a single application of resource
@@ -272,6 +272,12 @@ func excludeResource(resource unstructured.Unstructured) bool {
 // - if the policy has auto-gen annotation && resource == Pod
 // - if the auto-gen contains cronJob && resource == Job
 func SkipPolicyApplication(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) bool {
+	if resource.GetKind() == "Pod" && policy.HasAutoGenAnnotation() {
+		if _, ok := policy.GetAnnotations()[PodControllersAnnotation]; ok {
+			delete(policy.Annotations, PodControllersAnnotation)
+		}
+	}
+
 	if policy.HasAutoGenAnnotation() && excludeResource(resource) {
 		return true
 	}
