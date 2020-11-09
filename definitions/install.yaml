@@ -2398,7 +2398,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: nirmata/kyverno:v1.2.1
+        image: nirmata/kyverno:v1.3.0-rc1
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 4
@@ -2441,7 +2441,7 @@ spec:
           runAsNonRoot: true
           runAsUser: 1000
       initContainers:
-      - image: nirmata/kyvernopre:v1.2.1
+      - image: nirmata/kyvernopre:v1.3.0-rc1
         imagePullPolicy: Always
         name: kyverno-pre
         securityContext:
