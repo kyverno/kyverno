@@ -197,6 +197,8 @@ func main() {
 		client,
 		pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
 		pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().Policies(),
 		statusSync.Listener,
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
