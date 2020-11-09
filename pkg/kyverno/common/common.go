@@ -9,11 +9,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	yaml_v2 "sigs.k8s.io/yaml"
-
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"

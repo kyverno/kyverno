@@ -8,17 +8,12 @@ import (
 	"os"
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/openapi"
-	"github.com/kyverno/kyverno/pkg/utils"
-
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
-
+	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
+	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
-
-	//_ "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
-
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 	yaml "sigs.k8s.io/yaml"
 )

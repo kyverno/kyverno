@@ -6,16 +6,14 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
-
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"k8s.io/client-go/kubernetes/scheme"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-//	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 )
 

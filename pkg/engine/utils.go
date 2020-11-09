@@ -6,19 +6,16 @@ import (
 	"fmt"
 	"reflect"
 	"time"
-
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/utils"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/minio/minio/pkg/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -272,12 +269,6 @@ func excludeResource(resource unstructured.Unstructured) bool {
 // - if the policy has auto-gen annotation && resource == Pod
 // - if the auto-gen contains cronJob && resource == Job
 func SkipPolicyApplication(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) bool {
-	if resource.GetKind() == "Pod" && policy.HasAutoGenAnnotation() {
-		if _, ok := policy.GetAnnotations()[PodControllersAnnotation]; ok {
-			delete(policy.Annotations, PodControllersAnnotation)
-		}
-	}
-
 	if policy.HasAutoGenAnnotation() && excludeResource(resource) {
 		return true
 	}

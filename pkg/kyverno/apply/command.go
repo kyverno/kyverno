@@ -379,6 +379,14 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		}
 	}
 
+	if resource.GetKind() == "Pod" && len(resource.GetOwnerReferences()) > 0 {
+		if policy.HasAutoGenAnnotation() {
+			if _, ok := policy.GetAnnotations()[engine.PodControllersAnnotation]; ok {
+				delete(policy.Annotations, engine.PodControllersAnnotation)
+			}
+		}
+	}
+
 	validateResponse := engine.Validate(engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, Context: ctx})
 	engineResponses = append(engineResponses, validateResponse)
 	if !policyReport {
