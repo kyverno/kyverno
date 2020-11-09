@@ -4,16 +4,13 @@ import (
 	"flag"
 	"os"
 
-	"github.com/kyverno/kyverno/pkg/kyverno/validate"
-
 	"github.com/kyverno/kyverno/pkg/kyverno/apply"
-
+	"github.com/kyverno/kyverno/pkg/kyverno/validate"
 	"github.com/kyverno/kyverno/pkg/kyverno/version"
+	"github.com/spf13/cobra"
 	"k8s.io/klog"
 	"k8s.io/klog/klogr"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/spf13/cobra"
 )
 
 func CLI() {

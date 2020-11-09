@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	kyvernov1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -39,7 +41,7 @@ var policyviolationsResource = schema.GroupVersionResource{Group: "kyverno.io", 
 var policyviolationsKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "PolicyViolation"}
 
 // Get takes name of the policyViolation, and returns the corresponding policyViolation object, and an error if there is any.
-func (c *FakePolicyViolations) Get(name string, options v1.GetOptions) (result *kyvernov1.PolicyViolation, err error) {
+func (c *FakePolicyViolations) Get(ctx context.Context, name string, options v1.GetOptions) (result *kyvernov1.PolicyViolation, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(policyviolationsResource, c.ns, name), &kyvernov1.PolicyViolation{})
 
@@ -50,7 +52,7 @@ func (c *FakePolicyViolations) Get(name string, options v1.GetOptions) (result *
 }
 
 // List takes label and field selectors, and returns the list of PolicyViolations that match those selectors.
-func (c *FakePolicyViolations) List(opts v1.ListOptions) (result *kyvernov1.PolicyViolationList, err error) {
+func (c *FakePolicyViolations) List(ctx context.Context, opts v1.ListOptions) (result *kyvernov1.PolicyViolationList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(policyviolationsResource, policyviolationsKind, c.ns, opts), &kyvernov1.PolicyViolationList{})
 
@@ -72,14 +74,14 @@ func (c *FakePolicyViolations) List(opts v1.ListOptions) (result *kyvernov1.Poli
 }
 
 // Watch returns a watch.Interface that watches the requested policyViolations.
-func (c *FakePolicyViolations) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakePolicyViolations) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(policyviolationsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a policyViolation and creates it.  Returns the server's representation of the policyViolation, and an error, if there is any.
-func (c *FakePolicyViolations) Create(policyViolation *kyvernov1.PolicyViolation) (result *kyvernov1.PolicyViolation, err error) {
+func (c *FakePolicyViolations) Create(ctx context.Context, policyViolation *kyvernov1.PolicyViolation, opts v1.CreateOptions) (result *kyvernov1.PolicyViolation, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(policyviolationsResource, c.ns, policyViolation), &kyvernov1.PolicyViolation{})
 
@@ -90,7 +92,7 @@ func (c *FakePolicyViolations) Create(policyViolation *kyvernov1.PolicyViolation
 }
 
 // Update takes the representation of a policyViolation and updates it. Returns the server's representation of the policyViolation, and an error, if there is any.
-func (c *FakePolicyViolations) Update(policyViolation *kyvernov1.PolicyViolation) (result *kyvernov1.PolicyViolation, err error) {
+func (c *FakePolicyViolations) Update(ctx context.Context, policyViolation *kyvernov1.PolicyViolation, opts v1.UpdateOptions) (result *kyvernov1.PolicyViolation, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(policyviolationsResource, c.ns, policyViolation), &kyvernov1.PolicyViolation{})
 
@@ -102,7 +104,7 @@ func (c *FakePolicyViolations) Update(policyViolation *kyvernov1.PolicyViolation
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakePolicyViolations) UpdateStatus(policyViolation *kyvernov1.PolicyViolation) (*kyvernov1.PolicyViolation, error) {
+func (c *FakePolicyViolations) UpdateStatus(ctx context.Context, policyViolation *kyvernov1.PolicyViolation, opts v1.UpdateOptions) (*kyvernov1.PolicyViolation, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateSubresourceAction(policyviolationsResource, "status", c.ns, policyViolation), &kyvernov1.PolicyViolation{})
 
@@ -113,7 +115,7 @@ func (c *FakePolicyViolations) UpdateStatus(policyViolation *kyvernov1.PolicyVio
 }
 
 // Delete takes name of the policyViolation and deletes it. Returns an error if one occurs.
-func (c *FakePolicyViolations) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakePolicyViolations) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(policyviolationsResource, c.ns, name), &kyvernov1.PolicyViolation{})
 
@@ -121,15 +123,15 @@ func (c *FakePolicyViolations) Delete(name string, options *v1.DeleteOptions) er
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakePolicyViolations) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(policyviolationsResource, c.ns, listOptions)
+func (c *FakePolicyViolations) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(policyviolationsResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &kyvernov1.PolicyViolationList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched policyViolation.
-func (c *FakePolicyViolations) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *kyvernov1.PolicyViolation, err error) {
+func (c *FakePolicyViolations) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *kyvernov1.PolicyViolation, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(policyviolationsResource, c.ns, name, pt, data, subresources...), &kyvernov1.PolicyViolation{})
 

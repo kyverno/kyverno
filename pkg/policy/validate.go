@@ -66,14 +66,13 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
 
-
-
 		// validate Cluster Resources in namespaced cluster policy
 		// For namespaced cluster policy, ClusterResource type field and values are not allowed in match and exclude
 		if !mock && p.ObjectMeta.Namespace != "" {
 			var Empty struct{}
 			clusterResourcesMap := make(map[string]*struct{})
 			// Get all the cluster type kind supported by cluster
+
 			res, err := client.GetDiscoveryCache().ServerPreferredResources()
 			if err != nil {
 				return err
@@ -449,13 +448,13 @@ func validateRuleType(r kyverno.Rule) error {
 	return nil
 }
 
-func validateRuleContext(rule kyverno.Rule) (error) {
+func validateRuleContext(rule kyverno.Rule) error {
 	if rule.Context == nil || len(rule.Context) == 0 {
 		return nil
 	}
 
 	for _, entry := range rule.Context {
-		if entry.Name == ""{
+		if entry.Name == "" {
 			return fmt.Errorf("a name is required for context entries")
 		}
 

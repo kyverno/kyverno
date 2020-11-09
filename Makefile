@@ -113,6 +113,8 @@ docker-publish-all: docker-publish-initContainer docker-publish-kyverno docker-p
 
 docker-build-all: docker-build-initContainer docker-build-kyverno docker-build-cli
 
+docker-tag-all: docker-tag-repo-initContainer docker-tag-repo-kyverno docker-tag-repo-cli
+
 ##################################
 # CI Testing
 ##################################
@@ -180,6 +182,29 @@ kustomize-crd:
 release: 
 	kustomize build ./definitions > ./definitions/install.yaml
 	kustomize build ./definitions > ./definitions/release/install.yaml
+
+report-crd: controller-gen
+	$(CONTROLLER_GEN) crd:trivialVersions=true paths="./pkg/api/policyreport/v1alpha1" output:dir=./definitions/crds
+	$(CONTROLLER_GEN) object paths=./pkg/api/policyreport/v1alpha1
+	$(CONTROLLER_GEN) crd:trivialVersions=true paths="./pkg/api/kyverno/v1alpha1" output:dir=./definitions/crds
+	$(CONTROLLER_GEN) object paths=./pkg/api/kyverno/v1alpha1
+
+# find or download controller-gen
+# download controller-gen if necessary
+controller-gen:
+ifeq (, $(shell which controller-gen))
+	@{ \
+	set -e ;\
+	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$CONTROLLER_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.5 ;\
+	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+	}
+CONTROLLER_GEN=$(GOBIN)/controller-gen
+else
+CONTROLLER_GEN=$(shell which controller-gen)
+endif
 
 # Run go fmt against code
 fmt:

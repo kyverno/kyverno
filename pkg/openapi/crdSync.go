@@ -1,27 +1,22 @@
 package openapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	runtimeSchema "k8s.io/apimachinery/pkg/runtime/schema"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"gopkg.in/yaml.v2"
-
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/googleapis/gnostic/compiler"
-
 	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
+	"github.com/googleapis/gnostic/compiler"
 	"github.com/kyverno/kyverno/pkg/constant"
 	client "github.com/kyverno/kyverno/pkg/dclient"
+	"gopkg.in/yaml.v2"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	runtimeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type crdSync struct {
@@ -91,7 +86,7 @@ func (c *crdSync) sync() {
 		Group:    "apiextensions.k8s.io",
 		Version:  "v1beta1",
 		Resource: "customresourcedefinitions",
-	}).List(v1.ListOptions{})
+	}).List(context.TODO(), v1.ListOptions{})
 	if err != nil {
 		log.Log.Error(err, "could not fetch crd's from server")
 		return

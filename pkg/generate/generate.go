@@ -1,6 +1,7 @@
 package generate
 
 import (
+	contextdefault "context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -114,13 +115,13 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	// Removing GR if rule is failed. Used when the generate condition failed but gr exist
 	for _, r := range engineResponse.PolicyResponse.Rules {
 		if !r.Success {
-			grList, err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(metav1.ListOptions{})
+			grList, err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(contextdefault.TODO(), metav1.ListOptions{})
 			if err != nil {
 				continue
 			}
 			for _, v := range grList.Items {
 				if engineResponse.PolicyResponse.Policy == v.Spec.Policy && engineResponse.PolicyResponse.Resource.Name == v.Spec.Resource.Name && engineResponse.PolicyResponse.Resource.Kind == v.Spec.Resource.Kind && engineResponse.PolicyResponse.Resource.Namespace == v.Spec.Resource.Namespace {
-					err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(v.GetName(), &metav1.DeleteOptions{})
+					err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
 					if err != nil {
 						logger.Error(err, " failed to delete generate request")
 					}
@@ -367,12 +368,10 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		}
 		if isUpdate {
 			logger.V(4).Info("updating existing resource")
-			// Update the resource
 			newResource.SetLabels(label)
 			_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
 			if err != nil {
 				logger.Error(err, "updating existing resource")
-				// Failed to update resource
 				return noGenResource, err
 			}
 			logger.V(4).Info("updated new resource")
@@ -383,13 +382,12 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 			_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, resource, false)
 			if err != nil {
 				logger.Error(err, "updating existing resource")
-				// Failed to update resource
 				return noGenResource, err
 			}
 			logger.V(4).Info("updated new resource")
 		}
-		logger.V(4).Info("Synchronize resource is disabled")
 
+		logger.V(4).Info("Synchronize resource is disabled")
 	}
 	return newGenResource, nil
 }

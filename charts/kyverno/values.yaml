@@ -98,6 +98,10 @@ config:
   - "[TokenReview,*,*]"
   - "[SubjectAccessReview,*,*]"
   - "[*,kyverno,*]"
+  - "[Binding,*,*]"
+  - "[ReplicaSet,*,*]"
+  - "[ReportChangeRequest,*,*]"
+  - "[ClusterReportChangeRequest,*,*]"
   # Or give the name of an existing config map (ignores default/provided resourceFilters)
   existingConfig: ''
   excludeGroupRole:
@@ -128,3 +132,4 @@ service:
 # 3) Let Helm generate a self signed cert, by setting createSelfSignedCert true
 # If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false
 createSelfSignedCert: false
+

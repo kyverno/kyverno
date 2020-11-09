@@ -20,6 +20,8 @@ package scheme
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyvernov1alpha1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
+	policyv1alpha1 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,6 +34,8 @@ var Codecs = serializer.NewCodecFactory(Scheme)
 var ParameterCodec = runtime.NewParameterCodec(Scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
 	kyvernov1.AddToScheme,
+	kyvernov1alpha1.AddToScheme,
+	policyv1alpha1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

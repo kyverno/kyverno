@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/signal"
@@ -30,6 +31,10 @@ var (
 const (
 	mutatingWebhookConfigKind   string = "MutatingWebhookConfiguration"
 	validatingWebhookConfigKind string = "ValidatingWebhookConfiguration"
+	policyReportKind            string = "PolicyReport"
+	clusterPolicyReportKind     string = "ClusterPolicyReport"
+	policyViolation             string = "PolicyViolation"
+	clusterPolicyViolation      string = "ClusterPolicyViolation"
 )
 
 func main() {
@@ -75,6 +80,12 @@ func main() {
 		{validatingWebhookConfigKind, config.PolicyValidatingWebhookConfigurationDebugName},
 		{mutatingWebhookConfigKind, config.PolicyMutatingWebhookConfigurationName},
 		{mutatingWebhookConfigKind, config.PolicyMutatingWebhookConfigurationDebugName},
+		// policy report
+		{policyReportKind, ""},
+		{clusterPolicyReportKind, ""},
+		// clean up policy violation
+		{policyViolation, ""},
+		{clusterPolicyViolation, ""},
 	}
 
 	done := make(chan struct{})
@@ -101,26 +112,17 @@ func main() {
 	}
 }
 
-func removeWebhookIfExists(client *client.Client, kind string, name string) error {
-	logger := log.Log.WithName("removeExistingWebhook").WithValues("kind", kind, "name", name)
-	var err error
-	// Get resource
-	_, err = client.GetResource("", kind, "", name)
-	if errors.IsNotFound(err) {
-		logger.V(4).Info("resource not found")
-		return nil
+func executeRequest(client *client.Client, req request) error {
+	switch req.kind {
+	case mutatingWebhookConfigKind, validatingWebhookConfigKind:
+		return removeWebhookIfExists(client, req.kind, req.name)
+	case policyReportKind:
+		return removePolicyReport(client, req.kind)
+	case clusterPolicyReportKind:
+		return removeClusterPolicyReport(client, req.kind)
+	case policyViolation, clusterPolicyViolation:
+		return removeViolationCRD(client)
 	}
-	if err != nil {
-		logger.Error(err, "failed to get resource")
-		return err
-	}
-	// Delete resource
-	err = client.DeleteResource("", kind, "", name, false)
-	if err != nil {
-		logger.Error(err, "failed to delete resource")
-		return err
-	}
-	logger.Info("removed the resource")
 	return nil
 }
 
@@ -175,7 +177,7 @@ func process(client *client.Client, done <-chan struct{}, stopCh <-chan struct{}
 		defer close(out)
 		for req := range requests {
 			select {
-			case out <- removeWebhookIfExists(client, req.kind, req.name):
+			case out <- executeRequest(client, req):
 			case <-done:
 				logger.Info("done")
 				return
@@ -220,4 +222,81 @@ func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan err
 		close(out)
 	}()
 	return out
+}
+
+func removeWebhookIfExists(client *client.Client, kind string, name string) error {
+	logger := log.Log.WithName("removeExistingWebhook").WithValues("kind", kind, "name", name)
+	var err error
+	// Get resource
+	_, err = client.GetResource("", kind, "", name)
+	if errors.IsNotFound(err) {
+		logger.V(4).Info("resource not found")
+		return nil
+	}
+	if err != nil {
+		logger.Error(err, "failed to get resource")
+		return err
+	}
+	// Delete resource
+	err = client.DeleteResource("", kind, "", name, false)
+	if err != nil {
+		logger.Error(err, "failed to delete resource")
+		return err
+	}
+	logger.Info("removed the resource")
+	return nil
+}
+
+func removeClusterPolicyReport(client *client.Client, kind string) error {
+	logger := log.Log.WithName("removeClusterPolicyReport")
+
+	cpolrs, err := client.ListResource("", kind, "", nil)
+	if err != nil && !errors.IsNotFound(err) {
+		logger.Error(err, "failed to list clusterPolicyReport")
+		return err
+	}
+
+	for _, cpolr := range cpolrs.Items {
+		if err := client.DeleteResource(cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName(), false); err != nil {
+			logger.Error(err, "failed to delete clusterPolicyReport", "name", cpolr.GetName())
+		}
+	}
+	return nil
+}
+
+func removePolicyReport(client *client.Client, kind string) error {
+	logger := log.Log.WithName("removePolicyReport")
+
+	namespaces, err := client.ListResource("", "Namespace", "", nil)
+	if err != nil {
+		logger.Error(err, "failed to list namespaces")
+		return err
+	}
+
+	// name of namespace policy report follows the name convention
+	// policyreport-ns-<namespace name>
+	for _, ns := range namespaces.Items {
+		reportName := fmt.Sprintf("policyreport-ns-%s", ns.GetName())
+		err := client.DeleteResource("", kind, ns.GetName(), reportName, false)
+		if err != nil && !errors.IsNotFound(err) {
+			logger.Error(err, "failed to delete policyReport", "name", reportName)
+		}
+	}
+
+	return nil
+}
+
+func removeViolationCRD(client *client.Client) error {
+	if err := client.DeleteResource("", "CustomResourceDefinition", "", "policyviolations.kyverno.io", false); err != nil {
+		if !errors.IsNotFound(err) {
+			logger.Error(err, "failed to delete CRD policyViolation")
+		}
+	}
+
+	if err := client.DeleteResource("", "CustomResourceDefinition", "", "clusterpolicyviolations.kyverno.io", false); err != nil {
+		if !errors.IsNotFound(err) {
+			logger.Error(err, "failed to delete CRD clusterPolicyViolation")
+		}
+	}
+	return nil
 }

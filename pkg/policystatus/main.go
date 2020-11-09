@@ -1,6 +1,7 @@
 package policystatus
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -145,7 +147,7 @@ func (s *Sync) updatePolicyStatus() {
 			}
 
 			policy.Status = status
-			_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(policy)
+			_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), policy, metav1.UpdateOptions{})
 			if err != nil {
 				s.cache.dataMu.Lock()
 				delete(s.cache.data, policyName)
@@ -161,7 +163,7 @@ func (s *Sync) updatePolicyStatus() {
 				continue
 			}
 			policy.Status = status
-			_, err = s.client.KyvernoV1().Policies(namespace).UpdateStatus(policy)
+			_, err = s.client.KyvernoV1().Policies(namespace).UpdateStatus(context.TODO(), policy, metav1.UpdateOptions{})
 			if err != nil {
 				s.cache.dataMu.Lock()
 				delete(s.cache.data, key)

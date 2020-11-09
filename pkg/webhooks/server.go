@@ -14,8 +14,6 @@ import (
 	"github.com/julienschmidt/httprouter"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/checker"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -26,8 +24,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
+	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/policystatus"
-	"github.com/kyverno/kyverno/pkg/policyviolation"
+	"github.com/kyverno/kyverno/pkg/resourcecache"
 	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	userinfo "github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -35,11 +34,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 )
 
 // WebhookServer contains configured TLS server with MutationWebhook.
@@ -99,8 +97,8 @@ type WebhookServer struct {
 	// last request time
 	lastReqTime *checker.LastReqTime
 
-	// policy violation generator
-	pvGenerator policyviolation.GeneratorInterface
+	// policy report generator
+	prGenerator policyreport.GeneratorInterface
 
 	// generate request generator
 	grGenerator *generate.Generator
@@ -134,7 +132,7 @@ func NewWebhookServer(
 	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
 	statusSync policystatus.Listener,
 	configHandler config.Interface,
-	pvGenerator policyviolation.GeneratorInterface,
+	prGenerator policyreport.GeneratorInterface,
 	grGenerator *generate.Generator,
 	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	auditHandler AuditHandler,
@@ -177,7 +175,7 @@ func NewWebhookServer(
 		configHandler:             configHandler,
 		cleanUp:                   cleanUp,
 		lastReqTime:               resourceWebhookWatcher.LastReqTime,
-		pvGenerator:               pvGenerator,
+		prGenerator:               prGenerator,
 		grGenerator:               grGenerator,
 		resourceWebhookWatcher:    resourceWebhookWatcher,
 		auditHandler:              auditHandler,
@@ -354,7 +352,7 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 			ws.auditHandler.Add(request.DeepCopy())
 
 			// VALIDATION
-			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log, ws.configHandler, ws.resCache)
+			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.prGenerator, ws.log, ws.configHandler, ws.resCache)
 			if !ok {
 				logger.Info("admission request denied")
 				return &v1beta1.AdmissionResponse{
@@ -480,7 +478,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		logger.Error(err, "failed to load service account in context")
 	}
 
-	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.pvGenerator, ws.log, ws.configHandler, ws.resCache)
+	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.prGenerator, ws.log, ws.configHandler, ws.resCache)
 	if !ok {
 		logger.Info("admission request denied")
 		return &v1beta1.AdmissionResponse{
@@ -507,7 +505,7 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 		logger.Info("failed to sync informer cache")
 	}
 
-	go func () {
+	go func() {
 		logger.V(3).Info("started serving requests", "addr", ws.server.Addr)
 		if err := ws.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
 			logger.Error(err, "failed to listen to requests")

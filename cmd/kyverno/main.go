@@ -9,20 +9,20 @@ import (
 	"os"
 	"time"
 
-	"github.com/kyverno/kyverno/pkg/openapi"
-	"github.com/kyverno/kyverno/pkg/policycache"
-
 	"github.com/kyverno/kyverno/pkg/checker"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
+	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
 	generatecleanup "github.com/kyverno/kyverno/pkg/generate/cleanup"
+	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policy"
+	"github.com/kyverno/kyverno/pkg/policycache"
+	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/policystatus"
-	"github.com/kyverno/kyverno/pkg/policyviolation"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -42,6 +42,7 @@ var (
 	kubeconfig                     string
 	serverIP                       string
 	webhookTimeout                 int
+	backgroundSync                 int
 	runValidationInMutatingWebhook string
 	profile                        bool
 	//TODO: this has been added to backward support command line arguments
@@ -51,8 +52,9 @@ var (
 	excludeGroupRole string
 	excludeUsername  string
 	// User FQDN as CSR CN
-	fqdncn   bool
-	setupLog = log.Log.WithName("setup")
+	fqdncn       bool
+	policyReport bool
+	setupLog     = log.Log.WithName("setup")
 )
 
 func main() {
@@ -79,6 +81,9 @@ func main() {
 		go http.ListenAndServe("localhost:6060", nil)
 	}
 
+	// Policy report is enabled by default in Kyverno 1.3.0+
+	os.Setenv("POLICY-TYPE", common.PolicyReport)
+
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
@@ -90,8 +95,9 @@ func main() {
 
 	// KYVERNO CRD CLIENT
 	// access CRD resources
-	//		- Policy
-	//		- PolicyViolation
+	//		- ClusterPolicy, Policy
+	//		- ClusterPolicyReport, PolicyReport
+	//		- GenerateRequest
 	pclient, err := kyvernoclient.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create client")
@@ -116,7 +122,7 @@ func main() {
 	// ===========================================================
 
 	// CRD CHECK
-	// - verify if the CRD for Policy & PolicyViolation are available
+	// - verify if Kyverno CRDs are available
 	if !utils.CRDInstalled(client.DiscoveryClient, log.Log) {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
 		os.Exit(1)
@@ -127,9 +133,6 @@ func main() {
 		setupLog.Error(err, "Failed to create kubernetes client")
 		os.Exit(1)
 	}
-
-	// TODO: To be removed for v1.2.0
-	utils.CleanupOldCrd(client, log.Log)
 
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	kubedynamicInformer := client.NewDynamicSharedInformerFactory(resyncPeriod)
@@ -154,8 +157,10 @@ func main() {
 
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
-	//		- Policy
-	//		- PolicyViolation
+	//		- ClusterPolicy, Policy
+	//		- ClusterPolicyReport, PolicyReport
+	//		- GenerateRequest
+	//		- ClusterReportChangeRequest, ReportChangeRequest
 	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, resyncPeriod)
 
 	// Configuration Data
@@ -184,14 +189,27 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies().Lister(),
 		pInformer.Kyverno().V1().Policies().Lister())
 
-	// POLICY VIOLATION GENERATOR
-	// -- generate policy violation
-	pvgen := policyviolation.NewPVGenerator(pclient,
+	// POLICY Report GENERATOR
+	// -- generate policy report
+	var reportReqGen *policyreport.Generator
+	var prgen *policyreport.ReportGenerator
+	reportReqGen = policyreport.NewReportChangeRequestGenerator(pclient,
 		client,
-		pInformer.Kyverno().V1().ClusterPolicyViolations(),
-		pInformer.Kyverno().V1().PolicyViolations(),
+		pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
+		pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().Policies(),
 		statusSync.Listener,
-		log.Log.WithName("PolicyViolationGenerator"),
+		log.Log.WithName("ReportChangeRequestGenerator"),
+	)
+
+	prgen = policyreport.NewReportGenerator(client,
+		pInformer.Policy().V1alpha1().ClusterPolicyReports(),
+		pInformer.Policy().V1alpha1().PolicyReports(),
+		pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
+		pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
+		kubeInformer.Core().V1().Namespaces(),
+		log.Log.WithName("PolicyReportGenerator"),
 	)
 
 	// POLICY CONTROLLER
@@ -202,12 +220,10 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
-		pInformer.Kyverno().V1().ClusterPolicyViolations(),
-		pInformer.Kyverno().V1().PolicyViolations(),
 		pInformer.Kyverno().V1().GenerateRequests(),
 		configData,
 		eventGenerator,
-		pvgen,
+		reportReqGen,
 		rWebhookWatcher,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
@@ -258,7 +274,7 @@ func main() {
 		pCacheController.Cache,
 		eventGenerator,
 		statusSync.Listener,
-		pvgen,
+		reportReqGen,
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		log.Log.WithName("ValidateAuditHandler"),
@@ -314,7 +330,7 @@ func main() {
 		webhookRegistrationClient,
 		statusSync.Listener,
 		configData,
-		pvgen,
+		reportReqGen,
 		grgen,
 		rWebhookWatcher,
 		auditHandler,
@@ -334,14 +350,16 @@ func main() {
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
 	kubedynamicInformer.Start(stopCh)
+
+	go reportReqGen.Run(2, stopCh)
+	go prgen.Run(1, stopCh)
 	go grgen.Run(1)
 	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
-	go policyCtrl.Run(3, stopCh)
+	go policyCtrl.Run(2, stopCh)
 	go eventGenerator.Run(3, stopCh)
 	go grc.Run(1, stopCh)
 	go grcc.Run(1, stopCh)
-	go pvgen.Run(1, stopCh)
 	go statusSync.Run(1, stopCh)
 	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)

@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-logr/logr"
 	client "github.com/kyverno/kyverno/pkg/dclient"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/minio/minio/pkg/wildcard"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -20,7 +19,6 @@ import (
 )
 
 var regexVersion = regexp.MustCompile(`v(\d+).(\d+).(\d+)\.*`)
-
 
 //Contains Check if strint is contained in a list of string
 func contains(list []string, element string, fn func(string, string) bool) bool {
@@ -71,22 +69,14 @@ func CRDInstalled(discovery client.IDiscovery, log logr.Logger) bool {
 		logger.Info("CRD found", "kind", kind)
 		return true
 	}
-	if !check("ClusterPolicy") || !check("ClusterPolicyViolation") || !check("PolicyViolation") {
-		return false
-	}
-	return true
-}
 
-//CleanupOldCrd deletes any existing NamespacedPolicyViolation resources in cluster
-// If resource violates policy, new Violations will be generated
-func CleanupOldCrd(client *dclient.Client, log logr.Logger) {
-	logger := log.WithName("CleanupOldCrd")
-	gvr := client.DiscoveryClient.GetGVRFromKind("NamespacedPolicyViolation")
-	if !reflect.DeepEqual(gvr, schema.GroupVersionResource{}) {
-		if err := client.DeleteResource("", "CustomResourceDefinition", "", "namespacedpolicyviolations.kyverno.io", false); err != nil {
-			logger.Error(err, "Failed to remove prevous CRD", "kind", "namespacedpolicyviolation")
+	kyvernoCRDs := []string{"ClusterPolicy", "ClusterPolicyReport", "PolicyReport", "ClusterReportChangeRequest", "ReportChangeRequest"}
+	for _, crd := range kyvernoCRDs {
+		if !check(crd) {
+			return false
 		}
 	}
+	return true
 }
 
 // extracts the new and old resource as unstructured
