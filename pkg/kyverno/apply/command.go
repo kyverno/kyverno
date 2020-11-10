@@ -130,20 +130,10 @@ func Command() *cobra.Command {
 			resources, err := getResourceAccordingToResourcePath(resourcePaths, cluster, policies, dClient, namespace)
 			if err != nil {
 				if !sanitizedError.IsErrorSanitized(err) {
-					yamlBytes := []byte(resourceStr)
-					resources, err = common.GetResource(yamlBytes)
-					if err != nil {
-						return sanitizedError.NewWithError("failed to extract the resources", err)
-					}
-				}
-			} else {
-				resources, err = common.GetResources(policies, resourcePaths, dClient)
-				if err != nil {
 					return sanitizedError.NewWithError("failed to load resources", err)
 				}
-				return err
 			}
-
+			
 			mutatedPolicies, err := mutatePolices(policies)
 
 			msgPolicies := "1 policy"
