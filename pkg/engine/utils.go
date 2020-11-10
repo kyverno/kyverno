@@ -232,7 +232,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	}
 
 	// creating final error
-	var errorMessage = "rule not matched:"
+	var errorMessage = fmt.Sprintf("rule %s not matched:", ruleRef.Name)
 	for i, reasonForFailure := range reasonsForFailure {
 		if reasonForFailure != nil {
 			errorMessage += "\n " + fmt.Sprint(i+1) + ". " + reasonForFailure.Error()

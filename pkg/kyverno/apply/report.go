@@ -155,7 +155,7 @@ func calculateSummary(results []*report.PolicyReportResult) (summary report.Poli
 	for _, res := range results {
 		switch string(res.Status) {
 		case report.StatusPass:
-			summary.Pass ++
+			summary.Pass++
 		case report.StatusFail:
 			summary.Fail++
 		case "warn":

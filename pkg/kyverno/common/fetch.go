@@ -186,6 +186,5 @@ func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructu
 	if resource.GetNamespace() == "" {
 		resource.SetNamespace("default")
 	}
-
 	return resource, nil
 }

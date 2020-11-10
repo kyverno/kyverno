@@ -10,12 +10,12 @@ import (
 	"reflect"
 	"strings"
 	"time"
-	"github.com/kyverno/kyverno/pkg/engine/response"
-	yaml1 "sigs.k8s.io/yaml"
+
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
+	yaml1 "sigs.k8s.io/yaml"
 )
 
 type resultCounts struct {
@@ -129,6 +130,15 @@ func Command() *cobra.Command {
 			resources, err := getResourceAccordingToResourcePath(resourcePaths, cluster, policies, dClient, namespace)
 			if err != nil {
 				if !sanitizedError.IsErrorSanitized(err) {
+					yamlBytes := []byte(resourceStr)
+					resources, err = common.GetResource(yamlBytes)
+					if err != nil {
+						return sanitizedError.NewWithError("failed to extract the resources", err)
+					}
+				}
+			} else {
+				resources, err = common.GetResources(policies, resourcePaths, dClient)
+				if err != nil {
 					return sanitizedError.NewWithError("failed to load resources", err)
 				}
 				return err

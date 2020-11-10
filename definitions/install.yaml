@@ -8,6 +8,17 @@ kind: CustomResourceDefinition
 metadata:
   name: clusterpolicies.kyverno.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.background
+    description: Background controls if rules are applied to existing resources during
+      a background scan.
+    name: Background
+    type: string
+  - JSONPath: .spec.validationFailureAction
+    description: ValidationFailureAction controls if a policy failure should disallow
+      (enforce) or allow and report (audit) the admission review request.
+    name: Validation Failure Action
+    type: string
   group: kyverno.io
   names:
     kind: ClusterPolicy
@@ -1015,6 +1026,17 @@ kind: CustomResourceDefinition
 metadata:
   name: policies.kyverno.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.background
+    description: Background controls if rules are applied to existing resources during
+      a background scan.
+    name: Background
+    type: string
+  - JSONPath: .spec.validationFailureAction
+    description: ValidationFailureAction controls if a policy failure should disallow
+      (enforce) or allow and report (audit) the admission review request.
+    name: Validation Failure Action
+    type: string
   group: kyverno.io
   names:
     kind: Policy
@@ -2376,7 +2398,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: nirmata/kyverno:v1.2.1
+        image: nirmata/kyverno:v1.3.0-rc1
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 4
@@ -2419,7 +2441,7 @@ spec:
           runAsNonRoot: true
           runAsUser: 1000
       initContainers:
-      - image: nirmata/kyvernopre:v1.2.1
+      - image: nirmata/kyvernopre:v1.3.0-rc1
         imagePullPolicy: Always
         name: kyverno-pre
         securityContext:
