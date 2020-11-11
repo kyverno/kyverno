@@ -86,21 +86,6 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	return resources, nil
 }
 
-func getResourceFromCluster(resourceTypes []string, resourceName string, dClient *client.Client) (*unstructured.Unstructured, error) {
-	var resource *unstructured.Unstructured
-	for _, kind := range resourceTypes {
-		r, err := dClient.GetResource("", kind, "", resourceName, "")
-
-		if err != nil {
-			continue
-		} else {
-			return r, nil
-		}
-	}
-
-	return resource, nil
-}
-
 // GetResource converts raw bytes to unstructured object
 func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)

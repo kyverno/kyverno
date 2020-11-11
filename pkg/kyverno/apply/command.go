@@ -103,8 +103,8 @@ func Command() *cobra.Command {
 				}
 			}
 
-			if len(policyPaths) == 0 && !cluster {
-				return sanitizedError.NewWithError(fmt.Sprintf("policy file(s) or cluster required"), err)
+			if len(policyPaths) == 0 {
+				return sanitizedError.NewWithError(fmt.Sprintf("require policy"), err)
 			}
 
 			policies, err := common.ValidateAndGetPolicies(policyPaths)
@@ -133,7 +133,7 @@ func Command() *cobra.Command {
 					return sanitizedError.NewWithError("failed to load resources", err)
 				}
 			}
-			
+
 			mutatedPolicies, err := mutatePolices(policies)
 
 			msgPolicies := "1 policy"
@@ -157,12 +157,6 @@ func Command() *cobra.Command {
 				if err != nil {
 					rc.skip += len(resources)
 					fmt.Printf("\nskipping policy %v as it is not valid: %v\n", policy.Name, err)
-					continue
-				}
-
-				if common.PolicyHasVariables(*policy) && variablesString == "" && valuesFile == "" {
-					rc.skip += len(resources)
-					fmt.Printf("\nskipping policy %s as it has variables. pass the values for the variables using set/values_file flag", policy.Name)
 					continue
 				}
 
@@ -304,7 +298,7 @@ func printReportOrViolation(policyReport bool, engineResponses []response.Engine
 			yamlReport, _ := yaml1.Marshal(report)
 			fmt.Println(string(yamlReport))
 		} else {
-			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT: not generated as no validation failure")
+			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT: not generated (no validation failure/resource skipped)")
 		}
 
 	} else {

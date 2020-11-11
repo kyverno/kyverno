@@ -33,7 +33,7 @@ func GetPolicy(file []byte) (clusterPolicies []*v1.ClusterPolicy, errors []error
 		}
 
 		if !(policy.TypeMeta.Kind == "ClusterPolicy" || policy.TypeMeta.Kind == "Policy") {
-			errors = append(errors, fmt.Errorf(fmt.Sprintf("resource %v is not a policy/cluster policy", policy.Name)))
+			errors = append(errors, fmt.Errorf(fmt.Sprintf("resource %v is not a policy/clusterPolicy", policy.Name)))
 			continue
 		}
 		clusterPolicies = append(clusterPolicies, policy)
