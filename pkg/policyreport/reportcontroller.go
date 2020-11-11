@@ -180,7 +180,7 @@ func (g *ReportGenerator) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(g.runWorker, constant.PolicyViolationControllerResync, stopCh)
+		go wait.Until(g.runWorker, constant.PolicyReportControllerResync, stopCh)
 	}
 
 	<-stopCh

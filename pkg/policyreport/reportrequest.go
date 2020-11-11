@@ -177,7 +177,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(gen.runWorker, constant.PolicyViolationControllerResync, stopCh)
+		go wait.Until(gen.runWorker, constant.PolicyReportControllerResync, stopCh)
 	}
 
 	<-stopCh
