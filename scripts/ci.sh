@@ -17,7 +17,9 @@ $pwd/kind load docker-image nirmata/kyvernopre:$hash
 pwd=$(pwd)
 cd $pwd/definitions
 echo "Installing kustomize"
-curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+latest=$(curl -sL https://api.github.com/repos/kubernetes-sigs/kustomize/git/refs/tags/kustomize | jq '.[-1].ref' | grep -Po '\d+\.\d+\.\d+')
+curl -sLO "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
+bash ./install_kustomize.sh $latest
 chmod a+x $pwd/definitions/kustomize
 echo "Kustomize image edit"
 $pwd/definitions/kustomize edit set image nirmata/kyverno:$hash
