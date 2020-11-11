@@ -9,7 +9,6 @@ import (
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -51,14 +50,9 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 					resources = append(resources, rr)
 				}
 			}
-		}
-	}
-
-	for _, resourcePath := range resourcePaths {
-		lenOfResource := len(resources)
-		resourceBytes, err := getFileBytes(resourcePath)
-		if err != nil {
-			if cluster {
+		} else {
+			for _, resourcePath := range resourcePaths {
+				lenOfResource := len(resources)
 				for _, rm := range resourceMap {
 					for rn, rr := range rm {
 						if rn == resourcePath {
@@ -67,20 +61,27 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 						}
 					}
 				}
-			} else {
+				if lenOfResource <= len(resources){
+					fmt.Printf("\n----------------------------------------------------------------------\n%s not found in cluster\n----------------------------------------------------------------------\n", resourcePath)
+				}
+			}
+		}
+	} else if len(resourcePaths) > 0 {
+		for _, resourcePath := range resourcePaths {
+			resourceBytes, err := getFileBytes(resourcePath)
+			if err != nil {
+				fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
+				continue
+			}
+
+			getResources, err := GetResource(resourceBytes)
+			if err != nil {
 				return nil, err
 			}
-			if len(resources) <= lenOfResource {
-				return nil, sanitizedError.NewWithError(fmt.Sprintf("resource %s not found in cluster", resourcePath), errors.New("resource not found"))
-			}
-		}
 
-		getResources, err := GetResource(resourceBytes)
-		if err != nil {
-			return nil, err
-		}
-		for _, resource := range getResources {
-			resources = append(resources, resource)
+			for _, resource := range getResources {
+				resources = append(resources, resource)
+			}
 		}
 	}
 	return resources, nil

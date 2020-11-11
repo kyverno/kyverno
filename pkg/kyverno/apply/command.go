@@ -133,6 +133,9 @@ func Command() *cobra.Command {
 					return sanitizedError.NewWithError("failed to load resources", err)
 				}
 			}
+			if len(resources) == 0 {
+				return sanitizedError.NewWithError("valid resource(s) not provided", err)
+			}
 
 			mutatedPolicies, err := mutatePolices(policies)
 
