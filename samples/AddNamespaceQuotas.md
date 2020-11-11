@@ -4,11 +4,11 @@ To limit the number of resources like CPU and memory, as well as objects that ma
 
 ## Additional Information
 
-* [Resource Quota](https://kubernetes.io/docs/concepts/policy/resource-quotas/)
+* [Resource Quotas](https://kubernetes.io/docs/concepts/policy/resource-quotas/)
 
-## Policy YAML 
+## Policy YAML
 
-[add_ns_quota.yaml](best_practices/add_ns_quota.yaml) 
+[add_ns_quota.yaml](best_practices/add_ns_quota.yaml)
 
 ````yaml
 apiVersion: kyverno.io/v1
@@ -23,11 +23,12 @@ spec:
         kinds:
         - Namespace
     exclude:
-      namespaces:
-        - "kube-system"
-        - "default"
-        - "kube-public"
-        - "kyverno"
+      resources:
+        namespaces:
+          - "kube-system"
+          - "default"
+          - "kube-public"
+          - "kyverno"
     generate:
       kind: ResourceQuota
       name: default-resourcequota

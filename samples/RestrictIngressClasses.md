@@ -2,9 +2,9 @@
 
 It can be useful to restrict Ingress resources to a set of known ingress classes that are allowed in the cluster. You can customize this policy to allow ingress classes that are configured in the cluster.
 
-## Policy YAML 
+## Policy YAML
 
-[restrict_ingress_classes.yaml](more/restrict_ingress_classes.yaml) 
+[restrict_ingress_classes.yaml](more/restrict_ingress_classes.yaml)
 
 ````yaml
 apiVersion : kyverno.io/v1

@@ -1,12 +1,10 @@
 # Disallow Docker socket bind mount
 
-The Docker socket bind mount allows access to the 
-Docker daemon on the node. This access can be used for privilege escalation and 
-to manage containers outside of Kubernetes, and hence should not be allowed.  
+The Docker socket bind mount allows access to the Docker daemon on the node. This access can be used for privilege escalation and to manage containers outside of Kubernetes, and hence should not be allowed.  
 
-## Policy YAML 
+## Policy YAML
 
-[disallow_docker_sock_mount.yaml](best_practices/disallow_docker_sock_mount.yaml) 
+[disallow_docker_sock_mount.yaml](best_practices/disallow_docker_sock_mount.yaml)
 
 ````yaml
 apiVersion: kyverno.io/v1
