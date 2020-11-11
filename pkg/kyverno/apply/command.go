@@ -127,7 +127,14 @@ func Command() *cobra.Command {
 				return err
 			}
 
-			resources, err := getResourceAccordingToResourcePath(resourcePaths, cluster, policies, dClient, namespace)
+			mutatedPolicies, err := mutatePolices(policies)
+			if err != nil {
+				if !sanitizedError.IsErrorSanitized(err) {
+					return sanitizedError.NewWithError("failed to mutate policy", err)
+				}
+			}
+
+			resources, err := getResourceAccordingToResourcePath(resourcePaths, cluster, mutatedPolicies, dClient, namespace)
 			if err != nil {
 				if !sanitizedError.IsErrorSanitized(err) {
 					return sanitizedError.NewWithError("failed to load resources", err)
@@ -136,8 +143,6 @@ func Command() *cobra.Command {
 			if len(resources) == 0 {
 				return sanitizedError.NewWithError("valid resource(s) not provided", err)
 			}
-
-			mutatedPolicies, err := mutatePolices(policies)
 
 			msgPolicies := "1 policy"
 			if len(mutatedPolicies) > 1 {
