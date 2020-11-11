@@ -323,7 +323,7 @@ metadata:
   labels:
     rbac.authorization.k8s.io/aggregate-to-view: "true"
 rules:
-  - apiGroups: [ "policy.k8s.io/v1alpha1" ]
+  - apiGroups: [ "wgpolicyk8s.io/v1alpha1" ]
     resources:
       - policyreport
     verbs: [ "get", "list", "watch" ]
@@ -336,7 +336,7 @@ metadata:
   labels:
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
 rules:
-  - apiGroups: ["policy.k8s.io/v1alpha1"]
+  - apiGroups: ["wgpolicyk8s.io/v1alpha1"]
     resources:
       - clusterpolicyreport
     verbs: ["get", "list", "watch"]
@@ -349,7 +349,7 @@ metadata:
   name: kyverno:edit-policies-policyreport
 rules:
   - apiGroups:
-      - policy.k8s.io/v1alpha1
+      - wgpolicyk8s.io/v1alpha1
     resources:
       - policyreport
       - clusterpolicyreport
@@ -368,7 +368,7 @@ metadata:
   name: kyverno:admin-policyreport
 rules:
   - apiGroups:
-      - policy.k8s.io/v1alpha1
+      - wgpolicyk8s.io/v1alpha1
     resources:
       - policyreport
       - clusterpolicyreport

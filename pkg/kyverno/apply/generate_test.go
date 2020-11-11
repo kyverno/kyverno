@@ -13,7 +13,7 @@ func Test_mergeClusterReport(t *testing.T) {
 	reports := []*unstructured.Unstructured{
 		{
 			Object: map[string]interface{}{
-				"apiVersion": "policy.k8s.io/v1alpha1",
+				"apiVersion": report.SchemeGroupVersion.String(),
 				"kind":       "PolicyReport",
 				"metadata": map[string]interface{}{
 					"name":      "ns-polr-1",
@@ -30,7 +30,7 @@ func Test_mergeClusterReport(t *testing.T) {
 		},
 		{
 			Object: map[string]interface{}{
-				"apiVersion": "policy.k8s.io/v1alpha1",
+				"apiVersion": report.SchemeGroupVersion.String(),
 				"kind":       "PolicyReport",
 				"metadata": map[string]interface{}{
 					"name": "ns-polr-2",
@@ -60,7 +60,7 @@ func Test_mergeClusterReport(t *testing.T) {
 		},
 		{
 			Object: map[string]interface{}{
-				"apiVersion": "policy.k8s.io/v1alpha1",
+				"apiVersion": report.SchemeGroupVersion.String(),
 				"kind":       "ClusterPolicyReport",
 				"metadata": map[string]interface{}{
 					"name": "cpolr-4",
@@ -75,7 +75,7 @@ func Test_mergeClusterReport(t *testing.T) {
 		},
 		{
 			Object: map[string]interface{}{
-				"apiVersion": "policy.k8s.io/v1alpha1",
+				"apiVersion": report.SchemeGroupVersion.String(),
 				"kind":       "ClusterPolicyReport",
 				"metadata": map[string]interface{}{
 					"name": "cpolr-5",
@@ -114,7 +114,7 @@ func Test_mergeClusterReport(t *testing.T) {
 	cpolr, err := mergeClusterReport(reports)
 	assert.NilError(t, err)
 
-	assert.Assert(t, cpolr.GetAPIVersion() == "policy.k8s.io/v1alpha1", cpolr.GetAPIVersion())
+	assert.Assert(t, cpolr.GetAPIVersion() == report.SchemeGroupVersion.String(), cpolr.GetAPIVersion())
 	assert.Assert(t, cpolr.GetKind() == "ClusterPolicyReport", cpolr.GetKind())
 
 	entries, _, err := unstructured.NestedSlice(cpolr.UnstructuredContent(), "results")

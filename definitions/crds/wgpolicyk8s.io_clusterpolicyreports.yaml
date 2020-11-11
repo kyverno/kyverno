@@ -6,14 +6,16 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.0
   creationTimestamp: null
-  name: clusterreportchangerequests.kyverno.io
+  name: clusterpolicyreports.wgpolicyk8s.io
 spec:
-  group: kyverno.io
+  group: wgpolicyk8s.io
   names:
-    kind: ClusterReportChangeRequest
-    listKind: ClusterReportChangeRequestList
-    plural: clusterreportchangerequests
-    singular: clusterreportchangerequest
+    kind: ClusterPolicyReport
+    listKind: ClusterPolicyReportList
+    plural: clusterpolicyreports
+    shortNames:
+    - cpolr
+    singular: clusterpolicyreport
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -46,7 +48,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ClusterReportChangeRequest is the Schema for the ClusterReportChangeRequests
+        description: ClusterPolicyReport is the Schema for the clusterpolicyreports
           API
         properties:
           apiVersion:

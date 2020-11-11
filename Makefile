@@ -184,9 +184,9 @@ release:
 	kustomize build ./definitions > ./definitions/release/install.yaml
 
 report-crd: controller-gen
-	$(CONTROLLER_GEN) crd:trivialVersions=true paths="./pkg/api/policyreport/v1alpha1" output:dir=./definitions/crds
+	$(CONTROLLER_GEN) crd:trivialVersions=true paths=./pkg/api/policyreport/v1alpha1 output:dir=./definitions/crds
 	$(CONTROLLER_GEN) object paths=./pkg/api/policyreport/v1alpha1
-	$(CONTROLLER_GEN) crd:trivialVersions=true paths="./pkg/api/kyverno/v1alpha1" output:dir=./definitions/crds
+	$(CONTROLLER_GEN) crd:trivialVersions=true paths=./pkg/api/kyverno/v1alpha1 output:dir=./definitions/crds
 	$(CONTROLLER_GEN) object paths=./pkg/api/kyverno/v1alpha1
 
 # find or download controller-gen
@@ -198,7 +198,7 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.5 ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.0 ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOBIN)/controller-gen

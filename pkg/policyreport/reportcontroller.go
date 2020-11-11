@@ -464,23 +464,23 @@ func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured
 	return nil, nil, nil
 }
 
-func setReport(report *unstructured.Unstructured, ns *v1.Namespace) {
-	report.SetAPIVersion("policy.k8s.io/v1alpha1")
+func setReport(reportUnstructured *unstructured.Unstructured, ns *v1.Namespace) {
+	reportUnstructured.SetAPIVersion(report.SchemeGroupVersion.String())
 
 	if ns == nil {
-		report.SetName(generatePolicyReportName(""))
-		report.SetKind("ClusterPolicyReport")
+		reportUnstructured.SetName(generatePolicyReportName(""))
+		reportUnstructured.SetKind("ClusterPolicyReport")
 		return
 	}
 
-	report.SetName(generatePolicyReportName(ns.GetName()))
-	report.SetNamespace(ns.GetName())
-	report.SetKind("PolicyReport")
+	reportUnstructured.SetName(generatePolicyReportName(ns.GetName()))
+	reportUnstructured.SetNamespace(ns.GetName())
+	reportUnstructured.SetKind("PolicyReport")
 
 	controllerFlag := true
 	blockOwnerDeletionFlag := true
 
-	report.SetOwnerReferences([]metav1.OwnerReference{
+	reportUnstructured.SetOwnerReferences([]metav1.OwnerReference{
 		{
 			APIVersion:         "v1",
 			Kind:               "Namespace",
