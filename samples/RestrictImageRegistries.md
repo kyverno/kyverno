@@ -1,12 +1,12 @@
 # Disallow unknown image registries
 
-Images from unknown registries may not be scanned and secured. Requiring the use of trusted registries helps reduce threat exposure. 
+Images from unknown registries may not be scanned and secured. Requiring the use of trusted registries helps reduce threat exposure.
 
 You can customize this policy to allow image registries that you trust.
 
-## Policy YAML 
+## Policy YAML
 
-[restrict_image_registries.yaml](more/restrict_image_registries.yaml) 
+[restrict_image_registries.yaml](more/restrict_image_registries.yaml)
 
 ````yaml
 apiVersion : kyverno.io/v1

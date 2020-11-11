@@ -1,10 +1,10 @@
 # Require `livenessProbe` and `readinessProbe`
 
-Liveness and readiness probes need to be configured to correctly manage a pods lifecycle during deployments, restarts, and upgrades.
+Liveness and readiness probes need to be configured to correctly manage a pod's lifecycle during deployments, restarts, and upgrades.
 
 For each pod, a periodic `livenessProbe` is performed by the kubelet to determine if the pod's containers are running or need to be restarted. A `readinessProbe` is used by services and deployments to determine if the pod is ready to receive network traffic.
 
-## Policy YAML 
+## Policy YAML
 
 [require_probes.yaml](best_practices/require_probes.yaml)
 
@@ -29,9 +29,7 @@ spec:
         spec:
           containers:
           - livenessProbe:
-              periodSeconds: ">0"      
+              periodSeconds: ">0"
             readinessProbe:
               periodSeconds: ">0"
-
 ````
-

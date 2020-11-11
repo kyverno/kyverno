@@ -1,11 +1,10 @@
 # Disallow changes to kernel parameters
 
-The Sysctl interface allows modifications to kernel parameters at runtime. In a Kubernetes pod these parameters can be specified under `securityContext.sysctls`. Kernel parameter modifications can be used for exploits and should be restricted.
+The Sysctl interface allows modifications to kernel parameters at runtime. In a Kubernetes, pod these parameters can be specified under `securityContext.sysctls`. Kernel parameter modifications can be used for exploits and should be restricted.
 
 ## Additional Information
 
-* [List of supported namespaced sysctl interfaces](https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/) 
-
+* [List of supported namespaced sysctl interfaces](https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/)
 
 ## Policy YAML
 

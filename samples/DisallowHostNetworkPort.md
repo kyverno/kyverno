@@ -1,12 +1,11 @@
 
 # Disallow `hostNetwork` and `hostPort`
 
-Using `hostPort` and `hostNetwork` allows pods to share the host networking stack allowing potential snooping of network traffic across application pods. 
+Using `hostPort` and `hostNetwork` allows pods to share the host networking stack allowing potential snooping of network traffic across application pods.
 
 ## Policy YAML
 
 [disallow_host_network_port.yaml](best_practices/disallow_host_network_port.yaml)
-
 
 ````yaml
 apiVersion: kyverno.io/v1
@@ -39,5 +38,4 @@ spec:
           - name: "*"
             =(ports):
               - X(hostPort): null
-
 ````
