@@ -46,7 +46,7 @@ To apply these policies to your cluster, install Kyverno and import the policies
 ### Install Kyverno**
 
 ````sh
-kubectl create -f https://github.com/kyverno/kyverno/raw/master/definitions/install.yaml
+kubectl create -f https://raw.githubusercontent.com/kyverno/kyverno/main/definitions/release/install.yaml
 ````
 
 <small>[(installation docs)](../documentation/installation.md)</small>
@@ -60,13 +60,13 @@ git clone https://github.com/kyverno/kyverno.git
 cd kyverno
 ````
 
-Import best_practices from [here](best_pratices):
+Import best practices from [here](best_pratices):
 
 ````bash
 kubectl create -f samples/best_practices
 ````
 
-Import addition policies from [here](more):
+Import additional policies from [here](more):
 
 ````bash
 kubectl create -f samples/more/
