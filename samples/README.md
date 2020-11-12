@@ -37,6 +37,7 @@ These policies provide additional best practices and are worthy of close conside
 1. [Restrict User Group](CheckUserGroup.md)
 1. [Require pods are labeled](RequireLabels.md)
 1. [Require pods have certain labels](RequireCertainLabels.md)
+1. [Require Deployments have multiple replicas](RequireDeploymentsHaveReplicas.md)
 
 ## Applying the sample policies
 
