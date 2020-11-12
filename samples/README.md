@@ -1,6 +1,6 @@
 # Sample Policies
 
-Sample policies are designed to be applied to your Kubernetes clusters with minimal changes. 
+Sample policies are designed to be applied to your Kubernetes clusters with minimal changes.
 
 The policies are mostly validation rules in `audit` mode i.e. your existing workloads will not be impacted, but will be audited for policy complaince.
 
@@ -28,7 +28,7 @@ These policies are highly recommended.
 
 ## Additional Policies
 
-These policies provide additional best practices and are worthy of close consideration. These policies may require specific changes for your workloads and environments. 
+These policies provide additional best practices and are worthy of close consideration. These policies may require specific changes for your workloads and environments.
 
 1. [Restrict image registries](RestrictImageRegistries.md)
 1. [Restrict `NodePort` services](RestrictNodePort.md)
@@ -43,14 +43,15 @@ These policies provide additional best practices and are worthy of close conside
 
 To apply these policies to your cluster, install Kyverno and import the policies as follows:
 
-**Install Kyverno**
+### Install Kyverno**
 
 ````sh
 kubectl create -f https://github.com/kyverno/kyverno/raw/master/definitions/install.yaml
 ````
+
 <small>[(installation docs)](../documentation/installation.md)</small>
 
-**Apply Kyverno Policies**
+### Apply Kyverno Policies**
 
 To start applying policies to your cluster, first clone the repo:
 
@@ -70,4 +71,3 @@ Import addition policies from [here](more):
 ````bash
 kubectl create -f samples/more/
 ````
-
