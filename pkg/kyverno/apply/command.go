@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
+	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
@@ -299,6 +300,7 @@ func getResourceAccordingToResourcePath(resourcePaths []string, cluster bool, po
 // printReportOrViolation - printing policy report/violations
 func printReportOrViolation(policyReport bool, engineResponses []response.EngineResponse, rc *resultCounts, resourcePaths []string) {
 	if policyReport {
+		os.Setenv("POLICY-TYPE", pkgCommon.PolicyReport)
 		resps := buildPolicyReports(engineResponses)
 		if len(resps) > 0 {
 			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")

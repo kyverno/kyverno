@@ -120,7 +120,12 @@ func mergeResults(report *unstructured.Unstructured, results *[]interface{}) {
 
 func updateSummary(results []interface{}) map[string]interface{} {
 	summary := make(map[string]interface{})
-
+	status := []string{report.StatusPass, report.StatusFail, report.StatusError, report.StatusSkip, report.StatusWarn}
+	for i := 0; i < 5; i++ {
+		if _, ok := summary[status[i]].(int64); !ok {
+			summary[status[i]] = int64(0)
+		}
+	}
 	for _, result := range results {
 		typedResult, ok := result.(map[string]interface{})
 		if !ok {
