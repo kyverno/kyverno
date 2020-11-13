@@ -171,7 +171,8 @@ func Command() *cobra.Command {
 				}
 
 				if common.PolicyHasVariables(*policy) && variablesString == "" && valuesFile == "" {
-					return sanitizedError.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
+					fmt.Printf("\n------------------------\nskipping policy %s as it has variable. pass the values for the variables using set/values_file flag\n------------------------\n", policy.Name)
+					continue
 				}
 
 				for _, resource := range resources {

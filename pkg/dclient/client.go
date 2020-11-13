@@ -255,7 +255,7 @@ func (c ServerPreferredResources) Poll(resync time.Duration, stopCh <-chan struc
 	// start a ticker
 	ticker := time.NewTicker(resync)
 	defer func() { ticker.Stop() }()
-	logger.Info("starting registered resources sync", "period", resync)
+	logger.V(4).Info("starting registered resources sync", "period", resync)
 	for {
 		select {
 		case <-stopCh:
