@@ -12,12 +12,12 @@ import (
 	"time"
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
-	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
@@ -161,6 +161,7 @@ func Command() *cobra.Command {
 
 			rc := &resultCounts{}
 			engineResponses := make([]response.EngineResponse, 0)
+			validateEngineResponses := make([]response.EngineResponse, 0)
 			for _, policy := range mutatedPolicies {
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
@@ -188,15 +189,16 @@ func Command() *cobra.Command {
 						return sanitizedError.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 					}
 
-					ers, err := applyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, rc, policyReport)
+					ers, validateErs, err := applyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, rc, policyReport)
 					if err != nil {
 						return sanitizedError.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 					}
 					engineResponses = append(engineResponses, ers...)
+					validateEngineResponses = append(validateEngineResponses, validateErs)
 				}
 			}
 
-			printReportOrViolation(policyReport, engineResponses, rc, resourcePaths)
+			printReportOrViolation(policyReport, validateEngineResponses, rc, resourcePaths)
 
 			return nil
 		},
@@ -298,19 +300,18 @@ func getResourceAccordingToResourcePath(resourcePaths []string, cluster bool, po
 }
 
 // printReportOrViolation - printing policy report/violations
-func printReportOrViolation(policyReport bool, engineResponses []response.EngineResponse, rc *resultCounts, resourcePaths []string) {
+func printReportOrViolation(policyReport bool, validateEngineResponses []response.EngineResponse, rc *resultCounts, resourcePaths []string) {
 	if policyReport {
 		os.Setenv("POLICY-TYPE", pkgCommon.PolicyReport)
-		resps := buildPolicyReports(engineResponses)
+		resps := buildPolicyReports(validateEngineResponses)
 		if len(resps) > 0 {
 			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
 			report, _ := generateCLIraw(resps)
 			yamlReport, _ := yaml1.Marshal(report)
 			fmt.Println(string(yamlReport))
 		} else {
-			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT: not generated (no validation failure/resource skipped)")
+			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
 		}
-
 	} else {
 		rcCount := rc.pass + rc.fail + rc.warn + rc.error + rc.skip
 		if rcCount < len(resourcePaths) {
@@ -327,7 +328,7 @@ func printReportOrViolation(policyReport bool, engineResponses []response.Engine
 }
 
 // applyPolicyOnResource - function to apply policy on resource
-func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured, mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, rc *resultCounts, policyReport bool) ([]response.EngineResponse, error) {
+func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured, mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, rc *resultCounts, policyReport bool) ([]response.EngineResponse, response.EngineResponse, error) {
 	responseError := false
 	engineResponses := make([]response.EngineResponse, 0)
 
@@ -375,7 +376,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			} else {
 				err := printMutatedOutput(mutateLogPath, mutateLogPathIsDir, string(yamlEncodedResource), resource.GetName()+"-mutated")
 				if err != nil {
-					return engineResponses, sanitizedError.NewWithError("failed to print mutated result", err)
+					return engineResponses, response.EngineResponse{}, sanitizedError.NewWithError("failed to print mutated result", err)
 				}
 				fmt.Printf("\n\nMutation:\nMutation has been applied succesfully. Check the files.")
 			}
@@ -392,7 +393,6 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	}
 
 	validateResponse := engine.Validate(engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, Context: ctx})
-	engineResponses = append(engineResponses, validateResponse)
 	if !policyReport {
 		if !validateResponse.IsSuccessful() {
 			fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.Name, resPath)
@@ -434,7 +434,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		rc.pass++
 	}
 
-	return engineResponses, nil
+	return engineResponses, validateResponse, nil
 }
 
 // mutatePolicies - function to apply mutation on policies
