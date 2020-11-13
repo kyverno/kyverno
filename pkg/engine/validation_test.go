@@ -1330,7 +1330,7 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
 	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "Validation error: ; Validation rule 'test-path-not-exist' failed. 'could not find variable request.object.metadata.name1 at path /spec/containers/0/name'")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "Validation error: ; Validation rule 'test-path-not-exist' failed. 'variable request.object.metadata.name1 not found (path: /spec/containers/0/name)'")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfies(t *testing.T) {
@@ -1512,7 +1512,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
 	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "Substitutions failed: [could not find variable request.object.metadata.name1 at path /spec/template/spec/containers/0/name could not find variable request.object.metadata.name2 at path /spec/template/spec/containers/0/name]")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "Substitutions failed: [variable request.object.metadata.name1 not found (path: /spec/template/spec/containers/0/name) variable request.object.metadata.name2 not found (path: /spec/template/spec/containers/0/name)]")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatternSatisfy(t *testing.T) {
