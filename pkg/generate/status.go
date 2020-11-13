@@ -32,7 +32,7 @@ func (sc StatusControl) Failed(gr kyverno.GenerateRequest, message string, genRe
 		log.Log.Error(err, "failed to update generate request status", "name", gr.Name)
 		return err
 	}
-	log.Log.Info("updated generate request status", "name", gr.Name, "status", string(kyverno.Failed))
+	log.Log.V(3).Info("updated generate request status", "name", gr.Name, "status", string(kyverno.Failed))
 	return nil
 }
 
