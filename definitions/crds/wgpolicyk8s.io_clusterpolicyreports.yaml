@@ -16,7 +16,7 @@ spec:
     shortNames:
     - cpolr
     singular: clusterpolicyreport
-  scope: Namespaced
+  scope: Cluster
   versions:
   - additionalPrinterColumns:
     - jsonPath: .scope.kind

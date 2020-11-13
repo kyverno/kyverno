@@ -183,11 +183,14 @@ release:
 	kustomize build ./definitions > ./definitions/install.yaml
 	kustomize build ./definitions > ./definitions/release/install.yaml
 
-report-crd: controller-gen
-	$(CONTROLLER_GEN) crd:trivialVersions=true paths=./pkg/api/policyreport/v1alpha1 output:dir=./definitions/crds
-	$(CONTROLLER_GEN) object paths=./pkg/api/policyreport/v1alpha1
-	$(CONTROLLER_GEN) crd:trivialVersions=true paths=./pkg/api/kyverno/v1alpha1 output:dir=./definitions/crds
+kyverno-crd: controller-gen
+	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1alpha1 output:dir=./definitions/crds
 	$(CONTROLLER_GEN) object paths=./pkg/api/kyverno/v1alpha1
+	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1 output:dir=./definitions/crds
+
+report-crd: controller-gen
+	$(CONTROLLER_GEN) crd paths=./pkg/api/policyreport/v1alpha1 output:dir=./definitions/crds
+	$(CONTROLLER_GEN) object paths=./pkg/api/policyreport/v1alpha1
 
 # find or download controller-gen
 # download controller-gen if necessary
