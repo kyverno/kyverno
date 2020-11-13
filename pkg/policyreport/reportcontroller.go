@@ -387,7 +387,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 	} else {
 		ns, err := g.nsLister.Get(namespace)
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to get namespace %s: %v", ns.GetName(), err)
+			return nil, nil, fmt.Errorf("unable to get namespace %s: %v", namespace, err)
 		}
 
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{"namespace": namespace}))

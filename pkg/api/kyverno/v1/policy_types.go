@@ -5,33 +5,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +genclient
-// +genclient:nonNamespaced
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// ClusterPolicy ...
-type ClusterPolicy Policy
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// ClusterPolicyList ...
-type ClusterPolicyList struct {
-	metav1.TypeMeta `json:",inline" yaml:",inline"`
-	metav1.ListMeta `json:"metadata" yaml:"metadata"`
-	Items           []ClusterPolicy `json:"items" yaml:"items"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // PolicyList ...
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PolicyList struct {
 	metav1.TypeMeta `json:",inline" yaml:",inline"`
 	metav1.ListMeta `json:"metadata" yaml:"metadata"`
 	Items           []Policy `json:"items" yaml:"items"`
 }
 
+// Policy contains rules to be applied to created resources
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// Policy contains rules to be applied to created resources
 type Policy struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
@@ -48,7 +32,9 @@ type Spec struct {
 	// ValidationFailureAction controls if a policy failure should not disallow
 	// an admission review request (enforce), or allow (audit) and report an error.
 	// Default value is "audit".
+	// +kubebuilder:default=audit
 	ValidationFailureAction string `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
+
 	// Background controls if rules are applied to existing resources during a background scan.
 	// Default value is "true".
 	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
@@ -103,10 +89,14 @@ type ConfigMapReference struct {
 //Condition defines the evaluation condition
 type Condition struct {
 	// Key contains key to compare
+	// +kubebuilder:validation:XPreserveUnknownFields
 	Key interface{} `json:"key,omitempty" yaml:"key,omitempty"`
+
 	// Operator to compare against value
 	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
+
 	// Value to be compared
+	// +kubebuilder:validation:XPreserveUnknownFields
 	Value interface{} `json:"value,omitempty" yaml:"value,omitempty"`
 }
 
@@ -114,16 +104,12 @@ type Condition struct {
 type ConditionOperator string
 
 const (
-	//Equal for Equal operator
-	Equal  ConditionOperator = "Equal"
-	Equals ConditionOperator = "Equals"
-	//NotEqual for NotEqual operator
+	Equal     ConditionOperator = "Equal"
+	Equals    ConditionOperator = "Equals"
 	NotEqual  ConditionOperator = "NotEqual"
 	NotEquals ConditionOperator = "NotEquals"
-	//In for In operator
-	In ConditionOperator = "In"
-	//NotIn for NotIn operator
-	NotIn ConditionOperator = "NotIn"
+	In        ConditionOperator = "In"
+	NotIn     ConditionOperator = "NotIn"
 )
 
 //MatchResources contains resource description of the resources that the rule is to apply on
@@ -170,14 +156,21 @@ type ResourceDescription struct {
 type Mutation struct {
 	// Specifies overlay patterns
 	// Overlay is preserved for backwards compatibility and will be removed in Kyverno 1.5+
+	// +kubebuilder:validation:XPreserveUnknownFields
+	// +optional
 	Overlay interface{} `json:"overlay,omitempty"`
 
 	// Specifies JSON Patch
 	// Patches is preserved for backwards compatibility and will be removed in Kyverno 1.5+
+	// +optional
 	Patches []Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
 
+	// +kubebuilder:validation:XPreserveUnknownFields
+	// +optional
 	PatchStrategicMerge interface{} `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
-	PatchesJSON6902     string      `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
+
+	// +optional
+	PatchesJSON6902 string `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
 }
 
 // +k8s:deepcopy-gen=false
@@ -189,19 +182,32 @@ type Patch struct {
 	// Specifies operations supported by JSON Patch.
 	// i.e:- add, replace and delete
 	Operation string `json:"op,omitempty" yaml:"op,omitempty"`
+
 	// Specifies the value to be applied
+	// +kubebuilder:validation:XPreserveUnknownFields
 	Value interface{} `json:"value,omitempty" yaml:"value,omitempty"`
 }
 
 // Validation describes the way how Validating Webhook will check the resource on creation
 type Validation struct {
 	// Specifies message to be displayed on validation policy violation
+	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
+
 	// Specifies validation pattern
+	// +kubebuilder:validation:XPreserveUnknownFields
+	// +optional
 	Pattern interface{} `json:"pattern,omitempty" yaml:"pattern,omitempty"`
+
 	// Specifies list of validation patterns
+	// +kubebuilder:validation:XPreserveUnknownFields
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:nullable
+	// +nullable
 	AnyPattern []interface{} `json:"anyPattern,omitempty" yaml:"anyPattern,omitempty"`
+
 	// Specifies conditions to deny validation
+	// +optional
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
 }
 
@@ -212,11 +218,14 @@ type Deny struct {
 
 // Generation describes which resources will be created when other resource is created
 type Generation struct {
-	ResourceSpec
+	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 	// To keep resources synchronized with source resource
 	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
+
 	// Data ...
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Data interface{} `json:"data,omitempty" yaml:"data,omitempty"`
+
 	// To clone resource from other resource
 	Clone CloneFrom `json:"clone,omitempty" yaml:"clone,omitempty"`
 }
