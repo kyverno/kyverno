@@ -48,11 +48,13 @@ spec:
                           send the request
                         items:
                           type: string
+                        nullable: true
                         type: array
                       roles:
                         description: Roles is a list of possible role send the request
                         items:
                           type: string
+                        nullable: true
                         type: array
                       userInfo:
                         description: UserInfo is the userInfo carried in the admission
@@ -84,10 +86,6 @@ spec:
                               among all active users.
                             type: string
                         type: object
-                    required:
-                    - clusterRoles
-                    - roles
-                    - userInfo
                     type: object
                 type: object
               policy:

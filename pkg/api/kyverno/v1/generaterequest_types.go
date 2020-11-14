@@ -30,16 +30,24 @@ type GenerateRequestSpec struct {
 
 //GenerateRequestContext stores the context to be shared
 type GenerateRequestContext struct {
+	// +optional
 	UserRequestInfo RequestInfo `json:"userInfo,omitempty" yaml:"userInfo,omitempty"`
 }
 
 // RequestInfo contains permission info carried in an admission request
 type RequestInfo struct {
 	// Roles is a list of possible role send the request
+	// +nullable
+	// +optional
 	Roles []string `json:"roles" yaml:"roles"`
+
 	// ClusterRoles is a list of possible clusterRoles send the request
+	// +nullable
+	// +optional
 	ClusterRoles []string `json:"clusterRoles" yaml:"clusterRoles"`
+
 	// UserInfo is the userInfo carried in the admission request
+	// +optional
 	AdmissionUserInfo authenticationv1.UserInfo `json:"userInfo" yaml:"userInfo"`
 }
 

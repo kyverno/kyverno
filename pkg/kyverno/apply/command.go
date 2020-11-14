@@ -415,7 +415,6 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 				if len(s) > 1 {
 					folderPath = mutateLogPath[:len(mutateLogPath)-len(s[len(s)-1])-1]
 					_, err := os.Stat(folderPath)
-					fmt.Println(err)
 					if os.IsNotExist(err) {
 						errDir := os.MkdirAll(folderPath, 0755)
 						if errDir != nil {
