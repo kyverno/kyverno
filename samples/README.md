@@ -38,12 +38,14 @@ These policies provide additional best practices and are worthy of close conside
 1. [Require pods are labeled](RequireLabels.md)
 1. [Require pods have certain labels](RequireCertainLabels.md)
 1. [Require Deployments have multiple replicas](RequireDeploymentsHaveReplicas.md)
+1. [Spread Pods across topology](SpreadPodsAcrossTopology.md)
+1. [Create Pod Anti-Affinity](CreatePodAntiAffinity.md)
 
 ## Applying the sample policies
 
 To apply these policies to your cluster, install Kyverno and import the policies as follows:
 
-### Install Kyverno**
+### Install Kyverno
 
 ````sh
 kubectl create -f https://raw.githubusercontent.com/kyverno/kyverno/main/definitions/release/install.yaml
@@ -51,7 +53,7 @@ kubectl create -f https://raw.githubusercontent.com/kyverno/kyverno/main/definit
 
 <small>[(installation docs)](../documentation/installation.md)</small>
 
-### Apply Kyverno Policies**
+### Apply Kyverno Policies
 
 To start applying policies to your cluster, first clone the repo:
 

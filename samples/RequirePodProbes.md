@@ -4,11 +4,18 @@ Liveness and readiness probes need to be configured to correctly manage a pod's 
 
 For each pod, a periodic `livenessProbe` is performed by the kubelet to determine if the pod's containers are running or need to be restarted. A `readinessProbe` is used by services and deployments to determine if the pod is ready to receive network traffic.
 
+In this sample policy, a validation rule checks to ensure that all Pods have both a liveness and a readiness probe defined by looking at the `periodSeconds` field. By using the annotation `pod-policies.kyverno.io/autogen-controllers`, it modifies the default behavior and ensures that only Pods originating from DaemonSet, Deployment, and StatefulSet objects are validated.
+
+## More Information
+
+* [Kyverno Auto-Gen Rules for Pod Controllers](https://kyverno.io/docs/writing-policies/autogen/)
+* [Configure Liveness, Readiness and Startup Probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
+
 ## Policy YAML
 
 [require_probes.yaml](best_practices/require_probes.yaml)
 
-````yaml
+```yaml
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -32,4 +39,4 @@ spec:
               periodSeconds: ">0"
             readinessProbe:
               periodSeconds: ">0"
-````
+```

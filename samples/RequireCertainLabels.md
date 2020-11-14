@@ -1,6 +1,6 @@
 # Require certain labels
 
-In many cases, you may require that at least a certain number of labels are assigned to each Pod from a select list of approved labels. This sample policy demonstrates the [`anyPattern`](https://kyverno.io/docs/writing-policies/validate/#anypattern---logical-or-across-multiple-validation-patterns) option in a policy by requiring any of the two possible labels defined within. A pod must either have the label `app.kubernetes.io/name` or `app.kubernetes.io/component` defined.
+In many cases, you may require that at least a certain number of labels are assigned to each Pod from a select list of approved labels. This sample policy demonstrates the [`anyPattern`](https://kyverno.io/docs/writing-policies/validate/#anypattern---logical-or-across-multiple-validation-patterns) option in a policy by requiring any of the two possible labels defined within. A pod must either have the label `app.kubernetes.io/name` or `app.kubernetes.io/component` defined. If you would rather validate that all Pods have multiple labels in an AND fashion rather than OR, check out the [require_labels](RequireLabels.md) example.
 
 ## Policy YAML
 
