@@ -243,8 +243,9 @@ type Validation struct {
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
 }
 
+// Deny specifies list of deny patterns.
 type Deny struct {
-	// Specifies set of condition to deny validation.
+	// Specifies set of condition to deny.
 	Conditions []Condition `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
@@ -253,6 +254,7 @@ type Generation struct {
 	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 
 	// To keep resources synchronized with source resource.
+	// +kubebuilder:default=false
 	// +optional
 	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
 
@@ -357,20 +359,4 @@ type ResourceSpec struct {
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 	// Specifies resource name.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-}
-
-// ViolatedRule stores the information regarding the rule.
-type ViolatedRule struct {
-	// Specifies violated rule name.
-	Name string `json:"name" yaml:"name"`
-
-	// Specifies violated rule type.
-	Type string `json:"type" yaml:"type"`
-
-	// Specifies violation message.
-	// +optional
-	Message string `json:"message" yaml:"message"`
-
-	// +optional
-	Check string `json:"check" yaml:"check"`
 }

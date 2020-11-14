@@ -221,6 +221,7 @@ spec:
                           description: Specifies resource namespace.
                           type: string
                         synchronize:
+                          default: false
                           description: To keep resources synchronized with source
                             resource.
                           type: boolean
@@ -408,7 +409,7 @@ spec:
                           description: Specifies conditions to deny validation.
                           properties:
                             conditions:
-                              description: Specifies set of condition to deny validation.
+                              description: Specifies set of condition to deny.
                               items:
                                 description: Condition defines the evaluation condition.
                                 properties:

@@ -13,8 +13,6 @@ spec:
     kind: ClusterReportChangeRequest
     listKind: ClusterReportChangeRequestList
     plural: clusterreportchangerequests
-    shortNames:
-    - cpol
     singular: clusterreportchangerequest
   scope: Cluster
   versions:
