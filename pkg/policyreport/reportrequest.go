@@ -297,7 +297,9 @@ func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) erro
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), config.KubePolicyNamespace, reportReq, false); err != nil {
-				return fmt.Errorf("failed to create ReportChangeRequest: %v", err)
+				if !apierrors.IsNotFound(err) {
+					return fmt.Errorf("failed to create ReportChangeRequest: %v", err)
+				}
 			}
 
 			logger.V(3).Info("successfully created reportChangeRequest", "name", reportReq.GetName())
