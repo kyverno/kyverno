@@ -121,17 +121,17 @@ type ConditionOperator string
 
 const (
 	// Equal evaluates if the key is equal to the value.
-	Equal     ConditionOperator = "Equal"
+	Equal ConditionOperator = "Equal"
 	// Equals evaluates if the key is equal to the value.
-	Equals    ConditionOperator = "Equals"
+	Equals ConditionOperator = "Equals"
 	// Equals evaluates if the key is not equal to the value.
-	NotEqual  ConditionOperator = "NotEqual"
+	NotEqual ConditionOperator = "NotEqual"
 	// NotEquals evaluates if the key is not equal to the value.
 	NotEquals ConditionOperator = "NotEquals"
 	// In evaluates if the key is contained in the set of values.
-	In        ConditionOperator = "In"
+	In ConditionOperator = "In"
 	// NotIn evaluates if the key is not contained in the set of values.
-	NotIn     ConditionOperator = "NotIn"
+	NotIn ConditionOperator = "NotIn"
 )
 
 // MatchResources is used to specify resource and admission review request data for
@@ -212,6 +212,7 @@ type Mutation struct {
 	// DEPRECATED. Use PatchesJSON6902 instead. Scheduled for
 	// removal in release 1.5+.
 	// +kubebuilder:validation:XPreserveUnknownFields
+	// +nullable
 	// +optional
 	Patches []Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
 

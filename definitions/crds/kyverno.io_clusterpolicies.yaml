@@ -28,7 +28,8 @@ spec:
     name: v1
     schema:
       openAPIV3Schema:
-        description: ClusterPolicy ...
+        description: ClusterPolicy declares validation, mutation, and generation behaviors
+          for matching resources.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -43,7 +44,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: Spec is the information to identify the policy
+            description: Spec declares policy behaviors.
             properties:
               background:
                 default: true
@@ -406,6 +407,7 @@ spec:
                                 description: Value specifies the value to be applied.
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
+                          nullable: true
                           type: array
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
@@ -492,7 +494,7 @@ spec:
                 type: string
             type: object
           status:
-            description: Status contains statistics related to policy
+            description: Status contains policy runtime data.
             properties:
               averageExecutionTime:
                 description: AvgExecutionTime is the average time taken to process

@@ -408,6 +408,7 @@ spec:
                                 description: Value specifies the value to be applied.
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
+                          nullable: true
                           type: array
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:

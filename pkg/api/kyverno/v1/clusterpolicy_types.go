@@ -4,7 +4,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ClusterPolicy ...
+// ClusterPolicy declares validation, mutation, and generation behaviors for matching resources.
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -16,13 +16,16 @@ import (
 type ClusterPolicy struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
-	// Spec is the information to identify the policy
+
+	// Spec declares policy behaviors.
 	Spec Spec `json:"spec" yaml:"spec"`
-	// Status contains statistics related to policy
+
+	// Status contains policy runtime data.
+	// +optional
 	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
-// ClusterPolicyList ...
+// ClusterPolicyList is a list of ClusterPolicy instances.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ClusterPolicyList struct {
 	metav1.TypeMeta `json:",inline" yaml:",inline"`
