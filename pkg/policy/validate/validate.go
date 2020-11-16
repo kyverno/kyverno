@@ -36,8 +36,14 @@ func (v *Validate) Validate() (string, error) {
 		}
 	}
 
-	if len(rule.AnyPattern) != 0 {
-		for i, pattern := range rule.AnyPattern {
+	if rule.AnyPattern != nil {
+		// validation := &kyverno.Validation{}
+		// rule.DeepCopyInto(validation)
+		anyPattern, err := rule.DeserializeAnyPattern()
+		if err != nil {
+			return "anyPattern", fmt.Errorf("failed to deserialze anyPattern, expect array: %v", err)
+		}
+		for i, pattern := range anyPattern {
 			if path, err := common.ValidatePattern(pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor}); err != nil {
 				return fmt.Sprintf("anyPattern[%d].%s", i, path), err
 			}
@@ -49,11 +55,11 @@ func (v *Validate) Validate() (string, error) {
 // validateOverlayPattern checks one of pattern/anyPattern must exist
 func (v *Validate) validateOverlayPattern() error {
 	rule := v.rule
-	if rule.Pattern == nil && len(rule.AnyPattern) == 0 && rule.Deny == nil {
+	if rule.Pattern == nil && rule.AnyPattern == nil && rule.Deny == nil {
 		return fmt.Errorf("pattern, anyPattern or deny must be specified")
 	}
 
-	if rule.Pattern != nil && len(rule.AnyPattern) != 0 {
+	if rule.Pattern != nil && rule.AnyPattern != nil {
 		return fmt.Errorf("only one operation allowed per validation rule(pattern or anyPattern)")
 	}
 

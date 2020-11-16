@@ -42,14 +42,6 @@ func (dl dummyLister) Get(name string) (*v1.ClusterPolicy, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (dl dummyLister) GetPolicyForPolicyViolation(pv *v1.ClusterPolicyViolation) ([]*v1.ClusterPolicy, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (dl dummyLister) GetPolicyForNamespacedPolicyViolation(pv *v1.PolicyViolation) ([]*v1.ClusterPolicy, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
 func (dl dummyLister) ListResources(selector labels.Selector) (ret []*v1.ClusterPolicy, err error) {
 	return nil, fmt.Errorf("not implemented")
 }
@@ -68,10 +60,6 @@ func (dl dummyNsLister) List(selector labels.Selector) (ret []*v1.Policy, err er
 }
 
 func (dl dummyNsLister) Get(name string) (*v1.Policy, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (dl dummyNsLister) GetPolicyForPolicyViolation(pv *v1.PolicyViolation) ([]*v1.Policy, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

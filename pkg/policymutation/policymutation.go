@@ -467,9 +467,14 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		return *controllerRule
 	}
 
-	if len(rule.Validation.AnyPattern) != 0 {
+	if rule.Validation.AnyPattern != nil {
 		var patterns []interface{}
-		for _, pattern := range rule.Validation.AnyPattern {
+		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
+		if err != nil {
+			logger.Error(err, "failed to deserialze anyPattern, expect type array")
+		}
+
+		for _, pattern := range anyPatterns {
 			newPattern := map[string]interface{}{
 				"spec": map[string]interface{}{
 					"template": pattern,

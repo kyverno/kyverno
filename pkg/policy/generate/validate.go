@@ -80,9 +80,7 @@ func (g *Generate) validateClone(c kyverno.CloneFrom, kind string) (string, erro
 	if c.Name == "" {
 		return "name", fmt.Errorf("name cannot be empty")
 	}
-	if c.Namespace == "" {
-		return "namespace", fmt.Errorf("namespace cannot be empty")
-	}
+
 	namespace := c.Namespace
 	// Skip if there is variable defined
 	if !variables.IsVariable(kind) && !variables.IsVariable(namespace) {

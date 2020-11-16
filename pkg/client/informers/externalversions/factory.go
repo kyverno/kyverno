@@ -174,13 +174,13 @@ type SharedInformerFactory interface {
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
 	Kyverno() kyverno.Interface
-	Policy() policyreport.Interface
+	Wgpolicyk8s() policyreport.Interface
 }
 
 func (f *sharedInformerFactory) Kyverno() kyverno.Interface {
 	return kyverno.New(f, f.namespace, f.tweakListOptions)
 }
 
-func (f *sharedInformerFactory) Policy() policyreport.Interface {
+func (f *sharedInformerFactory) Wgpolicyk8s() policyreport.Interface {
 	return policyreport.New(f, f.namespace, f.tweakListOptions)
 }

@@ -24,21 +24,21 @@ import (
 	testing "k8s.io/client-go/testing"
 )
 
-type FakePolicyV1alpha1 struct {
+type FakeWgpolicyk8sV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakePolicyV1alpha1) ClusterPolicyReports() v1alpha1.ClusterPolicyReportInterface {
+func (c *FakeWgpolicyk8sV1alpha1) ClusterPolicyReports() v1alpha1.ClusterPolicyReportInterface {
 	return &FakeClusterPolicyReports{c}
 }
 
-func (c *FakePolicyV1alpha1) PolicyReports(namespace string) v1alpha1.PolicyReportInterface {
+func (c *FakeWgpolicyk8sV1alpha1) PolicyReports(namespace string) v1alpha1.PolicyReportInterface {
 	return &FakePolicyReports{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakePolicyV1alpha1) RESTClient() rest.Interface {
+func (c *FakeWgpolicyk8sV1alpha1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

@@ -204,8 +204,8 @@ func main() {
 	)
 
 	prgen = policyreport.NewReportGenerator(client,
-		pInformer.Policy().V1alpha1().ClusterPolicyReports(),
-		pInformer.Policy().V1alpha1().PolicyReports(),
+		pInformer.Wgpolicyk8s().V1alpha1().ClusterPolicyReports(),
+		pInformer.Wgpolicyk8s().V1alpha1().PolicyReports(),
 		pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
 		pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
 		kubeInformer.Core().V1().Namespaces(),

@@ -6,14 +6,16 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.0
   creationTimestamp: null
-  name: reportchangerequests.kyverno.io
+  name: policyreports.wgpolicyk8s.io
 spec:
-  group: kyverno.io
+  group: wgpolicyk8s.io
   names:
-    kind: ReportChangeRequest
-    listKind: ReportChangeRequestList
-    plural: reportchangerequests
-    singular: reportchangerequest
+    kind: PolicyReport
+    listKind: PolicyReportList
+    plural: policyreports
+    shortNames:
+    - polr
+    singular: policyreport
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -46,8 +48,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ReportChangeRequest is the Schema for the ReportChangeRequests
-          API
+        description: PolicyReport is the Schema for the policyreports API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation

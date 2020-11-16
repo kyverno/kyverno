@@ -32,12 +32,12 @@ import (
 
 // FakeClusterPolicyReports implements ClusterPolicyReportInterface
 type FakeClusterPolicyReports struct {
-	Fake *FakePolicyV1alpha1
+	Fake *FakeWgpolicyk8sV1alpha1
 }
 
-var clusterpolicyreportsResource = schema.GroupVersionResource{Group: "policy.k8s.io", Version: "v1alpha1", Resource: "clusterpolicyreports"}
+var clusterpolicyreportsResource = schema.GroupVersionResource{Group: "wgpolicyk8s.io", Version: "v1alpha1", Resource: "clusterpolicyreports"}
 
-var clusterpolicyreportsKind = schema.GroupVersionKind{Group: "policy.k8s.io", Version: "v1alpha1", Kind: "ClusterPolicyReport"}
+var clusterpolicyreportsKind = schema.GroupVersionKind{Group: "wgpolicyk8s.io", Version: "v1alpha1", Kind: "ClusterPolicyReport"}
 
 // Get takes name of the clusterPolicyReport, and returns the corresponding clusterPolicyReport object, and an error if there is any.
 func (c *FakeClusterPolicyReports) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ClusterPolicyReport, err error) {

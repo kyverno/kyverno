@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -230,7 +231,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 			}
 		}
 	}
-	logger.Info("deleting generate request", "name", gr.Name)
+	logger.V(3).Info("deleting generate request", "name", gr.Name)
 	// sync Handler will remove it from the queue
 	c.enqueueGR(gr)
 }
@@ -280,6 +281,12 @@ func (c *Controller) handleErr(err error, key interface{}) {
 		return
 	}
 
+	if errors.IsNotFound(err) {
+		c.queue.Forget(key)
+		logger.V(4).Info("Dropping generate request from the queue", "key", key, "error", err)
+		return
+	}
+
 	if c.queue.NumRequeues(key) < maxRetries {
 		logger.Error(err, "failed to sync generate request", "key", key)
 		c.queue.AddRateLimited(key)
@@ -294,7 +301,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	logger := c.log
 	var err error
 	startTime := time.Now()
-	logger.V(3).Info("started sync", "key", key, "startTime", startTime)
+	logger.V(4).Info("started sync", "key", key, "startTime", startTime)
 	defer func() {
 		logger.V(4).Info("finished sync", "key", key, "processingTime", time.Since(startTime).String())
 	}()
@@ -305,6 +312,10 @@ func (c *Controller) syncGenerateRequest(key string) error {
 
 	gr, err := c.grLister.Get(grName)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+
 		logger.Error(err, "failed to list generate requests")
 		return err
 	}
