@@ -32,14 +32,15 @@ These policies provide additional best practices and are worthy of close conside
 
 1. [Restrict image registries](RestrictImageRegistries.md)
 1. [Restrict `NodePort` services](RestrictNodePort.md)
-1. [Restrict auto-mount of service account credentials](RestrictAutomountSAToken.md)
-1. [Restrict ingress classes](RestrictIngressClasses.md)
+2. [Restrict `LoadBalancer` services](RestrictLoadBalancer.md)
+3. [Restrict auto-mount of service account credentials](RestrictAutomountSAToken.md)
+4. [Restrict ingress classes](RestrictIngressClasses.md)
 1. [Restrict User Group](CheckUserGroup.md)
-1. [Require pods are labeled](RequireLabels.md)
-1. [Require pods have certain labels](RequireCertainLabels.md)
-1. [Require Deployments have multiple replicas](RequireDeploymentsHaveReplicas.md)
-1. [Spread Pods across topology](SpreadPodsAcrossTopology.md)
-1. [Create Pod Anti-Affinity](CreatePodAntiAffinity.md)
+2. [Require pods are labeled](RequireLabels.md)
+3. [Require pods have certain labels](RequireCertainLabels.md)
+4. [Require Deployments have multiple replicas](RequireDeploymentsHaveReplicas.md)
+5. [Spread Pods across topology](SpreadPodsAcrossTopology.md)
+6. [Create Pod Anti-Affinity](CreatePodAntiAffinity.md)
 
 ## Applying the sample policies
 
