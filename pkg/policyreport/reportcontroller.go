@@ -261,6 +261,12 @@ func (g *ReportGenerator) syncHandler(key string) error {
 func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstructured.Unstructured, aggregatedRequests interface{}) (report interface{}, err error) {
 	log := g.log.WithName("createReportIfNotPresent")
 	if namespace != "" {
+		if ns, err := g.nsLister.Get(namespace); err == nil {
+			if ns.GetDeletionTimestamp() != nil {
+				return nil, nil
+			}
+		}
+
 		report, err = g.reportLister.PolicyReports(namespace).Get(generatePolicyReportName((namespace)))
 		if err != nil {
 			if apierrors.IsNotFound(err) && new != nil {
@@ -387,7 +393,9 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 	} else {
 		ns, err := g.nsLister.Get(namespace)
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to get namespace %s: %v", namespace, err)
+			if !apierrors.IsNotFound(err) {
+				return nil, nil, fmt.Errorf("unable to get namespace %s: %v", namespace, err)
+			}
 		}
 
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{"namespace": namespace}))
