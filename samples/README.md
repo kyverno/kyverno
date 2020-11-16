@@ -2,7 +2,7 @@
 
 Sample policies are designed to be applied to your Kubernetes clusters with minimal changes.
 
-The policies are mostly validation rules in `audit` mode i.e. your existing workloads will not be impacted, but will be audited for policy complaince.
+The policies are mostly validation rules in `audit` mode i.e. your existing workloads will not be impacted, but will be audited for policy compliance.
 
 ## Best Practice Policies
 
@@ -32,18 +32,21 @@ These policies provide additional best practices and are worthy of close conside
 
 1. [Restrict image registries](RestrictImageRegistries.md)
 1. [Restrict `NodePort` services](RestrictNodePort.md)
+1. [Restrict `LoadBalancer` services](RestrictLoadBalancer.md)
 1. [Restrict auto-mount of service account credentials](RestrictAutomountSAToken.md)
 1. [Restrict ingress classes](RestrictIngressClasses.md)
 1. [Restrict User Group](CheckUserGroup.md)
 1. [Require pods are labeled](RequireLabels.md)
 1. [Require pods have certain labels](RequireCertainLabels.md)
 1. [Require Deployments have multiple replicas](RequireDeploymentsHaveReplicas.md)
+1. [Spread Pods across topology](SpreadPodsAcrossTopology.md)
+1. [Create Pod Anti-Affinity](CreatePodAntiAffinity.md)
 
 ## Applying the sample policies
 
 To apply these policies to your cluster, install Kyverno and import the policies as follows:
 
-### Install Kyverno**
+### Install Kyverno
 
 ````sh
 kubectl create -f https://raw.githubusercontent.com/kyverno/kyverno/main/definitions/release/install.yaml
@@ -51,7 +54,7 @@ kubectl create -f https://raw.githubusercontent.com/kyverno/kyverno/main/definit
 
 <small>[(installation docs)](../documentation/installation.md)</small>
 
-### Apply Kyverno Policies**
+### Apply Kyverno Policies
 
 To start applying policies to your cluster, first clone the repo:
 
@@ -60,7 +63,7 @@ git clone https://github.com/kyverno/kyverno.git
 cd kyverno
 ````
 
-Import best practices from [here](best_pratices):
+Import best practices from [here](best_practices):
 
 ````bash
 kubectl create -f samples/best_practices

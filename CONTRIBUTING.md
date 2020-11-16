@@ -14,5 +14,4 @@ The easiest way to reach us is on the [Kubernetes slack #kyverno channel](https:
 
 The [Kyverno Wiki](https://github.com/kyverno/kyverno/wiki) contains details on code design, building, and testing. Please review all sections.
 
-Before you contribute, please review and agree to abite with our community [Code of Conduct](/CODE_OF_CONDUCT.md).
-
+Before you contribute, please review and agree to abide by our community [Code of Conduct](/CODE_OF_CONDUCT.md).

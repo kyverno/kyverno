@@ -2,7 +2,7 @@
 
 Labels are a fundamental and important way to assign descriptive metadata to Kubernetes resources, especially Pods. Labels are especially important as the number of applications grow and are composed in different ways.
 
-This sample policy requires that the label `app.kubernetes.io/name` be defined on all Pods. If you wish to require that all Pods have multiple labels defined (as opposed to [any labels from an approved list](RequireCertainLabels.md)), this policy can be altered by adding an additional rule block which checks for a second (or third, etc.) label name.
+This sample policy requires that the label `app.kubernetes.io/name` be defined on all Pods. If you wish to require that all Pods have multiple labels defined (as opposed to [any labels from an approved list](RequireCertainLabels.md)), this policy can be altered by adding more labels.
 
 ## More Information
 
@@ -31,4 +31,6 @@ spec:
         metadata:
           labels:
             app.kubernetes.io/name: "?*"
+            # You can add more labels if you wish the policy to validate more than just one is present. Uncomment the below line, or add new ones.
+            #app.kubernetes.io/component: "?*
 ```
