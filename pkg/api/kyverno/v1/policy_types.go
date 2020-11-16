@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// PolicyList ...
+// PolicyList is a list of Policy instances.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PolicyList struct {
 	metav1.TypeMeta `json:",inline" yaml:",inline"`
@@ -14,7 +14,8 @@ type PolicyList struct {
 	Items           []Policy `json:"items" yaml:"items"`
 }
 
-// Policy contains rules to be applied to created resources.
+// Policy declares validation, mutation, and generation behaviors for matching resources.
+// See: https://kyverno.io/docs/writing-policies/ for more information.
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
@@ -26,337 +27,371 @@ type Policy struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
-	// Spec is the information to identify the policy.
+	// Spec declares policy behaviors.
 	Spec Spec `json:"spec" yaml:"spec"`
 
-	// Status contains statistics related to policy.
+	// Status contains policy runtime data.
 	// +optional
 	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
-// Spec describes policy behavior by its rules.
+// Spec contains a set of Rule instances and other policy controls.
 type Spec struct {
-	// Rules contains the list of rules to be applied to resources.
+	// Rules is a list of Rule instances
 	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
-	// ValidationFailureAction controls if a policy failure should not disallow
-	// an admission review request (enforce), or allow (audit) and report an error.
-	// Default value is "audit".
+	// ValidationFailureAction controls if a validation policy rule failure should disallow
+	// the admission review request (enforce), or allow (audit) the admission review request
+	// and report an error in a policy report. Optional. The default value is "audit".
 	// +kubebuilder:default=audit
 	// +optional
 	ValidationFailureAction string `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	// Background controls if rules are applied to existing resources during a background scan.
-	// Default value is "true".
+	// Optional. Default value is "true". The value must be set to "false" if the policy rule
+	// uses variables that are only available in the admission review request (e.g. user name).
 	// +kubebuilder:default=true
 	// +optional
 	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
 }
 
-// Rule contains a mutation, validation, or generation action
-// for the single resource description.
+// Rule defines a validation, mutation, or generation control for matching resources.
 type Rule struct {
-	// A unique label for the rule.
+	// Name is a label to identify the rule, Must be unique within the policy.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 
-	// Defines variables that can be used during rule execution.
+	// Context defines data sources and variables that can be used during rule execution.
 	// +optional
 	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
 
-	// Selects resources for which the policy rule should be applied.
-	// If it's defined, "kinds" inside MatchResources block is required.
-	// +optional
+	// MatchResources selects resources to which the policy rule should be applied.
+	// At least one kind is required.
 	MatchResources MatchResources `json:"match,omitempty" yaml:"match,omitempty"`
 
-	// Selects resources for which the policy rule should not be applied.
+	// ExcludeResources selects resources to which the policy rule should not be applied.
 	// +optional
 	ExcludeResources ExcludeResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 
-	// Allows condition-based control of the policy rule execution.
+	// Conditions enabled variable-based conditional rule execution.
 	// +optional
 	Conditions []Condition `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
-	// Modifies matching resources.
+	// Mutation modifies matching resources.
 	// +optional
 	Mutation Mutation `json:"mutate,omitempty" yaml:"mutate,omitempty"`
 
-	// Checks matching resources.
+	// Validation checks matching resources.
 	// +optional
 	Validation Validation `json:"validate,omitempty" yaml:"validate,omitempty"`
 
-	// Generates new resources.
+	// Generation creates new resources.
 	// +optional
 	Generation Generation `json:"generate,omitempty" yaml:"generate,omitempty"`
 }
 
+// ContextEntry adds variables and data sources to a rule Context
 type ContextEntry struct {
 	Name      string              `json:"name,omitempty" yaml:"name,omitempty"`
 	ConfigMap *ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
 }
 
+// ConfigMapReference refers to a ConfigMap
 type ConfigMapReference struct {
 	Name      string `json:"name,omitempty" yaml:"name,omitempty"`
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 }
 
-// Condition defines the evaluation condition.
+// Condition defines variable-based conditional criteria for rule execution.
 type Condition struct {
-	// Key contains key to compare.
+	// Key is the context entry (using JMESPath) for conditional rule evaluation.
 	// +kubebuilder:validation:XPreserveUnknownFields
 	Key apiextensions.JSON `json:"key,omitempty" yaml:"key,omitempty"`
 
-	// Operator to compare against value.
+	// Operator is the operation to perform.
 	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
 
-	// Value to be compared.
+	// Value is the conditional value, or set of values. The values can be fixed set
+	// or can be variables declared using using JMESPath.
 	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	Value apiextensions.JSON `json:"value,omitempty" yaml:"value,omitempty"`
 }
 
-// ConditionOperator defines the type for condition operator.
+// ConditionOperator is the operation performed on condition key and value.
 type ConditionOperator string
 
 const (
+	// Equal evaluates if the key is equal to the value.
 	Equal     ConditionOperator = "Equal"
+	// Equals evaluates if the key is equal to the value.
 	Equals    ConditionOperator = "Equals"
+	// Equals evaluates if the key is not equal to the value.
 	NotEqual  ConditionOperator = "NotEqual"
+	// NotEquals evaluates if the key is not equal to the value.
 	NotEquals ConditionOperator = "NotEquals"
+	// In evaluates if the key is contained in the set of values.
 	In        ConditionOperator = "In"
+	// NotIn evaluates if the key is not contained in the set of values.
 	NotIn     ConditionOperator = "NotIn"
 )
 
-// MatchResources contains resource description of the resources that the rule is to apply on.
+// MatchResources is used to specify resource and admission review request data for
+// which a policy rule is applicable.
 type MatchResources struct {
-	// Specifies user information.
+	// UserInfo contains information about the user performing the operation.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
-	// Specifies resources to which rule is applied.
-	// +optional
+	// ResourceDescription contains information about the resource being created or modified.
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
-// ExcludeResources container resource description of the resources that are to be excluded from the applying the policy rule.
+// ExcludeResources is used to specify resource and admission review request data for
+// which a policy rule is not applicable.
 type ExcludeResources struct {
-	// Specifies user information.
+	// UserInfo contains information about the user performing the operation.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
-	// Specifies resources to which rule is excluded.
+	// ResourceDescription contains information about the resource being created or modified.
 	// +optional
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
-// UserInfo filter based on users.
+// UserInfo contains information about the user performing the operation.
 type UserInfo struct {
-	// Specifies list of namespaced role names.
+	// Roles is the list of namespaced role names for the user.
 	// +optional
 	Roles []string `json:"roles,omitempty" yaml:"roles,omitempty"`
 
-	// Specifies list of cluster wide role names.
+	// ClusterRoles is the list of cluster-wide role names for the user.
 	// +optional
 	ClusterRoles []string `json:"clusterRoles,omitempty" yaml:"clusterRoles,omitempty"`
 
-	// Specifies list of subject names like users, user groups, and service accounts.
+	// Subjects is the list of subject names like users, user groups, and service accounts.
 	// +optional
 	Subjects []rbacv1.Subject `json:"subjects,omitempty" yaml:"subjects,omitempty"`
 }
 
-// ResourceDescription describes the resource to which the PolicyRule will be applied.
+// ResourceDescription contains criteria used to match resources.
 type ResourceDescription struct {
-	// Specifies list of resource kind.
+	// Kinds is a list of resource kinds.
 	// +optional
 	Kinds []string `json:"kinds,omitempty" yaml:"kinds,omitempty"`
 
-	// Specifies name of the resource.
+	// Name is the name of the resource. The name supports wildcard characters
+	// "*" (matches zero or many characters) and "?" (at least one character).
 	// +optional
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 
-	// Specifies list of namespaces.
+	// Namespaces is a list of namespaces names. Each name supports wildcard characters
+	// "*" (matches zero or many characters) and "?" (at least one character).
 	// +optional
 	Namespaces []string `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 
-	// Specifies map of annotations.
+	// Annotations is a  map of annotations (string key-value pairs). Annotation values
+	// supports wildcard characters "*" (matches zero or many characters) and
+	// "?" (at least one character).
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 
-	// Specifies the set of selectors.
+	// Selector is a label selector.
 	// +optional
 	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
 }
 
-// Mutation describes the way how Mutating Webhook will react on resource creation.
+// Mutation defines how resource are modified.
 type Mutation struct {
-	// Specifies overlay patterns.
-	// Overlay is preserved for backwards compatibility and will be removed in Kyverno 1.5+.
+	// Overlay specifies an overlay pattern to modify resources.
+	// DEPRECATED. Use PatchStrategicMerge instead. Scheduled for
+	// removal in release 1.5+.
 	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	Overlay apiextensions.JSON `json:"overlay,omitempty"`
 
-	// Specifies JSON Patch.
-	// Patches is preserved for backwards compatibility and will be removed in Kyverno 1.5+.
+	// Patches specifies a RFC 6902 JSON Patch to modify resources.
+	// DEPRECATED. Use PatchesJSON6902 instead. Scheduled for
+	// removal in release 1.5+.
+	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	Patches []Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
 
+	// PatchStrategicMerge is a strategic merge patch used to modify resources.
+	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
+	// and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
 	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	PatchStrategicMerge apiextensions.JSON `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
 
+	// PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
+	// See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
 	// +optional
 	PatchesJSON6902 string `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
 }
 
 // +k8s:deepcopy-gen=false
 
-// Patch declares patch operation for created object according to RFC 6902.
+// Patch is a RFC 6902 JSON Patch.
+// See: https://tools.ietf.org/html/rfc6902
 type Patch struct {
-	// Specifies path of the resource.
+
+	// Path specifies path of the resource.
 	Path string `json:"path,omitempty" yaml:"path,omitempty"`
-	// Specifies operations supported by JSON Patch.
+
+	// Operation specifies operations supported by JSON Patch.
 	// i.e:- add, replace and delete.
 	Operation string `json:"op,omitempty" yaml:"op,omitempty"`
 
-	// Specifies the value to be applied.
+	// Value specifies the value to be applied.
 	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	Value apiextensions.JSON `json:"value,omitempty" yaml:"value,omitempty"`
 }
 
-// Validation describes the way how Validating Webhook will check the resource on creation.
+// Validation defines checks to be performed on matching resources.
 type Validation struct {
-	// Specifies message to be displayed on validation policy violation.
+
+	// Message specifies a custom message to be displayed on failure.
 	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
-	// Specifies validation pattern.
+	// Pattern specifies an overlay-style pattern used to check resources.
 	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	Pattern apiextensions.JSON `json:"pattern,omitempty" yaml:"pattern,omitempty"`
 
-	// Specifies list of validation patterns.
+	// AnyPattern specifies list of validation patterns. At least one of the patterns
+	// must be satisfied for the validation rule to succeed.
 	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	AnyPattern apiextensions.JSON `json:"anyPattern,omitempty" yaml:"anyPattern,omitempty"`
 
-	// Specifies conditions to deny validation.
+	// Deny defines conditions to fail the validation rule.
 	// +optional
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
 }
 
-// Deny specifies list of deny patterns.
+// Deny specifies a list of conditions. The validation rule fails, if any Condition
+// evaluates to "false".
 type Deny struct {
 	// Specifies set of condition to deny.
 	Conditions []Condition `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
-// Generation describes which resources will be created when other resource is created.
+// Generation defines how new resources should be created and managed.
 type Generation struct {
+
+	// ResourceSpec contains information to select the resource.
 	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 
-	// To keep resources synchronized with source resource.
+	// Synchronize controls if generated resources should be kept in-sync with their source resource.
+	// Optional. Defaults to "false" if not specified.
 	// +kubebuilder:default=false
 	// +optional
 	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
 
-	// Data specifies the resource manifest to be generated.
+	// Data provides the resource manifest to used to populate each generated resource.
+	// Exactly one of Data or Clone must be specified.
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	Data apiextensions.JSON `json:"data,omitempty" yaml:"data,omitempty"`
 
-	// To clone resource from other resource.
+	// Clone specified the source resource used to populate each generated resource.
+	// Exactly one of Data or Clone must be specified.
 	// +optional
 	Clone CloneFrom `json:"clone,omitempty" yaml:"clone,omitempty"`
 }
 
-// CloneFrom - location of the resource,
-// which will be used as source when applying 'generate'.
+// CloneFrom provides the location of the source resource used to generate additional resources.
+// The resource kind is derived from the match criteria.
 type CloneFrom struct {
-	// Specifies resource namespace.
+
+	// Namespace specifies source resource namespace.
 	// +optional
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 
-	// Specifies name of the resource.
+	// Name specifies name of the resource.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }
 
-// PolicyStatus mostly contains statistics related to policy.
+// PolicyStatus mostly contains runtime information related to policy execution.
 type PolicyStatus struct {
-	// Average time required to process the policy rules on a resource.
+	// AvgExecutionTime is the average time taken to process the policy rules on a resource.
 	// +optional
 	AvgExecutionTime string `json:"averageExecutionTime,omitempty" yaml:"averageExecutionTime,omitempty"`
 
-	// Number of violations created by this policy.
+	// ViolationCount is the total count of policy failure results for this policy.
 	// +optional
 	ViolationCount int `json:"violationCount,omitempty" yaml:"violationCount,omitempty"`
 
-	// Count of rules that failed.
+	// RulesFailedCount is the total count of policy execution errors for this policy.
 	// +optional
 	RulesFailedCount int `json:"rulesFailedCount,omitempty" yaml:"rulesFailedCount,omitempty"`
 
-	// Count of rules that were applied.
+	// RulesAppliedCount is the total number of times this policy was applied.
 	// +optional
 	RulesAppliedCount int `json:"rulesAppliedCount,omitempty" yaml:"rulesAppliedCount,omitempty"`
 
-	// Count of resources that were blocked for failing a validate, across all rules.
+	// ResourcesBlockedCount is the total count of admission review requests that were blocked by this policy.
 	// +optional
 	ResourcesBlockedCount int `json:"resourcesBlockedCount,omitempty" yaml:"resourcesBlockedCount,omitempty"`
 
-	// Count of resources that were successfully mutated, across all rules.
+	// ResourcesMutatedCount is the total count of resources that were mutated by this policy.
 	// +optional
 	ResourcesMutatedCount int `json:"resourcesMutatedCount,omitempty" yaml:"resourcesMutatedCount,omitempty"`
 
-	// Count of resources that were successfully generated, across all rules.
+	// ResourcesGeneratedCount is the total count of resources that were generated by this policy.
 	// +optional
 	ResourcesGeneratedCount int `json:"resourcesGeneratedCount,omitempty" yaml:"resourcesGeneratedCount,omitempty"`
 
+	// Rules provides per rule statistics
 	// +optional
 	Rules []RuleStats `json:"ruleStatus,omitempty" yaml:"ruleStatus,omitempty"`
 }
 
-// RuleStats provides status per rule.
+// RuleStats provides statistics for an individual rule within a policy.
 type RuleStats struct {
-	// Rule name.
+	// Name is the rule name.
 	Name string `json:"ruleName" yaml:"ruleName"`
 
-	// Average time require to process the rule.
+	// ExecutionTime is the average time taken to execute this rule.
 	// +optional
 	ExecutionTime string `json:"averageExecutionTime,omitempty" yaml:"averageExecutionTime,omitempty"`
 
-	// Number of violations created by this rule.
+	// ViolationCount is the total count of policy failure results for this rule.
 	// +optional
 	ViolationCount int `json:"violationCount,omitempty" yaml:"violationCount,omitempty"`
 
-	// Count of rules that failed.
+	// FailedCount is the total count of policy error results for this rule.
 	// +optional
 	FailedCount int `json:"failedCount,omitempty" yaml:"failedCount,omitempty"`
 
-	// Count of rules that were applied.
+	// AppliedCount is the total number of times this rule was applied.
 	// +optional
 	AppliedCount int `json:"appliedCount,omitempty" yaml:"appliedCount,omitempty"`
 
-	// Count of resources for whom update/create api requests were blocked as the resource did not satisfy the policy rules.
+	// ResourcesBlockedCount is the total count of admission review requests that were blocked by this rule.
 	// +optional
 	ResourcesBlockedCount int `json:"resourcesBlockedCount,omitempty" yaml:"resourcesBlockedCount,omitempty"`
 
-	// Count of resources that were successfully mutated.
+	// ResourcesMutatedCount is the total count of resources that were mutated by this rule.
 	// +optional
 	ResourcesMutatedCount int `json:"resourcesMutatedCount,omitempty" yaml:"resourcesMutatedCount,omitempty"`
 
-	// Count of resources that were successfully generated.
+	// ResourcesGeneratedCount is the total count of resources that were generated by this rule.
 	// +optional
 	ResourcesGeneratedCount int `json:"resourcesGeneratedCount,omitempty" yaml:"resourcesGeneratedCount,omitempty"`
 }
 
-// ResourceSpec information to identify the resource.
+// ResourceSpec contains information to identify a resource.
 type ResourceSpec struct {
-	// Specifies resource apiVersion.
+	// APIVersion specifies resource apiVersion.
 	// +optional
 	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
-	// Specifies resource kind.
+	// Kind specifies resource kind.
 	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
-	// Specifies resource namespace.
+	// Namespace specifies resource namespace.
 	// +optional
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
-	// Specifies resource name.
+	// Name specifies the resource name.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }
