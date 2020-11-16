@@ -84,7 +84,7 @@ func mergeClusterReport(reports []*unstructured.Unstructured) (*unstructured.Uns
 	res := &unstructured.Unstructured{}
 	res.SetName(clusterpolicyreport)
 	res.SetKind("ClusterPolicyReport")
-	res.SetAPIVersion("policy.k8s.io/v1alpha1")
+	res.SetAPIVersion(report.SchemeGroupVersion.String())
 
 	for _, report := range reports {
 		if report.GetNamespace() != "" {

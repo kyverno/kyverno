@@ -30,7 +30,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	resource, err = getResource(c.client, gr.Spec.Resource)
 	if err != nil {
 		// Dont update status
-		logger.Error(err, "resource does not exist or is yet to be created, requeueing")
+		logger.V(3).Info("resource does not exist or is pending creation, re-queueing", "details", err.Error())
 		return err
 	}
 
@@ -58,7 +58,8 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 			for _, e := range gr.Status.GeneratedResources {
 				resp, err := c.client.GetResource(e.APIVersion, e.Kind, e.Namespace, e.Name)
 				if err != nil {
-					logger.Error(err, "Generated resource failed to get", "Resource", e.Name)
+					logger.Error(err, "failed to find generated resource", "name", e.Name)
+					continue
 				}
 
 				labels := resp.GetLabels()
@@ -68,9 +69,11 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 					}
 				}
 			}
+
 			return nil, nil
 		}
-		logger.Error(err, "error in getting policy")
+
+		logger.Error(err, "error in fetching policy")
 		return nil, err
 	}
 
@@ -117,8 +120,10 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		if !r.Success {
 			grList, err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(contextdefault.TODO(), metav1.ListOptions{})
 			if err != nil {
+				logger.Error(err, "failed to list generate requests")
 				continue
 			}
+
 			for _, v := range grList.Items {
 				if engineResponse.PolicyResponse.Policy == v.Spec.Policy && engineResponse.PolicyResponse.Resource.Name == v.Spec.Resource.Name && engineResponse.PolicyResponse.Resource.Kind == v.Spec.Resource.Kind && engineResponse.PolicyResponse.Resource.Namespace == v.Spec.Resource.Namespace {
 					err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
@@ -161,8 +166,8 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 		if !rule.HasGenerate() {
 			continue
 		}
-		startTime := time.Now()
 
+		startTime := time.Now()
 		processExisting := false
 
 		if len(rule.MatchResources.Kinds) > 0 {
@@ -182,8 +187,9 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 		}
 
 		genResource, err := applyRule(log, c.client, rule, resource, ctx, policy.Name, gr, processExisting)
-
 		if err != nil {
+			log.Error(err, "failed to apply generate rule", "policy", policy.Name,
+				"rule", rule.Name, "resource", resource.GetName())
 			return nil, err
 		}
 
@@ -346,7 +352,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 			// Failed to create resource
 			return noGenResource, err
 		}
-		logger.V(4).Info("created new resource")
+		logger.V(2).Info("created generated resource")
 
 	} else if mode == Update {
 		var isUpdate bool
@@ -374,7 +380,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 				logger.Error(err, "updating existing resource")
 				return noGenResource, err
 			}
-			logger.V(4).Info("updated new resource")
+			logger.V(4).Info("updated generated resource")
 		} else {
 			resource := &unstructured.Unstructured{}
 			resource.SetUnstructuredContent(rdata)
@@ -384,7 +390,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 				logger.Error(err, "updating existing resource")
 				return noGenResource, err
 			}
-			logger.V(4).Info("updated new resource")
+			logger.V(4).Info("updated geneated resource")
 		}
 
 		logger.V(4).Info("Synchronize resource is disabled")

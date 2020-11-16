@@ -18,7 +18,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		return kyvernoRule{}
 	}
 
-	logger.V(3).Info("")
+	logger.V(3).Info("generating rule for cronJob")
 	jobRule := generateRuleForControllers(rule, "Job", logger)
 
 	if reflect.DeepEqual(jobRule, kyvernoRule{}) {
@@ -70,9 +70,14 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		return *cronJobRule
 	}
 
-	if (jobRule.Validation != nil) && (len(jobRule.Validation.AnyPattern) != 0) {
+	if (jobRule.Validation != nil) && (jobRule.Validation.AnyPattern != nil) {
 		var patterns []interface{}
-		for _, pattern := range jobRule.Validation.AnyPattern {
+		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
+		if err != nil {
+			logger.Error(err, "failed to deserialze anyPattern, expect tyepe array")
+		}
+
+		for _, pattern := range anyPatterns {
 			newPattern := map[string]interface{}{
 				"spec": map[string]interface{}{
 					"jobTemplate": pattern,

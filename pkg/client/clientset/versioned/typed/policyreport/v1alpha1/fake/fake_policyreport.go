@@ -32,13 +32,13 @@ import (
 
 // FakePolicyReports implements PolicyReportInterface
 type FakePolicyReports struct {
-	Fake *FakePolicyV1alpha1
+	Fake *FakeWgpolicyk8sV1alpha1
 	ns   string
 }
 
-var policyreportsResource = schema.GroupVersionResource{Group: "policy.k8s.io", Version: "v1alpha1", Resource: "policyreports"}
+var policyreportsResource = schema.GroupVersionResource{Group: "wgpolicyk8s.io", Version: "v1alpha1", Resource: "policyreports"}
 
-var policyreportsKind = schema.GroupVersionKind{Group: "policy.k8s.io", Version: "v1alpha1", Kind: "PolicyReport"}
+var policyreportsKind = schema.GroupVersionKind{Group: "wgpolicyk8s.io", Version: "v1alpha1", Kind: "PolicyReport"}
 
 // Get takes name of the policyReport, and returns the corresponding policyReport object, and an error if there is any.
 func (c *FakePolicyReports) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PolicyReport, err error) {

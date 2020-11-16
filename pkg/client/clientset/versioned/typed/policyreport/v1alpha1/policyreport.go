@@ -56,7 +56,7 @@ type policyReports struct {
 }
 
 // newPolicyReports returns a PolicyReports
-func newPolicyReports(c *PolicyV1alpha1Client, namespace string) *policyReports {
+func newPolicyReports(c *Wgpolicyk8sV1alpha1Client, namespace string) *policyReports {
 	return &policyReports{
 		client: c.RESTClient(),
 		ns:     namespace,

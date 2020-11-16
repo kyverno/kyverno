@@ -180,7 +180,7 @@ func (g *ReportGenerator) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(g.runWorker, constant.PolicyViolationControllerResync, stopCh)
+		go wait.Until(g.runWorker, constant.PolicyReportControllerResync, stopCh)
 	}
 
 	<-stopCh
@@ -261,6 +261,12 @@ func (g *ReportGenerator) syncHandler(key string) error {
 func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstructured.Unstructured, aggregatedRequests interface{}) (report interface{}, err error) {
 	log := g.log.WithName("createReportIfNotPresent")
 	if namespace != "" {
+		if ns, err := g.nsLister.Get(namespace); err == nil {
+			if ns.GetDeletionTimestamp() != nil {
+				return nil, nil
+			}
+		}
+
 		report, err = g.reportLister.PolicyReports(namespace).Get(generatePolicyReportName((namespace)))
 		if err != nil {
 			if apierrors.IsNotFound(err) && new != nil {
@@ -387,7 +393,9 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 	} else {
 		ns, err := g.nsLister.Get(namespace)
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to get namespace %s: %v", ns.GetName(), err)
+			if !apierrors.IsNotFound(err) {
+				return nil, nil, fmt.Errorf("unable to get namespace %s: %v", namespace, err)
+			}
 		}
 
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{"namespace": namespace}))
@@ -464,23 +472,23 @@ func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured
 	return nil, nil, nil
 }
 
-func setReport(report *unstructured.Unstructured, ns *v1.Namespace) {
-	report.SetAPIVersion("policy.k8s.io/v1alpha1")
+func setReport(reportUnstructured *unstructured.Unstructured, ns *v1.Namespace) {
+	reportUnstructured.SetAPIVersion(report.SchemeGroupVersion.String())
 
 	if ns == nil {
-		report.SetName(generatePolicyReportName(""))
-		report.SetKind("ClusterPolicyReport")
+		reportUnstructured.SetName(generatePolicyReportName(""))
+		reportUnstructured.SetKind("ClusterPolicyReport")
 		return
 	}
 
-	report.SetName(generatePolicyReportName(ns.GetName()))
-	report.SetNamespace(ns.GetName())
-	report.SetKind("PolicyReport")
+	reportUnstructured.SetName(generatePolicyReportName(ns.GetName()))
+	reportUnstructured.SetNamespace(ns.GetName())
+	reportUnstructured.SetKind("PolicyReport")
 
 	controllerFlag := true
 	blockOwnerDeletionFlag := true
 
-	report.SetOwnerReferences([]metav1.OwnerReference{
+	reportUnstructured.SetOwnerReferences([]metav1.OwnerReference{
 		{
 			APIVersion:         "v1",
 			Kind:               "Namespace",

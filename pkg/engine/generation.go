@@ -51,7 +51,7 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 
 	// add configmap json data to context
 	if err := AddResourceToContext(log, rule.Context, resCache, jsonContext); err != nil {
-		log.Info("cannot add configmaps to context", "reason", err.Error())
+		log.V(4).Info("cannot add configmaps to context", "reason", err.Error())
 		return nil
 	}
 

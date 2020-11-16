@@ -55,7 +55,7 @@ type clusterPolicyReports struct {
 }
 
 // newClusterPolicyReports returns a ClusterPolicyReports
-func newClusterPolicyReports(c *PolicyV1alpha1Client) *clusterPolicyReports {
+func newClusterPolicyReports(c *Wgpolicyk8sV1alpha1Client) *clusterPolicyReports {
 	return &clusterPolicyReports{
 		client: c.RESTClient(),
 	}

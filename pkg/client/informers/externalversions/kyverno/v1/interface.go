@@ -26,14 +26,10 @@ import (
 type Interface interface {
 	// ClusterPolicies returns a ClusterPolicyInformer.
 	ClusterPolicies() ClusterPolicyInformer
-	// ClusterPolicyViolations returns a ClusterPolicyViolationInformer.
-	ClusterPolicyViolations() ClusterPolicyViolationInformer
 	// GenerateRequests returns a GenerateRequestInformer.
 	GenerateRequests() GenerateRequestInformer
 	// Policies returns a PolicyInformer.
 	Policies() PolicyInformer
-	// PolicyViolations returns a PolicyViolationInformer.
-	PolicyViolations() PolicyViolationInformer
 }
 
 type version struct {
@@ -52,11 +48,6 @@ func (v *version) ClusterPolicies() ClusterPolicyInformer {
 	return &clusterPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// ClusterPolicyViolations returns a ClusterPolicyViolationInformer.
-func (v *version) ClusterPolicyViolations() ClusterPolicyViolationInformer {
-	return &clusterPolicyViolationInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
 // GenerateRequests returns a GenerateRequestInformer.
 func (v *version) GenerateRequests() GenerateRequestInformer {
 	return &generateRequestInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
@@ -65,9 +56,4 @@ func (v *version) GenerateRequests() GenerateRequestInformer {
 // Policies returns a PolicyInformer.
 func (v *version) Policies() PolicyInformer {
 	return &policyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// PolicyViolations returns a PolicyViolationInformer.
-func (v *version) PolicyViolations() PolicyViolationInformer {
-	return &policyViolationInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

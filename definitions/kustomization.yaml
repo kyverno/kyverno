@@ -8,7 +8,7 @@ resources:
 images:
 - name: nirmata/kyverno
   newName: nirmata/kyverno
-  newTag: v1.3.0-rc1
+  newTag: v1.3.0-rc2
 - name: nirmata/kyvernopre
   newName: nirmata/kyvernopre
-  newTag: v1.3.0-rc1
+  newTag: v1.3.0-rc2
