@@ -2,7 +2,7 @@
 
 Sample policies are designed to be applied to your Kubernetes clusters with minimal changes.
 
-The policies are mostly validation rules in `audit` mode i.e. your existing workloads will not be impacted, but will be audited for policy complaince.
+The policies are mostly validation rules in `audit` mode i.e. your existing workloads will not be impacted, but will be audited for policy compliance.
 
 ## Best Practice Policies
 
@@ -63,7 +63,7 @@ git clone https://github.com/kyverno/kyverno.git
 cd kyverno
 ````
 
-Import best practices from [here](best_pratices):
+Import best practices from [here](best_practices):
 
 ````bash
 kubectl create -f samples/best_practices
