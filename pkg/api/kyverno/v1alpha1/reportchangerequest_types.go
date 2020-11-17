@@ -60,9 +60,9 @@ type ReportChangeRequest struct {
 	Results []*report.PolicyReportResult `json:"results,omitempty"`
 }
 
+// ReportChangeRequestList contains a list of ReportChangeRequest
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// ReportChangeRequestList contains a list of ReportChangeRequest
 type ReportChangeRequestList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

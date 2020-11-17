@@ -5,6 +5,7 @@ import (
 	"reflect"
 )
 
+// HasAutoGenAnnotation checks if a policy has auto-gen annotation
 func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
 	annotations := p.GetAnnotations()
 	_, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
@@ -21,6 +22,7 @@ func (p *ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
 	return false
 }
 
+// BackgroundProcessingEnabled checks if background is set to true
 func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 	if p.Spec.Background == nil {
 		return true
@@ -29,17 +31,17 @@ func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 	return *p.Spec.Background
 }
 
-//HasMutate checks for mutate rule
+// HasMutate checks for mutate rule
 func (r Rule) HasMutate() bool {
 	return !reflect.DeepEqual(r.Mutation, Mutation{})
 }
 
-//HasValidate checks for validate rule
+// HasValidate checks for validate rule
 func (r Rule) HasValidate() bool {
 	return !reflect.DeepEqual(r.Validation, Validation{})
 }
 
-//HasGenerate checks for generate rule
+// HasGenerate checks for generate rule
 func (r Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
 }

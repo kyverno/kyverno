@@ -16,4 +16,4 @@ expected:
         - name: annotate-empty-dir
           type: Mutation
           success: true
-          message: "successfully processed stragetic merge patch"
+          message: "successfully processed strategic merge patch"

@@ -124,7 +124,7 @@ const (
 	Equal ConditionOperator = "Equal"
 	// Equals evaluates if the key is equal to the value.
 	Equals ConditionOperator = "Equals"
-	// Equals evaluates if the key is not equal to the value.
+	// NotEqual evaluates if the key is not equal to the value.
 	NotEqual ConditionOperator = "NotEqual"
 	// NotEquals evaluates if the key is not equal to the value.
 	NotEquals ConditionOperator = "NotEquals"

@@ -17,6 +17,10 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 )
 
+// GenerateJSONPatchesForDefaults generates default JSON patches for
+// - ValidationFailureAction
+// - Background
+// - auto-gen annotation and rules
 func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, []string) {
 	var patches [][]byte
 	var updateMsgs []string

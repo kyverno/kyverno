@@ -1,4 +1,4 @@
-package sanitizedError
+package sanitizederror
 
 import "fmt"
 
@@ -10,10 +10,12 @@ func (c customError) Error() string {
 	return c.message
 }
 
+// New creates a new sanitized error with given message
 func New(message string) error {
 	return customError{message: message}
 }
 
+// NewWithError creates a new sanitized error with given message and error
 func NewWithError(message string, err error) error {
 	if err == nil {
 		return customError{message: message}
@@ -23,6 +25,7 @@ func NewWithError(message string, err error) error {
 	return customError{message: msg}
 }
 
+// IsErrorSanitized checks if the error is sanitized error
 func IsErrorSanitized(err error) bool {
 	if _, ok := err.(customError); !ok {
 		return false

@@ -53,7 +53,7 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 		for i := range resp.PolicyResponse.Rules {
 			messageInterface, err := variables.SubstituteVars(logger, ctx, resp.PolicyResponse.Rules[i].Message)
 			if err != nil {
-				logger.V(4).Info("failed to substitue JMES value", "error", err.Error())
+				logger.V(4).Info("failed to substitute JMES value", "error", err.Error())
 				continue
 			}
 			resp.PolicyResponse.Rules[i].Message, _ = messageInterface.(string)

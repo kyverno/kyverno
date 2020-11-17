@@ -1,6 +1,6 @@
 package generate
 
-// E2E Test Config for Role and RoleBinding
+// RoleTests is E2E Test Config for Role and RoleBinding
 // TODO:- Clone for Role and RoleBinding
 var RoleTests = []struct {
 	//TestName - Name of the Test
@@ -56,7 +56,7 @@ var RoleTests = []struct {
 	},
 }
 
-// E2E Test Config for ClusterRole and ClusterRoleBinding
+// ClusterRoleTests - E2E Test Config for ClusterRole and ClusterRoleBinding
 var ClusterRoleTests = []struct {
 	//TestName - Name of the Test
 	TestName string

@@ -7,18 +7,18 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/yaml"
 	"os"
 	"path/filepath"
-	yaml_v2 "sigs.k8s.io/yaml"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/utils"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/yaml"
+	yaml_v2 "sigs.k8s.io/yaml"
 )
 
 // GetPolicies - Extracting the policies from multiple YAML
@@ -34,7 +34,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 		if fileDesc.IsDir() {
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
-				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
+				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
 			}
 
 			listOfFiles := make([]string, 0)
@@ -44,14 +44,14 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 
 			policiesFromDir, err := GetPolicies(listOfFiles)
 			if err != nil {
-				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to extract policies from %v", listOfFiles), err)
+				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to extract policies from %v", listOfFiles), err)
 			}
 
 			policies = append(policies, policiesFromDir...)
 		} else {
 			file, err := ioutil.ReadFile(path)
 			if err != nil {
-				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to load file %v", path), err)
+				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to load file %v", path), err)
 			}
 			getPolicies, getErrors := utils.GetPolicy(file)
 			var errString string
@@ -77,8 +77,8 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 func GetPoliciesValidation(policyPaths []string) ([]*v1.ClusterPolicy, error) {
 	policies, err := GetPolicies(policyPaths)
 	if err != nil {
-		if !sanitizedError.IsErrorSanitized(err) {
-			return nil, sanitizedError.NewWithError((fmt.Sprintf("failed to parse %v path/s.", policyPaths)), err)
+		if !sanitizederror.IsErrorSanitized(err) {
+			return nil, sanitizederror.NewWithError((fmt.Sprintf("failed to parse %v path/s.", policyPaths)), err)
 		}
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func GetPoliciesValidation(policyPaths []string) ([]*v1.ClusterPolicy, error) {
 // PolicyHasVariables - check for variables in the policy
 func PolicyHasVariables(policy v1.ClusterPolicy) bool {
 	policyRaw, _ := json.Marshal(policy)
-	matches := REGEX_VARIABLES.FindAllStringSubmatch(string(policyRaw), -1)
+	matches := RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
 	return len(matches) > 0
 }
 
@@ -96,8 +96,8 @@ func PolicyHasVariables(policy v1.ClusterPolicy) bool {
 func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) bool {
 	policyRaw, _ := json.Marshal(policy)
 
-	matchesAll := REGEX_VARIABLES.FindAllStringSubmatch(string(policyRaw), -1)
-	matchesAllowed := ALLOWED_VARIABLES.FindAllStringSubmatch(string(policyRaw), -1)
+	matchesAll := RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
+	matchesAllowed := AllowedVariables.FindAllStringSubmatch(string(policyRaw), -1)
 
 	if len(matchesAll) > len(matchesAllowed) {
 		// If rules contains Context then skip this validation
@@ -130,26 +130,26 @@ func MutatePolicy(policy *v1.ClusterPolicy, logger logr.Logger) (*v1.ClusterPoli
 	var jsonPatches []jsonPatch
 	err := json.Unmarshal(patches, &jsonPatches)
 	if err != nil {
-		return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to unmarshal patches for %s policy", policy.Name), err)
+		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal patches for %s policy", policy.Name), err)
 	}
 	patch, err := jsonpatch.DecodePatch(patches)
 	if err != nil {
-		return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to decode patch for %s policy", policy.Name), err)
+		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to decode patch for %s policy", policy.Name), err)
 	}
 
 	policyBytes, _ := json.Marshal(policy)
 	if err != nil {
-		return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to marshal %s policy", policy.Name), err)
+		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to marshal %s policy", policy.Name), err)
 	}
 	modifiedPolicy, err := patch.Apply(policyBytes)
 	if err != nil {
-		return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to apply %s policy", policy.Name), err)
+		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to apply %s policy", policy.Name), err)
 	}
 
 	var p v1.ClusterPolicy
 	err = json.Unmarshal(modifiedPolicy, &p)
 	if err != nil {
-		return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.Name), err)
+		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.Name), err)
 	}
 
 	return &p, nil
@@ -169,7 +169,7 @@ func GetCRDs(paths []string) (unstructuredCrds []*unstructured.Unstructured, err
 		if fileDesc.IsDir() {
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
-				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
+				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
 			}
 
 			listOfFiles := make([]string, 0)
@@ -179,7 +179,7 @@ func GetCRDs(paths []string) (unstructuredCrds []*unstructured.Unstructured, err
 
 			policiesFromDir, err := GetCRDs(listOfFiles)
 			if err != nil {
-				return nil, sanitizedError.NewWithError(fmt.Sprintf("failed to extract crds from %v", listOfFiles), err)
+				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to extract crds from %v", listOfFiles), err)
 			}
 
 			unstructuredCrds = append(unstructuredCrds, policiesFromDir...)

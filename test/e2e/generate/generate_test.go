@@ -131,7 +131,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		Expect(rbRes.GetName()).To(Equal(tests.ClusterRoleBindingName))
 		// ============================================
 
-		// If Sync=true, Verify that an Error will occour on deletion of created resources
+		// If Sync=true, Verify that an Error will occur on deletion of created resources
 		if tests.Sync {
 			// Delete generated ClusterRoleBinding and It'll Fail
 			err = e2eClient.DeleteClusteredResource(crbGVR, tests.ClusterRoleBindingName)
@@ -251,7 +251,7 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		Expect(rbRes.GetName()).To(Equal(tests.RoleBindingName))
 		// ============================================
 
-		// If Sync=true, Verify that an Error will occour on deletion of created resources
+		// If Sync=true, Verify that an Error will occur on deletion of created resources
 		if tests.Sync {
 
 			// Delete generated RoleBinding and It'll Fail

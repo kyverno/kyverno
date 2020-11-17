@@ -66,6 +66,7 @@ type requestBuilder struct {
 	polLister  kyvernolister.PolicyLister
 }
 
+// NewBuilder ...
 func NewBuilder(cpolLister kyvernolister.ClusterPolicyLister, polLister kyvernolister.PolicyLister) *requestBuilder {
 	return &requestBuilder{cpolLister: cpolLister, polLister: polLister}
 }

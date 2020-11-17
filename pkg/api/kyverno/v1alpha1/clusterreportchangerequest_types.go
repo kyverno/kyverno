@@ -62,9 +62,9 @@ type ClusterReportChangeRequest struct {
 	Results []*report.PolicyReportResult `json:"results,omitempty"`
 }
 
+// ClusterReportChangeRequestList contains a list of ClusterReportChangeRequest
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// ClusterReportChangeRequestList contains a list of ClusterReportChangeRequest
 type ClusterReportChangeRequestList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
