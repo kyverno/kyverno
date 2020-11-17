@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// ProcessPatchJSON6902 ...
 func ProcessPatchJSON6902(ruleName string, mutation kyverno.Mutation, resource unstructured.Unstructured, log logr.Logger) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	logger := log.WithValues("rule", ruleName)
 	startTime := time.Now()

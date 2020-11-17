@@ -69,14 +69,14 @@ func parseNamespacedPolicy(key string) (string, string, bool) {
 	return namespace, key, false
 }
 
-// merge b into a map
+// MergeResources merges b into a map
 func MergeResources(a, b map[string]unstructured.Unstructured) {
 	for k, v := range b {
 		a[k] = v
 	}
 }
 
-// excludePod filter out the pods with ownerReference
+// ExcludePod filters out the pods with ownerReference
 func ExcludePod(resourceMap map[string]unstructured.Unstructured, log logr.Logger) map[string]unstructured.Unstructured {
 	for uid, r := range resourceMap {
 		if r.GetKind() != "Pod" {
@@ -92,6 +92,7 @@ func ExcludePod(resourceMap map[string]unstructured.Unstructured, log logr.Logge
 	return resourceMap
 }
 
+// GetNamespacesForRule gets the matched namespacse list for the given rule
 func GetNamespacesForRule(rule *kyverno.Rule, nslister listerv1.NamespaceLister, log logr.Logger) []string {
 	if len(rule.MatchResources.Namespaces) == 0 {
 		return GetAllNamespaces(nslister, log)
@@ -115,6 +116,7 @@ func GetNamespacesForRule(rule *kyverno.Rule, nslister listerv1.NamespaceLister,
 	return results
 }
 
+// HasWildcard ...
 func HasWildcard(s string) bool {
 	if s == "" {
 		return false
@@ -123,6 +125,7 @@ func HasWildcard(s string) bool {
 	return strings.Contains(s, "*") || strings.Contains(s, "?")
 }
 
+// GetMatchingNamespaces ...
 func GetMatchingNamespaces(wildcards []string, nslister listerv1.NamespaceLister, log logr.Logger) []string {
 	all := GetAllNamespaces(nslister, log)
 	if len(all) == 0 {
@@ -141,6 +144,7 @@ func GetMatchingNamespaces(wildcards []string, nslister listerv1.NamespaceLister
 	return results
 }
 
+// GetAllNamespaces gets all namespaces in the cluster
 func GetAllNamespaces(nslister listerv1.NamespaceLister, log logr.Logger) []string {
 	var results []string
 	namespaces, err := nslister.List(labels.NewSelector())
@@ -155,6 +159,7 @@ func GetAllNamespaces(nslister listerv1.NamespaceLister, log logr.Logger) []stri
 	return results
 }
 
+// GetResourcesPerNamespace ...
 func GetResourcesPerNamespace(kind string, client *client.Client, namespace string, rule kyverno.Rule, configHandler config.Interface, log logr.Logger) map[string]unstructured.Unstructured {
 	resourceMap := map[string]unstructured.Unstructured{}
 	ls := rule.MatchResources.Selector
@@ -201,6 +206,7 @@ func GetResourcesPerNamespace(kind string, client *client.Client, namespace stri
 	return resourceMap
 }
 
+// ExcludeResources ...
 func ExcludeResources(included map[string]unstructured.Unstructured, exclude kyverno.ResourceDescription, configHandler config.Interface, log logr.Logger) {
 	if reflect.DeepEqual(exclude, (kyverno.ResourceDescription{})) {
 		return

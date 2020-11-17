@@ -4,5 +4,8 @@ import (
 	"regexp"
 )
 
-var REGEX_VARIABLES = regexp.MustCompile(`\{\{[^{}]*\}\}`)
-var ALLOWED_VARIABLES = regexp.MustCompile(`\{\{\s*[request\.|serviceAccountName|serviceAccountNamespace][^{}]*\}\}`)
+// RegexVariables represents regex for '{{}}'
+var RegexVariables = regexp.MustCompile(`\{\{[^{}]*\}\}`)
+
+// AllowedVariables represents regex for {{request.}} {{serviceAccountName}} and {{serviceAccountNamespace}}
+var AllowedVariables = regexp.MustCompile(`\{\{\s*[request\.|serviceAccountName|serviceAccountNamespace][^{}]*\}\}`)

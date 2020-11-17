@@ -3,7 +3,6 @@ package mutate
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -17,6 +16,7 @@ import (
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
+// ProcessStrategicMergePatch ...
 func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource unstructured.Unstructured, log logr.Logger) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	startTime := time.Now()
 	logger := log.WithName("ProcessStrategicMergePatch").WithValues("rule", ruleName)
@@ -103,7 +103,7 @@ func strategicMergePatch(base, overlay string) ([]byte, error) {
 	patch := yaml.MustParse(overlay)
 	preprocessedYaml, err := preProcessStrategicMergePatch(overlay, base)
 	if err != nil {
-		return []byte{}, errors.New(fmt.Sprintf("failed to preProcess rule : %+v", err))
+		return []byte{}, fmt.Errorf("failed to preProcess rule : %+v", err)
 	}
 	patch = preprocessedYaml
 	f := patchstrategicmerge.Filter{

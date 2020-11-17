@@ -220,8 +220,8 @@ func (vc generateSyncStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.Po
 
 	for i := range status.Rules {
 		if executionTime, exist := vc.ruleNameToProcessingTime[status.Rules[i].Name]; exist {
-			status.ResourcesGeneratedCount += 1
-			status.Rules[i].ResourcesGeneratedCount += 1
+			status.ResourcesGeneratedCount++
+			status.Rules[i].ResourcesGeneratedCount++
 			averageOver := int64(status.Rules[i].AppliedCount + status.Rules[i].FailedCount)
 			status.Rules[i].ExecutionTime = updateGenerateExecutionTime(
 				executionTime,

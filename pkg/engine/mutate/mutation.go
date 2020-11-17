@@ -10,11 +10,13 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type MutateHandler interface {
+// Handler knows how to mutate resources with given pattern
+type Handler interface {
 	Handle() (resp response.RuleResponse, newPatchedResource unstructured.Unstructured)
 }
 
-func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) MutateHandler {
+// CreateMutateHandler initilizes a new instance of mutation handler
+func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
 
 	switch {
 	case isPatchStrategicMerge(mutate):
@@ -43,7 +45,7 @@ type patchStrategicMergeHandler struct {
 	logger          logr.Logger
 }
 
-func newpatchStrategicMergeHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) MutateHandler {
+func newpatchStrategicMergeHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
 	return patchStrategicMergeHandler{
 		ruleName:        ruleName,
 		mutation:        mutate,
@@ -79,7 +81,7 @@ type overlayHandler struct {
 	logger          logr.Logger
 }
 
-func newOverlayHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) MutateHandler {
+func newOverlayHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
 	return overlayHandler{
 		ruleName:        ruleName,
 		mutation:        mutate,
@@ -98,7 +100,7 @@ type patchesJSON6902Handler struct {
 	logger          logr.Logger
 }
 
-func newPatchesJSON6902Handler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, logger logr.Logger) MutateHandler {
+func newPatchesJSON6902Handler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, logger logr.Logger) Handler {
 	return patchesJSON6902Handler{
 		ruleName:        ruleName,
 		mutation:        mutate,
@@ -149,7 +151,7 @@ type patchesHandler struct {
 	logger          logr.Logger
 }
 
-func newpatchesHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) MutateHandler {
+func newpatchesHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
 	return patchesHandler{
 		ruleName:        ruleName,
 		mutation:        mutate,
@@ -181,7 +183,7 @@ type emptyHandler struct {
 	patchedResource unstructured.Unstructured
 }
 
-func newEmptyHandler(patchedResource unstructured.Unstructured) MutateHandler {
+func newEmptyHandler(patchedResource unstructured.Unstructured) Handler {
 	return emptyHandler{
 		patchedResource: patchedResource,
 	}

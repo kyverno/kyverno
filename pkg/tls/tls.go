@@ -15,31 +15,32 @@ import (
 
 const certValidityDuration = 10 * 365 * 24 * time.Hour
 
-//TlsCertificateProps Properties of TLS certificate which should be issued for webhook server
-type TlsCertificateProps struct {
+// CertificateProps Properties of TLS certificate which should be issued for webhook server
+type CertificateProps struct {
 	Service       string
 	Namespace     string
-	ApiServerHost string
+	APIServerHost string
 }
 
-//TlsPemPair The pair of TLS certificate corresponding private key, both in PEM format
-type TlsPemPair struct {
+// PemPair The pair of TLS certificate corresponding private key, both in PEM format
+type PemPair struct {
 	Certificate []byte
 	PrivateKey  []byte
 }
 
+// KeyPair ...
 type KeyPair struct {
 	Cert *x509.Certificate
 	Key  *rsa.PrivateKey
 }
 
-//TLSGeneratePrivateKey Generates RSA private key
-func TLSGeneratePrivateKey() (*rsa.PrivateKey, error) {
+// GeneratePrivateKey Generates RSA private key
+func GeneratePrivateKey() (*rsa.PrivateKey, error) {
 	return rsa.GenerateKey(rand.Reader, 2048)
 }
 
-//TLSPrivateKeyToPem Creates PEM block from private key object
-func TLSPrivateKeyToPem(rsaKey *rsa.PrivateKey) []byte {
+// PrivateKeyToPem Creates PEM block from private key object
+func PrivateKeyToPem(rsaKey *rsa.PrivateKey) []byte {
 	privateKey := &pem.Block{
 		Type:  "PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(rsaKey),
@@ -48,7 +49,8 @@ func TLSPrivateKeyToPem(rsaKey *rsa.PrivateKey) []byte {
 	return pem.EncodeToMemory(privateKey)
 }
 
-func TLSCertificateToPem(certificateDER []byte) []byte {
+// CertificateToPem ...
+func CertificateToPem(certificateDER []byte) []byte {
 	certificate := &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: certificateDER,
@@ -59,7 +61,7 @@ func TLSCertificateToPem(certificateDER []byte) []byte {
 
 // GenerateCACert creates the self-signed CA cert and private key
 // it will be used to sign the webhook server certificate
-func GenerateCACert() (*KeyPair, *TlsPemPair, error) {
+func GenerateCACert() (*KeyPair, *PemPair, error) {
 	now := time.Now()
 	begin := now.Add(-1 * time.Hour)
 	end := now.Add(certValidityDuration)
@@ -83,9 +85,9 @@ func GenerateCACert() (*KeyPair, *TlsPemPair, error) {
 		return nil, nil, fmt.Errorf("error creating certificate: %v", err)
 	}
 
-	pemPair := &TlsPemPair{
-		Certificate: TLSCertificateToPem(der),
-		PrivateKey:  TLSPrivateKeyToPem(key),
+	pemPair := &PemPair{
+		Certificate: CertificateToPem(der),
+		PrivateKey:  PrivateKeyToPem(key),
 	}
 
 	cert, err := x509.ParseCertificate(der)
@@ -103,7 +105,7 @@ func GenerateCACert() (*KeyPair, *TlsPemPair, error) {
 
 // GenerateCertPem takes the results of GenerateCACert and uses it to create the
 // PEM-encoded public certificate and private key, respectively
-func GenerateCertPem(caCert *KeyPair, props TlsCertificateProps, fqdncn bool) (*TlsPemPair, error) {
+func GenerateCertPem(caCert *KeyPair, props CertificateProps, fqdncn bool) (*PemPair, error) {
 	now := time.Now()
 	begin := now.Add(-1 * time.Hour)
 	end := now.Add(certValidityDuration)
@@ -123,11 +125,11 @@ func GenerateCertPem(caCert *KeyPair, props TlsCertificateProps, fqdncn bool) (*
 	}
 
 	var ips []net.IP
-	apiServerIP := net.ParseIP(props.ApiServerHost)
+	apiServerIP := net.ParseIP(props.APIServerHost)
 	if apiServerIP != nil {
 		ips = append(ips, apiServerIP)
 	} else {
-		dnsNames = append(dnsNames, props.ApiServerHost)
+		dnsNames = append(dnsNames, props.APIServerHost)
 	}
 
 	templ := &x509.Certificate{
@@ -153,16 +155,16 @@ func GenerateCertPem(caCert *KeyPair, props TlsCertificateProps, fqdncn bool) (*
 		return nil, fmt.Errorf("error creating certificate for webhook %v", err)
 	}
 
-	pemPair := &TlsPemPair{
-		Certificate: TLSCertificateToPem(der),
-		PrivateKey:  TLSPrivateKeyToPem(key),
+	pemPair := &PemPair{
+		Certificate: CertificateToPem(der),
+		PrivateKey:  PrivateKeyToPem(key),
 	}
 
 	return pemPair, nil
 }
 
 //GenerateInClusterServiceName The generated service name should be the common name for TLS certificate
-func GenerateInClusterServiceName(props TlsCertificateProps) string {
+func GenerateInClusterServiceName(props CertificateProps) string {
 	return props.Service + "." + props.Namespace + ".svc"
 }
 
@@ -185,7 +187,7 @@ func tlsCertificateGetExpirationDate(certData []byte) (*time.Time, error) {
 const timeReserveBeforeCertificateExpiration time.Duration = time.Hour * 24 * 30 * 6 // About half a year
 
 //IsTLSPairShouldBeUpdated checks if TLS pair has expited and needs to be updated
-func IsTLSPairShouldBeUpdated(tlsPair *TlsPemPair) bool {
+func IsTLSPairShouldBeUpdated(tlsPair *PemPair) bool {
 	if tlsPair == nil {
 		return true
 	}

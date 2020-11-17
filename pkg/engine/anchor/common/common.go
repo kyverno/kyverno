@@ -58,6 +58,7 @@ func IsExistenceAnchor(str string) bool {
 	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
 }
 
+// RemoveAnchor remove anchor from the given key
 func RemoveAnchor(key string) string {
 	if IsConditionAnchor(key) {
 		return key[1 : len(key)-1]

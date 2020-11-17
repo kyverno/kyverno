@@ -70,6 +70,7 @@ func subArray(log logr.Logger, ctx context.EvalInterface, patternList []interfac
 	return patternList, nil
 }
 
+// NotFoundVariableErr ...
 type NotFoundVariableErr struct {
 	variable string
 	path     string

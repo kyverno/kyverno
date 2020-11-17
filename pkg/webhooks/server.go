@@ -121,7 +121,7 @@ type WebhookServer struct {
 func NewWebhookServer(
 	kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
-	tlsPair *tlsutils.TlsPemPair,
+	tlsPair *tlsutils.PemPair,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
@@ -265,6 +265,7 @@ func writeResponse(rw http.ResponseWriter, admissionReview *v1beta1.AdmissionRev
 	}
 }
 
+// ResourceMutation mutates resource
 func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 
 	logger := ws.log.WithName("ResourceMutation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
@@ -598,7 +599,7 @@ func (ws *WebhookServer) excludeKyvernoResources(request *v1beta1.AdmissionReque
 				}
 				if !isAuthorized {
 					// convert RAW to unstructured
-					return fmt.Errorf("resource is managed by a Kyverno policy and cannot be update manually. You can edit the policy %s to update this resource.", labels["policy.kyverno.io/policy-name"])
+					return fmt.Errorf("resource is managed by a Kyverno policy and cannot be update manually. You can edit the policy %s to update this resource", labels["policy.kyverno.io/policy-name"])
 				}
 			}
 		}

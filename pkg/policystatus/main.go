@@ -37,8 +37,10 @@ type statusUpdater interface {
 	UpdateStatus(status v1.PolicyStatus) v1.PolicyStatus
 }
 
+// Listener ...
 type Listener chan statusUpdater
 
+// Send sends an update request
 func (l Listener) Send(s statusUpdater) {
 	l <- s
 }
@@ -61,6 +63,7 @@ type cache struct {
 	keyToMutex *keyToMutex
 }
 
+// NewSync ...
 func NewSync(c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister, nsLister kyvernolister.PolicyLister) *Sync {
 	return &Sync{
 		cache: &cache{
@@ -75,6 +78,7 @@ func NewSync(c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister, n
 	}
 }
 
+// Run ...
 func (s *Sync) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go s.updateStatusCache(stopCh)

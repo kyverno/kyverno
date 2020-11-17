@@ -30,8 +30,7 @@ func (ac *AnchorKey) IsAnchorError() bool {
 	return false
 }
 
-// CheckAnchorInResource
-// Check if condition anchor key has values
+// CheckAnchorInResource checks if condition anchor key has values
 func (ac *AnchorKey) CheckAnchorInResource(pattern interface{}, resource interface{}) {
 	switch typed := pattern.(type) {
 	case map[string]interface{}:

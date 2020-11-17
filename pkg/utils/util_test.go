@@ -67,7 +67,6 @@ func Test_containsNs(t *testing.T) {
 	assert.Assert(t, res == false)
 }
 
-
 func Test_higherVersion(t *testing.T) {
 	v, err := isVersionHigher("invalid.version", 1, 1, 1)
 	assert.Assert(t, v == false && err != nil)
