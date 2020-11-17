@@ -77,7 +77,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 				}
 			} else {
 				if tc.areErrorsExpected {
-					t.Errorf("Testcase %d Expected Error but recieved no error", i+1)
+					t.Errorf("Testcase %d Expected Error but received no error", i+1)
 				}
 			}
 		}
@@ -477,6 +477,6 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 		ExcludeResources: kyverno.ExcludeResources{ResourceDescription: resourceDescriptionExclude}}
 
 	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}, []string{}); err == nil {
-		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was suposed to fail")
+		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")
 	}
 }

@@ -96,7 +96,7 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 // To filter out the targeted resources with ResourceDescription, the check
 // should be: AND across attibutes but an OR inside attributes that of type list
 // To filter out the targeted resources with UserInfo, the check
-// should be: OR (accross & inside) attributes
+// should be: OR (across & inside) attributes
 func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string) []error {
 	var errs []error
 	if len(conditionBlock.Kinds) > 0 {

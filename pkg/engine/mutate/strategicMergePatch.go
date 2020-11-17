@@ -94,7 +94,7 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 
 	resp.Success = true
 	resp.Patches = jsonPatches
-	resp.Message = fmt.Sprintf("successfully processed stragetic merge patch")
+	resp.Message = fmt.Sprintf("successfully processed strategic merge patch")
 	return resp, patchedResource
 }
 

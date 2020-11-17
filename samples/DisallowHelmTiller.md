@@ -1,6 +1,6 @@
 # Disallow Helm Tiller
 
-Tiller, in the [now-deprecated Helm v2](https://helm.sh/blog/helm-v2-deprecation-timeline/), has known security challenges. It requires adminstrative privileges and acts as a shared resource accessible to any authenticated user. Tiller can lead to privilge escalation as restricted users can impact other users.
+Tiller, in the [now-deprecated Helm v2](https://helm.sh/blog/helm-v2-deprecation-timeline/), has known security challenges. It requires administrative privileges and acts as a shared resource accessible to any authenticated user. Tiller can lead to privilge escalation as restricted users can impact other users.
 
 ## Policy YAML
 

@@ -82,7 +82,7 @@ func (g *Generator) Run(workers int) {
 func (g *Generator) processApply() {
 	logger := g.log
 	for r := range g.ch {
-		logger.V(4).Info("recieved generate request", "request", r)
+		logger.V(4).Info("received generate request", "request", r)
 		if err := g.generate(r.spec, r.action); err != nil {
 			logger.Error(err, "failed to generate request CR")
 		}

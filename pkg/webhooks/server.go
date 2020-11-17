@@ -377,7 +377,7 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 		go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo, ws.configHandler)
 	}
 
-	// Succesful processing of mutation & validation rules in policy
+	// Successful processing of mutation & validation rules in policy
 	patchType := v1beta1.PatchTypeJSONPatch
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
@@ -594,7 +594,7 @@ func (ws *WebhookServer) excludeKyvernoResources(request *v1beta1.AdmissionReque
 			if labels["app.kubernetes.io/managed-by"] == "kyverno" && labels["policy.kyverno.io/synchronize"] == "enable" {
 				isAuthorized, err := userinfo.IsRoleAuthorize(ws.rbLister, ws.crbLister, ws.rLister, ws.crLister, request, ws.configHandler)
 				if err != nil {
-					return fmt.Errorf("failed to get RBAC infromation for request %v", err)
+					return fmt.Errorf("failed to get RBAC information for request %v", err)
 				}
 				if !isAuthorized {
 					// convert RAW to unstructured

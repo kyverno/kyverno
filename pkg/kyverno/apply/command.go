@@ -309,7 +309,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 				if err != nil {
 					return sanitizedError.NewWithError("failed to print mutated result", err)
 				}
-				fmt.Printf("\n\nMutation:\nMutation has been applied succesfully. Check the files.")
+				fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
 			}
 
 		}
@@ -408,7 +408,7 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 	if err != nil {
 		if os.IsNotExist(err) {
 			if !mutateLogPathIsDir {
-				// check the folder existance, then create the file
+				// check the folder existence, then create the file
 				var folderPath string
 				s := strings.Split(mutateLogPath, "/")
 

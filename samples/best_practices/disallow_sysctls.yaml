@@ -16,7 +16,7 @@ spec:
         kinds:
         - Pod
     validate:
-      message: "Changes to kernel paramaters are not allowed"
+      message: "Changes to kernel parameters are not allowed"
       pattern:
         spec:
           =(securityContext):

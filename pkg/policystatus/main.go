@@ -45,7 +45,7 @@ func (l Listener) Send(s statusUpdater) {
 
 // Sync is the object which is used to initialize
 //the policyStatus sync, can be considered the parent object
-//since it contains access to all the persistant data present
+//since it contains access to all the persistent data present
 //in this package.
 type Sync struct {
 	cache    *cache
