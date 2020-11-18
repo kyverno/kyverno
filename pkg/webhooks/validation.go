@@ -100,7 +100,7 @@ func HandleValidation(
 			continue
 		}
 
-		logger.Info("validation rules from policy applied succesfully", "policy", policy.Name)
+		logger.Info("validation rules from policy applied successfully", "policy", policy.Name)
 	}
 	// If Validation fails then reject the request
 	// no violations will be created on "enforce"
@@ -114,7 +114,7 @@ func HandleValidation(
 	//   some/all policies failed to apply on the resource. a policy volation is generated.
 	//   create an event on the resource and the policy that failed
 	// Scenario 3:
-	//   all policies were applied succesfully.
+	//   all policies were applied successfully.
 	//   create an event on the resource
 	events := generateEvents(engineResponses, blocked, (request.Operation == v1beta1.Update), logger)
 	eventGen.Add(events...)

@@ -57,6 +57,7 @@ func (in InHandler) validateValuewithStringPattern(key string, value interface{}
 	return keyExists
 }
 
+// ValidateStringPattern ...
 func ValidateStringPattern(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
 	stringType := reflect.TypeOf("")
 	switch valuesAvaliable := value.(type) {
@@ -69,6 +70,7 @@ func ValidateStringPattern(key string, value interface{}, log logr.Logger) (inva
 				keyExists = true
 			}
 		}
+
 	// add to handle the configMap lookup, as configmap.data
 	// takes string-string map, when looking for a value of array
 	// data:

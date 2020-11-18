@@ -48,14 +48,22 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 				return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/pattern", idx)
 			}
 		}
-		for idx2, pattern := range rule.Validation.AnyPattern {
-			if rule.Validation.AnyPattern[idx2], err = variables.SubstituteVars(log.Log, ctx, pattern); !checkNotFoundErr(err) {
+
+		anyPattern, err := rule.Validation.DeserializeAnyPattern()
+		if err != nil {
+			return fmt.Errorf("failed to deserialze anyPattern, expect array: %v", err)
+		}
+
+		for idx2, pattern := range anyPattern {
+			if anyPattern[idx2], err = variables.SubstituteVars(log.Log, ctx, pattern); !checkNotFoundErr(err) {
 				return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/anyPattern[%d]", idx, idx2)
 			}
 		}
+
 		if _, err = variables.SubstituteVars(log.Log, ctx, rule.Validation.Message); !checkNotFoundErr(err) {
 			return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/message", idx)
 		}
+
 		if rule.Validation.Deny != nil {
 			for i := range rule.Validation.Deny.Conditions {
 				if _, err = variables.SubstituteVars(log.Log, ctx, rule.Validation.Deny.Conditions[i].Key); !checkNotFoundErr(err) {
@@ -67,6 +75,7 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 			}
 		}
 	}
+
 	return nil
 }
 

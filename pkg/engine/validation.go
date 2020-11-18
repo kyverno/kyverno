@@ -53,7 +53,7 @@ func Validate(policyContext PolicyContext) (resp response.EngineResponse) {
 		for i := range resp.PolicyResponse.Rules {
 			messageInterface, err := variables.SubstituteVars(logger, ctx, resp.PolicyResponse.Rules[i].Message)
 			if err != nil {
-				logger.V(4).Info("failed to substitue JMES value", "error", err.Error())
+				logger.V(4).Info("failed to substitute JMES value", "error", err.Error())
 				continue
 			}
 			resp.PolicyResponse.Rules[i].Message, _ = messageInterface.(string)
@@ -291,7 +291,15 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 		var failedSubstitutionsErrors []error
 		var failedAnyPatternsErrors []error
 		var err error
-		for idx, pattern := range validationRule.AnyPattern {
+
+		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
+		if err != nil {
+			resp.Success = false
+			resp.Message = fmt.Sprintf("Failed to deserialze anyPattern, expect type array: %v", err)
+			return resp
+		}
+
+		for idx, pattern := range anyPatterns {
 			if pattern, err = variables.SubstituteVars(logger, ctx, pattern); err != nil {
 				// variable subsitution failed
 				failedSubstitutionsErrors = append(failedSubstitutionsErrors, err)

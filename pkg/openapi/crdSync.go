@@ -51,6 +51,7 @@ var crdDefinitionNew struct {
 	} `json:"spec"`
 }
 
+// NewCRDSync ...
 func NewCRDSync(client *client.Client, controller *Controller) *crdSync {
 	if controller == nil {
 		panic(fmt.Errorf("nil controller sent into crd sync"))
@@ -68,7 +69,7 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 		log.Log.Error(err, "cannot get OpenAPI schema")
 	}
 
-	err = c.controller.useOpenApiDocument(newDoc)
+	err = c.controller.useOpenAPIDocument(newDoc)
 	if err != nil {
 		log.Log.Error(err, "Could not set custom OpenAPI document")
 	}
@@ -111,6 +112,7 @@ func (o *Controller) deleteCRDFromPreviousSync() {
 	o.crdList = make([]string, 0)
 }
 
+// ParseCRD loads CRD to the cache
 func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 	var err error
 

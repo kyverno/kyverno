@@ -19,7 +19,7 @@ func generateEvents(engineResponses []response.EngineResponse, blocked, onUpdate
 
 	for _, er := range engineResponses {
 		if er.IsSuccessful() {
-			// do not create event on rules that were succesful
+			// do not create event on rules that were successful
 			continue
 		}
 		// Rules that failed

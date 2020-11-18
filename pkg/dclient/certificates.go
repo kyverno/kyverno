@@ -16,7 +16,7 @@ import (
 // InitTLSPemPair Loads or creates PEM private key and TLS certificate for webhook server.
 // Created pair is stored in cluster's secret.
 // Returns struct with key/certificate pair.
-func (c *Client) InitTLSPemPair(configuration *rest.Config, fqdncn bool) (*tls.TlsPemPair, error) {
+func (c *Client) InitTLSPemPair(configuration *rest.Config, fqdncn bool) (*tls.PemPair, error) {
 	logger := c.log
 	certProps, err := c.GetTLSCertProps(configuration)
 	if err != nil {
@@ -24,20 +24,20 @@ func (c *Client) InitTLSPemPair(configuration *rest.Config, fqdncn bool) (*tls.T
 	}
 
 	logger.Info("Building key/certificate pair for TLS")
-	tlsPair, err := c.buildTlsPemPair(certProps, fqdncn)
+	tlsPair, err := c.buildTLSPemPair(certProps, fqdncn)
 	if err != nil {
 		return nil, err
 	}
-	if err = c.WriteTlsPairToSecret(certProps, tlsPair); err != nil {
+	if err = c.WriteTLSPairToSecret(certProps, tlsPair); err != nil {
 		return nil, fmt.Errorf("Unable to save TLS pair to the cluster: %v", err)
 	}
 
 	return tlsPair, nil
 }
 
-//buildTlsPemPair Issues TLS certificate for webhook server using self-signed CA cert
+// buildTLSPemPair Issues TLS certificate for webhook server using self-signed CA cert
 // Returns signed and approved TLS certificate in PEM format
-func (c *Client) buildTlsPemPair(props tls.TlsCertificateProps, fqdncn bool) (*tls.TlsPemPair, error) {
+func (c *Client) buildTLSPemPair(props tls.CertificateProps, fqdncn bool) (*tls.PemPair, error) {
 	caCert, caPEM, err := tls.GenerateCACert()
 	if err != nil {
 		return nil, err
@@ -80,9 +80,9 @@ func (c *Client) ReadRootCASecret() (result []byte) {
 const selfSignedAnnotation string = "self-signed-cert"
 const rootCAKey string = "rootCA.crt"
 
-//ReadTlsPair Reads the pair of TLS certificate and key from the specified secret.
-func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
-	logger := c.log.WithName("ReadTlsPair")
+// ReadTLSPair Reads the pair of TLS certificate and key from the specified secret.
+func (c *Client) ReadTLSPair(props tls.CertificateProps) *tls.PemPair {
+	logger := c.log.WithName("ReadTLSPair")
 	sname := generateTLSPairSecretName(props)
 	unstrSecret, err := c.GetResource("", Secrets, props.Namespace, sname)
 	if err != nil {
@@ -105,7 +105,7 @@ func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 	if err != nil {
 		return nil
 	}
-	pemPair := tls.TlsPemPair{
+	pemPair := tls.PemPair{
 		Certificate: secret.Data[v1.TLSCertKey],
 		PrivateKey:  secret.Data[v1.TLSPrivateKeyKey],
 	}
@@ -120,7 +120,8 @@ func (c *Client) ReadTlsPair(props tls.TlsCertificateProps) *tls.TlsPemPair {
 	return &pemPair
 }
 
-func (c *Client) WriteCACertToSecret(caPEM *tls.TlsPemPair, props tls.TlsCertificateProps) error {
+// WriteCACertToSecret stores the CA cert in secret
+func (c *Client) WriteCACertToSecret(caPEM *tls.PemPair, props tls.CertificateProps) error {
 	logger := c.log.WithName("CAcert")
 	name := generateRootCASecretName(props)
 
@@ -170,10 +171,10 @@ func (c *Client) WriteCACertToSecret(caPEM *tls.TlsPemPair, props tls.TlsCertifi
 	return nil
 }
 
-//WriteTlsPairToSecret Writes the pair of TLS certificate and key to the specified secret.
+// WriteTLSPairToSecret Writes the pair of TLS certificate and key to the specified secret.
 // Updates existing secret or creates new one.
-func (c *Client) WriteTlsPairToSecret(props tls.TlsCertificateProps, pemPair *tls.TlsPemPair) error {
-	logger := c.log.WithName("WriteTlsPair")
+func (c *Client) WriteTLSPairToSecret(props tls.CertificateProps, pemPair *tls.PemPair) error {
+	logger := c.log.WithName("WriteTLSPair")
 	name := generateTLSPairSecretName(props)
 	secretUnstr, err := c.GetResource("", Secrets, props.Namespace, name)
 	if err != nil {
@@ -218,24 +219,24 @@ func (c *Client) WriteTlsPairToSecret(props tls.TlsCertificateProps, pemPair *tl
 	return nil
 }
 
-func generateTLSPairSecretName(props tls.TlsCertificateProps) string {
+func generateTLSPairSecretName(props tls.CertificateProps) string {
 	return tls.GenerateInClusterServiceName(props) + ".kyverno-tls-pair"
 }
 
-func generateRootCASecretName(props tls.TlsCertificateProps) string {
+func generateRootCASecretName(props tls.CertificateProps) string {
 	return tls.GenerateInClusterServiceName(props) + ".kyverno-tls-ca"
 }
 
 //GetTLSCertProps provides the TLS Certificate Properties
-func (c *Client) GetTLSCertProps(configuration *rest.Config) (certProps tls.TlsCertificateProps, err error) {
+func (c *Client) GetTLSCertProps(configuration *rest.Config) (certProps tls.CertificateProps, err error) {
 	apiServerURL, err := url.Parse(configuration.Host)
 	if err != nil {
 		return certProps, err
 	}
-	certProps = tls.TlsCertificateProps{
+	certProps = tls.CertificateProps{
 		Service:       config.WebhookServiceName,
 		Namespace:     config.KubePolicyNamespace,
-		ApiServerHost: apiServerURL.Hostname(),
+		APIServerHost: apiServerURL.Hostname(),
 	}
 	return certProps, nil
 }

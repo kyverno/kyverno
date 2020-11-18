@@ -25,6 +25,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// Controller represents OpenAPIController
 type Controller struct {
 	mutex       sync.RWMutex
 	definitions map[string]*openapi_v2.Schema
@@ -35,6 +36,7 @@ type Controller struct {
 	models               proto.Models
 }
 
+// NewOpenAPIController initializes a new instance of OpenAPIController
 func NewOpenAPIController() (*Controller, error) {
 	controller := &Controller{
 		definitions:          make(map[string]*openapi_v2.Schema),
@@ -46,7 +48,7 @@ func NewOpenAPIController() (*Controller, error) {
 		return nil, err
 	}
 
-	err = controller.useOpenApiDocument(defaultDoc)
+	err = controller.useOpenAPIDocument(defaultDoc)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +56,7 @@ func NewOpenAPIController() (*Controller, error) {
 	return controller, nil
 }
 
+// ValidatePolicyFields ...
 func (o *Controller) ValidatePolicyFields(policyRaw []byte) error {
 	o.mutex.RLock()
 	defer o.mutex.RUnlock()
@@ -77,6 +80,7 @@ func (o *Controller) ValidatePolicyFields(policyRaw []byte) error {
 	return o.ValidatePolicyMutation(policy)
 }
 
+// ValidateResource ...
 func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
 	o.mutex.RLock()
 	defer o.mutex.RUnlock()
@@ -105,12 +109,14 @@ func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured,
 	return nil
 }
 
+// GetDefinitionNameFromKind ...
 func (o *Controller) GetDefinitionNameFromKind(kind string) string {
 	o.mutex.RLock()
 	defer o.mutex.RUnlock()
 	return o.kindToDefinitionName[kind]
 }
 
+// ValidatePolicyMutation ...
 func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	o.mutex.RLock()
 	defer o.mutex.RUnlock()
@@ -150,7 +156,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	return nil
 }
 
-func (o *Controller) useOpenApiDocument(doc *openapi_v2.Document) error {
+func (o *Controller) useOpenAPIDocument(doc *openapi_v2.Document) error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 

@@ -29,6 +29,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:path=clusterreportchangerequests,scope="Cluster"
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1
 // +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=`.summary.pass`
@@ -61,9 +62,9 @@ type ClusterReportChangeRequest struct {
 	Results []*report.PolicyReportResult `json:"results,omitempty"`
 }
 
+// ClusterReportChangeRequestList contains a list of ClusterReportChangeRequest
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// ClusterReportChangeRequestList contains a list of ClusterReportChangeRequest
 type ClusterReportChangeRequestList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

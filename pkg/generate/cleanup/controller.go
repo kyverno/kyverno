@@ -246,6 +246,12 @@ func (c *Controller) handleErr(err error, key interface{}) {
 		return
 	}
 
+	if errors.IsNotFound(err) {
+		c.queue.Forget(key)
+		logger.V(4).Info("Dropping generate request from the queue", "key", key, "error", err)
+		return
+	}
+
 	if c.queue.NumRequeues(key) < maxRetries {
 		logger.Error(err, "failed to sync generate request", "key", key)
 		c.queue.AddRateLimited(key)
@@ -260,9 +266,9 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	logger := c.log.WithValues("key", key)
 	var err error
 	startTime := time.Now()
-	logger.Info("started syncing generate request", "startTime", startTime)
+	logger.V(4).Info("started syncing generate request", "startTime", startTime)
 	defer func() {
-		logger.V(4).Info("finished syncying generate request", "processingTIme", time.Since(startTime).String())
+		logger.V(4).Info("finished syncing generate request", "processingTIme", time.Since(startTime).String())
 	}()
 	_, grName, err := cache.SplitMetaNamespaceKey(key)
 	if errors.IsNotFound(err) {

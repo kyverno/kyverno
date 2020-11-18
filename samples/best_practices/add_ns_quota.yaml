@@ -15,11 +15,12 @@ spec:
         kinds:
         - Namespace
     exclude:
-      namespaces:
-        - "kube-system"
-        - "default"
-        - "kube-public"
-        - "kyverno"
+      resources:
+        namespaces:
+          - "kube-system"
+          - "default"
+          - "kube-public"
+          - "kyverno"
     generate:
       kind: ResourceQuota
       name: default-resourcequota

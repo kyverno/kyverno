@@ -1,11 +1,10 @@
 # Require read-only root filesystem
 
-A read-only root file system helps to enforce an immutable infrastructure strategy; the container only needs to write on mounted volumes that can persist state even if the container exits. An immutable root filesystem can also prevent malicious binaries from writing to the host system.
+A read-only root filesystem helps to enforce an immutable infrastructure strategy; the container only needs to write to mounted volumes that can persist state even if the container exits. An immutable root filesystem can also prevent malicious binaries from writing to the host system.
 
-## Policy YAML 
+## Policy YAML
 
 [require_ro_rootfs.yaml](best_practices/require_ro_rootfs.yaml)
-
 
 ````yaml
 apiVersion: kyverno.io/v1

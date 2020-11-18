@@ -41,7 +41,7 @@ spec:
             template:
               spec:
                 containers:
-                # match all contianers
+                # match all containers
                 - (name): "*"
                   resources:
                     limits:

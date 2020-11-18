@@ -70,13 +70,14 @@ func subArray(log logr.Logger, ctx context.EvalInterface, patternList []interfac
 	return patternList, nil
 }
 
+// NotFoundVariableErr ...
 type NotFoundVariableErr struct {
 	variable string
 	path     string
 }
 
 func (n NotFoundVariableErr) Error() string {
-	return fmt.Sprintf("could not find variable %v at path %v", n.variable, n.path)
+	return fmt.Sprintf("variable %v not found (path: %v)", n.variable, n.path)
 }
 
 // subValR resolves the variables if defined

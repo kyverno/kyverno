@@ -19,141 +19,19 @@ limitations under the License.
 package v1
 
 import (
-	"fmt"
-
 	kyvernov1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
-
-type PolicyNamespaceListerExpansion interface{}
 
 // ClusterPolicyListerExpansion allows custom methods to be added to
 // ClusterPolicyLister.
 type ClusterPolicyListerExpansion interface {
-	GetPolicyForPolicyViolation(pv *kyvernov1.ClusterPolicyViolation) ([]*kyvernov1.ClusterPolicy, error)
-	GetPolicyForNamespacedPolicyViolation(pv *kyvernov1.PolicyViolation) ([]*kyvernov1.ClusterPolicy, error)
 	ListResources(selector labels.Selector) (ret []*kyvernov1.ClusterPolicy, err error)
-}
-
-// ClusterPolicyViolationListerExpansion allows custom methods to be added to
-// ClusterPolicyViolationLister.
-type ClusterPolicyViolationListerExpansion interface {
-	// List lists all PolicyViolations in the indexer with GVK.
-	ListResources(selector labels.Selector) (ret []*kyvernov1.ClusterPolicyViolation, err error)
-}
-
-// PolicyViolationListerExpansion allows custom methods to be added to
-// PolicyViolationLister.
-type PolicyViolationListerExpansion interface{}
-
-// PolicyViolationNamespaceListerExpansion allows custom methods to be added to
-// PolicyViolationNamespaceLister.
-type PolicyViolationNamespaceListerExpansion interface{}
-
-//ListResources is a wrapper to List and adds the resource kind information
-// as the lister is specific to a gvk we can harcode the values here
-func (pvl *clusterPolicyViolationLister) ListResources(selector labels.Selector) (ret []*kyvernov1.ClusterPolicyViolation, err error) {
-	policyviolations, err := pvl.List(selector)
-	if err != nil {
-		return nil, err
-	}
-	for index := range policyviolations {
-		policyviolations[index].SetGroupVersionKind(kyvernov1.SchemeGroupVersion.WithKind("ClusterPolicyViolation"))
-	}
-	return policyviolations, nil
-}
-
-//ListResources is a wrapper to List and adds the resource kind information
-// as the lister is specific to a gvk we can harcode the values here
-func (pl *clusterPolicyLister) ListResources(selector labels.Selector) (ret []*kyvernov1.ClusterPolicy, err error) {
-	policies, err := pl.List(selector)
-	for index := range policies {
-		policies[index].SetGroupVersionKind(kyvernov1.SchemeGroupVersion.WithKind("ClusterPolicy"))
-	}
-	return policies, err
-}
-
-func (pl *clusterPolicyLister) GetPolicyForPolicyViolation(pv *kyvernov1.ClusterPolicyViolation) ([]*kyvernov1.ClusterPolicy, error) {
-	if len(pv.Labels) == 0 {
-		return nil, fmt.Errorf("no Policy found for PolicyViolation %v because it has no labels", pv.Name)
-	}
-
-	pList, err := pl.List(labels.Everything())
-	if err != nil {
-		return nil, err
-	}
-
-	var policies []*kyvernov1.ClusterPolicy
-	for _, p := range pList {
-		policyLabelmap := map[string]string{"policy": p.Name}
-
-		ls := &metav1.LabelSelector{}
-		err = metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&policyLabelmap, ls, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate label sector of Policy name %s: %v", p.Name, err)
-		}
-		selector, err := metav1.LabelSelectorAsSelector(ls)
-		if err != nil {
-			return nil, fmt.Errorf("invalid label selector: %v", err)
-		}
-		// If a policy with a nil or empty selector creeps in, it should match nothing, not everything.
-		if selector.Empty() || !selector.Matches(labels.Set(pv.Labels)) {
-			continue
-		}
-		policies = append(policies, p)
-	}
-
-	if len(policies) == 0 {
-		return nil, fmt.Errorf("could not find Policy set for PolicyViolation %s with labels: %v", pv.Name, pv.Labels)
-	}
-
-	return policies, nil
-
-}
-
-func (pl *clusterPolicyLister) GetPolicyForNamespacedPolicyViolation(pv *kyvernov1.PolicyViolation) ([]*kyvernov1.ClusterPolicy, error) {
-	if len(pv.Labels) == 0 {
-		return nil, fmt.Errorf("no Policy found for PolicyViolation %v because it has no labels", pv.Name)
-	}
-
-	pList, err := pl.List(labels.Everything())
-	if err != nil {
-		return nil, err
-	}
-
-	var policies []*kyvernov1.ClusterPolicy
-	for _, p := range pList {
-		policyLabelmap := map[string]string{"policy": p.Name}
-
-		ls := &metav1.LabelSelector{}
-		err = metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&policyLabelmap, ls, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate label sector of Policy name %s: %v", p.Name, err)
-		}
-		selector, err := metav1.LabelSelectorAsSelector(ls)
-		if err != nil {
-			return nil, fmt.Errorf("invalid label selector: %v", err)
-		}
-		// If a policy with a nil or empty selector creeps in, it should match nothing, not everything.
-		if selector.Empty() || !selector.Matches(labels.Set(pv.Labels)) {
-			continue
-		}
-		policies = append(policies, p)
-	}
-
-	if len(policies) == 0 {
-		return nil, fmt.Errorf("could not find Policy set for Namespaced policy Violation %s with labels: %v", pv.Name, pv.Labels)
-	}
-
-	return policies, nil
-
 }
 
 // GenerateRequestListerExpansion allows custom methods to be added to
 // GenerateRequestLister.
-type GenerateRequestListerExpansion interface {
-}
+type GenerateRequestListerExpansion interface{}
 
 // GenerateRequestNamespaceListerExpansion allows custom methods to be added to
 // GenerateRequestNamespaceLister.
@@ -162,73 +40,10 @@ type GenerateRequestNamespaceListerExpansion interface {
 	GetGenerateRequestsForResource(kind, namespace, name string) ([]*kyvernov1.GenerateRequest, error)
 }
 
-func (s generateRequestNamespaceLister) GetGenerateRequestsForResource(kind, namespace, name string) ([]*kyvernov1.GenerateRequest, error) {
-	var list []*kyvernov1.GenerateRequest
-	grs, err := s.List(labels.NewSelector())
-	if err != nil {
-		return nil, err
-	}
-	for idx, gr := range grs {
-		if gr.Spec.Resource.Kind == kind &&
-			gr.Spec.Resource.Namespace == namespace &&
-			gr.Spec.Resource.Name == name {
-			list = append(list, grs[idx])
+// PolicyListerExpansion allows custom methods to be added to
+// PolicyLister.
+type PolicyListerExpansion interface{}
 
-		}
-	}
-	return list, err
-}
-
-func (s generateRequestNamespaceLister) GetGenerateRequestsForClusterPolicy(policy string) ([]*kyvernov1.GenerateRequest, error) {
-	var list []*kyvernov1.GenerateRequest
-	grs, err := s.List(labels.NewSelector())
-	if err != nil {
-		return nil, err
-	}
-	for idx, gr := range grs {
-		if gr.Spec.Policy == policy {
-			list = append(list, grs[idx])
-		}
-	}
-	return list, err
-}
-
-type PolicyListerExpansion interface {
-	GetPolicyForPolicyViolation(pv *kyvernov1.PolicyViolation) ([]*kyvernov1.Policy, error)
-}
-
-func (p *policyLister) GetPolicyForPolicyViolation(pv *kyvernov1.PolicyViolation) ([]*kyvernov1.Policy, error) {
-	if len(pv.Labels) == 0 {
-		return nil, fmt.Errorf("no Policy found for PolicyViolation %v because it has no labels", pv.Name)
-	}
-
-	pList, err := p.List(labels.Everything())
-	if err != nil {
-		return nil, err
-	}
-
-	var policies []*kyvernov1.Policy
-	for _, p := range pList {
-		policyLabelmap := map[string]string{"policy": p.Name}
-
-		ls := &metav1.LabelSelector{}
-		err = metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&policyLabelmap, ls, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate label sector of Policy name %s: %v", p.Name, err)
-		}
-		selector, err := metav1.LabelSelectorAsSelector(ls)
-		if err != nil {
-			return nil, fmt.Errorf("invalid label selector: %v", err)
-		}
-		// If a policy with a nil or empty selector creeps in, it should match nothing, not everything.
-		if selector.Empty() || !selector.Matches(labels.Set(pv.Labels)) {
-			continue
-		}
-		if p.Namespace != pv.Namespace {
-			continue
-		}
-		policies = append(policies, p)
-	}
-
-	return policies, err
-}
+// PolicyNamespaceListerExpansion allows custom methods to be added to
+// PolicyNamespaceLister.
+type PolicyNamespaceListerExpansion interface{}

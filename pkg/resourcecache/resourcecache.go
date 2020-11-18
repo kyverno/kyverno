@@ -6,7 +6,7 @@ import (
 
 // RunAllInformers - run the informers for the GVR of all the resources available in GVRCacheData
 func (resc *ResourceCache) RunAllInformers(log logr.Logger) {
-	for key, _ := range resc.GVRCacheData {
+	for key := range resc.GVRCacheData {
 		resc.CreateResourceInformer(log, key)
 		log.V(4).Info("created informer for resource", "name", key)
 	}

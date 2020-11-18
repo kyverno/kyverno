@@ -1,9 +1,11 @@
 package v1
 
 import (
+	"encoding/json"
 	"reflect"
 )
 
+// HasAutoGenAnnotation checks if a policy has auto-gen annotation
 func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
 	annotations := p.GetAnnotations()
 	_, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
@@ -20,6 +22,7 @@ func (p *ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
 	return false
 }
 
+// BackgroundProcessingEnabled checks if background is set to true
 func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 	if p.Spec.Background == nil {
 		return true
@@ -28,19 +31,38 @@ func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 	return *p.Spec.Background
 }
 
-//HasMutate checks for mutate rule
+// HasMutate checks for mutate rule
 func (r Rule) HasMutate() bool {
 	return !reflect.DeepEqual(r.Mutation, Mutation{})
 }
 
-//HasValidate checks for validate rule
+// HasValidate checks for validate rule
 func (r Rule) HasValidate() bool {
 	return !reflect.DeepEqual(r.Validation, Validation{})
 }
 
-//HasGenerate checks for generate rule
+// HasGenerate checks for generate rule
 func (r Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
+}
+
+// DeserializeAnyPattern deserialize apiextensions.JSON to []interface{}
+func (in *Validation) DeserializeAnyPattern() ([]interface{}, error) {
+	if in.AnyPattern == nil {
+		return nil, nil
+	}
+
+	anyPattern, err := json.Marshal(in.AnyPattern)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []interface{}
+	if err := json.Unmarshal(anyPattern, &res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 // DeepCopyInto is declared because k8s:deepcopy-gen is
@@ -86,4 +108,20 @@ func (cond *Condition) DeepCopyInto(out *Condition) {
 //ToKey generates the key string used for adding label to polivy violation
 func (rs ResourceSpec) ToKey() string {
 	return rs.Kind + "." + rs.Name
+}
+
+// ViolatedRule stores the information regarding the rule.
+type ViolatedRule struct {
+	// Specifies violated rule name.
+	Name string `json:"name" yaml:"name"`
+
+	// Specifies violated rule type.
+	Type string `json:"type" yaml:"type"`
+
+	// Specifies violation message.
+	// +optional
+	Message string `json:"message" yaml:"message"`
+
+	// +optional
+	Check string `json:"check" yaml:"check"`
 }

@@ -18,7 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
-	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -68,7 +68,7 @@ func Command() *cobra.Command {
 		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
 			defer func() {
 				if err != nil {
-					if !sanitizedError.IsErrorSanitized(err) {
+					if !sanitizederror.IsErrorSanitized(err) {
 						log.Log.Error(err, "failed to sanitize")
 						err = fmt.Errorf("internal error")
 					}
@@ -76,7 +76,7 @@ func Command() *cobra.Command {
 			}()
 
 			if valuesFile != "" && variablesString != "" {
-				return sanitizedError.NewWithError("pass the values either using set flag or values_file flag", err)
+				return sanitizederror.NewWithError("pass the values either using set flag or values_file flag", err)
 			}
 
 			variables, valuesMap, err := getVariable(variablesString, valuesFile)
@@ -89,7 +89,7 @@ func Command() *cobra.Command {
 
 			openAPIController, err := openapi.NewOpenAPIController()
 			if err != nil {
-				return sanitizedError.NewWithError("failed to initialize openAPIController", err)
+				return sanitizederror.NewWithError("failed to initialize openAPIController", err)
 			}
 
 			var dClient *client.Client
@@ -192,7 +192,7 @@ func Command() *cobra.Command {
 
 					ers, validateErs, err := applyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, rc, policyReport)
 					if err != nil {
-						return sanitizedError.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
+						return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 					}
 					engineResponses = append(engineResponses, ers...)
 					validateEngineResponses = append(validateEngineResponses, validateErs)
@@ -379,7 +379,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 				if err != nil {
 					return engineResponses, response.EngineResponse{}, sanitizedError.NewWithError("failed to print mutated result", err)
 				}
-				fmt.Printf("\n\nMutation:\nMutation has been applied succesfully. Check the files.")
+				fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
 			}
 
 		}
@@ -446,8 +446,8 @@ func mutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 	for _, policy := range policies {
 		p, err := common.MutatePolicy(policy, logger)
 		if err != nil {
-			if !sanitizedError.IsErrorSanitized(err) {
-				return nil, sanitizedError.NewWithError("failed to mutate policy.", err)
+			if !sanitizederror.IsErrorSanitized(err) {
+				return nil, sanitizederror.NewWithError("failed to mutate policy.", err)
 			}
 			return nil, err
 		}
@@ -490,7 +490,7 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 	if err != nil {
 		if os.IsNotExist(err) {
 			if !mutateLogPathIsDir {
-				// check the folder existance, then create the file
+				// check the folder existence, then create the file
 				var folderPath string
 				s := strings.Split(mutateLogPath, "/")
 
@@ -500,30 +500,30 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 					if os.IsNotExist(err) {
 						errDir := os.MkdirAll(folderPath, 0755)
 						if errDir != nil {
-							return sanitizedError.NewWithError(fmt.Sprintf("failed to create directory"), err)
+							return sanitizederror.NewWithError(fmt.Sprintf("failed to create directory"), err)
 						}
 					}
 				}
 
 				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0644)
 				if err != nil {
-					return sanitizedError.NewWithError(fmt.Sprintf("failed to create file"), err)
+					return sanitizederror.NewWithError(fmt.Sprintf("failed to create file"), err)
 				}
 
 				err = file.Close()
 				if err != nil {
-					return sanitizedError.NewWithError(fmt.Sprintf("failed to close file"), err)
+					return sanitizederror.NewWithError(fmt.Sprintf("failed to close file"), err)
 				}
 
 			} else {
 				errDir := os.MkdirAll(mutateLogPath, 0755)
 				if errDir != nil {
-					return sanitizedError.NewWithError(fmt.Sprintf("failed to create directory"), err)
+					return sanitizederror.NewWithError(fmt.Sprintf("failed to create directory"), err)
 				}
 			}
 
 		} else {
-			return sanitizedError.NewWithError(fmt.Sprintf("failed to describe file"), err)
+			return sanitizederror.NewWithError(fmt.Sprintf("failed to describe file"), err)
 		}
 	}
 

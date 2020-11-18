@@ -7,16 +7,14 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/kyverno/kyverno/pkg/kyverno/common"
-
-	"github.com/minio/minio/pkg/wildcard"
-
-	"github.com/kyverno/kyverno/pkg/openapi"
-
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/kyverno/common"
+	"github.com/kyverno/kyverno/pkg/openapi"
+	"github.com/minio/minio/pkg/wildcard"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Validate does some initial check to verify some conditions
@@ -66,8 +64,8 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
 
-		// validate Cluster Resources in namespaced cluster policy
-		// For namespaced cluster policy, ClusterResource type field and values are not allowed in match and exclude
+		// validate Cluster Resources in namespaced policy
+		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
 		if !mock && p.ObjectMeta.Namespace != "" {
 			var Empty struct{}
 			clusterResourcesMap := make(map[string]*struct{})
@@ -147,7 +145,7 @@ func checkInvalidFields(policyRaw []byte) error {
 	}
 	mapData := data.(map[string]interface{})
 	// validate any new fields in the admission request against the supported fields and block the request with any new fields
-	for requestField, _ := range mapData {
+	for requestField := range mapData {
 		ok := false
 		for _, allowedField := range allowedKeys {
 			if requestField == allowedField {
@@ -348,8 +346,13 @@ func isLabelAndAnnotationsString(rule kyverno.Rule) bool {
 	patternMap, ok := rule.Validation.Pattern.(map[string]interface{})
 	if ok {
 		return checkMetadata(patternMap)
-	} else if len(rule.Validation.AnyPattern) > 0 {
-		anyPatterns := rule.Validation.AnyPattern
+	} else if rule.Validation.AnyPattern != nil {
+		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
+		if err != nil {
+			log.Log.Error(err, "failed to deserialze anyPattern, expect type array")
+			return false
+		}
+
 		for _, pattern := range anyPatterns {
 			patternMap, ok := pattern.(map[string]interface{})
 			if ok {
@@ -384,7 +387,13 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 		}
 	}
 
-	for _, pattern := range rule.Validation.AnyPattern {
+	anyPatterns, err := rule.Validation.DeserializeAnyPattern()
+	if err != nil {
+		log.Log.Error(err, "failed to deserialze anyPattern, expect type array")
+		return false
+	}
+
+	for _, pattern := range anyPatterns {
 		patternMap, _ := pattern.(map[string]interface{})
 		for k := range patternMap {
 			if k != "metadata" {

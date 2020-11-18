@@ -57,14 +57,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=kyverno.io, Version=v1
 	case v1.SchemeGroupVersion.WithResource("clusterpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().ClusterPolicies().Informer()}, nil
-	case v1.SchemeGroupVersion.WithResource("clusterpolicyviolations"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().ClusterPolicyViolations().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("generaterequests"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().GenerateRequests().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("policies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().Policies().Informer()}, nil
-	case v1.SchemeGroupVersion.WithResource("policyviolations"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().PolicyViolations().Informer()}, nil
 
 		// Group=kyverno.io, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("clusterreportchangerequests"):
@@ -72,11 +68,11 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	case v1alpha1.SchemeGroupVersion.WithResource("reportchangerequests"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha1().ReportChangeRequests().Informer()}, nil
 
-		// Group=policy.k8s.io, Version=v1alpha1
+		// Group=wgpolicyk8s.io, Version=v1alpha1
 	case policyreportv1alpha1.SchemeGroupVersion.WithResource("clusterpolicyreports"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Policy().V1alpha1().ClusterPolicyReports().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Wgpolicyk8s().V1alpha1().ClusterPolicyReports().Informer()}, nil
 	case policyreportv1alpha1.SchemeGroupVersion.WithResource("policyreports"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Policy().V1alpha1().PolicyReports().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Wgpolicyk8s().V1alpha1().PolicyReports().Informer()}, nil
 
 	}
 

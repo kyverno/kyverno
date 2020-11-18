@@ -1,8 +1,8 @@
 # Restrict use of `NodePort` services
 
-A Kubernetes service of type `NodePort` uses a host port (on every node in the cluster) to receive traffic from any source. 
+A Kubernetes service of type `NodePort` uses a host port (on every node in the cluster) to receive traffic from any source.
 
-Kubernetes Network Policies cannot be used to control traffic to host ports. 
+Kubernetes Network Policies cannot be used to control traffic to host ports.
 
 Although NodePort services can be useful, their use should be limited to services with additional upstream security checks.
 
@@ -26,8 +26,7 @@ spec:
         - Service
     validate:
       message: "Services of type NodePort are not allowed"
-      pattern: 
+      pattern:
         spec:
           type: "!NodePort"
-
 ````

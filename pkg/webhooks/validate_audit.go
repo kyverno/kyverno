@@ -29,7 +29,7 @@ const (
 	workQueueRetryLimit = 3
 )
 
-// Handler applies validate audit policies to the admission request
+// AuditHandler applies validate audit policies to the admission request
 // the handler adds the request to the work queue and returns immediately
 // the request is processed in background, with the exact same logic
 // when process the admission request in the webhook

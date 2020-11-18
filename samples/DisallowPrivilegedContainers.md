@@ -1,10 +1,10 @@
 # Diallow privileged containers
 
-Privileged containers are defined as any container where the container uid 0 is mapped to the host’s uid 0. A process within a privileged container can get unrestricted host access. With `securityContext.allowPrivilegeEscalation` enabled, a process can gain privileges from its parent.
+Privileged containers are defined as any container where the container uid 0 is mapped to the host's uid 0. A process within a privileged container can get unrestricted host access. With `securityContext.allowPrivilegeEscalation` enabled, a process can gain privileges from its parent.
 
 To disallow privileged containers and privilege escalation, run pod containers with `securityContext.privileged` set to `false` and `securityContext.allowPrivilegeEscalation` set to `false`.
 
-## Policy YAML 
+## Policy YAML
 
 [disallow_privileged.yaml](best_practices/disallow_privileged.yaml)
 

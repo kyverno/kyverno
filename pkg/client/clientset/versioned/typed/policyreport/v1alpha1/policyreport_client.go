@@ -24,27 +24,27 @@ import (
 	rest "k8s.io/client-go/rest"
 )
 
-type PolicyV1alpha1Interface interface {
+type Wgpolicyk8sV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	ClusterPolicyReportsGetter
 	PolicyReportsGetter
 }
 
-// PolicyV1alpha1Client is used to interact with features provided by the policy.k8s.io group.
-type PolicyV1alpha1Client struct {
+// Wgpolicyk8sV1alpha1Client is used to interact with features provided by the wgpolicyk8s.io group.
+type Wgpolicyk8sV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *PolicyV1alpha1Client) ClusterPolicyReports() ClusterPolicyReportInterface {
+func (c *Wgpolicyk8sV1alpha1Client) ClusterPolicyReports() ClusterPolicyReportInterface {
 	return newClusterPolicyReports(c)
 }
 
-func (c *PolicyV1alpha1Client) PolicyReports(namespace string) PolicyReportInterface {
+func (c *Wgpolicyk8sV1alpha1Client) PolicyReports(namespace string) PolicyReportInterface {
 	return newPolicyReports(c, namespace)
 }
 
-// NewForConfig creates a new PolicyV1alpha1Client for the given config.
-func NewForConfig(c *rest.Config) (*PolicyV1alpha1Client, error) {
+// NewForConfig creates a new Wgpolicyk8sV1alpha1Client for the given config.
+func NewForConfig(c *rest.Config) (*Wgpolicyk8sV1alpha1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -53,12 +53,12 @@ func NewForConfig(c *rest.Config) (*PolicyV1alpha1Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &PolicyV1alpha1Client{client}, nil
+	return &Wgpolicyk8sV1alpha1Client{client}, nil
 }
 
-// NewForConfigOrDie creates a new PolicyV1alpha1Client for the given config and
+// NewForConfigOrDie creates a new Wgpolicyk8sV1alpha1Client for the given config and
 // panics if there is an error in the config.
-func NewForConfigOrDie(c *rest.Config) *PolicyV1alpha1Client {
+func NewForConfigOrDie(c *rest.Config) *Wgpolicyk8sV1alpha1Client {
 	client, err := NewForConfig(c)
 	if err != nil {
 		panic(err)
@@ -66,9 +66,9 @@ func NewForConfigOrDie(c *rest.Config) *PolicyV1alpha1Client {
 	return client
 }
 
-// New creates a new PolicyV1alpha1Client for the given RESTClient.
-func New(c rest.Interface) *PolicyV1alpha1Client {
-	return &PolicyV1alpha1Client{c}
+// New creates a new Wgpolicyk8sV1alpha1Client for the given RESTClient.
+func New(c rest.Interface) *Wgpolicyk8sV1alpha1Client {
+	return &Wgpolicyk8sV1alpha1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {
@@ -86,7 +86,7 @@ func setConfigDefaults(config *rest.Config) error {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *PolicyV1alpha1Client) RESTClient() rest.Interface {
+func (c *Wgpolicyk8sV1alpha1Client) RESTClient() rest.Interface {
 	if c == nil {
 		return nil
 	}

@@ -17,6 +17,10 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 )
 
+// GenerateJSONPatchesForDefaults generates default JSON patches for
+// - ValidationFailureAction
+// - Background
+// - auto-gen annotation and rules
 func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, []string) {
 	var patches [][]byte
 	var updateMsgs []string
@@ -465,9 +469,14 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		return *controllerRule
 	}
 
-	if len(rule.Validation.AnyPattern) != 0 {
+	if rule.Validation.AnyPattern != nil {
 		var patterns []interface{}
-		for _, pattern := range rule.Validation.AnyPattern {
+		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
+		if err != nil {
+			logger.Error(err, "failed to deserialze anyPattern, expect type array")
+		}
+
+		for _, pattern := range anyPatterns {
 			newPattern := map[string]interface{}{
 				"spec": map[string]interface{}{
 					"template": pattern,

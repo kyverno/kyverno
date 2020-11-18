@@ -6,7 +6,7 @@ The Kubernetes cluster autoscaler does not evict pods that use `hostPath` or `em
 cluster-autoscaler.kubernetes.io/safe-to-evict: true
 ````
 
-This policy matches and mutates pods with `emptyDir` and `hostPath` volumes, to add the `safe-to-evict` annotation if it is not specified.
+This policy matches and mutates pods with `emptyDir` and `hostPath` volumes to add the `safe-to-evict` annotation if it is not specified.
 
 ## Policy YAML
 
@@ -15,35 +15,35 @@ This policy matches and mutates pods with `emptyDir` and `hostPath` volumes, to 
 ````yaml
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
-metadata: 
+metadata:
   name: add-safe-to-evict
-spec: 
-  rules: 
+spec:
+  rules:
   - name: "annotate-empty-dir"
-    match: 
-      resources: 
-        kinds: 
+    match:
+      resources:
+        kinds:
         - Pod
-    mutate: 
+    mutate:
       patchStrategicMerge:
         metadata:
           annotations:
             +(cluster-autoscaler.kubernetes.io/safe-to-evict): "true"
-        spec:          
-          volumes: 
+        spec:
+          volumes:
           - (emptyDir): {}
   - name: annotate-host-path
-    match: 
-      resources: 
-        kinds: 
+    match:
+      resources:
+        kinds:
         - Pod
-    mutate: 
+    mutate:
       patchStrategicMerge:
         metadata:
           annotations:
             +(cluster-autoscaler.kubernetes.io/safe-to-evict): "true"
-        spec:          
-          volumes: 
+        spec:
+          volumes:
           - (hostPath):
               path: "*"
 

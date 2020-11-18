@@ -1,10 +1,10 @@
 # Disallow `hostPID` and `hostIPC`
 
-Sharing the host's PID namespace allows an application pod to gain visibility of processes on the host, potentially exposing sensitive information. Sharing the host's IPC namespace also allows the container process to communicate with processes on the host. 
+Sharing the host's PID namespace allows an application pod to gain visibility of processes on the host, potentially exposing sensitive information. Sharing the host's IPC namespace also allows the container process to communicate with processes on the host.
 
-To avoid pod container from having visibility to host process space, validate that `hostPID` and `hostIPC` are set to `false`.
+To avoid the pod container from having visibility to the host process space, validate that `hostPID` and `hostIPC` are set to `false`.
 
-## Policy YAML 
+## Policy YAML
 
 [disallow_host_pid_ipc.yaml](best_practices/disallow_host_pid_ipc.yaml)
 

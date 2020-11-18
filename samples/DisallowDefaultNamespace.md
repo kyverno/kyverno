@@ -2,9 +2,9 @@
 
 Kubernetes namespaces are an optional feature that provide a way to segment and isolate cluster resources across multiple applications and users. As a best practice, workloads should be isolated with namespaces. Namespaces should be required and the default (empty) namespace should not be used.
 
-## Policy YAML 
+## Policy YAML
 
-[disallow_default_namespace.yaml](best_practices/disallow_default_namespace.yaml) 
+[disallow_default_namespace.yaml](best_practices/disallow_default_namespace.yaml)
 
 ````yaml
 apiVersion: kyverno.io/v1
@@ -12,12 +12,12 @@ kind: ClusterPolicy
 metadata:
   name: disallow-default-namespace
   annotations:
-    pod-policies.kyverno.io/autogen-controllers: none	
+    pod-policies.kyverno.io/autogen-controllers: none
     policies.kyverno.io/category: Workload Isolation
-    policies.kyverno.io/description: Kubernetes namespaces are an optional feature 
-      that provide a way to segment and isolate cluster resources across multiple 
-      applications and users. As a best practice, workloads should be isolated with 
-      namespaces. Namespaces should be required and the default (empty) namespace 
+    policies.kyverno.io/description: Kubernetes namespaces are an optional feature
+      that provide a way to segment and isolate cluster resources across multiple
+      applications and users. As a best practice, workloads should be isolated with
+      namespaces. Namespaces should be required and the default (empty) namespace
       should not be used.
 spec:
   validationFailureAction: audit
