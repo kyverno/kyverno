@@ -43,6 +43,7 @@ These policies provide additional best practices and are worthy of close conside
 1. [Create Pod Anti-Affinity](CreatePodAntiAffinity.md)
 1. [Ensure Pod `livenessProbe` and `readinessProbe` are different](EnsurePodProbesDifferent.md)
 1. [Disallow mounting Secrets as environment variables](DisallowSecretsFromEnvVars.md)
+1. [Add default labels](AddDefaultLabels.md)
 
 ## Applying the sample policies
 
