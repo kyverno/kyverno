@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-default-labels
+spec:
+  background: false
+  rules:
+  - name: add-default-labels
+    match:
+      resources:
+        kinds:
+        - Pod
+        - Service
+        - Namespace
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            custom-foo-label: my-bar-default
