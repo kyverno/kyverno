@@ -5,24 +5,21 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
-
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/utils"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/minio/minio/pkg/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"k8s.io/apimachinery/pkg/runtime"
+	"strings"
 )
 
 //EngineStats stores in the statistics for a single application of resource

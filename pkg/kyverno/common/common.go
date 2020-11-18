@@ -25,23 +25,19 @@ import (
 func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 	for _, path := range paths {
 		path = filepath.Clean(path)
-
 		fileDesc, err := os.Stat(path)
 		if err != nil {
 			return nil, err
 		}
-
 		if fileDesc.IsDir() {
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
 				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
 			}
-
 			listOfFiles := make([]string, 0)
 			for _, file := range files {
 				listOfFiles = append(listOfFiles, filepath.Join(path, file.Name()))
 			}
-
 			policiesFromDir, err := GetPolicies(listOfFiles)
 			if err != nil {
 				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to extract policies from %v", listOfFiles), err)
@@ -60,7 +56,6 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 					errString += err.Error() + "\n"
 				}
 			}
-
 			if errString != "" {
 				fmt.Printf("failed to extract policies: %s\n", errString)
 				os.Exit(2)
@@ -73,8 +68,8 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 	return policies, nil
 }
 
-//GetPoliciesValidation - validating policies
-func GetPoliciesValidation(policyPaths []string) ([]*v1.ClusterPolicy, error) {
+//ValidateAndGetPolicies - validating policies
+func ValidateAndGetPolicies(policyPaths []string) ([]*v1.ClusterPolicy, error) {
 	policies, err := GetPolicies(policyPaths)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
@@ -116,7 +111,6 @@ func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) bool {
 // MutatePolicy - applies mutation to a policy
 func MutatePolicy(policy *v1.ClusterPolicy, logger logr.Logger) (*v1.ClusterPolicy, error) {
 	patches, _ := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
-
 	if len(patches) == 0 {
 		return policy, nil
 	}
@@ -132,6 +126,7 @@ func MutatePolicy(policy *v1.ClusterPolicy, logger logr.Logger) (*v1.ClusterPoli
 	if err != nil {
 		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal patches for %s policy", policy.Name), err)
 	}
+
 	patch, err := jsonpatch.DecodePatch(patches)
 	if err != nil {
 		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to decode patch for %s policy", policy.Name), err)

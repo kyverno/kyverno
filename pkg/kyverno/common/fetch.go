@@ -3,6 +3,7 @@ package common
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -19,46 +20,70 @@ import (
 // the resources are fetched from
 // - local paths to resources, if given
 // - the k8s cluster, if given
-func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient *client.Client) ([]*unstructured.Unstructured, error) {
-	var resources []*unstructured.Unstructured
+func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient *client.Client, cluster bool, namespace string) ([]*unstructured.Unstructured, error) {
+	resources := make([]*unstructured.Unstructured, 0)
 	var err error
+	var resourceTypesMap = make(map[string]bool)
+	var resourceTypes []string
 
-	if dClient != nil {
-		var resourceTypesMap = make(map[string]bool)
-		var resourceTypes []string
-		for _, policy := range policies {
-			for _, rule := range policy.Spec.Rules {
-				for _, kind := range rule.MatchResources.Kinds {
-					resourceTypesMap[kind] = true
+	for _, policy := range policies {
+		for _, rule := range policy.Spec.Rules {
+			for _, kind := range rule.MatchResources.Kinds {
+				resourceTypesMap[kind] = true
+			}
+		}
+	}
+
+	for kind := range resourceTypesMap {
+		resourceTypes = append(resourceTypes, kind)
+	}
+
+	var resourceMap map[string]map[string]*unstructured.Unstructured
+	if cluster && dClient != nil {
+		resourceMap, err = getResourcesOfTypeFromCluster(resourceTypes, dClient, namespace)
+		if err != nil {
+			return nil, err
+		}
+		if len(resourcePaths) == 0 {
+			for _, rm := range resourceMap {
+				for _, rr := range rm {
+					resources = append(resources, rr)
+				}
+			}
+		} else {
+			for _, resourcePath := range resourcePaths {
+				lenOfResource := len(resources)
+				for _, rm := range resourceMap {
+					for rn, rr := range rm {
+						if rn == resourcePath {
+							resources = append(resources, rr)
+							continue
+						}
+					}
+				}
+				if lenOfResource >= len(resources) {
+					fmt.Printf("\n----------------------------------------------------------------------\n%s not found in cluster\n----------------------------------------------------------------------\n", resourcePath)
 				}
 			}
 		}
+	} else if len(resourcePaths) > 0 {
+		for _, resourcePath := range resourcePaths {
+			resourceBytes, err := getFileBytes(resourcePath)
+			if err != nil {
+				fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
+				continue
+			}
 
-		for kind := range resourceTypesMap {
-			resourceTypes = append(resourceTypes, kind)
-		}
+			getResources, err := GetResource(resourceBytes)
+			if err != nil {
+				return nil, err
+			}
 
-		resources, err = getResourcesOfTypeFromCluster(resourceTypes, dClient)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	for _, resourcePath := range resourcePaths {
-		resourceBytes, err := getFileBytes(resourcePath)
-		if err != nil {
-			return nil, err
-		}
-		getResources, err := GetResource(resourceBytes)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, resource := range getResources {
-			resources = append(resources, resource)
+			for _, resource := range getResources {
+				resources = append(resources, resource)
+			}
 		}
 	}
-
 	return resources, nil
 }
 
@@ -77,7 +102,6 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 		if err != nil {
 			getErrString = getErrString + err.Error() + "\n"
 		}
-
 		resources = append(resources, resource)
 	}
 
@@ -88,17 +112,21 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	return resources, nil
 }
 
-func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Client) ([]*unstructured.Unstructured, error) {
-	var resources []*unstructured.Unstructured
+func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Client, namespace string) (map[string]map[string]*unstructured.Unstructured, error) {
+	r := make(map[string]map[string]*unstructured.Unstructured)
 
+	var resources []*unstructured.Unstructured
 	for _, kind := range resourceTypes {
-		resourceList, err := dClient.ListResource("", kind, "", nil)
+		r[kind] = make(map[string]*unstructured.Unstructured)
+		resourceList, err := dClient.ListResource("", kind, namespace, nil)
 		if err != nil {
-			return nil, err
+			// return nil, err
+			continue
 		}
 
 		version := resourceList.GetAPIVersion()
 		for _, resource := range resourceList.Items {
+			r[kind][resource.GetName()] = resource.DeepCopy()
 			resource.SetGroupVersionKind(schema.GroupVersionKind{
 				Group:   "",
 				Version: version,
@@ -107,8 +135,7 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Clien
 			resources = append(resources, resource.DeepCopy())
 		}
 	}
-
-	return resources, nil
+	return r, nil
 }
 
 func getFileBytes(path string) ([]byte, error) {

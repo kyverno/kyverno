@@ -17,7 +17,7 @@ import (
 
 const clusterpolicyreport = "clusterpolicyreport"
 
-// resps is the engine reponses generated for a single policy
+// resps is the engine responses generated for a single policy
 func buildPolicyReports(resps []response.EngineResponse) (res []*unstructured.Unstructured) {
 	var raw []byte
 	var err error
@@ -107,7 +107,7 @@ func buildPolicyResults(resps []response.EngineResponse) map[string][]*report.Po
 		}
 	}
 
-	return mergeSucceededResults(results)
+	return results
 }
 
 func mergeSucceededResults(results map[string][]*report.PolicyReportResult) map[string][]*report.PolicyReportResult {
@@ -155,7 +155,7 @@ func calculateSummary(results []*report.PolicyReportResult) (summary report.Poli
 	for _, res := range results {
 		switch string(res.Status) {
 		case report.StatusPass:
-			summary.Pass += len(res.Resources)
+			summary.Pass++
 		case report.StatusFail:
 			summary.Fail++
 		case "warn":

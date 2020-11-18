@@ -128,6 +128,6 @@ func Test_calculateSummary(t *testing.T) {
 	}
 
 	summary := calculateSummary(results)
-	assert.Assert(t, summary.Pass == 10)
+	assert.Assert(t, summary.Pass == 3)
 	assert.Assert(t, summary.Fail == 3)
 }

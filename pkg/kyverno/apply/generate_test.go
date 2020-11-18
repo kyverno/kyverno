@@ -124,7 +124,7 @@ func Test_mergeClusterReport(t *testing.T) {
 
 	summary, _, err := unstructured.NestedMap(cpolr.UnstructuredContent(), "summary")
 	assert.NilError(t, err)
-	assert.Assert(t, summary[report.StatusPass].(int64) == 6, summary[report.StatusPass])
+	assert.Assert(t, summary[report.StatusPass].(int64) == 2, summary[report.StatusPass])
 	assert.Assert(t, summary[report.StatusFail].(int64) == 2, summary[report.StatusFail])
 }
 
@@ -146,6 +146,6 @@ func Test_updateSummary(t *testing.T) {
 	}
 
 	summary := updateSummary(results)
-	assert.Assert(t, summary[report.StatusPass].(int64) == 5, summary[report.StatusPass])
+	assert.Assert(t, summary[report.StatusPass].(int64) == 1, summary[report.StatusPass])
 	assert.Assert(t, summary[report.StatusFail].(int64) == 3, summary[report.StatusFail])
 }
