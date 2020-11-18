@@ -25,6 +25,7 @@ type GenerateRequest struct {
 	Spec GenerateRequestSpec `json:"spec" yaml:"spec"`
 
 	// Status contains statistics related to generate request.
+	// +optional
 	Status GenerateRequestStatus `json:"status" yaml:"status"`
 }
 
