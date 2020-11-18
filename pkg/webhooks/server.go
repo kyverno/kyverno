@@ -293,7 +293,6 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 	if containRBACinfo(mutatePolicies, validatePolicies, generatePolicies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
 		if err != nil {
-			// TODO(shuting): continue apply policy if error getting roleRef?
 			logger.Error(err, "failed to get RBAC information for request")
 		}
 	}

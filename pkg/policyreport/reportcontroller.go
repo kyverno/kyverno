@@ -116,7 +116,7 @@ func generateCacheKey(changeRequest interface{}) string {
 			return strings.Join([]string{deletedPolicyKey, policy, rule}, "/")
 		}
 
-		ns := label["namespace"]
+		ns := label[resourceLabelNamespace]
 		if ns == "" {
 			ns = "default"
 		}
@@ -398,7 +398,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 			}
 		}
 
-		selector := labels.SelectorFromSet(labels.Set(map[string]string{"namespace": namespace}))
+		selector := labels.SelectorFromSet(labels.Set(map[string]string{resourceLabelNamespace: namespace}))
 		requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KubePolicyNamespace).List(selector)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to list reportChangeRequests within namespace %s: %v", ns, err)

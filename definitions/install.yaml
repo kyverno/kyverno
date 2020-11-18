@@ -1291,7 +1291,7 @@ spec:
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
-      type: string
+      type: date
     name: v1
     schema:
       openAPIV3Schema:

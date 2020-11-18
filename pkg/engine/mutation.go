@@ -2,6 +2,7 @@ package engine
 
 import (
 	"time"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
@@ -109,7 +110,6 @@ func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.Clu
 	resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
 	resp.PolicyResponse.Resource.Kind = resource.GetKind()
 	resp.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
-	// TODO(shuting): set response with mutationFailureAction
 }
 
 func endMutateResultResponse(logger logr.Logger, resp *response.EngineResponse, startTime time.Time) {

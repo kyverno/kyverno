@@ -21,6 +21,10 @@ import (
 
 const (
 	clusterreportchangerequest string = "clusterreportchangerequest"
+	resourceLabelName          string = "kyverno.io/resource.name"
+	resourceLabelKind          string = "kyverno.io/resource.kind"
+	resourceLabelNamespace     string = "kyverno.io/resource.namespace"
+	policyLabel                string = "kyverno.io/policy"
 	deletedLabelResource       string = "kyverno.io/delete.resource"
 	deletedLabelResourceKind   string = "kyverno.io/delete.resource.kind"
 	deletedLabelPolicy         string = "kyverno.io/delete.policy"
@@ -111,7 +115,7 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 		}
 
 		req = &unstructured.Unstructured{Object: obj}
-		set(req, fmt.Sprintf("reportchangerequest-%s-%s-%s", info.PolicyName, info.Resource.GetNamespace(), info.Resource.GetName()), info)
+		set(req, info)
 	} else {
 		rr := &request.ClusterReportChangeRequest{
 			Summary: calculateSummary(results),
@@ -123,7 +127,7 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 			return nil, err
 		}
 		req = &unstructured.Unstructured{Object: obj}
-		set(req, fmt.Sprintf("%s-%s", clusterreportchangerequest, info.Resource.GetName()), info)
+		set(req, info)
 	}
 
 	// deletion of a result entry
@@ -135,7 +139,7 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 	//   - set label delete.policy=policyName
 	if len(info.Rules) == 0 && info.PolicyName == "" {
 		req.SetLabels(map[string]string{
-			"namespace":              info.Resource.GetNamespace(),
+			resourceLabelNamespace:   info.Resource.GetNamespace(),
 			deletedLabelResource:     info.Resource.GetName(),
 			deletedLabelResourceKind: info.Resource.GetKind()})
 	} else if info.PolicyName != "" && reflect.DeepEqual(info.Resource, unstructured.Unstructured{}) {
@@ -160,21 +164,23 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 	return req, nil
 }
 
-func set(obj *unstructured.Unstructured, name string, info Info) {
+func set(obj *unstructured.Unstructured, info Info) {
 	resource := info.Resource
-	obj.SetName(name)
 	obj.SetNamespace(config.KubePolicyNamespace)
 	obj.SetAPIVersion(request.SchemeGroupVersion.Group + "/" + request.SchemeGroupVersion.Version)
 	if resource.GetNamespace() == "" {
+		obj.SetGenerateName(clusterreportchangerequest + "-")
 		obj.SetKind("ClusterReportChangeRequest")
 	} else {
+		obj.SetGenerateName("reportchangerequest-")
 		obj.SetKind("ReportChangeRequest")
 	}
 
 	obj.SetLabels(map[string]string{
-		"namespace": resource.GetNamespace(),
-		"policy":    info.PolicyName,
-		"resource":  resource.GetKind() + "-" + resource.GetNamespace() + "-" + resource.GetName(),
+		resourceLabelNamespace: resource.GetNamespace(),
+		resourceLabelName:      resource.GetName(),
+		resourceLabelKind:      resource.GetKind(),
+		policyLabel:            info.PolicyName,
 	})
 
 	if info.FromSync {
@@ -243,7 +249,7 @@ func (builder *requestBuilder) fetchCategory(policy, ns string) string {
 		}
 	}
 
-	pol, err := builder.polLister.Policies("").Get(policy)
+	pol, err := builder.polLister.Policies(ns).Get(policy)
 	if err == nil {
 		if ann := pol.GetAnnotations(); ann != nil {
 			return ann[categoryLabel]

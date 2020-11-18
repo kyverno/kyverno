@@ -352,7 +352,7 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log l
 // when serilizing data, we would expect to drop the omitempty key
 // otherwise (without the pointer), it will be set to empty value
 // - an empty struct in this case, some may fail the schema validation
-// TODO(shuting) may related to:
+// may related to:
 // https://github.com/kyverno/kyverno/pull/549#discussion_r360088556
 // https://github.com/kyverno/kyverno/issues/568
 

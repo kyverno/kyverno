@@ -15,7 +15,7 @@ import (
 // +kubebuilder:printcolumn:name="ResourceName",type="string",JSONPath=".spec.resource.name"
 // +kubebuilder:printcolumn:name="ResourceNamespace",type="string",JSONPath=".spec.resource.namespace"
 // +kubebuilder:printcolumn:name="status",type="string",JSONPath=".status.state"
-// +kubebuilder:printcolumn:name="Age",type="string",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:shortName=gr
 type GenerateRequest struct {
 	metav1.TypeMeta   `json:",inline" yaml:",inline"`
