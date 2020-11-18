@@ -332,7 +332,7 @@ func updateReportChangeRequest(dClient *client.Client, old interface{}, new *uns
 		log.V(4).Info("unchanged report request", "name", new.GetName())
 		return nil
 	}
-	// TODO(shuting): set annotation / label
+
 	if _, err = dClient.UpdateResource(new.GetAPIVersion(), new.GetKind(), config.KubePolicyNamespace, new, false); err != nil {
 		return fmt.Errorf("failed to update report request: %v", err)
 	}

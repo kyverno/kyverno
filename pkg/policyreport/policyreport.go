@@ -22,7 +22,7 @@ func getDeletedResources(aggregatedRequests interface{}) (resources []deletedRes
 			dr := deletedResource{
 				kind: labels[deletedLabelResourceKind],
 				name: labels[deletedLabelResource],
-				ns:   labels["namespace"],
+				ns:   labels[resourceLabelNamespace],
 			}
 
 			resources = append(resources, dr)
@@ -33,7 +33,7 @@ func getDeletedResources(aggregatedRequests interface{}) (resources []deletedRes
 			dr := deletedResource{
 				kind: labels[deletedLabelResourceKind],
 				name: labels[deletedLabelResource],
-				ns:   labels["namespace"],
+				ns:   labels[resourceLabelNamespace],
 			}
 			resources = append(resources, dr)
 		}
@@ -124,7 +124,7 @@ func generateHashKey(result map[string]interface{}, dr deletedResource) (string,
 		"%s-%s-%s-%s-%s",
 		result["policy"],
 		result["rule"],
-		resource["name"],
+		resource["kind"],
 		resource["namespace"],
 		resource["name"]), true
 }
