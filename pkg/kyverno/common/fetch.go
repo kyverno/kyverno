@@ -61,7 +61,7 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 						}
 					}
 				}
-				if lenOfResource >= len(resources){
+				if lenOfResource >= len(resources) {
 					fmt.Printf("\n----------------------------------------------------------------------\n%s not found in cluster\n----------------------------------------------------------------------\n", resourcePath)
 				}
 			}
@@ -116,13 +116,14 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Clien
 	r := make(map[string]map[string]*unstructured.Unstructured)
 
 	var resources []*unstructured.Unstructured
-
 	for _, kind := range resourceTypes {
 		r[kind] = make(map[string]*unstructured.Unstructured)
 		resourceList, err := dClient.ListResource("", kind, namespace, nil)
 		if err != nil {
-			return nil, err
+			// return nil, err
+			continue
 		}
+
 		version := resourceList.GetAPIVersion()
 		for _, resource := range resourceList.Items {
 			r[kind][resource.GetName()] = resource.DeepCopy()
