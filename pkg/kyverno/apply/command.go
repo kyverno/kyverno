@@ -141,8 +141,8 @@ func Command() *cobra.Command {
 					return sanitizedError.NewWithError("failed to load resources", err)
 				}
 			}
-			if len(resources) == 0 && !cluster {
-				return sanitizedError.NewWithError("valid resource(s) not provided", err)
+			if len(resources) == 0 {
+				return sanitizedError.NewWithError("valid resource(s) not provided/no matching resource found in cluster", err)
 			}
 
 			msgPolicies := "1 policy"
