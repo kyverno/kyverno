@@ -49,7 +49,7 @@ func ValidateValueWithPattern(log logr.Logger, value, pattern interface{}) bool 
 		log.Info("arrays as patterns is not supported")
 		return false
 	default:
-		log.Info("Unkown type", "type", fmt.Sprintf("%T", typedPattern), "value", typedPattern)
+		log.Info("Unknown type", "type", fmt.Sprintf("%T", typedPattern), "value", typedPattern)
 		return false
 	}
 }

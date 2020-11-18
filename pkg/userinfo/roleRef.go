@@ -17,8 +17,10 @@ import (
 const (
 	clusterrolekind = "ClusterRole"
 	rolekind        = "Role"
-	SaPrefix        = "system:serviceaccount:"
-	KyvernoSuffix   = "kyverno:"
+	// SaPrefix represents service account prefix in admission requests
+	SaPrefix = "system:serviceaccount:"
+	// KyvernoSuffix ...
+	KyvernoSuffix = "kyverno:"
 )
 
 type allRolesStruct struct {
@@ -105,10 +107,10 @@ func matchSubjectsMap(subject rbacv1.Subject, userInfo authenticationv1.UserInfo
 	// ServiceAccount
 	if strings.Contains(userInfo.Username, SaPrefix) {
 		return matchServiceAccount(subject, userInfo)
-	} else {
-		// User or Group
-		return matchUserOrGroup(subject, userInfo)
 	}
+
+	// User or Group
+	return matchUserOrGroup(subject, userInfo)
 }
 
 // matchServiceAccount checks if userInfo sa matche the subject sa

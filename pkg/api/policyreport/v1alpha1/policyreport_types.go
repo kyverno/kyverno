@@ -21,6 +21,7 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// Status specifies state of a policy result
 const (
 	StatusPass  = "pass"
 	StatusFail  = "fail"
@@ -148,9 +149,9 @@ type PolicyReport struct {
 	Results []*PolicyReportResult `json:"results,omitempty"`
 }
 
+// PolicyReportList contains a list of PolicyReport
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// PolicyReportList contains a list of PolicyReport
 type PolicyReportList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

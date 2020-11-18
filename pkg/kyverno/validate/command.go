@@ -8,21 +8,18 @@ import (
 	"os"
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/openapi"
-	"github.com/kyverno/kyverno/pkg/utils"
-
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
-	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
-
+	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
+	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
-
 	_ "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
-
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 	yaml "sigs.k8s.io/yaml"
 )
 
+// Command returns validate command
 func Command() *cobra.Command {
 	var outputType string
 	var crdPaths []string
@@ -35,7 +32,7 @@ func Command() *cobra.Command {
 
 			defer func() {
 				if err != nil {
-					if !sanitizedError.IsErrorSanitized(err) {
+					if !sanitizederror.IsErrorSanitized(err) {
 						log.Error(err, "failed to sanitize")
 						err = fmt.Errorf("internal error")
 					}
@@ -44,12 +41,12 @@ func Command() *cobra.Command {
 
 			if outputType != "" {
 				if outputType != "yaml" && outputType != "json" {
-					return sanitizedError.NewWithError(fmt.Sprintf("%s format is not supported", outputType), errors.New("yaml and json are supported"))
+					return sanitizederror.NewWithError(fmt.Sprintf("%s format is not supported", outputType), errors.New("yaml and json are supported"))
 				}
 			}
 
 			if len(policyPaths) == 0 {
-				return sanitizedError.NewWithError(fmt.Sprintf("policy file(s) required"), err)
+				return sanitizederror.NewWithError(fmt.Sprintf("policy file(s) required"), err)
 			}
 
 			var policies []*v1.ClusterPolicy
@@ -72,14 +69,14 @@ func Command() *cobra.Command {
 						}
 					}
 					if errString != "" {
-						return sanitizedError.NewWithError("failed to extract the resources", errors.New(errString))
+						return sanitizederror.NewWithError("failed to extract the resources", errors.New(errString))
 					}
 				}
 			} else {
 				policies, err = common.GetPoliciesValidation(policyPaths)
 				if err != nil {
-					if !sanitizedError.IsErrorSanitized(err) {
-						return sanitizedError.NewWithError("failed to mutate policies.", err)
+					if !sanitizederror.IsErrorSanitized(err) {
+						return sanitizederror.NewWithError("failed to mutate policies.", err)
 					}
 					return err
 				}
@@ -87,7 +84,7 @@ func Command() *cobra.Command {
 
 			openAPIController, err := openapi.NewOpenAPIController()
 			if err != nil {
-				return sanitizedError.NewWithError("failed to initialize openAPIController", err)
+				return sanitizederror.NewWithError("failed to initialize openAPIController", err)
 			}
 
 			// if CRD's are passed, add these to OpenAPIController
@@ -115,8 +112,8 @@ func Command() *cobra.Command {
 						logger := log.WithName("validate")
 						p, err := common.MutatePolicy(policy, logger)
 						if err != nil {
-							if !sanitizedError.IsErrorSanitized(err) {
-								return sanitizedError.NewWithError("failed to mutate policy.", err)
+							if !sanitizederror.IsErrorSanitized(err) {
+								return sanitizederror.NewWithError("failed to mutate policy.", err)
 							}
 							return err
 						}

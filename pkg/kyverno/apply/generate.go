@@ -5,7 +5,7 @@ import (
 
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -96,12 +96,12 @@ func mergeClusterReport(reports []*unstructured.Unstructured) (*unstructured.Uns
 	}
 
 	if err := unstructured.SetNestedSlice(res.Object, resultsEntry, "results"); err != nil {
-		return nil, sanitizedError.NewWithError("failed to set results entry", err)
+		return nil, sanitizederror.NewWithError("failed to set results entry", err)
 	}
 
 	summary := updateSummary(resultsEntry)
 	if err := unstructured.SetNestedField(res.Object, summary, "summary"); err != nil {
-		return nil, sanitizedError.NewWithError("failed to set summary", err)
+		return nil, sanitizederror.NewWithError("failed to set summary", err)
 	}
 
 	return res, nil

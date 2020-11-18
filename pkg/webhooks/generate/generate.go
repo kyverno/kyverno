@@ -17,11 +17,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-//GenerateRequests provides interface to manage generate requests
+// GenerateRequests provides interface to manage generate requests
 type GenerateRequests interface {
 	Apply(gr kyverno.GenerateRequestSpec, action v1beta1.Operation) error
 }
 
+// GeneratorChannel ...
 type GeneratorChannel struct {
 	spec   kyverno.GenerateRequestSpec
 	action v1beta1.Operation
@@ -36,7 +37,7 @@ type Generator struct {
 	log    logr.Logger
 }
 
-//NewGenerator returns a new instance of Generate-Request resource generator
+// NewGenerator returns a new instance of Generate-Request resource generator
 func NewGenerator(client *kyvernoclient.Clientset, stopCh <-chan struct{}, log logr.Logger) *Generator {
 	gen := &Generator{
 		ch:     make(chan GeneratorChannel, 1000),
@@ -47,7 +48,7 @@ func NewGenerator(client *kyvernoclient.Clientset, stopCh <-chan struct{}, log l
 	return gen
 }
 
-//Create to create generate request resoruce (blocking call if channel is full)
+// Apply creates generate request resoruce (blocking call if channel is full)
 func (g *Generator) Apply(gr kyverno.GenerateRequestSpec, action v1beta1.Operation) error {
 	logger := g.log
 	logger.V(4).Info("creating Generate Request", "request", gr)
@@ -82,7 +83,7 @@ func (g *Generator) Run(workers int) {
 func (g *Generator) processApply() {
 	logger := g.log
 	for r := range g.ch {
-		logger.V(4).Info("recieved generate request", "request", r)
+		logger.V(4).Info("received generate request", "request", r)
 		if err := g.generate(r.spec, r.action); err != nil {
 			logger.Error(err, "failed to generate request CR")
 		}

@@ -79,7 +79,7 @@ func CRDInstalled(discovery client.IDiscovery, log logr.Logger) bool {
 	return true
 }
 
-// extracts the new and old resource as unstructured
+// ExtractResources extracts the new and old resource as unstructured
 func ExtractResources(newRaw []byte, request *v1beta1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
 	var emptyResource unstructured.Unstructured
 	var newResource unstructured.Unstructured
@@ -110,7 +110,7 @@ func ExtractResources(newRaw []byte, request *v1beta1.AdmissionRequest) (unstruc
 	return newResource, oldResource, err
 }
 
-// convertResource converts raw bytes to an unstructured object
+// ConvertResource converts raw bytes to an unstructured object
 func ConvertResource(raw []byte, group, version, kind, namespace string) (unstructured.Unstructured, error) {
 	obj, err := engineutils.ConvertToUnstructured(raw)
 	if err != nil {
@@ -168,6 +168,7 @@ func isVersionHigher(version string, major int, minor int, patch int) (bool, err
 	return true, nil
 }
 
+// SliceContains checks whether values are contained in slice
 func SliceContains(slice []string, values ...string) bool {
 
 	var sliceElementsMap = make(map[string]bool, len(slice))
