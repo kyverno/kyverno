@@ -8,8 +8,8 @@ GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 
-REGISTRY?=index.docker.io
-REPO=$(REGISTRY)/nirmata/kyverno
+REGISTRY?=ghcr.io
+REPO=$(REGISTRY)/kyverno
 IMAGE_TAG?=$(GIT_VERSION)
 GOOS ?= $(shell go env GOOS)
 PACKAGE ?=github.com/kyverno/kyverno
@@ -38,14 +38,14 @@ docker-publish-initContainer: docker-build-initContainer docker-tag-repo-initCon
 docker-build-initContainer:
 	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
 	echo $(PWD)/$(INITC_PATH)/
-	@docker build -f $(PWD)/$(INITC_PATH)/Dockerfile -t $(REGISTRY)/nirmata/$(INITC_IMAGE):$(IMAGE_TAG) $(PWD)/$(INITC_PATH)/
+	@docker build -f $(PWD)/$(INITC_PATH)/Dockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) $(PWD)/$(INITC_PATH)/
 
 docker-tag-repo-initContainer:
-	@docker tag $(REGISTRY)/nirmata/$(INITC_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(INITC_IMAGE):latest
+	@docker tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) $(REPO)/$(INITC_IMAGE):latest
 
 docker-push-initContainer:
-	@docker push $(REGISTRY)/nirmata/$(INITC_IMAGE):$(IMAGE_TAG)
-	@docker push $(REGISTRY)/nirmata/$(INITC_IMAGE):latest
+	@docker push $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG)
+	@docker push $(REPO)/$(INITC_IMAGE):latest
 
 ##################################
 # KYVERNO CONTAINER
@@ -65,15 +65,15 @@ docker-publish-kyverno: docker-build-kyverno  docker-tag-repo-kyverno  docker-pu
 
 docker-build-kyverno:
 	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
-	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(PWD)/$(KYVERNO_PATH)
+	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(PWD)/$(KYVERNO_PATH)
 
 docker-tag-repo-kyverno:
-	@echo "docker tag $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest"
-	@docker tag $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest
+	@echo "docker tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REPO)/$(KYVERNO_IMAGE):latest"
+	@docker tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REPO)/$(KYVERNO_IMAGE):latest
 
 docker-push-kyverno:
-	@docker push $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):$(IMAGE_TAG)
-	@docker push $(REGISTRY)/nirmata/$(KYVERNO_IMAGE):latest
+	@docker push $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG)
+	@docker push $(REPO)/$(KYVERNO_IMAGE):latest
 
 ##################################
 
@@ -98,15 +98,15 @@ docker-publish-cli: docker-build-cli  docker-tag-repo-cli  docker-push-cli
 
 docker-build-cli:
 	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(CLI_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)/main.go
-	@docker build -f $(PWD)/$(CLI_PATH)/Dockerfile -t $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(PWD)/$(CLI_PATH)
+	@docker build -f $(PWD)/$(CLI_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(PWD)/$(CLI_PATH)
 
 docker-tag-repo-cli:
-	@echo "docker tag $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):latest"
-	@docker tag $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):latest
+	@echo "docker tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(REPO)/$(KYVERNO_CLI_IMAGE):latest"
+	@docker tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(REPO)/$(KYVERNO_CLI_IMAGE):latest
 
 docker-push-cli:
-	@docker push $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG)
-	@docker push $(REGISTRY)/nirmata/$(KYVERNO_CLI_IMAGE):latest
+	@docker push $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG)
+	@docker push $(REPO)/$(KYVERNO_CLI_IMAGE):latest
 
 ##################################
 docker-publish-all: docker-publish-initContainer docker-publish-kyverno docker-publish-cli
