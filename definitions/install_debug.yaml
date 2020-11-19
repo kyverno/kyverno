@@ -243,7 +243,6 @@ spec:
                           description: Namespace specifies resource namespace.
                           type: string
                         synchronize:
-                          default: false
                           description: Synchronize controls if generated resources
                             should be kept in-sync with their source resource. Optional.
                             Defaults to "false" if not specified.
@@ -1675,7 +1674,6 @@ spec:
                           description: Namespace specifies resource namespace.
                           type: string
                         synchronize:
-                          default: false
                           description: Synchronize controls if generated resources
                             should be kept in-sync with their source resource. Optional.
                             Defaults to "false" if not specified.

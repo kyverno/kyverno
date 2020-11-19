@@ -285,7 +285,6 @@ type Generation struct {
 
 	// Synchronize controls if generated resources should be kept in-sync with their source resource.
 	// Optional. Defaults to "false" if not specified.
-	// +kubebuilder:default=false
 	// +optional
 	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
 
