@@ -2875,21 +2875,6 @@ rules:
   verbs:
   - approve
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  name: kyverno:policyviolations
-rules:
-- apiGroups:
-  - kyverno.io
-  resources:
-  - policyviolations
-  verbs:
-  - get
-  - list
-  - watch
-  - delete
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -2924,19 +2909,6 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: kyverno:policycontroller
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
-  namespace: kyverno
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: kyverno:policyviolations
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:policyviolations
 subjects:
 - kind: ServiceAccount
   name: kyverno-service-account

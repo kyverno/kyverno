@@ -27,16 +27,6 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno:policyviolations
-rules:
-- apiGroups: ["kyverno.io"]
-  resources:
-  - policyviolations
-  verbs: ["get", "list", "watch", "delete"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
   name: kyverno:webhook
 rules:
 # Dynamic creation of webhooks, events & certs
