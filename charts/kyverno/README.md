@@ -73,10 +73,10 @@ Parameter | Description | Default
 `generatecontrollerExtraResources` | extra resource type Kyverno is allowed to generate | `[]`
 `image.pullPolicy` | Image pull policy | `IfNotPresent`
 `image.pullSecrets` | Specify image pull secrets | `[]` (does not add image pull secrets to deployed pods)
-`image.repository` | Image repository | `ghcr.io/kyverno/kyverno`
+`image.repository` | Image repository | `nirmata/kyverno`
 `image.tag` | Image tag | `nil`
 `initImage.pullPolicy` | Init image pull policy | `nil`
-`initImage.repository` | Init image repository | `ghcr.io/kyverno/kyvernopre`
+`initImage.repository` | Init image repository | `nirmata/kyvernopre`
 `initImage.tag` | Init image tag | `nil`
 `livenessProbe` | liveness probe configuration | `{}`
 `nameOverride` | override the name of the chart | `nil`
