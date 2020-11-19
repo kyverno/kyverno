@@ -42,7 +42,6 @@ type Spec struct {
 	// ValidationFailureAction controls if a validation policy rule failure should disallow
 	// the admission review request (enforce), or allow (audit) the admission review request
 	// and report an error in a policy report. Optional. The default value is "audit".
-	// +kubebuilder:default=audit
 	// +optional
 	ValidationFailureAction string `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
@@ -102,6 +101,7 @@ type ConfigMapReference struct {
 // Condition defines variable-based conditional criteria for rule execution.
 type Condition struct {
 	// Key is the context entry (using JMESPath) for conditional rule evaluation.
+	// +kubebuilder:validation:XPreserveUnknownFields
 	Key apiextensions.JSON `json:"key,omitempty" yaml:"key,omitempty"`
 
 	// Operator is the operation to perform.
@@ -109,6 +109,7 @@ type Condition struct {
 
 	// Value is the conditional value, or set of values. The values can be fixed set
 	// or can be variables declared using using JMESPath.
+	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	Value apiextensions.JSON `json:"value,omitempty" yaml:"value,omitempty"`
 }
@@ -201,12 +202,14 @@ type Mutation struct {
 	// Overlay specifies an overlay pattern to modify resources.
 	// DEPRECATED. Use PatchStrategicMerge instead. Scheduled for
 	// removal in release 1.5+.
+	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	Overlay apiextensions.JSON `json:"overlay,omitempty"`
 
 	// Patches specifies a RFC 6902 JSON Patch to modify resources.
 	// DEPRECATED. Use PatchesJSON6902 instead. Scheduled for
 	// removal in release 1.5+.
+	// +kubebuilder:validation:XPreserveUnknownFields
 	// +nullable
 	// +optional
 	Patches []Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
@@ -214,6 +217,7 @@ type Mutation struct {
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
 	// and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	PatchStrategicMerge apiextensions.JSON `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
 
@@ -237,6 +241,7 @@ type Patch struct {
 	Operation string `json:"op,omitempty" yaml:"op,omitempty"`
 
 	// Value specifies the value to be applied.
+	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	Value apiextensions.JSON `json:"value,omitempty" yaml:"value,omitempty"`
 }
@@ -249,11 +254,13 @@ type Validation struct {
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
 	// Pattern specifies an overlay-style pattern used to check resources.
+	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	Pattern apiextensions.JSON `json:"pattern,omitempty" yaml:"pattern,omitempty"`
 
 	// AnyPattern specifies list of validation patterns. At least one of the patterns
 	// must be satisfied for the validation rule to succeed.
+	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	AnyPattern apiextensions.JSON `json:"anyPattern,omitempty" yaml:"anyPattern,omitempty"`
 

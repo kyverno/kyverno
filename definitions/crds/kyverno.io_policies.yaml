@@ -382,10 +382,12 @@ spec:
                           description: Overlay specifies an overlay pattern to modify
                             resources. DEPRECATED. Use PatchStrategicMerge instead.
                             Scheduled for removal in release 1.5+.
+                          x-kubernetes-preserve-unknown-fields: true
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch
                             used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
                             and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                          x-kubernetes-preserve-unknown-fields: true
                         patches:
                           description: Patches specifies a RFC 6902 JSON Patch to
                             modify resources. DEPRECATED. Use PatchesJSON6902 instead.
@@ -402,9 +404,11 @@ spec:
                                 type: string
                               value:
                                 description: Value specifies the value to be applied.
+                                x-kubernetes-preserve-unknown-fields: true
                             type: object
                           nullable: true
                           type: array
+                          x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: PatchesJSON6902 is a list of RFC 6902 JSON
                             Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902
@@ -425,6 +429,7 @@ spec:
                           key:
                             description: Key is the context entry (using JMESPath)
                               for conditional rule evaluation.
+                            x-kubernetes-preserve-unknown-fields: true
                           operator:
                             description: Operator is the operation to perform.
                             type: string
@@ -432,6 +437,7 @@ spec:
                             description: Value is the conditional value, or set of
                               values. The values can be fixed set or can be variables
                               declared using using JMESPath.
+                            x-kubernetes-preserve-unknown-fields: true
                         type: object
                       type: array
                     validate:
@@ -441,6 +447,7 @@ spec:
                           description: AnyPattern specifies list of validation patterns.
                             At least one of the patterns must be satisfied for the
                             validation rule to succeed.
+                          x-kubernetes-preserve-unknown-fields: true
                         deny:
                           description: Deny defines conditions to fail the validation
                             rule.
@@ -454,6 +461,7 @@ spec:
                                   key:
                                     description: Key is the context entry (using JMESPath)
                                       for conditional rule evaluation.
+                                    x-kubernetes-preserve-unknown-fields: true
                                   operator:
                                     description: Operator is the operation to perform.
                                     type: string
@@ -461,6 +469,7 @@ spec:
                                     description: Value is the conditional value, or
                                       set of values. The values can be fixed set or
                                       can be variables declared using using JMESPath.
+                                    x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               type: array
                           type: object
@@ -471,11 +480,11 @@ spec:
                         pattern:
                           description: Pattern specifies an overlay-style pattern
                             used to check resources.
+                          x-kubernetes-preserve-unknown-fields: true
                       type: object
                   type: object
                 type: array
               validationFailureAction:
-                default: audit
                 description: ValidationFailureAction controls if a validation policy
                   rule failure should disallow the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
