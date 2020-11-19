@@ -50,7 +50,6 @@ spec:
             description: Spec declares policy behaviors.
             properties:
               background:
-                default: true
                 description: Background controls if rules are applied to existing
                   resources during a background scan. Optional. Default value is "true".
                   The value must be set to "false" if the policy rule uses variables
@@ -244,7 +243,6 @@ spec:
                           description: Namespace specifies resource namespace.
                           type: string
                         synchronize:
-                          default: false
                           description: Synchronize controls if generated resources
                             should be kept in-sync with their source resource. Optional.
                             Defaults to "false" if not specified.
@@ -489,7 +487,6 @@ spec:
                   type: object
                 type: array
               validationFailureAction:
-                default: audit
                 description: ValidationFailureAction controls if a validation policy
                   rule failure should disallow the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
@@ -1268,13 +1265,34 @@ spec:
     kind: GenerateRequest
     listKind: GenerateRequestList
     plural: generaterequests
+    shortNames:
+    - gr
     singular: generaterequest
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.policy
+      name: Policy
+      type: string
+    - jsonPath: .spec.resource.kind
+      name: ResourceKind
+      type: string
+    - jsonPath: .spec.resource.name
+      name: ResourceName
+      type: string
+    - jsonPath: .spec.resource.namespace
+      name: ResourceNamespace
+      type: string
+    - jsonPath: .status.state
+      name: status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
     schema:
       openAPIV3Schema:
-        description: GenerateRequest is a request to process generate rule
+        description: GenerateRequest is a request to process generate rule.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -1289,31 +1307,31 @@ spec:
           metadata:
             type: object
           spec:
-            description: Spec is the information to identify the generate request
+            description: Spec is the information to identify the generate request.
             properties:
               context:
                 description: Context ...
                 properties:
                   userInfo:
                     description: RequestInfo contains permission info carried in an
-                      admission request
+                      admission request.
                     properties:
                       clusterRoles:
                         description: ClusterRoles is a list of possible clusterRoles
-                          send the request
+                          send the request.
                         items:
                           type: string
                         nullable: true
                         type: array
                       roles:
-                        description: Roles is a list of possible role send the request
+                        description: Roles is a list of possible role send the request.
                         items:
                           type: string
                         nullable: true
                         type: array
                       userInfo:
                         description: UserInfo is the userInfo carried in the admission
-                          request
+                          request.
                         properties:
                           extra:
                             additionalProperties:
@@ -1344,11 +1362,11 @@ spec:
                     type: object
                 type: object
               policy:
-                description: Specifies the name of the policy
+                description: Specifies the name of the policy.
                 type: string
               resource:
                 description: ResourceSpec is the information to identify the generate
-                  request
+                  request.
                 properties:
                   apiVersion:
                     description: APIVersion specifies resource apiVersion.
@@ -1369,11 +1387,11 @@ spec:
             - resource
             type: object
           status:
-            description: Status contains statistics related to generate request
+            description: Status contains statistics related to generate request.
             properties:
               generatedResources:
                 description: This will track the resources that are generated by the
-                  generate Policy Will be used during clean up resources
+                  generate Policy. Will be used during clean up resources.
                 items:
                   description: ResourceSpec contains information to identify a resource.
                   properties:
@@ -1392,20 +1410,21 @@ spec:
                   type: object
                 type: array
               message:
-                description: Specifies request status message
+                description: Specifies request status message.
                 type: string
               state:
-                description: State represents state of the generate request
+                description: State represents state of the generate request.
                 type: string
             required:
             - state
             type: object
         required:
         - spec
-        - status
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""
@@ -1461,7 +1480,6 @@ spec:
             description: Spec declares policy behaviors.
             properties:
               background:
-                default: true
                 description: Background controls if rules are applied to existing
                   resources during a background scan. Optional. Default value is "true".
                   The value must be set to "false" if the policy rule uses variables
@@ -1655,7 +1673,6 @@ spec:
                           description: Namespace specifies resource namespace.
                           type: string
                         synchronize:
-                          default: false
                           description: Synchronize controls if generated resources
                             should be kept in-sync with their source resource. Optional.
                             Defaults to "false" if not specified.
@@ -1900,7 +1917,6 @@ spec:
                   type: object
                 type: array
               validationFailureAction:
-                default: audit
                 description: ValidationFailureAction controls if a validation policy
                   rule failure should disallow the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
