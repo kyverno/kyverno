@@ -48,7 +48,6 @@ spec:
             description: Spec declares policy behaviors.
             properties:
               background:
-                default: true
                 description: Background controls if rules are applied to existing
                   resources during a background scan. Optional. Default value is "true".
                   The value must be set to "false" if the policy rule uses variables
@@ -242,7 +241,6 @@ spec:
                           description: Namespace specifies resource namespace.
                           type: string
                         synchronize:
-                          default: false
                           description: Synchronize controls if generated resources
                             should be kept in-sync with their source resource. Optional.
                             Defaults to "false" if not specified.
@@ -487,7 +485,6 @@ spec:
                   type: object
                 type: array
               validationFailureAction:
-                default: audit
                 description: ValidationFailureAction controls if a validation policy
                   rule failure should disallow the admission review request (enforce),
                   or allow (audit) the admission review request and report an error

@@ -42,14 +42,12 @@ type Spec struct {
 	// ValidationFailureAction controls if a validation policy rule failure should disallow
 	// the admission review request (enforce), or allow (audit) the admission review request
 	// and report an error in a policy report. Optional. The default value is "audit".
-	// +kubebuilder:default=audit
 	// +optional
 	ValidationFailureAction string `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	// Background controls if rules are applied to existing resources during a background scan.
 	// Optional. Default value is "true". The value must be set to "false" if the policy rule
 	// uses variables that are only available in the admission review request (e.g. user name).
-	// +kubebuilder:default=true
 	// +optional
 	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
 }
@@ -286,7 +284,6 @@ type Generation struct {
 
 	// Synchronize controls if generated resources should be kept in-sync with their source resource.
 	// Optional. Defaults to "false" if not specified.
-	// +kubebuilder:default=false
 	// +optional
 	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
 
