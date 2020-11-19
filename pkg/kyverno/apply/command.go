@@ -53,6 +53,11 @@ type Values struct {
 	Policies []Policy `json:"policies"`
 }
 
+type SkippedPolicy struct {
+	Name     string `json:"name"`
+	Variable string `json:"variable"`
+}
+
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
@@ -158,6 +163,8 @@ func Command() *cobra.Command {
 			rc := &resultCounts{}
 			engineResponses := make([]response.EngineResponse, 0)
 			validateEngineResponses := make([]response.EngineResponse, 0)
+			skippedPolicies := make([]SkippedPolicy, 0)
+
 			for _, policy := range mutatedPolicies {
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
@@ -166,8 +173,16 @@ func Command() *cobra.Command {
 					continue
 				}
 
-				if common.PolicyHasVariables(*policy) && variablesString == "" && valuesFile == "" {
-					fmt.Printf("\n------------------------\nskipping policy %s as it has variable. pass the values for the variables using set/values_file flag\n------------------------\n", policy.Name)
+				matches := common.PolicyHasVariables(*policy)
+				variable := removeDuplicatevariables(matches)
+
+				if len(matches) > 0 && variablesString == "" && valuesFile == "" {
+					skipPolicy := SkippedPolicy{
+						Name:     policy.GetName(),
+						Variable: variable,
+					}
+					skippedPolicies = append(skippedPolicies, skipPolicy)
+					// fmt.Printf("\n------------------------\nskipping policy %s as it has variable. pass the values for the variables using set/values_file flag\n------------------------\n", policy.Name)
 					continue
 				}
 
@@ -182,7 +197,7 @@ func Command() *cobra.Command {
 						thisPolicyResourceValues[k] = v
 					}
 
-					if common.PolicyHasVariables(*policy) && len(thisPolicyResourceValues) == 0 {
+					if len(common.PolicyHasVariables(*policy)) > 0 && len(thisPolicyResourceValues) == 0 {
 						return sanitizedError.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 					}
 
@@ -195,7 +210,7 @@ func Command() *cobra.Command {
 				}
 			}
 
-			printReportOrViolation(policyReport, validateEngineResponses, rc, resourcePaths, len(resources))
+			printReportOrViolation(policyReport, validateEngineResponses, rc, resourcePaths, len(resources), skippedPolicies)
 
 			return nil
 		},
@@ -297,10 +312,10 @@ func getResourceAccordingToResourcePath(resourcePaths []string, cluster bool, po
 }
 
 // printReportOrViolation - printing policy report/violations
-func printReportOrViolation(policyReport bool, validateEngineResponses []response.EngineResponse, rc *resultCounts, resourcePaths []string, resourcesLen int) {
+func printReportOrViolation(policyReport bool, validateEngineResponses []response.EngineResponse, rc *resultCounts, resourcePaths []string, resourcesLen int, skippedPolicies []SkippedPolicy) {
 	if policyReport {
 		os.Setenv("POLICY-TYPE", pkgCommon.PolicyReport)
-		resps := buildPolicyReports(validateEngineResponses)
+		resps := buildPolicyReports(validateEngineResponses, skippedPolicies)
 		if len(resps) > 0 || resourcesLen == 0 {
 			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
 			report, _ := generateCLIraw(resps)
@@ -524,4 +539,18 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 	}
 
 	return nil
+}
+
+// removeDuplicatevariables - remove duplicate variables
+func removeDuplicatevariables(matches [][]string) string {
+	var variableStr string
+	for _, m := range matches {
+		for _, v := range m {
+			foundVariable := strings.Contains(variableStr, v)
+			if !foundVariable {
+				variableStr = variableStr + " " + v
+			}
+		}
+	}
+	return variableStr
 }

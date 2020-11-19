@@ -81,10 +81,10 @@ func ValidateAndGetPolicies(policyPaths []string) ([]*v1.ClusterPolicy, error) {
 }
 
 // PolicyHasVariables - check for variables in the policy
-func PolicyHasVariables(policy v1.ClusterPolicy) bool {
+func PolicyHasVariables(policy v1.ClusterPolicy) [][]string {
 	policyRaw, _ := json.Marshal(policy)
 	matches := RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
-	return len(matches) > 0
+	return matches
 }
 
 // PolicyHasNonAllowedVariables - checks for unexpected variables in the policy

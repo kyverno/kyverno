@@ -18,9 +18,40 @@ import (
 const clusterpolicyreport = "clusterpolicyreport"
 
 // resps is the engine responses generated for a single policy
-func buildPolicyReports(resps []response.EngineResponse) (res []*unstructured.Unstructured) {
+func buildPolicyReports(resps []response.EngineResponse, skippedPolicies []SkippedPolicy) (res []*unstructured.Unstructured) {
 	var raw []byte
 	var err error
+
+	for _, sp := range skippedPolicies {
+		result := []*report.PolicyReportResult{
+			{
+				Message: fmt.Sprintln("policy skipped. policy has variable -", sp.Variable),
+				Policy:  sp.Name,
+				Status:  "skip",
+			},
+		}
+
+		report := &report.PolicyReport{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: report.SchemeGroupVersion.String(),
+				Kind:       "PolicyReport",
+			},
+			Results: result,
+		}
+
+		if raw, err = json.Marshal(report); err != nil {
+			log.Log.Error(err, "failed to serilize policy report")
+			continue
+		}
+
+		reportUnstructured, err := engineutils.ConvertToUnstructured(raw)
+		if err != nil {
+			log.Log.Error(err, "failed to convert policy report")
+			continue
+		}
+
+		res = append(res, reportUnstructured)
+	}
 
 	resultsMap := buildPolicyResults(resps)
 	for scope, result := range resultsMap {
