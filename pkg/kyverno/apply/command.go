@@ -156,7 +156,7 @@ func Command() *cobra.Command {
 			}
 
 			if len(mutatedPolicies) > 0 && len(resources) > 0 {
-				fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
+				fmt.Fprintf(cmd.OutOrStdout(), "\napplying %s to %s... \n", msgPolicies, msgResources)
 			}
 
 			rc := &resultCounts{}
@@ -199,7 +199,7 @@ func Command() *cobra.Command {
 				}
 			}
 
-			printReportOrViolation(policyReport, validateEngineResponses, rc, resourcePaths)
+			printReportOrViolation(cmd, policyReport, validateEngineResponses, rc, resourcePaths)
 
 			return nil
 		},
@@ -301,17 +301,20 @@ func getResourceAccordingToResourcePath(resourcePaths []string, cluster bool, po
 }
 
 // printReportOrViolation - printing policy report/violations
-func printReportOrViolation(policyReport bool, validateEngineResponses []response.EngineResponse, rc *resultCounts, resourcePaths []string) {
+func printReportOrViolation(cmd *cobra.Command, policyReport bool, validateEngineResponses []response.EngineResponse, rc *resultCounts, resourcePaths []string) {
 	if policyReport {
 		os.Setenv("POLICY-TYPE", pkgCommon.PolicyReport)
 		resps := buildPolicyReports(validateEngineResponses)
 		if len(resps) > 0 {
-			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
+			fmt.Fprintf(cmd.OutOrStdout(), "----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------\n")
+			// fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
 			report, _ := generateCLIraw(resps)
 			yamlReport, _ := yaml1.Marshal(report)
-			fmt.Println(string(yamlReport))
+			fmt.Fprintf(cmd.OutOrStdout(), string(yamlReport))
+			// fmt.Println(string(yamlReport))
 		} else {
-			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
+			fmt.Fprintf(cmd.OutOrStdout(), "----------------------------------------------------------------------\nPOLICY REPORT: skip generating policy report (no validate policy found/resource skipped)\n")
+			// fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
 		}
 	} else {
 		rcCount := rc.pass + rc.fail + rc.warn + rc.error + rc.skip
