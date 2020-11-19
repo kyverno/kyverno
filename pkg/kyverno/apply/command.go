@@ -137,12 +137,8 @@ func Command() *cobra.Command {
 
 			resources, err := getResourceAccordingToResourcePath(resourcePaths, cluster, mutatedPolicies, dClient, namespace)
 			if err != nil {
-				if !sanitizedError.IsErrorSanitized(err) {
-					return sanitizedError.NewWithError("failed to load resources", err)
-				}
-			}
-			if len(resources) == 0 {
-				return sanitizedError.NewWithError("valid resource(s) not provided/no matching resource found in cluster", err)
+				fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
+				os.Exit(1)
 			}
 
 			msgPolicies := "1 policy"
@@ -199,7 +195,7 @@ func Command() *cobra.Command {
 				}
 			}
 
-			printReportOrViolation(policyReport, validateEngineResponses, rc, resourcePaths)
+			printReportOrViolation(policyReport, validateEngineResponses, rc, resourcePaths, len(resources))
 
 			return nil
 		},
@@ -294,18 +290,18 @@ func getResourceAccordingToResourcePath(resourcePaths []string, cluster bool, po
 	} else if (len(resourcePaths) > 0 && resourcePaths[0] != "-") || len(resourcePaths) < 0 || cluster {
 		resources, err = common.GetResources(policies, resourcePaths, dClient, cluster, namespace)
 		if err != nil {
-			return resources, sanitizedError.NewWithError("failed to load resources", err)
+			return resources, err
 		}
 	}
 	return resources, err
 }
 
 // printReportOrViolation - printing policy report/violations
-func printReportOrViolation(policyReport bool, validateEngineResponses []response.EngineResponse, rc *resultCounts, resourcePaths []string) {
+func printReportOrViolation(policyReport bool, validateEngineResponses []response.EngineResponse, rc *resultCounts, resourcePaths []string, resourcesLen int) {
 	if policyReport {
 		os.Setenv("POLICY-TYPE", pkgCommon.PolicyReport)
 		resps := buildPolicyReports(validateEngineResponses)
-		if len(resps) > 0 {
+		if len(resps) > 0 || resourcesLen == 0 {
 			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
 			report, _ := generateCLIraw(resps)
 			yamlReport, _ := yaml1.Marshal(report)

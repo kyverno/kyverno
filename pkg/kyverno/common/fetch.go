@@ -62,7 +62,7 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 					}
 				}
 				if lenOfResource >= len(resources) {
-					fmt.Printf("\n----------------------------------------------------------------------\n%s not found in cluster\n----------------------------------------------------------------------\n", resourcePath)
+					return nil, errors.New(fmt.Sprintf("%s not found in cluster", resourcePath))
 				}
 			}
 		}
