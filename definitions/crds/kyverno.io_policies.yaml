@@ -48,7 +48,6 @@ spec:
             description: Spec declares policy behaviors.
             properties:
               background:
-                default: true
                 description: Background controls if rules are applied to existing
                   resources during a background scan. Optional. Default value is "true".
                   The value must be set to "false" if the policy rule uses variables

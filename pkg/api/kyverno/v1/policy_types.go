@@ -49,7 +49,6 @@ type Spec struct {
 	// Background controls if rules are applied to existing resources during a background scan.
 	// Optional. Default value is "true". The value must be set to "false" if the policy rule
 	// uses variables that are only available in the admission review request (e.g. user name).
-	// +kubebuilder:default=true
 	// +optional
 	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
 }
