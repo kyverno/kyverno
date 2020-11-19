@@ -40,13 +40,13 @@ func buildPolicyReports(resps []response.EngineResponse, skippedPolicies []Skipp
 		}
 
 		if raw, err = json.Marshal(report); err != nil {
-			log.Log.Error(err, "failed to serilize policy report")
+			log.Log.V(3).Info("failed to serilize policy report", "error", err)
 			continue
 		}
 
 		reportUnstructured, err := engineutils.ConvertToUnstructured(raw)
 		if err != nil {
-			log.Log.Error(err, "failed to convert policy report")
+			log.Log.V(3).Info("failed to convert policy report", "error", err)
 			continue
 		}
 
@@ -67,7 +67,7 @@ func buildPolicyReports(resps []response.EngineResponse, skippedPolicies []Skipp
 
 			report.SetName(scope)
 			if raw, err = json.Marshal(report); err != nil {
-				log.Log.Error(err, "failed to serilize policy report", "name", report.Name, "scope", scope)
+				log.Log.V(3).Info("failed to serilize policy report", "name", report.Name, "scope", scope, "error", err)
 			}
 		} else {
 			report := &report.PolicyReport{
@@ -84,13 +84,13 @@ func buildPolicyReports(resps []response.EngineResponse, skippedPolicies []Skipp
 			report.SetNamespace(ns)
 
 			if raw, err = json.Marshal(report); err != nil {
-				log.Log.Error(err, "failed to serilize policy report", "name", report.Name, "scope", scope)
+				log.Log.V(3).Info("failed to serilize policy report", "name", report.Name, "scope", scope, "error", err)
 			}
 		}
 
 		reportUnstructured, err := engineutils.ConvertToUnstructured(raw)
 		if err != nil {
-			log.Log.Error(err, "failed to convert policy report", "scope", scope)
+			log.Log.V(3).Info("failed to convert policy report", "scope", scope, "error", err)
 			continue
 		}
 

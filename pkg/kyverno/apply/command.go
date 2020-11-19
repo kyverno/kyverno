@@ -182,7 +182,7 @@ func Command() *cobra.Command {
 						Variable: variable,
 					}
 					skippedPolicies = append(skippedPolicies, skipPolicy)
-					// fmt.Printf("\n------------------------\nskipping policy %s as it has variable. pass the values for the variables using set/values_file flag\n------------------------\n", policy.Name)
+					log.Log.V(3).Info(fmt.Sprintf("skipping policy %s", policy.Name), "error", fmt.Sprintf("policy have variable - %s", variable))
 					continue
 				}
 

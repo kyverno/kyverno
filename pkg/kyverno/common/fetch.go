@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // GetResources gets matched resources by the given policies
@@ -62,6 +63,7 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 					}
 				}
 				if lenOfResource >= len(resources) {
+					log.Log.V(3).Info(fmt.Sprintf("%s not found in cluster", resourcePath))
 					return nil, errors.New(fmt.Sprintf("%s not found in cluster", resourcePath))
 				}
 			}
