@@ -43,7 +43,7 @@ func deleteGeneratedResources(log logr.Logger, client *dclient.Client, gr kyvern
 	for _, genResource := range gr.Status.GeneratedResources {
 		err := client.DeleteResource("", genResource.Kind, genResource.Namespace, genResource.Name, false)
 		if apierrors.IsNotFound(err) {
-			log.Error(err, "resource not foundl will not delete", "genKind", gr.Spec.Resource.Kind, "genNamespace", gr.Spec.Resource.Namespace, "genName", gr.Spec.Resource.Name)
+			log.Error(err, "resource not found will not delete", "genKind", gr.Spec.Resource.Kind, "genNamespace", gr.Spec.Resource.Namespace, "genName", gr.Spec.Resource.Name)
 			continue
 		}
 		if err != nil {

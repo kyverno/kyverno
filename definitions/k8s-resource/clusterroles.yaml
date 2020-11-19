@@ -34,84 +34,6 @@ rules:
   - policyviolations
   verbs: ["get", "list", "watch", "delete"]
 ---
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kyverno:webhook
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:webhook
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
-  namespace: kyverno
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kyverno:userinfo
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:userinfo
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
-  namespace: kyverno
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kyverno:customresources
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:customresources
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
-  namespace: kyverno
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: kyverno:policyviolations
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:policyviolations
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
-  namespace: kyverno
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kyverno:policycontroller
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:policycontroller
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
-  namespace: kyverno
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kyverno:generatecontroller
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:generatecontroller
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
-  namespace: kyverno
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -251,6 +173,7 @@ rules:
   - create
   - update
   - delete
+  - list
   - get
 # dynamic watches on trigger resources for generate rules
 # re-evaluate the policy if the resource is updated
@@ -261,7 +184,7 @@ rules:
   verbs:
   - watch
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
@@ -272,79 +195,11 @@ rules:
   - kyverno.io
   resources:
   - policies
+  - clusterpolicies
   verbs:
   - "*"
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  name: kyverno:policyreport
-rules:
-  - apiGroups: ["*"]
-    resources:
-      - policyreports
-      - clusterpolicyreports
-      - pods
-    verbs: ["get", "list", "watch", "delete"]
----
-kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kyverno:policyreport
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:policyreport
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
-  namespace: kyverno
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  name: kyverno:view-policyreport
-  labels:
-    rbac.authorization.k8s.io/aggregate-to-view: "true"
-rules:
-  - apiGroups: [ "wgpolicyk8s.io/v1alpha1" ]
-    resources:
-      - policyreport
-    verbs: [ "get", "list", "watch" ]
-
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  name: kyverno:view-clusterpolicyreport
-  labels:
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
-rules:
-  - apiGroups: ["wgpolicyk8s.io/v1alpha1"]
-    resources:
-      - clusterpolicyreport
-    verbs: ["get", "list", "watch"]
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  labels:
-    rbac.authorization.k8s.io/aggregate-to-edit: "true"
-  name: kyverno:edit-policies-policyreport
-rules:
-  - apiGroups:
-      - wgpolicyk8s.io/v1alpha1
-    resources:
-      - policyreport
-      - clusterpolicyreport
-      - policies
-    verbs:
-      - get
-      - list
-      - watch
----
-
-apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   labels:
@@ -354,7 +209,22 @@ rules:
   - apiGroups:
       - wgpolicyk8s.io/v1alpha1
     resources:
-      - policyreport
-      - clusterpolicyreport
+      - policyreports
+      - clusterpolicyreports
     verbs:
       - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kyverno:admin-reportchangerequest
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - reportchangerequests
+  - clusterreportchangerequests
+  verbs:
+  - "*"
