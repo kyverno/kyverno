@@ -18,8 +18,8 @@ jobs:
         with:
           go-version: 1.14
           
-      - name: login to docker hub
-        run: echo "${{ secrets.DOCKERIO_PASSWORD }}" | docker login -u "${{ secrets.DOCKERIO_USERNAME }}" --password-stdin
+      - name: login to GitHub Container Registry
+        run: echo ${{ secrets.CR_PAT }} | docker login https://docker.pkg.github.com -u $GITHUB_ACTOR --password-stdin
 
       - name: docker images publish
         run: |
