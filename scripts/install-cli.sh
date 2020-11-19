@@ -7,7 +7,7 @@ usage() {
   this=$1
   cat <<EOF
 
-$this: download binaries for kyverno/kyverno
+$this: download binaries for nirmata/kyverno
 
 Usage: $this [-b bindir] [-d] [tag]
   -b sets bindir or installation directory, Defaults to ./bin
