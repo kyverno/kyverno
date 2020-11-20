@@ -42,14 +42,11 @@ func ownerResourceExists(log logr.Logger, client *dclient.Client, gr kyverno.Gen
 func deleteGeneratedResources(log logr.Logger, client *dclient.Client, gr kyverno.GenerateRequest) error {
 	for _, genResource := range gr.Status.GeneratedResources {
 		err := client.DeleteResource("", genResource.Kind, genResource.Namespace, genResource.Name, false)
-		if apierrors.IsNotFound(err) {
-			log.Error(err, "resource not found will not delete", "genKind", gr.Spec.Resource.Kind, "genNamespace", gr.Spec.Resource.Namespace, "genName", gr.Spec.Resource.Name)
-			continue
-		}
-		if err != nil {
+		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 
+		log.V(3).Info("generated resource deleted", "genKind", gr.Spec.Resource.Kind, "genNamespace", gr.Spec.Resource.Namespace, "genName", gr.Spec.Resource.Name)
 	}
 	return nil
 }

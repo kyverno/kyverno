@@ -35,7 +35,13 @@ func generatePolicyReportName(ns string) string {
 	if ns == "" {
 		return clusterpolicyreport
 	}
-	return fmt.Sprintf("policyreport-ns-%s", ns)
+
+	name := fmt.Sprintf("pr-ns-%s", ns)
+	if len(name) > 63 {
+		return name[:63]
+	}
+
+	return name
 }
 
 //GeneratePRsFromEngineResponse generate Violations from engine responses

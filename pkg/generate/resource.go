@@ -7,5 +7,14 @@ import (
 )
 
 func getResource(client *dclient.Client, resourceSpec kyverno.ResourceSpec) (*unstructured.Unstructured, error) {
-	return client.GetResource(resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
+	resource, err := client.GetResource(resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	if resource.GetDeletionTimestamp() != nil {
+		return nil, nil
+	}
+
+	return resource, nil
 }
