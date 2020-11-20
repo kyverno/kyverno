@@ -55,7 +55,7 @@ type Values struct {
 
 type SkippedPolicy struct {
 	Name     string    `json:"name"`
-	Rules    []v1.Rule `json:"rules`
+	Rules    []v1.Rule `json:"rules"`
 	Variable string    `json:"variable"`
 }
 
