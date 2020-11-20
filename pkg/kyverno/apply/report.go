@@ -23,34 +23,37 @@ func buildPolicyReports(resps []response.EngineResponse, skippedPolicies []Skipp
 	var err error
 
 	for _, sp := range skippedPolicies {
-		result := []*report.PolicyReportResult{
-			{
-				Message: fmt.Sprintln("policy skipped. policy has variable -", sp.Variable),
-				Policy:  sp.Name,
-				Status:  "skip",
-			},
-		}
+		for _, r := range sp.Rules {
+			result := []*report.PolicyReportResult{
+				{
+					Message: fmt.Sprintln("skipped policy with variables -", sp.Variable),
+					Policy:  sp.Name,
+					Rule:    r.Name,
+					Status:  "skip",
+				},
+			}
 
-		report := &report.PolicyReport{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: report.SchemeGroupVersion.String(),
-				Kind:       "PolicyReport",
-			},
-			Results: result,
-		}
+			report := &report.PolicyReport{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: report.SchemeGroupVersion.String(),
+					Kind:       "PolicyReport",
+				},
+				Results: result,
+			}
 
-		if raw, err = json.Marshal(report); err != nil {
-			log.Log.V(3).Info("failed to serilize policy report", "error", err)
-			continue
-		}
+			if raw, err = json.Marshal(report); err != nil {
+				log.Log.V(3).Info("failed to serilize policy report", "error", err)
+				continue
+			}
 
-		reportUnstructured, err := engineutils.ConvertToUnstructured(raw)
-		if err != nil {
-			log.Log.V(3).Info("failed to convert policy report", "error", err)
-			continue
-		}
+			reportUnstructured, err := engineutils.ConvertToUnstructured(raw)
+			if err != nil {
+				log.Log.V(3).Info("failed to convert policy report", "error", err)
+				continue
+			}
 
-		res = append(res, reportUnstructured)
+			res = append(res, reportUnstructured)
+		}
 	}
 
 	resultsMap := buildPolicyResults(resps)

@@ -21,7 +21,7 @@ import (
 // the resources are fetched from
 // - local paths to resources, if given
 // - the k8s cluster, if given
-func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient *client.Client, cluster bool, namespace string) ([]*unstructured.Unstructured, error) {
+func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient *client.Client, cluster bool, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
 	var resourceTypesMap = make(map[string]bool)
@@ -63,7 +63,11 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 					}
 				}
 				if lenOfResource >= len(resources) {
-					log.Log.V(3).Info(fmt.Sprintf("%s not found in cluster", resourcePath))
+					if policyReport {
+						log.Log.V(3).Info(fmt.Sprintf("%s not found in cluster", resourcePath))
+					} else {
+						fmt.Printf("\n----------------------------------------------------------------------\nresource %s not found in cluster\n----------------------------------------------------------------------\n", resourcePath)
+					}
 					return nil, errors.New(fmt.Sprintf("%s not found in cluster", resourcePath))
 				}
 			}
@@ -72,7 +76,11 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 		for _, resourcePath := range resourcePaths {
 			resourceBytes, err := getFileBytes(resourcePath)
 			if err != nil {
-				fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
+				if policyReport {
+					log.Log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", resourcePath), "error", err)
+				} else {
+					fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
+				}
 				continue
 			}
 

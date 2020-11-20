@@ -54,8 +54,9 @@ type Values struct {
 }
 
 type SkippedPolicy struct {
-	Name     string `json:"name"`
-	Variable string `json:"variable"`
+	Name     string    `json:"name"`
+	Rules    []v1.Rule `json:"rules`
+	Variable string    `json:"variable"`
 }
 
 func Command() *cobra.Command {
@@ -67,9 +68,52 @@ func Command() *cobra.Command {
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
 
 	cmd = &cobra.Command{
-		Use:     "apply",
-		Short:   "applies policies on resources",
-		Example: fmt.Sprintf("To apply on a resource:\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2\n\nTo apply on a cluster\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster"),
+		Use:   "apply",
+		Short: "applies policies on resources",
+		Example: fmt.Sprintf(`
+To apply on a resource:
+	kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
+
+To apply on a cluster:
+	kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
+
+
+To apply policy with variables:
+
+	1. To apply single policy with variable on single resource use flag "set".
+		Example:
+		kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --set <variable1>=<value1>,<variable2>=<value2>
+
+	2. To apply multiple policy with variable on multiple resource use flag "values_file".
+		Example:
+		kyverno apply /path/to/policy1.yaml /path/to/policy2.yaml --resource /path/to/resource1.yaml --resource /path/to/resource2.yaml -f /path/to/value.yaml
+
+		Format of value.yaml:
+
+		policies:
+			- name: <policy1 name>
+				resources:
+				- name: <resource1 name>
+					values:
+					<variable1 in policy1>: <value>
+					<variable2 in policy1>: <value>
+				- name: <resource2 name>
+					values:
+					<variable1 in policy1>: <value>
+					<variable2 in policy1>: <value>
+			- name: <policy2 name>
+				resources:
+				- name: <resource1 name>
+					values:
+					<variable1 in policy2>: <value>
+					<variable2 in policy2>: <value>
+				- name: <resource2 name>
+					values:
+					<variable1 in policy2>: <value>
+					<variable2 in policy2>: <value>
+
+		More info: https://kyverno.io/docs/kyverno-cli/
+		`),
 		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
 			defer func() {
 				if err != nil {
@@ -140,7 +184,7 @@ func Command() *cobra.Command {
 				}
 			}
 
-			resources, err := getResourceAccordingToResourcePath(resourcePaths, cluster, mutatedPolicies, dClient, namespace)
+			resources, err := getResourceAccordingToResourcePath(resourcePaths, cluster, mutatedPolicies, dClient, namespace, policyReport)
 			if err != nil {
 				fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 				os.Exit(1)
@@ -179,6 +223,7 @@ func Command() *cobra.Command {
 				if len(matches) > 0 && variablesString == "" && valuesFile == "" {
 					skipPolicy := SkippedPolicy{
 						Name:     policy.GetName(),
+						Rules:    policy.Spec.Rules,
 						Variable: variable,
 					}
 					skippedPolicies = append(skippedPolicies, skipPolicy)
@@ -287,7 +332,7 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 }
 
 // getResourceAccordingToResourcePath - get resources according to the resource path
-func getResourceAccordingToResourcePath(resourcePaths []string, cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string) (resources []*unstructured.Unstructured, err error) {
+func getResourceAccordingToResourcePath(resourcePaths []string, cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string, policyReport bool) (resources []*unstructured.Unstructured, err error) {
 	if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
 		if common.IsInputFromPipe() {
 			resourceStr := ""
@@ -303,7 +348,7 @@ func getResourceAccordingToResourcePath(resourcePaths []string, cluster bool, po
 			}
 		}
 	} else if (len(resourcePaths) > 0 && resourcePaths[0] != "-") || len(resourcePaths) < 0 || cluster {
-		resources, err = common.GetResources(policies, resourcePaths, dClient, cluster, namespace)
+		resources, err = common.GetResources(policies, resourcePaths, dClient, cluster, namespace, policyReport)
 		if err != nil {
 			return resources, err
 		}
