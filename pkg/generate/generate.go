@@ -34,6 +34,11 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 		return err
 	}
 
+	// trigger resource is being terminated
+	if resource == nil {
+		return nil
+	}
+
 	// 2 - Apply the generate policy on the resource
 	genResources, err = c.applyGenerate(*resource, *gr)
 
@@ -57,13 +62,12 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		if apierrors.IsNotFound(err) {
 			for _, e := range gr.Status.GeneratedResources {
 				resp, err := c.client.GetResource(e.APIVersion, e.Kind, e.Namespace, e.Name)
-				if err != nil {
+				if err != nil && !apierrors.IsNotFound(err) {
 					logger.Error(err, "failed to find generated resource", "name", e.Name)
 					continue
 				}
 
-				labels := resp.GetLabels()
-				if labels["policy.kyverno.io/synchronize"] == "enable" {
+				if resp != nil && resp.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
 					if err := c.client.DeleteResource(resp.GetAPIVersion(), resp.GetKind(), resp.GetNamespace(), resp.GetName(), false); err != nil {
 						logger.Error(err, "Generated resource is not deleted", "Resource", e.Name)
 					}
@@ -348,8 +352,6 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		logger.V(4).Info("creating new resource")
 		_, err = client.CreateResource(genAPIVersion, genKind, genNamespace, newResource, false)
 		if err != nil {
-			logger.Error(err, "failed to create resource", "resource", newResource.GetName())
-			// Failed to create resource
 			return noGenResource, err
 		}
 		logger.V(2).Info("created generated resource")
@@ -403,7 +405,7 @@ func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data 
 	obj, err := client.GetResource(apiVersion, kind, namespace, name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Error(err, "resource does not exist, will try to create", "genKind", kind, "genAPIVersion", apiVersion, "genNamespace", namespace, "genName", name)
+			log.V(3).Info("resource does not exist, will try to create", "genKind", kind, "genAPIVersion", apiVersion, "genNamespace", namespace, "genName", name)
 			return data, Create, nil
 		}
 		//something wrong while fetching resource
