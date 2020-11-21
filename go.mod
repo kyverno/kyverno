@@ -22,6 +22,7 @@ require (
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/gardener/controller-manager-library v0.2.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
+	github.com/go-delve/delve v1.5.0 // indirect
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.5
 	github.com/go-openapi/strfmt v0.19.5

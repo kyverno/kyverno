@@ -80,7 +80,9 @@ func walkMap(pattern, resource *yaml.RNode) error {
 	if err != nil {
 		return err
 	}
-	for _, key := range sfields {
+	sfieldsCopy := make([]string, len(sfields))
+	copy(sfieldsCopy, sfields)
+	for _, key := range sfieldsCopy {
 		if anchor.IsConditionAnchor(key) {
 			// remove anchor node from yaml
 			// In a MappingNode, yaml.Node store <keyNode>:<valueNode> pairs as an array of Node inside Content field,
@@ -517,13 +519,4 @@ func hasAnchors(pattern *yaml.RNode) bool {
 		}
 	}
 	return false
-}
-
-func copyData(resource *yaml.RNode) (*yaml.RNode, error) {
-	newNodeString, err := resource.String()
-	if err != nil {
-		return resource, err
-	}
-	newNode, err := yaml.Parse(newNodeString)
-	return newNode, err
 }
