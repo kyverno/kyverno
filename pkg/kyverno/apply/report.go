@@ -18,9 +18,43 @@ import (
 const clusterpolicyreport = "clusterpolicyreport"
 
 // resps is the engine responses generated for a single policy
-func buildPolicyReports(resps []response.EngineResponse) (res []*unstructured.Unstructured) {
+func buildPolicyReports(resps []response.EngineResponse, skippedPolicies []SkippedPolicy) (res []*unstructured.Unstructured) {
 	var raw []byte
 	var err error
+
+	for _, sp := range skippedPolicies {
+		for _, r := range sp.Rules {
+			result := []*report.PolicyReportResult{
+				{
+					Message: fmt.Sprintln("skipped policy with variables -", sp.Variable),
+					Policy:  sp.Name,
+					Rule:    r.Name,
+					Status:  "skip",
+				},
+			}
+
+			report := &report.PolicyReport{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: report.SchemeGroupVersion.String(),
+					Kind:       "PolicyReport",
+				},
+				Results: result,
+			}
+
+			if raw, err = json.Marshal(report); err != nil {
+				log.Log.V(3).Info("failed to serilize policy report", "error", err)
+				continue
+			}
+
+			reportUnstructured, err := engineutils.ConvertToUnstructured(raw)
+			if err != nil {
+				log.Log.V(3).Info("failed to convert policy report", "error", err)
+				continue
+			}
+
+			res = append(res, reportUnstructured)
+		}
+	}
 
 	resultsMap := buildPolicyResults(resps)
 	for scope, result := range resultsMap {
@@ -36,7 +70,7 @@ func buildPolicyReports(resps []response.EngineResponse) (res []*unstructured.Un
 
 			report.SetName(scope)
 			if raw, err = json.Marshal(report); err != nil {
-				log.Log.Error(err, "failed to serilize policy report", "name", report.Name, "scope", scope)
+				log.Log.V(3).Info("failed to serilize policy report", "name", report.Name, "scope", scope, "error", err)
 			}
 		} else {
 			report := &report.PolicyReport{
@@ -53,13 +87,13 @@ func buildPolicyReports(resps []response.EngineResponse) (res []*unstructured.Un
 			report.SetNamespace(ns)
 
 			if raw, err = json.Marshal(report); err != nil {
-				log.Log.Error(err, "failed to serilize policy report", "name", report.Name, "scope", scope)
+				log.Log.V(3).Info("failed to serilize policy report", "name", report.Name, "scope", scope, "error", err)
 			}
 		}
 
 		reportUnstructured, err := engineutils.ConvertToUnstructured(raw)
 		if err != nil {
-			log.Log.Error(err, "failed to convert policy report", "scope", scope)
+			log.Log.V(3).Info("failed to convert policy report", "scope", scope, "error", err)
 			continue
 		}
 
