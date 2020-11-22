@@ -2690,6 +2690,51 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kyverno:admin-policies
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - policies
+  - clusterpolicies
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kyverno:admin-policyreport
+rules:
+- apiGroups:
+  - wgpolicyk8s.io/v1alpha1
+  resources:
+  - policyreports
+  - clusterpolicyreports
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kyverno:admin-reportchangerequest
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - reportchangerequests
+  - clusterreportchangerequests
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: kyverno:customresources
 rules:
 - apiGroups:
@@ -2745,6 +2790,7 @@ rules:
   - create
   - update
   - delete
+  - list
   - get
 - apiGroups:
   - '*'
@@ -2829,117 +2875,6 @@ rules:
   verbs:
   - approve
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  labels:
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
-  name: kyverno:admin-policies
-rules:
-- apiGroups:
-  - kyverno.io
-  resources:
-  - policies
-  verbs:
-  - '*'
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  labels:
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
-  name: kyverno:admin-policyreport
-rules:
-- apiGroups:
-  - wgpolicyk8s.io/v1alpha1
-  resources:
-  - policyreport
-  - clusterpolicyreport
-  verbs:
-  - '*'
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  labels:
-    rbac.authorization.k8s.io/aggregate-to-edit: "true"
-  name: kyverno:edit-policies-policyreport
-rules:
-- apiGroups:
-  - wgpolicyk8s.io/v1alpha1
-  resources:
-  - policyreport
-  - clusterpolicyreport
-  - policies
-  verbs:
-  - get
-  - list
-  - watch
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  name: kyverno:policyreport
-rules:
-- apiGroups:
-  - '*'
-  resources:
-  - policyreports
-  - clusterpolicyreports
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
-  - delete
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  name: kyverno:policyviolations
-rules:
-- apiGroups:
-  - kyverno.io
-  resources:
-  - policyviolations
-  verbs:
-  - get
-  - list
-  - watch
-  - delete
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  labels:
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
-  name: kyverno:view-clusterpolicyreport
-rules:
-- apiGroups:
-  - wgpolicyk8s.io/v1alpha1
-  resources:
-  - clusterpolicyreport
-  verbs:
-  - get
-  - list
-  - watch
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  labels:
-    rbac.authorization.k8s.io/aggregate-to-view: "true"
-  name: kyverno:view-policyreport
-rules:
-- apiGroups:
-  - wgpolicyk8s.io/v1alpha1
-  resources:
-  - policyreport
-  verbs:
-  - get
-  - list
-  - watch
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -2974,32 +2909,6 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: kyverno:policycontroller
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
-  namespace: kyverno
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: kyverno:policyreport
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:policyreport
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
-  namespace: kyverno
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: kyverno:policyviolations
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:policyviolations
 subjects:
 - kind: ServiceAccount
   name: kyverno-service-account
@@ -3084,7 +2993,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: nirmata/kyverno:v1.3.0-rc3
+        image: nirmata/kyverno:v1.3.0-rc4
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 4
@@ -3127,7 +3036,7 @@ spec:
           runAsNonRoot: true
           runAsUser: 1000
       initContainers:
-      - image: nirmata/kyvernopre:v1.3.0-rc3
+      - image: nirmata/kyvernopre:v1.3.0-rc4
         imagePullPolicy: Always
         name: kyverno-pre
         securityContext:

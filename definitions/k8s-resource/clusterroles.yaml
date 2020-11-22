@@ -1,8 +1,33 @@
-{{- if .Values.rbac.create }}
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+    name: "kyverno"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kyverno
+  name: kyverno-svc
+  labels:
+    app: kyverno
+spec:
+  ports:
+  - port: 443
+    targetPort: https
+  selector:
+    app: kyverno
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kyverno-service-account
+  namespace: kyverno
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.fullname" . }}:webhook
+  name: kyverno:webhook
 rules:
 # Dynamic creation of webhooks, events & certs
 - apiGroups:
@@ -16,7 +41,7 @@ rules:
   verbs:
   - create
   - delete
-  - get 
+  - get
   - list
   - patch
   - update
@@ -32,7 +57,7 @@ rules:
   verbs:
   - create
   - delete
-  - get 
+  - get
   - update
   - watch
 - apiGroups:
@@ -42,12 +67,12 @@ rules:
   resourceNames:
   - kubernetes.io/legacy-unknown
   verbs:
-  - approve 
+  - approve
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.fullname" . }}:userinfo
+  name: kyverno:userinfo
 rules:
 # get the roleRef for incoming api-request user
 - apiGroups:
@@ -66,7 +91,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.fullname" . }}:customresources
+  name: kyverno:customresources
 rules:
 # Kyverno CRs
 - apiGroups:
@@ -100,11 +125,11 @@ rules:
   - customresourcedefinitions
   verbs:
   - delete
----  
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.fullname" . }}:policycontroller
+  name: kyverno:policycontroller
 rules:
 # background processing, identify all existing resources
 - apiGroups:
@@ -119,7 +144,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.fullname" . }}:generatecontroller
+  name: kyverno:generatecontroller
 rules:
 # process generate rules to generate resources
 - apiGroups:
@@ -133,11 +158,7 @@ rules:
   - limitranges
   - clusterroles
   - rolebindings
-  - namespaces
   - clusterrolebindings
-  {{- range .Values.generatecontrollerExtraResources }}
-  - {{ . }}
-  {{- end }}
   verbs:
   - create
   - update
@@ -152,14 +173,13 @@ rules:
   - namespaces
   verbs:
   - watch
-{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
-  name: {{ template "kyverno.fullname" . }}:admin-policies
+  name: kyverno:admin-policies
 rules:
 - apiGroups:
   - kyverno.io
@@ -174,13 +194,13 @@ kind: ClusterRole
 metadata:
   labels:
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
-  name: {{ template "kyverno.fullname" . }}:admin-policyreport
+  name: kyverno:admin-policyreport
 rules:
   - apiGroups:
       - wgpolicyk8s.io/v1alpha1
     resources:
-      - policyreport
-      - clusterpolicyreport
+      - policyreports
+      - clusterpolicyreports
     verbs:
       - '*'
 ---
@@ -189,7 +209,7 @@ kind: ClusterRole
 metadata:
   labels:
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
-  name: {{ template "kyverno.fullname" . }}:admin-reportchangerequest
+  name: kyverno:admin-reportchangerequest
 rules:
 - apiGroups:
   - kyverno.io

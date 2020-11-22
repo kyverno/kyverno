@@ -35,16 +35,16 @@ func generateToCluster(dClient *client.Client, reports []*unstructured.Unstructu
 	}
 
 	if clusterReport, err := mergeClusterReport(clusterReports); err != nil {
-		log.Log.Error(err, "failed to merge cluster report")
+		log.Log.V(3).Info("failed to merge cluster report", "error", err)
 	} else {
 		if err := updateReport(dClient, clusterReport); err != nil {
-			log.Log.Error(err, "failed to update policy report", "report", clusterReport.GetName())
+			log.Log.V(3).Info("failed to update policy report", "report", clusterReport.GetName(), "error", err)
 		}
 	}
 
 	for _, report := range namespaceReports {
 		if err := updateReport(dClient, report); err != nil {
-			log.Log.Error(err, "failed to update policy report", "report", report.GetName())
+			log.Log.V(3).Info("failed to update policy report", "report", report.GetName(), "error", err)
 		}
 	}
 }
@@ -62,12 +62,12 @@ func updateReport(dClient *client.Client, new *unstructured.Unstructured) error 
 
 	oldResults, _, err := unstructured.NestedSlice(old.UnstructuredContent(), "results")
 	if err != nil {
-		log.Log.Error(err, "failed to get results entry")
+		log.Log.V(3).Info("failed to get results entry", "error", err)
 	}
 
 	newResults, _, err := unstructured.NestedSlice(new.UnstructuredContent(), "results")
 	if err != nil {
-		log.Log.Error(err, "failed to get results entry")
+		log.Log.V(3).Info("failed to get results entry", "error", err)
 	}
 
 	if reflect.DeepEqual(oldResults, newResults) {
@@ -110,7 +110,7 @@ func mergeClusterReport(reports []*unstructured.Unstructured) (*unstructured.Uns
 func mergeResults(report *unstructured.Unstructured, results *[]interface{}) {
 	entries, ok, err := unstructured.NestedSlice(report.UnstructuredContent(), "results")
 	if err != nil {
-		log.Log.Error(err, "failed to get results entry", "report", report.GetName())
+		log.Log.V(3).Info("failed to get results entry", "report", report.GetName(), "error", err)
 	}
 
 	if ok {

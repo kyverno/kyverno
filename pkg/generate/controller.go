@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -220,13 +221,13 @@ func (c *Controller) deleteGR(obj interface{}) {
 	}
 	for _, resource := range gr.Status.GeneratedResources {
 		r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
-		if err != nil {
+		if err != nil && !apierrors.IsNotFound(err) {
 			logger.Error(err, "Generated resource is not deleted", "Resource", resource.Name)
 			continue
 		}
-		labels := r.GetLabels()
-		if labels["policy.kyverno.io/synchronize"] == "enable" {
-			if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil {
+
+		if r != nil && r.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
+			if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
 				logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
 			}
 		}

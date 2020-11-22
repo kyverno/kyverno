@@ -33,7 +33,7 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		return fmt.Errorf("failed to unmarshal policy: %v", err)
 	}
 
-	if common.PolicyHasVariables(p) && common.PolicyHasNonAllowedVariables(p) {
+	if len(common.PolicyHasVariables(p)) > 0 && common.PolicyHasNonAllowedVariables(p) {
 		return fmt.Errorf("policy contains unknown variables")
 	}
 

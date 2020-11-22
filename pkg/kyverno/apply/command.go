@@ -53,6 +53,12 @@ type Values struct {
 	Policies []Policy `json:"policies"`
 }
 
+type SkippedPolicy struct {
+	Name     string    `json:"name"`
+	Rules    []v1.Rule `json:"rules"`
+	Variable string    `json:"variable"`
+}
+
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
@@ -62,9 +68,52 @@ func Command() *cobra.Command {
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
 
 	cmd = &cobra.Command{
-		Use:     "apply",
-		Short:   "applies policies on resources",
-		Example: fmt.Sprintf("To apply on a resource:\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2\n\nTo apply on a cluster\nkyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster"),
+		Use:   "apply",
+		Short: "applies policies on resources",
+		Example: fmt.Sprintf(`
+To apply on a resource:
+	kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
+
+To apply on a cluster:
+	kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
+
+
+To apply policy with variables:
+
+	1. To apply single policy with variable on single resource use flag "set".
+		Example:
+		kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --set <variable1>=<value1>,<variable2>=<value2>
+
+	2. To apply multiple policy with variable on multiple resource use flag "values_file".
+		Example:
+		kyverno apply /path/to/policy1.yaml /path/to/policy2.yaml --resource /path/to/resource1.yaml --resource /path/to/resource2.yaml -f /path/to/value.yaml
+
+		Format of value.yaml:
+
+		policies:
+			- name: <policy1 name>
+				resources:
+				- name: <resource1 name>
+					values:
+					<variable1 in policy1>: <value>
+					<variable2 in policy1>: <value>
+				- name: <resource2 name>
+					values:
+					<variable1 in policy1>: <value>
+					<variable2 in policy1>: <value>
+			- name: <policy2 name>
+				resources:
+				- name: <resource1 name>
+					values:
+					<variable1 in policy2>: <value>
+					<variable2 in policy2>: <value>
+				- name: <resource2 name>
+					values:
+					<variable1 in policy2>: <value>
+					<variable2 in policy2>: <value>
+
+		More info: https://kyverno.io/docs/kyverno-cli/
+		`),
 		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
 			defer func() {
 				if err != nil {
@@ -135,14 +184,10 @@ func Command() *cobra.Command {
 				}
 			}
 
-			resources, err := getResourceAccordingToResourcePath(resourcePaths, cluster, mutatedPolicies, dClient, namespace)
+			resources, err := getResourceAccordingToResourcePath(resourcePaths, cluster, mutatedPolicies, dClient, namespace, policyReport)
 			if err != nil {
-				if !sanitizedError.IsErrorSanitized(err) {
-					return sanitizedError.NewWithError("failed to load resources", err)
-				}
-			}
-			if len(resources) == 0 {
-				return sanitizedError.NewWithError("valid resource(s) not provided/no matching resource found in cluster", err)
+				fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
+				os.Exit(1)
 			}
 
 			msgPolicies := "1 policy"
@@ -162,6 +207,8 @@ func Command() *cobra.Command {
 			rc := &resultCounts{}
 			engineResponses := make([]response.EngineResponse, 0)
 			validateEngineResponses := make([]response.EngineResponse, 0)
+			skippedPolicies := make([]SkippedPolicy, 0)
+
 			for _, policy := range mutatedPolicies {
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
@@ -170,8 +217,17 @@ func Command() *cobra.Command {
 					continue
 				}
 
-				if common.PolicyHasVariables(*policy) && variablesString == "" && valuesFile == "" {
-					fmt.Printf("\n------------------------\nskipping policy %s as it has variable. pass the values for the variables using set/values_file flag\n------------------------\n", policy.Name)
+				matches := common.PolicyHasVariables(*policy)
+				variable := removeDuplicatevariables(matches)
+
+				if len(matches) > 0 && variablesString == "" && valuesFile == "" {
+					skipPolicy := SkippedPolicy{
+						Name:     policy.GetName(),
+						Rules:    policy.Spec.Rules,
+						Variable: variable,
+					}
+					skippedPolicies = append(skippedPolicies, skipPolicy)
+					log.Log.V(3).Info(fmt.Sprintf("skipping policy %s", policy.Name), "error", fmt.Sprintf("policy have variable - %s", variable))
 					continue
 				}
 
@@ -186,7 +242,7 @@ func Command() *cobra.Command {
 						thisPolicyResourceValues[k] = v
 					}
 
-					if common.PolicyHasVariables(*policy) && len(thisPolicyResourceValues) == 0 {
+					if len(common.PolicyHasVariables(*policy)) > 0 && len(thisPolicyResourceValues) == 0 {
 						return sanitizedError.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 					}
 
@@ -199,7 +255,7 @@ func Command() *cobra.Command {
 				}
 			}
 
-			printReportOrViolation(cmd, policyReport, validateEngineResponses, rc, resourcePaths)
+			printReportOrViolation(cmd, policyReport, validateEngineResponses, rc, resourcePaths, len(resources), skippedPolicies)
 
 			return nil
 		},
@@ -276,7 +332,7 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 }
 
 // getResourceAccordingToResourcePath - get resources according to the resource path
-func getResourceAccordingToResourcePath(resourcePaths []string, cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string) (resources []*unstructured.Unstructured, err error) {
+func getResourceAccordingToResourcePath(resourcePaths []string, cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string, policyReport bool) (resources []*unstructured.Unstructured, err error) {
 	if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
 		if common.IsInputFromPipe() {
 			resourceStr := ""
@@ -292,19 +348,19 @@ func getResourceAccordingToResourcePath(resourcePaths []string, cluster bool, po
 			}
 		}
 	} else if (len(resourcePaths) > 0 && resourcePaths[0] != "-") || len(resourcePaths) < 0 || cluster {
-		resources, err = common.GetResources(policies, resourcePaths, dClient, cluster, namespace)
+		resources, err = common.GetResources(policies, resourcePaths, dClient, cluster, namespace, policyReport)
 		if err != nil {
-			return resources, sanitizedError.NewWithError("failed to load resources", err)
+			return resources, err
 		}
 	}
 	return resources, err
 }
 
 // printReportOrViolation - printing policy report/violations
-func printReportOrViolation(cmd *cobra.Command, policyReport bool, validateEngineResponses []response.EngineResponse, rc *resultCounts, resourcePaths []string) {
+func printReportOrViolation(cmd *cobra.Command, policyReport bool, validateEngineResponses []response.EngineResponse, rc *resultCounts, resourcePaths []string, resourcesLen int, skippedPolicies []SkippedPolicy) {
 	if policyReport {
 		os.Setenv("POLICY-TYPE", pkgCommon.PolicyReport)
-		resps := buildPolicyReports(validateEngineResponses)
+		resps := buildPolicyReports(validateEngineResponses, skippedPolicies)
 		if len(resps) > 0 {
 			fmt.Fprintf(cmd.OutOrStdout(), "----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------\n")
 			// fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
@@ -531,4 +587,18 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 	}
 
 	return nil
+}
+
+// removeDuplicatevariables - remove duplicate variables
+func removeDuplicatevariables(matches [][]string) string {
+	var variableStr string
+	for _, m := range matches {
+		for _, v := range m {
+			foundVariable := strings.Contains(variableStr, v)
+			if !foundVariable {
+				variableStr = variableStr + " " + v
+			}
+		}
+	}
+	return variableStr
 }

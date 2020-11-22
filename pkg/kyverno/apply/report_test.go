@@ -67,7 +67,7 @@ var engineResponses = []response.EngineResponse{
 
 func Test_buildPolicyReports(t *testing.T) {
 	os.Setenv("POLICY-TYPE", common.PolicyReport)
-	reports := buildPolicyReports(engineResponses)
+	reports := buildPolicyReports(engineResponses, []SkippedPolicy{})
 	assert.Assert(t, len(reports) == 2, len(reports))
 
 	for _, report := range reports {

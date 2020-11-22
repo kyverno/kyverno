@@ -14,8 +14,6 @@ import (
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
-
-	// _ "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 	yaml "sigs.k8s.io/yaml"
 )
