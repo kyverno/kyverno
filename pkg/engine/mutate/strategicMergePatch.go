@@ -66,9 +66,9 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 	}
 	patchedBytes, err := strategicMergePatch(string(base), string(overlayBytes))
 	if err != nil {
+		log.Error(err, "failed to apply patchStrategicMerge")
 		msg := fmt.Sprintf("failed to apply patchStrategicMerge: %v", err)
 		resp.Success = false
-		log.Info(msg)
 		resp.Message = msg
 		return resp, resource
 	}
@@ -92,6 +92,10 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 		return resp, patchedResource
 	}
 
+	for _, p := range jsonPatches {
+		log.V(5).Info("generated patch", "patch", string(p))
+	}
+
 	resp.Success = true
 	resp.Patches = jsonPatches
 	resp.Message = fmt.Sprintf("successfully processed strategic merge patch")
@@ -103,7 +107,7 @@ func strategicMergePatch(base, overlay string) ([]byte, error) {
 	patch := yaml.MustParse(overlay)
 	preprocessedYaml, err := preProcessStrategicMergePatch(overlay, base)
 	if err != nil {
-		return []byte{}, fmt.Errorf("failed to preProcess rule : %+v", err)
+		return []byte{}, fmt.Errorf("failed to preProcess rule: %+v", err)
 	}
 	patch = preprocessedYaml
 	f := patchstrategicmerge.Filter{

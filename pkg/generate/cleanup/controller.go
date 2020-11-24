@@ -249,7 +249,7 @@ func (c *Controller) handleErr(err error, key interface{}) {
 
 	if errors.IsNotFound(err) {
 		c.queue.Forget(key)
-		logger.V(4).Info("Dropping generate request from the queue", "key", key, "error", err)
+		logger.V(4).Info("Dropping generate request from the queue", "key", key, "error", err.Error())
 		return
 	}
 

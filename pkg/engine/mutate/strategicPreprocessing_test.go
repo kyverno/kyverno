@@ -1,11 +1,12 @@
 package mutate
 
 import (
-	assertnew "github.com/stretchr/testify/assert"
-	"gotest.tools/assert"
 	"regexp"
 	"strings"
 	"testing"
+
+	assertnew "github.com/stretchr/testify/assert"
+	"gotest.tools/assert"
 )
 
 func Test_preProcessStrategicMergePatch(t *testing.T) {
@@ -89,6 +90,34 @@ func Test_preProcessStrategicMergePatch_Deployment(t *testing.T) {
 	assert.NilError(t, err)
 	output, err := preProcessedPolicy.String()
 	assert.NilError(t, err)
+	re := regexp.MustCompile("\\n")
+	if !assertnew.Equal(t, strings.ReplaceAll(expected, " ", ""), strings.ReplaceAll(re.ReplaceAllString(output, ""), " ", "")) {
+		t.FailNow()
+	}
+}
+
+func Test_preProcessStrategicMergePatch_AnnotationMap(t *testing.T) {
+	rawPolicy := []byte(`{
+		"metadata": {
+			"annotations": {
+				"+(alb.ingress.kubernetes.io/backend-protocol)": "HTTPS",
+				"+(alb.ingress.kubernetes.io/healthcheck-protocol)": "HTTPS",
+				"+(alb.ingress.kubernetes.io/scheme)": "internal",
+				"+(alb.ingress.kubernetes.io/target-type)": "ip",
+				"+(kubernetes.io/ingress.class)": "alb"
+			}
+		}
+	}`)
+
+	rawResource := []byte(`{"apiVersion": "extensions/v1beta1","kind": "Ingress","metadata": {"annotations": {"alb.ingress.kubernetes.io/backend-protocol": "HTTPS","alb.ingress.kubernetes.io/healthcheck-protocol": "HTTPS","alb.ingress.kubernetes.io/scheme": "internal","alb.ingress.kubernetes.io/target-type": "ip","external-dns.alpha.kubernetes.io/hostname": "argo","kubernetes.io/ingress.class": "test"},"labels": {"app": "argocd-server","app.kubernetes.io/name": "argocd-server"},"name": "argocd","namespace": "default"}}`)
+
+	expected := `{"metadata":{"annotations":{}}}`
+
+	preProcessedPolicy, err := preProcessStrategicMergePatch(string(rawPolicy), string(rawResource))
+	assert.NilError(t, err)
+	output, err := preProcessedPolicy.String()
+	assert.NilError(t, err)
+
 	re := regexp.MustCompile("\\n")
 	if !assertnew.Equal(t, strings.ReplaceAll(expected, " ", ""), strings.ReplaceAll(re.ReplaceAllString(output, ""), " ", "")) {
 		t.FailNow()

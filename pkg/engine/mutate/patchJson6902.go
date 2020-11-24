@@ -41,7 +41,7 @@ func ProcessPatchJSON6902(ruleName string, mutation kyverno.Mutation, resource u
 	patchedResourceRaw, err := patchJSON6902(string(resourceRaw), mutation.PatchesJSON6902)
 	if err != nil {
 		resp.Success = false
-		logger.V(3).Info("failed to process JSON6902 patches", "error", err.Error())
+		logger.Error(err, "failed to process JSON6902 patches")
 		resp.Message = fmt.Sprintf("failed to process JSON6902 patches: %v", err)
 		return resp, resource
 	}
