@@ -35,6 +35,7 @@ const (
 	clusterPolicyReportKind     string = "ClusterPolicyReport"
 	policyViolation             string = "PolicyViolation"
 	clusterPolicyViolation      string = "ClusterPolicyViolation"
+	cleanUpCRD                  string = "CleanUpCRD"
 )
 
 func main() {
@@ -122,6 +123,8 @@ func executeRequest(client *client.Client, req request) error {
 		return removeClusterPolicyReport(client, req.kind)
 	case policyViolation, clusterPolicyViolation:
 		return removeViolationCRD(client)
+	case cleanUpCRD:
+		return cleanupCRD(client)
 	}
 	return nil
 }
@@ -252,13 +255,13 @@ func removeClusterPolicyReport(client *client.Client, kind string) error {
 
 	cpolrs, err := client.ListResource("", kind, "", nil)
 	if err != nil && !errors.IsNotFound(err) {
-		logger.Error(err, "failed to list clusterPolicyReport")
+		logger.Error(err, "failed to list ClusterPolicyReport")
 		return err
 	}
 
 	for _, cpolr := range cpolrs.Items {
 		if err := client.DeleteResource(cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName(), false); err != nil {
-			logger.Error(err, "failed to delete clusterPolicyReport", "name", cpolr.GetName())
+			logger.Error(err, "failed to delete ClusterPolicyReport", "name", cpolr.GetName())
 		}
 	}
 	return nil
@@ -279,7 +282,7 @@ func removePolicyReport(client *client.Client, kind string) error {
 		reportName := fmt.Sprintf("policyreport-ns-%s", ns.GetName())
 		err := client.DeleteResource("", kind, ns.GetName(), reportName, false)
 		if err != nil && !errors.IsNotFound(err) {
-			logger.Error(err, "failed to delete policyReport", "name", reportName)
+			logger.Error(err, "failed to delete PolicyReport", "name", reportName)
 		}
 	}
 
@@ -289,13 +292,28 @@ func removePolicyReport(client *client.Client, kind string) error {
 func removeViolationCRD(client *client.Client) error {
 	if err := client.DeleteResource("", "CustomResourceDefinition", "", "policyviolations.kyverno.io", false); err != nil {
 		if !errors.IsNotFound(err) {
-			logger.Error(err, "failed to delete CRD policyViolation")
+			logger.Error(err, "failed to delete CRD PolicyViolation")
 		}
 	}
 
 	if err := client.DeleteResource("", "CustomResourceDefinition", "", "clusterpolicyviolations.kyverno.io", false); err != nil {
 		if !errors.IsNotFound(err) {
-			logger.Error(err, "failed to delete CRD clusterPolicyViolation")
+			logger.Error(err, "failed to delete CRD ClusterPolicyViolation")
+		}
+	}
+	return nil
+}
+
+func cleanupCRD(client *client.Client) error {
+	if err := client.DeleteResource("", "CustomResourceDefinition", "", "clusterpolicyreports.policy.k8s.io", false); err != nil {
+		if !errors.IsNotFound(err) {
+			logger.Error(err, "failed to delete CRD ClusterPolicyReport")
+		}
+	}
+
+	if err := client.DeleteResource("", "CustomResourceDefinition", "", "policyreports.policy.k8s.io", false); err != nil {
+		if !errors.IsNotFound(err) {
+			logger.Error(err, "failed to delete CRD PolicyReport")
 		}
 	}
 	return nil
