@@ -45,11 +45,13 @@ jobs:
           echo ">>> Run Kyverno e2e test"
           make test-e2e
 
-  create-release:
+  create-release-gh-helm-krew:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
 
       - name: Unshallow
         run: git fetch --prune --unshallow
@@ -67,17 +69,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update new version in krew-index
-        uses: rajatjindal/krew-release-bot@v0.0.38
-
-  publish-helm:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-
       - name: Configure Git
         run: |
           git config user.name "$GITHUB_ACTOR"
@@ -92,3 +83,6 @@ jobs:
         uses: helm/chart-releaser-action@v1.1.0
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Update new version in krew-index
+        uses: rajatjindal/krew-release-bot@v0.0.38
