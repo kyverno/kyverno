@@ -6,9 +6,9 @@ resources:
 - ./manifest/
 - ./k8s-resource/
 images:
-- name: nirmata/kyverno
-  newName: nirmata/kyverno
+- name: ghcr.io/kyverno/kyverno
+  newName: ghcr.io/kyverno/kyverno
   newTag: v1.3.0-rc4
-- name: nirmata/kyvernopre
-  newName: nirmata/kyvernopre
+- name: ghcr.io/kyverno/kyvernopre
+  newName: ghcr.io/kyverno/kyvernopre
   newTag: v1.3.0-rc4

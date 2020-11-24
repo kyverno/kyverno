@@ -21,7 +21,7 @@ spec:
         runAsNonRoot: true
       initContainers:
         - name: kyverno-pre
-          image: nirmata/kyvernopre:v1.1.9
+          image: ghcr.io/kyverno/kyvernopre:latest
           imagePullPolicy: Always
           securityContext:
             runAsUser: 1000
@@ -34,7 +34,7 @@ spec:
                 - all
       containers:
         - name: kyverno
-          image: nirmata/kyverno:latest
+          image: ghcr.io/kyverno/kyverno:latest
           imagePullPolicy: Always
           args:
           - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]"
