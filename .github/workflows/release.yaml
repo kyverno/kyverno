@@ -67,18 +67,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Update new version in krew-index
+        uses: rajatjindal/krew-release-bot@v0.0.38
+
   publish-helm:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Unshallow
+        run: git fetch --prune --unshallow
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+
       - uses: J12934/helm-gh-pages-action@master
         name: Run Helm Publish
         with:
           access-token: ${{ secrets.GITHUB_TOKEN }}
           deploy-branch: gh-pages
           charts-folder: charts
-
-  publish-cli-via-krew:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Update new version in krew-index
-        uses: rajatjindal/krew-release-bot@v0.0.38
