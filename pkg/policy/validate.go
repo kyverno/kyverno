@@ -302,6 +302,17 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		return false
 	}
 
+	if rule.MatchResources.Annotations != nil && rule.ExcludeResources.Annotations != nil {
+		if !(reflect.DeepEqual(rule.MatchResources.Annotations, rule.ExcludeResources.Annotations)) {
+			return false
+		}
+	}
+
+	if (rule.MatchResources.Annotations == nil && rule.ExcludeResources.Annotations != nil) ||
+		(rule.MatchResources.Annotations != nil && rule.ExcludeResources.Annotations == nil) {
+		return false
+	}
+
 	return true
 }
 
