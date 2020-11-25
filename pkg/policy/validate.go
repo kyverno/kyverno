@@ -40,7 +40,7 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 	if path, err := validateUniqueRuleName(p); err != nil {
 		return fmt.Errorf("path: spec.%s: %v", path, err)
 	}
-	if p.Spec.Background == nil || *p.Spec.Background == false {
+	if p.Spec.Background == nil || *p.Spec.Background == true {
 		if err := ContainsVariablesOtherThanObject(p); err != nil {
 			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule. %s ", err)
 		}
