@@ -2,7 +2,7 @@
 
 Sample policies are designed to be applied to your Kubernetes clusters with minimal changes.
 
-The policies are mostly validation rules in `audit` mode i.e. your existing workloads will not be impacted, but will be audited for policy compliance.
+The policies are mostly validation rules in `audit` mode (i.e. your existing workloads will not be impacted, but will be audited for policy compliance). It is recommended that all policies be tested and observed in a non-production environment before setting `enforce` mode.
 
 ## Best Practice Policies
 
@@ -44,6 +44,13 @@ These policies provide additional best practices and are worthy of close conside
 1. [Ensure Pod `livenessProbe` and `readinessProbe` are different](EnsurePodProbesDifferent.md)
 1. [Disallow mounting Secrets as environment variables](DisallowSecretsFromEnvVars.md)
 1. [Add default labels](AddDefaultLabels.md)
+
+## Miscellaneous Policies
+
+Policies in this group are either highly-specific, involve third-party CRDs, or may be variations on standard Best Practice or Additional policies.
+
+1. [Require `imagePullPolicy` of `Always` for images not using `latest` tags](RequireImagePullPolicyAlways.md)
+1. [Require images using `latest` tag not use `imagePullPolicy` of `Always`](RequireLatestImagesNotUseAlways.md)
 
 ## Applying the sample policies
 
