@@ -15,7 +15,7 @@ const (
 )
 
 //SubstituteVars replaces the variables with the values defined in the context
-// - if any variable is invaid or has nil value, it is considered as a failed varable substitution
+// - if any variable is invalid or has nil value, it is considered as a failed variable substitution
 func SubstituteVars(log logr.Logger, ctx context.EvalInterface, pattern interface{}) (interface{}, error) {
 	pattern, err := subVars(log, ctx, pattern, "")
 	if err != nil {
@@ -87,11 +87,15 @@ func subValR(ctx context.EvalInterface, valuePattern string, path string) (inter
 	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
 	for {
 		if vars := regex.FindAllString(valuePattern, -1); len(vars) > 0 {
-			for _, variable := range vars {
-				underlyingVariable := strings.ReplaceAll(strings.ReplaceAll(variable, "}}", ""), "{{", "")
-				substitutedVar, err := ctx.Query(underlyingVariable)
+			for _, v := range vars {
+				variable := v
+				variable = strings.ReplaceAll(variable, "{{", "")
+				variable = strings.ReplaceAll(variable, "}}", "")
+				variable = strings.TrimSpace(variable)
+
+				substitutedVar, err := ctx.Query(variable)
 				if err != nil {
-					return nil, fmt.Errorf("failed to resolve %v at path %s", underlyingVariable, path)
+					return nil, fmt.Errorf("failed to resolve %v at path %s", variable, path)
 				}
 				if val, ok := substitutedVar.(string); ok {
 					valuePattern = strings.Replace(valuePattern, variable, val, -1)
@@ -100,10 +104,10 @@ func subValR(ctx context.EvalInterface, valuePattern string, path string) (inter
 						if originalPattern == variable {
 							return substitutedVar, nil
 						}
-						return nil, fmt.Errorf("failed to resolve %v at path %s", underlyingVariable, path)
+						return nil, fmt.Errorf("failed to resolve %v at path %s", variable, path)
 					}
 					return nil, NotFoundVariableErr{
-						variable: underlyingVariable,
+						variable: variable,
 						path:     path,
 					}
 				}

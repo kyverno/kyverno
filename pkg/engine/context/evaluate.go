@@ -41,10 +41,10 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 }
 
 func (ctx *Context) isWhiteListed(variable string) bool {
-	if len(ctx.whiteListVars) == 0 {
+	if len(ctx.builtInVars) == 0 {
 		return true
 	}
-	for _, wVar := range ctx.whiteListVars {
+	for _, wVar := range ctx.builtInVars {
 		if strings.HasPrefix(variable, wVar) {
 			return true
 		}
