@@ -224,69 +224,106 @@ func (o *Controller) generateEmptyResource(kindSchema *openapi_v2.Schema) interf
 
 	switch types[0] {
 	case "object":
-		var props = make(map[string]interface{})
-		properties := kindSchema.GetProperties().GetAdditionalProperties()
-		if len(properties) == 0 {
-			return props
-		}
-
-		var wg sync.WaitGroup
-		var mutex sync.Mutex
-		wg.Add(len(properties))
-		for _, property := range properties {
-			go func(property *openapi_v2.NamedSchema) {
-				prop := o.generateEmptyResource(property.GetValue())
-				mutex.Lock()
-				props[property.GetName()] = prop
-				mutex.Unlock()
-				wg.Done()
-			}(property)
-		}
-		wg.Wait()
-		return props
+		return getObjectValue(kindSchema, o)
 	case "array":
-		var array []interface{}
-		for _, schema := range kindSchema.GetItems().GetSchema() {
-			array = append(array, o.generateEmptyResource(schema))
-		}
-		return array
+		return getArrayValue(kindSchema, o)
 	case "string":
-		if kindSchema.GetDefault() != nil {
-			return string(kindSchema.GetDefault().Value.Value)
-		}
-		if kindSchema.GetExample() != nil {
-			return string(kindSchema.GetExample().GetValue().Value)
-		}
-		return ""
+		return getStringValue(kindSchema)
 	case "integer":
-		if kindSchema.GetDefault() != nil {
-			val, _ := strconv.Atoi(string(kindSchema.GetDefault().Value.Value))
-			return int64(val)
-		}
-		if kindSchema.GetExample() != nil {
-			val, _ := strconv.Atoi(string(kindSchema.GetExample().GetValue().Value))
-			return int64(val)
-		}
-		return int64(0)
+		return getNumericValue(kindSchema)
 	case "number":
-		if kindSchema.GetDefault() != nil {
-			val, _ := strconv.Atoi(string(kindSchema.GetDefault().Value.Value))
-			return int64(val)
-		}
-		if kindSchema.GetExample() != nil {
-			val, _ := strconv.Atoi(string(kindSchema.GetExample().GetValue().Value))
-			return int64(val)
-		}
-		return int64(0)
+		return getNumericValue(kindSchema)
 	case "boolean":
-		if kindSchema.GetDefault() != nil {
-			return string(kindSchema.GetDefault().Value.Value) == "true"
+		return getBoolValue(kindSchema)
+	}
+
+	log.Log.Info("unknown type", types[0])
+	return nil
+}
+
+func getArrayValue(kindSchema *openapi_v2.Schema, o *Controller) interface{} {
+	var array []interface{}
+	for _, schema := range kindSchema.GetItems().GetSchema() {
+		array = append(array, o.generateEmptyResource(schema))
+	}
+
+	return array
+}
+
+func getObjectValue(kindSchema *openapi_v2.Schema, o *Controller) interface{} {
+	var props = make(map[string]interface{})
+	properties := kindSchema.GetProperties().GetAdditionalProperties()
+	if len(properties) == 0 {
+		return props
+	}
+
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+	wg.Add(len(properties))
+	for _, property := range properties {
+		go func(property *openapi_v2.NamedSchema) {
+			prop := o.generateEmptyResource(property.GetValue())
+			mutex.Lock()
+			props[property.GetName()] = prop
+			mutex.Unlock()
+			wg.Done()
+		}(property)
+	}
+	wg.Wait()
+	return props
+}
+
+func getBoolValue(kindSchema *openapi_v2.Schema) bool {
+	if d := kindSchema.GetDefault(); d != nil {
+		v := getAnyValue(d)
+		return string(v) == "true"
+	}
+
+	if e := kindSchema.GetExample(); e != nil {
+		v := getAnyValue(e)
+		return string(v) == "true"
+	}
+
+	return false
+}
+
+func getNumericValue(kindSchema *openapi_v2.Schema) int64 {
+	if d := kindSchema.GetDefault(); d != nil {
+		v := getAnyValue(d)
+		val, _ := strconv.Atoi(string(v))
+		return int64(val)
+	}
+
+	if e := kindSchema.GetExample(); e != nil {
+		v := getAnyValue(e)
+		val, _ := strconv.Atoi(string(v))
+		return int64(val)
+	}
+
+	return int64(0)
+}
+
+func getStringValue(kindSchema *openapi_v2.Schema) string {
+	if d := kindSchema.GetDefault(); d != nil {
+		v := getAnyValue(d)
+		return string(v)
+	}
+
+	if e := kindSchema.GetExample(); e != nil {
+		v := getAnyValue(e)
+		return string(v)
+	}
+
+	return ""
+}
+
+func getAnyValue(any *openapi_v2.Any) []byte {
+	if any != nil {
+		if val := any.GetValue(); val != nil {
+			return val.GetValue()
 		}
-		if kindSchema.GetExample() != nil {
-			return string(kindSchema.GetExample().GetValue().Value) == "true"
-		}
-		return false
 	}
 
 	return nil
 }
+
