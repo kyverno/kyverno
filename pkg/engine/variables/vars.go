@@ -106,7 +106,7 @@ func subValR(log logr.Logger, ctx context.EvalInterface, valuePattern string, pa
 		}
 
 		if substitutedVar != nil {
-			if originalPattern == variable {
+			if originalPattern == v {
 				return substitutedVar, nil
 			}
 
