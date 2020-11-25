@@ -77,7 +77,7 @@ func (wrc *WebhookRegistrationClient) removeVerifyWebhookMutatingWebhookConfig(w
 	}
 
 	if err != nil {
-		logger.Error(err, "failed to delete verify wwebhook configuration")
+		logger.Error(err, "failed to delete verify webhook configuration")
 		return
 	}
 

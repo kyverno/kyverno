@@ -29,11 +29,11 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 		ctx := context.NewContext(filterVars...)
 		for condIdx, condition := range rule.Conditions {
 			if condition.Key, err = variables.SubstituteVars(log.Log, ctx, condition.Key); !checkNotFoundErr(err) {
-				return fmt.Errorf("invalid variable used at spec/rules[%d]/condition[%d]/key", idx, condIdx)
+				return fmt.Errorf("invalid variable %s used at spec/rules[%d]/condition[%d]/key",condition.Key, idx, condIdx)
 			}
 
 			if condition.Value, err = variables.SubstituteVars(log.Log, ctx, condition.Value); !checkNotFoundErr(err) {
-				return fmt.Errorf("invalid variable used at spec/rules[%d]/condition[%d]/value", idx, condIdx)
+				return fmt.Errorf("invalid %s variable used at spec/rules[%d]/condition[%d]/value", condition.Value, idx, condIdx)
 			}
 		}
 
@@ -67,10 +67,12 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 		if rule.Validation.Deny != nil {
 			for i := range rule.Validation.Deny.Conditions {
 				if _, err = variables.SubstituteVars(log.Log, ctx, rule.Validation.Deny.Conditions[i].Key); !checkNotFoundErr(err) {
-					return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/deny/conditions[%d]/key", idx, i)
+					return fmt.Errorf("invalid variable %s used at spec/rules[%d]/validate/deny/conditions[%d]/key: %v",
+						rule.Validation.Deny.Conditions[i].Key, idx, i, err)
 				}
 				if _, err = variables.SubstituteVars(log.Log, ctx, rule.Validation.Deny.Conditions[i].Value); !checkNotFoundErr(err) {
-					return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/deny/conditions[%d]/value", idx, i)
+					return fmt.Errorf("invalid variable %s used at spec/rules[%d]/validate/deny/conditions[%d]/value: %v",
+						rule.Validation.Deny.Conditions[i].Value, idx, i, err)
 				}
 			}
 		}

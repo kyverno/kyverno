@@ -37,8 +37,6 @@ func (v *Validate) Validate() (string, error) {
 	}
 
 	if rule.AnyPattern != nil {
-		// validation := &kyverno.Validation{}
-		// rule.DeepCopyInto(validation)
 		anyPattern, err := rule.DeserializeAnyPattern()
 		if err != nil {
 			return "anyPattern", fmt.Errorf("failed to deserialze anyPattern, expect array: %v", err)

@@ -10,9 +10,14 @@ import (
 
 //Query the JSON context with JMESPATH search path
 func (ctx *Context) Query(query string) (interface{}, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return nil, fmt.Errorf("invalid query (nil)")
+	}
+
 	var emptyResult interface{}
 	// check for white-listed variables
-	if !ctx.isWhiteListed(query) {
+	if !ctx.isBuiltInVariable(query) {
 		return emptyResult, fmt.Errorf("variable %s cannot be used", query)
 	}
 
@@ -40,11 +45,11 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 	return result, nil
 }
 
-func (ctx *Context) isWhiteListed(variable string) bool {
-	if len(ctx.whiteListVars) == 0 {
+func (ctx *Context) isBuiltInVariable(variable string) bool {
+	if len(ctx.builtInVars) == 0 {
 		return true
 	}
-	for _, wVar := range ctx.whiteListVars {
+	for _, wVar := range ctx.builtInVars {
 		if strings.HasPrefix(variable, wVar) {
 			return true
 		}

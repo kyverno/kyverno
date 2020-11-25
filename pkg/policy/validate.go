@@ -34,15 +34,15 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 	}
 
 	if len(common.PolicyHasVariables(p)) > 0 && common.PolicyHasNonAllowedVariables(p) {
-		return fmt.Errorf("policy contains unknown variables")
+		return fmt.Errorf("policy contains invalid variables")
 	}
 
 	if path, err := validateUniqueRuleName(p); err != nil {
 		return fmt.Errorf("path: spec.%s: %v", path, err)
 	}
-	if p.Spec.Background == nil || (p.Spec.Background != nil && *p.Spec.Background) {
+	if p.Spec.Background == nil || *p.Spec.Background == true {
 		if err := ContainsVariablesOtherThanObject(p); err != nil {
-			return fmt.Errorf("only variables referring request.object are allowed in background mode. Set spec.background=false to disable background mode for this policy rule. %s ", err)
+			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule. %s ", err)
 		}
 	}
 
