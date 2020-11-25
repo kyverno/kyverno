@@ -10,9 +10,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-const (
-	variableRegex = `\{\{([^{}]*)\}\}`
-)
+var regexVariables = regexp.MustCompile(`\{\{[^{}]*\}\}`)
+
+//IsVariable returns true if the element contains a 'valid' variable {{}}
+func IsVariable(element string) bool {
+	groups := regexVariables.FindAllStringSubmatch(element, -1)
+	return len(groups) != 0
+}
 
 //SubstituteVars replaces the variables with the values defined in the context
 // - if any variable is invalid or has nil value, it is considered as a failed variable substitution
@@ -31,15 +35,16 @@ func subVars(log logr.Logger, ctx context.EvalInterface, pattern interface{}, pa
 		for k, v := range typedPattern {
 			mapCopy[k] = v
 		}
-
 		return subMap(log, ctx, mapCopy, path)
+
 	case []interface{}:
 		sliceCopy := make([]interface{}, len(typedPattern))
 		copy(sliceCopy, typedPattern)
-
 		return subArray(log, ctx, sliceCopy, path)
+
 	case string:
-		return subValR(ctx, typedPattern, path)
+		return subValR(log, ctx, typedPattern, path)
+
 	default:
 		return pattern, nil
 	}
@@ -81,39 +86,36 @@ func (n NotFoundVariableErr) Error() string {
 }
 
 // subValR resolves the variables if defined
-func subValR(ctx context.EvalInterface, valuePattern string, path string) (interface{}, error) {
+func subValR(log logr.Logger, ctx context.EvalInterface, valuePattern string, path string) (interface{}, error) {
 	originalPattern := valuePattern
+	vars := regexVariables.FindAllString(valuePattern, -1)
+	for _, v := range vars {
+		variable := strings.ReplaceAll(v, "{{", "")
+		variable = strings.ReplaceAll(variable, "}}", "")
+		variable = strings.TrimSpace(variable)
+		substitutedVar, err := ctx.Query(variable)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve %v at path %s", variable, path)
+		}
 
-	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
-	for {
-		if vars := regex.FindAllString(valuePattern, -1); len(vars) > 0 {
-			for _, v := range vars {
-				variable := v
-				variable = strings.ReplaceAll(variable, "{{", "")
-				variable = strings.ReplaceAll(variable, "}}", "")
-				variable = strings.TrimSpace(variable)
+		log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", path)
 
-				substitutedVar, err := ctx.Query(variable)
-				if err != nil {
-					return nil, fmt.Errorf("failed to resolve %v at path %s", variable, path)
-				}
-				if val, ok := substitutedVar.(string); ok {
-					valuePattern = strings.Replace(valuePattern, variable, val, -1)
-				} else {
-					if substitutedVar != nil {
-						if originalPattern == variable {
-							return substitutedVar, nil
-						}
-						return nil, fmt.Errorf("failed to resolve %v at path %s", variable, path)
-					}
-					return nil, NotFoundVariableErr{
-						variable: variable,
-						path:     path,
-					}
-				}
+		if val, ok := substitutedVar.(string); ok {
+			valuePattern = strings.Replace(valuePattern, v, val, -1)
+			continue
+		}
+
+		if substitutedVar != nil {
+			if originalPattern == variable {
+				return substitutedVar, nil
 			}
-		} else {
-			break
+
+			return nil, fmt.Errorf("failed to resolve %v at path %s", variable, path)
+		}
+
+		return nil, NotFoundVariableErr{
+			variable: variable,
+			path:     path,
 		}
 	}
 
