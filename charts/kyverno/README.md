@@ -10,14 +10,14 @@
 
 Access the complete user documentation and guides at: https://kyverno.io.
 
-## TL;DR;
+## TL;DR
 
 ```console
 ## Add the Kyverno Helm repository
-$ helm repo add kyverno https://nirmata.github.io/kyverno
+$ helm repo add kyverno https://kyverno.github.io/kyverno/
 
 ## Install the Kyverno Helm chart
-$ helm install kyverno --namespace kyverno kyverno/kyverno
+$ helm install kyverno --namespace kyverno kyverno/kyverno --create-namespace
 ```
 
 ## Introduction
@@ -29,7 +29,7 @@ This chart bootstraps a Kyverno deployment on a [Kubernetes](http://kubernetes.i
 **Add the Kyverno Helm repository:**
 
 ```console
-$ helm repo add kyverno https://nirmata.github.io/kyverno
+$ helm repo add kyverno https://kyverno.github.io/kyverno/
 ```
 
 **Create a namespace:**
