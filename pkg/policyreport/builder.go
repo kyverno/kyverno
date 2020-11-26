@@ -172,7 +172,7 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 
 func set(obj *unstructured.Unstructured, info Info) {
 	resource := info.Resource
-	obj.SetNamespace(config.KubePolicyNamespace)
+	obj.SetNamespace(config.KyvernoNamespace)
 	obj.SetAPIVersion(request.SchemeGroupVersion.Group + "/" + request.SchemeGroupVersion.Version)
 	if resource.GetNamespace() == "" {
 		obj.SetGenerateName(clusterreportchangerequest + "-")

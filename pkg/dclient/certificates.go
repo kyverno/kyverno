@@ -234,8 +234,8 @@ func (c *Client) GetTLSCertProps(configuration *rest.Config) (certProps tls.Cert
 		return certProps, err
 	}
 	certProps = tls.CertificateProps{
-		Service:       config.WebhookServiceName,
-		Namespace:     config.KubePolicyNamespace,
+		Service:       config.KyvernoServiceName,
+		Namespace:     config.KyvernoNamespace,
 		APIServerHost: apiServerURL.Hostname(),
 	}
 	return certProps, nil

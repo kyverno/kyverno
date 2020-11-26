@@ -8,7 +8,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (wrc *WebhookRegistrationClient) contructPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
+func (wrc *Register) contructPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
 
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
@@ -33,7 +33,7 @@ func (wrc *WebhookRegistrationClient) contructPolicyValidatingWebhookConfig(caDa
 	}
 }
 
-func (wrc *WebhookRegistrationClient) contructDebugPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
+func (wrc *Register) contructDebugPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
 	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.PolicyValidatingWebhookServicePath)
 	logger.V(4).Info("Debug PolicyValidatingWebhookConfig is registered with url ", "url", url)
@@ -58,7 +58,7 @@ func (wrc *WebhookRegistrationClient) contructDebugPolicyValidatingWebhookConfig
 	}
 }
 
-func (wrc *WebhookRegistrationClient) contructPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+func (wrc *Register) contructPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.PolicyMutatingWebhookConfigurationName,
@@ -81,7 +81,8 @@ func (wrc *WebhookRegistrationClient) contructPolicyMutatingWebhookConfig(caData
 		},
 	}
 }
-func (wrc *WebhookRegistrationClient) contructDebugPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+
+func (wrc *Register) contructDebugPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
 	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.PolicyMutatingWebhookServicePath)
 	logger.V(4).Info("Debug PolicyMutatingWebhookConfig is registered with url ", "url", url)

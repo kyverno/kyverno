@@ -369,7 +369,7 @@ func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName strin
 			deletedLabelRule:   ruleName,
 		})
 	}
-	aggregatedRequests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KubePolicyNamespace).List(labels.SelectorFromSet(labelset))
+	aggregatedRequests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).List(labels.SelectorFromSet(labelset))
 	if err != nil {
 		return err
 	}
@@ -399,7 +399,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 		}
 
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{resourceLabelNamespace: namespace}))
-		requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KubePolicyNamespace).List(selector)
+		requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).List(selector)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to list reportChangeRequests within namespace %s: %v", ns, err)
 		}
@@ -554,7 +554,7 @@ func (g *ReportGenerator) cleanupReportRequets(requestsGeneral interface{}) {
 	defer g.log.V(5).Info("successfully cleaned up report requests")
 	if requests, ok := requestsGeneral.([]*changerequest.ReportChangeRequest); ok {
 		for _, request := range requests {
-			if err := g.dclient.DeleteResource(request.APIVersion, "ReportChangeRequest", config.KubePolicyNamespace, request.Name, false); err != nil {
+			if err := g.dclient.DeleteResource(request.APIVersion, "ReportChangeRequest", config.KyvernoNamespace, request.Name, false); err != nil {
 				if !apierrors.IsNotFound(err) {
 					g.log.Error(err, "failed to delete report request")
 				}

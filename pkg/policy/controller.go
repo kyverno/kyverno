@@ -21,7 +21,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
-	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,9 +93,6 @@ type PolicyController struct {
 	// policy report generator
 	prGenerator policyreport.GeneratorInterface
 
-	// resourceWebhookWatcher queues the webhook creation request, creates the webhook
-	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
-
 	// resCache - controls creation and fetching of resource informer cache
 	resCache resourcecache.ResourceCacheIface
 
@@ -112,7 +108,6 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	configHandler config.Interface,
 	eventGen event.Interface,
 	prGenerator policyreport.GeneratorInterface,
-	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
 	resCache resourcecache.ResourceCacheIface) (*PolicyController, error) {
@@ -134,7 +129,6 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		configHandler:          configHandler,
 		prGenerator:            prGenerator,
-		resourceWebhookWatcher: resourceWebhookWatcher,
 		log:                    log,
 		resCache:               resCache,
 	}
@@ -352,11 +346,6 @@ func (pc *PolicyController) worker() {
 }
 
 func (pc *PolicyController) processNextWorkItem() bool {
-	// if policies exist before Kyverno get created, resource webhook configuration
-	// could not be registered as clusterpolicy.spec.background=false by default
-	// the policy controller would starts only when the first incoming policy is queued
-	pc.resourceWebhookWatcher.RegisterResourceWebhook()
-
 	key, quit := pc.queue.Get()
 	if quit {
 		return false
@@ -410,15 +399,10 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	}
 
 	if err != nil {
-		// remove webhook configurations if there are no policies
-		if err := pc.removeResourceWebhookConfiguration(); err != nil {
-			logger.Error(err, "failed to remove resource webhook configurations")
-		}
-
 		if errors.IsNotFound(err) {
 			for _, v := range grList {
 				if key == v.Spec.Policy {
-					err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
+					err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
 					if err != nil && !errors.IsNotFound(err) {
 						logger.Error(err, "failed to delete gr")
 					}
@@ -428,6 +412,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 			go pc.removeResultsEntryFromPolicyReport(key)
 			return nil
 		}
+
 		return err
 	}
 
@@ -436,14 +421,13 @@ func (pc *PolicyController) syncPolicy(key string) error {
 			v.SetLabels(map[string]string{
 				"policy-update": fmt.Sprintf("revision-count-%d", rand.Intn(100000)),
 			})
-			_, err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
+			_, err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
 			if err != nil {
 				logger.Error(err, "failed to update gr", "policy", policy.GetName(), "gr", v.GetName())
 			}
 		}
 	}
 
-	pc.resourceWebhookWatcher.RegisterResourceWebhook()
 	engineResponses := pc.processExistingResources(policy)
 	pc.cleanupAndReport(engineResponses)
 	return nil

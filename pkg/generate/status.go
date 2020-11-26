@@ -28,7 +28,7 @@ func (sc StatusControl) Failed(gr kyverno.GenerateRequest, message string, genRe
 	gr.Status.Message = message
 	// Update Generated Resources
 	gr.Status.GeneratedResources = genResources
-	_, err := sc.client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).UpdateStatus(context.TODO(), &gr, v1.UpdateOptions{})
+	_, err := sc.client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), &gr, v1.UpdateOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		log.Log.Error(err, "failed to update generate request status", "name", gr.Name)
 		return err
@@ -44,7 +44,7 @@ func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyver
 	// Update Generated Resources
 	gr.Status.GeneratedResources = genResources
 
-	_, err := sc.client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).UpdateStatus(context.TODO(), &gr, v1.UpdateOptions{})
+	_, err := sc.client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), &gr, v1.UpdateOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		log.Log.Error(err, "failed to update generate request status", "name", gr.Name)
 		return err
