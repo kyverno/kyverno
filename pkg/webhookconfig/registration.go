@@ -264,12 +264,9 @@ func (wrc *Register) createVerifyMutatingWebhookConfiguration() error {
 	return nil
 }
 
-// DeregisterAll deletes webhook configs from cluster
-// This function does not fail on error:
-// Register will fail if the config exists, so there is no need to fail on error
 func (wrc *Register) removeWebhookConfigurations() {
 	startTime := time.Now()
-	wrc.log.Info("removing webhook configurations")
+	wrc.log.Info("deleting all webhook configurations")
 	defer func() {
 		wrc.log.V(4).Info("removed webhook configurations", "processingTime", time.Since(startTime).String())
 	}()
@@ -291,19 +288,19 @@ func (wrc *Register) removePolicyMutatingWebhookConfiguration(wg *sync.WaitGroup
 
 	mutatingConfig := wrc.getPolicyMutatingWebhookConfigurationName()
 
-	logger := wrc.log.WithValues("name", mutatingConfig)
+	logger := wrc.log.WithValues("kind", kindMutating, "name", mutatingConfig)
 	err := wrc.client.DeleteResource("", kindMutating, "", mutatingConfig, false)
 	if errorsapi.IsNotFound(err) {
 		logger.V(5).Info("policy mutating webhook configuration not found")
 		return
-	}
+		}
 
 	if err != nil {
 		logger.Error(err, "failed to delete policy mutating webhook configuration")
 		return
 	}
 
-	logger.V(4).Info("successfully deleted policy mutating webhook configuration")
+	logger.Info("webhook configuration deleted")
 }
 
 func (wrc *Register) getPolicyMutatingWebhookConfigurationName() string {
@@ -321,7 +318,7 @@ func (wrc *Register) removePolicyValidatingWebhookConfiguration(wg *sync.WaitGro
 
 	validatingConfig := wrc.getPolicyValidatingWebhookConfigurationName()
 
-	logger := wrc.log.WithValues("name", validatingConfig)
+	logger := wrc.log.WithValues("kind", kindValidating, "name", validatingConfig)
 	logger.V(4).Info("removing validating webhook configuration")
 	err := wrc.client.DeleteResource("", kindValidating, "", validatingConfig, false)
 	if errorsapi.IsNotFound(err) {
@@ -334,7 +331,7 @@ func (wrc *Register) removePolicyValidatingWebhookConfiguration(wg *sync.WaitGro
 		return
 	}
 
-	logger.V(4).Info("successfully deleted policy validating webhook configutation")
+	logger.Info("webhook configuration deleted")
 }
 
 func (wrc *Register) getPolicyValidatingWebhookConfigurationName() string {
@@ -401,7 +398,7 @@ func (wrc *Register) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup
 	var err error
 	mutatingConfig := wrc.getVerifyWebhookMutatingWebhookName()
 
-	logger := wrc.log.WithValues("name", mutatingConfig)
+	logger := wrc.log.WithValues("kind", kindMutating, "name", mutatingConfig)
 	err = wrc.client.DeleteResource("", kindMutating, "", mutatingConfig, false)
 	if errorsapi.IsNotFound(err) {
 		logger.V(5).Info("verify webhook configuration not found")
@@ -413,7 +410,7 @@ func (wrc *Register) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup
 		return
 	}
 
-	logger.V(4).Info("successfully deleted verify webhook configuration")
+	logger.Info("webhook configuration deleted")
 }
 
 func (wrc *Register) getVerifyWebhookMutatingWebhookName() string {
