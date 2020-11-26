@@ -82,7 +82,7 @@ func (wrc *Register) removeResourceMutatingWebhookConfiguration(wg *sync.WaitGro
 		return
 	}
 
-	logger.Info("mutating webhook configuration deleted")
+	logger.Info("webhook configuration deleted")
 }
 
 func (wrc *Register) constructDebugValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
@@ -157,7 +157,7 @@ func (wrc *Register) removeResourceValidatingWebhookConfiguration(wg *sync.WaitG
 		return
 	}
 
-	logger.Info("validating webhook configuration deleted")
+	logger.Info("webhook configuration deleted")
 	return
 }
 
