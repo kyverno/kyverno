@@ -298,7 +298,8 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 	}
 
 	if (rule.MatchResources.ResourceDescription.Selector == nil && rule.ExcludeResources.ResourceDescription.Selector != nil) ||
-		(rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector == nil) {
+		(rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector == nil) ||
+		(rule.MatchResources.ResourceDescription.Selector == nil && rule.ExcludeResources.ResourceDescription.Selector == nil) {
 		return false
 	}
 
@@ -309,7 +310,8 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 	}
 
 	if (rule.MatchResources.Annotations == nil && rule.ExcludeResources.Annotations != nil) ||
-		(rule.MatchResources.Annotations != nil && rule.ExcludeResources.Annotations == nil) {
+		(rule.MatchResources.Annotations != nil && rule.ExcludeResources.Annotations == nil) ||
+		(rule.MatchResources.Annotations == nil && rule.ExcludeResources.Annotations == nil) {
 		return false
 	}
 
