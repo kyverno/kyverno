@@ -12,12 +12,21 @@ import (
 
 //maxRetryCount defines the max deadline count
 const (
-	maxRetryCount   int           = 3
-	defaultInterval time.Duration = 60 * time.Second
+	tickerInterval  time.Duration = 10 * time.Second
+	idleCheckInterval time.Duration = 60 * time.Second
+	idleDeadline time.Duration = idleCheckInterval * 2
 )
 
-// Monitor stores the last request times for incoming api-requests
-// and monitors registered webhooks
+// Monitor stores the last webhook request time and monitors registered webhooks.
+//
+// If a webhook is not received in the idleCheckInterval the monitor triggers a
+// change in the Kyverno deployment to force a webhook request. If no requests
+// are received after idleDeadline the webhooks are deleted and re-registered.
+//
+// Webhook configurations are checked every tickerInterval. Currently the check
+// only queries for the expected resource name, and does not compare other details
+// like the webhook settings.
+//
 type Monitor struct {
 	t   time.Time
 	mu  sync.RWMutex
@@ -50,11 +59,10 @@ func (t *Monitor) SetTime(tm time.Time) {
 //Run runs the checker and verify the resource update
 func (t *Monitor) Run(register *Register, eventGen event.Interface, client *dclient.Client, stopCh <-chan struct{}) {
 	logger := t.log
-	logger.V(4).Info("starting webhook monitor", "interval", defaultInterval)
-	maxDeadline := defaultInterval * time.Duration(maxRetryCount)
+	logger.V(4).Info("starting webhook monitor", "interval", idleCheckInterval)
 	status := newStatusControl(client, eventGen, logger.WithName("WebhookStatusControl"))
 
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(tickerInterval)
 	defer ticker.Stop()
 
 	for {
@@ -71,9 +79,9 @@ func (t *Monitor) Run(register *Register, eventGen event.Interface, client *dcli
 			}
 
 			timeDiff := time.Since(t.Time())
-			if timeDiff > maxDeadline {
+			if timeDiff > idleDeadline {
 				err := fmt.Errorf("admission control configuration error")
-				logger.Error(err, "webhook check failed", "deadline", maxDeadline)
+				logger.Error(err, "webhook check failed", "deadline", idleDeadline)
 				if err := status.failure(); err != nil {
 					logger.Error(err, "failed to annotate deployment webhook status to failure")
 				}
@@ -82,12 +90,15 @@ func (t *Monitor) Run(register *Register, eventGen event.Interface, client *dcli
 				register.Remove(cleanUp)
 				<-cleanUp
 
-				register.Register()
+				if err:= register.Register(); err != nil {
+					logger.Error(err, "Failed to register webhooks")
+				}
+
 				continue
 			}
 
-			if timeDiff > defaultInterval {
-				logger.V(1).Info("webhook idle time exceeded", "deadline", defaultInterval)
+			if timeDiff > idleCheckInterval {
+				logger.V(1).Info("webhook idle time exceeded", "deadline", idleCheckInterval)
 
 				// send request to update the Kyverno deployment
 				if err := status.IncrementAnnotation(); err != nil {
