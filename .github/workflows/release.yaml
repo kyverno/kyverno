@@ -2,20 +2,19 @@ name: prereleaser
 on:
   push:
     tags:
-      - '*'
+      - 'v*'
 
 jobs:
   docker-and-e2e:
     runs-on: ubuntu-latest
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v2
-      -
-        name: Unshallow
+
+      - name: Unshallow
         run: git fetch --prune --unshallow
-      -
-        name: Set up Go
+
+      - name: Set up Go
         uses: actions/setup-go@v2
         with:
           go-version: 1.14
@@ -45,7 +44,7 @@ jobs:
           echo ">>> Run Kyverno e2e test"
           make test-e2e
 
-  create-release-gh-helm-krew:
+  create-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -80,6 +79,3 @@ jobs:
         uses: helm/chart-releaser-action@v1.1.0
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-
-      - name: Update new version in krew-index
-        uses: rajatjindal/krew-release-bot@v0.0.38
