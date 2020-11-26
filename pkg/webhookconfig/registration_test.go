@@ -2,27 +2,38 @@ package webhookconfig
 
 import (
 	"bytes"
-	"io/ioutil"
 	"testing"
 
 	"gotest.tools/assert"
 	rest "k8s.io/client-go/rest"
 )
 
-func TestExtractCA_EmptyBundle(t *testing.T) {
-	CAFile := "resources/CAFile"
+var cert = `
+-----BEGIN CERTIFICATE-----
+V2VsY29tZSB0byBUaGUgUnVzdCBQcm9ncmFtbWluZyBMYW5ndWFnZSwgY
+W4gaW50cm9kdWN0b3J5IGJvb2sgYWJvdXQgUnVzdC4gVGhlIFJ1c3QgcH
+JvZ3JhbW1pbmcgbGFuZ3VhZ2UgaGVscHMgeW91IHdyaXRlIGZhc3Rlciw
+gbW9yZSByZWxpYWJsZSBzb2Z0d2FyZS4gSGlnaC1sZXZlbCBlcmdvbm9t
+aWNzIGFuZCBsb3ctbGV2ZWwgY29udHJvbCBhcmUgb2Z0ZW4gYXQgb2Rkc
+yBpbiBwcm9ncmFtbWluZyBsYW5ndWFnZSBkZXNpZ247IFJ1c3QgY2hhbG
+xlbmdlcyB0aGF0IGNvbmZsaWN0LiBUaHJvdWdoIGJhbGFuY2luZyBwb3d
+lcmZ1bCB0ZWNobmljYWwgY2FwYWNpdHkgYW5kIGEgZ3JlYXQgZGV2ZWxv
+cGVyIGV4cGVyaWVuY2UsIFJ1c3QgZ2l2ZXMgeW91IHRoZSBvcHRpb24gd
+G8gY29udHJvbCBsb3ctbGV2ZWwgZGV0YWlscyAoc3VjaCBhcyBtZW1vcn
+kgdXNhZ2UpIHdpdGhvdXQgYWxsIHRoZSBoYXNzbGUgdHJhZGl0aW9uYWx
+seSBhc3NvY2lhdGVkIHdpdGggc3VjaCBjb250cm9sLgyzmqp31l8rqr1==
+-----END CERTIFICATE-----
+`
 
+func TestExtractCA_EmptyBundle(t *testing.T) {
 	config := &rest.Config{
 		TLSClientConfig: rest.TLSClientConfig{
-			CAData: nil,
-			CAFile: CAFile,
+			CAData: []byte(cert),
 		},
 	}
 
-	expected, err := ioutil.ReadFile(CAFile)
-	assert.Assert(t, err == nil)
 	actual := extractCA(config)
-	assert.Assert(t, bytes.Equal(expected, actual))
+	assert.Assert(t, bytes.Equal([]byte(cert), actual))
 }
 
 func TestExtractCA_EmptyCAFile(t *testing.T) {
