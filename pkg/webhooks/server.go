@@ -491,9 +491,10 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 // Stop TLS server and returns control after the server is shut down
 func (ws *WebhookServer) Stop(ctx context.Context) {
 	logger := ws.log
-	// cleanUp
-	// remove the static webhookconfigurations
+
+	// remove the static webhook configurations
 	go ws.webhookRegister.Remove(ws.cleanUp)
+
 	// shutdown http.Server with context timeout
 	err := ws.server.Shutdown(ctx)
 	if err != nil {
