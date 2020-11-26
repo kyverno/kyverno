@@ -213,7 +213,7 @@ To apply policy with variables:
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
 					rc.skip += len(resources)
-					log.Log.V(3).Info(fmt.Sprintf("skipping policy %v as it is not valid: %v\n", policy.Name), "error", err)
+					log.Log.V(3).Info(fmt.Sprintf("skipping policy %v as it is not valid", policy.Name), "error", err)
 					continue
 				}
 
