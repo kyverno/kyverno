@@ -87,7 +87,7 @@ func (t *Monitor) Run(register *Register, eventGen event.Interface, client *dcli
 			}
 
 			if timeDiff > defaultInterval {
-				logger.V(3).Info("webhook check deadline exceeded", "deadline", defaultInterval)
+				logger.V(1).Info("webhook idle time exceeded", "deadline", defaultInterval)
 
 				// send request to update the Kyverno deployment
 				if err := status.IncrementAnnotation(); err != nil {
