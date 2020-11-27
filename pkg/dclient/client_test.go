@@ -40,7 +40,7 @@ func newFixture(t *testing.T) *fixture {
 		newUnstructured("group/version", "TheKind", "ns-foo", "name-bar"),
 		newUnstructured("group/version", "TheKind", "ns-foo", "name-baz"),
 		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-baz"),
-		newUnstructured("apps/v1", "Deployment", config.KubePolicyNamespace, config.KubePolicyDeploymentName),
+		newUnstructured("apps/v1", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName),
 	}
 	scheme := runtime.NewScheme()
 	// Create mock client

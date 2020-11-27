@@ -13,7 +13,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/checker"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -83,7 +82,7 @@ type WebhookServer struct {
 	pCache policycache.Interface
 
 	// webhook registration client
-	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient
+	webhookRegister *webhookconfig.Register
 
 	// API to send policy stats for aggregation
 	statusListener policystatus.Listener
@@ -95,7 +94,7 @@ type WebhookServer struct {
 	cleanUp chan<- struct{}
 
 	// last request time
-	lastReqTime *checker.LastReqTime
+	webhookMonitor *webhookconfig.Monitor
 
 	// policy report generator
 	prGenerator policyreport.GeneratorInterface
@@ -103,11 +102,10 @@ type WebhookServer struct {
 	// generate request generator
 	grGenerator *generate.Generator
 
-	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister
-
 	auditHandler AuditHandler
 
 	log               logr.Logger
+
 	openAPIController *openapi.Controller
 
 	supportMutateValidate bool
@@ -129,12 +127,12 @@ func NewWebhookServer(
 	crInformer rbacinformer.ClusterRoleInformer,
 	eventGen event.Interface,
 	pCache policycache.Interface,
-	webhookRegistrationClient *webhookconfig.WebhookRegistrationClient,
+	webhookRegistrationClient *webhookconfig.Register,
+	webhookMonitor *webhookconfig.Monitor,
 	statusSync policystatus.Listener,
 	configHandler config.Interface,
 	prGenerator policyreport.GeneratorInterface,
 	grGenerator *generate.Generator,
-	resourceWebhookWatcher *webhookconfig.ResourceWebhookRegister,
 	auditHandler AuditHandler,
 	supportMutateValidate bool,
 	cleanUp chan<- struct{},
@@ -164,24 +162,23 @@ func NewWebhookServer(
 		rLister:       rInformer.Lister(),
 		rSynced:       rInformer.Informer().HasSynced,
 
-		crbLister:                 crbInformer.Lister(),
-		crLister:                  crInformer.Lister(),
-		crbSynced:                 crbInformer.Informer().HasSynced,
-		crSynced:                  crInformer.Informer().HasSynced,
-		eventGen:                  eventGen,
-		pCache:                    pCache,
-		webhookRegistrationClient: webhookRegistrationClient,
-		statusListener:            statusSync,
-		configHandler:             configHandler,
-		cleanUp:                   cleanUp,
-		lastReqTime:               resourceWebhookWatcher.LastReqTime,
-		prGenerator:               prGenerator,
-		grGenerator:               grGenerator,
-		resourceWebhookWatcher:    resourceWebhookWatcher,
-		auditHandler:              auditHandler,
-		log:                       log,
-		openAPIController:         openAPIController,
-		supportMutateValidate:     supportMutateValidate,
+		crbLister:             crbInformer.Lister(),
+		crLister:              crInformer.Lister(),
+		crbSynced:             crbInformer.Informer().HasSynced,
+		crSynced:              crInformer.Informer().HasSynced,
+		eventGen:              eventGen,
+		pCache:                pCache,
+		webhookRegister:       webhookRegistrationClient,
+		statusListener:        statusSync,
+		configHandler:         configHandler,
+		cleanUp:               cleanUp,
+		webhookMonitor:        webhookMonitor,
+		prGenerator:           prGenerator,
+		grGenerator:           grGenerator,
+		auditHandler:          auditHandler,
+		log:                   log,
+		openAPIController:     openAPIController,
+		supportMutateValidate: supportMutateValidate,
 		resCache:                  resCache,
 	}
 
@@ -221,7 +218,7 @@ func NewWebhookServer(
 func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse, filter bool) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
-		ws.lastReqTime.SetTime(startTime)
+		ws.webhookMonitor.SetTime(startTime)
 
 		admissionReview := ws.bodyToAdmissionReview(r, rw)
 		if admissionReview == nil {
@@ -246,7 +243,7 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 
 		admissionReview.Response = handler(request)
 		writeResponse(rw, admissionReview)
-		logger.V(4).Info("request processed", "processingTime", time.Since(startTime).String())
+		logger.V(3).Info("admission review request processed", "time", time.Since(startTime).String())
 
 		return
 	}
@@ -334,10 +331,8 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 	var patches []byte
 	patchedResource := request.Object.Raw
 
+	// MUTATION
 	if ws.supportMutateValidate {
-		// MUTATION
-		// mutation failure should not block the resource creation
-		// any mutation failure is reported as the violation
 		if resource.GetDeletionTimestamp() == nil {
 			patches = ws.HandleMutation(request, resource, mutatePolicies, ctx, userRequestInfo)
 			logger.V(6).Info("", "generated patches", string(patches))
@@ -346,38 +341,15 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 			patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
 			logger.V(6).Info("", "patchedResource", string(patchedResource))
 		}
-
-		if ws.resourceWebhookWatcher != nil && ws.resourceWebhookWatcher.RunValidationInMutatingWebhook == "true" {
-			// push admission request to audit handler, this won't block the admission request
-			ws.auditHandler.Add(request.DeepCopy())
-
-			// VALIDATION
-			ok, msg := HandleValidation(request, validatePolicies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.prGenerator, ws.log, ws.configHandler, ws.resCache)
-			if !ok {
-				logger.Info("admission request denied")
-				return &v1beta1.AdmissionResponse{
-					Allowed: false,
-					Result: &metav1.Status{
-						Status:  "Failure",
-						Message: msg,
-					},
-				}
-			}
-		}
 	} else {
-		logger.Info("mutate and validate rules are not supported prior to Kubernetes 1.14.0")
+		logger.Info("mutate rules are not supported prior to Kubernetes 1.14.0")
 	}
 
 	// GENERATE
-	// Only applied during resource creation and update
-	// Success -> Generate Request CR created successfully
-	// Failed -> Failed to create Generate Request CR
-
 	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
 		go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo, ws.configHandler)
 	}
 
-	// Successful processing of mutation & validation rules in policy
 	patchType := v1beta1.PatchTypeJSONPatch
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
@@ -387,7 +359,6 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 		Patch:     patches,
 		PatchType: &patchType,
 	}
-
 }
 
 func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
@@ -511,21 +482,19 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 			logger.Error(err, "failed to listen to requests")
 		}
 	}()
-	logger.Info("starting")
 
-	// verifies if the admission control is enabled and active
-	// resync: 60 seconds
-	// deadline: 60 seconds (send request)
-	// max deadline: deadline*3 (set the deployment annotation as false)
-	go ws.lastReqTime.Run(ws.pLister, ws.eventGen, ws.client, checker.DefaultResync, checker.DefaultDeadline, stopCh)
+	logger.Info("starting service")
+
+	go ws.webhookMonitor.Run(ws.webhookRegister, ws.eventGen, ws.client, stopCh)
 }
 
 // Stop TLS server and returns control after the server is shut down
 func (ws *WebhookServer) Stop(ctx context.Context) {
 	logger := ws.log
-	// cleanUp
-	// remove the static webhookconfigurations
-	go ws.webhookRegistrationClient.RemoveWebhookConfigurations(ws.cleanUp)
+
+	// remove the static webhook configurations
+	go ws.webhookRegister.Remove(ws.cleanUp)
+
 	// shutdown http.Server with context timeout
 	err := ws.server.Shutdown(ctx)
 	if err != nil {

@@ -2,6 +2,7 @@ package webhookconfig
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/kyverno/kyverno/pkg/config"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
@@ -9,7 +10,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (wrc *WebhookRegistrationClient) constructDebugMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+func (wrc *Register) constructDebugMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
 	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.MutatingWebhookServicePath)
 	logger.V(4).Info("Debug MutatingWebhookConfig registered", "url", url)
@@ -33,7 +34,7 @@ func (wrc *WebhookRegistrationClient) constructDebugMutatingWebhookConfig(caData
 	}
 }
 
-func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+func (wrc *Register) constructMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
 
 	webhookCfg := generateMutatingWebhook(
 		config.MutatingWebhookName,
@@ -56,20 +57,21 @@ func (wrc *WebhookRegistrationClient) constructMutatingWebhookConfig(caData []by
 	}
 }
 
-//GetResourceMutatingWebhookConfigName returns the webhook configuration name
-func (wrc *WebhookRegistrationClient) GetResourceMutatingWebhookConfigName() string {
+//getResourceMutatingWebhookConfigName returns the webhook configuration name
+func (wrc *Register) getResourceMutatingWebhookConfigName() string {
 	if wrc.serverIP != "" {
 		return config.MutatingWebhookConfigurationDebugName
 	}
 	return config.MutatingWebhookConfigurationName
 }
 
-//RemoveResourceMutatingWebhookConfiguration removes mutating webhook configuration for all resources
-func (wrc *WebhookRegistrationClient) RemoveResourceMutatingWebhookConfiguration() {
-	configName := wrc.GetResourceMutatingWebhookConfigName()
-	logger := wrc.log.WithValues("kind", MutatingWebhookConfigurationKind, "name", configName)
+func (wrc *Register) removeResourceMutatingWebhookConfiguration(wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	configName := wrc.getResourceMutatingWebhookConfigName()
+	logger := wrc.log.WithValues("kind", kindMutating, "name", configName)
 	// delete webhook configuration
-	err := wrc.client.DeleteResource("", MutatingWebhookConfigurationKind, "", configName, false)
+	err := wrc.client.DeleteResource("", kindMutating, "", configName, false)
 	if errors.IsNotFound(err) {
 		logger.V(4).Info("webhook configuration not found")
 		return
@@ -80,10 +82,10 @@ func (wrc *WebhookRegistrationClient) RemoveResourceMutatingWebhookConfiguration
 		return
 	}
 
-	logger.Info("mutating webhook configuration deleted")
+	logger.Info("webhook configuration deleted")
 }
 
-func (wrc *WebhookRegistrationClient) constructDebugValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
+func (wrc *Register) constructDebugValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.ValidatingWebhookServicePath)
 
 	return &admregapi.ValidatingWebhookConfiguration{
@@ -106,7 +108,7 @@ func (wrc *WebhookRegistrationClient) constructDebugValidatingWebhookConfig(caDa
 	}
 }
 
-func (wrc *WebhookRegistrationClient) constructValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
+func (wrc *Register) constructValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.ValidatingWebhookConfigurationName,
@@ -130,8 +132,8 @@ func (wrc *WebhookRegistrationClient) constructValidatingWebhookConfig(caData []
 	}
 }
 
-// GetResourceValidatingWebhookConfigName returns the webhook configuration name
-func (wrc *WebhookRegistrationClient) GetResourceValidatingWebhookConfigName() string {
+// getResourceValidatingWebhookConfigName returns the webhook configuration name
+func (wrc *Register) getResourceValidatingWebhookConfigName() string {
 	if wrc.serverIP != "" {
 		return config.ValidatingWebhookConfigurationDebugName
 	}
@@ -139,11 +141,12 @@ func (wrc *WebhookRegistrationClient) GetResourceValidatingWebhookConfigName() s
 	return config.ValidatingWebhookConfigurationName
 }
 
-// RemoveResourceValidatingWebhookConfiguration deletes an existing webhook configuration
-func (wrc *WebhookRegistrationClient) RemoveResourceValidatingWebhookConfiguration() {
-	configName := wrc.GetResourceValidatingWebhookConfigName()
-	logger := wrc.log.WithValues("kind", ValidatingWebhookConfigurationKind, "name", configName)
-	err := wrc.client.DeleteResource("", ValidatingWebhookConfigurationKind, "", configName, false)
+func (wrc *Register) removeResourceValidatingWebhookConfiguration(wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	configName := wrc.getResourceValidatingWebhookConfigName()
+	logger := wrc.log.WithValues("kind", kindValidating, "name", configName)
+	err := wrc.client.DeleteResource("", kindValidating, "", configName, false)
 	if errors.IsNotFound(err) {
 		logger.V(5).Info("webhook configuration not found")
 		return
@@ -154,6 +157,7 @@ func (wrc *WebhookRegistrationClient) RemoveResourceValidatingWebhookConfigurati
 		return
 	}
 
-	logger.Info("validating webhook configuration deleted")
+	logger.Info("webhook configuration deleted")
 	return
 }
+

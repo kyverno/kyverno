@@ -75,7 +75,7 @@ func (c *Client) NewDynamicSharedInformerFactory(defaultResync time.Duration) dy
 
 //GetKubePolicyDeployment returns kube policy depoyment value
 func (c *Client) GetKubePolicyDeployment() (*apps.Deployment, error) {
-	kubePolicyDeployment, err := c.GetResource("", "Deployment", config.KubePolicyNamespace, config.KubePolicyDeploymentName)
+	kubePolicyDeployment, err := c.GetResource("", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName)
 	if err != nil {
 		return nil, err
 	}

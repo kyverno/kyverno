@@ -20,5 +20,5 @@ type Control struct {
 
 //Delete deletes the specified resource
 func (c Control) Delete(gr string) error {
-	return c.client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(context.TODO(), gr, metav1.DeleteOptions{})
+	return c.client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(context.TODO(), gr, metav1.DeleteOptions{})
 }

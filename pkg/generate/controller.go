@@ -109,7 +109,7 @@ func NewController(
 	c.syncHandler = c.syncGenerateRequest
 
 	c.pLister = pInformer.Lister()
-	c.grLister = grInformer.Lister().GenerateRequests(config.KubePolicyNamespace)
+	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
 
 	c.pSynced = pInformer.Informer().HasSynced
 	c.grSynced = pInformer.Informer().HasSynced

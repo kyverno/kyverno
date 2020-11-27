@@ -293,10 +293,10 @@ func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) erro
 		return updateReportChangeRequest(gen.dclient, old, reportReq, logger)
 	}
 
-	old, err := gen.reportChangeRequestLister.ReportChangeRequests(config.KubePolicyNamespace).Get(reportReq.GetName())
+	old, err := gen.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).Get(reportReq.GetName())
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), config.KubePolicyNamespace, reportReq, false); err != nil {
+			if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), config.KyvernoNamespace, reportReq, false); err != nil {
 				if !apierrors.IsNotFound(err) {
 					return fmt.Errorf("failed to create ReportChangeRequest: %v", err)
 				}
@@ -333,7 +333,7 @@ func updateReportChangeRequest(dClient *client.Client, old interface{}, new *uns
 		return nil
 	}
 
-	if _, err = dClient.UpdateResource(new.GetAPIVersion(), new.GetKind(), config.KubePolicyNamespace, new, false); err != nil {
+	if _, err = dClient.UpdateResource(new.GetAPIVersion(), new.GetKind(), config.KyvernoNamespace, new, false); err != nil {
 		return fmt.Errorf("failed to update report request: %v", err)
 	}
 
