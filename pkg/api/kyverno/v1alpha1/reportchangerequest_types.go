@@ -36,7 +36,7 @@ import (
 // +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=`.summary.error`
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.skip`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-
+// +kubebuilder:resource:shortName=rcr
 // ReportChangeRequest is the Schema for the ReportChangeRequests API
 type ReportChangeRequest struct {
 	metav1.TypeMeta   `json:",inline"`
