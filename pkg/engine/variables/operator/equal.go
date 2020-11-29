@@ -83,7 +83,7 @@ func (eh EqualHandler) validateValueWithMapPattern(key map[string]interface{}, v
 
 func (eh EqualHandler) validateValueWithStringPattern(key string, value interface{}) bool {
 	if val, ok := value.(string); ok {
-		return wildcard.Match(key, val)
+		return wildcard.Match(val, key)
 	}
 
 	eh.log.Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))

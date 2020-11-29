@@ -82,8 +82,9 @@ func (neh NotEqualHandler) validateValueWithMapPattern(key map[string]interface{
 
 func (neh NotEqualHandler) validateValueWithStringPattern(key string, value interface{}) bool {
 	if val, ok := value.(string); ok {
-		return !wildcard.Match(key, val)
+		return !wildcard.Match(val, key)
 	}
+
 	neh.log.Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))
 	return false
 }

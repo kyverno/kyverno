@@ -3,6 +3,7 @@ package operator
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/minio/minio/pkg/wildcard"
 
 	"github.com/go-logr/logr"
@@ -76,14 +77,14 @@ func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidTy
 
 	case string:
 
-		if wildcard.Match(key, valuesAvailable) {
+		if wildcard.Match(valuesAvailable, key) {
 			keyExists = true
 			return
 		}
 
 		var arr []string
 		if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
-			log.Error(err, "failed to unmarshal to string slice", "value", value)
+			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
 			invalidType = true
 			return
 		}
