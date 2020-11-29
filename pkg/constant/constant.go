@@ -10,7 +10,4 @@ const (
 	EventControllerResync           = 15 * time.Minute
 	GenerateControllerResync        = 15 * time.Minute
 	GenerateRequestControllerResync = 15 * time.Minute
-
-	PolicyReportPolicyChangeResync   = 60 * time.Second
-	PolicyReportResourceChangeResync = 60 * time.Second
 )
