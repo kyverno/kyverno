@@ -54,7 +54,7 @@ type Controller struct {
 	pSynced cache.InformerSynced
 	// grSynced returns true if the Generate Request store has been synced at least once
 	grSynced cache.InformerSynced
-	// dyanmic sharedinformer factory
+	// dynamic shared informer factory
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
 	//TODO: list of generic informers
 	// only support Namespaces for re-evalutation on resource updates
