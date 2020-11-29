@@ -2,6 +2,7 @@ package operator
 
 import (
 	"fmt"
+	"github.com/minio/minio/pkg/wildcard"
 	"math"
 	"reflect"
 	"strconv"
@@ -45,15 +46,15 @@ func (eh EqualHandler) Evaluate(key, value interface{}) bool {
 	// key and value need to be of same type
 	switch typedKey := key.(type) {
 	case bool:
-		return eh.validateValuewithBoolPattern(typedKey, value)
+		return eh.validateValueWithBoolPattern(typedKey, value)
 	case int:
-		return eh.validateValuewithIntPattern(int64(typedKey), value)
+		return eh.validateValueWithIntPattern(int64(typedKey), value)
 	case int64:
-		return eh.validateValuewithIntPattern(typedKey, value)
+		return eh.validateValueWithIntPattern(typedKey, value)
 	case float64:
-		return eh.validateValuewithFloatPattern(typedKey, value)
+		return eh.validateValueWithFloatPattern(typedKey, value)
 	case string:
-		return eh.validateValuewithStringPattern(typedKey, value)
+		return eh.validateValueWithStringPattern(typedKey, value)
 	case map[string]interface{}:
 		return eh.validateValueWithMapPattern(typedKey, value)
 	case []interface{}:
@@ -80,16 +81,16 @@ func (eh EqualHandler) validateValueWithMapPattern(key map[string]interface{}, v
 	return false
 }
 
-func (eh EqualHandler) validateValuewithStringPattern(key string, value interface{}) bool {
+func (eh EqualHandler) validateValueWithStringPattern(key string, value interface{}) bool {
 	if val, ok := value.(string); ok {
-		return key == val
+		return wildcard.Match(key, val)
 	}
 
 	eh.log.Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))
 	return false
 }
 
-func (eh EqualHandler) validateValuewithFloatPattern(key float64, value interface{}) bool {
+func (eh EqualHandler) validateValueWithFloatPattern(key float64, value interface{}) bool {
 	switch typedValue := value.(type) {
 	case int:
 		// check that float has not fraction
@@ -120,7 +121,7 @@ func (eh EqualHandler) validateValuewithFloatPattern(key float64, value interfac
 	return false
 }
 
-func (eh EqualHandler) validateValuewithBoolPattern(key bool, value interface{}) bool {
+func (eh EqualHandler) validateValueWithBoolPattern(key bool, value interface{}) bool {
 	typedValue, ok := value.(bool)
 	if !ok {
 		eh.log.Info("Expected type bool", "value", value, "type", fmt.Sprintf("%T", value))
@@ -129,7 +130,7 @@ func (eh EqualHandler) validateValuewithBoolPattern(key bool, value interface{})
 	return key == typedValue
 }
 
-func (eh EqualHandler) validateValuewithIntPattern(key int64, value interface{}) bool {
+func (eh EqualHandler) validateValueWithIntPattern(key int64, value interface{}) bool {
 	switch typedValue := value.(type) {
 	case int:
 		return int64(typedValue) == key

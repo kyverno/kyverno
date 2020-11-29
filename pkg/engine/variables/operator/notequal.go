@@ -2,6 +2,7 @@ package operator
 
 import (
 	"fmt"
+	"github.com/minio/minio/pkg/wildcard"
 	"math"
 	"reflect"
 	"strconv"
@@ -44,15 +45,15 @@ func (neh NotEqualHandler) Evaluate(key, value interface{}) bool {
 	// key and value need to be of same type
 	switch typedKey := key.(type) {
 	case bool:
-		return neh.validateValuewithBoolPattern(typedKey, value)
+		return neh.validateValueWithBoolPattern(typedKey, value)
 	case int:
-		return neh.validateValuewithIntPattern(int64(typedKey), value)
+		return neh.validateValueWithIntPattern(int64(typedKey), value)
 	case int64:
-		return neh.validateValuewithIntPattern(typedKey, value)
+		return neh.validateValueWithIntPattern(typedKey, value)
 	case float64:
-		return neh.validateValuewithFloatPattern(typedKey, value)
+		return neh.validateValueWithFloatPattern(typedKey, value)
 	case string:
-		return neh.validateValuewithStringPattern(typedKey, value)
+		return neh.validateValueWithStringPattern(typedKey, value)
 	case map[string]interface{}:
 		return neh.validateValueWithMapPattern(typedKey, value)
 	case []interface{}:
@@ -79,15 +80,15 @@ func (neh NotEqualHandler) validateValueWithMapPattern(key map[string]interface{
 	return false
 }
 
-func (neh NotEqualHandler) validateValuewithStringPattern(key string, value interface{}) bool {
+func (neh NotEqualHandler) validateValueWithStringPattern(key string, value interface{}) bool {
 	if val, ok := value.(string); ok {
-		return key != val
+		return !wildcard.Match(key, val)
 	}
 	neh.log.Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))
 	return false
 }
 
-func (neh NotEqualHandler) validateValuewithFloatPattern(key float64, value interface{}) bool {
+func (neh NotEqualHandler) validateValueWithFloatPattern(key float64, value interface{}) bool {
 	switch typedValue := value.(type) {
 	case int:
 		// check that float has not fraction
@@ -118,7 +119,7 @@ func (neh NotEqualHandler) validateValuewithFloatPattern(key float64, value inte
 	return false
 }
 
-func (neh NotEqualHandler) validateValuewithBoolPattern(key bool, value interface{}) bool {
+func (neh NotEqualHandler) validateValueWithBoolPattern(key bool, value interface{}) bool {
 	typedValue, ok := value.(bool)
 	if !ok {
 		neh.log.Info("Expected type bool", "value", value, "type", fmt.Sprintf("%T", value))
@@ -127,7 +128,7 @@ func (neh NotEqualHandler) validateValuewithBoolPattern(key bool, value interfac
 	return key != typedValue
 }
 
-func (neh NotEqualHandler) validateValuewithIntPattern(key int64, value interface{}) bool {
+func (neh NotEqualHandler) validateValueWithIntPattern(key int64, value interface{}) bool {
 	switch typedValue := value.(type) {
 	case int:
 		return int64(typedValue) != key

@@ -3,7 +3,7 @@ package operator
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
+	"github.com/minio/minio/pkg/wildcard"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -40,15 +40,15 @@ func (in InHandler) Evaluate(key, value interface{}) bool {
 
 	switch typedKey := key.(type) {
 	case string:
-		return in.validateValuewithStringPattern(typedKey, value)
+		return in.validateValueWithStringPattern(typedKey, value)
 	default:
 		in.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
 
-func (in InHandler) validateValuewithStringPattern(key string, value interface{}) (keyExists bool) {
-	invalidType, keyExists := ValidateStringPattern(key, value, in.log)
+func (in InHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
+	invalidType, keyExists := keyExistsInArray(key, value, in.log)
 	if invalidType {
 		in.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
@@ -57,60 +57,70 @@ func (in InHandler) validateValuewithStringPattern(key string, value interface{}
 	return keyExists
 }
 
-// ValidateStringPattern ...
-func ValidateStringPattern(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
-	stringType := reflect.TypeOf("")
-	switch valuesAvaliable := value.(type) {
+// keyExistsInArray checks if the  key exists in the array value
+// The value can be a string, an array of strings, or a JSON format
+// array of strings (e.g. ["val1", "val2", "val3"].
+func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
+	switch valuesAvailable := value.(type) {
+
 	case []interface{}:
-		for _, val := range valuesAvaliable {
-			if reflect.TypeOf(val) != stringType {
-				return true, false
-			}
-			if key == val {
-				keyExists = true
+		invalidType = false
+		for _, val := range valuesAvailable {
+			if v, ok := val.(string); ok {
+				if wildcard.Match(key, v) {
+					keyExists = true
+					return
+				}
 			}
 		}
 
-	// add to handle the configMap lookup, as configmap.data
-	// takes string-string map, when looking for a value of array
-	// data:
-	//   key: "[\"value1\", \"value2\"]"
-	// it will first unmarshal it to string slice, then compare
 	case string:
+
+		if wildcard.Match(key, valuesAvailable) {
+			keyExists = true
+			return
+		}
+
 		var arr []string
-		if err := json.Unmarshal([]byte(valuesAvaliable), &arr); err != nil {
+		if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
 			log.Error(err, "failed to unmarshal to string slice", "value", value)
-			return invalidType, keyExists
+			invalidType = true
+			return
 		}
 
 		for _, val := range arr {
 			if key == val {
 				keyExists = true
+				return
 			}
 		}
+
 	default:
-		return true, false
+		invalidType = true
+		return
 	}
 
-	return invalidType, keyExists
+	invalidType = true
+	keyExists = false
+	return
 }
 
-func (in InHandler) validateValuewithBoolPattern(key bool, value interface{}) bool {
+func (in InHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {
 	return false
 }
 
-func (in InHandler) validateValuewithIntPattern(key int64, value interface{}) bool {
+func (in InHandler) validateValueWithIntPattern(_ int64, _ interface{}) bool {
 	return false
 }
 
-func (in InHandler) validateValuewithFloatPattern(key float64, value interface{}) bool {
+func (in InHandler) validateValueWithFloatPattern(_ float64, _ interface{}) bool {
 	return false
 }
 
-func (in InHandler) validateValueWithMapPattern(key map[string]interface{}, value interface{}) bool {
+func (in InHandler) validateValueWithMapPattern(_ map[string]interface{}, _ interface{}) bool {
 	return false
 }
 
-func (in InHandler) validateValueWithSlicePattern(key []interface{}, value interface{}) bool {
+func (in InHandler) validateValueWithSlicePattern(_ []interface{}, _ interface{}) bool {
 	return false
 }
