@@ -28,7 +28,7 @@ const (
 
 //Controller manages life-cycle of generate-requests
 type Controller struct {
-	// dyanmic client implementation
+	// dynamic client implementation
 	client *dclient.Client
 	// typed client for kyverno CRDs
 	kyvernoClient *kyvernoclient.Clientset
@@ -49,7 +49,7 @@ type Controller struct {
 	pSynced cache.InformerSynced
 	// grSynced returns true if the generate request store has been synced at least once
 	grSynced cache.InformerSynced
-	// dyanmic sharedinformer factory
+	// dynamic shared informer factory
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
 	//TODO: list of generic informers
 	// only support Namespaces for deletion of resource
@@ -258,6 +258,7 @@ func (c *Controller) handleErr(err error, key interface{}) {
 		c.queue.AddRateLimited(key)
 		return
 	}
+
 	utilruntime.HandleError(err)
 	logger.Error(err, "dropping generate request out of the queue", "key", key)
 	c.queue.Forget(key)
