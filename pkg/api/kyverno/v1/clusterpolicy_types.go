@@ -10,7 +10,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=clusterpolicies,scope="Cluster",shortName=cpol
+// +kubebuilder:resource:path=clusterpolicies,scope="Cluster"
 // +kubebuilder:printcolumn:name="Background",type="string",JSONPath=".spec.background"
 // +kubebuilder:printcolumn:name="Validation Failure Action",type="string",JSONPath=".spec.validationFailureAction"
 // +kubebuilder:resource:shortName=cpol
