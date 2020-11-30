@@ -1,8 +1,6 @@
 package resourcecache
 
 import (
-	// "fmt"
-	// "time"
 	"github.com/go-logr/logr"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -47,12 +45,32 @@ func NewResourceCache(log logr.Logger, config *rest.Config, dclient *dclient.Cli
 
 	resCache := &ResourceCache{GVRCacheData: cacheData, dinformer: dInformer, match: match, exclude: exclude}
 
-	err := udateGVRCache(logger, resCache, discoveryIface)
-	if err != nil {
-		logger.Error(err, "error in udateGVRCache function")
-		return nil, err
+	if resCache.matchGVRKey("configmaps") {
+		_, ok := resCache.GVRCacheData["configmaps"]
+		if !ok {
+			updateGVRCacheForConfigMap(resCache)
+		}
+	} else {
+		err := udateGVRCache(logger, resCache, discoveryIface)
+		if err != nil {
+			logger.Error(err, "error in udateGVRCache function")
+			return nil, err
+		}
 	}
+
 	return resCache, nil
+}
+
+func updateGVRCacheForConfigMap(resc *ResourceCache) {
+	gvrc := &GVRCache{
+		GVR: schema.GroupVersionResource{
+			Version:  "v1",
+			Resource: "configmaps",
+		},
+		Namespaced: true,
+	}
+
+	resc.GVRCacheData["configmaps"] = gvrc
 }
 
 func udateGVRCache(log logr.Logger, resc *ResourceCache, discoveryIface discovery.CachedDiscoveryInterface) error {
@@ -60,6 +78,7 @@ func udateGVRCache(log logr.Logger, resc *ResourceCache, discoveryIface discover
 	if err != nil {
 		return err
 	}
+
 	for _, serverResource := range serverResources {
 		groupVersion := serverResource.GroupVersion
 		for _, resource := range serverResource.APIResources {
@@ -82,5 +101,6 @@ func udateGVRCache(log logr.Logger, resc *ResourceCache, discoveryIface discover
 			}
 		}
 	}
+
 	return nil
 }
