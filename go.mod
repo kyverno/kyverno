@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cornelk/hashmap v1.0.1
-	github.com/evanphx/json-patch v4.5.0+incompatible
+	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/gardener/controller-manager-library v0.2.0
@@ -37,11 +37,11 @@ require (
 	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.18.4
-	k8s.io/apiextensions-apiserver v0.18.4
-	k8s.io/apimachinery v0.18.4
-	k8s.io/cli-runtime v0.18.4
-	k8s.io/client-go v0.18.4
+	k8s.io/api v0.18.12
+	k8s.io/apiextensions-apiserver v0.18.12
+	k8s.io/apimachinery v0.18.12
+	k8s.io/cli-runtime v0.18.12
+	k8s.io/client-go v0.18.12
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	sigs.k8s.io/controller-runtime v0.5.0

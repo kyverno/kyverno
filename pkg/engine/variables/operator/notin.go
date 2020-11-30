@@ -26,11 +26,13 @@ type NotInHandler struct {
 //Evaluate evaluates expression with NotIn Operator
 func (nin NotInHandler) Evaluate(key, value interface{}) bool {
 	var err error
+
 	// substitute the variables
 	if key, err = nin.subHandler(nin.log, nin.ctx, key); err != nil {
 		nin.log.Error(err, "Failed to resolve variable", "variable", key)
 		return false
 	}
+
 	if value, err = nin.subHandler(nin.log, nin.ctx, value); err != nil {
 		nin.log.Error(err, "Failed to resolve variable", "variable", value)
 		return false
@@ -38,44 +40,39 @@ func (nin NotInHandler) Evaluate(key, value interface{}) bool {
 
 	switch typedKey := key.(type) {
 	case string:
-		return nin.validateValuewithStringPattern(typedKey, value)
+		return nin.validateValueWithStringPattern(typedKey, value)
 	default:
 		nin.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
-
 }
 
-func (nin NotInHandler) validateValuewithStringPattern(key string, value interface{}) bool {
-	invalidType, keyExists := ValidateStringPattern(key, value, nin.log)
+func (nin NotInHandler) validateValueWithStringPattern(key string, value interface{}) bool {
+	invalidType, keyExists := keyExistsInArray(key, value, nin.log)
 	if invalidType {
 		nin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
-	if !keyExists {
-		return true
-	}
+	return !keyExists
+}
 
+func (nin NotInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {
 	return false
 }
 
-func (nin NotInHandler) validateValuewithBoolPattern(key bool, value interface{}) bool {
+func (nin NotInHandler) validateValueWithIntPattern(_ int64, _ interface{}) bool {
 	return false
 }
 
-func (nin NotInHandler) validateValuewithIntPattern(key int64, value interface{}) bool {
+func (nin NotInHandler) validateValueWithFloatPattern(_ float64, _ interface{}) bool {
 	return false
 }
 
-func (nin NotInHandler) validateValuewithFloatPattern(key float64, value interface{}) bool {
+func (nin NotInHandler) validateValueWithMapPattern(_ map[string]interface{}, _ interface{}) bool {
 	return false
 }
 
-func (nin NotInHandler) validateValueWithMapPattern(key map[string]interface{}, value interface{}) bool {
-	return false
-}
-
-func (nin NotInHandler) validateValueWithSlicePattern(key []interface{}, value interface{}) bool {
+func (nin NotInHandler) validateValueWithSlicePattern(_ []interface{}, _ interface{}) bool {
 	return false
 }

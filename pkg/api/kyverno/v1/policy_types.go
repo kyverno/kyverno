@@ -115,14 +115,16 @@ type Condition struct {
 }
 
 // ConditionOperator is the operation performed on condition key and value.
+// +kubebuilder:validation:Enum=Equals;NotEquals;In;NotIn
 type ConditionOperator string
-
 const (
 	// Equal evaluates if the key is equal to the value.
+	// Deprecated. Use Equals instead.
 	Equal ConditionOperator = "Equal"
 	// Equals evaluates if the key is equal to the value.
 	Equals ConditionOperator = "Equals"
 	// NotEqual evaluates if the key is not equal to the value.
+	// Deprecated. Use NotEquals instead.
 	NotEqual ConditionOperator = "NotEqual"
 	// NotEquals evaluates if the key is not equal to the value.
 	NotEquals ConditionOperator = "NotEquals"
@@ -143,7 +145,7 @@ type MatchResources struct {
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
-// ExcludeResources is used to specify resource and admission review request data for
+// ExcludeResources specifies resource and admission review request data for
 // which a policy rule is not applicable.
 type ExcludeResources struct {
 	// UserInfo contains information about the user performing the operation.

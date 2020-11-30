@@ -23,7 +23,7 @@ spec:
       name: Background
       type: string
     - jsonPath: .spec.validationFailureAction
-      name: Validatoin Failure Action
+      name: Validation Failure Action
       type: string
     name: v1
     schema:
@@ -431,6 +431,11 @@ spec:
                             x-kubernetes-preserve-unknown-fields: true
                           operator:
                             description: Operator is the operation to perform.
+                            enum:
+                            - Equals
+                            - NotEquals
+                            - In
+                            - NotIn
                             type: string
                           value:
                             description: Value is the conditional value, or set of
@@ -463,6 +468,11 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                   operator:
                                     description: Operator is the operation to perform.
+                                    enum:
+                                    - Equals
+                                    - NotEquals
+                                    - In
+                                    - NotIn
                                     type: string
                                   value:
                                     description: Value is the conditional value, or
