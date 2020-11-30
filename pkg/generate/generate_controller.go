@@ -136,19 +136,21 @@ func (c *Controller) updateGenericResource(old, cur interface{}) {
 		logger.Error(err, "failed to get generate request CR for the resource", "kind", curR.GetKind(), "name", curR.GetName(), "namespace", curR.GetNamespace())
 		return
 	}
+
 	// re-evaluate the GR as the resource was updated
 	for _, gr := range grs {
 		c.enqueueGenerateRequest(gr)
 	}
-
 }
 
 func (c *Controller) enqueueGenerateRequest(gr *kyverno.GenerateRequest) {
+	c.log.Info("enqueuing generate request", "gr", gr)
 	key, err := cache.MetaNamespaceKeyFunc(gr)
 	if err != nil {
 		c.log.Error(err, "failed to extract name")
 		return
 	}
+
 	c.queue.Add(key)
 }
 
@@ -174,12 +176,14 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 	}
 
 	logger.V(4).Info("updating policy", "name", oldP.Name)
+
 	// get the list of GR for the current Policy version
 	grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(curP.Name)
 	if err != nil {
 		logger.Error(err, "failed to generate request for policy", "name", curP.Name)
 		return
 	}
+
 	// re-evaluate the GR as the policy was updated
 	for _, gr := range grs {
 		c.enqueueGenerateRequest(gr)
@@ -235,7 +239,9 @@ func (c *Controller) deleteGR(obj interface{}) {
 			}
 		}
 	}
+
 	logger.V(3).Info("deleting generate request", "name", gr.Name)
+
 	// sync Handler will remove it from the queue
 	c.enqueueGenerateRequest(gr)
 }
@@ -307,7 +313,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	startTime := time.Now()
 	logger.V(4).Info("started sync", "key", key, "startTime", startTime)
 	defer func() {
-		logger.V(4).Info("finished sync", "key", key, "processingTime", time.Since(startTime).String())
+		logger.V(4).Info("completed sync generate request", "key", key, "processingTime", time.Since(startTime).String())
 	}()
 
 	_, grName, err := cache.SplitMetaNamespaceKey(key)

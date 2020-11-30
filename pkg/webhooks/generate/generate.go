@@ -122,6 +122,9 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 		// generate requests created in kyverno namespace
 		isExist := false
 		if action == v1beta1.Create || action == v1beta1.Update {
+
+			log.Info("querying all generate requests")
+
 			grList, err := client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return err

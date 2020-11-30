@@ -57,6 +57,8 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	// build context
 	ctx := context.NewContext()
 
+	logger.Info("applying generate policy rule")
+
 	policyObj, err := c.policyLister.Get(gr.Spec.Policy)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -69,7 +71,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 
 				if resp != nil && resp.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
 					if err := c.client.DeleteResource(resp.GetAPIVersion(), resp.GetKind(), resp.GetNamespace(), resp.GetName(), false); err != nil {
-						logger.Error(err, "Generated resource is not deleted", "Resource", e.Name)
+						logger.Error(err, "generated resource is not deleted", "Resource", e.Name)
 					}
 				}
 			}
@@ -86,16 +88,19 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		logger.Error(err, "failed to marshal resource")
 		return nil, err
 	}
+
 	err = ctx.AddResource(resourceRaw)
 	if err != nil {
 		logger.Error(err, "failed to load resource in context")
 		return nil, err
 	}
+
 	err = ctx.AddUserInfo(gr.Spec.Context.UserRequestInfo)
 	if err != nil {
 		logger.Error(err, "failed to load SA in context")
 		return nil, err
 	}
+
 	err = ctx.AddSA(gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
 		logger.Error(err, "failed to load UserInfo in context")
@@ -122,6 +127,9 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	// Removing GR if rule is failed. Used when the generate condition failed but gr exist
 	for _, r := range engineResponse.PolicyResponse.Rules {
 		if !r.Success {
+
+			c.log.Info("querying all generate requests")
+
 			grList, err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).List(contextdefault.TODO(), metav1.ListOptions{})
 			if err != nil {
 				logger.Error(err, "failed to list generate requests")

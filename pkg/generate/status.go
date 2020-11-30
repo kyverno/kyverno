@@ -49,6 +49,7 @@ func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyver
 		log.Log.Error(err, "failed to update generate request status", "name", gr.Name)
 		return err
 	}
+
 	log.Log.V(3).Info("updated generate request status", "name", gr.Name, "status", string(kyverno.Completed))
 	return nil
 }

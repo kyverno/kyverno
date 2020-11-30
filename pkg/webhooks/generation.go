@@ -56,10 +56,14 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		engineResponse := engine.Generate(policyContext)
 		for _, rule := range engineResponse.PolicyResponse.Rules {
 			if !rule.Success {
+
+				ws.log.Info("querying all generate requests")
+
 				grList, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).List(contextdefault.TODO(), metav1.ListOptions{})
 				if err != nil {
 					logger.Error(err, "failed to list generate request")
 				}
+
 				for _, v := range grList.Items {
 					if engineResponse.PolicyResponse.Policy == v.Spec.Policy && engineResponse.PolicyResponse.Resource.Name == v.Spec.Resource.Name && engineResponse.PolicyResponse.Resource.Kind == v.Spec.Resource.Kind && engineResponse.PolicyResponse.Resource.Namespace == v.Spec.Resource.Namespace {
 						err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
