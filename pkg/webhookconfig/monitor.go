@@ -12,9 +12,9 @@ import (
 
 //maxRetryCount defines the max deadline count
 const (
-	tickerInterval  time.Duration = 10 * time.Second
+	tickerInterval    time.Duration = 30 * time.Second
 	idleCheckInterval time.Duration = 60 * time.Second
-	idleDeadline time.Duration = idleCheckInterval * 2
+	idleDeadline      time.Duration = idleCheckInterval * 2
 )
 
 // Monitor stores the last webhook request time and monitors registered webhooks.
@@ -70,9 +70,9 @@ func (t *Monitor) Run(register *Register, eventGen event.Interface, client *dcli
 		case <-ticker.C:
 
 			if err := register.Check(); err != nil {
-				t.log.Error(err,"missing webhooks")
+				t.log.Error(err, "missing webhooks")
 				if err := register.Register(); err != nil {
-					logger.Error(err,"failed to register webhooks")
+					logger.Error(err, "failed to register webhooks")
 				}
 
 				continue
@@ -90,7 +90,7 @@ func (t *Monitor) Run(register *Register, eventGen event.Interface, client *dcli
 				register.Remove(cleanUp)
 				<-cleanUp
 
-				if err:= register.Register(); err != nil {
+				if err := register.Register(); err != nil {
 					logger.Error(err, "Failed to register webhooks")
 				}
 

@@ -82,6 +82,7 @@ func HandleValidation(
 
 	var engineResponses []response.EngineResponse
 	for _, policy := range policies {
+
 		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 		policyContext.Policy = *policy
 		engineResponse := engine.Validate(policyContext)
@@ -90,11 +91,13 @@ func HandleValidation(
 			// allow updates if resource update doesnt change the policy evaluation
 			continue
 		}
+
 		engineResponses = append(engineResponses, engineResponse)
-		statusListener.Send(validateStats{
+		statusListener.Update(validateStats{
 			resp:      engineResponse,
 			namespace: policy.Namespace,
 		})
+
 		if !engineResponse.IsSuccessful() {
 			logger.V(4).Info("failed to apply policy", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
 			continue
@@ -102,6 +105,7 @@ func HandleValidation(
 
 		logger.Info("validation rules from policy applied successfully", "policy", policy.Name)
 	}
+
 	// If Validation fails then reject the request
 	// no violations will be created on "enforce"
 	blocked := toBlockResource(engineResponses, logger)

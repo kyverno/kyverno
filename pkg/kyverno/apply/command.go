@@ -147,7 +147,7 @@ To apply policy with variables:
 				if err != nil {
 					return err
 				}
-				dClient, err = client.NewClient(restConfig, 5*time.Minute, make(chan struct{}), log.Log)
+				dClient, err = client.NewClient(restConfig, 15*time.Minute, make(chan struct{}), log.Log)
 				if err != nil {
 					return err
 				}

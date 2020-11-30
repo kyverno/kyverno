@@ -73,7 +73,7 @@ func TestKeyToMutex(t *testing.T) {
 	}
 
 	for i := 0; i < 100; i++ {
-		go s.Listener.Send(dummyStatusUpdater{})
+		go s.Listener.Update(dummyStatusUpdater{})
 	}
 
 	<-time.After(time.Second * 3)

@@ -26,14 +26,15 @@ import (
 )
 
 const (
-	maxRetries = 5
+	maxRetries   = 5
+	resyncPeriod = 15 * time.Minute
 )
 
 // Controller manages the life-cycle for Generate-Requests and applies generate rule
 type Controller struct {
-	// dyanmic client implementation
+	// dynamic client implementation
 	client *dclient.Client
-	// typed client for kyverno CRDs
+	// typed client for Kyverno CRDs
 	kyvernoClient *kyvernoclient.Clientset
 	// event generator interface
 	eventGen event.Interface
@@ -54,7 +55,7 @@ type Controller struct {
 	pSynced cache.InformerSynced
 	// grSynced returns true if the Generate Request store has been synced at least once
 	grSynced cache.InformerSynced
-	// dyanmic sharedinformer factory
+	// dynamic shared informer factory
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
 	//TODO: list of generic informers
 	// only support Namespaces for re-evalutation on resource updates
@@ -80,12 +81,10 @@ func NewController(
 	resCache resourcecache.ResourceCacheIface,
 ) *Controller {
 	c := Controller{
-		client:        client,
-		kyvernoClient: kyvernoclient,
-		eventGen:      eventGen,
-		//TODO: do the math for worst case back off and make sure cleanup runs after that
-		// as we dont want a deleted GR to be re-queue
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1, 30), "generate-request"),
+		client:               client,
+		kyvernoClient:        kyvernoclient,
+		eventGen:             eventGen,
+		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
 		dynamicInformer:      dynamicInformer,
 		log:                  log,
 		policyStatusListener: policyStatus,
@@ -94,16 +93,16 @@ func NewController(
 	}
 	c.statusControl = StatusControl{client: kyvernoclient}
 
-	pInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
+	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePolicy, // We only handle updates to policy
 		// Deletion of policy will be handled by cleanup controller
-	}, 2*time.Minute)
+	})
 
-	grInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
+	grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addGR,
 		UpdateFunc: c.updateGR,
 		DeleteFunc: c.deleteGR,
-	}, 2*time.Minute)
+	})
 
 	c.enqueueGR = c.enqueue
 	c.syncHandler = c.syncGenerateRequest
@@ -118,9 +117,10 @@ func NewController(
 	// Only supported for namespaces
 	nsInformer := dynamicInformer.ForResource(client.DiscoveryClient.GetGVRFromKind("Namespace"))
 	c.nsInformer = nsInformer
-	c.nsInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
+	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateGenericResource,
-	}, 2*time.Minute)
+	})
+
 	return &c
 }
 
@@ -306,6 +306,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	defer func() {
 		logger.V(4).Info("finished sync", "key", key, "processingTime", time.Since(startTime).String())
 	}()
+
 	_, grName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		return err
@@ -320,5 +321,6 @@ func (c *Controller) syncGenerateRequest(key string) error {
 		logger.Error(err, "failed to list generate requests")
 		return err
 	}
+
 	return c.processGR(gr)
 }

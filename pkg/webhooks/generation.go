@@ -77,7 +77,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 			engineResponse.PolicyResponse.Rules = rules
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
-			ws.statusListener.Send(generateStats{
+			ws.statusListener.Update(generateStats{
 				resp: engineResponse,
 			})
 		}
