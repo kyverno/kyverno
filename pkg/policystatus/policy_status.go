@@ -3,7 +3,7 @@ package policystatus
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"github.com/go-logr/logr"
 	"strings"
 	"sync"
 	"time"
@@ -17,9 +17,8 @@ import (
 )
 
 // Policy status implementation works in the following way,
-//Currently policy status maintains a cache of the status of
-//each policy.
-//Every x unit of time the status of policy is updated using
+// Currently policy status maintains a cache of the status of each policy.
+// Every x unit of time the status of policy is updated using
 //the data from the cache.
 //The sync exposes a listener which accepts a statusUpdater
 //interface which dictates how the status should be updated.
@@ -27,21 +26,21 @@ import (
 //on a channel.
 //The worker then updates the current status using the methods
 //exposed by the interface.
-//Current implementation is designed to be threadsafe with optimised
+//Current implementation is designed to be thread safe with optimised
 //locking for each policy.
 
 // statusUpdater defines a type to have a method which
-//updates the given status
+// updates the given status
 type statusUpdater interface {
 	PolicyName() string
 	UpdateStatus(status v1.PolicyStatus) v1.PolicyStatus
 }
 
-// Listener ...
+// Listener is a channel of statusUpdater instances
 type Listener chan statusUpdater
 
-// Send sends an update request
-func (l Listener) Send(s statusUpdater) {
+// Update queues an status update request
+func (l Listener) Update(s statusUpdater) {
 	l <- s
 }
 
@@ -55,6 +54,7 @@ type Sync struct {
 	client   *versioned.Clientset
 	lister   kyvernolister.ClusterPolicyLister
 	nsLister kyvernolister.PolicyLister
+	log      logr.Logger
 }
 
 type cache struct {
@@ -63,7 +63,7 @@ type cache struct {
 	keyToMutex *keyToMutex
 }
 
-// NewSync ...
+// NewSync creates a new Sync instance
 func NewSync(c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister, nsLister kyvernolister.PolicyLister) *Sync {
 	return &Sync{
 		cache: &cache{
@@ -75,16 +75,17 @@ func NewSync(c *versioned.Clientset, lister kyvernolister.ClusterPolicyLister, n
 		lister:   lister,
 		nsLister: nsLister,
 		Listener: make(chan statusUpdater, 20),
+		log:      log.Log.WithName("PolicyStatus"),
 	}
 }
 
-// Run ...
+// Run starts workers and periodically flushes the cached status
 func (s *Sync) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go s.updateStatusCache(stopCh)
 	}
 
-	wait.Until(s.updatePolicyStatus, 10*time.Second, stopCh)
+	wait.Until(s.updatePolicyStatus, 60*time.Second, stopCh)
 	<-stopCh
 }
 
@@ -94,7 +95,10 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 	for {
 		select {
 		case statusUpdater := <-s.Listener:
-			s.cache.keyToMutex.Get(statusUpdater.PolicyName()).Lock()
+			name := statusUpdater.PolicyName()
+			s.log.V(3).Info("received policy status update request", "policy", name)
+
+			s.cache.keyToMutex.Get(name).Lock()
 
 			s.cache.dataMu.RLock()
 			status, exist := s.cache.data[statusUpdater.PolicyName()]
@@ -105,6 +109,7 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 					status = policy.Status
 				}
 			}
+
 			updatedStatus := statusUpdater.UpdateStatus(status)
 
 			s.cache.dataMu.Lock()
@@ -114,7 +119,10 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 			s.cache.keyToMutex.Get(statusUpdater.PolicyName()).Unlock()
 			oldStatus, _ := json.Marshal(status)
 			newStatus, _ := json.Marshal(updatedStatus)
-			log.Log.V(4).Info(fmt.Sprintf("\nupdated status of policy - %v\noldStatus:\n%v\nnewStatus:\n%v\n", statusUpdater.PolicyName(), string(oldStatus), string(newStatus)))
+
+			s.log.V(4).Info("updated policy status", "policy", statusUpdater.PolicyName(),
+				"oldStatus", string(oldStatus), "newStatus", string(newStatus))
+
 		case <-stopCh:
 			return
 		}
@@ -122,59 +130,79 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 }
 
 // updatePolicyStatus updates the status in the policy resource definition
-//from the status cache, syncing them
+// from the status cache, syncing them
 func (s *Sync) updatePolicyStatus() {
+	for key, status := range s.getCachedStatus() {
+		s.log.V(2).Info("updating policy status", "policy", key)
+		namespace, policyName := s.parseStatusKey(key)
+		if namespace == "" {
+			s.updateClusterPolicy(policyName, key, status)
+		} else {
+			s.updateNamespacedPolicyStatus(policyName, namespace, key, status)
+		}
+	}
+}
+
+func (s *Sync) parseStatusKey(key string) (string, string) {
+	namespace := ""
+	policyName := key
+
+	index := strings.Index(key, "/")
+	if index != -1 {
+		namespace = key[:index]
+		policyName = key[index+1:]
+	}
+
+	return namespace, policyName
+}
+
+func (s *Sync) updateClusterPolicy(policyName, key string, status v1.PolicyStatus) {
+	defer s.deleteCachedStatus(key)
+
+	policy, err := s.lister.Get(policyName)
+	if err != nil {
+		s.log.Error(err, "failed to update policy status", "policy", policyName)
+		return
+	}
+
+	policy.Status = status
+	_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), policy, metav1.UpdateOptions{})
+	if err != nil {
+		s.log.Error(err, "failed to update policy status", "policy", policyName)
+	}
+}
+
+func (s *Sync) updateNamespacedPolicyStatus(policyName, namespace, key string, status v1.PolicyStatus) {
+	defer s.deleteCachedStatus(key)
+
+	policy, err := s.nsLister.Policies(namespace).Get(policyName)
+	if err != nil {
+		s.log.Error(err, "failed to update policy status", "policy", policyName)
+		return
+	}
+
+	policy.Status = status
+	_, err = s.client.KyvernoV1().Policies(namespace).UpdateStatus(context.TODO(), policy, metav1.UpdateOptions{})
+	if err != nil {
+		s.log.Error(err, "failed to update namespaced policy status", "policy", policyName)
+	}
+}
+
+func (s *Sync) deleteCachedStatus(policyName string) {
 	s.cache.dataMu.Lock()
+	defer s.cache.dataMu.Unlock()
+
+	delete(s.cache.data, policyName)
+}
+
+func (s *Sync) getCachedStatus() map[string]v1.PolicyStatus {
+	s.cache.dataMu.Lock()
+	defer s.cache.dataMu.Unlock()
+
 	var nameToStatus = make(map[string]v1.PolicyStatus, len(s.cache.data))
 	for k, v := range s.cache.data {
 		nameToStatus[k] = v
 	}
-	s.cache.dataMu.Unlock()
 
-	for policyName, status := range nameToStatus {
-		// Identify Policy and ClusterPolicy based on namespace in key
-		// key = <namespace>/<name> for namespacepolicy and key = <name> for clusterpolicy
-		// and update the respective policies
-		namespace := ""
-		isNamespacedPolicy := false
-		key := policyName
-		index := strings.Index(policyName, "/")
-		if index != -1 {
-			namespace = policyName[:index]
-			isNamespacedPolicy = true
-			policyName = policyName[index+1:]
-		}
-		if !isNamespacedPolicy {
-			policy, err := s.lister.Get(policyName)
-			if err != nil {
-				continue
-			}
-
-			policy.Status = status
-			_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), policy, metav1.UpdateOptions{})
-			if err != nil {
-				s.cache.dataMu.Lock()
-				delete(s.cache.data, policyName)
-				s.cache.dataMu.Unlock()
-				log.Log.Error(err, "failed to update policy status")
-			}
-		} else {
-			policy, err := s.nsLister.Policies(namespace).Get(policyName)
-			if err != nil {
-				s.cache.dataMu.Lock()
-				delete(s.cache.data, key)
-				s.cache.dataMu.Unlock()
-				continue
-			}
-			policy.Status = status
-			_, err = s.client.KyvernoV1().Policies(namespace).UpdateStatus(context.TODO(), policy, metav1.UpdateOptions{})
-			if err != nil {
-				s.cache.dataMu.Lock()
-				delete(s.cache.data, key)
-				s.cache.dataMu.Unlock()
-				log.Log.Error(err, "failed to update namespace policy status")
-			}
-		}
-
-	}
+	return nameToStatus
 }

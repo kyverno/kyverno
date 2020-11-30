@@ -60,7 +60,6 @@ func (vc statusControl) setStatus(status string) error {
 
 	deployStatus, ok := ann[annWebhookStatus]
 	if ok {
-		// annotatiaion is present
 		if deployStatus == status {
 			logger.V(4).Info(fmt.Sprintf("annotation %s already set to '%s'", annWebhookStatus, status))
 			return nil

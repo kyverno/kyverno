@@ -122,15 +122,15 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
-		client:                 client,
-		kyvernoClient:          kyvernoClient,
-		eventGen:               eventGen,
-		eventRecorder:          eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
-		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
-		configHandler:          configHandler,
-		prGenerator:            prGenerator,
-		log:                    log,
-		resCache:               resCache,
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		eventGen:      eventGen,
+		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
+		configHandler: configHandler,
+		prGenerator:   prGenerator,
+		log:           log,
+		resCache:      resCache,
 	}
 
 	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

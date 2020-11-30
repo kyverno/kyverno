@@ -52,7 +52,7 @@ func NewGenerator(client *kyvernoclient.Clientset, stopCh <-chan struct{}, log l
 func (g *Generator) Apply(gr kyverno.GenerateRequestSpec, action v1beta1.Operation) error {
 	logger := g.log
 	logger.V(4).Info("creating Generate Request", "request", gr)
-	// Send to channel
+	// Update to channel
 	message := GeneratorChannel{
 		action: action,
 		spec:   gr,

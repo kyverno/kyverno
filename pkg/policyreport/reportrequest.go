@@ -267,7 +267,7 @@ func (gen *Generator) syncHandler(info Info) error {
 func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) error {
 	defer func() {
 		if val := reportReq.GetAnnotations()["fromSync"]; val == "true" {
-			gen.policyStatusListener.Send(violationCount{
+			gen.policyStatusListener.Update(violationCount{
 				policyName:    info.PolicyName,
 				violatedRules: info.Rules,
 			})
