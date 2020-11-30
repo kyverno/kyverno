@@ -383,7 +383,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 				logger.Error(err, "updating existing resource")
 				return noGenResource, err
 			}
-			logger.V(4).Info("updated generated resource")
+			logger.V(2).Info("updated generated resource")
 		} else {
 			resource := &unstructured.Unstructured{}
 			resource.SetUnstructuredContent(rdata)
@@ -393,10 +393,10 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 				logger.Error(err, "updating existing resource")
 				return noGenResource, err
 			}
-			logger.V(4).Info("updated geneated resource")
+			logger.V(2).Info("updated generated resource")
 		}
 
-		logger.V(4).Info("Synchronize resource is disabled")
+		logger.V(2).Info("Synchronize resource is disabled")
 	}
 	return newGenResource, nil
 }
