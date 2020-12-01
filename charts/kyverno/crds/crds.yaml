@@ -2374,6 +2374,8 @@ spec:
     kind: ReportChangeRequest
     listKind: ReportChangeRequestList
     plural: reportchangerequests
+    shortNames:
+    - rcr
     singular: reportchangerequest
   scope: Namespaced
   versions:

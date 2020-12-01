@@ -13,10 +13,8 @@ spec:
     kind: ClusterReportChangeRequest
     listKind: ClusterReportChangeRequestList
     plural: clusterreportchangerequests
-    shortNames:
-    - crcr
     singular: clusterreportchangerequest
-  scope: Namespaced
+  scope: Cluster
   versions:
   - additionalPrinterColumns:
     - jsonPath: .scope.kind
