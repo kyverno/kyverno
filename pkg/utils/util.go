@@ -118,7 +118,6 @@ func ConvertResource(raw []byte, group, version, kind, namespace string) (unstru
 	}
 
 	obj.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
-	obj.SetNamespace(namespace)
 	return *obj, nil
 }
 

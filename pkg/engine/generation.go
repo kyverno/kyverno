@@ -20,33 +20,37 @@ import (
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func Generate(policyContext PolicyContext) (resp response.EngineResponse) {
 	policy := policyContext.Policy
-	resource := policyContext.NewResource
+	new := policyContext.NewResource
+	old := policyContext.OldResource
 	admissionInfo := policyContext.AdmissionInfo
 	ctx := policyContext.Context
 
 	resCache := policyContext.ResourceCache
 	jsonContext := policyContext.JSONContext
-	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name, "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
+	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name, "kind", new.GetKind(), "namespace", new.GetNamespace(), "name", new.GetName())
 
-	return filterRules(policy, resource, admissionInfo, ctx, logger, policyContext.ExcludeGroupRole, resCache, jsonContext)
+	return filterRules(policy, new, old, admissionInfo, ctx, logger, policyContext.ExcludeGroupRole, resCache, jsonContext)
 }
 
-func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface, log logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context) *response.RuleResponse {
+func filterRule(rule kyverno.Rule, new, old unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface, log logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context) *response.RuleResponse {
 	if !rule.HasGenerate() {
 		return nil
 	}
 
 	startTime := time.Now()
 
-	if err := MatchesResourceDescription(resource, rule, admissionInfo, excludeGroupRole); err != nil {
-		return &response.RuleResponse{
-			Name:    rule.Name,
-			Type:    "Generation",
-			Success: false,
-			RuleStats: response.RuleStats{
-				ProcessingTime: time.Since(startTime),
-			},
+	if err := MatchesResourceDescription(new, rule, admissionInfo, excludeGroupRole); err != nil {
+		if err := MatchesResourceDescription(old, rule, admissionInfo, excludeGroupRole); err == nil {
+			return &response.RuleResponse{
+				Name:    rule.Name,
+				Type:    "Generation",
+				Success: false,
+				RuleStats: response.RuleStats{
+					ProcessingTime: time.Since(startTime),
+				},
+			}
 		}
+		return nil
 	}
 
 	// add configmap json data to context
@@ -74,19 +78,19 @@ func filterRule(rule kyverno.Rule, resource unstructured.Unstructured, admission
 	}
 }
 
-func filterRules(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface, log logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context) response.EngineResponse {
+func filterRules(policy kyverno.ClusterPolicy, new, old unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface, log logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context) response.EngineResponse {
 	resp := response.EngineResponse{
 		PolicyResponse: response.PolicyResponse{
 			Policy: policy.Name,
 			Resource: response.ResourceSpec{
-				Kind:      resource.GetKind(),
-				Name:      resource.GetName(),
-				Namespace: resource.GetNamespace(),
+				Kind:      new.GetKind(),
+				Name:      new.GetName(),
+				Namespace: new.GetNamespace(),
 			},
 		},
 	}
 	for _, rule := range policy.Spec.Rules {
-		if ruleResp := filterRule(rule, resource, admissionInfo, ctx, log, excludeGroupRole, resCache, jsonContext); ruleResp != nil {
+		if ruleResp := filterRule(rule, new, old, admissionInfo, ctx, log, excludeGroupRole, resCache, jsonContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}

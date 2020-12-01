@@ -121,14 +121,14 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	engineResponse := engine.Generate(policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		logger.V(4).Info("policy does not apply to resource")
-		return nil, fmt.Errorf("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
+		return nil, fmt.Errorf("policy %s, does not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 	}
 
 	// Removing GR if rule is failed. Used when the generate condition failed but gr exist
 	for _, r := range engineResponse.PolicyResponse.Rules {
 		if !r.Success {
 
-			c.log.Info("querying all generate requests")
+			logger.Info("querying all generate requests")
 
 			grList, err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).List(contextdefault.TODO(), metav1.ListOptions{})
 			if err != nil {
