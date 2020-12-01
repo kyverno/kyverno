@@ -204,7 +204,8 @@ func (c *Controller) enqueue(gr *kyverno.GenerateRequest) {
 		logger.Error(err, "failed to extract key")
 		return
 	}
-	logger.V(4).Info("eneque generate request", "name", gr.Name)
+
+	logger.V(5).Info("enqueue generate request", "name", gr.Name)
 	c.queue.Add(key)
 }
 
