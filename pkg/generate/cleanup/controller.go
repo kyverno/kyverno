@@ -28,7 +28,7 @@ const (
 
 //Controller manages life-cycle of generate-requests
 type Controller struct {
-	// dyanmic client implementation
+	// dynamic client implementation
 	client *dclient.Client
 	// typed client for kyverno CRDs
 	kyvernoClient *kyvernoclient.Clientset
@@ -49,7 +49,7 @@ type Controller struct {
 	pSynced cache.InformerSynced
 	// grSynced returns true if the generate request store has been synced at least once
 	grSynced cache.InformerSynced
-	// dyanmic sharedinformer factory
+	// dynamic sharedinformer factory
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
 	//TODO: list of generic informers
 	// only support Namespaces for deletion of resource

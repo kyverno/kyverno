@@ -33,7 +33,6 @@ const (
 type Controller struct {
 	// dynamic client implementation
 	client *dclient.Client
-
 	// typed client for Kyverno CRDs
 	kyvernoClient *kyvernoclient.Clientset
 
@@ -57,7 +56,6 @@ type Controller struct {
 
 	// grSynced returns true if the Generate Request store has been synced at least once
 	grSynced cache.InformerSynced
-
 	// dynamic shared informer factory
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
 

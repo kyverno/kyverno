@@ -65,34 +65,32 @@ func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidTy
 	switch valuesAvailable := value.(type) {
 
 	case []interface{}:
-		invalidType = false
 		for _, val := range valuesAvailable {
-			if v, ok := val.(string); ok {
-				if wildcard.Match(key, v) {
-					keyExists = true
-					return
-				}
+			v, ok := val.(string)
+			if !ok {
+				return true, false
+			}
+
+			if ok && wildcard.Match(key, v) {
+				return false, true
 			}
 		}
 
 	case string:
 
 		if wildcard.Match(valuesAvailable, key) {
-			keyExists = true
-			return
+			return false, true
 		}
 
 		var arr []string
 		if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
 			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
-			invalidType = true
-			return
+			return true, false
 		}
 
 		for _, val := range arr {
 			if key == val {
-				keyExists = true
-				return
+				return false, true
 			}
 		}
 
@@ -101,9 +99,7 @@ func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidTy
 		return
 	}
 
-	invalidType = true
-	keyExists = false
-	return
+	return false, false
 }
 
 func (in InHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {

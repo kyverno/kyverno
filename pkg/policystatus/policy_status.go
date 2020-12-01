@@ -3,10 +3,11 @@ package policystatus
 import (
 	"context"
 	"encoding/json"
-	"github.com/go-logr/logr"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/go-logr/logr"
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
