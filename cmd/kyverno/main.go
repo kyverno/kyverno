@@ -111,14 +111,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// ======================= resource cache ====================
 	rCache, err := resourcecache.NewResourceCache(log.Log, clientConfig, client, []string{"configmaps"}, []string{})
 	if err != nil {
-		setupLog.Error(err, "Failed to create resource cache")
-		os.Exit(1)
+		setupLog.Error(err, "ConfigMap lookup disabled: failed to create resource cache")
+	} else {
+		rCache.RunAllInformers(log.Log)
 	}
-	rCache.RunAllInformers(log.Log)
-	// ===========================================================
 
 	// CRD CHECK
 	// - verify if Kyverno CRDs are available

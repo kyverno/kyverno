@@ -54,6 +54,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	//TODO: GENERATION
 	return engineResponses
 }
+
 func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, ctx context.EvalInterface, log logr.Logger, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context) (response.EngineResponse, error) {
 
 	engineResponse := engine.Mutate(engine.PolicyContext{Policy: policy, NewResource: resource, Context: ctx, ResourceCache: resCache, JSONContext: jsonContext})
