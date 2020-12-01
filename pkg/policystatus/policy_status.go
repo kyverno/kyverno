@@ -133,7 +133,7 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 // from the status cache, syncing them
 func (s *Sync) updatePolicyStatus() {
 	for key, status := range s.getCachedStatus() {
-		s.log.V(2).Info("updating policy status", "policy", key)
+		s.log.V(3).Info("updating policy status", "policy", key)
 		namespace, policyName := s.parseStatusKey(key)
 		if namespace == "" {
 			s.updateClusterPolicy(policyName, key, status)
