@@ -122,10 +122,13 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 		// generate requests created in kyverno namespace
 		isExist := false
 		if action == v1beta1.Create || action == v1beta1.Update {
+
+			log.V(4).Info("querying all generate requests")
 			grList, err := client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
+
 			for i, v := range grList.Items {
 				if grSpec.Policy == v.Spec.Policy && grSpec.Resource.Name == v.Spec.Resource.Name && grSpec.Resource.Kind == v.Spec.Resource.Kind && grSpec.Resource.Namespace == v.Spec.Resource.Namespace {
 					gr.SetLabels(map[string]string{

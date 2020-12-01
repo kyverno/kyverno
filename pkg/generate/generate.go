@@ -57,7 +57,9 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	// build context
 	ctx := context.NewContext()
 
-	policyObj, err := c.pLister.Get(gr.Spec.Policy)
+	logger.V(3).Info("applying generate policy rule")
+
+	policyObj, err := c.policyLister.Get(gr.Spec.Policy)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			for _, e := range gr.Status.GeneratedResources {
@@ -69,7 +71,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 
 				if resp != nil && resp.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
 					if err := c.client.DeleteResource(resp.GetAPIVersion(), resp.GetKind(), resp.GetNamespace(), resp.GetName(), false); err != nil {
-						logger.Error(err, "Generated resource is not deleted", "Resource", e.Name)
+						logger.Error(err, "generated resource is not deleted", "Resource", e.Name)
 					}
 				}
 			}
@@ -86,16 +88,19 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		logger.Error(err, "failed to marshal resource")
 		return nil, err
 	}
+
 	err = ctx.AddResource(resourceRaw)
 	if err != nil {
 		logger.Error(err, "failed to load resource in context")
 		return nil, err
 	}
+
 	err = ctx.AddUserInfo(gr.Spec.Context.UserRequestInfo)
 	if err != nil {
 		logger.Error(err, "failed to load SA in context")
 		return nil, err
 	}
+
 	err = ctx.AddSA(gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
 		logger.Error(err, "failed to load UserInfo in context")
@@ -116,12 +121,14 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	engineResponse := engine.Generate(policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		logger.V(4).Info("policy does not apply to resource")
-		return nil, fmt.Errorf("policy %s, dont not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
+		return nil, fmt.Errorf("policy %s, does not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 	}
 
 	// Removing GR if rule is failed. Used when the generate condition failed but gr exist
 	for _, r := range engineResponse.PolicyResponse.Rules {
 		if !r.Success {
+
+			logger.V(4).Info("querying all generate requests")
 			grList, err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).List(contextdefault.TODO(), metav1.ListOptions{})
 			if err != nil {
 				logger.Error(err, "failed to list generate requests")
@@ -350,12 +357,12 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		// Reset resource version
 		newResource.SetResourceVersion("")
 		// Create the resource
-		logger.V(4).Info("creating new resource")
 		_, err = client.CreateResource(genAPIVersion, genKind, genNamespace, newResource, false)
 		if err != nil {
 			return noGenResource, err
 		}
-		logger.V(2).Info("created generated resource")
+
+		logger.V(2).Info("created resource")
 
 	} else if mode == Update {
 		var isUpdate bool
