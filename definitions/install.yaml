@@ -2379,6 +2379,8 @@ spec:
     kind: ReportChangeRequest
     listKind: ReportChangeRequestList
     plural: reportchangerequests
+    shortNames:
+    - rcr
     singular: reportchangerequest
   scope: Namespaced
   versions:
@@ -3013,7 +3015,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: ghcr.io/kyverno/kyverno:v1.3.0-rc5
+        image: ghcr.io/kyverno/kyverno:v1.3.0-rc6
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 4
@@ -3056,7 +3058,7 @@ spec:
           runAsNonRoot: true
           runAsUser: 1000
       initContainers:
-      - image: ghcr.io/kyverno/kyvernopre:v1.3.0-rc5
+      - image: ghcr.io/kyverno/kyvernopre:v1.3.0-rc6
         imagePullPolicy: Always
         name: kyverno-pre
         securityContext:
