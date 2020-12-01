@@ -31,7 +31,7 @@ import (
 )
 
 const workQueueName = "report-request-controller"
-const workQueueRetryLimit = 3
+const workQueueRetryLimit = 10
 
 // Generator creates report request
 type Generator struct {
@@ -197,18 +197,16 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 
 	// retires requests if there is error
 	if gen.queue.NumRequeues(key) < workQueueRetryLimit {
-		logger.Error(err, "failed to sync report request", "key", key)
-		// Re-enqueue the key rate limited. Based on the rate limiter on the
-		// queue and the re-enqueue history, the key will be processed later again.
+		logger.V(3).Info("retrying report request", "key", key, "error", err)
 		gen.queue.AddRateLimited(key)
 		return
 	}
+
+	logger.Error(err, "failed to process report request", "key", key)
 	gen.queue.Forget(key)
-	// remove from data store
 	if keyHash, ok := key.(string); ok {
 		gen.dataStore.delete(keyHash)
 	}
-	logger.Error(err, "dropping key out of the queue", "key", key)
 }
 
 func (gen *Generator) processNextWorkItem() bool {

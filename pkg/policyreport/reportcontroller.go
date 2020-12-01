@@ -220,14 +220,13 @@ func (g *ReportGenerator) handleErr(err error, key interface{}) {
 
 	// retires requests if there is error
 	if g.queue.NumRequeues(key) < workQueueRetryLimit {
-		logger.Error(err, "failed to sync policy report", "key", key)
-		// Re-enqueue the key rate limited. Based on the rate limiter on the
-		// queue and the re-enqueue history, the key will be processed later again.
+		logger.V(3).Info("retrying policy report", "key", key, "error", err.Error())
 		g.queue.AddRateLimited(key)
 		return
 	}
+
+	logger.Error(err, "failed to process policy report", "key", key)
 	g.queue.Forget(key)
-	logger.Error(err, "dropping key out of the queue", "key", key)
 }
 
 // syncHandler reconciles clusterPolicyReport if namespace == ""

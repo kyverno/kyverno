@@ -55,8 +55,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		for _, rule := range engineResponse.PolicyResponse.Rules {
 			if !rule.Success {
 
-				ws.log.Info("querying all generate requests")
-
+				ws.log.V(4).Info("querying all generate requests")
 				grList, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).List(contextdefault.TODO(), metav1.ListOptions{})
 				if err != nil {
 					logger.Error(err, "failed to list generate request")

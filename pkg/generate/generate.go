@@ -128,8 +128,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	for _, r := range engineResponse.PolicyResponse.Rules {
 		if !r.Success {
 
-			logger.Info("querying all generate requests")
-
+			logger.V(4).Info("querying all generate requests")
 			grList, err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).List(contextdefault.TODO(), metav1.ListOptions{})
 			if err != nil {
 				logger.Error(err, "failed to list generate requests")

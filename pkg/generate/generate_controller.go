@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	maxRetries = 5
+	maxRetries = 10
 )
 
 // Controller manages the life-cycle for Generate-Requests and applies generate rule
@@ -298,12 +298,12 @@ func (c *Controller) handleErr(err error, key interface{}) {
 	}
 
 	if c.queue.NumRequeues(key) < maxRetries {
-		logger.Error(err, "failed to sync generate request", "key", key)
+		logger.V(3).Info("retrying generate request", "key", key, "error", err.Error())
 		c.queue.AddRateLimited(key)
 		return
 	}
-	utilruntime.HandleError(err)
-	logger.Error(err, "Dropping generate request from the queue", "key", key)
+
+	logger.Error(err, "failed to process generate request", "key", key)
 	c.queue.Forget(key)
 }
 

@@ -276,6 +276,10 @@ func (c ServerPreferredResources) OpenAPISchema() (*openapi_v2.Document, error) 
 
 // GetGVRFromKind get the Group Version Resource from kind
 func (c ServerPreferredResources) GetGVRFromKind(kind string) schema.GroupVersionResource {
+	if kind == "" {
+		return schema.GroupVersionResource{}
+	}
+
 	_, gvr, err := c.FindResource("", kind)
 	if err != nil {
 		c.log.Info("schema not found", "kind", kind)
@@ -289,7 +293,7 @@ func (c ServerPreferredResources) GetGVRFromKind(kind string) schema.GroupVersio
 func (c ServerPreferredResources) GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource {
 	_, gvr, err := c.FindResource(apiVersion, kind)
 	if err != nil {
-		c.log.Info("schema not found", "kind", kind, "apiVersion", apiVersion, "Error : ", err)
+		c.log.Info("schema not found", "kind", kind, "apiVersion", apiVersion, "error : ", err)
 		return schema.GroupVersionResource{}
 	}
 
