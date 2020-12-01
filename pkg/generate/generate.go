@@ -357,12 +357,12 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		// Reset resource version
 		newResource.SetResourceVersion("")
 		// Create the resource
-		logger.V(4).Info("creating new resource")
 		_, err = client.CreateResource(genAPIVersion, genKind, genNamespace, newResource, false)
 		if err != nil {
 			return noGenResource, err
 		}
-		logger.V(2).Info("created generated resource")
+
+		logger.V(2).Info("created resource")
 
 	} else if mode == Update {
 		var isUpdate bool
