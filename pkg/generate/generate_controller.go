@@ -144,7 +144,7 @@ func (c *Controller) updateGenericResource(old, cur interface{}) {
 }
 
 func (c *Controller) enqueueGenerateRequest(gr *kyverno.GenerateRequest) {
-	c.log.Info("enqueuing generate request", "gr", gr)
+	c.log.V(5).Info("enqueuing generate request", "gr", gr.Name)
 	key, err := cache.MetaNamespaceKeyFunc(gr)
 	if err != nil {
 		c.log.Error(err, "failed to extract name")

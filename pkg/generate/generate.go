@@ -57,7 +57,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	// build context
 	ctx := context.NewContext()
 
-	logger.Info("applying generate policy rule")
+	logger.V(3).Info("applying generate policy rule")
 
 	policyObj, err := c.policyLister.Get(gr.Spec.Policy)
 	if err != nil {

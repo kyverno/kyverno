@@ -97,14 +97,6 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		}
 	}
 
-	// Generate Stats wont be used here, as we delegate the generate rule
-	// - Filter policies that apply on this resource
-	// - - build CR context(userInfo+roles+clusterRoles)
-	// - Create CR
-	// - send Success
-	// HandleGeneration  always returns success
-
-	// Filter Policies
 	return
 }
 
@@ -117,6 +109,7 @@ func applyGenerateRequest(gnGenerator generate.GenerateRequests, userRequestInfo
 			failedGenerateRequest = append(failedGenerateRequest, generateRequestResponse{gr: gr, err: err})
 		}
 	}
+
 	return
 }
 
