@@ -259,6 +259,8 @@ func removeClusterPolicyReport(client *client.Client, kind string) error {
 	for _, cpolr := range cpolrs.Items {
 		if err := client.DeleteResource(cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName(), false); err != nil {
 			logger.Error(err, "failed to delete clusterPolicyReport", "name", cpolr.GetName())
+		} else {
+			logger.Info("successfully cleaned up ClusterPolicyReport")
 		}
 	}
 	return nil
@@ -276,10 +278,12 @@ func removePolicyReport(client *client.Client, kind string) error {
 	// name of namespace policy report follows the name convention
 	// policyreport-ns-<namespace name>
 	for _, ns := range namespaces.Items {
-		reportName := fmt.Sprintf("policyreport-ns-%s", ns.GetName())
+		reportName := fmt.Sprintf("pr-ns-%s", ns.GetName())
 		err := client.DeleteResource("", kind, ns.GetName(), reportName, false)
 		if err != nil && !errors.IsNotFound(err) {
 			logger.Error(err, "failed to delete policyReport", "name", reportName)
+		} else {
+			logger.Info("successfully cleaned up PolicyReport", "name", reportName)
 		}
 	}
 
