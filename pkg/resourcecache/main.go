@@ -51,9 +51,9 @@ func NewResourceCache(log logr.Logger, config *rest.Config, dclient *dclient.Cli
 			updateGVRCacheForConfigMap(resCache)
 		}
 	} else {
-		err := udateGVRCache(logger, resCache, discoveryIface)
+		err := updateGVRCache(logger, resCache, discoveryIface)
 		if err != nil {
-			logger.Error(err, "error in udateGVRCache function")
+			logger.Error(err, "error in updateGVRCache function")
 			return nil, err
 		}
 	}
@@ -73,7 +73,7 @@ func updateGVRCacheForConfigMap(resc *ResourceCache) {
 	resc.GVRCacheData["configmaps"] = gvrc
 }
 
-func udateGVRCache(log logr.Logger, resc *ResourceCache, discoveryIface discovery.CachedDiscoveryInterface) error {
+func updateGVRCache(log logr.Logger, resc *ResourceCache, discoveryIface discovery.CachedDiscoveryInterface) error {
 	serverResources, err := discoveryIface.ServerPreferredResources()
 	if err != nil {
 		return err
