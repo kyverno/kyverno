@@ -1,6 +1,6 @@
 # Require pod resource requests and limits
 
-Application workloads share cluster resources. Hence, it is important to manage resources assigned to each pod.  It is recommended that `resources.requests` and `resources.limits` are configured per pod and include CPU and memory resources. Other resources such as GPUs may also be specified as needed.
+Application workloads share cluster resources. Hence, it is important to manage resources assigned to each pod.  It is recommended that `resources.requests.cpu`, `resources.requests.memory` and `resources.limits.memory` are configured per pod. Other resources such as GPUs may also be specified as needed.
 
 If a namespace level request or limit is specified, defaults will automatically be applied to each pod based on the `LimitRange` configuration.
 
