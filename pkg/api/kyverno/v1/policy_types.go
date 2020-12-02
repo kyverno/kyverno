@@ -27,18 +27,21 @@ type Policy struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
-	// Spec declares policy behaviors.
+	// Spec defines policy behaviors and contains one or rules.
 	Spec Spec `json:"spec" yaml:"spec"`
 
-	// Status contains policy runtime data.
+	// Status contains policy runtime information.
 	// +optional
 	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
-// Spec contains a set of Rule instances and other policy controls.
+// Spec contains a list of Rule instances and other policy controls.
 type Spec struct {
-	// Rules is a list of Rule instances
+
+	// Rules is a list of Rule instances. A Policy contains multiple rules and
+	// each rule can validate, mutate, or generate resources.
 	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
+
 	// ValidationFailureAction controls if a validation policy rule failure should disallow
 	// the admission review request (enforce), or allow (audit) the admission review request
 	// and report an error in a policy report. Optional. The default value is "audit".
@@ -53,35 +56,44 @@ type Spec struct {
 }
 
 // Rule defines a validation, mutation, or generation control for matching resources.
+// Each rules contains a match declaration to select resources, and an optional exclude
+// declaration to specify which resources to exclude.
 type Rule struct {
-	// Name is a label to identify the rule, Must be unique within the policy.
+
+	// Name is a label to identify the rule, It must be unique within the policy.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 
-	// Context defines data sources and variables that can be used during rule execution.
+	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
 	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
 
-	// MatchResources selects resources to which the policy rule should be applied.
+	// MatchResources defines when this policy rule should be applied. The match
+	// criteria can include resource information (e.g. kind, name, namespace, labels)
+	// and admission review request information like the user name or role.
 	// At least one kind is required.
 	MatchResources MatchResources `json:"match,omitempty" yaml:"match,omitempty"`
 
-	// ExcludeResources selects resources to which the policy rule should not be applied.
+	// ExcludeResources defines when this policy rule should not be applied. The exclude
+	// criteria can include resource information (e.g. kind, name, namespace, labels)
+	// and admission review request information like the name or role.
 	// +optional
 	ExcludeResources ExcludeResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 
-	// Conditions enabled variable-based conditional rule execution.
+	// Conditions enable variable-based conditional rule execution. This is useful for
+	// finer control of when an rule is applied. A condition can reference object data
+	// using JMESPath notation.
 	// +optional
 	Conditions []Condition `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
-	// Mutation modifies matching resources.
+	// Mutation is used to modify matching resources.
 	// +optional
 	Mutation Mutation `json:"mutate,omitempty" yaml:"mutate,omitempty"`
 
-	// Validation checks matching resources.
+	// Validation is used to validate matching resources.
 	// +optional
 	Validation Validation `json:"validate,omitempty" yaml:"validate,omitempty"`
 
-	// Generation creates new resources.
+	// Generation is used to create new resources.
 	// +optional
 	Generation Generation `json:"generate,omitempty" yaml:"generate,omitempty"`
 }
@@ -117,6 +129,7 @@ type Condition struct {
 // ConditionOperator is the operation performed on condition key and value.
 // +kubebuilder:validation:Enum=Equals;NotEquals;In;NotIn
 type ConditionOperator string
+
 const (
 	// Equal evaluates if the key is equal to the value.
 	// Deprecated. Use Equals instead.
@@ -194,7 +207,10 @@ type ResourceDescription struct {
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 
-	// Selector is a label selector.
+	// Selector is a label selector. Label keys and values in `matchLabels` support the wildcard
+	// characters `*` (matches zero or many characters) and `?` (matches one character).
+	// This feature allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that
+	// using ["*" : "*"] matches any key and value but does not match an empty label set.
 	// +optional
 	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
 }
