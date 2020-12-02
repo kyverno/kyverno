@@ -143,7 +143,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	nsPolicies := h.pCache.Get(policycache.ValidateAudit, &request.Namespace)
 	policies = append(policies, nsPolicies...)
 	// getRoleRef only if policy has roles/clusterroles defined
-	if containRBACinfo(policies) {
+	if containRBACInfo(policies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(h.rbLister, h.crbLister, request, h.configHandler)
 		if err != nil {
 			logger.Error(err, "failed to get RBAC information for request")
