@@ -480,3 +480,49 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")
 	}
 }
+
+func TestWildCardLabels(t *testing.T) {
+
+	testSelector(t, &metav1.LabelSelector{}, map[string]string{}, true)
+
+	testSelector(t, &metav1.LabelSelector{}, map[string]string{"foo": "bar"}, true)
+
+	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"test.io/*": "bar"}},
+		map[string]string{"foo": "bar"}, false)
+
+	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"scale.test.io/*": "bar"}},
+		map[string]string{"foo": "bar"}, false)
+
+	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"test.io/*": "bar"}},
+		map[string]string{"test.io/scale": "foo", "test.io/functional": "bar"}, true)
+
+	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"test.io/*": "*"}},
+		map[string]string{"test.io/scale": "foo", "test.io/functional": "bar"}, true)
+
+	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"test.io/*": "a*"}},
+		map[string]string{"test.io/scale": "foo", "test.io/functional": "bar"}, false)
+
+	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"test.io/scale": "f??"}},
+		map[string]string{"test.io/scale": "foo", "test.io/functional": "bar"}, true)
+
+	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"*": "*"}},
+		map[string]string{"test.io/scale": "foo", "test.io/functional": "bar"}, true)
+
+	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"test.io/functional": "foo"}},
+		map[string]string{"test.io/scale": "foo", "test.io/functional": "bar"}, false)
+
+	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"*": "*"}},
+		map[string]string{}, false)
+}
+
+func testSelector(t *testing.T, s *metav1.LabelSelector, l map[string]string, match bool) {
+	res, err := checkSelector(s, l)
+	if err != nil {
+		t.Errorf("selector %v failed to select labels %v: %v", s.MatchLabels, l, err)
+		return
+	}
+
+	if res != match {
+		t.Errorf("select %v -> labels %v: expected %v received %v", s.MatchLabels, l, match, res)
+	}
+}
