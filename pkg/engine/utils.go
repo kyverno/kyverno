@@ -4,22 +4,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
-	"time"
 	"github.com/go-logr/logr"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
+	"github.com/minio/minio/pkg/wildcard"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/minio/minio/pkg/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"k8s.io/apimachinery/pkg/runtime"
+	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
+	"time"
 )
 
 //EngineStats stores in the statistics for a single application of resource
@@ -66,6 +66,7 @@ func checkAnnotations(annotations map[string]string, resourceAnnotations map[str
 }
 
 func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) (bool, error) {
+	replaceWildCardsInSelector(labelSelector, resourceLabels)
 	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
 		log.Log.Error(err, "failed to build label selector")
@@ -77,6 +78,47 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 	}
 
 	return false, nil
+}
+
+// replaceWildCardsInSelector replaces label selector keys containing
+// wildcard characters with matching keys from the resource labels.
+func replaceWildCardsInSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) {
+	result := map[string]string{}
+	for k, v := range labelSelector.MatchLabels {
+		if containsWildCard(k) || containsWildCard(v) {
+			matchK, matchV := expandWildCards(k, v, resourceLabels)
+			result[matchK] = matchV
+		} else {
+			result[k] = v
+		}
+	}
+
+	labelSelector.MatchLabels = result
+}
+
+func containsWildCard(s string) bool {
+	return strings.Contains(s, "*") || strings.Contains(s, "?")
+}
+
+func expandWildCards(k, v string, labels map[string]string) (key string, val string) {
+	for k1, v1 := range labels {
+		if wildcard.Match(k, k1) {
+			if wildcard.Match(v, v1) {
+				return k1, v1
+			}
+		}
+	}
+
+	k = replaceWildCardChars(k)
+	v = replaceWildCardChars(v)
+	return k, v
+}
+
+func replaceWildCardChars(s string) string {
+	s = strings.Replace(s, "*", "0", -1)
+	s = strings.Replace(s, "?", "0", -1)
+
+	return s
 }
 
 // doesResourceMatchConditionBlock filters the resource with defined conditions
