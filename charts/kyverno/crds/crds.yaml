@@ -78,7 +78,7 @@ spec:
                             annotations:
                               additionalProperties:
                                 type: string
-                              description: Annotations is a  map of annotations (string key-value pairs). Annotation values supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters "*" (matches zero or many characters) and "?" (matches at least one character).
                               type: object
                             kinds:
                               description: Kinds is a list of resource kinds.
@@ -94,7 +94,7 @@ spec:
                                 type: string
                               type: array
                             selector:
-                              description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). This feature allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
                               properties:
                                 matchExpressions:
                                   description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
@@ -198,7 +198,7 @@ spec:
                             annotations:
                               additionalProperties:
                                 type: string
-                              description: Annotations is a  map of annotations (string key-value pairs). Annotation values supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters "*" (matches zero or many characters) and "?" (matches at least one character).
                               type: object
                             kinds:
                               description: Kinds is a list of resource kinds.
@@ -214,7 +214,7 @@ spec:
                                 type: string
                               type: array
                             selector:
-                              description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). This feature allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
                               properties:
                                 matchExpressions:
                                   description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
@@ -1178,7 +1178,7 @@ spec:
                             annotations:
                               additionalProperties:
                                 type: string
-                              description: Annotations is a  map of annotations (string key-value pairs). Annotation values supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters "*" (matches zero or many characters) and "?" (matches at least one character).
                               type: object
                             kinds:
                               description: Kinds is a list of resource kinds.
@@ -1194,7 +1194,7 @@ spec:
                                 type: string
                               type: array
                             selector:
-                              description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). This feature allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
                               properties:
                                 matchExpressions:
                                   description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
@@ -1298,7 +1298,7 @@ spec:
                             annotations:
                               additionalProperties:
                                 type: string
-                              description: Annotations is a  map of annotations (string key-value pairs). Annotation values supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters "*" (matches zero or many characters) and "?" (matches at least one character).
                               type: object
                             kinds:
                               description: Kinds is a list of resource kinds.
@@ -1314,7 +1314,7 @@ spec:
                                 type: string
                               type: array
                             selector:
-                              description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). This feature allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
                               properties:
                                 matchExpressions:
                                   description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
