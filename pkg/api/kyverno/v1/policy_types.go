@@ -201,15 +201,15 @@ type ResourceDescription struct {
 	// +optional
 	Namespaces []string `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 
-	// Annotations is a  map of annotations (string key-value pairs). Annotation values
-	// supports wildcard characters "*" (matches zero or many characters) and
-	// "?" (at least one character).
+	// Annotations is a  map of annotations (key-value pairs of type string). Annotation keys
+	// and values support the wildcard characters "*" (matches zero or many characters) and
+	// "?" (matches at least one character).
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 
 	// Selector is a label selector. Label keys and values in `matchLabels` support the wildcard
 	// characters `*` (matches zero or many characters) and `?` (matches one character).
-	// This feature allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that
+	// Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that
 	// using ["*" : "*"] matches any key and value but does not match an empty label set.
 	// +optional
 	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`

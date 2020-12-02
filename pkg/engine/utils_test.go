@@ -526,3 +526,29 @@ func testSelector(t *testing.T, s *metav1.LabelSelector, l map[string]string, ma
 		t.Errorf("select %v -> labels %v: expected %v received %v", s.MatchLabels, l, match, res)
 	}
 }
+
+func TestWildCardAnnotation(t *testing.T) {
+
+	// test single annotation values
+	testAnnotationMatch(t, map[string]string{}, map[string]string{}, true)
+	testAnnotationMatch(t, map[string]string{"test/*": "*"}, map[string]string{}, false)
+	testAnnotationMatch(t, map[string]string{"test/*": "*"}, map[string]string{"tes1/test": "*"}, false)
+	testAnnotationMatch(t, map[string]string{"test/*": "*"}, map[string]string{"test/test": "*"}, true)
+	testAnnotationMatch(t, map[string]string{"test/*": "*"}, map[string]string{"test/bar": "foo"}, true)
+	testAnnotationMatch(t, map[string]string{"test/b*": "*"}, map[string]string{"test/bar": "foo"}, true)
+
+	// test multiple annotation values
+	testAnnotationMatch(t, map[string]string{"test/b*": "*", "test2/*": "*"},
+		map[string]string{"test/bar": "foo"}, false)
+	testAnnotationMatch(t, map[string]string{"test/b*": "*", "test2/*": "*"},
+		map[string]string{"test/bar": "foo", "test2/123": "bar"}, true)
+	testAnnotationMatch(t, map[string]string{"test/b*": "*", "test2/*": "*"},
+		map[string]string{"test/bar": "foo", "test2/123": "bar", "test3/123": "bar2"}, true)
+}
+
+func testAnnotationMatch(t *testing.T, policy map[string]string, resource map[string]string, match bool) {
+	res := checkAnnotations(policy, resource)
+	if res != match {
+		t.Errorf("annotations %v -> labels %v: expected %v received %v", policy, resource, match, res)
+	}
+}
