@@ -15,8 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// isResponseSuccesful return true if all responses are successful
-func isResponseSuccesful(engineReponses []response.EngineResponse) bool {
+// isResponseSuccessful return true if all responses are successful
+func isResponseSuccessful(engineReponses []response.EngineResponse) bool {
 	for _, er := range engineReponses {
 		if !er.IsSuccessful() {
 			return false
@@ -110,7 +110,7 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	return resource
 }
 
-func containRBACinfo(policies ...[]*kyverno.ClusterPolicy) bool {
+func containRBACInfo(policies ...[]*kyverno.ClusterPolicy) bool {
 	for _, policySlice := range policies {
 		for _, policy := range policySlice {
 			for _, rule := range policy.Spec.Rules {
@@ -167,10 +167,21 @@ func convertResource(raw []byte, group, version, kind, namespace string) (unstru
 
 func excludeKyvernoResources(kind string) bool {
 	switch kind {
-	case "ClusterPolicy", "GenerateRequest", "Policy", "ClusterPolicyReport", "PolicyReport", "ClusterReportChangeRequest", "ReportChangeRequest":
+	case "ClusterPolicy":
+		return true
+	case "Policy":
+		return true
+	case "ClusterPolicyReport":
+		return true
+	case "PolicyReport":
+		return true
+	case "ReportChangeRequest":
+		return true
+	case "GenerateRequest":
+		return true
+	case "ClusterReportChangeRequest":
 		return true
 	default:
 		return false
 	}
-
 }
