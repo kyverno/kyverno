@@ -104,7 +104,7 @@ type WebhookServer struct {
 
 	auditHandler AuditHandler
 
-	log               logr.Logger
+	log logr.Logger
 
 	openAPIController *openapi.Controller
 
@@ -179,7 +179,7 @@ func NewWebhookServer(
 		log:                   log,
 		openAPIController:     openAPIController,
 		supportMutateValidate: supportMutateValidate,
-		resCache:                  resCache,
+		resCache:              resCache,
 	}
 
 	mux := httprouter.New()
@@ -347,7 +347,9 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 
 	// GENERATE
 	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
-		go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo, ws.configHandler)
+		newRequest := request.DeepCopy()
+		newRequest.Object.Raw = patchedResource
+		go ws.HandleGenerate(newRequest, generatePolicies, ctx, userRequestInfo, ws.configHandler)
 	}
 
 	patchType := v1beta1.PatchTypeJSONPatch
