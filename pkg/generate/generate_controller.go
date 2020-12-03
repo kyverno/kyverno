@@ -116,7 +116,8 @@ func NewController(
 
 	//TODO: dynamic registration
 	// Only supported for namespaces
-	nsInformer := dynamicInformer.ForResource(client.DiscoveryClient.GetGVRFromKind("Namespace"))
+	gvr, _ := client.DiscoveryClient.GetGVRFromKind("Namespace")
+	nsInformer := dynamicInformer.ForResource(gvr)
 	c.nsInformer = nsInformer
 	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateGenericResource,

@@ -43,7 +43,7 @@ func NewCanI(client *client.Client, kind, namespace, verb string, log logr.Logge
 func (o *CanIOptions) RunAccessCheck() (bool, error) {
 	// get GroupVersionResource from RESTMapper
 	// get GVR from kind
-	gvr := o.client.DiscoveryClient.GetGVRFromKind(o.kind)
+	gvr, _ := o.client.DiscoveryClient.GetGVRFromKind(o.kind)
 	if reflect.DeepEqual(gvr, schema.GroupVersionResource{}) {
 		// cannot find GVR
 		return false, fmt.Errorf("failed to get the Group Version Resource for kind %s", o.kind)

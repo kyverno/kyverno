@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"k8s.io/api/admission/v1beta1"
@@ -61,7 +62,17 @@ func NewKubeClient(config *rest.Config) (kubernetes.Interface, error) {
 func CRDInstalled(discovery client.IDiscovery, log logr.Logger) bool {
 	logger := log.WithName("CRDInstalled")
 	check := func(kind string) bool {
-		gvr := discovery.GetGVRFromKind(kind)
+		gvr, err := discovery.GetGVRFromKind(kind)
+		if err != nil {
+			if isServerUnavailable(err) {
+				logger.Info("**WARNING** unable to check CRD status", "kind", kind, "error", err.Error())
+				return true
+			}
+
+			logger.Error(err, "failed to check CRD status", "kind", kind)
+			return false
+		}
+
 		if reflect.DeepEqual(gvr, schema.GroupVersionResource{}) {
 			logger.Info("CRD not installed", "kind", kind)
 			return false
@@ -182,4 +193,10 @@ func SliceContains(slice []string, values ...string) bool {
 	}
 
 	return false
+}
+
+func isServerUnavailable(err error) bool {
+	// error message -
+	// https://github.com/kubernetes/apimachinery/blob/2456ebdaba229616fab2161a615148884b46644b/pkg/api/errors/errors.go#L432
+	return strings.Contains(err.Error(), "the server is currently unable to handle the request")
 }

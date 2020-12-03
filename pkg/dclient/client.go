@@ -118,7 +118,8 @@ func (c *Client) getResourceInterface(apiVersion string, kind string, namespace 
 // Keep this a stateful as the resource list will be based on the kubernetes version we connect to
 func (c *Client) getGroupVersionMapper(apiVersion string, kind string) schema.GroupVersionResource {
 	if apiVersion == "" {
-		return c.DiscoveryClient.GetGVRFromKind(kind)
+		gvr, _ := c.DiscoveryClient.GetGVRFromKind(kind)
+		return gvr
 	}
 	return c.DiscoveryClient.GetGVRFromAPIVersionKind(apiVersion, kind)
 
@@ -227,7 +228,7 @@ func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSign
 //IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
 	FindResource(apiVersion string, kind string) (*meta.APIResource, schema.GroupVersionResource, error)
-	GetGVRFromKind(kind string) schema.GroupVersionResource
+	GetGVRFromKind(kind string) (schema.GroupVersionResource, error)
 	GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource
 	GetServerVersion() (*version.Info, error)
 	OpenAPISchema() (*openapi_v2.Document, error)
@@ -275,18 +276,18 @@ func (c ServerPreferredResources) OpenAPISchema() (*openapi_v2.Document, error) 
 }
 
 // GetGVRFromKind get the Group Version Resource from kind
-func (c ServerPreferredResources) GetGVRFromKind(kind string) schema.GroupVersionResource {
+func (c ServerPreferredResources) GetGVRFromKind(kind string) (schema.GroupVersionResource, error) {
 	if kind == "" {
-		return schema.GroupVersionResource{}
+		return schema.GroupVersionResource{}, nil
 	}
 
 	_, gvr, err := c.FindResource("", kind)
 	if err != nil {
 		c.log.Info("schema not found", "kind", kind)
-		return schema.GroupVersionResource{}
+		return schema.GroupVersionResource{}, err
 	}
 
-	return gvr
+	return gvr, nil
 }
 
 // GetGVRFromAPIVersionKind get the Group Version Resource from APIVersion and kind
