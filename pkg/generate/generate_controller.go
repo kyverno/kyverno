@@ -60,7 +60,7 @@ type Controller struct {
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
 
 	//TODO: list of generic informers
-	// only support Namespaces for re-evalutation on resource updates
+	// only support Namespaces for re-evaluation on resource updates
 	nsInformer           informers.GenericInformer
 	policyStatusListener policystatus.Listener
 	log                  logr.Logger
@@ -81,7 +81,7 @@ func NewController(
 	log logr.Logger,
 	dynamicConfig config.Interface,
 	resourceCache resourcecache.ResourceCacheIface,
-) *Controller {
+) (*Controller, error) {
 
 	c := Controller{
 		client:               client,
@@ -116,14 +116,18 @@ func NewController(
 
 	//TODO: dynamic registration
 	// Only supported for namespaces
-	gvr, _ := client.DiscoveryClient.GetGVRFromKind("Namespace")
+	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
+	if err != nil {
+		return nil, err
+	}
+
 	nsInformer := dynamicInformer.ForResource(gvr)
 	c.nsInformer = nsInformer
 	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateGenericResource,
 	})
 
-	return &c
+	return &c, nil
 }
 
 func (c *Controller) updateGenericResource(old, cur interface{}) {

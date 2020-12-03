@@ -39,8 +39,8 @@ func NewMockClient(scheme *runtime.Scheme, objects ...runtime.Object) (*Client, 
 }
 
 // NewFakeDiscoveryClient returns a fakediscovery client
-func NewFakeDiscoveryClient(registeredResouces []schema.GroupVersionResource) *fakeDiscoveryClient {
-	// Load some-preregistd resources
+func NewFakeDiscoveryClient(registeredResources []schema.GroupVersionResource) *fakeDiscoveryClient {
+	// Load some-preregistered resources
 	res := []schema.GroupVersionResource{
 		{Version: "v1", Resource: "configmaps"},
 		{Version: "v1", Resource: "endpoints"},
@@ -52,16 +52,16 @@ func NewFakeDiscoveryClient(registeredResouces []schema.GroupVersionResource) *f
 		{Group: "apps", Version: "v1", Resource: "deployments"},
 		{Group: "apps", Version: "v1", Resource: "statefulsets"},
 	}
-	registeredResouces = append(registeredResouces, res...)
-	return &fakeDiscoveryClient{registeredResouces: registeredResouces}
+	registeredResources = append(registeredResources, res...)
+	return &fakeDiscoveryClient{registeredResources: registeredResources}
 }
 
 type fakeDiscoveryClient struct {
-	registeredResouces []schema.GroupVersionResource
+	registeredResources []schema.GroupVersionResource
 }
 
 func (c *fakeDiscoveryClient) getGVR(resource string) schema.GroupVersionResource {
-	for _, gvr := range c.registeredResouces {
+	for _, gvr := range c.registeredResources {
 		if gvr.Resource == resource {
 			return gvr
 		}
@@ -73,9 +73,9 @@ func (c *fakeDiscoveryClient) GetServerVersion() (*version.Info, error) {
 	return nil, nil
 }
 
-func (c *fakeDiscoveryClient) GetGVRFromKind(kind string) schema.GroupVersionResource {
+func (c *fakeDiscoveryClient) GetGVRFromKind(kind string) (schema.GroupVersionResource, error) {
 	resource := strings.ToLower(kind) + "s"
-	return c.getGVR(resource)
+	return c.getGVR(resource), nil
 }
 
 func (c *fakeDiscoveryClient) GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource {

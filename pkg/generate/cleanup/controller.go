@@ -65,7 +65,7 @@ func NewController(
 	grInformer kyvernoinformer.GenerateRequestInformer,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
 	log logr.Logger,
-) *Controller {
+) (*Controller, error) {
 	c := Controller{
 		kyvernoClient:   kyvernoclient,
 		client:          client,
@@ -96,14 +96,18 @@ func NewController(
 
 	//TODO: dynamic registration
 	// Only supported for namespaces
-	gvr, _ := client.DiscoveryClient.GetGVRFromKind("Namespace")
+	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
+	if err != nil {
+		return nil, err
+	}
+
 	nsInformer := dynamicInformer.ForResource(gvr)
 	c.nsInformer = nsInformer
 	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: c.deleteGenericResource,
 	})
 
-	return &c
+	return &c, nil
 }
 
 func (c *Controller) deleteGenericResource(obj interface{}) {

@@ -287,20 +287,18 @@ func removePolicyReport(client *client.Client, kind string) error {
 	// name of namespace policy report follows the name convention
 	// pr-ns-<namespace name>
 	for _, ns := range namespaces.Items {
-		reportName := fmt.Sprintf("policyreport-ns-%s", ns.GetName())
-		err := client.DeleteResource("", kind, ns.GetName(), reportName, false)
-		if err != nil && !errors.IsNotFound(err) {
-			logger.Error(err, "failed to delete policyReport", "name", reportName)
-		} else {
-			logger.Info("successfully cleaned up PolicyReport", "name", reportName)
+		reportNames := []string{
+			fmt.Sprintf("policyreport-ns-%s", ns.GetName()),
+			fmt.Sprintf("pr-ns-%s", ns.GetName()),
 		}
 
-		reportName = fmt.Sprintf("pr-ns-%s", ns.GetName())
-		err = client.DeleteResource("", kind, ns.GetName(), reportName, false)
-		if err != nil && !errors.IsNotFound(err) {
-			logger.Error(err, "failed to delete policyReport", "name", reportName)
-		} else {
-			logger.Info("successfully cleaned up PolicyReport", "name", reportName)
+		for _, reportName := range reportNames {
+			err := client.DeleteResource("", kind, ns.GetName(), reportName, false)
+			if err != nil && !errors.IsNotFound(err) {
+				logger.Error(err, "failed to delete resource", "kind", kind, "name", reportName)
+			} else {
+				logger.Info("successfully cleaned up resource", "kind", kind, "name", reportName)
+			}
 		}
 	}
 
