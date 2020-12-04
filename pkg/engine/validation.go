@@ -180,6 +180,7 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 			log.V(4).Info("resource fails the match description", "reason", err.Error())
 			continue
 		}
+
 		// add configmap json data to context
 		if err := AddResourceToContext(log, rule.Context, resCache, jsonContext); err != nil {
 			log.V(4).Info("cannot add configmaps to context", "reason", err.Error())
@@ -265,7 +266,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 		pattern := validationRule.Pattern
 		var err error
 		if pattern, err = variables.SubstituteVars(logger, ctx, pattern); err != nil {
-			// variable subsitution failed
+			// variable substitution failed
 			resp.Success = false
 			resp.Message = fmt.Sprintf("Validation error: %s; Validation rule '%s' failed. '%s'",
 				rule.Validation.Message, rule.Name, err)
@@ -280,7 +281,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 				rule.Validation.Message, rule.Name, path)
 			return resp
 		}
-		// rule application successful
+
 		logger.V(4).Info("successfully processed rule")
 		resp.Success = true
 		resp.Message = fmt.Sprintf("Validation rule '%s' succeeded.", rule.Name)

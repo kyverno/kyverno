@@ -1356,3 +1356,57 @@ func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {
 	assert.Equal(t, path, "/0/object/0/key2/")
 	assert.Assert(t, err != nil)
 }
+
+func TestValidateMapWildcardKeys(t *testing.T) {
+	pattern := []byte(`{"metadata" : {"annotations": {"test/*": "value1"}}}`)
+	resource := []byte(`{"metadata" : {"annotations": {"test/bar": "value1"}}}`)
+	testValidationPattern(t, pattern, resource, "", true)
+
+	pattern = []byte(`{"metadata" : {"annotations": {"test/b??": "v*"}}}`)
+	resource = []byte(`{"metadata" : {"annotations": {"test/bar": "value1"}}}`)
+	testValidationPattern(t, pattern, resource, "", true)
+
+	pattern = []byte(`{}`)
+	resource = []byte(`{"metadata" : {"annotations": {"test/bar": "value1"}}}`)
+	testValidationPattern(t, pattern, resource, "", true)
+
+	pattern = []byte(`{"metadata" : {"annotations": {"test/b??": "v*"}}}`)
+	resource = []byte(`{"metadata" : {"labels": {"test/bar": "value1"}}}`)
+	testValidationPattern(t, pattern, resource, "/metadata/annotations/", false)
+
+	pattern = []byte(`{"metadata" : {"labels": {"*/test": "foo"}}}`)
+	resource = []byte(`{"metadata" : {"labels": {"foo/test": "foo"}}}`)
+	testValidationPattern(t, pattern, resource, "", true)
+
+	pattern = []byte(`{"metadata" : {"labels": {"foo/123*": "bar"}}}`)
+	resource = []byte(`{"metadata" : {"labels": {"foo/12?": "bar", "foo/123": "bar"}}}`)
+	testValidationPattern(t, pattern, resource, "", true)
+
+	pattern = []byte(`{"metadata" : {"labels": {"foo/123*": "bar"}}}`)
+	resource = []byte(`{"metadata" : {"labels": {"foo/12?": "bar", "foo/123": "bar2"}}}`)
+	testValidationPattern(t, pattern, resource, "/metadata/labels/foo/123*/", false)
+
+	pattern = []byte(`{"metadata" : {"labels": {"foo/1*": "bar", "foo/4*": "bar2"}}}`)
+	resource = []byte(`{"metadata" : {"labels": {"foo/123": "bar", "foo/456": "bar2"}}}`)
+	testValidationPattern(t, pattern, resource, "", true)
+
+	pattern = []byte(`{"metadata" : {"labels": {"foo/1*": "bar", "foo/4*": "bar2"}}}`)
+	resource = []byte(`{"metadata" : {"labels": {"foo/123": "bar"}}}`)
+	testValidationPattern(t, pattern, resource, "/metadata/labels/foo/4*/", false)
+}
+
+func testValidationPattern(t *testing.T, patternBytes []byte, resourceBytes []byte, path string, nilErr bool) {
+	var pattern, resource interface{}
+	err := json.Unmarshal(patternBytes, &pattern)
+	assert.NilError(t, err)
+	err = json.Unmarshal(resourceBytes, &resource)
+	assert.NilError(t, err)
+
+	p, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	assert.Equal(t, p, path)
+	if nilErr {
+		assert.NilError(t, err)
+	} else {
+		assert.Assert(t, err != nil)
+	}
+}
