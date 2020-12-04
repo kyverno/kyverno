@@ -110,7 +110,7 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	var errs []error
 	if len(conditionBlock.Kinds) > 0 {
 		if !checkKind(conditionBlock.Kinds, resource.GetKind()) {
-			errs = append(errs, fmt.Errorf("kind does not match"))
+			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}
 	if conditionBlock.Name != "" {
