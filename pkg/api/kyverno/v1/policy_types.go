@@ -117,6 +117,7 @@ type Condition struct {
 // ConditionOperator is the operation performed on condition key and value.
 // +kubebuilder:validation:Enum=Equals;NotEquals;In;NotIn
 type ConditionOperator string
+
 const (
 	// Equal evaluates if the key is equal to the value.
 	// Deprecated. Use Equals instead.

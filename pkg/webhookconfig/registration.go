@@ -28,8 +28,8 @@ const (
 // 4. Resource Mutation
 // 5. Webhook Status Mutation
 type Register struct {
-	client       *client.Client
-	clientConfig *rest.Config
+	client         *client.Client
+	clientConfig   *rest.Config
 	serverIP       string // when running outside a cluster
 	timeoutSeconds int32
 	log            logr.Logger
@@ -293,7 +293,7 @@ func (wrc *Register) removePolicyMutatingWebhookConfiguration(wg *sync.WaitGroup
 	if errorsapi.IsNotFound(err) {
 		logger.V(5).Info("policy mutating webhook configuration not found")
 		return
-		}
+	}
 
 	if err != nil {
 		logger.Error(err, "failed to delete policy mutating webhook configuration")
@@ -422,8 +422,6 @@ func (wrc *Register) getVerifyWebhookMutatingWebhookName() string {
 	}
 	return mutatingConfig
 }
-
-
 
 // GetWebhookTimeOut returns the value of webhook timeout
 func (wrc *Register) GetWebhookTimeOut() time.Duration {
