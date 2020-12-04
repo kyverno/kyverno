@@ -46,7 +46,7 @@ func ValidateValueWithPattern(log logr.Logger, value, pattern interface{}) bool 
 		return validateValueWithMapPattern(log, value, typedPattern)
 	case []interface{}:
 		// TODO: check if this is ever called?
-		log.Info("arrays as patterns is not supported")
+		log.Info("arrays are not supported as patterns")
 		return false
 	default:
 		log.Info("Unknown type", "type", fmt.Sprintf("%T", typedPattern), "value", typedPattern)
