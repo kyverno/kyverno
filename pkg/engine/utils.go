@@ -54,18 +54,29 @@ func checkNameSpace(namespaces []string, resourceNameSpace string) bool {
 }
 
 func checkAnnotations(annotations map[string]string, resourceAnnotations map[string]string) bool {
+	if len(annotations) == 0 {
+		return true
+	}
+
 	for k, v := range annotations {
-		if len(resourceAnnotations) == 0 {
-			return false
+		match := false
+		for k1, v1 := range resourceAnnotations {
+			if wildcard.Match(k, k1) && wildcard.Match(v, v1) {
+				match = true
+				break
+			}
 		}
-		if resourceAnnotations[k] != v {
+
+		if match == false {
 			return false
 		}
 	}
+
 	return true
 }
 
 func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) (bool, error) {
+	replaceWildcardsInSelector(labelSelector, resourceLabels)
 	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
 		log.Log.Error(err, "failed to build label selector")
@@ -77,6 +88,48 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 	}
 
 	return false, nil
+}
+
+// replaceWildcardsInSelector replaces label selector keys and values containing
+// wildcard characters with matching keys and values from the resource labels.
+func replaceWildcardsInSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) {
+	result := map[string]string{}
+	for k, v := range labelSelector.MatchLabels {
+		if containsWildcards(k) || containsWildcards(v) {
+			matchK, matchV := expandWildcards(k, v, resourceLabels)
+			result[matchK] = matchV
+		} else {
+			result[k] = v
+		}
+	}
+
+	labelSelector.MatchLabels = result
+}
+
+func containsWildcards(s string) bool {
+	return strings.Contains(s, "*") || strings.Contains(s, "?")
+}
+
+func expandWildcards(k, v string, labels map[string]string) (key string, val string) {
+	for k1, v1 := range labels {
+		if wildcard.Match(k, k1) {
+			if wildcard.Match(v, v1) {
+				return k1, v1
+			}
+		}
+	}
+
+	k = replaceWildCardChars(k)
+	v = replaceWildCardChars(v)
+	return k, v
+}
+
+// replaceWildCardChars will replace '*' and '?' characters which are not
+// supported by Kubernetes with a '0'.
+func replaceWildCardChars(s string) string {
+	s = strings.Replace(s, "*", "0", -1)
+	s = strings.Replace(s, "?", "0", -1)
+	return s
 }
 
 // doesResourceMatchConditionBlock filters the resource with defined conditions

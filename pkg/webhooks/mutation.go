@@ -106,7 +106,7 @@ func (ws *WebhookServer) HandleMutation(
 		}
 
 		// if any of the policies fails, print out the error
-		if !isResponseSuccesful(engineResponses) {
+		if !isResponseSuccessful(engineResponses) {
 			logger.Info("failed to apply mutation rules on the resource, reporting policy violation", "errors", getErrorMsg(engineResponses))
 		}
 	}()

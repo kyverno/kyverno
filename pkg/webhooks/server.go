@@ -287,7 +287,7 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 	// getRoleRef only if policy has roles/clusterroles defined
 	var roles, clusterRoles []string
 	var err error
-	if containRBACinfo(mutatePolicies, validatePolicies, generatePolicies) {
+	if containRBACInfo(mutatePolicies, validatePolicies, generatePolicies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
 		if err != nil {
 			logger.Error(err, "failed to get RBAC information for request")
@@ -347,7 +347,9 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 
 	// GENERATE
 	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
-		go ws.HandleGenerate(request.DeepCopy(), generatePolicies, ctx, userRequestInfo, ws.configHandler)
+		newRequest := request.DeepCopy()
+		newRequest.Object.Raw = patchedResource
+		go ws.HandleGenerate(newRequest, generatePolicies, ctx, userRequestInfo, ws.configHandler)
 	}
 
 	patchType := v1beta1.PatchTypeJSONPatch
@@ -412,7 +414,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	var roles, clusterRoles []string
 	var err error
 	// getRoleRef only if policy has roles/clusterroles defined
-	if containRBACinfo(policies) {
+	if containRBACInfo(policies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
 		if err != nil {
 			logger.Error(err, "failed to get RBAC information for request")
