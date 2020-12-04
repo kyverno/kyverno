@@ -44,7 +44,7 @@ func (c *Client) buildTLSPemPair(props tls.CertificateProps, fqdncn bool) (*tls.
 	}
 
 	if err := c.WriteCACertToSecret(caPEM, props); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to write CA cert to secret: %v", err)
 	}
 	return tls.GenerateCertPem(caCert, props, fqdncn)
 }

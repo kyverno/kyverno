@@ -228,7 +228,7 @@ func main() {
 
 	// GENERATE CONTROLLER
 	// - applies generate rules on resources based on generate requests created by webhook
-	grc := generate.NewController(
+	grc, err := generate.NewController(
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
@@ -240,10 +240,14 @@ func main() {
 		configData,
 		rCache,
 	)
+	if err != nil {
+		setupLog.Error(err, "Failed to create generate controller")
+		os.Exit(1)
+	}
 
 	// GENERATE REQUEST CLEANUP
 	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout
-	grcc := generatecleanup.NewController(
+	grcc, err := generatecleanup.NewController(
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
@@ -251,6 +255,10 @@ func main() {
 		kubedynamicInformer,
 		log.Log.WithName("GenerateCleanUpController"),
 	)
+	if err != nil {
+		setupLog.Error(err, "Failed to create generate cleanup controller")
+		os.Exit(1)
+	}
 
 	pCacheController := policycache.NewPolicyCacheController(
 		pInformer.Kyverno().V1().ClusterPolicies(),
