@@ -126,7 +126,6 @@ func generateDebugValidatingWebhook(name, url string, caData []byte, validate bo
 	}
 }
 
-
 // mutating webhook
 func generateMutatingWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, resources []string, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.MutatingWebhook {
 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
