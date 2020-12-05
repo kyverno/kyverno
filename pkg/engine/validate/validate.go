@@ -83,7 +83,6 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string, ac *common.AnchorKey) (string, error) {
 
 	patternMap = wildcards.ExpandInMetadata(patternMap, resourceMap)
-
 	// check if there is anchor in pattern
 	// Phase 1 : Evaluate all the anchors
 	// Phase 2 : Evaluate non-anchors

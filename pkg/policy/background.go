@@ -29,7 +29,7 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 		ctx := context.NewContext(filterVars...)
 		for condIdx, condition := range rule.Conditions {
 			if condition.Key, err = variables.SubstituteVars(log.Log, ctx, condition.Key); !checkNotFoundErr(err) {
-				return fmt.Errorf("invalid variable %s used at spec/rules[%d]/condition[%d]/key",condition.Key, idx, condIdx)
+				return fmt.Errorf("invalid variable %s used at spec/rules[%d]/condition[%d]/key", condition.Key, idx, condIdx)
 			}
 
 			if condition.Value, err = variables.SubstituteVars(log.Log, ctx, condition.Value); !checkNotFoundErr(err) {

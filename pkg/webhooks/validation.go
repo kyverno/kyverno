@@ -115,7 +115,7 @@ func HandleValidation(
 	//   resource is blocked, as there is a policy in "enforce" mode that failed.
 	//   create an event on the policy to inform the resource request was blocked
 	// Scenario 2:
-	//   some/all policies failed to apply on the resource. a policy volation is generated.
+	//   some/all policies failed to apply on the resource. a policy violation is generated.
 	//   create an event on the resource and the policy that failed
 	// Scenario 3:
 	//   all policies were applied successfully.

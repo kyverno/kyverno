@@ -160,4 +160,3 @@ func (wrc *Register) removeResourceValidatingWebhookConfiguration(wg *sync.WaitG
 	logger.Info("webhook configuration deleted")
 	return
 }
-

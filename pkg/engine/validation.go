@@ -174,8 +174,6 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 		}
 
 		// check if the resource satisfies the filter conditions defined in the rule
-		// TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
-		// dont satisfy a policy rule resource description
 		if err := MatchesResourceDescription(resource, rule, admissionInfo, excludeResource); err != nil {
 			log.V(4).Info("resource fails the match description", "reason", err.Error())
 			continue
@@ -190,7 +188,7 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 		// operate on the copy of the conditions, as we perform variable substitution
 		preconditionsCopy := copyConditions(rule.Conditions)
 		// evaluate pre-conditions
-		// - handle variable subsitutions
+		// - handle variable substitutions
 		if !variables.EvaluateConditions(log, ctx, preconditionsCopy) {
 			log.V(4).Info("resource fails the preconditions")
 			continue
@@ -296,13 +294,13 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 		if err != nil {
 			resp.Success = false
-			resp.Message = fmt.Sprintf("Failed to deserialze anyPattern, expect type array: %v", err)
+			resp.Message = fmt.Sprintf("Failed to deserialize anyPattern, expect type array: %v", err)
 			return resp
 		}
 
 		for idx, pattern := range anyPatterns {
 			if pattern, err = variables.SubstituteVars(logger, ctx, pattern); err != nil {
-				// variable subsitution failed
+				// variable substitution failed
 				failedSubstitutionsErrors = append(failedSubstitutionsErrors, err)
 				continue
 			}
@@ -317,7 +315,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 			failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
 		}
 
-		// Subsitution falures
+		// Substitution failures
 		if len(failedSubstitutionsErrors) > 0 {
 			resp.Success = false
 			resp.Message = fmt.Sprintf("Substitutions failed: %v", failedSubstitutionsErrors)

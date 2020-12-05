@@ -310,23 +310,23 @@ func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) erro
 }
 
 func updateReportChangeRequest(dClient *client.Client, old interface{}, new *unstructured.Unstructured, log logr.Logger) (err error) {
-	oldUnstructed := make(map[string]interface{})
+	oldUnstructured := make(map[string]interface{})
 	if oldTyped, ok := old.(*changerequest.ReportChangeRequest); ok {
-		if oldUnstructed, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
+		if oldUnstructured, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
 			return fmt.Errorf("unable to convert reportChangeRequest: %v", err)
 		}
 		new.SetResourceVersion(oldTyped.GetResourceVersion())
 		new.SetUID(oldTyped.GetUID())
 	} else {
 		oldTyped := old.(*changerequest.ClusterReportChangeRequest)
-		if oldUnstructed, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
+		if oldUnstructured, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
 			return fmt.Errorf("unable to convert clusterReportChangeRequest: %v", err)
 		}
 		new.SetUID(oldTyped.GetUID())
 		new.SetResourceVersion(oldTyped.GetResourceVersion())
 	}
 
-	if !hasResultsChanged(oldUnstructed, new.UnstructuredContent()) {
+	if !hasResultsChanged(oldUnstructured, new.UnstructuredContent()) {
 		log.V(4).Info("unchanged report request", "name", new.GetName())
 		return nil
 	}

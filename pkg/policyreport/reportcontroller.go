@@ -230,7 +230,7 @@ func (g *ReportGenerator) handleErr(err error, key interface{}) {
 }
 
 // syncHandler reconciles clusterPolicyReport if namespace == ""
-// otherwise it updates policyrReport
+// otherwise it updates policyReport
 func (g *ReportGenerator) syncHandler(key string) error {
 	if policy, rule, ok := isDeletedPolicyKey(key); ok {
 		return g.removePolicyEntryFromReport(policy, rule)
@@ -251,7 +251,7 @@ func (g *ReportGenerator) syncHandler(key string) error {
 		return err
 	}
 
-	g.cleanupReportRequets(aggregatedRequests)
+	g.cleanupReportRequests(aggregatedRequests)
 	return nil
 }
 
@@ -274,7 +274,7 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstru
 				}
 
 				log.V(2).Info("successfully created policyReport", "namespace", new.GetNamespace(), "name", new.GetName())
-				g.cleanupReportRequets(aggregatedRequests)
+				g.cleanupReportRequests(aggregatedRequests)
 				return nil, nil
 			}
 
@@ -290,7 +290,7 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstru
 					}
 
 					log.V(2).Info("successfully created ClusterPolicyReport")
-					g.cleanupReportRequets(aggregatedRequests)
+					g.cleanupReportRequests(aggregatedRequests)
 					return nil, nil
 				}
 				return nil, nil
@@ -373,7 +373,7 @@ func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName strin
 		return err
 	}
 
-	g.cleanupReportRequets(aggregatedRequests)
+	g.cleanupReportRequests(aggregatedRequests)
 	return nil
 }
 
@@ -381,7 +381,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 	report *unstructured.Unstructured, aggregatedRequests interface{}, err error) {
 
 	if namespace == "" {
-		requests, err := g.clusterReportLister.List(labels.Everything())
+		requests, err := g.clusterReportChangeRequestLister.List(labels.Everything())
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to list ClusterReportChangeRequests within: %v", err)
 		}
@@ -505,14 +505,14 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		return nil
 	}
 
-	oldUnstructed := make(map[string]interface{})
+	oldUnstructured := make(map[string]interface{})
 
 	if oldTyped, ok := old.(*report.ClusterPolicyReport); ok {
 		if oldTyped.GetDeletionTimestamp() != nil {
 			return g.dclient.DeleteResource(oldTyped.APIVersion, "ClusterPolicyReport", oldTyped.Namespace, oldTyped.Name, false)
 		}
 
-		if oldUnstructed, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
+		if oldUnstructured, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
 			return fmt.Errorf("unable to convert clusterPolicyReport: %v", err)
 		}
 		new.SetUID(oldTyped.GetUID())
@@ -522,7 +522,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 			return g.dclient.DeleteResource(oldTyped.APIVersion, "PolicyReport", oldTyped.Namespace, oldTyped.Name, false)
 		}
 
-		if oldUnstructed, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
+		if oldUnstructured, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
 			return fmt.Errorf("unable to convert policyReport: %v", err)
 		}
 
@@ -530,13 +530,13 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		new.SetResourceVersion(oldTyped.GetResourceVersion())
 	}
 
-	obj, err := updateResults(oldUnstructed, new.UnstructuredContent(), aggregatedRequests)
+	obj, err := updateResults(oldUnstructured, new.UnstructuredContent(), aggregatedRequests)
 	if err != nil {
 		return fmt.Errorf("failed to update results entry: %v", err)
 	}
 	new.Object = obj
 
-	if !hasResultsChanged(oldUnstructed, new.UnstructuredContent()) {
+	if !hasResultsChanged(oldUnstructured, new.UnstructuredContent()) {
 		g.log.V(4).Info("unchanged policy report", "namespace", new.GetNamespace(), "name", new.GetName())
 		return nil
 	}
@@ -549,7 +549,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 	return
 }
 
-func (g *ReportGenerator) cleanupReportRequets(requestsGeneral interface{}) {
+func (g *ReportGenerator) cleanupReportRequests(requestsGeneral interface{}) {
 	defer g.log.V(5).Info("successfully cleaned up report requests")
 	if requests, ok := requestsGeneral.([]*changerequest.ReportChangeRequest); ok {
 		for _, request := range requests {
