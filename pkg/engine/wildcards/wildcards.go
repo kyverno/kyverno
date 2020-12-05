@@ -18,7 +18,7 @@ func replaceWildcardsInMap(patternMap map[string]string, resourceMap map[string]
 	result := map[string]string{}
 	for k, v := range patternMap {
 		if hasWildcards(k) || hasWildcards(v) {
-			matchK, matchV := expandWildcards(k, v, resourceMap, true)
+			matchK, matchV := expandWildcards(k, v, resourceMap, true, true)
 			result[matchK] = matchV
 		} else {
 			result[k] = v
@@ -32,10 +32,12 @@ func hasWildcards(s string) bool {
 	return strings.Contains(s, "*") || strings.Contains(s, "?")
 }
 
-func expandWildcards(k, v string, resourceMap map[string]string, replace bool) (key string, val string) {
+func expandWildcards(k, v string, resourceMap map[string]string, matchValue, replace bool) (key string, val string) {
 	for k1, v1 := range resourceMap {
 		if wildcard.Match(k, k1) {
-			if wildcard.Match(v, v1) {
+			if !matchValue {
+				return k1, v1
+			} else if wildcard.Match(v, v1) {
 				return k1, v1
 			}
 		}
@@ -62,7 +64,7 @@ func replaceWildCardChars(s string) string {
 // here, as they are evaluated separately while processing the validation pattern.
 func ExpandInMetadata(patternMap, resourceMap map[string]interface{}) map[string]interface{} {
 
-	patternMetadata := patternMap["metadata"]
+	_, patternMetadata := getPatternValue("metadata", patternMap)
 	if patternMetadata == nil {
 		return patternMap
 	}
@@ -73,53 +75,64 @@ func ExpandInMetadata(patternMap, resourceMap map[string]interface{}) map[string
 	}
 
 	metadata := patternMetadata.(map[string]interface{})
-	labels := expandWildcardsInTag("labels", patternMetadata, resourceMetadata)
+	labelsKey, labels := expandWildcardsInTag("labels", patternMetadata, resourceMetadata)
 	if labels != nil {
-		metadata["labels"] = labels
+		metadata[labelsKey] = labels
 	}
 
-	annotations := expandWildcardsInTag("annotations", patternMetadata, resourceMetadata)
+	annotationsKey, annotations := expandWildcardsInTag("annotations", patternMetadata, resourceMetadata)
 	if annotations != nil {
-		metadata["annotations"] = annotations
+		metadata[annotationsKey] = annotations
 	}
 
 	return patternMap
 }
 
-func expandWildcardsInTag(tag string, patternMetadata, resourceMetadata interface{}) map[string]interface{} {
-	patternData := getValueAsStringMap(tag, patternMetadata)
-	if patternData == nil {
-		return nil
+func getPatternValue(tag string, pattern map[string]interface{}) (string, interface{}) {
+	for k, v := range pattern {
+		if commonAnchor.RemoveAnchor(k) == tag {
+			return k, v
+		}
 	}
 
-	resourceData := getValueAsStringMap(tag, resourceMetadata)
+	return "", nil
+}
+
+func expandWildcardsInTag(tag string, patternMetadata, resourceMetadata interface{}) (string, map[string]interface{}) {
+	patternKey, patternData := getValueAsStringMap(tag, patternMetadata)
+	if patternData == nil {
+		return "", nil
+	}
+
+	_, resourceData := getValueAsStringMap(tag, resourceMetadata)
 	if resourceData == nil {
-		return nil
+		return "", nil
 	}
 
 	results := map[string]interface{}{}
 	for k, v := range patternData {
 		if hasWildcards(k) {
-			newKey := commonAnchor.RemoveAnchor(k)
-			matchK, _ := expandWildcards(newKey, v, resourceData, false)
-			matchK = strings.Replace(k, newKey, matchK, 1)
+			anchorFreeKey := commonAnchor.RemoveAnchor(k)
+			matchK, _ := expandWildcards(anchorFreeKey, v, resourceData, false, false)
 			results[matchK] = v
 		} else {
 			results[k] = v
 		}
 	}
 
-	return results
+	return patternKey, results
 }
 
-func getValueAsStringMap(key string, dataMap interface{}) map[string]string {
-	if dataMap == nil {
-		return nil
+func getValueAsStringMap(key string, data interface{}) (string, map[string]string) {
+	if data == nil {
+		return "", nil
 	}
 
-	val := dataMap.(map[string]interface{})[key]
+	dataMap := data.(map[string]interface{})
+	patternKey, val := getPatternValue(key, dataMap)
+
 	if val == nil {
-		return nil
+		return "", nil
 	}
 
 	result := map[string]string{}
@@ -127,5 +140,5 @@ func getValueAsStringMap(key string, dataMap interface{}) map[string]string {
 		result[k] = v.(string)
 	}
 
-	return result
+	return patternKey, result
 }

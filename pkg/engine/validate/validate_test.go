@@ -1360,42 +1360,50 @@ func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {
 func TestValidateMapWildcardKeys(t *testing.T) {
 	pattern := []byte(`{"metadata" : {"annotations": {"test/*": "value1"}}}`)
 	resource := []byte(`{"metadata" : {"annotations": {"test/bar": "value1"}}}`)
-	testValidationPattern(t, pattern, resource, "", true)
+	testValidationPattern(t, "1", pattern, resource, "", true)
 
 	pattern = []byte(`{"metadata" : {"annotations": {"test/b??": "v*"}}}`)
 	resource = []byte(`{"metadata" : {"annotations": {"test/bar": "value1"}}}`)
-	testValidationPattern(t, pattern, resource, "", true)
+	testValidationPattern(t, "2", pattern, resource, "", true)
 
 	pattern = []byte(`{}`)
 	resource = []byte(`{"metadata" : {"annotations": {"test/bar": "value1"}}}`)
-	testValidationPattern(t, pattern, resource, "", true)
+	testValidationPattern(t, "3", pattern, resource, "", true)
 
 	pattern = []byte(`{"metadata" : {"annotations": {"test/b??": "v*"}}}`)
 	resource = []byte(`{"metadata" : {"labels": {"test/bar": "value1"}}}`)
-	testValidationPattern(t, pattern, resource, "/metadata/annotations/", false)
+	testValidationPattern(t, "4", pattern, resource, "/metadata/annotations/", false)
 
 	pattern = []byte(`{"metadata" : {"labels": {"*/test": "foo"}}}`)
 	resource = []byte(`{"metadata" : {"labels": {"foo/test": "foo"}}}`)
-	testValidationPattern(t, pattern, resource, "", true)
+	testValidationPattern(t, "5", pattern, resource, "", true)
 
-	pattern = []byte(`{"metadata" : {"labels": {"foo/123*": "bar"}}}`)
-	resource = []byte(`{"metadata" : {"labels": {"foo/12?": "bar", "foo/123": "bar"}}}`)
-	testValidationPattern(t, pattern, resource, "", true)
+	pattern = []byte(`{"metadata" : {"labels": {"foo/a*": "bar"}}}`)
+	resource = []byte(`{"metadata" : {"labels": {"foo/aa?": "bar", "foo/789": "bar"}}}`)
+	testValidationPattern(t, "6", pattern, resource, "", true)
 
-	pattern = []byte(`{"metadata" : {"labels": {"foo/123*": "bar"}}}`)
-	resource = []byte(`{"metadata" : {"labels": {"foo/12?": "bar", "foo/123": "bar2"}}}`)
-	testValidationPattern(t, pattern, resource, "/metadata/labels/foo/123*/", false)
+	pattern = []byte(`{"metadata" : {"labels": {"foo/ABC*": "bar"}}}`)
+	resource = []byte(`{"metadata" : {"labels": {"foo/AB?": "bar", "foo/ABC": "bar2"}}}`)
+	testValidationPattern(t, "7", pattern, resource, "/metadata/labels/foo/ABC/", false)
 
-	pattern = []byte(`{"metadata" : {"labels": {"foo/1*": "bar", "foo/4*": "bar2"}}}`)
-	resource = []byte(`{"metadata" : {"labels": {"foo/123": "bar", "foo/456": "bar2"}}}`)
-	testValidationPattern(t, pattern, resource, "", true)
+	pattern = []byte(`{"=(metadata)" : {"=(labels)": {"foo/P*": "bar", "foo/Q*": "bar2"}}}`)
+	resource = []byte(`{"metadata" : {"labels": {"foo/PQR": "bar", "foo/QR": "bar2"}}}`)
+	testValidationPattern(t, "8", pattern, resource, "", true)
 
-	pattern = []byte(`{"metadata" : {"labels": {"foo/1*": "bar", "foo/4*": "bar2"}}}`)
+	pattern = []byte(`{"metadata" : {"labels": {"foo/1*": "bar"}}}`)
+	resource = []byte(`{"metadata" : {"labels": {"foo/123": "bar222"}}}`)
+	testValidationPattern(t, "9", pattern, resource, "/metadata/labels/foo/123/", false)
+
+	pattern = []byte(`{"metadata" : {"labels": {"foo/X*": "bar", "foo/A*": "bar2"}}}`)
+	resource = []byte(`{"metadata" : {"labels": {"foo/XYZ": "bar"}}}`)
+	testValidationPattern(t, "10", pattern, resource, "/metadata/labels/foo/A*/", false)
+
+	pattern = []byte(`{"=(metadata)" : {"=(labels)": {"foo/1*": "bar", "foo/4*": "bar2"}}}`)
 	resource = []byte(`{"metadata" : {"labels": {"foo/123": "bar"}}}`)
-	testValidationPattern(t, pattern, resource, "/metadata/labels/foo/4*/", false)
+	testValidationPattern(t, "11", pattern, resource, "/metadata/labels/foo/4*/", false)
 }
 
-func testValidationPattern(t *testing.T, patternBytes []byte, resourceBytes []byte, path string, nilErr bool) {
+func testValidationPattern(t *testing.T, num string, patternBytes []byte, resourceBytes []byte, path string, nilErr bool) {
 	var pattern, resource interface{}
 	err := json.Unmarshal(patternBytes, &pattern)
 	assert.NilError(t, err)
@@ -1403,10 +1411,10 @@ func testValidationPattern(t *testing.T, patternBytes []byte, resourceBytes []by
 	assert.NilError(t, err)
 
 	p, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
-	assert.Equal(t, p, path)
+	assert.Equal(t, p, path, num)
 	if nilErr {
-		assert.NilError(t, err)
+		assert.NilError(t, err, num)
 	} else {
-		assert.Assert(t, err != nil)
+		assert.Assert(t, err != nil, num)
 	}
 }
