@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -246,43 +247,35 @@ func isSameRules(oldRules []response.RuleResponse, newRules []response.RuleRespo
 // validatePatterns validate pattern and anyPattern
 func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstructured.Unstructured, rule kyverno.Rule) (resp response.RuleResponse) {
 	startTime := time.Now()
-	logger := log.WithValues("rule", rule.Name)
+	logger := log.WithValues("rule", rule.Name, "name", resource.GetName(), "kind", resource.GetKind())
 	logger.V(4).Info("start processing rule", "startTime", startTime)
 	resp.Name = rule.Name
 	resp.Type = utils.Validation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
-		logger.V(4).Info("finished processing rule", "processingTime", resp.RuleStats.ProcessingTime.String())
+		logger.V(3).Info("finished processing rule", "processingTime", resp.RuleStats.ProcessingTime.String())
 	}()
 
-	// work on a copy of validation rule
 	validationRule := rule.Validation.DeepCopy()
-
-	// either pattern or anyPattern can be specified in Validation rule
 	if validationRule.Pattern != nil {
-		// substitute variables in the pattern
 		pattern := validationRule.Pattern
 		var err error
 		if pattern, err = variables.SubstituteVars(logger, ctx, pattern); err != nil {
-			// variable substitution failed
 			resp.Success = false
-			resp.Message = fmt.Sprintf("Validation error: %s; Validation rule '%s' failed. '%s'",
-				rule.Validation.Message, rule.Name, err)
+			resp.Message = fmt.Sprintf("variable substitution failed for rule '%s'. '%s'", rule.Name, err)
 			return resp
 		}
 
 		if path, err := validate.ValidateResourceWithPattern(logger, resource.Object, pattern); err != nil {
-			// validation failed
-			logger.V(5).Info(err.Error())
+			logger.V(3).Info("validation failed", "path", path, "error", err.Error())
 			resp.Success = false
-			resp.Message = fmt.Sprintf("Validation error: %s; Validation rule %s failed at path %s",
-				rule.Validation.Message, rule.Name, path)
+			resp.Message = buildErrorMessage(rule, path)
 			return resp
 		}
 
 		logger.V(4).Info("successfully processed rule")
 		resp.Success = true
-		resp.Message = fmt.Sprintf("Validation rule '%s' succeeded.", rule.Name)
+		resp.Message = fmt.Sprintf("validation rule '%s' passed.", rule.Name)
 		return resp
 	}
 
@@ -294,31 +287,32 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 		if err != nil {
 			resp.Success = false
-			resp.Message = fmt.Sprintf("Failed to deserialize anyPattern, expect type array: %v", err)
+			resp.Message = fmt.Sprintf("failed to deserialize anyPattern, expected type array: %v", err)
 			return resp
 		}
 
 		for idx, pattern := range anyPatterns {
 			if pattern, err = variables.SubstituteVars(logger, ctx, pattern); err != nil {
-				// variable substitution failed
 				failedSubstitutionsErrors = append(failedSubstitutionsErrors, err)
 				continue
 			}
-			_, err := validate.ValidateResourceWithPattern(logger, resource.Object, pattern)
+
+			path, err := validate.ValidateResourceWithPattern(logger, resource.Object, pattern)
 			if err == nil {
 				resp.Success = true
-				resp.Message = fmt.Sprintf("Validation rule '%s' anyPattern[%d] succeeded.", rule.Name, idx)
+				resp.Message = fmt.Sprintf("validation rule '%s' anyPattern[%d] passed.", rule.Name, idx)
 				return resp
 			}
-			logger.V(4).Info(fmt.Sprintf("validation rule failed for anyPattern[%d]", idx), "message", rule.Validation.Message)
-			patternErr := fmt.Errorf("anyPattern[%d] failed; %s", idx, err)
+
+			logger.V(4).Info("validation rule failed", "anyPattern[%d]", idx, "path", path)
+			patternErr := fmt.Errorf("Rule %s[%d] failed at path %s.", rule.Name, idx, path)
 			failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
 		}
 
 		// Substitution failures
 		if len(failedSubstitutionsErrors) > 0 {
 			resp.Success = false
-			resp.Message = fmt.Sprintf("Substitutions failed: %v", failedSubstitutionsErrors)
+			resp.Message = fmt.Sprintf("failed to substitute variables: %v", failedSubstitutionsErrors)
 			return resp
 		}
 
@@ -328,15 +322,38 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 			for _, err := range failedAnyPatternsErrors {
 				errorStr = append(errorStr, err.Error())
 			}
-			resp.Success = false
+
 			log.V(4).Info(fmt.Sprintf("Validation rule '%s' failed. %s", rule.Name, errorStr))
-			if rule.Validation.Message == "" {
-				resp.Message = fmt.Sprintf("Validation rule '%s' has failed", rule.Name)
-			} else {
-				resp.Message = rule.Validation.Message
-			}
+
+			resp.Success = false
+			resp.Message = buildAnyPatternErrorMessage(rule, errorStr)
 			return resp
 		}
 	}
 	return response.RuleResponse{}
+}
+
+func buildErrorMessage(rule kyverno.Rule, path string) string {
+	if rule.Validation.Message == "" {
+		return fmt.Sprintf("validation error: rule %s failed at path %s", rule.Name, path)
+	}
+
+	if strings.HasSuffix(rule.Validation.Message, ".") {
+		return fmt.Sprintf("validation error: %s Rule %s failed at path %s", rule.Validation.Message, rule.Name, path)
+	}
+
+	return fmt.Sprintf("validation error: %s. Rule %s failed at path %s", rule.Validation.Message, rule.Name, path)
+}
+
+func buildAnyPatternErrorMessage(rule kyverno.Rule, errors []string) string {
+	errStr := strings.Join(errors, " ")
+	if rule.Validation.Message == "" {
+		return fmt.Sprintf("validation error: %s", errStr)
+	}
+
+	if strings.HasSuffix(rule.Validation.Message, ".") {
+		return fmt.Sprintf("validation error: %s %s", rule.Validation.Message, errStr)
+	}
+
+	return fmt.Sprintf("validation error: %s. %s", rule.Validation.Message, errStr)
 }
