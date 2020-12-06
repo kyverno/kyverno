@@ -1,9 +1,6 @@
 package sanitizederror
 
-import (
-	"fmt"
-	"strings"
-)
+import "fmt"
 
 type customError struct {
 	message string
@@ -13,14 +10,9 @@ func (c customError) Error() string {
 	return c.message
 }
 
-func NewWithErrors(message string, errors []error) error {
-	bldr := strings.Builder{}
-	bldr.WriteString(message + "\n")
-	for _, err := range errors {
-		bldr.WriteString(err.Error() + "\n")
-	}
-
-	return fmt.Errorf(bldr.String())
+// New creates a new sanitized error with given message
+func New(message string) error {
+	return customError{message: message}
 }
 
 // NewWithError creates a new sanitized error with given message and error

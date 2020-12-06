@@ -22,52 +22,62 @@ import (
 )
 
 // GetPolicies - Extracting the policies from multiple YAML
-func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) {
+func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
 	for _, path := range paths {
 		path = filepath.Clean(path)
 		fileDesc, err := os.Stat(path)
 		if err != nil {
-			errors = append(errors, err)
-			continue
+			return nil, err
 		}
-
 		if fileDesc.IsDir() {
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
-				errors = append(errors, fmt.Errorf("failed to read %v: %v", path, err.Error()))
-				continue
+				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
 			}
-
 			listOfFiles := make([]string, 0)
 			for _, file := range files {
 				listOfFiles = append(listOfFiles, filepath.Join(path, file.Name()))
 			}
-
-			policiesFromDir, errrosFromDir := GetPolicies(listOfFiles)
+			policiesFromDir, err := GetPolicies(listOfFiles)
 			if err != nil {
-				errors = append(errors, errrosFromDir...)
-				continue
+				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to extract policies from %v", listOfFiles), err)
 			}
 
 			policies = append(policies, policiesFromDir...)
 		} else {
-			fileBytes, err := ioutil.ReadFile(path)
+			file, err := ioutil.ReadFile(path)
 			if err != nil {
-				errors = append(errors, fmt.Errorf("failed to read %v: %v", path, err.Error()))
-				continue
+				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to load file %v", path), err)
+			}
+			getPolicies, getErrors := utils.GetPolicy(file)
+			var errString string
+			for _, err := range getErrors {
+				if err != nil {
+					errString += err.Error() + "\n"
+				}
+			}
+			if errString != "" {
+				fmt.Printf("failed to extract policies: %s\n", errString)
+				os.Exit(2)
 			}
 
-			policiesFromFile, errorsFromFile := utils.GetPolicy(fileBytes)
-			if errorsFromFile != nil {
-				errors = append(errors, errorsFromFile...)
-				continue
-			}
-
-			policies = append(policies, policiesFromFile...)
+			policies = append(policies, getPolicies...)
 		}
 	}
 
-	return policies, errors
+	return policies, nil
+}
+
+//ValidateAndGetPolicies - validating policies
+func ValidateAndGetPolicies(policyPaths []string) ([]*v1.ClusterPolicy, error) {
+	policies, err := GetPolicies(policyPaths)
+	if err != nil {
+		if !sanitizederror.IsErrorSanitized(err) {
+			return nil, sanitizederror.NewWithError((fmt.Sprintf("failed to parse %v path/s.", policyPaths)), err)
+		}
+		return nil, err
+	}
+	return policies, nil
 }
 
 // PolicyHasVariables - check for variables in the policy

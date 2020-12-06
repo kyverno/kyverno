@@ -11,9 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// GetPolicy - extracts policies from YAML bytes
-func GetPolicy(bytes []byte) (clusterPolicies []*v1.ClusterPolicy, errors []error) {
-	policies, err := SplitYAMLDocuments(bytes)
+// GetPolicy - Extracts policies from a YAML
+func GetPolicy(file []byte) (clusterPolicies []*v1.ClusterPolicy, errors []error) {
+	policies, err := SplitYAMLDocuments(file)
 	if err != nil {
 		errors = append(errors, err)
 		return clusterPolicies, errors
@@ -22,22 +22,20 @@ func GetPolicy(bytes []byte) (clusterPolicies []*v1.ClusterPolicy, errors []erro
 	for _, thisPolicyBytes := range policies {
 		policyBytes, err := yaml.ToJSON(thisPolicyBytes)
 		if err != nil {
-			errors = append(errors, fmt.Errorf("failed to convert json. error: %v", err))
+			errors = append(errors, fmt.Errorf(fmt.Sprintf("failed to convert json. error: %v", err)))
 			continue
 		}
 
 		policy := &v1.ClusterPolicy{}
 		if err := json.Unmarshal(policyBytes, policy); err != nil {
-			errors = append(errors, fmt.Errorf("failed to decode policy. error: %v", err))
+			errors = append(errors, fmt.Errorf(fmt.Sprintf("failed to decode policy. error: %v", err)))
 			continue
 		}
 
 		if !(policy.TypeMeta.Kind == "ClusterPolicy" || policy.TypeMeta.Kind == "Policy") {
-			msg := fmt.Sprintf("resource %s/%s is not a Policy or a ClusterPolicy", policy.Kind, policy.Name)
-			errors = append(errors, fmt.Errorf(msg))
+			errors = append(errors, fmt.Errorf(fmt.Sprintf("resource %v is not a policy/clusterPolicy", policy.Name)))
 			continue
 		}
-
 		clusterPolicies = append(clusterPolicies, policy)
 	}
 
