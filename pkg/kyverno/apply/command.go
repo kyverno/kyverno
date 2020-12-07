@@ -18,7 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
-	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -223,7 +223,7 @@ func Command() *cobra.Command {
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
 					rc.skip += len(resources)
-					log.Log.V(3).Info(fmt.Sprintf("skipping policy %v as it is not valid", policy.Name), "error", err)
+					log.Log.V(1).Info(fmt.Sprintf("skipping policy %v as it is not valid", policy.Name), "error", err)
 					continue
 				}
 
@@ -238,7 +238,7 @@ func Command() *cobra.Command {
 						Variable: variable,
 					}
 					skippedPolicies = append(skippedPolicies, skipPolicy)
-					log.Log.V(3).Info(fmt.Sprintf("skipping policy %s", policy.Name), "error", fmt.Sprintf("policy have variable - %s", variable))
+					log.Log.V(1).Info(fmt.Sprintf("skipping policy %s", policy.Name), "error", fmt.Sprintf("policy have variable - %s", variable))
 					continue
 				}
 
@@ -485,7 +485,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		generateResponse := engine.Generate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
 		engineResponses = append(engineResponses, generateResponse)
 		if len(generateResponse.PolicyResponse.Rules) > 0 {
-			log.Log.V(3).Info("generate resource is valid", "policy", policy.Name, "resource", resPath)
+			log.Log.V(1).Info("generate resource is valid", "policy", policy.Name, "resource", resPath)
 		} else {
 			fmt.Printf("generate policy %s resource %s is invalid \n", policy.Name, resPath)
 			for i, r := range generateResponse.PolicyResponse.Rules {
