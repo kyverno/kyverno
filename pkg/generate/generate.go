@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -46,6 +47,12 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	// 3 - Report Events
 	events := failedEvents(err, *gr, *resource)
 	c.eventGen.Add(events...)
+
+	// Need not update the stauts when policy doesn't apply on resource, because all the generate requests are removed by the cleanup controller
+	if err != nil && strings.Contains(err.Error(), "does not apply to resource") {
+		logger.V(4).Info("skipping updating status of generate request")
+		return nil
+	}
 
 	// 4 - Update Status
 	return updateStatus(c.statusControl, *gr, err, genResources)
