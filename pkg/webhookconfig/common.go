@@ -9,7 +9,7 @@ import (
 	rest "k8s.io/client-go/rest"
 )
 
-func (wrc *WebhookRegistrationClient) readCaData() []byte {
+func (wrc *Register) readCaData() []byte {
 	logger := wrc.log
 	var caData []byte
 	// Check if ca is defined in the secret tls-ca
@@ -45,7 +45,7 @@ func extractCA(config *rest.Config) (result []byte) {
 	return config.TLSClientConfig.CAData
 }
 
-func (wrc *WebhookRegistrationClient) constructOwner() v1.OwnerReference {
+func (wrc *Register) constructOwner() v1.OwnerReference {
 	logger := wrc.log
 	kubePolicyDeployment, err := wrc.client.GetKubePolicyDeployment()
 
@@ -126,42 +126,6 @@ func generateDebugValidatingWebhook(name, url string, caData []byte, validate bo
 	}
 }
 
-// func generateWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, resource, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.Webhook {
-// 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
-// 	failurePolicy := admregapi.Ignore
-// 	return admregapi.Webhook{
-// 		Name: name,
-// 		ClientConfig: admregapi.WebhookClientConfig{
-// 			Service: &admregapi.ServiceReference{
-// 				Namespace: config.KubePolicyNamespace,
-// 				Name:      config.WebhookServiceName,
-// 				Path:      &servicePath,
-// 			},
-// 			CABundle: caData,
-// 		},
-// 		SideEffects: &sideEffect,
-// 		Rules: []admregapi.RuleWithOperations{
-// 			admregapi.RuleWithOperations{
-// 				Operations: operationTypes,
-// 				Rule: admregapi.Rule{
-// 					APIGroups: []string{
-// 						apiGroups,
-// 					},
-// 					APIVersions: []string{
-// 						apiVersions,
-// 					},
-// 					Resources: []string{
-// 						resource,
-// 					},
-// 				},
-// 			},
-// 		},
-// 		AdmissionReviewVersions: []string{"v1beta1"},
-// 		TimeoutSeconds:          &timeoutSeconds,
-// 		FailurePolicy:           &failurePolicy,
-// 	}
-// }
-
 // mutating webhook
 func generateMutatingWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, resources []string, apiGroups, apiVersions string, operationTypes []admregapi.OperationType) admregapi.MutatingWebhook {
 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
@@ -173,8 +137,8 @@ func generateMutatingWebhook(name, servicePath string, caData []byte, validation
 		Name:               name,
 		ClientConfig: admregapi.WebhookClientConfig{
 			Service: &admregapi.ServiceReference{
-				Namespace: config.KubePolicyNamespace,
-				Name:      config.WebhookServiceName,
+				Namespace: config.KyvernoNamespace,
+				Name:      config.KyvernoServiceName,
 				Path:      &servicePath,
 			},
 			CABundle: caData,
@@ -208,8 +172,8 @@ func generateValidatingWebhook(name, servicePath string, caData []byte, validati
 		Name: name,
 		ClientConfig: admregapi.WebhookClientConfig{
 			Service: &admregapi.ServiceReference{
-				Namespace: config.KubePolicyNamespace,
-				Name:      config.WebhookServiceName,
+				Namespace: config.KyvernoNamespace,
+				Name:      config.KyvernoServiceName,
 				Path:      &servicePath,
 			},
 			CABundle: caData,

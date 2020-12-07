@@ -31,7 +31,7 @@ import (
 )
 
 const workQueueName = "report-request-controller"
-const workQueueRetryLimit = 3
+const workQueueRetryLimit = 10
 
 // Generator creates report request
 type Generator struct {
@@ -197,18 +197,16 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 
 	// retires requests if there is error
 	if gen.queue.NumRequeues(key) < workQueueRetryLimit {
-		logger.Error(err, "failed to sync report request", "key", key)
-		// Re-enqueue the key rate limited. Based on the rate limiter on the
-		// queue and the re-enqueue history, the key will be processed later again.
+		logger.V(3).Info("retrying report request", "key", key, "error", err)
 		gen.queue.AddRateLimited(key)
 		return
 	}
+
+	logger.Error(err, "failed to process report request", "key", key)
 	gen.queue.Forget(key)
-	// remove from data store
 	if keyHash, ok := key.(string); ok {
 		gen.dataStore.delete(keyHash)
 	}
-	logger.Error(err, "dropping key out of the queue", "key", key)
 }
 
 func (gen *Generator) processNextWorkItem() bool {
@@ -267,7 +265,7 @@ func (gen *Generator) syncHandler(info Info) error {
 func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) error {
 	defer func() {
 		if val := reportReq.GetAnnotations()["fromSync"]; val == "true" {
-			gen.policyStatusListener.Send(violationCount{
+			gen.policyStatusListener.Update(violationCount{
 				policyName:    info.PolicyName,
 				violatedRules: info.Rules,
 			})
@@ -293,10 +291,10 @@ func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) erro
 		return updateReportChangeRequest(gen.dclient, old, reportReq, logger)
 	}
 
-	old, err := gen.reportChangeRequestLister.ReportChangeRequests(config.KubePolicyNamespace).Get(reportReq.GetName())
+	old, err := gen.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).Get(reportReq.GetName())
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), config.KubePolicyNamespace, reportReq, false); err != nil {
+			if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), config.KyvernoNamespace, reportReq, false); err != nil {
 				if !apierrors.IsNotFound(err) {
 					return fmt.Errorf("failed to create ReportChangeRequest: %v", err)
 				}
@@ -312,28 +310,28 @@ func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) erro
 }
 
 func updateReportChangeRequest(dClient *client.Client, old interface{}, new *unstructured.Unstructured, log logr.Logger) (err error) {
-	oldUnstructed := make(map[string]interface{})
+	oldUnstructured := make(map[string]interface{})
 	if oldTyped, ok := old.(*changerequest.ReportChangeRequest); ok {
-		if oldUnstructed, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
+		if oldUnstructured, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
 			return fmt.Errorf("unable to convert reportChangeRequest: %v", err)
 		}
 		new.SetResourceVersion(oldTyped.GetResourceVersion())
 		new.SetUID(oldTyped.GetUID())
 	} else {
 		oldTyped := old.(*changerequest.ClusterReportChangeRequest)
-		if oldUnstructed, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
+		if oldUnstructured, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
 			return fmt.Errorf("unable to convert clusterReportChangeRequest: %v", err)
 		}
 		new.SetUID(oldTyped.GetUID())
 		new.SetResourceVersion(oldTyped.GetResourceVersion())
 	}
 
-	if !hasResultsChanged(oldUnstructed, new.UnstructuredContent()) {
+	if !hasResultsChanged(oldUnstructured, new.UnstructuredContent()) {
 		log.V(4).Info("unchanged report request", "name", new.GetName())
 		return nil
 	}
 
-	if _, err = dClient.UpdateResource(new.GetAPIVersion(), new.GetKind(), config.KubePolicyNamespace, new, false); err != nil {
+	if _, err = dClient.UpdateResource(new.GetAPIVersion(), new.GetKind(), config.KyvernoNamespace, new, false); err != nil {
 		return fmt.Errorf("failed to update report request: %v", err)
 	}
 

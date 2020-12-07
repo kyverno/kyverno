@@ -147,7 +147,7 @@ To apply policy with variables:
 				if err != nil {
 					return err
 				}
-				dClient, err = client.NewClient(restConfig, 5*time.Minute, make(chan struct{}), log.Log)
+				dClient, err = client.NewClient(restConfig, 15*time.Minute, make(chan struct{}), log.Log)
 				if err != nil {
 					return err
 				}
@@ -213,7 +213,7 @@ To apply policy with variables:
 				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
 				if err != nil {
 					rc.skip += len(resources)
-					fmt.Printf("\nskipping policy %v as it is not valid: %v\n", policy.Name, err)
+					log.Log.V(3).Info(fmt.Sprintf("skipping policy %v as it is not valid", policy.Name), "error", err)
 					continue
 				}
 
@@ -221,6 +221,7 @@ To apply policy with variables:
 				variable := removeDuplicatevariables(matches)
 
 				if len(matches) > 0 && variablesString == "" && valuesFile == "" {
+					rc.skip++
 					skipPolicy := SkippedPolicy{
 						Name:     policy.GetName(),
 						Rules:    policy.Spec.Rules,

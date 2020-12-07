@@ -3,6 +3,7 @@ package validate
 import (
 	"errors"
 	"fmt"
+	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"path"
 	"reflect"
 	"strconv"
@@ -20,10 +21,10 @@ import (
 func ValidateResourceWithPattern(log logr.Logger, resource, pattern interface{}) (string, error) {
 	// newAnchorMap - to check anchor key has values
 	ac := common.NewAnchorMap()
-	path, err := validateResourceElement(log, resource, pattern, pattern, "/", ac)
+	elemPath, err := validateResourceElement(log, resource, pattern, pattern, "/", ac)
 	if err != nil {
 		if !ac.IsAnchorError() {
-			return path, err
+			return elemPath, err
 		}
 	}
 
@@ -65,6 +66,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 				}
 			}
 		}
+
 		if !ValidateValueWithPattern(log, resourceElement, patternElement) {
 			return path, fmt.Errorf("Validation rule failed at '%s' to validate value '%v' with pattern '%v'", path, resourceElement, patternElement)
 		}
@@ -79,6 +81,8 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 // If validateResourceElement detects map element inside resource and pattern trees, it goes to validateMap
 // For each element of the map we must detect the type again, so we pass these elements to validateResourceElement
 func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string, ac *common.AnchorKey) (string, error) {
+
+	patternMap = wildcards.ExpandInMetadata(patternMap, resourceMap)
 	// check if there is anchor in pattern
 	// Phase 1 : Evaluate all the anchors
 	// Phase 2 : Evaluate non-anchors
@@ -86,6 +90,7 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 
 	// Evaluate anchors
 	for key, patternElement := range anchors {
+
 		// get handler for each pattern in the pattern
 		// - Conditional
 		// - Existence
@@ -104,6 +109,7 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 			return handlerPath, err
 		}
 	}
+
 	// If anchor fails then succeed validate and skip further validation of recursion
 	if ac.AnchorError != nil {
 		return "", nil
@@ -133,18 +139,18 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 	case map[string]interface{}:
 		// This is special case, because maps in arrays can have anchors that must be
 		// processed with the special way affecting the entire array
-		path, err := validateArrayOfMaps(log, resourceArray, typedPatternElement, originPattern, path, ac)
+		elemPath, err := validateArrayOfMaps(log, resourceArray, typedPatternElement, originPattern, path, ac)
 		if err != nil {
-			return path, err
+			return elemPath, err
 		}
 	default:
 		// In all other cases - detect type and handle each array element with validateResourceElement
 		if len(resourceArray) >= len(patternArray) {
 			for i, patternElement := range patternArray {
 				currentPath := path + strconv.Itoa(i) + "/"
-				path, err := validateResourceElement(log, resourceArray[i], patternElement, originPattern, currentPath, ac)
+				elemPath, err := validateResourceElement(log, resourceArray[i], patternElement, originPattern, currentPath, ac)
 				if err != nil {
-					return path, err
+					return elemPath, err
 				}
 			}
 		} else {
@@ -167,7 +173,7 @@ func actualizePattern(log logr.Logger, origPattern interface{}, referencePattern
 	}
 	// Check for variables
 	// substitute it from Context
-	// remove abosolute path
+	// remove absolute path
 	// {{ }}
 	// value :=
 	actualPath := formAbsolutePath(referencePattern, absolutePath)
@@ -260,12 +266,12 @@ func getValueFromPattern(log logr.Logger, patternMap map[string]interface{}, key
 		}
 	}
 
-	path := ""
+	elemPath := ""
 
 	for _, elem := range keys {
-		path = "/" + elem + path
+		elemPath = "/" + elem + elemPath
 	}
-	return nil, fmt.Errorf("No value found for specified reference: %s", path)
+	return nil, fmt.Errorf("No value found for specified reference: %s", elemPath)
 }
 
 // validateArrayOfMaps gets anchors from pattern array map element, applies anchors logic

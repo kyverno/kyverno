@@ -26,7 +26,7 @@ spec:
       name: Background
       type: string
     - jsonPath: .spec.validationFailureAction
-      name: Validatoin Failure Action
+      name: Action
       type: string
     name: v1
     schema:
@@ -434,6 +434,11 @@ spec:
                             x-kubernetes-preserve-unknown-fields: true
                           operator:
                             description: Operator is the operation to perform.
+                            enum:
+                            - Equals
+                            - NotEquals
+                            - In
+                            - NotIn
                             type: string
                           value:
                             description: Value is the conditional value, or set of
@@ -466,6 +471,11 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                   operator:
                                     description: Operator is the operation to perform.
+                                    enum:
+                                    - Equals
+                                    - NotEquals
+                                    - In
+                                    - NotIn
                                     type: string
                                   value:
                                     description: Value is the conditional value, or
@@ -930,8 +940,10 @@ spec:
     kind: ClusterReportChangeRequest
     listKind: ClusterReportChangeRequestList
     plural: clusterreportchangerequests
+    shortNames:
+    - crcr
     singular: clusterreportchangerequest
-  scope: Cluster
+  scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .scope.kind
@@ -1455,7 +1467,7 @@ spec:
       name: Background
       type: string
     - jsonPath: .spec.validationFailureAction
-      name: Validatoin Failure Action
+      name: Validation Failure Action
       type: string
     name: v1
     schema:
@@ -1864,6 +1876,11 @@ spec:
                             x-kubernetes-preserve-unknown-fields: true
                           operator:
                             description: Operator is the operation to perform.
+                            enum:
+                            - Equals
+                            - NotEquals
+                            - In
+                            - NotIn
                             type: string
                           value:
                             description: Value is the conditional value, or set of
@@ -1896,6 +1913,11 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                   operator:
                                     description: Operator is the operation to perform.
+                                    enum:
+                                    - Equals
+                                    - NotEquals
+                                    - In
+                                    - NotIn
                                     type: string
                                   value:
                                     description: Value is the conditional value, or
@@ -2359,6 +2381,8 @@ spec:
     kind: ReportChangeRequest
     listKind: ReportChangeRequestList
     plural: reportchangerequests
+    shortNames:
+    - rcr
     singular: reportchangerequest
   scope: Namespaced
   versions:
@@ -2993,7 +3017,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: ghcr.io/kyverno/kyverno:v1.3.0-rc5
+        image: ghcr.io/kyverno/kyverno:v1.3.0-rc6
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 4
@@ -3036,7 +3060,7 @@ spec:
           runAsNonRoot: true
           runAsUser: 1000
       initContainers:
-      - image: ghcr.io/kyverno/kyvernopre:v1.3.0-rc5
+      - image: ghcr.io/kyverno/kyvernopre:v1.3.0-rc6
         imagePullPolicy: Always
         name: kyverno-pre
         securityContext:

@@ -52,7 +52,7 @@ func NewGenerator(client *kyvernoclient.Clientset, stopCh <-chan struct{}, log l
 func (g *Generator) Apply(gr kyverno.GenerateRequestSpec, action v1beta1.Operation) error {
 	logger := g.log
 	logger.V(4).Info("creating Generate Request", "request", gr)
-	// Send to channel
+	// Update to channel
 	message := GeneratorChannel{
 		action: action,
 		spec:   gr,
@@ -115,17 +115,20 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 			Spec: grSpec,
 		}
 
-		gr.SetNamespace(config.KubePolicyNamespace)
+		gr.SetNamespace(config.KyvernoNamespace)
 		// Initial state "Pending"
 		// TODO: status is not updated
 		// gr.Status.State = kyverno.Pending
 		// generate requests created in kyverno namespace
 		isExist := false
 		if action == v1beta1.Create || action == v1beta1.Update {
-			grList, err := client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(context.TODO(), metav1.ListOptions{})
+
+			log.V(4).Info("querying all generate requests")
+			grList, err := client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
+
 			for i, v := range grList.Items {
 				if grSpec.Policy == v.Spec.Policy && grSpec.Resource.Name == v.Spec.Resource.Name && grSpec.Resource.Kind == v.Spec.Resource.Kind && grSpec.Resource.Namespace == v.Spec.Resource.Namespace {
 					gr.SetLabels(map[string]string{
@@ -135,7 +138,7 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 					v.Spec.Context = gr.Spec.Context
 					v.Spec.Policy = gr.Spec.Policy
 					v.Spec.Resource = gr.Spec.Resource
-					_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Update(context.TODO(), &grList.Items[i], metav1.UpdateOptions{})
+					_, err = client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), &grList.Items[i], metav1.UpdateOptions{})
 					if err != nil {
 						return err
 					}
@@ -144,7 +147,7 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 			}
 			if !isExist {
 				gr.SetGenerateName("gr-")
-				_, err = client.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Create(context.TODO(), &gr, metav1.CreateOptions{})
+				_, err = client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Create(context.TODO(), &gr, metav1.CreateOptions{})
 				if err != nil {
 					return err
 				}

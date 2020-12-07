@@ -23,7 +23,7 @@ spec:
       name: Background
       type: string
     - jsonPath: .spec.validationFailureAction
-      name: Validatoin Failure Action
+      name: Validation Failure Action
       type: string
     name: v1
     schema:
@@ -45,7 +45,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: Spec declares policy behaviors.
+            description: Spec defines policy behaviors and contains one or rules.
             properties:
               background:
                 description: Background controls if rules are applied to existing
@@ -55,13 +55,16 @@ spec:
                   name).
                 type: boolean
               rules:
-                description: Rules is a list of Rule instances
+                description: Rules is a list of Rule instances. A Policy contains
+                  multiple rules and each rule can validate, mutate, or generate resources.
                 items:
                   description: Rule defines a validation, mutation, or generation
-                    control for matching resources.
+                    control for matching resources. Each rules contains a match declaration
+                    to select resources, and an optional exclude declaration to specify
+                    which resources to exclude.
                   properties:
                     context:
-                      description: Context defines data sources and variables that
+                      description: Context defines variables and data sources that
                         can be used during rule execution.
                       items:
                         description: ContextEntry adds variables and data sources
@@ -80,8 +83,10 @@ spec:
                         type: object
                       type: array
                     exclude:
-                      description: ExcludeResources selects resources to which the
-                        policy rule should not be applied.
+                      description: ExcludeResources defines when this policy rule
+                        should not be applied. The exclude criteria can include resource
+                        information (e.g. kind, name, namespace, labels) and admission
+                        review request information like the name or role.
                       properties:
                         clusterRoles:
                           description: ClusterRoles is the list of cluster-wide role
@@ -96,10 +101,11 @@ spec:
                             annotations:
                               additionalProperties:
                                 type: string
-                              description: Annotations is a  map of annotations (string
-                                key-value pairs). Annotation values supports wildcard
-                                characters "*" (matches zero or many characters) and
-                                "?" (at least one character).
+                              description: Annotations is a  map of annotations (key-value
+                                pairs of type string). Annotation keys and values
+                                support the wildcard characters "*" (matches zero
+                                or many characters) and "?" (matches at least one
+                                character).
                               type: object
                             kinds:
                               description: Kinds is a list of resource kinds.
@@ -119,7 +125,13 @@ spec:
                                 type: string
                               type: array
                             selector:
-                              description: Selector is a label selector.
+                              description: 'Selector is a label selector. Label keys
+                                and values in `matchLabels` support the wildcard characters
+                                `*` (matches zero or many characters) and `?` (matches
+                                one character). Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
+                                an empty label set.'
                               properties:
                                 matchExpressions:
                                   description: matchExpressions is a list of label
@@ -209,7 +221,7 @@ spec:
                           type: array
                       type: object
                     generate:
-                      description: Generation creates new resources.
+                      description: Generation is used to create new resources.
                       properties:
                         apiVersion:
                           description: APIVersion specifies resource apiVersion.
@@ -247,8 +259,11 @@ spec:
                           type: boolean
                       type: object
                     match:
-                      description: MatchResources selects resources to which the policy
-                        rule should be applied. At least one kind is required.
+                      description: MatchResources defines when this policy rule should
+                        be applied. The match criteria can include resource information
+                        (e.g. kind, name, namespace, labels) and admission review
+                        request information like the user name or role. At least one
+                        kind is required.
                       properties:
                         clusterRoles:
                           description: ClusterRoles is the list of cluster-wide role
@@ -263,10 +278,11 @@ spec:
                             annotations:
                               additionalProperties:
                                 type: string
-                              description: Annotations is a  map of annotations (string
-                                key-value pairs). Annotation values supports wildcard
-                                characters "*" (matches zero or many characters) and
-                                "?" (at least one character).
+                              description: Annotations is a  map of annotations (key-value
+                                pairs of type string). Annotation keys and values
+                                support the wildcard characters "*" (matches zero
+                                or many characters) and "?" (matches at least one
+                                character).
                               type: object
                             kinds:
                               description: Kinds is a list of resource kinds.
@@ -286,7 +302,13 @@ spec:
                                 type: string
                               type: array
                             selector:
-                              description: Selector is a label selector.
+                              description: 'Selector is a label selector. Label keys
+                                and values in `matchLabels` support the wildcard characters
+                                `*` (matches zero or many characters) and `?` (matches
+                                one character). Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
+                                an empty label set.'
                               properties:
                                 matchExpressions:
                                   description: matchExpressions is a list of label
@@ -376,7 +398,7 @@ spec:
                           type: array
                       type: object
                     mutate:
-                      description: Mutation modifies matching resources.
+                      description: Mutation is used to modify matching resources.
                       properties:
                         overlay:
                           description: Overlay specifies an overlay pattern to modify
@@ -416,12 +438,14 @@ spec:
                           type: string
                       type: object
                     name:
-                      description: Name is a label to identify the rule, Must be unique
-                        within the policy.
+                      description: Name is a label to identify the rule, It must be
+                        unique within the policy.
                       type: string
                     preconditions:
-                      description: Conditions enabled variable-based conditional rule
-                        execution.
+                      description: Conditions enable variable-based conditional rule
+                        execution. This is useful for finer control of when an rule
+                        is applied. A condition can reference object data using JMESPath
+                        notation.
                       items:
                         description: Condition defines variable-based conditional
                           criteria for rule execution.
@@ -432,6 +456,11 @@ spec:
                             x-kubernetes-preserve-unknown-fields: true
                           operator:
                             description: Operator is the operation to perform.
+                            enum:
+                            - Equals
+                            - NotEquals
+                            - In
+                            - NotIn
                             type: string
                           value:
                             description: Value is the conditional value, or set of
@@ -441,7 +470,7 @@ spec:
                         type: object
                       type: array
                     validate:
-                      description: Validation checks matching resources.
+                      description: Validation is used to validate matching resources.
                       properties:
                         anyPattern:
                           description: AnyPattern specifies list of validation patterns.
@@ -464,6 +493,11 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                   operator:
                                     description: Operator is the operation to perform.
+                                    enum:
+                                    - Equals
+                                    - NotEquals
+                                    - In
+                                    - NotIn
                                     type: string
                                   value:
                                     description: Value is the conditional value, or
@@ -492,7 +526,7 @@ spec:
                 type: string
             type: object
           status:
-            description: Status contains policy runtime data.
+            description: Status contains policy runtime information.
             properties:
               averageExecutionTime:
                 description: AvgExecutionTime is the average time taken to process

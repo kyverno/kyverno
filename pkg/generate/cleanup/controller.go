@@ -23,12 +23,12 @@ import (
 )
 
 const (
-	maxRetries = 5
+	maxRetries = 10
 )
 
 //Controller manages life-cycle of generate-requests
 type Controller struct {
-	// dyanmic client implementation
+	// dynamic client implementation
 	client *dclient.Client
 	// typed client for kyverno CRDs
 	kyvernoClient *kyvernoclient.Clientset
@@ -49,7 +49,7 @@ type Controller struct {
 	pSynced cache.InformerSynced
 	// grSynced returns true if the generate request store has been synced at least once
 	grSynced cache.InformerSynced
-	// dyanmic sharedinformer factory
+	// dynamic sharedinformer factory
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
 	//TODO: list of generic informers
 	// only support Namespaces for deletion of resource
@@ -65,44 +65,49 @@ func NewController(
 	grInformer kyvernoinformer.GenerateRequestInformer,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
 	log logr.Logger,
-) *Controller {
+) (*Controller, error) {
 	c := Controller{
-		kyvernoClient: kyvernoclient,
-		client:        client,
-		//TODO: do the math for worst case back off and make sure cleanup runs after that
-		// as we dont want a deleted GR to be re-queue
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1, 30), "generate-request-cleanup"),
+		kyvernoClient:   kyvernoclient,
+		client:          client,
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
 		dynamicInformer: dynamicInformer,
 		log:             log,
 	}
+
 	c.control = Control{client: kyvernoclient}
 	c.enqueueGR = c.enqueue
 	c.syncHandler = c.syncGenerateRequest
 
 	c.pLister = pInformer.Lister()
-	c.grLister = grInformer.Lister().GenerateRequests(config.KubePolicyNamespace)
+	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
 
 	c.pSynced = pInformer.Informer().HasSynced
 	c.grSynced = grInformer.Informer().HasSynced
 
-	pInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
+	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: c.deletePolicy, // we only cleanup if the policy is delete
-	}, 2*time.Minute)
+	})
 
-	grInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
+	grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addGR,
 		UpdateFunc: c.updateGR,
 		DeleteFunc: c.deleteGR,
-	}, 2*time.Minute)
+	})
+
 	//TODO: dynamic registration
 	// Only supported for namespaces
-	nsInformer := dynamicInformer.ForResource(client.DiscoveryClient.GetGVRFromKind("Namespace"))
-	c.nsInformer = nsInformer
-	c.nsInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: c.deleteGenericResource,
-	}, 2*time.Minute)
+	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
+	if err != nil {
+		return nil, err
+	}
 
-	return &c
+	nsInformer := dynamicInformer.ForResource(gvr)
+	c.nsInformer = nsInformer
+	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: c.deleteGenericResource,
+	})
+
+	return &c, nil
 }
 
 func (c *Controller) deleteGenericResource(obj interface{}) {
@@ -134,6 +139,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 			return
 		}
 	}
+
 	logger.V(4).Info("deleting policy", "name", p.Name)
 	// clean up the GR
 	// Get the corresponding GR
@@ -143,6 +149,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 		logger.Error(err, "failed to generate request CR for the policy", "name", p.Name)
 		return
 	}
+
 	for _, gr := range grs {
 		c.addGR(gr)
 	}
@@ -167,12 +174,14 @@ func (c *Controller) deleteGR(obj interface{}) {
 			logger.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
+
 		_, ok = tombstone.Obj.(*kyverno.GenerateRequest)
 		if !ok {
 			logger.Info("ombstone contained object that is not a Generate Request", "obj", obj)
 			return
 		}
 	}
+
 	for _, resource := range gr.Status.GeneratedResources {
 		r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
 		if err != nil && !apierrors.IsNotFound(err) {
@@ -187,6 +196,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 			}
 		}
 	}
+
 	logger.V(4).Info("deleting Generate Request CR", "name", gr.Name)
 	// sync Handler will remove it from the queue
 	c.enqueueGR(gr)
@@ -199,7 +209,8 @@ func (c *Controller) enqueue(gr *kyverno.GenerateRequest) {
 		logger.Error(err, "failed to extract key")
 		return
 	}
-	logger.V(4).Info("eneque generate request", "name", gr.Name)
+
+	logger.V(5).Info("enqueue generate request", "name", gr.Name)
 	c.queue.Add(key)
 }
 
@@ -248,18 +259,18 @@ func (c *Controller) handleErr(err error, key interface{}) {
 	}
 
 	if errors.IsNotFound(err) {
+		logger.V(4).Info("dropping generate request", "key", key, "error", err.Error())
 		c.queue.Forget(key)
-		logger.V(4).Info("Dropping generate request from the queue", "key", key, "error", err.Error())
 		return
 	}
 
 	if c.queue.NumRequeues(key) < maxRetries {
-		logger.Error(err, "failed to sync generate request", "key", key)
+		logger.V(3).Info("retrying generate request", "key", key, "error", err.Error())
 		c.queue.AddRateLimited(key)
 		return
 	}
-	utilruntime.HandleError(err)
-	logger.Error(err, "dropping generate request out of the queue", "key", key)
+
+	logger.Error(err, "failed to cleanup generate request", "key", key)
 	c.queue.Forget(key)
 }
 

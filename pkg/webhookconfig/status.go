@@ -1,4 +1,4 @@
-package checker
+package webhookconfig
 
 import (
 	"fmt"
@@ -10,49 +10,39 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 )
 
-var deployName string = config.KubePolicyDeploymentName
-var deployNamespace string = config.KubePolicyNamespace
+var deployName string = config.KyvernoDeploymentName
+var deployNamespace string = config.KyvernoNamespace
 
 const annCounter string = "kyverno.io/generationCounter"
 const annWebhookStatus string = "kyverno.io/webhookActive"
 
-//StatusInterface provides api to update webhook active annotations on kyverno deployments
-type StatusInterface interface {
-	// Increments generation counter annotation
-	IncrementAnnotation() error
-	// update annotation to inform webhook is active
-	SuccessStatus() error
-	// update annotation to inform webhook is inactive
-	FailedStatus() error
-}
-
-//StatusControl controls the webhook status
-type StatusControl struct {
+//statusControl controls the webhook status
+type statusControl struct {
 	client   *dclient.Client
 	eventGen event.Interface
 	log      logr.Logger
 }
 
-//SuccessStatus ...
-func (vc StatusControl) SuccessStatus() error {
+//success ...
+func (vc statusControl) success() error {
 	return vc.setStatus("true")
 }
 
-//FailedStatus ...
-func (vc StatusControl) FailedStatus() error {
+//failure ...
+func (vc statusControl) failure() error {
 	return vc.setStatus("false")
 }
 
-// NewVerifyControl ...
-func NewVerifyControl(client *dclient.Client, eventGen event.Interface, log logr.Logger) *StatusControl {
-	return &StatusControl{
+// NewStatusControl creates a new webhook status control
+func newStatusControl(client *dclient.Client, eventGen event.Interface, log logr.Logger) *statusControl {
+	return &statusControl{
 		client:   client,
 		eventGen: eventGen,
 		log:      log,
 	}
 }
 
-func (vc StatusControl) setStatus(status string) error {
+func (vc statusControl) setStatus(status string) error {
 	logger := vc.log.WithValues("name", deployName, "namespace", deployNamespace)
 	var ann map[string]string
 	var err error
@@ -70,7 +60,6 @@ func (vc StatusControl) setStatus(status string) error {
 
 	deployStatus, ok := ann[annWebhookStatus]
 	if ok {
-		// annotatiaion is present
 		if deployStatus == status {
 			logger.V(4).Info(fmt.Sprintf("annotation %s already set to '%s'", annWebhookStatus, status))
 			return nil
@@ -105,7 +94,7 @@ func createStatusUpdateEvent(status string, eventGen event.Interface) {
 }
 
 //IncrementAnnotation ...
-func (vc StatusControl) IncrementAnnotation() error {
+func (vc statusControl) IncrementAnnotation() error {
 	logger := vc.log
 	var ann map[string]string
 	var err error

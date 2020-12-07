@@ -43,7 +43,11 @@ func NewCanI(client *client.Client, kind, namespace, verb string, log logr.Logge
 func (o *CanIOptions) RunAccessCheck() (bool, error) {
 	// get GroupVersionResource from RESTMapper
 	// get GVR from kind
-	gvr := o.client.DiscoveryClient.GetGVRFromKind(o.kind)
+	gvr, err := o.client.DiscoveryClient.GetGVRFromKind(o.kind)
+	if err != nil {
+		return false, fmt.Errorf("failed to get GVR for kind %s", o.kind)
+	}
+
 	if reflect.DeepEqual(gvr, schema.GroupVersionResource{}) {
 		// cannot find GVR
 		return false, fmt.Errorf("failed to get the Group Version Resource for kind %s", o.kind)
@@ -92,7 +96,7 @@ func (o *CanIOptions) RunAccessCheck() (bool, error) {
 			logger.Info("field not found", "field", "status.reason")
 		}
 		// status.evaluationError
-		evaluationError, ok, err := unstructured.NestedString(resp.Object, "status", "evaludationError")
+		evaluationError, ok, err := unstructured.NestedString(resp.Object, "status", "evaluationError")
 		if !ok {
 			if err != nil {
 				logger.Error(err, "failed to get the field", "field", "status.evaluationError")

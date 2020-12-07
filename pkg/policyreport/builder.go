@@ -137,18 +137,12 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 	}
 
 	// deletion of a result entry
-	// - on resource deleteion:
-	//   - info.Rules == 0 && info.PolicyName == ""
-	//   - set label delete.resource=resourceKind-resourceNamespace-resourceName
-	// - on policy deleteion:
-	//   - info.PolicyName != "" && info.Resource == {}
-	//   - set label delete.policy=policyName
-	if len(info.Rules) == 0 && info.PolicyName == "" {
+	if len(info.Rules) == 0 && info.PolicyName == "" { // on resource deleteion
 		req.SetLabels(map[string]string{
 			resourceLabelNamespace:   info.Resource.GetNamespace(),
 			deletedLabelResource:     info.Resource.GetName(),
 			deletedLabelResourceKind: info.Resource.GetKind()})
-	} else if info.PolicyName != "" && reflect.DeepEqual(info.Resource, unstructured.Unstructured{}) {
+	} else if info.PolicyName != "" && reflect.DeepEqual(info.Resource, unstructured.Unstructured{}) { // on policy deleteion
 		req.SetKind("ReportChangeRequest")
 
 		if len(info.Rules) == 0 {
@@ -172,7 +166,7 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 
 func set(obj *unstructured.Unstructured, info Info) {
 	resource := info.Resource
-	obj.SetNamespace(config.KubePolicyNamespace)
+	obj.SetNamespace(config.KyvernoNamespace)
 	obj.SetAPIVersion(request.SchemeGroupVersion.Group + "/" + request.SchemeGroupVersion.Version)
 	if resource.GetNamespace() == "" {
 		obj.SetGenerateName(clusterreportchangerequest + "-")

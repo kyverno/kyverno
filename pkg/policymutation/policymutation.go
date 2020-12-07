@@ -213,8 +213,8 @@ func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy, log logr.Logg
 //                 as these fields may not be applicable to pod controllers
 // scenario B: "none", user explicitly disable this feature -> skip
 // scenario C: some certain controllers that user set -> generate on defined controllers
-//             copy entrie match / exclude block, it's users' responsibility to
-//             make sure all fields are applicable to pod cotrollers
+//             copy entire match / exclude block, it's users' responsibility to
+//             make sure all fields are applicable to pod controllers
 
 // GeneratePodControllerRule returns two patches: rulePatches and annotation patch(if necessary)
 func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
@@ -385,7 +385,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		return kyvernoRule{}
 	}
 
-	// Support backword compatibility
+	// Support backwards compatibility
 	skipAutoGeneration := false
 	var controllersValidated []string
 	if controllers == "all" {

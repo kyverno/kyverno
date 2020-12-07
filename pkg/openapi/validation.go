@@ -326,4 +326,3 @@ func getAnyValue(any *openapi_v2.Any) []byte {
 
 	return nil
 }
-

@@ -179,7 +179,7 @@ kustomize-crd:
 	kustomize build ./definitions/debug > ./definitions/install_debug.yaml
 
 # guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
-release: 
+release:
 	kustomize build ./definitions > ./definitions/install.yaml
 	kustomize build ./definitions > ./definitions/release/install.yaml
 
@@ -202,7 +202,7 @@ ifeq (, $(shell which controller-gen))
 	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.0 ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
-CONTROLLER_GEN=$(GOBIN)/controller-gen
+CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif

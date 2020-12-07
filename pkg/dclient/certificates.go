@@ -44,7 +44,7 @@ func (c *Client) buildTLSPemPair(props tls.CertificateProps, fqdncn bool) (*tls.
 	}
 
 	if err := c.WriteCACertToSecret(caPEM, props); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to write CA cert to secret: %v", err)
 	}
 	return tls.GenerateCertPem(caCert, props, fqdncn)
 }
@@ -234,8 +234,8 @@ func (c *Client) GetTLSCertProps(configuration *rest.Config) (certProps tls.Cert
 		return certProps, err
 	}
 	certProps = tls.CertificateProps{
-		Service:       config.WebhookServiceName,
-		Namespace:     config.KubePolicyNamespace,
+		Service:       config.KyvernoServiceName,
+		Namespace:     config.KyvernoNamespace,
 		APIServerHost: apiServerURL.Hostname(),
 	}
 	return certProps, nil

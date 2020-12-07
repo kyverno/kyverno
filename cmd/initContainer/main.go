@@ -29,12 +29,14 @@ var (
 )
 
 const (
-	mutatingWebhookConfigKind   string = "MutatingWebhookConfiguration"
-	validatingWebhookConfigKind string = "ValidatingWebhookConfiguration"
-	policyReportKind            string = "PolicyReport"
-	clusterPolicyReportKind     string = "ClusterPolicyReport"
-	policyViolation             string = "PolicyViolation"
-	clusterPolicyViolation      string = "ClusterPolicyViolation"
+	mutatingWebhookConfigKind      string = "MutatingWebhookConfiguration"
+	validatingWebhookConfigKind    string = "ValidatingWebhookConfiguration"
+	policyReportKind               string = "PolicyReport"
+	clusterPolicyReportKind        string = "ClusterPolicyReport"
+	reportChangeRequestKind        string = "ReportChangeRequest"
+	clusterReportChangeRequestKind string = "ClusterReportChangeRequest"
+	policyViolation                string = "PolicyViolation"
+	clusterPolicyViolation         string = "ClusterPolicyViolation"
 )
 
 func main() {
@@ -70,20 +72,23 @@ func main() {
 	}
 
 	requests := []request{
-		// Resource
 		{validatingWebhookConfigKind, config.ValidatingWebhookConfigurationName},
 		{validatingWebhookConfigKind, config.ValidatingWebhookConfigurationDebugName},
 		{mutatingWebhookConfigKind, config.MutatingWebhookConfigurationName},
 		{mutatingWebhookConfigKind, config.MutatingWebhookConfigurationDebugName},
-		// Policy
+
 		{validatingWebhookConfigKind, config.PolicyValidatingWebhookConfigurationName},
 		{validatingWebhookConfigKind, config.PolicyValidatingWebhookConfigurationDebugName},
 		{mutatingWebhookConfigKind, config.PolicyMutatingWebhookConfigurationName},
 		{mutatingWebhookConfigKind, config.PolicyMutatingWebhookConfigurationDebugName},
-		// policy report
+
 		{policyReportKind, ""},
 		{clusterPolicyReportKind, ""},
-		// clean up policy violation
+
+		{reportChangeRequestKind, ""},
+		{clusterReportChangeRequestKind, ""},
+
+		// clean up policy violation CRD
 		{policyViolation, ""},
 		{clusterPolicyViolation, ""},
 	}
@@ -120,6 +125,10 @@ func executeRequest(client *client.Client, req request) error {
 		return removePolicyReport(client, req.kind)
 	case clusterPolicyReportKind:
 		return removeClusterPolicyReport(client, req.kind)
+	case reportChangeRequestKind:
+		return removeReportChangeRequest(client, req.kind)
+	case clusterReportChangeRequestKind:
+		return removeClusterReportChangeRequest(client, req.kind)
 	case policyViolation, clusterPolicyViolation:
 		return removeViolationCRD(client)
 	}
@@ -253,12 +262,14 @@ func removeClusterPolicyReport(client *client.Client, kind string) error {
 	cpolrs, err := client.ListResource("", kind, "", nil)
 	if err != nil && !errors.IsNotFound(err) {
 		logger.Error(err, "failed to list clusterPolicyReport")
-		return err
+		return nil
 	}
 
 	for _, cpolr := range cpolrs.Items {
 		if err := client.DeleteResource(cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName(), false); err != nil {
 			logger.Error(err, "failed to delete clusterPolicyReport", "name", cpolr.GetName())
+		} else {
+			logger.Info("successfully cleaned up ClusterPolicyReport")
 		}
 	}
 	return nil
@@ -274,15 +285,60 @@ func removePolicyReport(client *client.Client, kind string) error {
 	}
 
 	// name of namespace policy report follows the name convention
-	// policyreport-ns-<namespace name>
+	// pr-ns-<namespace name>
 	for _, ns := range namespaces.Items {
-		reportName := fmt.Sprintf("policyreport-ns-%s", ns.GetName())
-		err := client.DeleteResource("", kind, ns.GetName(), reportName, false)
-		if err != nil && !errors.IsNotFound(err) {
-			logger.Error(err, "failed to delete policyReport", "name", reportName)
+		reportNames := []string{
+			fmt.Sprintf("policyreport-ns-%s", ns.GetName()),
+			fmt.Sprintf("pr-ns-%s", ns.GetName()),
+		}
+
+		for _, reportName := range reportNames {
+			err := client.DeleteResource("", kind, ns.GetName(), reportName, false)
+			if err != nil && !errors.IsNotFound(err) {
+				logger.Error(err, "failed to delete resource", "kind", kind, "name", reportName)
+			} else {
+				logger.Info("successfully cleaned up resource", "kind", kind, "name", reportName)
+			}
 		}
 	}
 
+	return nil
+}
+
+func removeReportChangeRequest(client *client.Client, kind string) error {
+	logger := log.Log.WithName("removeReportChangeRequest")
+
+	ns := getKyvernoNameSpace()
+	rcrList, err := client.ListResource("", kind, ns, nil)
+	if err != nil && !errors.IsNotFound(err) {
+		logger.Error(err, "failed to list reportChangeRequest")
+		return nil
+	}
+
+	for _, rcr := range rcrList.Items {
+		if err := client.DeleteResource(rcr.GetAPIVersion(), rcr.GetKind(), rcr.GetNamespace(), rcr.GetName(), false); err != nil {
+			logger.Error(err, "failed to delete reportChangeRequest", "name", rcr.GetName())
+		} else {
+			logger.Info("successfully cleaned up reportChangeRequest", "name", rcr.GetName())
+		}
+	}
+	return nil
+}
+
+func removeClusterReportChangeRequest(client *client.Client, kind string) error {
+	crcrList, err := client.ListResource("", kind, "", nil)
+	if err != nil && !errors.IsNotFound(err) {
+		logger.Error(err, "failed to list clusterReportChangeRequest")
+		return nil
+	}
+
+	for _, crcr := range crcrList.Items {
+		if err := client.DeleteResource(crcr.GetAPIVersion(), crcr.GetKind(), "", crcr.GetName(), false); err != nil {
+			logger.Error(err, "failed to delete clusterReportChangeRequest", "name", crcr.GetName())
+		} else {
+			logger.Info("successfully cleaned up clusterReportChangeRequest")
+		}
+	}
 	return nil
 }
 
@@ -299,4 +355,13 @@ func removeViolationCRD(client *client.Client) error {
 		}
 	}
 	return nil
+}
+
+// getKubePolicyNameSpace - setting default KubePolicyNameSpace
+func getKyvernoNameSpace() string {
+	kyvernoNamespace := os.Getenv("KYVERNO_NAMESPACE")
+	if kyvernoNamespace == "" {
+		kyvernoNamespace = "kyverno"
+	}
+	return kyvernoNamespace
 }

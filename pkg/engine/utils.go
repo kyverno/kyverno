@@ -4,22 +4,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
-	"time"
 	"github.com/go-logr/logr"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/wildcards"
+	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
+	"github.com/minio/minio/pkg/wildcard"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/minio/minio/pkg/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"k8s.io/apimachinery/pkg/runtime"
+	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
+	"time"
 )
 
 //EngineStats stores in the statistics for a single application of resource
@@ -54,18 +55,29 @@ func checkNameSpace(namespaces []string, resourceNameSpace string) bool {
 }
 
 func checkAnnotations(annotations map[string]string, resourceAnnotations map[string]string) bool {
+	if len(annotations) == 0 {
+		return true
+	}
+
 	for k, v := range annotations {
-		if len(resourceAnnotations) == 0 {
-			return false
+		match := false
+		for k1, v1 := range resourceAnnotations {
+			if wildcard.Match(k, k1) && wildcard.Match(v, v1) {
+				match = true
+				break
+			}
 		}
-		if resourceAnnotations[k] != v {
+
+		if match == false {
 			return false
 		}
 	}
+
 	return true
 }
 
 func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) (bool, error) {
+	wildcards.ReplaceInSelector(labelSelector, resourceLabels)
 	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
 		log.Log.Error(err, "failed to build label selector")
@@ -98,7 +110,7 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	var errs []error
 	if len(conditionBlock.Kinds) > 0 {
 		if !checkKind(conditionBlock.Kinds, resource.GetKind()) {
-			errs = append(errs, fmt.Errorf("kind does not match"))
+			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}
 	if conditionBlock.Name != "" {

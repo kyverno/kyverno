@@ -33,21 +33,22 @@ type EvalInterface interface {
 
 //Context stores the data resources as JSON
 type Context struct {
-	mu            sync.RWMutex
-	jsonRaw       []byte
-	whiteListVars []string
-	log           logr.Logger
+	mu          sync.RWMutex
+	jsonRaw     []byte
+	builtInVars []string
+	log         logr.Logger
 }
 
 //NewContext returns a new context
-// pass the list of variables to be white-listed
-func NewContext(whiteListVars ...string) *Context {
+// builtInVars is the list of known variables (e.g. serviceAccountName)
+func NewContext(builtInVars ...string) *Context {
 	ctx := Context{
 		// data:    map[string]interface{}{},
-		jsonRaw:       []byte(`{}`), // empty json struct
-		whiteListVars: whiteListVars,
-		log:           log.Log.WithName("context"),
+		jsonRaw:     []byte(`{}`), // empty json struct
+		builtInVars: builtInVars,
+		log:         log.Log.WithName("context"),
 	}
+
 	return &ctx
 }
 

@@ -9,7 +9,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/kyverno/kyverno/pkg/checker"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/common"
@@ -106,20 +105,18 @@ func main() {
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := dclient.NewClient(clientConfig, 5*time.Minute, stopCh, log.Log)
+	client, err := dclient.NewClient(clientConfig, 15*time.Minute, stopCh, log.Log)
 	if err != nil {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
 
-	// ======================= resource cache ====================
 	rCache, err := resourcecache.NewResourceCache(log.Log, clientConfig, client, []string{"configmaps"}, []string{})
 	if err != nil {
-		setupLog.Error(err, "Failed to create resource cache")
-		os.Exit(1)
+		setupLog.Error(err, "ConfigMap lookup disabled: failed to create resource cache")
+	} else {
+		rCache.RunAllInformers(log.Log)
 	}
-	rCache.RunAllInformers(log.Log)
-	// ===========================================================
 
 	// CRD CHECK
 	// - verify if Kyverno CRDs are available
@@ -137,7 +134,7 @@ func main() {
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	kubedynamicInformer := client.NewDynamicSharedInformerFactory(resyncPeriod)
 
-	webhookRegistrationClient := webhookconfig.NewWebhookRegistrationClient(
+	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,
 		client,
 		serverIP,
@@ -145,15 +142,7 @@ func main() {
 		log.Log)
 
 	// Resource Mutating Webhook Watcher
-	lastReqTime := checker.NewLastReqTime(log.Log.WithName("LastReqTime"))
-	rWebhookWatcher := webhookconfig.NewResourceWebhookRegister(
-		lastReqTime,
-		kubeInformer.Admissionregistration().V1beta1().MutatingWebhookConfigurations(),
-		kubeInformer.Admissionregistration().V1beta1().ValidatingWebhookConfigurations(),
-		webhookRegistrationClient,
-		runValidationInMutatingWebhook,
-		log.Log.WithName("ResourceWebhookRegister"),
-	)
+	webhookMonitor := webhookconfig.NewMonitor(log.Log.WithName("WebhookMonitor"))
 
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
@@ -224,7 +213,6 @@ func main() {
 		configData,
 		eventGenerator,
 		reportReqGen,
-		rWebhookWatcher,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
 		rCache,
@@ -240,7 +228,7 @@ func main() {
 
 	// GENERATE CONTROLLER
 	// - applies generate rules on resources based on generate requests created by webhook
-	grc := generate.NewController(
+	grc, err := generate.NewController(
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
@@ -252,10 +240,14 @@ func main() {
 		configData,
 		rCache,
 	)
+	if err != nil {
+		setupLog.Error(err, "Failed to create generate controller")
+		os.Exit(1)
+	}
 
 	// GENERATE REQUEST CLEANUP
 	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout
-	grcc := generatecleanup.NewController(
+	grcc, err := generatecleanup.NewController(
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
@@ -263,6 +255,10 @@ func main() {
 		kubedynamicInformer,
 		log.Log.WithName("GenerateCleanUpController"),
 	)
+	if err != nil {
+		setupLog.Error(err, "Failed to create generate cleanup controller")
+		os.Exit(1)
+	}
 
 	pCacheController := policycache.NewPolicyCacheController(
 		pInformer.Kyverno().V1().ClusterPolicies(),
@@ -282,20 +278,16 @@ func main() {
 		rCache,
 	)
 
-	// CONFIGURE CERTIFICATES
+	// Configure certificates
 	tlsPair, err := client.InitTLSPemPair(clientConfig, fqdncn)
 	if err != nil {
 		setupLog.Error(err, "Failed to initialize TLS key/certificate pair")
 		os.Exit(1)
 	}
 
-	// WEBHOOK REGISTRATION
-	// - mutating,validatingwebhookconfiguration (Policy)
-	// - verifymutatingwebhookconfiguration (Kyverno Deployment)
-	// resource webhook confgiuration is generated dynamically in the webhook server and policy controller
-	// based on the policy resources created
-	if err = webhookRegistrationClient.Register(); err != nil {
-		setupLog.Error(err, "Failed to register Admission webhooks")
+	// Register webhookCfg
+	if err = webhookCfg.Register(); err != nil {
+		setupLog.Error(err, "Failed to register admission control webhooks")
 		os.Exit(1)
 	}
 
@@ -327,12 +319,12 @@ func main() {
 		kubeInformer.Rbac().V1().ClusterRoles(),
 		eventGenerator,
 		pCacheController.Cache,
-		webhookRegistrationClient,
+		webhookCfg,
+		webhookMonitor,
 		statusSync.Listener,
 		configData,
 		reportReqGen,
 		grgen,
-		rWebhookWatcher,
 		auditHandler,
 		supportMutateValidate,
 		cleanUp,
@@ -354,7 +346,6 @@ func main() {
 	go reportReqGen.Run(2, stopCh)
 	go prgen.Run(1, stopCh)
 	go grgen.Run(1)
-	go rWebhookWatcher.Run(stopCh)
 	go configData.Run(stopCh)
 	go policyCtrl.Run(2, stopCh)
 	go eventGenerator.Run(3, stopCh)
@@ -366,11 +357,7 @@ func main() {
 	openAPISync.Run(1, stopCh)
 
 	// verifies if the admission control is enabled and active
-	// resync: 60 seconds
-	// deadline: 60 seconds (send request)
-	// max deadline: deadline*3 (set the deployment annotation as false)
 	server.RunAsync(stopCh)
-
 	<-stopCh
 
 	// by default http.Server waits indefinitely for connections to return to idle and then shuts down

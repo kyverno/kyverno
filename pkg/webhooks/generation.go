@@ -14,8 +14,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
+	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,16 +32,14 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		return
 	}
 	// convert RAW to unstructured
-	resource, err := utils.ConvertToUnstructured(request.Object.Raw)
+	new, old, err := kyvernoutils.ExtractResources(nil, request)
 	if err != nil {
-		//TODO: skip applying the admission control ?
-		logger.Error(err, "failed to convert RAR resource to unstructured format")
-		return
+		logger.Error(err, "failed to extract resource")
 	}
-	// CREATE resources, do not have name, assigned in admission-request
 
 	policyContext := engine.PolicyContext{
-		NewResource:      *resource,
+		NewResource:      new,
+		OldResource:      old,
 		AdmissionInfo:    userRequestInfo,
 		Context:          ctx,
 		ExcludeGroupRole: dynamicConfig.GetExcludeGroupRole(),
@@ -56,13 +54,16 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		engineResponse := engine.Generate(policyContext)
 		for _, rule := range engineResponse.PolicyResponse.Rules {
 			if !rule.Success {
-				grList, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).List(contextdefault.TODO(), metav1.ListOptions{})
+
+				ws.log.V(4).Info("querying all generate requests")
+				grList, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).List(contextdefault.TODO(), metav1.ListOptions{})
 				if err != nil {
 					logger.Error(err, "failed to list generate request")
 				}
+
 				for _, v := range grList.Items {
 					if engineResponse.PolicyResponse.Policy == v.Spec.Policy && engineResponse.PolicyResponse.Resource.Name == v.Spec.Resource.Name && engineResponse.PolicyResponse.Resource.Kind == v.Spec.Resource.Kind && engineResponse.PolicyResponse.Resource.Namespace == v.Spec.Resource.Namespace {
-						err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KubePolicyNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
+						err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
 						if err != nil {
 							logger.Error(err, "failed to update gr")
 						}
@@ -77,7 +78,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 			engineResponse.PolicyResponse.Rules = rules
 			// some generate rules do apply to the resource
 			engineResponses = append(engineResponses, engineResponse)
-			ws.statusListener.Send(generateStats{
+			ws.statusListener.Update(generateStats{
 				resp: engineResponse,
 			})
 		}
@@ -88,19 +89,11 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	if failedResponse := applyGenerateRequest(ws.grGenerator, userRequestInfo, request.Operation, engineResponses...); err != nil {
 		// report failure event
 		for _, failedGR := range failedResponse {
-			events := failedEvents(fmt.Errorf("failed to create Generate Request: %v", failedGR.err), failedGR.gr, *resource)
+			events := failedEvents(fmt.Errorf("failed to create Generate Request: %v", failedGR.err), failedGR.gr, new)
 			ws.eventGen.Add(events...)
 		}
 	}
 
-	// Generate Stats wont be used here, as we delegate the generate rule
-	// - Filter policies that apply on this resource
-	// - - build CR context(userInfo+roles+clusterRoles)
-	// - Create CR
-	// - send Success
-	// HandleGeneration  always returns success
-
-	// Filter Policies
 	return
 }
 
@@ -113,6 +106,7 @@ func applyGenerateRequest(gnGenerator generate.GenerateRequests, userRequestInfo
 			failedGenerateRequest = append(failedGenerateRequest, generateRequestResponse{gr: gr, err: err})
 		}
 	}
+
 	return
 }
 

@@ -56,8 +56,12 @@ func (ws *WebhookServer) HandleMutation(
 
 		policyContext.Policy = *policy
 		engineResponse := engine.Mutate(policyContext)
+		policyPatches := engineResponse.GetPatches()
 
-		ws.statusListener.Send(mutateStats{resp: engineResponse, namespace: policy.Namespace})
+		if engineResponse.PolicyResponse.RulesAppliedCount > 0 && len(policyPatches) > 0 {
+			ws.statusListener.Update(mutateStats{resp: engineResponse, namespace: policy.Namespace})
+		}
+
 		if !engineResponse.IsSuccessful() && len(engineResponse.GetFailedRules()) > 0 {
 			logger.Info("failed to apply policy", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
 			continue
@@ -69,8 +73,6 @@ func (ws *WebhookServer) HandleMutation(
 			continue
 		}
 
-		// gather patches
-		policyPatches := engineResponse.GetPatches()
 		if len(policyPatches) > 0 {
 			patches = append(patches, policyPatches...)
 			rules := engineResponse.GetSuccessRules()
@@ -104,7 +106,7 @@ func (ws *WebhookServer) HandleMutation(
 		}
 
 		// if any of the policies fails, print out the error
-		if !isResponseSuccesful(engineResponses) {
+		if !isResponseSuccessful(engineResponses) {
 			logger.Info("failed to apply mutation rules on the resource, reporting policy violation", "errors", getErrorMsg(engineResponses))
 		}
 	}()
