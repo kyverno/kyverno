@@ -262,7 +262,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 		var err error
 		if pattern, err = variables.SubstituteVars(logger, ctx, pattern); err != nil {
 			resp.Success = false
-			resp.Message = fmt.Sprintf("variable substitution failed for rule '%s'. '%s'", rule.Name, err)
+			resp.Message = fmt.Sprintf("variable substitution failed for rule %s: %s", rule.Name, err.Error())
 			return resp
 		}
 

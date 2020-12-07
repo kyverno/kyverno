@@ -124,8 +124,8 @@ func TestValidate_image_tag_fail(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	msgs := []string{
-		"Validation rule 'validate-tag' passed.",
-		"Validation error: imagePullPolicy 'Always' required with tag 'latest'; Validation rule validate-latest failed at path /spec/containers/0/imagePullPolicy/",
+		"validation rule 'validate-tag' passed.",
+		"validation error: imagePullPolicy 'Always' required with tag 'latest'. Rule validate-latest failed at path /spec/containers/0/imagePullPolicy/",
 	}
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	for index, r := range er.PolicyResponse.Rules {
@@ -301,7 +301,7 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	msgs := []string{"A namespace is required"}
+	msgs := []string{"validation error: A namespace is required. Rule check-default-namespace[0] failed at path /metadata/namespace/. Rule check-default-namespace[1] failed at path /metadata/namespace/."}
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
@@ -383,7 +383,7 @@ func TestValidate_host_network_port(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	msgs := []string{"Validation error: Host network and port are not allowed; Validation rule validate-host-network-port failed at path /spec/containers/0/ports/0/hostPort/"}
+	msgs := []string{"validation error: Host network and port are not allowed. Rule validate-host-network-port failed at path /spec/containers/0/ports/0/hostPort/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -561,7 +561,7 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	msgs := []string{"Validation error: Host path '/var/lib/' is not allowed; Validation rule validate-host-path failed at path /spec/volumes/0/hostPath/path/"}
+	msgs := []string{"validation error: Host path '/var/lib/' is not allowed. Rule validate-host-path failed at path /spec/volumes/0/hostPath/path/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -777,7 +777,7 @@ func TestValidate_anchor_map_found_invalid(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	msgs := []string{"Validation error: pod: validate run as non root user; Validation rule pod rule 2 failed at path /spec/securityContext/runAsNonRoot/"}
+	msgs := []string{"validation error: pod: validate run as non root user. Rule pod rule 2 failed at path /spec/securityContext/runAsNonRoot/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -1155,7 +1155,7 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	msgs := []string{"Validation error: Host path is not allowed; Validation rule validate-host-path failed at path /spec/volumes/0/hostPath/"}
+	msgs := []string{"validation error: Host path is not allowed. Rule validate-host-path failed at path /spec/volumes/0/hostPath/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -1319,7 +1319,8 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
 	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "Validation error: ; Validation rule 'test-path-not-exist' failed. 'variable request.object.metadata.name1 not found (path: /spec/containers/0/name)'")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
+		"variable substitution failed for rule test-path-not-exist: variable request.object.metadata.name1 not resolved at path /spec/containers/0/name")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfies(t *testing.T) {
@@ -1501,7 +1502,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
 	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "Substitutions failed: [variable request.object.metadata.name1 not found (path: /spec/template/spec/containers/0/name) variable request.object.metadata.name2 not found (path: /spec/template/spec/containers/0/name)]")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "failed to substitute variables: [variable request.object.metadata.name1 not resolved at path /spec/template/spec/containers/0/name variable request.object.metadata.name2 not resolved at path /spec/template/spec/containers/0/name]")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatternSatisfy(t *testing.T) {
@@ -1592,9 +1593,9 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
 
-	// expectedMsg := "Validation error: ; Validation rule test-path-not-exist anyPattern[0] failed at path /spec/template/spec/containers/0/name/. Validation rule test-path-not-exist anyPattern[1] failed at path /spec/template/spec/containers/0/name/."
 	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "validation rule 'test-path-not-exist' has failed")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
+		"validation error: Rule test-path-not-exist[0] failed at path /spec/template/spec/containers/0/name/. Rule test-path-not-exist[1] failed at path /spec/template/spec/containers/0/name/.")
 }
 
 func Test_denyFeatureIssue744(t *testing.T) {

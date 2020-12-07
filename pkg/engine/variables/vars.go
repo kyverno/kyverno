@@ -82,7 +82,7 @@ type NotFoundVariableErr struct {
 }
 
 func (n NotFoundVariableErr) Error() string {
-	return fmt.Sprintf("variable %v not found (path: %v)", n.variable, n.path)
+	return fmt.Sprintf("variable %s not resolved at path %s", n.variable, n.path)
 }
 
 // subValR resolves the variables if defined
