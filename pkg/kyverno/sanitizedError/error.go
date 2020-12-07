@@ -13,6 +13,10 @@ func (c customError) Error() string {
 	return c.message
 }
 
+func New(msg string) error {
+	return customError{message: msg}
+}
+
 func NewWithErrors(message string, errors []error) error {
 	bldr := strings.Builder{}
 	bldr.WriteString(message + "\n")
@@ -20,7 +24,7 @@ func NewWithErrors(message string, errors []error) error {
 		bldr.WriteString(err.Error() + "\n")
 	}
 
-	return fmt.Errorf(bldr.String())
+	return customError{message: bldr.String()}
 }
 
 // NewWithError creates a new sanitized error with given message and error

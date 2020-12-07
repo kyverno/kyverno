@@ -160,8 +160,19 @@ func Command() *cobra.Command {
 			}
 
 			policies, errors := common.GetPolicies(policyPaths)
-			if len(errors) > 0 && len(policies) == 0 {
-				return sanitizederror.NewWithErrors("failed to read policies", errors)
+			if len(policies) == 0 {
+				if len(errors) > 0 {
+					return sanitizederror.NewWithErrors("failed to read policies", errors)
+				}
+
+				return sanitizederror.New(fmt.Sprintf("no policies found in paths %v", policyPaths))
+			}
+
+			if len(errors) > 0 && log.Log.V(1).Enabled() {
+				fmt.Printf("ignoring errors: \n")
+				for _, e := range errors {
+					fmt.Printf("    %v \n", e.Error())
+				}
 			}
 
 			if len(resourcePaths) == 0 && !cluster {

@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
@@ -24,6 +25,8 @@ import (
 // GetPolicies - Extracting the policies from multiple YAML
 func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) {
 	for _, path := range paths {
+		log.Log.V(5).Info("reading policies", "path", path)
+
 		path = filepath.Clean(path)
 		fileDesc, err := os.Stat(path)
 		if err != nil {
@@ -40,16 +43,16 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 
 			listOfFiles := make([]string, 0)
 			for _, file := range files {
-				listOfFiles = append(listOfFiles, filepath.Join(path, file.Name()))
+				ext := filepath.Ext(file.Name())
+				if ext == "" || ext == ".yaml" || ext == ".yml" {
+					listOfFiles = append(listOfFiles, filepath.Join(path, file.Name()))
+				}
 			}
 
-			policiesFromDir, errrosFromDir := GetPolicies(listOfFiles)
-			if err != nil {
-				errors = append(errors, errrosFromDir...)
-				continue
-			}
-
+			policiesFromDir, errorsFromDir := GetPolicies(listOfFiles)
+			errors = append(errors, errorsFromDir...)
 			policies = append(policies, policiesFromDir...)
+
 		} else {
 			fileBytes, err := ioutil.ReadFile(path)
 			if err != nil {
@@ -57,9 +60,10 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 				continue
 			}
 
-			policiesFromFile, errorsFromFile := utils.GetPolicy(fileBytes)
-			if errorsFromFile != nil {
-				errors = append(errors, errorsFromFile...)
+			policiesFromFile, errFromFile := utils.GetPolicy(fileBytes)
+			if errFromFile != nil {
+				err := fmt.Errorf("failed to process %s: %v", path, errFromFile.Error())
+				errors = append(errors, err)
 				continue
 			}
 
@@ -67,6 +71,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 		}
 	}
 
+	log.Log.V(3).Info("read policies", "policies", len(policies), "errors", len(errors))
 	return policies, errors
 }
 

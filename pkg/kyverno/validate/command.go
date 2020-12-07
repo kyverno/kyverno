@@ -56,23 +56,22 @@ func Command() *cobra.Command {
 					}
 
 					yamlBytes := []byte(policyStr)
-					var getErrors []error
-					policies, getErrors = utils.GetPolicy(yamlBytes)
-					var errString string
-
-					for _, err := range getErrors {
-						if err != nil {
-							errString += err.Error() + "\n"
-						}
-					}
-					if errString != "" {
-						return sanitizederror.NewWithError("failed to extract the resources", errors.New(errString))
+					policies, err = utils.GetPolicy(yamlBytes)
+					if err != nil {
+						return sanitizederror.NewWithError("failed to parse policy", err)
 					}
 				}
 			} else {
 				policies, errs := common.GetPolicies(policyPaths)
 				if len(errs) > 0 && len(policies) == 0 {
 					return sanitizederror.NewWithErrors("failed to read policies", errs)
+				}
+
+				if len(errs) > 0 && log.Log.V(1).Enabled() {
+					fmt.Printf("ignoring errors: \n")
+					for _, e := range errs {
+						fmt.Printf("    %v \n", e.Error())
+					}
 				}
 			}
 

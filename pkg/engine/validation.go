@@ -248,12 +248,12 @@ func isSameRules(oldRules []response.RuleResponse, newRules []response.RuleRespo
 func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstructured.Unstructured, rule kyverno.Rule) (resp response.RuleResponse) {
 	startTime := time.Now()
 	logger := log.WithValues("rule", rule.Name, "name", resource.GetName(), "kind", resource.GetKind())
-	logger.V(4).Info("start processing rule", "startTime", startTime)
+	logger.V(5).Info("start processing rule", "startTime", startTime)
 	resp.Name = rule.Name
 	resp.Type = utils.Validation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
-		logger.V(3).Info("finished processing rule", "processingTime", resp.RuleStats.ProcessingTime.String())
+		logger.V(4).Info("finished processing rule", "processingTime", resp.RuleStats.ProcessingTime.String())
 	}()
 
 	validationRule := rule.Validation.DeepCopy()

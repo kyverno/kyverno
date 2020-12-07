@@ -12,36 +12,32 @@ import (
 )
 
 // GetPolicy - extracts policies from YAML bytes
-func GetPolicy(bytes []byte) (clusterPolicies []*v1.ClusterPolicy, errors []error) {
+func GetPolicy(bytes []byte) (clusterPolicies []*v1.ClusterPolicy, err error) {
 	policies, err := SplitYAMLDocuments(bytes)
 	if err != nil {
-		errors = append(errors, err)
-		return clusterPolicies, errors
+		return nil, err
 	}
 
 	for _, thisPolicyBytes := range policies {
 		policyBytes, err := yaml.ToJSON(thisPolicyBytes)
 		if err != nil {
-			errors = append(errors, fmt.Errorf("failed to convert json. error: %v", err))
-			continue
+			return nil, fmt.Errorf("failed to convert to JSON: %v", err)
 		}
 
 		policy := &v1.ClusterPolicy{}
 		if err := json.Unmarshal(policyBytes, policy); err != nil {
-			errors = append(errors, fmt.Errorf("failed to decode policy. error: %v", err))
-			continue
+			return nil, fmt.Errorf("failed to decode policy: %v", err)
 		}
 
 		if !(policy.TypeMeta.Kind == "ClusterPolicy" || policy.TypeMeta.Kind == "Policy") {
 			msg := fmt.Sprintf("resource %s/%s is not a Policy or a ClusterPolicy", policy.Kind, policy.Name)
-			errors = append(errors, fmt.Errorf(msg))
-			continue
+			return nil, fmt.Errorf(msg)
 		}
 
 		clusterPolicies = append(clusterPolicies, policy)
 	}
 
-	return clusterPolicies, errors
+	return clusterPolicies, nil
 }
 
 // SplitYAMLDocuments reads the YAML bytes per-document, unmarshals the TypeMeta information from each document
