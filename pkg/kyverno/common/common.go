@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
@@ -22,62 +23,56 @@ import (
 )
 
 // GetPolicies - Extracting the policies from multiple YAML
-func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, error error) {
+func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) {
 	for _, path := range paths {
+		log.Log.V(5).Info("reading policies", "path", path)
+
 		path = filepath.Clean(path)
 		fileDesc, err := os.Stat(path)
 		if err != nil {
-			return nil, err
+			errors = append(errors, err)
+			continue
 		}
+
 		if fileDesc.IsDir() {
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
-				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
+				errors = append(errors, fmt.Errorf("failed to read %v: %v", path, err.Error()))
+				continue
 			}
+
 			listOfFiles := make([]string, 0)
 			for _, file := range files {
-				listOfFiles = append(listOfFiles, filepath.Join(path, file.Name()))
-			}
-			policiesFromDir, err := GetPolicies(listOfFiles)
-			if err != nil {
-				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to extract policies from %v", listOfFiles), err)
-			}
-
-			policies = append(policies, policiesFromDir...)
-		} else {
-			file, err := ioutil.ReadFile(path)
-			if err != nil {
-				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to load file %v", path), err)
-			}
-			getPolicies, getErrors := utils.GetPolicy(file)
-			var errString string
-			for _, err := range getErrors {
-				if err != nil {
-					errString += err.Error() + "\n"
+				ext := filepath.Ext(file.Name())
+				if ext == "" || ext == ".yaml" || ext == ".yml" {
+					listOfFiles = append(listOfFiles, filepath.Join(path, file.Name()))
 				}
 			}
-			if errString != "" {
-				fmt.Printf("failed to extract policies: %s\n", errString)
-				os.Exit(2)
+
+			policiesFromDir, errorsFromDir := GetPolicies(listOfFiles)
+			errors = append(errors, errorsFromDir...)
+			policies = append(policies, policiesFromDir...)
+
+		} else {
+			fileBytes, err := ioutil.ReadFile(path)
+			if err != nil {
+				errors = append(errors, fmt.Errorf("failed to read %v: %v", path, err.Error()))
+				continue
 			}
 
-			policies = append(policies, getPolicies...)
+			policiesFromFile, errFromFile := utils.GetPolicy(fileBytes)
+			if errFromFile != nil {
+				err := fmt.Errorf("failed to process %s: %v", path, errFromFile.Error())
+				errors = append(errors, err)
+				continue
+			}
+
+			policies = append(policies, policiesFromFile...)
 		}
 	}
 
-	return policies, nil
-}
-
-//ValidateAndGetPolicies - validating policies
-func ValidateAndGetPolicies(policyPaths []string) ([]*v1.ClusterPolicy, error) {
-	policies, err := GetPolicies(policyPaths)
-	if err != nil {
-		if !sanitizederror.IsErrorSanitized(err) {
-			return nil, sanitizederror.NewWithError((fmt.Sprintf("failed to parse %v path/s.", policyPaths)), err)
-		}
-		return nil, err
-	}
-	return policies, nil
+	log.Log.V(3).Info("read policies", "policies", len(policies), "errors", len(errors))
+	return policies, errors
 }
 
 // PolicyHasVariables - check for variables in the policy

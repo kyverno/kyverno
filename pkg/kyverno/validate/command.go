@@ -9,13 +9,13 @@ import (
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
-	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
-	yaml "sigs.k8s.io/yaml"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/yaml"
 )
 
 // Command returns validate command
@@ -27,12 +27,10 @@ func Command() *cobra.Command {
 		Short:   "Validates kyverno policies",
 		Example: "kyverno validate /path/to/policy.yaml /path/to/folderOfPolicies",
 		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
-			log := log.Log
-
 			defer func() {
 				if err != nil {
 					if !sanitizederror.IsErrorSanitized(err) {
-						log.Error(err, "failed to sanitize")
+						log.Log.Error(err, "failed to sanitize")
 						err = fmt.Errorf("internal error")
 					}
 				}
@@ -58,26 +56,22 @@ func Command() *cobra.Command {
 					}
 
 					yamlBytes := []byte(policyStr)
-					var getErrors []error
-					policies, getErrors = utils.GetPolicy(yamlBytes)
-					var errString string
-
-					for _, err := range getErrors {
-						if err != nil {
-							errString += err.Error() + "\n"
-						}
-					}
-					if errString != "" {
-						return sanitizederror.NewWithError("failed to extract the resources", errors.New(errString))
+					policies, err = utils.GetPolicy(yamlBytes)
+					if err != nil {
+						return sanitizederror.NewWithError("failed to parse policy", err)
 					}
 				}
 			} else {
-				policies, err = common.ValidateAndGetPolicies(policyPaths)
-				if err != nil {
-					if !sanitizederror.IsErrorSanitized(err) {
-						return sanitizederror.NewWithError("failed to mutate policies.", err)
+				policies, errs := common.GetPolicies(policyPaths)
+				if len(errs) > 0 && len(policies) == 0 {
+					return sanitizederror.NewWithErrors("failed to read policies", errs)
+				}
+
+				if len(errs) > 0 && log.Log.V(1).Enabled() {
+					fmt.Printf("ignoring errors: \n")
+					for _, e := range errs {
+						fmt.Printf("    %v \n", e.Error())
 					}
-					return err
 				}
 			}
 
@@ -109,7 +103,7 @@ func Command() *cobra.Command {
 				} else {
 					fmt.Printf("Policy %s is valid.\n\n", policy.Name)
 					if outputType != "" {
-						logger := log.WithName("validate")
+						logger := log.Log.WithName("validate")
 						p, err := common.MutatePolicy(policy, logger)
 						if err != nil {
 							if !sanitizederror.IsErrorSanitized(err) {
