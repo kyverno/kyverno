@@ -124,7 +124,7 @@ func TestValidate_image_tag_fail(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	msgs := []string{
-		"Validation rule 'validate-tag' succeeded.",
+		"Validation rule 'validate-tag' passed.",
 		"Validation error: imagePullPolicy 'Always' required with tag 'latest'; Validation rule validate-latest failed at path /spec/containers/0/imagePullPolicy/",
 	}
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
@@ -223,8 +223,8 @@ func TestValidate_image_tag_pass(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	msgs := []string{
-		"Validation rule 'validate-tag' succeeded.",
-		"Validation rule 'validate-latest' succeeded.",
+		"validation rule 'validate-tag' passed.",
+		"validation rule 'validate-latest' passed.",
 	}
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
 	for index, r := range er.PolicyResponse.Rules {
@@ -473,7 +473,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	msgs := []string{"Validation rule 'validate-host-path' succeeded."}
+	msgs := []string{"validation rule 'validate-host-path' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -631,7 +631,7 @@ func TestValidate_anchor_map_notfound(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	msgs := []string{"Validation rule 'pod rule 2' succeeded."}
+	msgs := []string{"validation rule 'pod rule 2' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -704,7 +704,7 @@ func TestValidate_anchor_map_found_valid(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	msgs := []string{"Validation rule 'pod rule 2' succeeded."}
+	msgs := []string{"validation rule 'pod rule 2' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -852,7 +852,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	msgs := []string{"Validation rule 'pod image rule' succeeded."}
+	msgs := []string{"validation rule 'pod image rule' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		t.Log(r.Message)
@@ -927,11 +927,6 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	// msgs := []string{"Validation rule 'pod image rule' failed at '/spec/containers/1/name/' for resource Pod//myapp-pod."}
-	// for index, r := range er.PolicyResponse.Rules {
-	// 	// t.Log(r.Message)
-	// 	assert.Equal(t, r.Message, msgs[index])
-	// }
 	assert.Assert(t, !er.IsSuccessful())
 }
 
@@ -1002,12 +997,6 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	// msgs := []string{"Validation rule 'pod image rule' failed at '/spec/containers/' for resource Pod//myapp-pod."}
-
-	// for index, r := range er.PolicyResponse.Rules {
-	// 	t.Log(r.Message)
-	// 	assert.Equal(t, r.Message, msgs[index])
-	// }
 	assert.Assert(t, !er.IsSuccessful())
 }
 
@@ -1078,7 +1067,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	msgs := []string{"Validation rule 'pod image rule' succeeded."}
+	msgs := []string{"validation rule 'pod image rule' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -1253,7 +1242,7 @@ func TestValidate_negationAnchor_pass(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(PolicyContext{Policy: policy, NewResource: *resourceUnstructured})
-	msgs := []string{"Validation rule 'validate-host-path' succeeded."}
+	msgs := []string{"validation rule 'validate-host-path' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -1421,7 +1410,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfies(t *t
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
 	assert.Assert(t, er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "Validation rule 'test-path-not-exist' anyPattern[1] succeeded.")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "validation rule 'test-path-not-exist' anyPattern[1] passed.")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *testing.T) {
@@ -1605,7 +1594,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 
 	// expectedMsg := "Validation error: ; Validation rule test-path-not-exist anyPattern[0] failed at path /spec/template/spec/containers/0/name/. Validation rule test-path-not-exist anyPattern[1] failed at path /spec/template/spec/containers/0/name/."
 	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "Validation rule 'test-path-not-exist' has failed")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "validation rule 'test-path-not-exist' has failed")
 }
 
 func Test_denyFeatureIssue744(t *testing.T) {
