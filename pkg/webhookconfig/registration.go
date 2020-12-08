@@ -3,10 +3,11 @@ package webhookconfig
 import (
 	"errors"
 	"fmt"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"sync"
 	"time"
+
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -51,12 +52,14 @@ func NewRegister(
 	}
 }
 
-// Register creates admission webhooks configs on cluster
+// Register clean up the old webhooks and re-creates admission webhooks configs on cluster
 func (wrc *Register) Register() error {
 	logger := wrc.log
 	if wrc.serverIP != "" {
 		logger.Info("Registering webhook", "url", fmt.Sprintf("https://%s", wrc.serverIP))
 	}
+
+	wrc.removeWebhookConfigurations()
 
 	errors := make([]string, 0)
 	if err := wrc.createVerifyMutatingWebhookConfiguration(); err != nil {
