@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
@@ -197,6 +198,10 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 
 		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
 			ruleResponse := validatePatterns(log, ctx, resource, rule)
+			if common.IsConditionalAnchorError(ruleResponse.Message) {
+				continue
+			}
+
 			incrementAppliedCount(resp)
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 		}
