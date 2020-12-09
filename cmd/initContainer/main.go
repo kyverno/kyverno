@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/signal"
@@ -321,7 +320,7 @@ func removeReportChangeRequest(client *client.Client, kind string) error {
 func removeClusterReportChangeRequest(client *client.Client, kind string) error {
 	crcrList, err := client.ListResource("", kind, "", nil)
 	if err != nil && !errors.IsNotFound(err) {
-		logger.Error(err, "failed to list clusterReportChangeRequest")
+		log.Log.Error(err, "failed to list clusterReportChangeRequest")
 		return nil
 	}
 
@@ -334,13 +333,13 @@ func removeClusterReportChangeRequest(client *client.Client, kind string) error 
 func removeViolationCRD(client *client.Client) error {
 	if err := client.DeleteResource("", "CustomResourceDefinition", "", "policyviolations.kyverno.io", false); err != nil {
 		if !errors.IsNotFound(err) {
-			logger.Error(err, "failed to delete CRD policyViolation")
+			log.Log.Error(err, "failed to delete CRD policyViolation")
 		}
 	}
 
 	if err := client.DeleteResource("", "CustomResourceDefinition", "", "clusterpolicyviolations.kyverno.io", false); err != nil {
 		if !errors.IsNotFound(err) {
-			logger.Error(err, "failed to delete CRD clusterPolicyViolation")
+			log.Log.Error(err, "failed to delete CRD clusterPolicyViolation")
 		}
 	}
 	return nil
@@ -362,9 +361,9 @@ func deleteResource(client *client.Client, apiversion, kind, ns, name string, wg
 
 	err := client.DeleteResource(apiversion, kind, ns, name, false)
 	if err != nil && !errors.IsNotFound(err) {
-		logger.Error(err, "failed to delete resource", "kind", kind, "name", name)
+		log.Log.Error(err, "failed to delete resource", "kind", kind, "name", name)
 		return
 	}
 
-	logger.Info("successfully cleaned up resource", "kind", kind, "name", name)
+	log.Log.Info("successfully cleaned up resource", "kind", kind, "name", name)
 }

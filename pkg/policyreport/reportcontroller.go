@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"sync"
 
 	"github.com/go-logr/logr"
 	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
@@ -569,19 +568,13 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 func (g *ReportGenerator) cleanupReportRequests(requestsGeneral interface{}) {
 	defer g.log.V(5).Info("successfully cleaned up report requests")
 	if requests, ok := requestsGeneral.([]*changerequest.ReportChangeRequest); ok {
-		var wg sync.WaitGroup
-		wg.Add(len(requests))
 		for _, request := range requests {
-			go func(request *changerequest.ReportChangeRequest) {
-				if err := g.dclient.DeleteResource(request.APIVersion, "ReportChangeRequest", config.KyvernoNamespace, request.Name, false); err != nil {
-					if !apierrors.IsNotFound(err) {
-						g.log.Error(err, "failed to delete report request")
-					}
+			if err := g.dclient.DeleteResource(request.APIVersion, "ReportChangeRequest", config.KyvernoNamespace, request.Name, false); err != nil {
+				if !apierrors.IsNotFound(err) {
+					g.log.Error(err, "failed to delete report request")
 				}
-				wg.Done()
-			}(request)
+			}
 		}
-		wg.Wait()
 	}
 
 	if requests, ok := requestsGeneral.([]*changerequest.ClusterReportChangeRequest); ok {
