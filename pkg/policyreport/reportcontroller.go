@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
@@ -243,8 +245,12 @@ func (g *ReportGenerator) syncHandler(key string) error {
 	}
 
 	var old interface{}
-	if old, err = g.createReportIfNotPresent(namespace, new, aggregatedRequests); err != nil || old == nil {
+	if old, err = g.createReportIfNotPresent(namespace, new, aggregatedRequests); err != nil {
 		return err
+	}
+	if old == nil {
+		g.cleanupReportRequests(aggregatedRequests)
+		return nil
 	}
 
 	if err := g.updateReport(old, new, aggregatedRequests); err != nil {
@@ -260,10 +266,16 @@ func (g *ReportGenerator) syncHandler(key string) error {
 func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstructured.Unstructured, aggregatedRequests interface{}) (report interface{}, err error) {
 	log := g.log.WithName("createReportIfNotPresent")
 	if namespace != "" {
-		if ns, err := g.nsLister.Get(namespace); err == nil {
-			if ns.GetDeletionTimestamp() != nil {
+		ns, err := g.nsLister.Get(namespace)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
 				return nil, nil
 			}
+			return nil, fmt.Errorf("failed to fetch namespace: %v", err)
+		}
+
+		if ns.GetDeletionTimestamp() != nil {
+			return nil, nil
 		}
 
 		report, err = g.reportLister.PolicyReports(namespace).Get(generatePolicyReportName((namespace)))
@@ -395,6 +407,10 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 			if !apierrors.IsNotFound(err) {
 				return nil, nil, fmt.Errorf("unable to get namespace %s: %v", namespace, err)
 			}
+			// Namespace is deleted, create a fake ns to clean up RCRs
+			ns = new(v1.Namespace)
+			ns.SetName(namespace)
+			ns.SetDeletionTimestamp(&metav1.Time{time.Now()})
 		}
 
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{resourceLabelNamespace: namespace}))
@@ -465,6 +481,7 @@ func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured
 
 		req := &unstructured.Unstructured{Object: obj}
 		setReport(req, ns)
+
 		return req, aggregatedRequests, nil
 	}
 
@@ -552,13 +569,19 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 func (g *ReportGenerator) cleanupReportRequests(requestsGeneral interface{}) {
 	defer g.log.V(5).Info("successfully cleaned up report requests")
 	if requests, ok := requestsGeneral.([]*changerequest.ReportChangeRequest); ok {
+		var wg sync.WaitGroup
+		wg.Add(len(requests))
 		for _, request := range requests {
-			if err := g.dclient.DeleteResource(request.APIVersion, "ReportChangeRequest", config.KyvernoNamespace, request.Name, false); err != nil {
-				if !apierrors.IsNotFound(err) {
-					g.log.Error(err, "failed to delete report request")
+			go func(request *changerequest.ReportChangeRequest) {
+				if err := g.dclient.DeleteResource(request.APIVersion, "ReportChangeRequest", config.KyvernoNamespace, request.Name, false); err != nil {
+					if !apierrors.IsNotFound(err) {
+						g.log.Error(err, "failed to delete report request")
+					}
 				}
-			}
+				wg.Done()
+			}(request)
 		}
+		wg.Wait()
 	}
 
 	if requests, ok := requestsGeneral.([]*changerequest.ClusterReportChangeRequest); ok {
