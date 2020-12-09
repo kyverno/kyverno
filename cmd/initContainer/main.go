@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
@@ -292,14 +293,21 @@ func removePolicyReport(client *client.Client, kind string) error {
 			fmt.Sprintf("pr-ns-%s", ns.GetName()),
 		}
 
+		var wg sync.WaitGroup
+		wg.Add(len(reportNames))
 		for _, reportName := range reportNames {
-			err := client.DeleteResource("", kind, ns.GetName(), reportName, false)
-			if err != nil && !errors.IsNotFound(err) {
-				logger.Error(err, "failed to delete resource", "kind", kind, "name", reportName)
-			} else {
-				logger.Info("successfully cleaned up resource", "kind", kind, "name", reportName)
-			}
+			go func(reportName string) {
+				err := client.DeleteResource("", kind, ns.GetName(), reportName, false)
+				if err != nil && !errors.IsNotFound(err) {
+					logger.Error(err, "failed to delete resource", "kind", kind, "name", reportName)
+				} else {
+					logger.Info("successfully cleaned up resource", "kind", kind, "name", reportName)
+				}
+
+				wg.Done()
+			}(reportName)
 		}
+		wg.Wait()
 	}
 
 	return nil
@@ -315,13 +323,21 @@ func removeReportChangeRequest(client *client.Client, kind string) error {
 		return nil
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(len(rcrList.Items))
 	for _, rcr := range rcrList.Items {
-		if err := client.DeleteResource(rcr.GetAPIVersion(), rcr.GetKind(), rcr.GetNamespace(), rcr.GetName(), false); err != nil {
-			logger.Error(err, "failed to delete reportChangeRequest", "name", rcr.GetName())
-		} else {
-			logger.Info("successfully cleaned up reportChangeRequest", "name", rcr.GetName())
-		}
+		go func(rcr unstructured.Unstructured) {
+			err := client.DeleteResource(rcr.GetAPIVersion(), rcr.GetKind(), rcr.GetNamespace(), rcr.GetName(), false)
+			if err != nil && !errors.IsNotFound(err) {
+				logger.Error(err, "failed to delete reportChangeRequest", "name", rcr.GetName())
+			} else {
+				logger.Info("successfully cleaned up reportChangeRequest", "name", rcr.GetName())
+			}
+
+			wg.Done()
+		}(rcr)
 	}
+	wg.Wait()
 	return nil
 }
 
@@ -333,7 +349,8 @@ func removeClusterReportChangeRequest(client *client.Client, kind string) error 
 	}
 
 	for _, crcr := range crcrList.Items {
-		if err := client.DeleteResource(crcr.GetAPIVersion(), crcr.GetKind(), "", crcr.GetName(), false); err != nil {
+		err := client.DeleteResource(crcr.GetAPIVersion(), crcr.GetKind(), "", crcr.GetName(), false)
+		if err != nil && !errors.IsNotFound(err) {
 			logger.Error(err, "failed to delete clusterReportChangeRequest", "name", crcr.GetName())
 		} else {
 			logger.Info("successfully cleaned up clusterReportChangeRequest")
