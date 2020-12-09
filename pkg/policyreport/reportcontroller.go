@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/go-logr/logr"
 	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
@@ -410,7 +409,8 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 			// Namespace is deleted, create a fake ns to clean up RCRs
 			ns = new(v1.Namespace)
 			ns.SetName(namespace)
-			ns.SetDeletionTimestamp(&metav1.Time{time.Now()})
+			now := metav1.Now()
+			ns.SetDeletionTimestamp(&now)
 		}
 
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{resourceLabelNamespace: namespace}))
