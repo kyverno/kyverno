@@ -3,7 +3,6 @@ package validate
 import (
 	"errors"
 	"fmt"
-	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"path"
 	"reflect"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
+	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 )
 
 // ValidateResourceWithPattern is a start of element-by-element validation process
@@ -23,6 +23,10 @@ func ValidateResourceWithPattern(log logr.Logger, resource, pattern interface{})
 	ac := common.NewAnchorMap()
 	elemPath, err := validateResourceElement(log, resource, pattern, pattern, "/", ac)
 	if err != nil {
+		if common.IsConditionalAnchorError(err.Error()) {
+			return "", nil
+		}
+
 		if !ac.IsAnchorError() {
 			return elemPath, err
 		}
@@ -102,17 +106,12 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 		if err != nil {
 			// If Conditional anchor fails then we don't process the resources
 			if commonAnchors.IsConditionAnchor(key) {
-				ac.AnchorError = err
-				log.Error(err, "condition anchor did not satisfy, wont process the resource")
-				return "", nil
+				ac.AnchorError = common.NewConditionalAnchorError(fmt.Sprintf("condition anchor did not satisfy: %s", err.Error()))
+				log.V(3).Info(ac.AnchorError.Message)
+				return "", ac.AnchorError.Error()
 			}
 			return handlerPath, err
 		}
-	}
-
-	// If anchor fails then succeed validate and skip further validation of recursion
-	if ac.AnchorError != nil {
-		return "", nil
 	}
 
 	// Evaluate resources
@@ -150,6 +149,9 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 				currentPath := path + strconv.Itoa(i) + "/"
 				elemPath, err := validateResourceElement(log, resourceArray[i], patternElement, originPattern, currentPath, ac)
 				if err != nil {
+					if common.IsConditionalAnchorError(err.Error()) {
+						continue
+					}
 					return elemPath, err
 				}
 			}
@@ -283,6 +285,9 @@ func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patter
 		currentPath := path + strconv.Itoa(i) + "/"
 		returnpath, err := validateResourceElement(log, resourceElement, patternMap, originPattern, currentPath, ac)
 		if err != nil {
+			if common.IsConditionalAnchorError(err.Error()) {
+				continue
+			}
 			return returnpath, err
 		}
 	}

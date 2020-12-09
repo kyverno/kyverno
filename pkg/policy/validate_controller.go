@@ -395,7 +395,9 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	} else {
 		var nspolicy *kyverno.Policy
 		nspolicy, err = pc.npLister.Policies(namespace).Get(key)
-		policy = ConvertPolicyToClusterPolicy(nspolicy)
+		if err == nil && nspolicy != nil {
+			policy = ConvertPolicyToClusterPolicy(nspolicy)
+		}
 	}
 
 	if err != nil {

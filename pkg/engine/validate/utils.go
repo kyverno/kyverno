@@ -37,8 +37,9 @@ func getSortedNestedAnchorResource(resources map[string]interface{}) *list.List 
 	for k, v := range resources {
 		if hasNestedAnchors(v) {
 			sortedResourceKeys.PushFront(k)
+		} else {
+			sortedResourceKeys.PushBack(k)
 		}
-		sortedResourceKeys.PushBack(k)
 	}
 	return sortedResourceKeys
 }
