@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"os"
 	"reflect"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/constant"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -204,9 +202,8 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	}
 
 	logger.V(4).Info("updating policy", "name", oldP.Name)
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		pc.enqueueDeletedRule(oldP, curP)
-	}
+
+	pc.enqueueDeletedRule(oldP, curP)
 	pc.enqueuePolicy(curP)
 }
 
@@ -259,9 +256,8 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	}
 
 	logger.V(4).Info("updating namespace policy", "namespace", oldP.Namespace, "name", oldP.Name)
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		pc.enqueueDeletedRule(ConvertPolicyToClusterPolicy(oldP), ncurP)
-	}
+
+	pc.enqueueDeletedRule(ConvertPolicyToClusterPolicy(oldP), ncurP)
 	pc.enqueuePolicy(ncurP)
 }
 

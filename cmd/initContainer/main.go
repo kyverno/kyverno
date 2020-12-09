@@ -266,11 +266,7 @@ func removeClusterPolicyReport(client *client.Client, kind string) error {
 	}
 
 	for _, cpolr := range cpolrs.Items {
-		if err := client.DeleteResource(cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName(), false); err != nil {
-			logger.Error(err, "failed to delete clusterPolicyReport", "name", cpolr.GetName())
-		} else {
-			logger.Info("successfully cleaned up ClusterPolicyReport")
-		}
+		deleteResource(client, cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName(), nil)
 	}
 	return nil
 }
@@ -292,14 +288,12 @@ func removePolicyReport(client *client.Client, kind string) error {
 			fmt.Sprintf("pr-ns-%s", ns.GetName()),
 		}
 
+		var wg sync.WaitGroup
+		wg.Add(len(reportNames))
 		for _, reportName := range reportNames {
-			err := client.DeleteResource("", kind, ns.GetName(), reportName, false)
-			if err != nil && !errors.IsNotFound(err) {
-				logger.Error(err, "failed to delete resource", "kind", kind, "name", reportName)
-			} else {
-				logger.Info("successfully cleaned up resource", "kind", kind, "name", reportName)
-			}
+			go deleteResource(client, "", kind, ns.GetName(), reportName, &wg)
 		}
+		wg.Wait()
 	}
 
 	return nil
@@ -315,13 +309,12 @@ func removeReportChangeRequest(client *client.Client, kind string) error {
 		return nil
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(len(rcrList.Items))
 	for _, rcr := range rcrList.Items {
-		if err := client.DeleteResource(rcr.GetAPIVersion(), rcr.GetKind(), rcr.GetNamespace(), rcr.GetName(), false); err != nil {
-			logger.Error(err, "failed to delete reportChangeRequest", "name", rcr.GetName())
-		} else {
-			logger.Info("successfully cleaned up reportChangeRequest", "name", rcr.GetName())
-		}
+		go deleteResource(client, rcr.GetAPIVersion(), rcr.GetKind(), rcr.GetNamespace(), rcr.GetName(), &wg)
 	}
+	wg.Wait()
 	return nil
 }
 
@@ -333,11 +326,7 @@ func removeClusterReportChangeRequest(client *client.Client, kind string) error 
 	}
 
 	for _, crcr := range crcrList.Items {
-		if err := client.DeleteResource(crcr.GetAPIVersion(), crcr.GetKind(), "", crcr.GetName(), false); err != nil {
-			logger.Error(err, "failed to delete clusterReportChangeRequest", "name", crcr.GetName())
-		} else {
-			logger.Info("successfully cleaned up clusterReportChangeRequest")
-		}
+		deleteResource(client, crcr.GetAPIVersion(), crcr.GetKind(), "", crcr.GetName(), nil)
 	}
 	return nil
 }
@@ -364,4 +353,18 @@ func getKyvernoNameSpace() string {
 		kyvernoNamespace = "kyverno"
 	}
 	return kyvernoNamespace
+}
+
+func deleteResource(client *client.Client, apiversion, kind, ns, name string, wg *sync.WaitGroup) {
+	if wg != nil {
+		defer wg.Done()
+	}
+
+	err := client.DeleteResource(apiversion, kind, ns, name, false)
+	if err != nil && !errors.IsNotFound(err) {
+		logger.Error(err, "failed to delete resource", "kind", kind, "name", name)
+		return
+	}
+
+	logger.Info("successfully cleaned up resource", "kind", kind, "name", name)
 }
