@@ -241,20 +241,6 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		Expect(rbRes.GetName()).To(Equal(tests.RoleBindingName))
 		// ============================================
 
-		// If Sync=true, Verify that an Error will occur on deletion of created resources
-		if tests.Sync {
-
-			// Delete generated RoleBinding and It'll Fail
-			By(fmt.Sprintf("Sync : Delete RoleBinding as Namespace %s", tests.ResourceNamespace))
-			err = e2eClient.DeleteNamespacedResource(rbGVR, tests.ResourceNamespace, tests.RoleBindingName)
-			Expect(err).To(HaveOccurred())
-
-			// Delete generated Role and It'll Fail
-			By(fmt.Sprintf("Sync : Delete Role as Namespace %s", tests.ResourceNamespace))
-			err = e2eClient.DeleteNamespacedResource(rGVR, tests.ResourceNamespace, tests.RoleName)
-			Expect(err).To(HaveOccurred())
-		}
-
 		// ======= CleanUp Resources =====
 		e2eClient.CleanClusterPolicies(clPolGVR)
 
