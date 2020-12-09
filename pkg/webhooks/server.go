@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	context2 "github.com/kyverno/kyverno/pkg/engine/context"
-	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
@@ -33,7 +32,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
@@ -364,19 +362,7 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 }
 
 func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	logger := ws.log.WithName("resourceValidation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
-
-	if request.Operation == v1beta1.Delete || request.Operation == v1beta1.Update {
-		if err := ws.excludeKyvernoResources(request); err != nil {
-			return &v1beta1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Status:  "Failure",
-					Message: err.Error(),
-				},
-			}
-		}
-	}
+	logger := ws.log.WithName("Validate").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 
 	if !ws.supportMutateValidate {
 		logger.Info("mutate and validate rules are not supported prior to Kubernetes 1.14.0")
@@ -538,35 +524,4 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 	}
 
 	return admissionReview
-}
-
-// excludeKyvernoResources will check resource can have access or not
-func (ws *WebhookServer) excludeKyvernoResources(request *v1beta1.AdmissionRequest) error {
-	logger := ws.log.WithName("resourceValidation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
-
-	var resource *unstructured.Unstructured
-	var err error
-	if request.Operation == v1beta1.Delete {
-		resource, err = enginutils.ConvertToUnstructured(request.OldObject.Raw)
-	} else if request.Operation == v1beta1.Update {
-		resource, err = enginutils.ConvertToUnstructured(request.Object.Raw)
-	}
-	if err != nil {
-		logger.Error(err, "failed to convert object resource to unstructured format")
-		return err
-	}
-
-	labels := resource.GetLabels()
-	if labels["app.kubernetes.io/managed-by"] == "kyverno" && labels["policy.kyverno.io/synchronize"] == "enable" {
-		isAuthorized, err := userinfo.IsRoleAuthorize(ws.rbLister, ws.crbLister, ws.rLister, ws.crLister, request, ws.configHandler)
-		if err != nil {
-			return fmt.Errorf("failed to get RBAC information for request %v", err)
-		}
-
-		if !isAuthorized {
-			return fmt.Errorf("resource is managed by a Kyverno policy and cannot be update manually. You can edit the policy %s to update this resource", labels["policy.kyverno.io/policy-name"])
-		}
-	}
-
-	return nil
 }
