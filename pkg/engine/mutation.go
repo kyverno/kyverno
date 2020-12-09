@@ -39,7 +39,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 	defer endMutateResultResponse(logger, &resp, startTime)
 
 	if SkipPolicyApplication(policy, patchedResource) {
-		logger.V(5).Info("Skip applying policy, Pod has ownerRef set", "policy", policy.GetName())
+		logger.V(5).Info("skip applying policy as direct changes to pods managed by workload controllers are not allowed", "policy", policy.GetName())
 		resp.PatchedResource = patchedResource
 		return
 	}
