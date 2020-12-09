@@ -2,7 +2,6 @@ package policyreport
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -10,7 +9,6 @@ import (
 	request "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
@@ -52,12 +50,7 @@ func GeneratePRsFromEngineResponse(ers []response.EngineResponse, log logr.Logge
 			log.V(4).Info("resource does no have a name assigned yet, not creating a policy violation", "resource", er.PolicyResponse.Resource)
 			continue
 		}
-		// skip when response succeed
-		if os.Getenv("POLICY-TYPE") != common.PolicyReport {
-			if er.IsSuccessful() {
-				continue
-			}
-		}
+
 		// build policy violation info
 		pvInfos = append(pvInfos, buildPVInfo(er))
 	}
@@ -220,11 +213,6 @@ func buildPVInfo(er response.EngineResponse) Info {
 func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
 	var violatedRules []kyverno.ViolatedRule
 	for _, rule := range er.PolicyResponse.Rules {
-		if os.Getenv("POLICY-TYPE") != common.PolicyReport {
-			if rule.Success {
-				continue
-			}
-		}
 		vrule := kyverno.ViolatedRule{
 			Name:    rule.Name,
 			Type:    rule.Type,

@@ -11,7 +11,6 @@ import (
 
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
@@ -79,9 +78,6 @@ func main() {
 	if profile {
 		go http.ListenAndServe("localhost:6060", nil)
 	}
-
-	// Policy report is enabled by default in Kyverno 1.3.0+
-	os.Setenv("POLICY-TYPE", common.PolicyReport)
 
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
