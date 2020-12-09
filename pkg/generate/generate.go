@@ -380,39 +380,17 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		logger.V(2).Info("created resource")
 
 	} else if mode == Update {
-		var isUpdate bool
 		label := newResource.GetLabels()
-		isUpdate = false
-		if rule.Generation.Synchronize {
-			if label["policy.kyverno.io/synchronize"] == "enable" {
-				isUpdate = true
-			}
-		} else {
-			if label["policy.kyverno.io/synchronize"] == "disable" {
-				isUpdate = false
-			}
-		}
-
 		if rule.Generation.Synchronize {
 			label["policy.kyverno.io/synchronize"] = "enable"
 		} else {
 			label["policy.kyverno.io/synchronize"] = "disable"
 		}
 
-		if isUpdate {
+		if rule.Generation.Synchronize {
 			logger.V(4).Info("updating existing resource")
 			newResource.SetLabels(label)
 			_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
-			if err != nil {
-				logger.Error(err, "updating existing resource")
-				return noGenResource, err
-			}
-			logger.V(2).Info("updated generated resource")
-		} else {
-			resource := &unstructured.Unstructured{}
-			resource.SetUnstructuredContent(rdata)
-			resource.SetLabels(label)
-			_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, resource, false)
 			if err != nil {
 				logger.Error(err, "updating existing resource")
 				return noGenResource, err
