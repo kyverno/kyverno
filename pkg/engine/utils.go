@@ -45,12 +45,18 @@ func checkName(name, resourceName string) bool {
 	return wildcard.Match(name, resourceName)
 }
 
-func checkNameSpace(namespaces []string, resourceNameSpace string) bool {
+func checkNameSpace(namespaces []string, resource unstructured.Unstructured) bool {
+	resourceNameSpace := resource.GetNamespace()
+	if resource.GetKind() == "Namespace" {
+		resourceNameSpace = resource.GetName()
+	}
+
 	for _, namespace := range namespaces {
 		if wildcard.Match(namespace, resourceNameSpace) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -108,26 +114,31 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 // should be: OR (across & inside) attributes
 func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string) []error {
 	var errs []error
+
 	if len(conditionBlock.Kinds) > 0 {
 		if !checkKind(conditionBlock.Kinds, resource.GetKind()) {
 			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}
+
 	if conditionBlock.Name != "" {
 		if !checkName(conditionBlock.Name, resource.GetName()) {
 			errs = append(errs, fmt.Errorf("name does not match"))
 		}
 	}
+
 	if len(conditionBlock.Namespaces) > 0 {
-		if !checkNameSpace(conditionBlock.Namespaces, resource.GetNamespace()) {
+		if !checkNameSpace(conditionBlock.Namespaces, resource) {
 			errs = append(errs, fmt.Errorf("namespace does not match"))
 		}
 	}
+
 	if len(conditionBlock.Annotations) > 0 {
 		if !checkAnnotations(conditionBlock.Annotations, resource.GetAnnotations()) {
 			errs = append(errs, fmt.Errorf("annotations does not match"))
 		}
 	}
+
 	if conditionBlock.Selector != nil {
 		hasPassed, err := checkSelector(conditionBlock.Selector, resource.GetLabels())
 		if err != nil {
