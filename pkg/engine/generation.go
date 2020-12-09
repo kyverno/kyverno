@@ -32,6 +32,8 @@ func Generate(policyContext PolicyContext) (resp response.EngineResponse) {
 	return filterRules(policy, new, old, admissionInfo, ctx, logger, policyContext.ExcludeGroupRole, resCache, jsonContext)
 }
 
+// filterRule checks if a rule matches the rule selection criteria.
+//
 func filterRule(rule kyverno.Rule, new, old unstructured.Unstructured, admissionInfo kyverno.RequestInfo, ctx context.EvalInterface, log logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context) *response.RuleResponse {
 	if !rule.HasGenerate() {
 		return nil
@@ -67,6 +69,7 @@ func filterRule(rule kyverno.Rule, new, old unstructured.Unstructured, admission
 		log.V(4).Info("preconditions not satisfied, skipping rule", "rule", rule.Name)
 		return nil
 	}
+
 	// build rule Response
 	return &response.RuleResponse{
 		Name:    rule.Name,
@@ -89,10 +92,12 @@ func filterRules(policy kyverno.ClusterPolicy, new, old unstructured.Unstructure
 			},
 		},
 	}
+
 	for _, rule := range policy.Spec.Rules {
 		if ruleResp := filterRule(rule, new, old, admissionInfo, ctx, log, excludeGroupRole, resCache, jsonContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}
+
 	return resp
 }
