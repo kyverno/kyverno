@@ -43,6 +43,9 @@ type WebhookServer struct {
 	client        *client.Client
 	kyvernoClient *kyvernoclient.Clientset
 
+	// grLister can list/get generate request from the shared informer's store
+	grLister kyvernolister.GenerateRequestNamespaceLister
+
 	// list/get cluster policy resource
 	pLister kyvernolister.ClusterPolicyLister
 
@@ -118,6 +121,7 @@ func NewWebhookServer(
 	kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	tlsPair *tlsutils.PemPair,
+	grInformer kyvernoinformer.GenerateRequestInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
@@ -153,6 +157,7 @@ func NewWebhookServer(
 	ws := &WebhookServer{
 		client:        client,
 		kyvernoClient: kyvernoClient,
+		grLister:      grInformer.Lister().GenerateRequests(config.KyvernoNamespace),
 		pLister:       pInformer.Lister(),
 		pSynced:       pInformer.Informer().HasSynced,
 		rbLister:      rbInformer.Lister(),
