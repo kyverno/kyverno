@@ -121,8 +121,19 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 		// gr.Status.State = kyverno.Pending
 		// generate requests created in kyverno namespace
 		isExist := false
-		if action == v1beta1.Create || action == v1beta1.Update {
-
+		if action == v1beta1.Create {
+			gr.SetGenerateName("gr-")
+			gr.SetLabels(map[string]string{
+				"policy":    grSpec.Policy,
+				"name":      grSpec.Resource.Name,
+				"kind":      grSpec.Resource.Kind,
+				"namespace": grSpec.Resource.Namespace,
+			})
+			_, err = client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Create(context.TODO(), &gr, metav1.CreateOptions{})
+			if err != nil {
+				return err
+			}
+		} else if action == v1beta1.Update {
 			log.V(4).Info("querying all generate requests")
 			grList, err := client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
@@ -147,12 +158,32 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 			}
 			if !isExist {
 				gr.SetGenerateName("gr-")
+				gr.SetLabels(map[string]string{
+					"policy":    grSpec.Policy,
+					"name":      grSpec.Resource.Name,
+					"kind":      grSpec.Resource.Kind,
+					"namespace": grSpec.Resource.Namespace,
+				})
 				_, err = client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Create(context.TODO(), &gr, metav1.CreateOptions{})
 				if err != nil {
 					return err
 				}
 			}
 		}
+
+		// Remove this later........
+		// selector := labels.SelectorFromSet(labels.Set(map[string]string{
+		// 	"policy":    grSpec.Policy,
+		// 	"name":      grSpec.Resource.Name,
+		// 	"kind":      grSpec.Resource.Kind,
+		// 	"namespace": grSpec.Resource.Namespace,
+		// }))
+		// requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).List(selector)
+
+		// fmt.Println("++++++++++++++++++++++++++")
+		// gR, _ := json.Marshal(getGR)
+		// fmt.Println("GR:               ", string(gR))
+		// fmt.Println("++++++++++++++++++++++++++")
 
 		log.V(4).Info("retrying update generate request CR", "retryCount", i, "name", gr.GetGenerateName(), "namespace", gr.GetNamespace())
 		i++
