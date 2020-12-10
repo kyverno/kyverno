@@ -48,7 +48,7 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 
 	for i, rule := range p.Spec.Rules {
 		if jsonPatchOnPod(rule) {
-			log.Log.Info("warning: direct changes to pods managed by workload controllers are not allowed")
+			log.Log.V(1).Info("warning: pods managed by workload controllers cannot be mutated using policies. Use the auto-gen feature or write policies that match pod controllers.")
 		}
 		// validate resource description
 		if path, err := validateResources(rule); err != nil {
