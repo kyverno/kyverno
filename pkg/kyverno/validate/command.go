@@ -9,7 +9,7 @@ import (
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
-	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -47,6 +47,7 @@ func Command() *cobra.Command {
 			}
 
 			var policies []*v1.ClusterPolicy
+			var errs []error
 			if policyPaths[0] == "-" {
 				if common.IsInputFromPipe() {
 					policyStr := ""
@@ -62,7 +63,7 @@ func Command() *cobra.Command {
 					}
 				}
 			} else {
-				policies, errs := common.GetPolicies(policyPaths)
+				policies, errs = common.GetPolicies(policyPaths)
 				if len(errs) > 0 && len(policies) == 0 {
 					return sanitizederror.NewWithErrors("failed to read policies", errs)
 				}

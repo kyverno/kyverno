@@ -109,7 +109,7 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 func isRequestDenied(log logr.Logger, ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, admissionInfo kyverno.RequestInfo, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 	if SkipPolicyApplication(policy, resource) {
-		log.V(5).Info("Skip applying policy, Pod has ownerRef set", "policy", policy.GetName())
+		log.V(5).Info("skip applying policy as direct changes to pods managed by workload controllers are not allowed", "policy", policy.GetName())
 		return resp
 	}
 	excludeResource := []string{}
@@ -161,7 +161,7 @@ func validateResource(log logr.Logger, ctx context.EvalInterface, policy kyverno
 	resp := &response.EngineResponse{}
 
 	if SkipPolicyApplication(policy, resource) {
-		log.V(5).Info("Skip applying policy, Pod has ownerRef set", "policy", policy.GetName())
+		log.V(5).Info("skip applying policy as direct changes to pods managed by workload controllers are not allowed", "policy", policy.GetName())
 		return resp
 	}
 

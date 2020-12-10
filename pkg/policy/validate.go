@@ -47,7 +47,9 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 	}
 
 	for i, rule := range p.Spec.Rules {
-
+		if jsonPatchOnPod(rule) {
+			log.Log.V(1).Info("warning: pods managed by workload controllers cannot be mutated using policies. Use the auto-gen feature or write policies that match pod controllers.")
+		}
 		// validate resource description
 		if path, err := validateResources(rule); err != nil {
 			return fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
@@ -360,7 +362,7 @@ func isLabelAndAnnotationsString(rule kyverno.Rule) bool {
 	} else if rule.Validation.AnyPattern != nil {
 		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 		if err != nil {
-			log.Log.Error(err, "failed to deserialze anyPattern, expect type array")
+			log.Log.Error(err, "failed to deserialize anyPattern, expect type array")
 			return false
 		}
 
@@ -400,7 +402,7 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 
 	anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 	if err != nil {
-		log.Log.Error(err, "failed to deserialze anyPattern, expect type array")
+		log.Log.Error(err, "failed to deserialize anyPattern, expect type array")
 		return false
 	}
 
@@ -492,7 +494,7 @@ func validateRuleContext(rule kyverno.Rule) error {
 	return nil
 }
 
-// validateResourceDescription checks if all necesarry fields are present and have values. Also checks a Selector.
+// validateResourceDescription checks if all necessary fields are present and have values. Also checks a Selector.
 // field type is checked through openapi
 // Returns error if
 // - kinds is empty array in matched resource block, i.e. kinds: []
@@ -616,4 +618,17 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources [
 
 	}
 	return nil
+}
+
+// jsonPatchOnPod checks if a rule applies JSON patches to Pod
+func jsonPatchOnPod(rule kyverno.Rule) bool {
+	if !rule.HasMutate() {
+		return false
+	}
+
+	if containString(rule.MatchResources.Kinds, "Pod") && rule.Mutation.PatchesJSON6902 != "" {
+		return true
+	}
+
+	return false
 }
