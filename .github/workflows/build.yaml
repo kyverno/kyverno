@@ -8,38 +8,46 @@ on:
       - 'main'
 
 jobs:
-  releaser:
+  build-kyverno:
     runs-on: ubuntu-latest
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v2
-      -
-        name: Unshallow
+
+      - name: Unshallow
         run: git fetch --prune --unshallow
-      -
-        name: Set up Go
+
+      - name: Set up Go
         uses: actions/setup-go@v2
         with:
           go-version: 1.14
+
+      - name: run GoReleaser
+        uses: goreleaser/goreleaser-action@v2
+        with:
+          version: latest
+          args: --rm-dist --skip-publish --snapshot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: golangci-lint
+        uses: reviewdog/action-golangci-lint@v1
 
       - name: docker images build
         run: |
           make docker-build-all
 
-      - name :  Create Kind Cluster and setup kustomize
+      - name: Kyverno unit test
         run: |
-          make ci
+          export PROJECT_PATH=$(pwd)
+          make test-all
 
-      - name: e2e testing
-        run: |
-          echo ">>> Install Kyverno"
-          sed 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' ${GITHUB_WORKSPACE}/definitions/install.yaml | kubectl apply -f -
-          kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/rbac.yaml
-          chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
-          sleep 50
-          echo ">>> Check kyverno"
-          kubectl get pods -n kyverno
-          ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh -n kyverno  kyverno
-          echo ">>> Run Kyverno e2e test"
-          make test-e2e
+

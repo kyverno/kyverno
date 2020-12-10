@@ -1,9 +1,8 @@
-name: prereleaser
+name: releaser
 on:
-  push:
-    tags:
-      - 'v*'
-      - '!v*-rc*'
+  release:
+    types: 
+      - published
 jobs:
   release-cli-via-krew:
     runs-on: ubuntu-latest

@@ -116,13 +116,12 @@ docker-build-all: docker-build-initContainer docker-build-kyverno docker-build-c
 docker-tag-all: docker-tag-repo-initContainer docker-tag-repo-kyverno docker-tag-repo-cli
 
 ##################################
-# CI Testing
+# Create e2e Infrastruture
 ##################################
 
-ci:
-	echo "kustomize input"
-	chmod a+x $(PWD)/scripts/ci.sh
-	$(PWD)/scripts/ci.sh
+create-e2e-infrastruture:
+	chmod a+x $(PWD)/scripts/create-e2e-infrastruture.sh
+	$(PWD)/scripts/create-e2e-infrastruture.sh
 
 
 ##################################
