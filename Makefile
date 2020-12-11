@@ -173,15 +173,14 @@ godownloader:
 kustomize-crd:
 	# Create CRD for helm deployment Helm 
 	kustomize build ./definitions/crds > ./charts/kyverno/crds/crds.yaml
-	# Generate install.yaml that have all resources for kyverno
-	kustomize build ./definitions > ./definitions/install.yaml
-	# Generate install_debug.yaml that for developer testing
-	kustomize build ./definitions/debug > ./definitions/install_debug.yaml
 
 # guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
 release:
-	kustomize build ./definitions > ./definitions/install.yaml
-	kustomize build ./definitions > ./definitions/release/install.yaml
+	helm template kyverno ./charts/kyverno -n kyverno > ./definitions/stages/release/install.yaml
+	kustomize build ./definitions/stages/release > ./definitions/install.yaml
+	kustomize build ./definitions/stages/release > ./definitions/release/install.yaml
+	helm template kyverno ./charts/kyverno -f ./charts/kyverno/values-debug.yaml -n kyverno > ./definitions/stages/debug/install-debug.yaml
+	kustomize build ./definitions/stages/debug > ./definitions/install-debug.yaml
 
 kyverno-crd: controller-gen
 	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1alpha1 output:dir=./definitions/crds

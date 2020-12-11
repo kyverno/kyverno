@@ -2,13 +2,9 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-- ./crds/
-- ./manifest/
-- ./k8s-resource/
+- ./install.yaml
 images:
 - name: ghcr.io/kyverno/kyverno
-  newName: ghcr.io/kyverno/kyverno
-  newTag: v1.3.0-rc8
+  newTag: v1.3.0-rc8-11-g0c78bc72
 - name: ghcr.io/kyverno/kyvernopre
-  newName: ghcr.io/kyverno/kyvernopre
-  newTag: v1.3.0-rc8
+  newTag: v1.3.0-rc8-11-g0c78bc72

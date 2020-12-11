@@ -10,75 +10,7 @@ rbac:
     annotations: {}
     #   example.com/annotation: value
 
-debug: false
-
-image:
-  repository: ghcr.io/kyverno/kyverno
-  # Defaults to appVersion in Chart.yaml if omitted
-  tag:
-  pullPolicy: IfNotPresent
-  pullSecrets: []
-  # - secretName
-initImage:
-  repository: ghcr.io/kyverno/kyvernopre
-  # If initImage.tag is missing, defaults to image.tag
-  tag:
-  # If initImage.pullPolicy is missing, defaults to image.pullPolicy
-  pullPolicy:
-  # No pull secrets just for initImage; just add to image.pullSecrets
-
-replicaCount: 1
-
-podLabels: {}
-#   example.com/label: foo
-
-podAnnotations: {}
-#   example.com/annotation: foo
-
-podSecurityContext: {}
-
-affinity: {}
-nodeSelector: {}
-tolerations: []
-
-extraArgs: []
-# - --fqdn-as-cn
-# - --webhooktimeout=4
-
-resources:
-  limits:
-    memory: 128Mi
-  requests:
-    cpu: 100m
-    memory: 50Mi
-
-## Liveness Probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
-## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-##
-livenessProbe:
-  httpGet:
-    path: /health/liveness
-    port: 9443
-    scheme: HTTPS
-  initialDelaySeconds: 10
-  periodSeconds: 10
-  timeoutSeconds: 5
-  failureThreshold: 2
-  successThreshold: 1
-
-## Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
-## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-##
-readinessProbe:
-  httpGet:
-    path: /health/readiness
-    port: 9443
-    scheme: HTTPS
-  initialDelaySeconds: 5
-  periodSeconds: 10
-  timeoutSeconds: 5
-  failureThreshold: 6
-  successThreshold: 1
+debug: true
 
 # TODO(mbarrien): Should we just list all resources for the
 # generatecontroller in here rather than having defaults hard-coded?

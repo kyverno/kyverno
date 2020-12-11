@@ -1,29 +1,32 @@
 ---
-kind: Namespace
-apiVersion: v1
-metadata:
-    name: "kyverno"
----
-apiVersion: v1
-kind: Service
-metadata:
-  namespace: kyverno
-  name: kyverno-svc
-  labels:
-    app: kyverno
-spec:
-  ports:
-  - port: 443
-    targetPort: https
-  selector:
-    app: kyverno
----
+# Source: kyverno/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kyverno-service-account
+  name: kyverno
+  labels: 
+    app.kubernetes.io/name: kyverno
+    helm.sh/chart: kyverno-v1.3.0-rc8
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/managed-by: Helm
   namespace: kyverno
 ---
+# Source: kyverno/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels: 
+    app.kubernetes.io/name: kyverno
+    helm.sh/chart: kyverno-v1.3.0-rc8
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/managed-by: Helm
+  name: kyverno
+  namespace: kyverno
+data:
+  # resource types to be skipped by kyverno policy engine
+  resourceFilters: "[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*]"
+---
+# Source: kyverno/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -41,7 +44,7 @@ rules:
   verbs:
   - create
   - delete
-  - get
+  - get 
   - list
   - patch
   - update
@@ -57,7 +60,7 @@ rules:
   verbs:
   - create
   - delete
-  - get
+  - get 
   - update
   - watch
 - apiGroups:
@@ -69,6 +72,7 @@ rules:
   verbs:
   - approve
 ---
+# Source: kyverno/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -88,6 +92,7 @@ rules:
   - watch
   - list
 ---
+# Source: kyverno/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -126,6 +131,7 @@ rules:
   verbs:
   - delete
 ---
+# Source: kyverno/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -141,6 +147,7 @@ rules:
   - list
   - update
 ---
+# Source: kyverno/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -158,6 +165,7 @@ rules:
   - limitranges
   - clusterroles
   - rolebindings
+  - namespaces
   - clusterrolebindings
   verbs:
   - create
@@ -174,6 +182,7 @@ rules:
   verbs:
   - watch
 ---
+# Source: kyverno/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -189,6 +198,7 @@ rules:
   verbs:
   - "*"
 ---
+# Source: kyverno/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -199,11 +209,12 @@ rules:
   - apiGroups:
       - wgpolicyk8s.io/v1alpha1
     resources:
-      - policyreports
-      - clusterpolicyreports
+      - policyreport
+      - clusterpolicyreport
     verbs:
       - '*'
 ---
+# Source: kyverno/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -218,3 +229,95 @@ rules:
   - clusterreportchangerequests
   verbs:
   - "*"
+---
+# Source: kyverno/templates/clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:webhook
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:webhook
+subjects:
+- kind: ServiceAccount
+  name: kyverno
+  namespace: kyverno
+---
+# Source: kyverno/templates/clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:userinfo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:userinfo
+subjects:
+- kind: ServiceAccount
+  name: kyverno
+  namespace: kyverno
+---
+# Source: kyverno/templates/clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:customresources
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:customresources
+subjects:
+- kind: ServiceAccount
+  name: kyverno
+  namespace: kyverno
+---
+# Source: kyverno/templates/clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:policycontroller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:policycontroller
+subjects:
+- kind: ServiceAccount
+  name: kyverno
+  namespace: kyverno
+---
+# Source: kyverno/templates/clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:generatecontroller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:generatecontroller
+subjects:
+- kind: ServiceAccount
+  name: kyverno
+  namespace: kyverno
+---
+# Source: kyverno/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kyverno-svc
+  labels: 
+    app.kubernetes.io/name: kyverno
+    helm.sh/chart: kyverno-v1.3.0-rc8
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/managed-by: Helm
+  namespace: kyverno
+spec:
+  ports:
+  - port: 443
+    targetPort: https
+    protocol: TCP
+    name: https
+  selector: 
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/instance: kyverno
+  type: ClusterIP
