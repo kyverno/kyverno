@@ -342,7 +342,7 @@ func main() {
 
 	go reportReqGen.Run(2, stopCh)
 	go prgen.Run(1, stopCh)
-	go grgen.Run(1)
+	go grgen.Run(1, stopCh)
 	go configData.Run(stopCh)
 	go policyCtrl.Run(2, stopCh)
 	go eventGenerator.Run(3, stopCh)

@@ -46,6 +46,9 @@ type WebhookServer struct {
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestNamespaceLister
 
+	// grSynced returns true if the Generate Request store has been synced at least once
+	grSynced cache.InformerSynced
+
 	// list/get cluster policy resource
 	pLister kyvernolister.ClusterPolicyLister
 
@@ -158,6 +161,7 @@ func NewWebhookServer(
 		client:        client,
 		kyvernoClient: kyvernoClient,
 		grLister:      grInformer.Lister().GenerateRequests(config.KyvernoNamespace),
+		grSynced:      grInformer.Informer().HasSynced,
 		pLister:       pInformer.Lister(),
 		pSynced:       pInformer.Informer().HasSynced,
 		rbLister:      rbInformer.Lister(),
@@ -465,7 +469,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 // RunAsync TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 	logger := ws.log
-	if !cache.WaitForCacheSync(stopCh, ws.pSynced, ws.rbSynced, ws.crbSynced, ws.rSynced, ws.crSynced) {
+	if !cache.WaitForCacheSync(stopCh, ws.grSynced, ws.pSynced, ws.rbSynced, ws.crbSynced, ws.rSynced, ws.crSynced) {
 		logger.Info("failed to sync informer cache")
 	}
 

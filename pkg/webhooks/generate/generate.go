@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 )
 
 // GenerateRequests provides interface to manage generate requests
@@ -41,6 +42,7 @@ type Generator struct {
 	log    logr.Logger
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestNamespaceLister
+	grSynced cache.InformerSynced
 }
 
 // NewGenerator returns a new instance of Generate-Request resource generator
@@ -51,6 +53,7 @@ func NewGenerator(client *kyvernoclient.Clientset, grInformer kyvernoinformer.Ge
 		stopCh:   stopCh,
 		log:      log,
 		grLister: grInformer.Lister().GenerateRequests(config.KyvernoNamespace),
+		grSynced: grInformer.Informer().HasSynced,
 	}
 	return gen
 }
@@ -74,13 +77,19 @@ func (g *Generator) Apply(gr kyverno.GenerateRequestSpec, action v1beta1.Operati
 }
 
 // Run starts the generate request spec
-func (g *Generator) Run(workers int) {
+func (g *Generator) Run(workers int, stopCh <-chan struct{}) {
 	logger := g.log
 	defer utilruntime.HandleCrash()
 	logger.V(4).Info("starting")
 	defer func() {
 		logger.V(4).Info("shutting down")
 	}()
+
+	if !cache.WaitForCacheSync(stopCh, g.grSynced) {
+		logger.Info("failed to sync informer cache")
+		return
+	}
+
 	for i := 0; i < workers; i++ {
 		go wait.Until(g.processApply, constant.GenerateControllerResync, g.stopCh)
 	}

@@ -56,6 +56,7 @@ type Controller struct {
 
 	// grSynced returns true if the Generate Request store has been synced at least once
 	grSynced cache.InformerSynced
+
 	// dynamic shared informer factory
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
 
@@ -112,7 +113,7 @@ func NewController(
 	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
 
 	c.policySynced = policyInformer.Informer().HasSynced
-	c.grSynced = policyInformer.Informer().HasSynced
+	c.grSynced = grInformer.Informer().HasSynced
 
 	//TODO: dynamic registration
 	// Only supported for namespaces
