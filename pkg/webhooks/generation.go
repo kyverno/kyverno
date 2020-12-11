@@ -20,6 +20,7 @@ import (
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 //HandleGenerate handles admission-requests for policies with generate rules
@@ -55,8 +56,13 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		for _, rule := range engineResponse.PolicyResponse.Rules {
 			if !rule.Success {
 				ws.log.V(4).Info("querying all generate requests")
-
-				grList, err := ws.grLister.GetGenerateRequestsForResource(engineResponse.PolicyResponse.Resource.Kind, engineResponse.PolicyResponse.Resource.Namespace, engineResponse.PolicyResponse.Resource.Name)
+				selector := labels.SelectorFromSet(labels.Set(map[string]string{
+					"policyName":        engineResponse.PolicyResponse.Policy,
+					"resourceName":      engineResponse.PolicyResponse.Resource.Name,
+					"resourceKind":      engineResponse.PolicyResponse.Resource.Kind,
+					"ResourceNamespace": engineResponse.PolicyResponse.Resource.Namespace,
+				}))
+				grList, err := ws.grLister.List(selector)
 				if err != nil {
 					logger.Error(err, "failed to get generate request for the resource", "kind", engineResponse.PolicyResponse.Resource.Kind, "name", engineResponse.PolicyResponse.Resource.Name, "namespace", engineResponse.PolicyResponse.Resource.Namespace)
 					continue

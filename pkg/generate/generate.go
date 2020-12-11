@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -21,6 +20,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
@@ -43,7 +43,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	}
 
 	// 2 - Apply the generate policy on the resource
-	genResources, err = c.applyGenerate(*resource, *gr, c.grLister)
+	genResources, err = c.applyGenerate(*resource, *gr)
 
 	// 3 - Report Events
 	events := failedEvents(err, *gr, *resource)
@@ -59,7 +59,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	return updateStatus(c.statusControl, *gr, err, genResources)
 }
 
-func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest, grLister kyvernolister.GenerateRequestNamespaceLister) ([]kyverno.ResourceSpec, error) {
+func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest) ([]kyverno.ResourceSpec, error) {
 	logger := c.log.WithValues("name", gr.Name, "policy", gr.Spec.Policy, "kind", gr.Spec.Resource.Kind, "apiVersion", gr.Spec.Resource.APIVersion, "namespace", gr.Spec.Resource.Namespace, "name", gr.Spec.Resource.Name)
 	// Get the list of rules to be applied
 	// get policy
@@ -136,10 +136,14 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	// Removing GR if rule is failed. Used when the generate condition failed but gr exist
 	for _, r := range engineResponse.PolicyResponse.Rules {
 		if !r.Success {
-
 			logger.V(4).Info("querying all generate requests")
-
-			grList, err := grLister.GetGenerateRequestsForResource(engineResponse.PolicyResponse.Resource.Kind, engineResponse.PolicyResponse.Resource.Namespace, engineResponse.PolicyResponse.Resource.Name)
+			selector := labels.SelectorFromSet(labels.Set(map[string]string{
+				"policyName":        engineResponse.PolicyResponse.Policy,
+				"resourceName":      engineResponse.PolicyResponse.Resource.Name,
+				"resourceKind":      engineResponse.PolicyResponse.Resource.Kind,
+				"ResourceNamespace": engineResponse.PolicyResponse.Resource.Namespace,
+			}))
+			grList, err := c.grLister.List(selector)
 			if err != nil {
 				logger.Error(err, "failed to get generate request for the resource", "kind", engineResponse.PolicyResponse.Resource.Kind, "name", engineResponse.PolicyResponse.Resource.Name, "namespace", engineResponse.PolicyResponse.Resource.Namespace)
 				continue

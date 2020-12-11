@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/constant"
 	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -130,7 +131,13 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 		isExist := false
 		if action == v1beta1.Create || action == v1beta1.Update {
 			log.V(4).Info("querying all generate requests")
-			grList, err := grLister.GetGenerateRequestsForResource(grSpec.Resource.Kind, grSpec.Resource.Namespace, grSpec.Resource.Name)
+			selector := labels.SelectorFromSet(labels.Set(map[string]string{
+				"policyName":        grSpec.Policy,
+				"resourceName":      grSpec.Resource.Name,
+				"resourceKind":      grSpec.Resource.Kind,
+				"ResourceNamespace": grSpec.Resource.Namespace,
+			}))
+			grList, err := grLister.List(selector)
 			if err != nil {
 				logger.Error(err, "failed to get generate request for the resource", "kind", grSpec.Resource.Kind, "name", grSpec.Resource.Name, "namespace", grSpec.Resource.Namespace)
 				return err
@@ -154,6 +161,12 @@ func retryApplyResource(client *kyvernoclient.Clientset,
 			}
 			if !isExist {
 				gr.SetGenerateName("gr-")
+				gr.SetLabels(map[string]string{
+					"policyName":        grSpec.Policy,
+					"resourceName":      grSpec.Resource.Name,
+					"resourceKind":      grSpec.Resource.Kind,
+					"ResourceNamespace": grSpec.Resource.Namespace,
+				})
 				_, err = client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Create(context.TODO(), &gr, metav1.CreateOptions{})
 				if err != nil {
 					return err
