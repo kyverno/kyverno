@@ -160,10 +160,10 @@ func Command() *cobra.Command {
 			}
 
 			if (len(policyPaths) > 0 && policyPaths[0] == "-") && len(resourcePaths) > 0 && resourcePaths[0] == "-" {
-				return sanitizederror.NewWithError("pass either policy or resource using pipe", err)
+				return sanitizederror.NewWithError("a stdin pipe can be used for either policies or resources, not both", err)
 			}
 
-			policies, err := getPolicyAccordingToResourcePath(policyPaths)
+			policies, err := getPoliciesFromPaths(policyPaths)
 			if err != nil {
 				fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 				os.Exit(1)
@@ -336,8 +336,8 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 	return mutateLogPathIsDir, err
 }
 
-// getPolicyAccordingToResourcePath - get policies according to the resource path
-func getPolicyAccordingToResourcePath(policyPaths []string) (policies []*v1.ClusterPolicy, err error) {
+// getPoliciesFromPaths - get policies according to the resource path
+func getPoliciesFromPaths(policyPaths []string) (policies []*v1.ClusterPolicy, err error) {
 	if len(policyPaths) > 0 && policyPaths[0] == "-" {
 		if common.IsInputFromPipe() {
 			policyStr := ""
