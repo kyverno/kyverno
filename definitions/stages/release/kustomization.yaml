@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
 - ./install.yaml
 - ../../etc/
+- ../../crds/

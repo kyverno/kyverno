@@ -3,8 +3,3 @@ kind: Kustomization
 
 resources:
 - ./install.yaml
-images:
-- name: ghcr.io/kyverno/kyverno
-  newTag: v1.3.0-rc8-11-g0c78bc72
-- name: ghcr.io/kyverno/kyvernopre
-  newTag: v1.3.0-rc8-11-g0c78bc72
