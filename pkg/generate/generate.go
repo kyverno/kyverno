@@ -318,20 +318,24 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		Name:       genName,
 	}
 
-	genData, _, err := unstructured.NestedMap(genUnst.Object, "data")
+	genData, found, err := unstructured.NestedMap(genUnst.Object, "data")
 	if err != nil {
 		return noGenResource, err
 	}
 
-	genCopy, _, err := unstructured.NestedMap(genUnst.Object, "clone")
+	genClone, _, err := unstructured.NestedMap(genUnst.Object, "clone")
 	if err != nil {
 		return noGenResource, err
 	}
 
-	if genData != nil {
-		rdata, mode, err = manageData(log, genAPIVersion, genKind, genNamespace, genName, genData, client, resource)
+	if genClone != nil {
+		rdata, mode, err = manageClone(log, genAPIVersion, genKind, genNamespace, genName, genClone, client, resource)
 	} else {
-		rdata, mode, err = manageClone(log, genAPIVersion, genKind, genNamespace, genName, genCopy, client, resource)
+		if found {
+			rdata, mode, err = manageData(log, genAPIVersion, genKind, genNamespace, genName, genData, client, resource)
+		} else {
+			log.V(3).Info("generate rule has no data and clone")
+		}
 	}
 
 	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
@@ -424,17 +428,16 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 }
 
 func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data map[string]interface{}, client *dclient.Client, resource unstructured.Unstructured) (map[string]interface{}, ResourceMode, error) {
-	// check if resource to be generated exists
 	obj, err := client.GetResource(apiVersion, kind, namespace, name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			log.V(3).Info("resource does not exist, will try to create", "genKind", kind, "genAPIVersion", apiVersion, "genNamespace", namespace, "genName", name)
 			return data, Create, nil
 		}
-		//something wrong while fetching resource
-		// client-errors
+
 		return nil, Skip, err
 	}
+
 	updateObj := &unstructured.Unstructured{}
 	updateObj.SetUnstructuredContent(data)
 	updateObj.SetResourceVersion(obj.GetResourceVersion())
