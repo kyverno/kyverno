@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -16,7 +17,6 @@ import (
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/constant"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/policystatus"
@@ -62,6 +62,8 @@ type Generator struct {
 	queue     workqueue.RateLimitingInterface
 	dataStore *dataStore
 
+	dynamicConfig config.Interface
+
 	// update policy status with violationCount
 	policyStatusListener policystatus.Listener
 
@@ -76,6 +78,7 @@ func NewReportChangeRequestGenerator(client *policyreportclient.Clientset,
 	cpolInformer kyvernoinformer.ClusterPolicyInformer,
 	polInformer kyvernoinformer.PolicyInformer,
 	policyStatus policystatus.Listener,
+	dynamicConfig config.Interface,
 	log logr.Logger) *Generator {
 	gen := Generator{
 		dclient:                          dclient,
@@ -90,6 +93,7 @@ func NewReportChangeRequestGenerator(client *policyreportclient.Clientset,
 		queue:                            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:                        newDataStore(),
 		policyStatusListener:             policyStatus,
+		dynamicConfig:                    dynamicConfig,
 		log:                              log,
 	}
 
@@ -177,7 +181,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(gen.runWorker, constant.PolicyReportControllerResync, stopCh)
+		go wait.Until(gen.runWorker, time.Duration(gen.dynamicConfig.GetBackgroundScanPeriod()), stopCh)
 	}
 
 	<-stopCh

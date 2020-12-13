@@ -9,7 +9,6 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/constant"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -51,6 +50,9 @@ type Controller struct {
 	grSynced cache.InformerSynced
 	// dynamic sharedinformer factory
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
+
+	dynamicConfig config.Interface
+
 	//TODO: list of generic informers
 	// only support Namespaces for deletion of resource
 	nsInformer informers.GenericInformer
@@ -64,6 +66,7 @@ func NewController(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
+	dynamicConfig config.Interface,
 	log logr.Logger,
 ) (*Controller, error) {
 	c := Controller{
@@ -83,6 +86,7 @@ func NewController(
 
 	c.pSynced = pInformer.Informer().HasSynced
 	c.grSynced = grInformer.Informer().HasSynced
+	c.dynamicConfig = dynamicConfig
 
 	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: c.deletePolicy, // we only cleanup if the policy is delete
@@ -227,7 +231,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 		return
 	}
 	for i := 0; i < workers; i++ {
-		go wait.Until(c.worker, constant.GenerateRequestControllerResync, stopCh)
+		go wait.Until(c.worker, time.Duration(c.dynamicConfig.GetBackgroundScanPeriod()), stopCh)
 	}
 	<-stopCh
 }

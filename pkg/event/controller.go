@@ -1,11 +1,13 @@
 package event
 
 import (
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/constant"
+	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	v1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,6 +34,8 @@ type Generator struct {
 	policyCtrRecorder record.EventRecorder
 	// events generated at admission control
 	admissionCtrRecorder record.EventRecorder
+	// config holds kyverno configration object
+	configHandler config.Interface
 	// events generated at namespaced policy controller to process 'generate' rule
 	genPolicyRecorder record.EventRecorder
 	log               logr.Logger
@@ -43,7 +47,7 @@ type Interface interface {
 }
 
 //NewEventGenerator to generate a new event controller
-func NewEventGenerator(client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer, log logr.Logger) *Generator {
+func NewEventGenerator(client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer, configHandler config.Interface, log logr.Logger) *Generator {
 
 	gen := Generator{
 		client:               client,
@@ -51,6 +55,7 @@ func NewEventGenerator(client *client.Client, pInformer kyvernoinformer.ClusterP
 		queue:                workqueue.NewNamedRateLimitingQueue(rateLimiter(), eventWorkQueueName),
 		pSynced:              pInformer.Informer().HasSynced,
 		policyCtrRecorder:    initRecorder(client, PolicyController, log),
+		configHandler:        configHandler,
 		admissionCtrRecorder: initRecorder(client, AdmissionController, log),
 		genPolicyRecorder:    initRecorder(client, GeneratePolicyController, log),
 		log:                  log,
@@ -112,7 +117,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(gen.runWorker, constant.EventControllerResync, stopCh)
+		go wait.Until(gen.runWorker, time.Duration(gen.configHandler.GetBackgroundScanPeriod()), stopCh)
 	}
 	<-stopCh
 }

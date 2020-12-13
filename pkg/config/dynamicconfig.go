@@ -4,6 +4,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -18,6 +19,7 @@ import (
 // read the conifgMap with name in env:INIT_CONFIG
 // this configmap stores the resources that are to be filtered
 const cmNameEnv string = "INIT_CONFIG"
+const defaultBGScan int = 15
 
 var defaultExcludeGroupRole []string = []string{"system:serviceaccounts:kube-system", "system:nodes", "system:kube-scheduler"}
 
@@ -37,6 +39,8 @@ type ConfigData struct {
 	//excludeUsername exclude username
 	excludeUsername []string
 
+	// backgroundScanPeriod interval
+	backgroundScanPeriod int
 	//restrictDevelopmentUsername exclude dev username like minikube and kind
 	restrictDevelopmentUsername []string
 	// hasynced
@@ -78,16 +82,24 @@ func (cd *ConfigData) GetExcludeUsername() []string {
 	return cd.excludeUsername
 }
 
+// GetBackgroundScanPeriod return background scan interval
+func (cd *ConfigData) GetBackgroundScanPeriod() int {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.backgroundScanPeriod
+}
+
 // Interface to be used by consumer to check filters
 type Interface interface {
 	ToFilter(kind, namespace, name string) bool
 	GetExcludeGroupRole() []string
 	GetExcludeUsername() []string
 	RestrictDevelopmentUsername() []string
+	GetBackgroundScanPeriod() int
 }
 
 // NewConfigData ...
-func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8Resources, excludeGroupRole, excludeUsername string, log logr.Logger) *ConfigData {
+func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8Resources, excludeGroupRole, excludeUsername string, backgroundScanPeriod int, log logr.Logger) *ConfigData {
 	// environment var is read at start only
 	if cmNameEnv == "" {
 		log.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
@@ -118,6 +130,8 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 		cd.log.Info("init configuration from commandline arguments for excludeUsername")
 		cd.initRbac("excludeUsername", excludeUsername)
 	}
+
+	cd.backgroundScanPeriod = backgroundScanPeriod
 
 	cmInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    cd.addCM,
@@ -201,6 +215,19 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 		}
 	}
 
+	// background scan
+	bgScan, ok := cm.Data["backgroundScanPeriod"]
+	if !ok {
+		logger.V(4).Info("configuration: No backgroundScanPeriod defined in ConfigMap")
+		// Set Default value
+		cd.backgroundScanPeriod = defaultBGScan
+	} else {
+		value, err := strconv.Atoi(bgScan)
+		if err != nil {
+			cd.backgroundScanPeriod = value
+		}
+	}
+
 	// get resource filters
 	excludeGroupRole, ok := cm.Data["excludeGroupRole"]
 	if !ok {
@@ -273,6 +300,7 @@ func (cd *ConfigData) unload(cm v1.ConfigMap) {
 	cd.excludeGroupRole = []string{}
 	cd.excludeGroupRole = append(cd.excludeGroupRole, defaultExcludeGroupRole...)
 	cd.excludeUsername = []string{}
+	cd.backgroundScanPeriod = defaultBGScan
 }
 
 type k8Resource struct {
