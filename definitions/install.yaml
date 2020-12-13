@@ -2754,7 +2754,12 @@ status:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kyverno-service-account
+  labels:
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kyverno
+    helm.sh/chart: kyverno-v1.3.0-rc8
+  name: kyverno
   namespace: kyverno
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -2782,8 +2787,8 @@ rules:
 - apiGroups:
   - wgpolicyk8s.io/v1alpha1
   resources:
-  - policyreports
-  - clusterpolicyreports
+  - policyreport
+  - clusterpolicyreport
   verbs:
   - '*'
 ---
@@ -2855,6 +2860,7 @@ rules:
   - limitranges
   - clusterroles
   - rolebindings
+  - namespaces
   - clusterrolebindings
   verbs:
   - create
@@ -2955,7 +2961,7 @@ roleRef:
   name: kyverno:customresources
 subjects:
 - kind: ServiceAccount
-  name: kyverno-service-account
+  name: kyverno
   namespace: kyverno
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -2968,7 +2974,7 @@ roleRef:
   name: kyverno:generatecontroller
 subjects:
 - kind: ServiceAccount
-  name: kyverno-service-account
+  name: kyverno
   namespace: kyverno
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -2981,7 +2987,7 @@ roleRef:
   name: kyverno:policycontroller
 subjects:
 - kind: ServiceAccount
-  name: kyverno-service-account
+  name: kyverno
   namespace: kyverno
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -2994,7 +3000,7 @@ roleRef:
   name: kyverno:userinfo
 subjects:
 - kind: ServiceAccount
-  name: kyverno-service-account
+  name: kyverno
   namespace: kyverno
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -3007,56 +3013,71 @@ roleRef:
   name: kyverno:webhook
 subjects:
 - kind: ServiceAccount
-  name: kyverno-service-account
+  name: kyverno
   namespace: kyverno
 ---
 apiVersion: v1
 data:
-  excludeGroupRole: system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler
-  resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]'
+  resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*]'
 kind: ConfigMap
 metadata:
-  name: init-config
+  labels:
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kyverno
+    helm.sh/chart: kyverno-v1.3.0-rc8
+  name: kyverno
   namespace: kyverno
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kyverno
+    helm.sh/chart: kyverno-v1.3.0-rc8
   name: kyverno-svc
   namespace: kyverno
 spec:
   ports:
-  - port: 443
+  - name: https
+    port: 443
+    protocol: TCP
     targetPort: https
   selector:
-    app: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+  type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kyverno
+    helm.sh/chart: kyverno-v1.3.0-rc8
   name: kyverno
   namespace: kyverno
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: kyverno
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/name: kyverno
   template:
     metadata:
       labels:
-        app: kyverno
+        app.kubernetes.io/instance: kyverno
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: kyverno
+        helm.sh/chart: kyverno-v1.3.0-rc8
     spec:
       containers:
-      - args:
-        - --filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]
-        - -v=2
-        env:
+      - env:
         - name: INIT_CONFIG
-          value: init-config
+          value: kyverno
         - name: KYVERNO_NAMESPACE
           valueFrom:
             fieldRef:
@@ -3064,14 +3085,14 @@ spec:
         - name: KYVERNO_SVC
           value: kyverno-svc
         image: ghcr.io/kyverno/kyverno:v1.3.0-rc8
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         livenessProbe:
-          failureThreshold: 4
+          failureThreshold: 2
           httpGet:
             path: /health/liveness
             port: 9443
             scheme: HTTPS
-          initialDelaySeconds: 5
+          initialDelaySeconds: 10
           periodSeconds: 10
           successThreshold: 1
           timeoutSeconds: 5
@@ -3081,7 +3102,7 @@ spec:
           name: https
           protocol: TCP
         readinessProbe:
-          failureThreshold: 4
+          failureThreshold: 6
           httpGet:
             path: /health/readiness
             port: 9443
@@ -3106,8 +3127,13 @@ spec:
           runAsNonRoot: true
           runAsUser: 1000
       initContainers:
-      - image: ghcr.io/kyverno/kyvernopre:v1.3.0-rc8
-        imagePullPolicy: Always
+      - env:
+        - name: KYVERNO_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: ghcr.io/kyverno/kyvernopre:v1.3.0-rc8
+        imagePullPolicy: IfNotPresent
         name: kyverno-pre
         securityContext:
           allowPrivilegeEscalation: false
@@ -3118,6 +3144,4 @@ spec:
           readOnlyRootFilesystem: true
           runAsNonRoot: true
           runAsUser: 1000
-      securityContext:
-        runAsNonRoot: true
-      serviceAccountName: kyverno-service-account
+      serviceAccountName: kyverno

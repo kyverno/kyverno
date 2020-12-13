@@ -1,0 +1,420 @@
+---
+# Source: kyverno/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kyverno
+  labels: 
+    app.kubernetes.io/name: kyverno
+    helm.sh/chart: kyverno-v1.3.0-rc8
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/managed-by: Helm
+  namespace: kyverno
+---
+# Source: kyverno/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels: 
+    app.kubernetes.io/name: kyverno
+    helm.sh/chart: kyverno-v1.3.0-rc8
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/managed-by: Helm
+  name: kyverno
+  namespace: kyverno
+data:
+  # resource types to be skipped by kyverno policy engine
+  resourceFilters: "[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*]"
+---
+# Source: kyverno/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:webhook
+rules:
+# Dynamic creation of webhooks, events & certs
+- apiGroups:
+  - '*'
+  resources:
+  - events
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  - certificatesigningrequests
+  - certificatesigningrequests/approval
+  verbs:
+  - create
+  - delete
+  - get 
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  - certificatesigningrequests/approval
+  - certificatesigningrequests/status
+  resourceNames:
+    - kubernetes.io/legacy-unknown
+  verbs:
+  - create
+  - delete
+  - get 
+  - update
+  - watch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - signers
+  resourceNames:
+  - kubernetes.io/legacy-unknown
+  verbs:
+  - approve
+---
+# Source: kyverno/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:userinfo
+rules:
+# get the roleRef for incoming api-request user
+- apiGroups:
+  - "*"
+  resources:
+  - roles
+  - clusterroles
+  - rolebindings
+  - clusterrolebindings
+  - configmaps
+  - namespaces
+  verbs:
+  - watch
+  - list
+---
+# Source: kyverno/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:customresources
+rules:
+# Kyverno CRs
+- apiGroups:
+  - '*'
+  resources:
+  - policies
+  - policies/status
+  - clusterpolicies
+  - clusterpolicies/status
+  - policyreports
+  - policyreports/status
+  - clusterpolicyreports
+  - clusterpolicyreports/status
+  - generaterequests
+  - generaterequests/status
+  - reportchangerequests
+  - reportchangerequests/status
+  - clusterreportchangerequests
+  - clusterreportchangerequests/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - 'apiextensions.k8s.io'
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - delete
+---
+# Source: kyverno/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:policycontroller
+rules:
+# background processing, identify all existing resources
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - update
+---
+# Source: kyverno/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:generatecontroller
+rules:
+# process generate rules to generate resources
+- apiGroups:
+  - "*"
+  resources:
+  - namespaces
+  - networkpolicies
+  - secrets
+  - configmaps
+  - resourcequotas
+  - limitranges
+  - clusterroles
+  - rolebindings
+  - namespaces
+  - clusterrolebindings
+  verbs:
+  - create
+  - update
+  - delete
+  - list
+  - get
+# dynamic watches on trigger resources for generate rules
+# re-evaluate the policy if the resource is updated
+- apiGroups:
+  - '*'
+  resources:
+  - namespaces
+  verbs:
+  - watch
+---
+# Source: kyverno/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kyverno:admin-policies
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - policies
+  - clusterpolicies
+  verbs:
+  - "*"
+---
+# Source: kyverno/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kyverno:admin-policyreport
+rules:
+  - apiGroups:
+      - wgpolicyk8s.io/v1alpha1
+    resources:
+      - policyreport
+      - clusterpolicyreport
+    verbs:
+      - '*'
+---
+# Source: kyverno/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kyverno:admin-reportchangerequest
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - reportchangerequests
+  - clusterreportchangerequests
+  verbs:
+  - "*"
+---
+# Source: kyverno/templates/clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:webhook
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:webhook
+subjects:
+- kind: ServiceAccount
+  name: kyverno
+  namespace: kyverno
+---
+# Source: kyverno/templates/clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:userinfo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:userinfo
+subjects:
+- kind: ServiceAccount
+  name: kyverno
+  namespace: kyverno
+---
+# Source: kyverno/templates/clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:customresources
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:customresources
+subjects:
+- kind: ServiceAccount
+  name: kyverno
+  namespace: kyverno
+---
+# Source: kyverno/templates/clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:policycontroller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:policycontroller
+subjects:
+- kind: ServiceAccount
+  name: kyverno
+  namespace: kyverno
+---
+# Source: kyverno/templates/clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:generatecontroller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:generatecontroller
+subjects:
+- kind: ServiceAccount
+  name: kyverno
+  namespace: kyverno
+---
+# Source: kyverno/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kyverno-svc
+  labels: 
+    app.kubernetes.io/name: kyverno
+    helm.sh/chart: kyverno-v1.3.0-rc8
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/managed-by: Helm
+  namespace: kyverno
+spec:
+  ports:
+  - port: 443
+    targetPort: https
+    protocol: TCP
+    name: https
+  selector: 
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/instance: kyverno
+  type: ClusterIP
+---
+# Source: kyverno/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kyverno
+  labels: 
+    app.kubernetes.io/name: kyverno
+    helm.sh/chart: kyverno-v1.3.0-rc8
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/managed-by: Helm
+  namespace: kyverno
+spec:
+  selector:
+    matchLabels: 
+      app.kubernetes.io/name: kyverno
+      app.kubernetes.io/instance: kyverno
+  replicas: 1
+  template:
+    metadata:
+      labels: 
+        app.kubernetes.io/name: kyverno
+        helm.sh/chart: kyverno-v1.3.0-rc8
+        app.kubernetes.io/instance: kyverno
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      serviceAccountName: kyverno
+      initContainers:
+        - name: kyverno-pre
+          image: ghcr.io/kyverno/kyvernopre:v1.3.0-rc8
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - all
+          env:
+          - name: KYVERNO_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+      containers:
+        - name: kyverno
+          image: ghcr.io/kyverno/kyverno:v1.3.0-rc8
+          imagePullPolicy: IfNotPresent
+          resources: 
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 50Mi
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - all
+          ports:
+          - containerPort: 9443
+            name: https
+            protocol: TCP
+          env:
+          - name: INIT_CONFIG
+            value: kyverno
+          - name: KYVERNO_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KYVERNO_SVC
+            value: kyverno-svc
+          livenessProbe: 
+            failureThreshold: 2
+            httpGet:
+              path: /health/liveness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          readinessProbe: 
+            failureThreshold: 6
+            httpGet:
+              path: /health/readiness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5

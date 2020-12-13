@@ -2,6 +2,8 @@ nameOverride:
 fullnameOverride:
 namespace:
 
+debug: false
+
 rbac:
   create: true
   serviceAccount:
