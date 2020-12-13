@@ -18,7 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
-	"github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -159,20 +159,14 @@ func Command() *cobra.Command {
 				return sanitizederror.NewWithError(fmt.Sprintf("require policy"), err)
 			}
 
-			policies, errors := common.GetPolicies(policyPaths)
-			if len(policies) == 0 {
-				if len(errors) > 0 {
-					return sanitizederror.NewWithErrors("failed to read policies", errors)
-				}
-
-				return sanitizederror.New(fmt.Sprintf("no policies found in paths %v", policyPaths))
+			if (len(policyPaths) > 0 && policyPaths[0] == "-") && len(resourcePaths) > 0 && resourcePaths[0] == "-" {
+				return sanitizederror.NewWithError("a stdin pipe can be used for either policies or resources, not both", err)
 			}
 
-			if len(errors) > 0 && log.Log.V(1).Enabled() {
-				fmt.Printf("ignoring errors: \n")
-				for _, e := range errors {
-					fmt.Printf("    %v \n", e.Error())
-				}
+			policies, err := getPoliciesFromPaths(policyPaths)
+			if err != nil {
+				fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
+				os.Exit(1)
 			}
 
 			if len(resourcePaths) == 0 && !cluster {
@@ -342,6 +336,43 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 	return mutateLogPathIsDir, err
 }
 
+// getPoliciesFromPaths - get policies according to the resource path
+func getPoliciesFromPaths(policyPaths []string) (policies []*v1.ClusterPolicy, err error) {
+	if len(policyPaths) > 0 && policyPaths[0] == "-" {
+		if common.IsInputFromPipe() {
+			policyStr := ""
+			scanner := bufio.NewScanner(os.Stdin)
+			for scanner.Scan() {
+				policyStr = policyStr + scanner.Text() + "\n"
+			}
+
+			yamlBytes := []byte(policyStr)
+			policies, err = utils.GetPolicy(yamlBytes)
+			if err != nil {
+				return nil, sanitizederror.NewWithError("failed to extract the resources", err)
+			}
+		}
+	} else {
+		var errors []error
+		policies, errors = common.GetPolicies(policyPaths)
+		if len(policies) == 0 {
+			if len(errors) > 0 {
+				return nil, sanitizederror.NewWithErrors("failed to read policies", errors)
+			}
+
+			return nil, sanitizederror.New(fmt.Sprintf("no policies found in paths %v", policyPaths))
+		}
+
+		if len(errors) > 0 && log.Log.V(1).Enabled() {
+			fmt.Printf("ignoring errors: \n")
+			for _, e := range errors {
+				fmt.Printf("    %v \n", e.Error())
+			}
+		}
+	}
+	return
+}
+
 // getResourceAccordingToResourcePath - get resources according to the resource path
 func getResourceAccordingToResourcePath(resourcePaths []string, cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string, policyReport bool) (resources []*unstructured.Unstructured, err error) {
 	if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
@@ -355,7 +386,7 @@ func getResourceAccordingToResourcePath(resourcePaths []string, cluster bool, po
 			yamlBytes := []byte(resourceStr)
 			resources, err = common.GetResource(yamlBytes)
 			if err != nil {
-				return resources, sanitizederror.NewWithError("failed to extract the resources", err)
+				return nil, sanitizederror.NewWithError("failed to extract the resources", err)
 			}
 		}
 	} else if (len(resourcePaths) > 0 && resourcePaths[0] != "-") || len(resourcePaths) < 0 || cluster {
