@@ -177,10 +177,13 @@ kustomize-crd:
 # guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
 release:
 	helm template kyverno ./charts/kyverno -n kyverno > ./definitions/stages/release/install.yaml
-	kustomize build ./definitions/stages/release > ./definitions/install.yaml
-	kustomize build ./definitions/stages/release > ./definitions/release/install.yaml
+	kustomize build ./definitions/stages/release -o ./definitions/install.yaml
+	kustomize build ./definitions/stages/release -o ./definitions/release/install.yaml
+	kustomize build ./definitions -o ./definitions/install.yaml
+	kustomize build ./definitions -o ./definitions/release/install.yaml
 	helm template kyverno ./charts/kyverno --set debug=true -n kyverno > ./definitions/stages/debug/install-debug.yaml
-	kustomize build ./definitions/stages/debug > ./definitions/install-debug.yaml
+	kustomize build ./definitions/stages/debug -o ./definitions/install-debug.yaml
+	
 
 kyverno-crd: controller-gen
 	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1alpha1 output:dir=./definitions/crds

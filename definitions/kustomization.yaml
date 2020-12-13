@@ -3,3 +3,6 @@ kind: Kustomization
 
 resources:
 - ./install.yaml
+
+patchesStrategicMerge:
+  - ./etc/patch-app.yaml

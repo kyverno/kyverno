@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kyverno
+  namespace: kyverno
+  labels:
+     app.kubernetes.io/instance: kyverno
+     app.kubernetes.io/name: kyverno
+spec:
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: kyverno
+        app.kubernetes.io/name: kyverno

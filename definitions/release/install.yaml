@@ -2327,6 +2327,9 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  labels:
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
   name: kyverno
   namespace: kyverno
 spec:
@@ -2336,7 +2339,10 @@ spec:
       app.kubernetes.io/instance: kyverno
       app.kubernetes.io/name: kyverno
   template:
-    metadata: {}
+    metadata:
+      labels:
+        app.kubernetes.io/instance: kyverno
+        app.kubernetes.io/name: kyverno
     spec:
       containers:
       - env:

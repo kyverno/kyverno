@@ -15,7 +15,3 @@ patchesJSON6902:
     name: kyverno-svc
     labelSelector: app.kubernetes.io/managed-by=Helm
   path: ./patch.yaml
-- target:
-    kind: Deployment
-    name: kyverno
-  path: ./patch-template.yaml
