@@ -20,4 +20,4 @@ echo "Installing kustomize"
 curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
 kustomize edit set image ghcr.io/kyverno/kyverno:$hash
 kustomize edit set image ghcr.io/kyverno/kyvernopre:$hash
-kustomize build $pwd/definitions/ > $pwd/definitions/install.yaml
+kustomize build $pwd/definitions/ -o $pwd/definitions/install.yaml
