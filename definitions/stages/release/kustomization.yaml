@@ -5,3 +5,17 @@ resources:
 - ./install.yaml
 - ../../crds/
 - ../../etc/
+
+patchesJSON6902:
+- target:
+    name: kyverno
+    labelSelector: app.kubernetes.io/managed-by=Helm
+  path: ./patch.yaml
+- target:
+    name: kyverno-svc
+    labelSelector: app.kubernetes.io/managed-by=Helm
+  path: ./patch.yaml
+- target:
+    kind: Deployment
+    name: kyverno
+  path: ./patch-template.yaml

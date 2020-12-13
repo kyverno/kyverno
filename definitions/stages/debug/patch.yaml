@@ -1,0 +1,3 @@
+- op: remove
+  path: /metadata/labels
+  value: app.kubernetes.io/managed-by
