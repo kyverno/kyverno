@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
 	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
@@ -14,6 +13,7 @@ import (
 	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/constant"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -54,8 +54,7 @@ type ReportGenerator struct {
 	nsLister       listerv1.NamespaceLister
 	nsListerSynced cache.InformerSynced
 
-	dynamicConfig config.Interface
-	queue         workqueue.RateLimitingInterface
+	queue workqueue.RateLimitingInterface
 
 	log logr.Logger
 }
@@ -68,7 +67,6 @@ func NewReportGenerator(
 	reportReqInformer requestinformer.ReportChangeRequestInformer,
 	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
 	namespace informers.NamespaceInformer,
-	dynamicConfig config.Interface,
 	log logr.Logger) *ReportGenerator {
 
 	gen := &ReportGenerator{
@@ -99,7 +97,6 @@ func NewReportGenerator(
 	gen.reportReqSynced = reportReqInformer.Informer().HasSynced
 	gen.nsLister = namespace.Lister()
 	gen.nsListerSynced = namespace.Informer().HasSynced
-	gen.dynamicConfig = dynamicConfig
 	return gen
 }
 
@@ -182,7 +179,7 @@ func (g *ReportGenerator) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(g.runWorker, time.Duration(g.dynamicConfig.GetBackgroundScanPeriod()), stopCh)
+		go wait.Until(g.runWorker, constant.PolicyReportControllerResync, stopCh)
 	}
 
 	<-stopCh

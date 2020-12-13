@@ -2,6 +2,7 @@ apiVersion: v1
 data:
   resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]'
   excludeGroupRole: 'system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler'
+  backgroundScanInterval: "15m"
 kind: ConfigMap
 metadata:
   name: init-config

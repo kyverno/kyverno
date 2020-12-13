@@ -17,11 +17,7 @@ $pwd/kind load docker-image ghcr.io/kyverno/kyvernopre:$hash
 pwd=$(pwd)
 cd $pwd/definitions
 echo "Installing kustomize"
-latest=$(curl -sL https://api.github.com/repos/kubernetes-sigs/kustomize/git/refs/tags/kustomize | jq '.[-1].ref' | grep -Po '\d+\.\d+\.\d+')
-curl -sLO "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
-bash ./install_kustomize.sh $latest
-chmod a+x $pwd/definitions/kustomize
-echo "Kustomize image edit"
-$pwd/definitions/kustomize edit set image ghcr.io/kyverno/kyverno:$hash
-$pwd/definitions/kustomize edit set image ghcr.io/kyverno/kyvernopre:$hash
-$pwd/definitions/kustomize build $pwd/definitions/ > $pwd/definitions/install.yaml
+curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+kustomize edit set image ghcr.io/kyverno/kyverno:$hash
+kustomize edit set image ghcr.io/kyverno/kyvernopre:$hash
+kustomize build $pwd/definitions/ > $pwd/definitions/install.yaml

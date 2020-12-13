@@ -10,6 +10,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/constant"
 	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -30,15 +31,14 @@ type GeneratorChannel struct {
 // Generator defines the implmentation to mange generate request resource
 type Generator struct {
 	// channel to receive request
-	ch            chan GeneratorChannel
-	client        *kyvernoclient.Clientset
-	stopCh        <-chan struct{}
-	dynamicConfig config.Interface
-	log           logr.Logger
+	ch     chan GeneratorChannel
+	client *kyvernoclient.Clientset
+	stopCh <-chan struct{}
+	log    logr.Logger
 }
 
 // NewGenerator returns a new instance of Generate-Request resource generator
-func NewGenerator(client *kyvernoclient.Clientset, stopCh <-chan struct{}, dynamicConfig config.Interface, log logr.Logger) *Generator {
+func NewGenerator(client *kyvernoclient.Clientset, stopCh <-chan struct{}, log logr.Logger) *Generator {
 	gen := &Generator{
 		ch:     make(chan GeneratorChannel, 1000),
 		client: client,
@@ -75,7 +75,7 @@ func (g *Generator) Run(workers int) {
 		logger.V(4).Info("shutting down")
 	}()
 	for i := 0; i < workers; i++ {
-		go wait.Until(g.processApply, time.Duration(g.dynamicConfig.GetBackgroundScanPeriod()), g.stopCh)
+		go wait.Until(g.processApply, constant.GenerateControllerResync, g.stopCh)
 	}
 	<-g.stopCh
 }

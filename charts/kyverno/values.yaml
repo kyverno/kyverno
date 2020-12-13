@@ -107,6 +107,7 @@ config:
   excludeGroupRole:
 #  - ""
   excludeUsername:
+  backgroundScanInterval: "15m"
 #  - ""
   # existingConfig: init-config
 

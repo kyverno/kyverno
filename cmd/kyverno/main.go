@@ -40,7 +40,7 @@ var (
 	kubeconfig                     string
 	serverIP                       string
 	webhookTimeout                 int
-	backgroundScanPeriod           int
+	backgroundScanInterval         string
 	backgroundSync                 int
 	runValidationInMutatingWebhook string
 	profile                        bool
@@ -63,7 +63,7 @@ func main() {
 	flag.StringVar(&excludeGroupRole, "excludeGroupRole", "", "")
 	flag.StringVar(&excludeUsername, "excludeUsername", "", "")
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
-	flag.IntVar(&backgroundScanPeriod, "backgroundScanPeriod", 15, "background scan interval")
+	flag.StringVar(&backgroundScanInterval, "backgroundScanInterval", "15m", "background scan interval")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
@@ -160,7 +160,7 @@ func main() {
 		filterK8Resources,
 		excludeGroupRole,
 		excludeUsername,
-		backgroundScanPeriod,
+		backgroundScanInterval,
 		log.Log.WithName("ConfigData"),
 	)
 
@@ -169,7 +169,6 @@ func main() {
 	eventGenerator := event.NewEventGenerator(
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
-		configData,
 		log.Log.WithName("EventGenerator"))
 
 	// Policy Status Handler - deals with all logic related to policy status
@@ -189,7 +188,6 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
 		statusSync.Listener,
-		configData,
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
 
@@ -199,7 +197,6 @@ func main() {
 		pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
 		pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
 		kubeInformer.Core().V1().Namespaces(),
-		configData,
 		log.Log.WithName("PolicyReportGenerator"),
 	)
 
@@ -226,7 +223,7 @@ func main() {
 	}
 
 	// GENERATE REQUEST GENERATOR
-	grgen := webhookgenerate.NewGenerator(pclient, stopCh, configData, log.Log.WithName("GenerateRequestGenerator"))
+	grgen := webhookgenerate.NewGenerator(pclient, stopCh, log.Log.WithName("GenerateRequestGenerator"))
 
 	// GENERATE CONTROLLER
 	// - applies generate rules on resources based on generate requests created by webhook
@@ -255,7 +252,6 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
 		kubedynamicInformer,
-		configData,
 		log.Log.WithName("GenerateCleanUpController"),
 	)
 	if err != nil {

@@ -43,6 +43,7 @@ spec:
           # enable profiling
           # - "--profile"
           - "-v=2"
+          # - "--backgroundScanInterval=15m"
           ports:
             - containerPort: 9443
               name: https

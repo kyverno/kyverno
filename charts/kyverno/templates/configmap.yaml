@@ -16,4 +16,7 @@ data:
   {{- if .Values.config.excludeUsername }}
   excludeUsername: {{ join "" .Values.config.excludeUsername | quote }}
   {{- end -}}
+  {{- if .Values.config.backgroundScanPeriod }}
+  backgroundScanPeriod: {{ join "" .Values.config.backgroundScanInterval | quote }}
+  {{- end -}}
 {{- end -}}
