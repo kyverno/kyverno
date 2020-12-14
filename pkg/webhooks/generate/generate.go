@@ -28,7 +28,7 @@ type GeneratorChannel struct {
 	action v1beta1.Operation
 }
 
-// Generator defines the implmentation to mange generate request resource
+// Generator defines the implementation to mange generate request resource
 type Generator struct {
 	// channel to receive request
 	ch     chan GeneratorChannel
@@ -48,15 +48,17 @@ func NewGenerator(client *kyvernoclient.Clientset, stopCh <-chan struct{}, log l
 	return gen
 }
 
-// Apply creates generate request resoruce (blocking call if channel is full)
+// Apply creates generate request resource (blocking call if channel is full)
 func (g *Generator) Apply(gr kyverno.GenerateRequestSpec, action v1beta1.Operation) error {
 	logger := g.log
 	logger.V(4).Info("creating Generate Request", "request", gr)
+
 	// Update to channel
 	message := GeneratorChannel{
 		action: action,
 		spec:   gr,
 	}
+
 	select {
 	case g.ch <- message:
 		return nil
@@ -70,13 +72,16 @@ func (g *Generator) Apply(gr kyverno.GenerateRequestSpec, action v1beta1.Operati
 func (g *Generator) Run(workers int) {
 	logger := g.log
 	defer utilruntime.HandleCrash()
+
 	logger.V(4).Info("starting")
 	defer func() {
 		logger.V(4).Info("shutting down")
 	}()
+
 	for i := 0; i < workers; i++ {
 		go wait.Until(g.processApply, constant.GenerateControllerResync, g.stopCh)
 	}
+
 	<-g.stopCh
 }
 
@@ -105,8 +110,7 @@ func (g *Generator) generate(grSpec kyverno.GenerateRequestSpec, action v1beta1.
 func retryApplyResource(client *kyvernoclient.Clientset,
 	grSpec kyverno.GenerateRequestSpec,
 	log logr.Logger,
-	action v1beta1.Operation,
-) error {
+	action v1beta1.Operation) error {
 	var i int
 	var err error
 

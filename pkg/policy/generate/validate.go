@@ -36,14 +36,8 @@ func NewGenerateFactory(client *dclient.Client, rule kyverno.Generation, log log
 //Validate validates the 'generate' rule
 func (g *Generate) Validate() (string, error) {
 	rule := g.rule
-	if rule.Data == nil && rule.Clone == (kyverno.CloneFrom{}) {
-		// generate rules without data can be used to create objects
-		// which should not be updated (e.g. service accounts).
-		g.log.Info("generate rule has no data or clone")
-	}
-
 	if rule.Data != nil && rule.Clone != (kyverno.CloneFrom{}) {
-		return "", fmt.Errorf("only one operation allowed per generate rule(data or clone)")
+		return "", fmt.Errorf("only one of data or clone can be specified")
 	}
 
 	kind, name, namespace := rule.Kind, rule.Name, rule.Namespace

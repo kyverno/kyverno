@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -262,15 +263,19 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
+
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.worker, constant.GenerateControllerResync, stopCh)
 	}
+
 	<-stopCh
 }
 
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
 func (c *Controller) worker() {
+	log.Log.Info("starting new worker...")
+
 	for c.processNextWorkItem() {
 	}
 }
@@ -280,10 +285,10 @@ func (c *Controller) processNextWorkItem() bool {
 	if quit {
 		return false
 	}
+
 	defer c.queue.Done(key)
 	err := c.syncGenerateRequest(key.(string))
 	c.handleErr(err, key)
-
 	return true
 }
 
