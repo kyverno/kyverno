@@ -445,10 +445,6 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name string, clon
 		return nil, Skip, fmt.Errorf("failed to find source name: %v", err)
 	}
 
-	if rName == "" && rNamespace == "" {
-		return nil, Skip, fmt.Errorf("invalid source", "clone", clone)
-	}
-
 	if rNamespace == namespace && rName == name {
 		log.V(4).Info("skip resource self-clone")
 		return nil, Skip, nil
