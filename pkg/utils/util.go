@@ -7,13 +7,12 @@ import (
 	"strconv"
 	"strings"
 
-	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"k8s.io/api/admission/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"github.com/go-logr/logr"
 	client "github.com/kyverno/kyverno/pkg/dclient"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/minio/minio/pkg/wildcard"
+	"k8s.io/api/admission/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"

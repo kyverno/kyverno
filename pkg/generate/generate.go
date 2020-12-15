@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -132,6 +133,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		return nil, fmt.Errorf("policy %s, does not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
 	}
 
+	var applicableRules []string
 	// Removing GR if rule is failed. Used when the generate condition failed but gr exist
 	for _, r := range engineResponse.PolicyResponse.Rules {
 		if !r.Success {
@@ -149,18 +151,18 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 			}
 
 			for _, v := range grList {
-				if engineResponse.PolicyResponse.Policy == v.Spec.Policy && engineResponse.PolicyResponse.Resource.Name == v.Spec.Resource.Name && engineResponse.PolicyResponse.Resource.Kind == v.Spec.Resource.Kind && engineResponse.PolicyResponse.Resource.Namespace == v.Spec.Resource.Namespace {
-					err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
-					if err != nil {
-						logger.Error(err, " failed to delete generate request")
-					}
+				err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
+				if err != nil {
+					logger.Error(err, "failed to delete generate request")
 				}
 			}
+		} else {
+			applicableRules = append(applicableRules, r.Name)
 		}
 	}
 
 	// Apply the generate rule on resource
-	return c.applyGeneratePolicy(logger, policyContext, gr)
+	return c.applyGeneratePolicy(logger, policyContext, gr, applicableRules)
 }
 
 func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateRequest, err error, genResources []kyverno.ResourceSpec) error {
@@ -172,7 +174,7 @@ func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateReque
 	return statusControl.Success(gr, genResources)
 }
 
-func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.PolicyContext, gr kyverno.GenerateRequest) ([]kyverno.ResourceSpec, error) {
+func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.PolicyContext, gr kyverno.GenerateRequest, applicableRules []string) ([]kyverno.ResourceSpec, error) {
 	// List of generatedResources
 	var genResources []kyverno.ResourceSpec
 	// Get the response as the actions to be performed on the resource
@@ -188,6 +190,10 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 	ruleNameToProcessingTime := make(map[string]time.Duration)
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasGenerate() {
+			continue
+		}
+
+		if !kyvernoutils.ContainsString(applicableRules, rule.Name) {
 			continue
 		}
 
