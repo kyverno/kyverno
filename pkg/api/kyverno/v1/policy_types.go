@@ -301,23 +301,27 @@ type Generation struct {
 	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 
 	// Synchronize controls if generated resources should be kept in-sync with their source resource.
+	// If Synchronize is set to "true" changes to generated resources will be overwritten with resource
+	// data from Data or the resource specified in the Clone declaration.
 	// Optional. Defaults to "false" if not specified.
 	// +optional
 	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
 
-	// Data provides the resource manifest to used to populate each generated resource.
-	// Exactly one of Data or Clone must be specified.
+	// Data provides the resource declaration used to populate each generated resource.
+	// At most one of Data or Clone must be specified. If neither are provided, the generated
+	// resource will be created with default data only.
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	Data apiextensions.JSON `json:"data,omitempty" yaml:"data,omitempty"`
 
-	// Clone specified the source resource used to populate each generated resource.
-	// Exactly one of Data or Clone must be specified.
+	// Clone specifies the source resource used to populate each generated resource.
+	// At most one of Data or Clone can be specified. If neither are provided, the generated
+	// resource will be created with default data only.
 	// +optional
 	Clone CloneFrom `json:"clone,omitempty" yaml:"clone,omitempty"`
 }
 
-// CloneFrom provides the location of the source resource used to generate additional resources.
+// CloneFrom provides the location of the source resource used to generate target resources.
 // The resource kind is derived from the match criteria.
 type CloneFrom struct {
 
