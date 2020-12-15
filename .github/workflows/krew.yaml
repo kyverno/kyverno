@@ -1,9 +1,8 @@
-name: prereleaser
+name: release kyverno-cli plugin
 on:
-  push:
-    tags:
-      - 'v*'
-      - '!v*-rc*'
+  release:
+    types:
+      - published
 jobs:
   release-cli-via-krew:
     runs-on: ubuntu-latest
@@ -15,4 +14,5 @@ jobs:
         run: git fetch --prune --unshallow
 
       - name: Update new version in krew-index
+        if: "!github.event.release.prerelease"
         uses: rajatjindal/krew-release-bot@v0.0.38
