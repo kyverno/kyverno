@@ -3,7 +3,6 @@ on:
   release:
     types:
       - published
-      - released
 jobs:
   release-cli-via-krew:
     runs-on: ubuntu-latest
