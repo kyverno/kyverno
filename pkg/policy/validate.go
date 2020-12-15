@@ -11,6 +11,7 @@ import (
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/openapi"
+	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/minio/pkg/wildcard"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -440,7 +441,7 @@ func validateUniqueRuleName(p kyverno.ClusterPolicy) (string, error) {
 	var ruleNames []string
 
 	for i, rule := range p.Spec.Rules {
-		if containString(ruleNames, rule.Name) {
+		if utils.ContainsString(ruleNames, rule.Name) {
 			return fmt.Sprintf("rule[%d]", i), fmt.Errorf(`duplicate rule name: '%s'`, rule.Name)
 		}
 		ruleNames = append(ruleNames, rule.Name)
@@ -626,7 +627,7 @@ func jsonPatchOnPod(rule kyverno.Rule) bool {
 		return false
 	}
 
-	if containString(rule.MatchResources.Kinds, "Pod") && rule.Mutation.PatchesJSON6902 != "" {
+	if utils.ContainsString(rule.MatchResources.Kinds, "Pod") && rule.Mutation.PatchesJSON6902 != "" {
 		return true
 	}
 
