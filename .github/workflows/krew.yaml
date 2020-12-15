@@ -1,21 +1,18 @@
-name: releaser kyverno-ci
+name: release kyverno-cli plugin
 on:
-  push:
-    tags:
-      - 'v*'
-      - '!v*-rc*'
-
+  release:
+    types:
+      - published
 jobs:
   release-cli-via-krew:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        ref: ${{ github.event.inputs.version }}
 
       - name: Unshallow
         run: git fetch --prune --unshallow
 
       - name: Update new version in krew-index
-        if: contains(github.ref,"-rc")
+        if: "!github.event.release.prerelease"
         uses: rajatjindal/krew-release-bot@v0.0.38
