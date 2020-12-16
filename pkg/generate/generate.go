@@ -117,13 +117,14 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	}
 
 	policyContext := engine.PolicyContext{
-		NewResource:      resource,
-		Policy:           *policyObj,
-		Context:          ctx,
-		AdmissionInfo:    gr.Spec.Context.UserRequestInfo,
-		ExcludeGroupRole: c.Config.GetExcludeGroupRole(),
-		ResourceCache:    c.resCache,
-		JSONContext:      ctx,
+		NewResource:         resource,
+		Policy:              *policyObj,
+		Context:             ctx,
+		AdmissionInfo:       gr.Spec.Context.UserRequestInfo,
+		ExcludeGroupRole:    c.Config.GetExcludeGroupRole(),
+		ExcludeResourceFunc: c.Config.ToFilter,
+		ResourceCache:       c.resCache,
+		JSONContext:         ctx,
 	}
 
 	// check if the policy still applies to the resource

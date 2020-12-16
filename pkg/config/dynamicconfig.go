@@ -23,26 +23,15 @@ var defaultExcludeGroupRole []string = []string{"system:serviceaccounts:kube-sys
 
 // ConfigData stores the configuration
 type ConfigData struct {
-	client kubernetes.Interface
-	// configMap Name
-	cmName string
-	// lock configuration
-	mux sync.RWMutex
-	// configuration data
-	filters []k8Resource
-
-	// excludeGroupRole Role
-	excludeGroupRole []string
-
-	//excludeUsername exclude username
-	excludeUsername []string
-
-	//restrictDevelopmentUsername exclude dev username like minikube and kind
+	client                      kubernetes.Interface
+	cmName                      string
+	mux                         sync.RWMutex
+	filters                     []k8Resource
+	excludeGroupRole            []string
+	excludeUsername             []string
 	restrictDevelopmentUsername []string
-	// hasynced
-	cmSycned cache.InformerSynced
-
-	log logr.Logger
+	cmSycned                    cache.InformerSynced
+	log                         logr.Logger
 }
 
 // ToFilter checks if the given resource is set to be filtered in the configuration
@@ -92,12 +81,14 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 	if cmNameEnv == "" {
 		log.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
 	}
+
 	cd := ConfigData{
 		client:   rclient,
 		cmName:   os.Getenv(cmNameEnv),
 		cmSycned: cmInformer.Informer().HasSynced,
 		log:      log,
 	}
+
 	cd.restrictDevelopmentUsername = []string{"minikube-user", "kubernetes-admin"}
 
 	//TODO: this has been added to backward support command line arguments
@@ -124,6 +115,7 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 		UpdateFunc: cd.updateCM,
 		DeleteFunc: cd.deleteCM,
 	})
+
 	return &cd
 }
 

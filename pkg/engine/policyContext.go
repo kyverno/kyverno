@@ -10,23 +10,33 @@ import (
 
 // PolicyContext contains the contexts for engine to process
 type PolicyContext struct {
-	// policy to be processed
+
+	// Policy is the policy to be processed
 	Policy kyverno.ClusterPolicy
-	// resource to be processed
+
+	// NewResource is the resource to be processed
 	NewResource unstructured.Unstructured
-	// old Resource - Update operations
-	OldResource   unstructured.Unstructured
+
+	// OldResource is the prior resource for an update, or nil
+	OldResource unstructured.Unstructured
+
+	// AdmissionInfo contains the admission request information
 	AdmissionInfo kyverno.RequestInfo
+
 	// Dynamic client - used by generate
 	Client *client.Client
+
 	// Contexts to store resources
 	Context context.EvalInterface
+
 	// Config handler
 	ExcludeGroupRole []string
 
-	// ResourceCache provides listers to resources
-	// Currently Supports Configmap
+	ExcludeResourceFunc func(kind, namespace, name string) bool
+
+	// ResourceCache provides listers to resources. Currently Supports Configmap
 	ResourceCache resourcecache.ResourceCacheIface
-	// JSONContext ...
+
+	// JSONContext is the variable context
 	JSONContext *context.Context
 }
