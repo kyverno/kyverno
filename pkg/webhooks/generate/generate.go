@@ -144,7 +144,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.Generate
 				"policyName":        grSpec.Policy,
 				"resourceName":      grSpec.Resource.Name,
 				"resourceKind":      grSpec.Resource.Kind,
-				"ResourceNamespace": grSpec.Resource.Namespace,
+				"resourceNamespace": grSpec.Resource.Namespace,
 			}))
 			grList, err := grLister.List(selector)
 			if err != nil {
@@ -174,7 +174,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.Generate
 					"policyName":        grSpec.Policy,
 					"resourceName":      grSpec.Resource.Name,
 					"resourceKind":      grSpec.Resource.Kind,
-					"ResourceNamespace": grSpec.Resource.Namespace,
+					"resourceNamespace": grSpec.Resource.Namespace,
 				})
 				_, err = client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Create(context.TODO(), &gr, metav1.CreateOptions{})
 				if err != nil {

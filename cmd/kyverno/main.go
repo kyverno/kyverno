@@ -328,6 +328,7 @@ func main() {
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
 		rCache,
+		grc,
 	)
 
 	if err != nil {

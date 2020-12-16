@@ -59,7 +59,6 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 				ws.deleteGR(logger, engineResponse)
 				continue
 			}
-
 			rules = append(rules, rule)
 		}
 
