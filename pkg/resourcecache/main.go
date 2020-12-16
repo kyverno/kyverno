@@ -35,7 +35,7 @@ type ResourceCache struct {
 	GVRCacheData map[string]*GVRCache
 }
 
-// NewResourceCache - initializes the ResourceCache where it initially stores the GVR and Namespaced codition for the allowed resources in GVRCacheData
+// NewResourceCache - initializes the ResourceCache where it initially stores the GVR and Namespaced condition for the allowed resources in GVRCacheData
 func NewResourceCache(log logr.Logger, config *rest.Config, dclient *dclient.Client, match []string, exclude []string) (ResourceCacheIface, error) {
 	logger := log.WithName("resourcecache")
 	discoveryIface := dclient.GetDiscoveryCache()
