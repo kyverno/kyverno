@@ -12,25 +12,52 @@ import (
 )
 
 func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPolicy) {
-	// Parse through all the resources
-	// drops the cache after configured rebuild time
+	logger := pc.log.WithValues("policy", policy.Name)
+	logger.V(4).Info("applying policy to existing resources")
+
+	// Parse through all the resources drops the cache after configured rebuild time
 	pc.rm.Drop()
 
-	// get resource that are satisfy the resource description defined in the rules
-	resourceMap := pc.listResources(policy)
+	for _, rule := range policy.Spec.Rules {
+		for _, k := range rule.MatchResources.Kinds {
+			logger = logger.WithValues("rule", rule.Name, "kind", k)
+			resourceSchema, _, err := pc.client.DiscoveryClient.FindResource("", k)
+			if err != nil {
+				logger.Error(err, "failed to find resource", "kind", k)
+				continue
+			}
 
-	for _, resources := range resourceMap {
-		// apply policy to matched resources in a single namespace and report results per ns
-		for _, resource := range resources {
-			engineResponses := pc.applyPolicy(policy, resource)
-			pc.report(policy.Name, engineResponses)
+			if !resourceSchema.Namespaced {
+				pc.applyAndReportPerNamespace(policy, k, "", rule, logger)
+				continue
+			}
+
+			namespaces := GetNamespacesForRule(&rule, pc.nsLister, logger)
+			for _, ns := range namespaces {
+				pc.applyAndReportPerNamespace(policy, k, ns, rule, logger)
+			}
 		}
 	}
 }
 
-func (pc *PolicyController) applyPolicy(policy *kyverno.ClusterPolicy, resource unstructured.Unstructured) (engineResponses []response.EngineResponse) {
-	logger := pc.log.WithValues("policy", policy.Name)
+func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPolicy, kind string, ns string, rule kyverno.Rule, logger logr.Logger) {
+	rMap := pc.getResourcesPerNamespace(kind, ns, rule, logger)
+	excludeAutoGenResources(*policy, rMap, logger)
 
+	if len(rMap) == 0 {
+		return
+	}
+
+	var engineResponses []response.EngineResponse
+	for _, resource := range rMap {
+		responses := pc.applyPolicy(policy, resource, logger)
+		engineResponses = append(engineResponses, responses...)
+	}
+
+	pc.report(policy.Name, engineResponses, logger)
+}
+
+func (pc *PolicyController) applyPolicy(policy *kyverno.ClusterPolicy, resource unstructured.Unstructured, logger logr.Logger) (engineResponses []response.EngineResponse) {
 	// pre-processing, check if the policy and resource version has been processed before
 	if !pc.rm.ProcessResource(policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion()) {
 		logger.V(4).Info("policy and resource already processed", "policyResourceVersion", policy.ResourceVersion, "resourceResourceVersion", resource.GetResourceVersion(), "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
@@ -45,53 +72,14 @@ func (pc *PolicyController) applyPolicy(policy *kyverno.ClusterPolicy, resource 
 	return
 }
 
-// listResources returns the matched resources for the given policy
-// the return object is of type map[<namespace name>]map[<uid>]unstructured.Unstructured{}
-func (pc *PolicyController) listResources(policy *kyverno.ClusterPolicy) map[string]map[string]unstructured.Unstructured {
-	logger := pc.log.WithValues("policy", policy.Name)
-	logger.V(4).Info("list resources to be processed")
-
-	resourceMap := make(map[string]map[string]unstructured.Unstructured)
-
-	for _, rule := range policy.Spec.Rules {
-		for _, k := range rule.MatchResources.Kinds {
-
-			resourceSchema, _, err := pc.client.DiscoveryClient.FindResource("", k)
-			if err != nil {
-				pc.log.Error(err, "failed to find resource", "kind", k)
-				continue
-			}
-
-			if !resourceSchema.Namespaced {
-				rMap := GetResourcesPerNamespace(k, pc.client, "", rule, pc.configHandler, pc.log)
-				resourceMap["cluster-resource-key"] = rMap
-			} else {
-				namespaces := GetNamespacesForRule(&rule, pc.nsLister, pc.log)
-				for _, ns := range namespaces {
-					rMap := GetResourcesPerNamespace(k, pc.client, ns, rule, pc.configHandler, pc.log)
-					resourceMap[ns] = rMap
-				}
-			}
-		}
-	}
-
-	return excludeAutoGenResources(*policy, resourceMap, pc.log)
-}
-
 // excludeAutoGenResources filter out the pods / jobs with ownerReference
-func excludeAutoGenResources(policy kyverno.ClusterPolicy, resourceMap map[string]map[string]unstructured.Unstructured, log logr.Logger) map[string]map[string]unstructured.Unstructured {
-	for ns, rMap := range resourceMap {
-		rMapNew := rMap
-		for uid, r := range rMapNew {
-			if engine.SkipPolicyApplication(policy, r) {
-				log.V(4).Info("exclude resource", "namespace", r.GetNamespace(), "kind", r.GetKind(), "name", r.GetName())
-				delete(rMapNew, uid)
-			}
+func excludeAutoGenResources(policy kyverno.ClusterPolicy, resourceMap map[string]unstructured.Unstructured, log logr.Logger) {
+	for uid, r := range resourceMap {
+		if engine.SkipPolicyApplication(policy, r) {
+			log.V(4).Info("exclude resource", "namespace", r.GetNamespace(), "kind", r.GetKind(), "name", r.GetName())
+			delete(resourceMap, uid)
 		}
-		resourceMap[ns] = rMapNew
 	}
-
-	return resourceMap
 }
 
 //Condition defines condition type

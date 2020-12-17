@@ -204,7 +204,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 
 	logger.V(4).Info("updating policy", "name", oldP.Name)
 
-	pc.enqueueDeletedRule(oldP, curP)
+	pc.enqueueRcrDeletedRule(oldP, curP)
 	pc.enqueuePolicy(curP)
 }
 
@@ -214,7 +214,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			logger.Info("couldnt get object from tomstone", "obj", obj)
+			logger.Info("couldn't get object from tomstone", "obj", obj)
 			return
 		}
 
@@ -227,9 +227,10 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 
 	logger.V(4).Info("deleting policy", "name", p.Name)
 
-	// we process policies that are not set of background processing as we need to perform policy violation
-	// cleanup when a policy is deleted.
+	// we process policies that are not set of background processing
+	// as we need to clean up GRs when a policy is deleted
 	pc.enqueuePolicy(p)
+	pc.enqueueRcrDeletedPolicy(p.Name)
 }
 
 func (pc *PolicyController) addNsPolicy(obj interface{}) {
@@ -258,7 +259,7 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 
 	logger.V(4).Info("updating namespace policy", "namespace", oldP.Namespace, "name", oldP.Name)
 
-	pc.enqueueDeletedRule(ConvertPolicyToClusterPolicy(oldP), ncurP)
+	pc.enqueueRcrDeletedRule(ConvertPolicyToClusterPolicy(oldP), ncurP)
 	pc.enqueuePolicy(ncurP)
 }
 
@@ -281,12 +282,13 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	pol := ConvertPolicyToClusterPolicy(p)
 	logger.V(4).Info("deleting namespace policy", "namespace", pol.Namespace, "name", pol.Name)
 
-	// we process policies that are not set of background processing as we need to perform policy violation
-	// cleanup when a policy is deleted.
+	// we process policies that are not set of background processing
+	// as we need to clean up GRs when a policy is deleted
 	pc.enqueuePolicy(pol)
+	pc.enqueueRcrDeletedPolicy(p.Name)
 }
 
-func (pc *PolicyController) enqueueDeletedRule(old, cur *kyverno.ClusterPolicy) {
+func (pc *PolicyController) enqueueRcrDeletedRule(old, cur *kyverno.ClusterPolicy) {
 	curRule := make(map[string]bool)
 	for _, rule := range cur.Spec.Rules {
 		curRule[rule.Name] = true
@@ -306,6 +308,12 @@ func (pc *PolicyController) enqueueDeletedRule(old, cur *kyverno.ClusterPolicy) 
 			})
 		}
 	}
+}
+
+func (pc *PolicyController) enqueueRcrDeletedPolicy(policyName string) {
+	pc.prGenerator.Add(policyreport.Info{
+		PolicyName: policyName,
+	})
 }
 
 func (pc *PolicyController) enqueuePolicy(policy *kyverno.ClusterPolicy) {
@@ -377,7 +385,7 @@ func (pc *PolicyController) handleErr(err error, key interface{}) {
 }
 
 func (pc *PolicyController) syncPolicy(key string) error {
-	logger := pc.log
+	logger := pc.log.WithName("syncPolicy")
 	startTime := time.Now()
 	logger.V(4).Info("started syncing policy", "key", key, "startTime", startTime)
 	defer func() {
@@ -389,54 +397,57 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		logger.Error(err, "failed to list generate request")
 	}
 
-	var policy *kyverno.ClusterPolicy
-	namespace, key, isNamespacedPolicy := parseNamespacedPolicy(key)
-	if !isNamespacedPolicy {
-		policy, err = pc.pLister.Get(key)
-	} else {
-		var nspolicy *kyverno.Policy
-		nspolicy, err = pc.npLister.Policies(namespace).Get(key)
-		if err == nil && nspolicy != nil {
-			policy = ConvertPolicyToClusterPolicy(nspolicy)
-		}
-	}
-
+	policy, err := pc.getPolicy(key)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			for _, v := range grList {
-				if key == v.Spec.Policy {
-					err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
-					if err != nil && !errors.IsNotFound(err) {
-						logger.Error(err, "failed to delete gr")
-					}
-				}
-			}
-
-			go pc.removeResultsEntryFromPolicyReport(key)
+			deleteGR(pc.kyvernoClient, key, grList, logger)
 			return nil
 		}
 
 		return err
 	}
 
-	for _, v := range grList {
-		if policy.Name == v.Spec.Policy {
-			v.SetLabels(map[string]string{
-				"policy-update": fmt.Sprintf("revision-count-%d", rand.Intn(100000)),
-			})
-			_, err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
-			if err != nil {
-				logger.Error(err, "failed to update gr", "policy", policy.GetName(), "gr", v.GetName())
-			}
-		}
-	}
-
+	updateGR(pc.kyvernoClient, policy.Name, grList, logger)
 	pc.processExistingResources(policy)
 	return nil
 }
 
-func (pc *PolicyController) removeResultsEntryFromPolicyReport(policyName string) {
-	pc.prGenerator.Add(policyreport.Info{
-		PolicyName: policyName,
-	})
+func (pc *PolicyController) getPolicy(key string) (policy *kyverno.ClusterPolicy, err error) {
+	namespace, key, isNamespacedPolicy := parseNamespacedPolicy(key)
+	if !isNamespacedPolicy {
+		return pc.pLister.Get(key)
+	}
+
+	nsPolicy, err := pc.npLister.Policies(namespace).Get(key)
+	if err == nil && nsPolicy != nil {
+		policy = ConvertPolicyToClusterPolicy(nsPolicy)
+	}
+
+	return
+}
+
+func deleteGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*kyverno.GenerateRequest, logger logr.Logger) {
+	for _, v := range grList {
+		if policyKey == v.Spec.Policy {
+			err := kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
+			if err != nil && !errors.IsNotFound(err) {
+				logger.Error(err, "failed to delete gr", "name", v.GetName())
+			}
+		}
+	}
+}
+
+func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*kyverno.GenerateRequest, logger logr.Logger) {
+	for _, v := range grList {
+		if policyKey == v.Spec.Policy {
+			v.SetLabels(map[string]string{
+				"policy-update": fmt.Sprintf("revision-count-%d", rand.Intn(100000)),
+			})
+			_, err := kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
+			if err != nil {
+				logger.Error(err, "failed to update gr", "name", v.GetName())
+			}
+		}
+	}
+
 }

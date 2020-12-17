@@ -242,7 +242,7 @@ func (gen *Generator) processNextWorkItem() bool {
 		info := gen.dataStore.lookup(keyHash)
 		if reflect.DeepEqual(info, Info{}) {
 			gen.queue.Forget(obj)
-			logger.V(3).Info("empty key")
+			logger.V(4).Info("empty key")
 			return nil
 		}
 

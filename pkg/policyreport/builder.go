@@ -21,7 +21,7 @@ import (
 const (
 	clusterreportchangerequest string = "clusterreportchangerequest"
 	resourceLabelNamespace     string = "kyverno.io/resource.namespace"
-	deletedLabelResource       string = "kyverno.io/delete.resource"
+	deletedLabelResource       string = "kyverno.io/delete.resource.name"
 	deletedLabelResourceKind   string = "kyverno.io/delete.resource.kind"
 	deletedLabelPolicy         string = "kyverno.io/delete.policy"
 	deletedLabelRule           string = "kyverno.io/delete.rule"
@@ -112,12 +112,13 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 		set(req, info)
 	}
 
-	if len(results) == 0 {
-		// return nil on empty result without a deletion
-		return nil, nil
+	if !setRequestLabels(req, info) {
+		if len(results) == 0 {
+			// return nil on empty result without a deletion
+			return nil, nil
+		}
 	}
 
-	setRequestLabels(req, info)
 	return req, nil
 }
 
@@ -151,7 +152,7 @@ func set(obj *unstructured.Unstructured, info Info) {
 		obj.SetGenerateName(clusterreportchangerequest + "-")
 		obj.SetKind("ClusterReportChangeRequest")
 	} else {
-		obj.SetGenerateName("reportchangerequest-")
+		obj.SetGenerateName("rcr-")
 		obj.SetKind("ReportChangeRequest")
 	}
 
@@ -160,7 +161,7 @@ func set(obj *unstructured.Unstructured, info Info) {
 	})
 }
 
-func setRequestLabels(req *unstructured.Unstructured, info Info) {
+func setRequestLabels(req *unstructured.Unstructured, info Info) bool {
 	switch {
 	case isResourceDeletion(info):
 		req.SetLabels(map[string]string{
@@ -168,22 +169,27 @@ func setRequestLabels(req *unstructured.Unstructured, info Info) {
 			deletedLabelResource:     info.Results[0].Resource.Name,
 			deletedLabelResourceKind: info.Results[0].Resource.Kind,
 		})
+		return true
 
 	case isPolicyDeletion(info):
 		req.SetKind("ReportChangeRequest")
-		req.SetName(fmt.Sprintf("reportchangerequest-%s", info.PolicyName))
+		req.SetGenerateName("rcr-")
 		req.SetLabels(map[string]string{
 			deletedLabelPolicy: info.PolicyName},
 		)
+		return true
 
 	case isRuleDeletion(info):
 		req.SetKind("ReportChangeRequest")
-		req.SetName(fmt.Sprintf("reportchangerequest-%s-%s", info.PolicyName, info.Results[0].Rules[0].Name))
+		req.SetGenerateName("rcr-")
 		req.SetLabels(map[string]string{
 			deletedLabelPolicy: info.PolicyName,
 			deletedLabelRule:   info.Results[0].Rules[0].Name},
 		)
+		return true
 	}
+
+	return false
 }
 
 func calculateSummary(results []*report.PolicyReportResult) (summary report.PolicyReportSummary) {
@@ -266,7 +272,7 @@ func isPolicyDeletion(info Info) bool {
 func isRuleDeletion(info Info) bool {
 	if info.PolicyName != "" && len(info.Results) == 1 {
 		result := info.Results[0]
-		if len(result.Rules) == 0 && reflect.DeepEqual(result.Resource, response.ResourceSpec{}) {
+		if len(result.Rules) == 1 && reflect.DeepEqual(result.Resource, response.ResourceSpec{}) {
 			return true
 		}
 	}

@@ -308,12 +308,10 @@ func removeReportChangeRequest(client *client.Client, kind string) error {
 		return nil
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(len(rcrList.Items))
 	for _, rcr := range rcrList.Items {
-		go deleteResource(client, rcr.GetAPIVersion(), rcr.GetKind(), rcr.GetNamespace(), rcr.GetName(), &wg)
+		deleteResource(client, rcr.GetAPIVersion(), rcr.GetKind(), rcr.GetNamespace(), rcr.GetName(), nil)
 	}
-	wg.Wait()
+
 	return nil
 }
 
