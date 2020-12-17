@@ -19,7 +19,6 @@ import (
 )
 
 // applyPolicy applies policy on a resource
-//TODO: generation rules
 func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, logger logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface) (responses []response.EngineResponse) {
 	startTime := time.Now()
 	defer func() {
@@ -35,23 +34,21 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	var engineResponses []response.EngineResponse
 	var engineResponseMutation, engineResponseValidation response.EngineResponse
 	var err error
-	// build context
+
 	ctx := context.NewContext()
 	err = ctx.AddResource(transformResource(resource))
 	if err != nil {
 		logger.Error(err, "enable to add transform resource to ctx")
 	}
-	//MUTATION
+
 	engineResponseMutation, err = mutation(policy, resource, ctx, logger, resCache, ctx)
 	if err != nil {
 		logger.Error(err, "failed to process mutation rule")
 	}
 
-	//VALIDATION
 	engineResponseValidation = engine.Validate(engine.PolicyContext{Policy: policy, Context: ctx, NewResource: resource, ExcludeGroupRole: excludeGroupRole, ResourceCache: resCache, JSONContext: ctx})
 	engineResponses = append(engineResponses, mergeRuleRespose(engineResponseMutation, engineResponseValidation))
 
-	//TODO: GENERATION
 	return engineResponses
 }
 
@@ -62,10 +59,10 @@ func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, 
 		log.V(4).Info("failed to apply mutation rules; reporting them")
 		return engineResponse, nil
 	}
-	// Verify if the JSON pathes returned by the Mutate are already applied to the resource
+	// Verify if the JSON patches returned by the Mutate are already applied to the resource
 	if reflect.DeepEqual(resource, engineResponse.PatchedResource) {
 		// resources matches
-		log.V(4).Info("resource already satisfys the policy")
+		log.V(4).Info("resource already satisfies the policy")
 		return engineResponse, nil
 	}
 	return getFailedOverallRuleInfo(resource, engineResponse, log)

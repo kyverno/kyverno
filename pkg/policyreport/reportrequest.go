@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/constant"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,11 +62,7 @@ type Generator struct {
 
 	queue     workqueue.RateLimitingInterface
 	dataStore *dataStore
-
-	// update policy status with violationCount
-	policyStatusListener policystatus.Listener
-
-	log logr.Logger
+	log       logr.Logger
 }
 
 // NewReportChangeRequestGenerator returns a new instance of report request generator
@@ -89,7 +86,6 @@ func NewReportChangeRequestGenerator(client *policyreportclient.Clientset,
 		polListerSynced:                  polInformer.Informer().HasSynced,
 		queue:                            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:                        newDataStore(),
-		policyStatusListener:             policyStatus,
 		log:                              log,
 	}
 
@@ -128,23 +124,38 @@ func (ds *dataStore) delete(keyHash string) {
 	delete(ds.data, keyHash)
 }
 
-//Info is a request to create PV
+// Info stores the policy application results for all matched resources
+// Namespace is set to empty "" if resource is cluster wide resource
 type Info struct {
 	PolicyName string
-	Resource   unstructured.Unstructured
-	Rules      []kyverno.ViolatedRule
-	FromSync   bool
+	Namespace  string
+	Results    []EngineResponseResult
 }
 
-func (i Info) toKey() string {
+type EngineResponseResult struct {
+	Resource response.ResourceSpec
+	Rules    []kyverno.ViolatedRule
+}
+
+func (i Info) ToKey() string {
 	keys := []string{
 		i.PolicyName,
-		i.Resource.GetKind(),
-		i.Resource.GetNamespace(),
-		i.Resource.GetName(),
-		strconv.Itoa(len(i.Rules)),
+		i.Namespace,
+		strconv.Itoa(len(i.Results)),
+	}
+
+	for _, result := range i.Results {
+		keys = append(keys, result.Resource.GetKey())
 	}
 	return strings.Join(keys, "/")
+}
+
+func (i Info) GetRuleLength() int {
+	l := 0
+	for _, res := range i.Results {
+		l += len(res.Rules)
+	}
+	return l
 }
 
 // GeneratorInterface provides API to create PVs
@@ -153,7 +164,7 @@ type GeneratorInterface interface {
 }
 
 func (gen *Generator) enqueue(info Info) {
-	keyHash := info.toKey()
+	keyHash := info.ToKey()
 	gen.dataStore.add(keyHash, info)
 	gen.queue.Add(keyHash)
 }
@@ -263,15 +274,6 @@ func (gen *Generator) syncHandler(info Info) error {
 }
 
 func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) error {
-	defer func() {
-		if val := reportReq.GetAnnotations()["fromSync"]; val == "true" {
-			gen.policyStatusListener.Update(violationCount{
-				policyName:    info.PolicyName,
-				violatedRules: info.Rules,
-			})
-		}
-	}()
-
 	logger := gen.log.WithName("sync")
 	reportReq.SetCreationTimestamp(v1.Now())
 	if reportReq.GetNamespace() == "" {

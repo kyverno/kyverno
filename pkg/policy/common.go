@@ -92,7 +92,7 @@ func ExcludePod(resourceMap map[string]unstructured.Unstructured, log logr.Logge
 	return resourceMap
 }
 
-// GetNamespacesForRule gets the matched namespacse list for the given rule
+// GetNamespacesForRule gets the matched namespaces list for the given rule
 func GetNamespacesForRule(rule *kyverno.Rule, nslister listerv1.NamespaceLister, log logr.Logger) []string {
 	if len(rule.MatchResources.Namespaces) == 0 {
 		return GetAllNamespaces(nslister, log)

@@ -130,20 +130,25 @@ func HandleValidation(
 	prGenerator.Add(prInfos...)
 
 	if request.Operation == v1beta1.Delete {
-		prGenerator.Add(policyreport.Info{
-			Resource: unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"kind": oldR.GetKind(),
-					"metadata": map[string]interface{}{
-						"name":      oldR.GetName(),
-						"namespace": oldR.GetNamespace(),
-					},
-				},
-			},
-		})
+		prGenerator.Add(buildDeletionPrInfo(oldR))
 	}
 
 	return true, ""
+}
+
+func buildDeletionPrInfo(oldR unstructured.Unstructured) policyreport.Info {
+	return policyreport.Info{
+		Namespace: oldR.GetNamespace(),
+		Results: []policyreport.EngineResponseResult{
+			{Resource: response.ResourceSpec{
+				Kind:       oldR.GetKind(),
+				APIVersion: oldR.GetAPIVersion(),
+				Namespace:  oldR.GetNamespace(),
+				Name:       oldR.GetName(),
+				UID:        string(oldR.GetUID()),
+			}},
+		},
+	}
 }
 
 type validateStats struct {

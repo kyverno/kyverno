@@ -7,11 +7,13 @@ import (
 
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -111,33 +113,38 @@ func buildPolicyResults(resps []response.EngineResponse) map[string][]*report.Po
 
 	for _, info := range infos {
 		var appname string
-
-		ns := info.Resource.GetNamespace()
+		ns := info.Namespace
 		if ns != "" {
 			appname = fmt.Sprintf("policyreport-ns-%s", ns)
 		} else {
 			appname = fmt.Sprintf(clusterpolicyreport)
 		}
 
-		for _, rule := range info.Rules {
-			result := report.PolicyReportResult{
-				Policy: info.PolicyName,
-				Resources: []*corev1.ObjectReference{
-					{
-						Kind:       info.Resource.GetKind(),
-						Namespace:  info.Resource.GetNamespace(),
-						APIVersion: info.Resource.GetAPIVersion(),
-						Name:       info.Resource.GetName(),
-						UID:        info.Resource.GetUID(),
-					},
-				},
-				Scored: true,
-			}
+		for _, infoResult := range info.Results {
+			for _, rule := range infoResult.Rules {
+				if rule.Type != utils.Validation.String() {
+					continue
+				}
 
-			result.Rule = rule.Name
-			result.Message = rule.Message
-			result.Status = report.PolicyStatus(rule.Check)
-			results[appname] = append(results[appname], &result)
+				result := report.PolicyReportResult{
+					Policy: info.PolicyName,
+					Resources: []*corev1.ObjectReference{
+						{
+							Kind:       infoResult.Resource.Kind,
+							Namespace:  infoResult.Resource.Namespace,
+							APIVersion: infoResult.Resource.APIVersion,
+							Name:       infoResult.Resource.Name,
+							UID:        types.UID(infoResult.Resource.UID),
+						},
+					},
+					Scored: true,
+				}
+
+				result.Rule = rule.Name
+				result.Message = rule.Message
+				result.Status = report.PolicyStatus(rule.Check)
+				results[appname] = append(results[appname], &result)
+			}
 		}
 	}
 

@@ -50,7 +50,7 @@ type PolicyController struct {
 	eventGen      event.Interface
 	eventRecorder record.EventRecorder
 
-	// Policys that need to be synced
+	// Policies that need to be synced
 	queue workqueue.RateLimitingInterface
 
 	// pLister can list/get policy from the shared informer's store
@@ -62,7 +62,7 @@ type PolicyController struct {
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestLister
 
-	// nsLister can list/get namespacecs from the shared informer's store
+	// nsLister can list/get namespaces from the shared informer's store
 	nsLister listerv1.NamespaceLister
 
 	// pListerSynced returns true if the cluster policy store has been synced at least once
@@ -82,6 +82,7 @@ type PolicyController struct {
 
 	// grListerSynced returns true if the generate request store has been synced at least once
 	grListerSynced cache.InformerSynced
+
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
 
@@ -267,7 +268,7 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			logger.Info("couldnt get object from tomstone", "obj", obj)
+			logger.Info("couldn't get object from tomstone", "obj", obj)
 			return
 		}
 
@@ -295,8 +296,12 @@ func (pc *PolicyController) enqueueDeletedRule(old, cur *kyverno.ClusterPolicy) 
 		if !curRule[rule.Name] {
 			pc.prGenerator.Add(policyreport.Info{
 				PolicyName: cur.GetName(),
-				Rules: []kyverno.ViolatedRule{
-					{Name: rule.Name},
+				Results: []policyreport.EngineResponseResult{
+					{
+						Rules: []kyverno.ViolatedRule{
+							{Name: rule.Name},
+						},
+					},
 				},
 			})
 		}
@@ -426,8 +431,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		}
 	}
 
-	engineResponses := pc.processExistingResources(policy)
-	pc.cleanupAndReport(engineResponses)
+	pc.processExistingResources(policy)
 	return nil
 }
 
