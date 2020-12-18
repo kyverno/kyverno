@@ -42,6 +42,13 @@ func (cd *ConfigData) ToFilter(kind, namespace, name string) bool {
 		if wildcard.Match(f.Kind, kind) && wildcard.Match(f.Namespace, namespace) && wildcard.Match(f.Name, name) {
 			return true
 		}
+
+		if kind == "Namespace" {
+			// [Namespace,kube-system,*] || [*,kube-system,*]
+			if (f.Kind == "Namespace" || f.Kind == "*") && wildcard.Match(f.Namespace, name) {
+				return true
+			}
+		}
 	}
 	return false
 }

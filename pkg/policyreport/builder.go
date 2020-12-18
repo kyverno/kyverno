@@ -145,7 +145,6 @@ func (builder *requestBuilder) buildRcrResult(policy string, resource response.R
 }
 
 func set(obj *unstructured.Unstructured, info Info) {
-	obj.SetNamespace(config.KyvernoNamespace)
 	obj.SetAPIVersion(request.SchemeGroupVersion.Group + "/" + request.SchemeGroupVersion.Version)
 
 	if info.Namespace == "" {
@@ -154,6 +153,7 @@ func set(obj *unstructured.Unstructured, info Info) {
 	} else {
 		obj.SetGenerateName("rcr-")
 		obj.SetKind("ReportChangeRequest")
+		obj.SetNamespace(config.KyvernoNamespace)
 	}
 
 	obj.SetLabels(map[string]string{

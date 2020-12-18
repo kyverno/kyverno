@@ -44,7 +44,7 @@ func buildPolicyReports(resps []response.EngineResponse, skippedPolicies []Skipp
 			}
 
 			if raw, err = json.Marshal(report); err != nil {
-				log.Log.V(3).Info("failed to serilize policy report", "error", err)
+				log.Log.V(3).Info("failed to serialize policy report", "error", err)
 				continue
 			}
 
@@ -72,7 +72,7 @@ func buildPolicyReports(resps []response.EngineResponse, skippedPolicies []Skipp
 
 			report.SetName(scope)
 			if raw, err = json.Marshal(report); err != nil {
-				log.Log.V(3).Info("failed to serilize policy report", "name", report.Name, "scope", scope, "error", err)
+				log.Log.V(3).Info("failed to serialize policy report", "name", report.Name, "scope", scope, "error", err)
 			}
 		} else {
 			report := &report.PolicyReport{
@@ -89,7 +89,7 @@ func buildPolicyReports(resps []response.EngineResponse, skippedPolicies []Skipp
 			report.SetNamespace(ns)
 
 			if raw, err = json.Marshal(report); err != nil {
-				log.Log.V(3).Info("failed to serilize policy report", "name", report.Name, "scope", scope, "error", err)
+				log.Log.V(3).Info("failed to serialize policy report", "name", report.Name, "scope", scope, "error", err)
 			}
 		}
 

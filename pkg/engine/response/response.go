@@ -54,7 +54,7 @@ type PolicyStats struct {
 	RulesAppliedCount int `json:"rulesAppliedCount"`
 }
 
-//RuleResponse details for each rule applicatino
+//RuleResponse details for each rule application
 type RuleResponse struct {
 	// rule name specified in policy
 	Name string `json:"name"`

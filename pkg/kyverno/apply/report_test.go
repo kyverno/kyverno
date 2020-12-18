@@ -8,6 +8,7 @@ import (
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -30,10 +31,12 @@ var engineResponses = []response.EngineResponse{
 			Rules: []response.RuleResponse{
 				{
 					Name:    "policy1-rule1",
+					Type:    utils.Validation.String(),
 					Success: true,
 				},
 				{
 					Name:    "policy1-rule2",
+					Type:    utils.Validation.String(),
 					Success: false,
 				},
 			},
@@ -54,10 +57,12 @@ var engineResponses = []response.EngineResponse{
 			Rules: []response.RuleResponse{
 				{
 					Name:    "clusterpolicy2-rule1",
+					Type:    utils.Validation.String(),
 					Success: true,
 				},
 				{
 					Name:    "clusterpolicy2-rule2",
+					Type:    utils.Validation.String(),
 					Success: false,
 				},
 			},

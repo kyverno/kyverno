@@ -19,7 +19,7 @@ func (pc *PolicyController) report(policy string, engineResponses []response.Eng
 	// we can merge pvInfos into a single object to reduce update frequency (throttling request) on RCR
 	info := mergePvInfos(pvInfos)
 	pc.prGenerator.Add(info)
-	logger.V(4).Info("added a request RCR generator", "key", info.ToKey())
+	logger.V(4).Info("added a request to RCR generator", "key", info.ToKey())
 }
 
 func generateEvents(log logr.Logger, ers []response.EngineResponse) []event.Info {

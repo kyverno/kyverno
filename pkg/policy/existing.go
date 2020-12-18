@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -19,15 +20,25 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 	pc.rm.Drop()
 
 	for _, rule := range policy.Spec.Rules {
+		if !rule.HasValidate() {
+			continue
+		}
+
 		for _, k := range rule.MatchResources.Kinds {
 			logger = logger.WithValues("rule", rule.Name, "kind", k)
-			resourceSchema, _, err := pc.client.DiscoveryClient.FindResource("", k)
+			namespaced, err := pc.rm.GetScope(k)
 			if err != nil {
-				logger.Error(err, "failed to find resource", "kind", k)
-				continue
+				resourceSchema, _, err := pc.client.DiscoveryClient.FindResource("", k)
+				if err != nil {
+					logger.Error(err, "failed to find resource", "kind", k)
+					continue
+				}
+
+				namespaced = resourceSchema.Namespaced
+				pc.rm.RegisterScope(k, namespaced)
 			}
 
-			if !resourceSchema.Namespaced {
+			if !namespaced {
 				pc.applyAndReportPerNamespace(policy, k, "", rule, logger)
 				continue
 			}
@@ -97,6 +108,7 @@ const (
 //NewResourceManager returns a new ResourceManager
 func NewResourceManager(rebuildTime int64) *ResourceManager {
 	rm := ResourceManager{
+		scope:       make(map[string]bool),
 		data:        make(map[string]interface{}),
 		time:        time.Now(),
 		rebuildTime: rebuildTime,
@@ -109,6 +121,7 @@ func NewResourceManager(rebuildTime int64) *ResourceManager {
 type ResourceManager struct {
 	// we drop and re-build the cache
 	// based on the memory consumer of by the map
+	scope       map[string]bool
 	data        map[string]interface{}
 	mux         sync.RWMutex
 	time        time.Time
@@ -119,7 +132,8 @@ type resourceManager interface {
 	ProcessResource(policy, pv, kind, ns, name, rv string) bool
 	//TODO	removeResource(kind, ns, name string) error
 	RegisterResource(policy, pv, kind, ns, name, rv string)
-	// reload
+	RegisterScope(kind string, namespaced bool)
+	GetScope(kind string) (bool, error)
 	Drop()
 }
 
@@ -154,6 +168,28 @@ func (rm *ResourceManager) ProcessResource(policy, pv, kind, ns, name, rv string
 	key := buildKey(policy, pv, kind, ns, name, rv)
 	_, ok := rm.data[key]
 	return !ok
+}
+
+// RegisterScope stores the scope of the given kind
+func (rm *ResourceManager) RegisterScope(kind string, namespaced bool) {
+	rm.mux.Lock()
+	defer rm.mux.Unlock()
+
+	rm.scope[kind] = namespaced
+}
+
+// GetScope gets the scope of the given kind
+// return error if kind is not registered
+func (rm *ResourceManager) GetScope(kind string) (bool, error) {
+	rm.mux.RLock()
+	defer rm.mux.RUnlock()
+
+	namespaced, ok := rm.scope[kind]
+	if !ok {
+		return false, errors.New("NotFound")
+	}
+
+	return namespaced, nil
 }
 
 func buildKey(policy, pv, kind, ns, name, rv string) string {
