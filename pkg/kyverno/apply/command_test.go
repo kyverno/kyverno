@@ -47,17 +47,19 @@ func Test_Apply(t *testing.T) {
 		},
 	}
 
-	for _, tt := range testcases {
-		validateEngineResponses, _, _, skippedPolicies, _ := applyCommandHelper(tt.ResourcePaths, false, true, "", "", "", "", tt.PolicyPaths)
+	compareSummary := func(expected preport.PolicyReportSummary, actual map[string]interface{}) {
+		assert.Assert(t, actual[preport.StatusPass].(int64) == int64(expected.Pass))
+		assert.Assert(t, actual[preport.StatusFail].(int64) == int64(expected.Fail))
+		assert.Assert(t, actual[preport.StatusSkip].(int64) == int64(expected.Skip))
+		assert.Assert(t, actual[preport.StatusWarn].(int64) == int64(expected.Warn))
+		assert.Assert(t, actual[preport.StatusError].(int64) == int64(expected.Error))
+	}
+
+	for _, tc := range testcases {
+		validateEngineResponses, _, _, skippedPolicies, _ := applyCommandHelper(tc.ResourcePaths, false, true, "", "", "", "", tc.PolicyPaths)
 		resps := buildPolicyReports(validateEngineResponses, skippedPolicies)
 		for i, resp := range resps {
-			thisSummary := tt.expectedPolicyReports[i].Summary
-			thisRespSummary := resp.UnstructuredContent()["summary"].(map[string]interface{})
-			assert.Assert(t, thisRespSummary[preport.StatusPass].(int64) == int64(thisSummary.Pass))
-			assert.Assert(t, thisRespSummary[preport.StatusFail].(int64) == int64(thisSummary.Fail))
-			assert.Assert(t, thisRespSummary[preport.StatusSkip].(int64) == int64(thisSummary.Skip))
-			assert.Assert(t, thisRespSummary[preport.StatusWarn].(int64) == int64(thisSummary.Warn))
-			assert.Assert(t, thisRespSummary[preport.StatusError].(int64) == int64(thisSummary.Error))
+			compareSummary(tc.expectedPolicyReports[i].Summary, resp.UnstructuredContent()["summary"].(map[string]interface{}))
 		}
 	}
 }
