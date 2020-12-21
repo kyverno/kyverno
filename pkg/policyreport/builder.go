@@ -15,15 +15,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
 	clusterreportchangerequest string = "clusterreportchangerequest"
-	resourceLabelName          string = "kyverno.io/resource.name"
-	resourceLabelKind          string = "kyverno.io/resource.kind"
 	resourceLabelNamespace     string = "kyverno.io/resource.namespace"
-	policyLabel                string = "kyverno.io/policy"
-	deletedLabelResource       string = "kyverno.io/delete.resource"
+	deletedLabelResource       string = "kyverno.io/delete.resource.name"
 	deletedLabelResourceKind   string = "kyverno.io/delete.resource.kind"
 	deletedLabelPolicy         string = "kyverno.io/delete.policy"
 	deletedLabelRule           string = "kyverno.io/delete.rule"
@@ -76,33 +74,18 @@ func NewBuilder(cpolLister kyvernolister.ClusterPolicyLister, polLister kyvernol
 
 func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured, err error) {
 	results := []*report.PolicyReportResult{}
-	for _, rule := range info.Rules {
-		if rule.Type != utils.Validation.String() {
-			continue
-		}
+	for _, infoResult := range info.Results {
+		for _, rule := range infoResult.Rules {
+			if rule.Type != utils.Validation.String() {
+				continue
+			}
 
-		result := &report.PolicyReportResult{
-			Policy: info.PolicyName,
-			Resources: []*v1.ObjectReference{
-				{
-					Kind:       info.Resource.GetKind(),
-					Namespace:  info.Resource.GetNamespace(),
-					APIVersion: info.Resource.GetAPIVersion(),
-					Name:       info.Resource.GetName(),
-					UID:        info.Resource.GetUID(),
-				},
-			},
-			Scored:   true,
-			Category: builder.fetchCategory(info.PolicyName, info.Resource.GetNamespace()),
+			result := builder.buildRCRResult(info.PolicyName, infoResult.Resource, rule)
+			results = append(results, result)
 		}
-
-		result.Rule = rule.Name
-		result.Message = rule.Message
-		result.Status = report.PolicyStatus(rule.Check)
-		results = append(results, result)
 	}
 
-	if info.Resource.GetNamespace() != "" {
+	if info.Namespace != "" {
 		rr := &request.ReportChangeRequest{
 			Summary: calculateSummary(results),
 			Results: results,
@@ -129,58 +112,84 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 		set(req, info)
 	}
 
-	// deletion of a result entry
-	if len(info.Rules) == 0 && info.PolicyName == "" { // on resource deleteion
-		req.SetLabels(map[string]string{
-			resourceLabelNamespace:   info.Resource.GetNamespace(),
-			deletedLabelResource:     info.Resource.GetName(),
-			deletedLabelResourceKind: info.Resource.GetKind()})
-	} else if info.PolicyName != "" && reflect.DeepEqual(info.Resource, unstructured.Unstructured{}) { // on policy deleteion
-		req.SetKind("ReportChangeRequest")
-
-		if len(info.Rules) == 0 {
-			req.SetLabels(map[string]string{
-				deletedLabelPolicy: info.PolicyName})
-
-			req.SetName(fmt.Sprintf("reportchangerequest-%s", info.PolicyName))
-		} else {
-			req.SetLabels(map[string]string{
-				deletedLabelPolicy: info.PolicyName,
-				deletedLabelRule:   info.Rules[0].Name})
-			req.SetName(fmt.Sprintf("reportchangerequest-%s-%s", info.PolicyName, info.Rules[0].Name))
+	if !setRequestLabels(req, info) {
+		if len(results) == 0 {
+			// return nil on empty result without a deletion
+			return nil, nil
 		}
-	} else if len(results) == 0 {
-		// return nil on empty result without a deletion
-		return nil, nil
 	}
 
 	return req, nil
 }
 
+func (builder *requestBuilder) buildRCRResult(policy string, resource response.ResourceSpec, rule kyverno.ViolatedRule) *report.PolicyReportResult {
+	result := &report.PolicyReportResult{
+		Policy: policy,
+		Resources: []*v1.ObjectReference{
+			{
+				Kind:       resource.Kind,
+				Namespace:  resource.Namespace,
+				APIVersion: resource.APIVersion,
+				Name:       resource.Name,
+				UID:        types.UID(resource.UID),
+			},
+		},
+		Scored:   true,
+		Category: builder.fetchCategory(policy, resource.Namespace),
+	}
+
+	result.Rule = rule.Name
+	result.Message = rule.Message
+	result.Status = report.PolicyStatus(rule.Check)
+	return result
+}
+
 func set(obj *unstructured.Unstructured, info Info) {
-	resource := info.Resource
-	obj.SetNamespace(config.KyvernoNamespace)
 	obj.SetAPIVersion(request.SchemeGroupVersion.Group + "/" + request.SchemeGroupVersion.Version)
-	if resource.GetNamespace() == "" {
+
+	if info.Namespace == "" {
 		obj.SetGenerateName(clusterreportchangerequest + "-")
 		obj.SetKind("ClusterReportChangeRequest")
 	} else {
-		obj.SetGenerateName("reportchangerequest-")
+		obj.SetGenerateName("rcr-")
 		obj.SetKind("ReportChangeRequest")
+		obj.SetNamespace(config.KyvernoNamespace)
 	}
 
 	obj.SetLabels(map[string]string{
-		resourceLabelNamespace: resource.GetNamespace(),
-		resourceLabelName:      resource.GetName(),
-		resourceLabelKind:      resource.GetKind(),
-		policyLabel:            info.PolicyName,
+		resourceLabelNamespace: info.Namespace,
 	})
+}
 
-	if info.FromSync {
-		obj.SetAnnotations(map[string]string{
-			"fromSync": "true",
+func setRequestLabels(req *unstructured.Unstructured, info Info) bool {
+	switch {
+	case isResourceDeletion(info):
+		req.SetLabels(map[string]string{
+			resourceLabelNamespace:   info.Results[0].Resource.Namespace,
+			deletedLabelResource:     info.Results[0].Resource.Name,
+			deletedLabelResourceKind: info.Results[0].Resource.Kind,
 		})
+		return true
+
+	case isPolicyDeletion(info):
+		req.SetKind("ReportChangeRequest")
+		req.SetGenerateName("rcr-")
+		req.SetLabels(map[string]string{
+			deletedLabelPolicy: info.PolicyName},
+		)
+		return true
+
+	case isRuleDeletion(info):
+		req.SetKind("ReportChangeRequest")
+		req.SetGenerateName("rcr-")
+		req.SetLabels(map[string]string{
+			deletedLabelPolicy: info.PolicyName,
+			deletedLabelRule:   info.Results[0].Rules[0].Name},
+		)
+		return true
 	}
+
+	return false
 }
 
 func calculateSummary(results []*report.PolicyReportResult) (summary report.PolicyReportSummary) {
@@ -204,8 +213,13 @@ func calculateSummary(results []*report.PolicyReportResult) (summary report.Poli
 func buildPVInfo(er response.EngineResponse) Info {
 	info := Info{
 		PolicyName: er.PolicyResponse.Policy,
-		Resource:   er.PatchedResource,
-		Rules:      buildViolatedRules(er),
+		Namespace:  er.PatchedResource.GetNamespace(),
+		Results: []EngineResponseResult{
+			{
+				Resource: er.GetResourceSpec(),
+				Rules:    buildViolatedRules(er),
+			},
+		},
 	}
 	return info
 }
@@ -245,4 +259,22 @@ func (builder *requestBuilder) fetchCategory(policy, ns string) string {
 	}
 
 	return ""
+}
+
+func isResourceDeletion(info Info) bool {
+	return info.PolicyName == "" && len(info.Results) == 1 && info.GetRuleLength() == 0
+}
+
+func isPolicyDeletion(info Info) bool {
+	return info.PolicyName != "" && len(info.Results) == 0
+}
+
+func isRuleDeletion(info Info) bool {
+	if info.PolicyName != "" && len(info.Results) == 1 {
+		result := info.Results[0]
+		if len(result.Rules) == 1 && reflect.DeepEqual(result.Resource, response.ResourceSpec{}) {
+			return true
+		}
+	}
+	return false
 }

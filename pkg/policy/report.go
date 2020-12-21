@@ -9,21 +9,17 @@ import (
 	"github.com/kyverno/kyverno/pkg/policyreport"
 )
 
-// for each policy-resource response
-// - has violation -> report
-// - no violation -> cleanup policy violations
-func (pc *PolicyController) cleanupAndReport(engineResponses []response.EngineResponse) {
-	logger := pc.log
-	// generate Events
-	eventInfos := generateEvents(pc.log, engineResponses)
+func (pc *PolicyController) report(policy string, engineResponses []response.EngineResponse, logger logr.Logger) {
+	eventInfos := generateEvents(logger, engineResponses)
 	pc.eventGen.Add(eventInfos...)
-	// create policy violation
-	pvInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
-	for i := range pvInfos {
-		pvInfos[i].FromSync = true
-	}
 
-	pc.prGenerator.Add(pvInfos...)
+	pvInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
+
+	// as engineResponses holds the results for all matched resources in one namespace
+	// we can merge pvInfos into a single object to reduce update frequency (throttling request) on RCR
+	info := mergePvInfos(pvInfos)
+	pc.prGenerator.Add(info)
+	logger.V(4).Info("added a request to RCR generator", "key", info.ToKey())
 }
 
 func generateEvents(log logr.Logger, ers []response.EngineResponse) []event.Info {
@@ -60,4 +56,23 @@ func generateEventsPerEr(log logr.Logger, er response.EngineResponse) []event.In
 	}
 
 	return eventInfos
+}
+
+func mergePvInfos(infos []policyreport.Info) policyreport.Info {
+	aggregatedInfo := policyreport.Info{}
+	if len(infos) == 0 {
+		return aggregatedInfo
+	}
+
+	var results []policyreport.EngineResponseResult
+	for _, info := range infos {
+		for _, res := range info.Results {
+			results = append(results, res)
+		}
+	}
+
+	aggregatedInfo.PolicyName = infos[0].PolicyName
+	aggregatedInfo.Namespace = infos[0].Namespace
+	aggregatedInfo.Results = results
+	return aggregatedInfo
 }

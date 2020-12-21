@@ -32,7 +32,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	// 1 - Check if the resource exists
 	resource, err = getResource(c.client, gr.Spec.Resource)
 	if err != nil {
-		// Dont update status
+		// Don't update status
 		logger.V(3).Info("resource does not exist or is pending creation, re-queueing", "details", err.Error())
 		return err
 	}

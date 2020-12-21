@@ -227,9 +227,10 @@ spec:
                           description: APIVersion specifies resource apiVersion.
                           type: string
                         clone:
-                          description: Clone specified the source resource used to
-                            populate each generated resource. Exactly one of Data
-                            or Clone must be specified.
+                          description: Clone specifies the source resource used to
+                            populate each generated resource. At most one of Data
+                            or Clone can be specified. If neither are provided, the
+                            generated resource will be created with default data only.
                           properties:
                             name:
                               description: Name specifies name of the resource.
@@ -239,9 +240,10 @@ spec:
                               type: string
                           type: object
                         data:
-                          description: Data provides the resource manifest to used
-                            to populate each generated resource. Exactly one of Data
-                            or Clone must be specified.
+                          description: Data provides the resource declaration used
+                            to populate each generated resource. At most one of Data
+                            or Clone must be specified. If neither are provided, the
+                            generated resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
                         kind:
                           description: Kind specifies resource kind.
@@ -254,7 +256,10 @@ spec:
                           type: string
                         synchronize:
                           description: Synchronize controls if generated resources
-                            should be kept in-sync with their source resource. Optional.
+                            should be kept in-sync with their source resource. If
+                            Synchronize is set to "true" changes to generated resources
+                            will be overwritten with resource data from Data or the
+                            resource specified in the Clone declaration. Optional.
                             Defaults to "false" if not specified.
                           type: boolean
                       type: object

@@ -232,6 +232,8 @@ func (g *ReportGenerator) handleErr(err error, key interface{}) {
 // syncHandler reconciles clusterPolicyReport if namespace == ""
 // otherwise it updates policyReport
 func (g *ReportGenerator) syncHandler(key string) error {
+	g.log.V(4).Info("syncing policy report", "key", key)
+
 	if policy, rule, ok := isDeletedPolicyKey(key); ok {
 		return g.removePolicyEntryFromReport(policy, rule)
 	}
@@ -312,6 +314,31 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstru
 }
 
 func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName string) error {
+	if err := g.removeFromClusterPolicyReport(policyName, ruleName); err != nil {
+		return err
+	}
+
+	if err := g.removeFromPolicyReport(policyName, ruleName); err != nil {
+		return err
+	}
+
+	labelset := labels.Set(map[string]string{deletedLabelPolicy: policyName})
+	if ruleName != "" {
+		labelset = labels.Set(map[string]string{
+			deletedLabelPolicy: policyName,
+			deletedLabelRule:   ruleName,
+		})
+	}
+	aggregatedRequests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).List(labels.SelectorFromSet(labelset))
+	if err != nil {
+		return err
+	}
+
+	g.cleanupReportRequests(aggregatedRequests)
+	return nil
+}
+
+func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName string) error {
 	cpolrs, err := g.clusterReportLister.List(labels.Everything())
 	if err != nil {
 		return fmt.Errorf("failed to list clusterPolicyReport %v", err)
@@ -335,7 +362,10 @@ func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName strin
 			return fmt.Errorf("failed to update clusterPolicyReport %s %v", cpolr.Name, err)
 		}
 	}
+	return nil
+}
 
+func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) error {
 	namespaces, err := g.dclient.ListResource("", "Namespace", "", nil)
 	if err != nil {
 		return fmt.Errorf("unable to list namespace %v", err)
@@ -370,23 +400,10 @@ func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName strin
 			return fmt.Errorf("failed to update PolicyReport %s %v", r.GetName(), err)
 		}
 	}
-
-	labelset := labels.Set(map[string]string{deletedLabelPolicy: policyName})
-	if ruleName != "" {
-		labelset = labels.Set(map[string]string{
-			deletedLabelPolicy: policyName,
-			deletedLabelRule:   ruleName,
-		})
-	}
-	aggregatedRequests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).List(labels.SelectorFromSet(labelset))
-	if err != nil {
-		return err
-	}
-
-	g.cleanupReportRequests(aggregatedRequests)
 	return nil
 }
 
+// aggregateReports aggregates cluster / report change requests to a policy report
 func (g *ReportGenerator) aggregateReports(namespace string) (
 	report *unstructured.Unstructured, aggregatedRequests interface{}, err error) {
 
@@ -553,7 +570,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 	new.Object = obj
 
 	if !hasResultsChanged(oldUnstructured, new.UnstructuredContent()) {
-		g.log.V(4).Info("unchanged policy report", "namespace", new.GetNamespace(), "name", new.GetName())
+		g.log.V(4).Info("unchanged policy report", "kind", new.GetKind(), "namespace", new.GetNamespace(), "name", new.GetName())
 		return nil
 	}
 

@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/constant"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,11 +62,7 @@ type Generator struct {
 
 	queue     workqueue.RateLimitingInterface
 	dataStore *dataStore
-
-	// update policy status with violationCount
-	policyStatusListener policystatus.Listener
-
-	log logr.Logger
+	log       logr.Logger
 }
 
 // NewReportChangeRequestGenerator returns a new instance of report request generator
@@ -89,7 +86,6 @@ func NewReportChangeRequestGenerator(client *policyreportclient.Clientset,
 		polListerSynced:                  polInformer.Informer().HasSynced,
 		queue:                            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:                        newDataStore(),
-		policyStatusListener:             policyStatus,
 		log:                              log,
 	}
 
@@ -128,23 +124,38 @@ func (ds *dataStore) delete(keyHash string) {
 	delete(ds.data, keyHash)
 }
 
-//Info is a request to create PV
+// Info stores the policy application results for all matched resources
+// Namespace is set to empty "" if resource is cluster wide resource
 type Info struct {
 	PolicyName string
-	Resource   unstructured.Unstructured
-	Rules      []kyverno.ViolatedRule
-	FromSync   bool
+	Namespace  string
+	Results    []EngineResponseResult
 }
 
-func (i Info) toKey() string {
+type EngineResponseResult struct {
+	Resource response.ResourceSpec
+	Rules    []kyverno.ViolatedRule
+}
+
+func (i Info) ToKey() string {
 	keys := []string{
 		i.PolicyName,
-		i.Resource.GetKind(),
-		i.Resource.GetNamespace(),
-		i.Resource.GetName(),
-		strconv.Itoa(len(i.Rules)),
+		i.Namespace,
+		strconv.Itoa(len(i.Results)),
+	}
+
+	for _, result := range i.Results {
+		keys = append(keys, result.Resource.GetKey())
 	}
 	return strings.Join(keys, "/")
+}
+
+func (i Info) GetRuleLength() int {
+	l := 0
+	for _, res := range i.Results {
+		l += len(res.Rules)
+	}
+	return l
 }
 
 // GeneratorInterface provides API to create PVs
@@ -153,7 +164,7 @@ type GeneratorInterface interface {
 }
 
 func (gen *Generator) enqueue(info Info) {
-	keyHash := info.toKey()
+	keyHash := info.ToKey()
 	gen.dataStore.add(keyHash, info)
 	gen.queue.Add(keyHash)
 }
@@ -231,7 +242,7 @@ func (gen *Generator) processNextWorkItem() bool {
 		info := gen.dataStore.lookup(keyHash)
 		if reflect.DeepEqual(info, Info{}) {
 			gen.queue.Forget(obj)
-			logger.V(3).Info("empty key")
+			logger.V(4).Info("empty key")
 			return nil
 		}
 
@@ -249,48 +260,48 @@ func (gen *Generator) processNextWorkItem() bool {
 
 func (gen *Generator) syncHandler(info Info) error {
 	gen.log.V(3).Info("generating report change request")
+
 	builder := NewBuilder(gen.cpolLister, gen.polLister)
-	reportChangeRequestUnstructured, err := builder.build(info)
+	rcrUnstructured, err := builder.build(info)
 	if err != nil {
 		return fmt.Errorf("unable to build reportChangeRequest: %v", err)
 	}
 
-	if reportChangeRequestUnstructured == nil {
+	if rcrUnstructured == nil {
 		return nil
 	}
 
-	return gen.sync(reportChangeRequestUnstructured, info)
+	return gen.sync(rcrUnstructured, info)
 }
 
 func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) error {
-	defer func() {
-		if val := reportReq.GetAnnotations()["fromSync"]; val == "true" {
-			gen.policyStatusListener.Update(violationCount{
-				policyName:    info.PolicyName,
-				violatedRules: info.Rules,
-			})
-		}
-	}()
-
-	logger := gen.log.WithName("sync")
+	logger := gen.log.WithName("sync report change request")
 	reportReq.SetCreationTimestamp(v1.Now())
-	if reportReq.GetNamespace() == "" {
-		old, err := gen.clusterReportChangeRequestLister.Get(reportReq.GetName())
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), "", reportReq, false); err != nil {
-					return fmt.Errorf("failed to create clusterReportChangeRequest: %v", err)
-				}
-
-				logger.V(3).Info("successfully created clusterReportChangeRequest", "name", reportReq.GetName())
-				return nil
-			}
-			return fmt.Errorf("unable to get %s: %v", reportReq.GetKind(), err)
-		}
-
-		return updateReportChangeRequest(gen.dclient, old, reportReq, logger)
+	if reportReq.GetKind() == "ClusterReportChangeRequest" {
+		return gen.syncClusterReportChangeRequest(reportReq, logger)
 	}
 
+	return gen.syncReportChangeRequest(reportReq, logger)
+}
+
+func (gen *Generator) syncClusterReportChangeRequest(reportReq *unstructured.Unstructured, logger logr.Logger) error {
+	old, err := gen.clusterReportChangeRequestLister.Get(reportReq.GetName())
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), "", reportReq, false); err != nil {
+				return fmt.Errorf("failed to create clusterReportChangeRequest: %v", err)
+			}
+
+			logger.V(3).Info("successfully created clusterReportChangeRequest", "name", reportReq.GetName())
+			return nil
+		}
+		return fmt.Errorf("unable to get %s: %v", reportReq.GetKind(), err)
+	}
+
+	return updateReportChangeRequest(gen.dclient, old, reportReq, logger)
+}
+
+func (gen *Generator) syncReportChangeRequest(reportReq *unstructured.Unstructured, logger logr.Logger) error {
 	old, err := gen.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).Get(reportReq.GetName())
 	if err != nil {
 		if apierrors.IsNotFound(err) {
