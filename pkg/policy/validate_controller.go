@@ -204,7 +204,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 
 	logger.V(4).Info("updating policy", "name", oldP.Name)
 
-	pc.enqueueRcrDeletedRule(oldP, curP)
+	pc.enqueueRCRDeletedRule(oldP, curP)
 	pc.enqueuePolicy(curP)
 }
 
@@ -214,7 +214,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			logger.Info("couldn't get object from tomstone", "obj", obj)
+			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
 
@@ -230,7 +230,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	// we process policies that are not set of background processing
 	// as we need to clean up GRs when a policy is deleted
 	pc.enqueuePolicy(p)
-	pc.enqueueRcrDeletedPolicy(p.Name)
+	pc.enqueueRCRDeletedPolicy(p.Name)
 }
 
 func (pc *PolicyController) addNsPolicy(obj interface{}) {
@@ -259,7 +259,7 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 
 	logger.V(4).Info("updating namespace policy", "namespace", oldP.Namespace, "name", oldP.Name)
 
-	pc.enqueueRcrDeletedRule(ConvertPolicyToClusterPolicy(oldP), ncurP)
+	pc.enqueueRCRDeletedRule(ConvertPolicyToClusterPolicy(oldP), ncurP)
 	pc.enqueuePolicy(ncurP)
 }
 
@@ -269,7 +269,7 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			logger.Info("couldn't get object from tomstone", "obj", obj)
+			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
 
@@ -285,10 +285,10 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	// we process policies that are not set of background processing
 	// as we need to clean up GRs when a policy is deleted
 	pc.enqueuePolicy(pol)
-	pc.enqueueRcrDeletedPolicy(p.Name)
+	pc.enqueueRCRDeletedPolicy(p.Name)
 }
 
-func (pc *PolicyController) enqueueRcrDeletedRule(old, cur *kyverno.ClusterPolicy) {
+func (pc *PolicyController) enqueueRCRDeletedRule(old, cur *kyverno.ClusterPolicy) {
 	curRule := make(map[string]bool)
 	for _, rule := range cur.Spec.Rules {
 		curRule[rule.Name] = true
@@ -310,7 +310,7 @@ func (pc *PolicyController) enqueueRcrDeletedRule(old, cur *kyverno.ClusterPolic
 	}
 }
 
-func (pc *PolicyController) enqueueRcrDeletedPolicy(policyName string) {
+func (pc *PolicyController) enqueueRCRDeletedPolicy(policyName string) {
 	pc.prGenerator.Add(policyreport.Info{
 		PolicyName: policyName,
 	})

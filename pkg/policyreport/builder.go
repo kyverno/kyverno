@@ -80,7 +80,7 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 				continue
 			}
 
-			result := builder.buildRcrResult(info.PolicyName, infoResult.Resource, rule)
+			result := builder.buildRCRResult(info.PolicyName, infoResult.Resource, rule)
 			results = append(results, result)
 		}
 	}
@@ -122,7 +122,7 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 	return req, nil
 }
 
-func (builder *requestBuilder) buildRcrResult(policy string, resource response.ResourceSpec, rule kyverno.ViolatedRule) *report.PolicyReportResult {
+func (builder *requestBuilder) buildRCRResult(policy string, resource response.ResourceSpec, rule kyverno.ViolatedRule) *report.PolicyReportResult {
 	result := &report.PolicyReportResult{
 		Policy: policy,
 		Resources: []*v1.ObjectReference{
