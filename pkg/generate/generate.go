@@ -3,6 +3,7 @@ package generate
 import (
 	contextdefault "context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -45,19 +46,23 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	// 2 - Apply the generate policy on the resource
 	genResources, err = c.applyGenerate(*resource, *gr)
 
-	// 3 - Report Events
-	events := failedEvents(err, *gr, *resource)
-	c.eventGen.Add(events...)
+	if err != nil {
+		// Need not update the stauts when policy doesn't apply on resource, because all the generate requests are removed by the cleanup controller
+		if strings.Contains(err.Error(), doesNotApply) {
+			logger.V(4).Info("skipping updating status of generate request")
+			return nil
+		}
 
-	// Need not update the stauts when policy doesn't apply on resource, because all the generate requests are removed by the cleanup controller
-	if err != nil && strings.Contains(err.Error(), "does not apply to resource") {
-		logger.V(4).Info("skipping updating status of generate request")
-		return nil
+		// 3 - Report failure Events
+		events := failedEvents(err, *gr, *resource)
+		c.eventGen.Add(events...)
 	}
 
 	// 4 - Update Status
 	return updateStatus(c.statusControl, *gr, err, genResources)
 }
+
+const doesNotApply = "policy does not apply to resource"
 
 func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest) ([]kyverno.ResourceSpec, error) {
 	logger := c.log.WithValues("name", gr.Name, "policy", gr.Spec.Policy, "kind", gr.Spec.Resource.Kind, "apiVersion", gr.Spec.Resource.APIVersion, "namespace", gr.Spec.Resource.Namespace, "name", gr.Spec.Resource.Name)
@@ -130,8 +135,8 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	// check if the policy still applies to the resource
 	engineResponse := engine.Generate(policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
-		logger.V(4).Info("policy does not apply to resource")
-		return nil, fmt.Errorf("policy %s, does not apply to resource %v", gr.Spec.Policy, gr.Spec.Resource)
+		logger.V(4).Info(doesNotApply)
+		return nil, errors.New(doesNotApply)
 	}
 
 	var applicableRules []string

@@ -3,11 +3,12 @@ package webhooks
 import (
 	contextdefault "context"
 	"fmt"
-	"github.com/go-logr/logr"
 	"reflect"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/go-logr/logr"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -50,12 +51,9 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		JSONContext:         ctx,
 	}
 
-	// engine.Generate returns a list of rules that are applicable on this resource
-	var rules []response.RuleResponse
-
 	for _, policy := range policies {
+		var rules []response.RuleResponse
 		policyContext.Policy = *policy
-
 		engineResponse := engine.Generate(policyContext)
 		for _, rule := range engineResponse.PolicyResponse.Rules {
 			if !rule.Success {
