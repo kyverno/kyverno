@@ -45,6 +45,7 @@ These policies provide additional best practices and are worthy of close conside
 1. [Disallow mounting Secrets as environment variables](DisallowSecretsFromEnvVars.md)
 1. [Add default labels](AddDefaultLabels.md)
 1. [Require all Pods drop all capabilities](RequirePodsDropAll.md)
+1. [Add seccompProfile securityContext ](AddSeccompProfile.md)
 
 ## Miscellaneous Policies
 
