@@ -130,7 +130,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			logger.Info("ouldn't get object from tombstone", "obj", obj)
+			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
 		_, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
@@ -232,7 +232,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	<-stopCh
 }
 
-// worker runs a worker thread that just dequeues items, processes them, and marks them done.
+// worker runs a worker thread that just de-queues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
 func (c *Controller) worker() {
 	for c.processNextWorkItem() {

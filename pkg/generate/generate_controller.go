@@ -1,8 +1,9 @@
 package generate
 
 import (
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -34,6 +35,7 @@ const (
 type Controller struct {
 	// dynamic client implementation
 	client *dclient.Client
+
 	// typed client for Kyverno CRDs
 	kyvernoClient *kyvernoclient.Clientset
 
