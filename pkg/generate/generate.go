@@ -398,7 +398,6 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		logger.V(2).Info("generated target resource")
 
 	} else if mode == Update {
-		label := newResource.GetLabels()
 		if rule.Generation.Synchronize {
 			label["policy.kyverno.io/synchronize"] = "enable"
 		} else {
