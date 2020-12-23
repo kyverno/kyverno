@@ -34,6 +34,7 @@ func (in InHandler) Evaluate(key, value interface{}) bool {
 		in.log.Error(err, "Failed to resolve variable", "variable", key)
 		return false
 	}
+
 	if value, err = in.subHandler(in.log, in.ctx, value); err != nil {
 		in.log.Error(err, "Failed to resolve variable", "variable", value)
 		return false
