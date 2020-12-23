@@ -87,10 +87,10 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.EngineResponse) {
 	logger.V(4).Info("querying all generate requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		"policyName":        engineResponse.PolicyResponse.Policy,
-		"resourceName":      engineResponse.PolicyResponse.Resource.Name,
-		"resourceKind":      engineResponse.PolicyResponse.Resource.Kind,
-		"resourceNamespace": engineResponse.PolicyResponse.Resource.Namespace,
+		"generate.kyverno.io/policy-name":        engineResponse.PolicyResponse.Policy,
+		"generate.kyverno.io/resource-name"      engineResponse.PolicyResponse.Resource.Name,
+		"generate.kyverno.io/resource-kind":      engineResponse.PolicyResponse.Resource.Kind,
+		"generate.kyverno.io/resource-namespace": engineResponse.PolicyResponse.Resource.Namespace,
 	}))
 
 	grList, err := ws.grLister.List(selector)

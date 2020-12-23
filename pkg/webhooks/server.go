@@ -385,8 +385,8 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		}
 
 		resLabels := resource.GetLabels()
-		if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["policy.kyverno.io/synchronize"] == "enable" {
-			grName := resLabels["policy.kyverno.io/gr-name"]
+		if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["generate.kyverno.io/synchronize"] == "enable" {
+			grName := resLabels["generate.kyverno.io/gr-name"]
 			gr, err := ws.grLister.Get(grName)
 			if err != nil {
 				logger.Error(err, "failed to get generate request", "name", grName)

@@ -141,10 +141,10 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.Generate
 		if action == v1beta1.Create || action == v1beta1.Update {
 			log.V(4).Info("querying all generate requests")
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
-				"policyName":        grSpec.Policy,
-				"resourceName":      grSpec.Resource.Name,
-				"resourceKind":      grSpec.Resource.Kind,
-				"resourceNamespace": grSpec.Resource.Namespace,
+				"generate.kyverno.io/policy-name":        grSpec.Policy,
+				"generate.kyverno.io/resource-name"      grSpec.Resource.Name,
+				"generate.kyverno.io/resource-kind":      grSpec.Resource.Kind,
+				"generate.kyverno.io/resource-namespace": grSpec.Resource.Namespace,
 			}))
 			grList, err := grLister.List(selector)
 			if err != nil {
@@ -153,28 +153,27 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.Generate
 			}
 
 			for _, v := range grList {
-				if grSpec.Policy == v.Spec.Policy && grSpec.Resource.Name == v.Spec.Resource.Name && grSpec.Resource.Kind == v.Spec.Resource.Kind && grSpec.Resource.Namespace == v.Spec.Resource.Namespace {
-					gr.SetLabels(map[string]string{
-						"resources-update": "true",
-					})
-
-					v.Spec.Context = gr.Spec.Context
-					v.Spec.Policy = gr.Spec.Policy
-					v.Spec.Resource = gr.Spec.Resource
-					_, err = client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
-					if err != nil {
-						return err
-					}
-					isExist = true
+				gr.SetLabels(map[string]string{
+					"resources-update": "true",
+				})
+				v.Spec.Context = gr.Spec.Context
+				v.Spec.Policy = gr.Spec.Policy
+				v.Spec.Resource = gr.Spec.Resource
+				
+				_, err = client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
+				if err != nil {
+					return err
 				}
+				isExist = true
 			}
+
 			if !isExist {
 				gr.SetGenerateName("gr-")
 				gr.SetLabels(map[string]string{
-					"policyName":        grSpec.Policy,
-					"resourceName":      grSpec.Resource.Name,
-					"resourceKind":      grSpec.Resource.Kind,
-					"resourceNamespace": grSpec.Resource.Namespace,
+					"generate.kyverno.io/policy-name":        grSpec.Policy,
+					"generate.kyverno.io/resource-name"      grSpec.Resource.Name,
+					"generate.kyverno.io/resource-kind":      grSpec.Resource.Kind,
+					"generate.kyverno.io/resource-namespace": grSpec.Resource.Namespace,
 				})
 				_, err = client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Create(context.TODO(), &gr, metav1.CreateOptions{})
 				if err != nil {
