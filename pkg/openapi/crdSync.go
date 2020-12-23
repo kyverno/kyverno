@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
 	"github.com/googleapis/gnostic/compiler"
-	"github.com/kyverno/kyverno/pkg/constant"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -78,7 +78,7 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 	c.sync()
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(c.sync, constant.CRDControllerResync, stopCh)
+		go wait.Until(c.sync, time.Second, stopCh)
 	}
 }
 

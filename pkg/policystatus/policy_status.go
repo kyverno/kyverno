@@ -86,7 +86,7 @@ func (s *Sync) Run(workers int, stopCh <-chan struct{}) {
 		go s.updateStatusCache(stopCh)
 	}
 
-	wait.Until(s.updatePolicyStatus, 60*time.Second, stopCh)
+	wait.Until(s.updatePolicyStatus, time.Second, stopCh)
 	<-stopCh
 }
 
