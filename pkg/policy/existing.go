@@ -59,7 +59,7 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPo
 		return
 	}
 
-	var engineResponses []response.EngineResponse
+	var engineResponses []*response.EngineResponse
 	for _, resource := range rMap {
 		responses := pc.applyPolicy(policy, resource, logger)
 		engineResponses = append(engineResponses, responses...)
@@ -68,7 +68,7 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPo
 	pc.report(policy.Name, engineResponses, logger)
 }
 
-func (pc *PolicyController) applyPolicy(policy *kyverno.ClusterPolicy, resource unstructured.Unstructured, logger logr.Logger) (engineResponses []response.EngineResponse) {
+func (pc *PolicyController) applyPolicy(policy *kyverno.ClusterPolicy, resource unstructured.Unstructured, logger logr.Logger) (engineResponses []*response.EngineResponse) {
 	// pre-processing, check if the policy and resource version has been processed before
 	if !pc.rm.ProcessResource(policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion()) {
 		logger.V(4).Info("policy and resource already processed", "policyResourceVersion", policy.ResourceVersion, "resourceResourceVersion", resource.GetResourceVersion(), "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
@@ -86,7 +86,7 @@ func (pc *PolicyController) applyPolicy(policy *kyverno.ClusterPolicy, resource 
 // excludeAutoGenResources filter out the pods / jobs with ownerReference
 func excludeAutoGenResources(policy kyverno.ClusterPolicy, resourceMap map[string]unstructured.Unstructured, log logr.Logger) {
 	for uid, r := range resourceMap {
-		if engine.SkipPolicyApplication(policy, r) {
+		if engine.ManagedPodResource(policy, r) {
 			log.V(4).Info("exclude resource", "namespace", r.GetNamespace(), "kind", r.GetKind(), "name", r.GetName())
 			delete(resourceMap, uid)
 		}

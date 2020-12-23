@@ -269,10 +269,15 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	return nil
 }
 func copyConditions(original []kyverno.Condition) []kyverno.Condition {
+	if original == nil || len(original) == 0 {
+		return []kyverno.Condition{}
+	}
+
 	var copy []kyverno.Condition
 	for _, condition := range original {
 		copy = append(copy, *condition.DeepCopy())
 	}
+
 	return copy
 }
 
@@ -288,10 +293,10 @@ func excludeResource(resource unstructured.Unstructured) bool {
 	return false
 }
 
-// SkipPolicyApplication returns true:
+// ManagedPodResource returns true:
 // - if the policy has auto-gen annotation && resource == Pod
 // - if the auto-gen contains cronJob && resource == Job
-func SkipPolicyApplication(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) bool {
+func ManagedPodResource(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) bool {
 	if policy.HasAutoGenAnnotation() && excludeResource(resource) {
 		return true
 	}

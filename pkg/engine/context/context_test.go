@@ -93,7 +93,7 @@ func Test_addResourceAndUserContext(t *testing.T) {
 		t.Error("exected result does not match")
 	}
 	// Add service account Name
-	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	err = ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
 		t.Error(err)
 	}

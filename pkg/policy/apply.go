@@ -19,7 +19,8 @@ import (
 )
 
 // applyPolicy applies policy on a resource
-func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, logger logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface) (responses []response.EngineResponse) {
+func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured,
+	logger logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface) (responses []*response.EngineResponse) {
 	startTime := time.Now()
 	defer func() {
 		name := resource.GetKind() + "/" + resource.GetName()
@@ -31,8 +32,8 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		logger.V(3).Info("applyPolicy", "resource", name, "processingTime", time.Since(startTime).String())
 	}()
 
-	var engineResponses []response.EngineResponse
-	var engineResponseMutation, engineResponseValidation response.EngineResponse
+	var engineResponses []*response.EngineResponse
+	var engineResponseMutation, engineResponseValidation *response.EngineResponse
 	var err error
 
 	ctx := context.NewContext()
@@ -41,20 +42,27 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		logger.Error(err, "enable to add transform resource to ctx")
 	}
 
-	engineResponseMutation, err = mutation(policy, resource, ctx, logger, resCache, ctx)
+	engineResponseMutation, err = mutation(policy, resource, logger, resCache, ctx)
 	if err != nil {
 		logger.Error(err, "failed to process mutation rule")
 	}
 
-	engineResponseValidation = engine.Validate(engine.PolicyContext{Policy: policy, Context: ctx, NewResource: resource, ExcludeGroupRole: excludeGroupRole, ResourceCache: resCache, JSONContext: ctx})
+	engineResponseValidation = engine.Validate(&engine.PolicyContext{Policy: policy, NewResource: resource, ExcludeGroupRole: excludeGroupRole, ResourceCache: resCache, JSONContext: ctx})
 	engineResponses = append(engineResponses, mergeRuleRespose(engineResponseMutation, engineResponseValidation))
 
 	return engineResponses
 }
 
-func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, ctx context.EvalInterface, log logr.Logger, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context) (response.EngineResponse, error) {
+func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, log logr.Logger, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context) (*response.EngineResponse, error) {
 
-	engineResponse := engine.Mutate(engine.PolicyContext{Policy: policy, NewResource: resource, Context: ctx, ResourceCache: resCache, JSONContext: jsonContext})
+	policyContext := &engine.PolicyContext{
+		Policy:        policy,
+		NewResource:   resource,
+		ResourceCache: resCache,
+		JSONContext:   jsonContext,
+	}
+
+	engineResponse := engine.Mutate(policyContext)
 	if !engineResponse.IsSuccessful() {
 		log.V(4).Info("failed to apply mutation rules; reporting them")
 		return engineResponse, nil
@@ -69,11 +77,11 @@ func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, 
 }
 
 // getFailedOverallRuleInfo gets detailed info for over-all mutation failure
-func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse response.EngineResponse, log logr.Logger) (response.EngineResponse, error) {
+func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse *response.EngineResponse, log logr.Logger) (*response.EngineResponse, error) {
 	rawResource, err := resource.MarshalJSON()
 	if err != nil {
 		log.Error(err, "failed to marshall resource")
-		return response.EngineResponse{}, err
+		return &response.EngineResponse{}, err
 	}
 
 	// resource does not match so there was a mutation rule violated
@@ -85,14 +93,14 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 		patch, err := jsonpatch.DecodePatch(utils.JoinPatches(patches))
 		if err != nil {
 			log.Error(err, "failed to decode JSON patch", "patches", patches)
-			return response.EngineResponse{}, err
+			return &response.EngineResponse{}, err
 		}
 
 		// apply the patches returned by mutate to the original resource
 		patchedResource, err := patch.Apply(rawResource)
 		if err != nil {
 			log.Error(err, "failed to apply JSON patch", "patches", patches)
-			return response.EngineResponse{}, err
+			return &response.EngineResponse{}, err
 		}
 
 		if !jsonpatch.Equal(patchedResource, rawResource) {
@@ -126,7 +134,7 @@ func extractPatchPath(patches [][]byte, log logr.Logger) string {
 	return strings.Join(resultPath, ";")
 }
 
-func mergeRuleRespose(mutation, validation response.EngineResponse) response.EngineResponse {
+func mergeRuleRespose(mutation, validation *response.EngineResponse) *response.EngineResponse {
 	mutation.PolicyResponse.Rules = append(mutation.PolicyResponse.Rules, validation.PolicyResponse.Rules...)
 	return mutation
 }

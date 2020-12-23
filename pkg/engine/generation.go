@@ -12,16 +12,16 @@ import (
 // 1. validate variables to be substitute in the general ruleInfo (match,exclude,condition)
 //    - the caller has to check the ruleResponse to determine whether the path exist
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
-func Generate(policyContext PolicyContext) (resp response.EngineResponse) {
+func Generate(policyContext PolicyContext) (resp *response.EngineResponse) {
 	return filterRules(policyContext)
 }
 
-func filterRules(policyContext PolicyContext) response.EngineResponse {
+func filterRules(policyContext PolicyContext) *response.EngineResponse {
 	kind := policyContext.NewResource.GetKind()
 	name := policyContext.NewResource.GetName()
 	namespace := policyContext.NewResource.GetNamespace()
 
-	resp := response.EngineResponse{
+	resp := &response.EngineResponse{
 		PolicyResponse: response.PolicyResponse{
 			Policy: policyContext.Policy.Name,
 			Resource: response.ResourceSpec{
@@ -57,7 +57,7 @@ func filterRule(rule kyverno.Rule, policyContext PolicyContext) *response.RuleRe
 	newResource := policyContext.NewResource
 	oldResource := policyContext.OldResource
 	admissionInfo := policyContext.AdmissionInfo
-	ctx := policyContext.Context
+	ctx := policyContext.JSONContext
 	resCache := policyContext.ResourceCache
 	jsonContext := policyContext.JSONContext
 	excludeGroupRole := policyContext.ExcludeGroupRole

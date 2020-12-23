@@ -26,9 +26,6 @@ type PolicyContext struct {
 	// Dynamic client - used by generate
 	Client *client.Client
 
-	// Contexts to store resources
-	Context context.EvalInterface
-
 	// Config handler
 	ExcludeGroupRole []string
 

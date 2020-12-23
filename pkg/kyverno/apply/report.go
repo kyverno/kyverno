@@ -20,7 +20,7 @@ import (
 const clusterpolicyreport = "clusterpolicyreport"
 
 // resps is the engine responses generated for a single policy
-func buildPolicyReports(resps []response.EngineResponse, skippedPolicies []SkippedPolicy) (res []*unstructured.Unstructured) {
+func buildPolicyReports(resps []*response.EngineResponse, skippedPolicies []SkippedPolicy) (res []*unstructured.Unstructured) {
 	var raw []byte
 	var err error
 
@@ -107,7 +107,7 @@ func buildPolicyReports(resps []response.EngineResponse, skippedPolicies []Skipp
 
 // buildPolicyResults returns a string-PolicyReportResult map
 // the key of the map is one of "clusterpolicyreport", "policyreport-ns-<namespace>"
-func buildPolicyResults(resps []response.EngineResponse) map[string][]*report.PolicyReportResult {
+func buildPolicyResults(resps []*response.EngineResponse) map[string][]*report.PolicyReportResult {
 	results := make(map[string][]*report.PolicyReportResult)
 	infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
 

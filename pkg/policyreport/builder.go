@@ -41,7 +41,7 @@ func generatePolicyReportName(ns string) string {
 }
 
 //GeneratePRsFromEngineResponse generate Violations from engine responses
-func GeneratePRsFromEngineResponse(ers []response.EngineResponse, log logr.Logger) (pvInfos []Info) {
+func GeneratePRsFromEngineResponse(ers []*response.EngineResponse, log logr.Logger) (pvInfos []Info) {
 	for _, er := range ers {
 		// ignore creation of PV for resources that are yet to be assigned a name
 		if er.PolicyResponse.Resource.Name == "" {
@@ -210,7 +210,7 @@ func calculateSummary(results []*report.PolicyReportResult) (summary report.Poli
 	return
 }
 
-func buildPVInfo(er response.EngineResponse) Info {
+func buildPVInfo(er *response.EngineResponse) Info {
 	info := Info{
 		PolicyName: er.PolicyResponse.Policy,
 		Namespace:  er.PatchedResource.GetNamespace(),
@@ -224,7 +224,7 @@ func buildPVInfo(er response.EngineResponse) Info {
 	return info
 }
 
-func buildViolatedRules(er response.EngineResponse) []kyverno.ViolatedRule {
+func buildViolatedRules(er *response.EngineResponse) []kyverno.ViolatedRule {
 	var violatedRules []kyverno.ViolatedRule
 	for _, rule := range er.PolicyResponse.Rules {
 		vrule := kyverno.ViolatedRule{

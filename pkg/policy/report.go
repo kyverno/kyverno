@@ -9,7 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policyreport"
 )
 
-func (pc *PolicyController) report(policy string, engineResponses []response.EngineResponse, logger logr.Logger) {
+func (pc *PolicyController) report(policy string, engineResponses []*response.EngineResponse, logger logr.Logger) {
 	eventInfos := generateEvents(logger, engineResponses)
 	pc.eventGen.Add(eventInfos...)
 
@@ -22,7 +22,7 @@ func (pc *PolicyController) report(policy string, engineResponses []response.Eng
 	logger.V(4).Info("added a request to RCR generator", "key", info.ToKey())
 }
 
-func generateEvents(log logr.Logger, ers []response.EngineResponse) []event.Info {
+func generateEvents(log logr.Logger, ers []*response.EngineResponse) []event.Info {
 	var eventInfos []event.Info
 	for _, er := range ers {
 		if er.IsSuccessful() {
@@ -33,7 +33,7 @@ func generateEvents(log logr.Logger, ers []response.EngineResponse) []event.Info
 	return eventInfos
 }
 
-func generateEventsPerEr(log logr.Logger, er response.EngineResponse) []event.Info {
+func generateEventsPerEr(log logr.Logger, er *response.EngineResponse) []event.Info {
 	var eventInfos []event.Info
 
 	logger := log.WithValues("policy", er.PolicyResponse.Policy, "kind", er.PolicyResponse.Resource.Kind, "namespace", er.PolicyResponse.Resource.Namespace, "name", er.PolicyResponse.Resource.Name)

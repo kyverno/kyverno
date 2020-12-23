@@ -68,10 +68,9 @@ func HandleValidation(
 		return true, ""
 	}
 
-	policyContext := engine.PolicyContext{
+	policyContext := &engine.PolicyContext{
 		NewResource:         newR,
 		OldResource:         oldR,
-		Context:             ctx,
 		AdmissionInfo:       userRequestInfo,
 		ExcludeGroupRole:    dynamicConfig.GetExcludeGroupRole(),
 		ExcludeResourceFunc: dynamicConfig.ToFilter,
@@ -79,7 +78,7 @@ func HandleValidation(
 		JSONContext:         ctx,
 	}
 
-	var engineResponses []response.EngineResponse
+	var engineResponses []*response.EngineResponse
 	for _, policy := range policies {
 
 		logger.V(3).Info("evaluating policy", "policy", policy.Name)
@@ -152,7 +151,7 @@ func buildDeletionPrInfo(oldR unstructured.Unstructured) policyreport.Info {
 }
 
 type validateStats struct {
-	resp      response.EngineResponse
+	resp      *response.EngineResponse
 	namespace string
 }
 

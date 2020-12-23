@@ -22,11 +22,12 @@ const (
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
+func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
+	resp = &response.EngineResponse{}
 	startTime := time.Now()
 	policy := policyContext.Policy
 	patchedResource := policyContext.NewResource
-	ctx := policyContext.Context
+	ctx := policyContext.JSONContext
 
 	resCache := policyContext.ResourceCache
 	jsonContext := policyContext.JSONContext
@@ -35,10 +36,10 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 
 	logger.V(4).Info("start policy processing", "startTime", startTime)
 
-	startMutateResultResponse(&resp, policy, patchedResource)
-	defer endMutateResultResponse(logger, &resp, startTime)
+	startMutateResultResponse(resp, policy, patchedResource)
+	defer endMutateResultResponse(logger, resp, startTime)
 
-	if SkipPolicyApplication(policy, patchedResource) {
+	if ManagedPodResource(policy, patchedResource) {
 		logger.V(5).Info("skip applying policy as direct changes to pods managed by workload controllers are not allowed", "policy", policy.GetName())
 		resp.PatchedResource = patchedResource
 		return
@@ -58,6 +59,7 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		if len(policyContext.ExcludeGroupRole) > 0 {
 			excludeResource = policyContext.ExcludeGroupRole
 		}
+
 		if err := MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource); err != nil {
 			logger.V(3).Info("resource not matched", "reason", err.Error())
 			continue
@@ -79,7 +81,6 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 		}
 
 		mutation := rule.Mutation.DeepCopy()
-
 		mutateHandler := mutate.CreateMutateHandler(rule.Name, mutation, patchedResource, ctx, logger)
 		ruleResponse, patchedResource = mutateHandler.Handle()
 		if ruleResponse.Success {
@@ -87,11 +88,12 @@ func Mutate(policyContext PolicyContext) (resp response.EngineResponse) {
 			if ruleResponse.Patches == nil {
 				continue
 			}
+
 			logger.V(4).Info("mutate rule applied successfully", "ruleName", rule.Name)
 		}
 
 		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
-		incrementAppliedRuleCount(&resp)
+		incrementAppliedRuleCount(resp)
 	}
 
 	resp.PatchedResource = patchedResource
@@ -103,9 +105,11 @@ func incrementAppliedRuleCount(resp *response.EngineResponse) {
 }
 
 func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.ClusterPolicy, resource unstructured.Unstructured) {
-	// set policy information
+	if resp == nil {
+		return
+	}
+
 	resp.PolicyResponse.Policy = policy.Name
-	// resource details
 	resp.PolicyResponse.Resource.Name = resource.GetName()
 	resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
 	resp.PolicyResponse.Resource.Kind = resource.GetKind()
@@ -113,6 +117,10 @@ func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.Clu
 }
 
 func endMutateResultResponse(logger logr.Logger, resp *response.EngineResponse, startTime time.Time) {
+	if resp == nil {
+		return
+	}
+
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
 	logger.V(4).Info("finished processing policy", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 }
