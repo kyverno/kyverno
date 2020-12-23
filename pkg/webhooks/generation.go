@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -16,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
@@ -84,7 +86,25 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	return
 }
 
-func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.EngineResponse) {
+//HandleUpdateAndDelete handles admission-requests for update and delete
+func (ws *WebhookServer) handleUpdateAndDelete(request *v1beta1.AdmissionRequest) {
+	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
+	if err != nil {
+		logger.Error(err, "failed to convert object resource to unstructured format")
+	}
+
+	resLabels := resource.GetLabels()
+	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["generate.kyverno.io/synchronize"] == "enable" {
+		grName := resLabels["generate.kyverno.io/gr-name"]
+		gr, err := ws.grLister.Get(grName)
+		if err != nil {
+			logger.Error(err, "failed to get generate request", "name", grName)
+		}
+		ws.grController.EnqueueGenerateRequestFromWebhook(gr)
+	}
+}
+
+func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse response.EngineResponse) {
 	logger.V(4).Info("querying all generate requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
 		"generate.kyverno.io/policy-name":        engineResponse.PolicyResponse.Policy,

@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	context2 "github.com/kyverno/kyverno/pkg/engine/context"
-	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -379,20 +378,7 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	logger := ws.log.WithName("Validate").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	if request.Operation == v1beta1.Delete {
-		resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
-		if err != nil {
-			logger.Error(err, "failed to convert object resource to unstructured format")
-		}
-
-		resLabels := resource.GetLabels()
-		if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["generate.kyverno.io/synchronize"] == "enable" {
-			grName := resLabels["generate.kyverno.io/gr-name"]
-			gr, err := ws.grLister.Get(grName)
-			if err != nil {
-				logger.Error(err, "failed to get generate request", "name", grName)
-			}
-			ws.grController.EnqueueGenerateRequestFromWebhook(gr)
-		}
+		go ws.handleUpdateAndDelete(request)
 	}
 
 	if !ws.supportMutateValidate {
