@@ -88,7 +88,7 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.E
 	logger.V(4).Info("querying all generate requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
 		"generate.kyverno.io/policy-name":        engineResponse.PolicyResponse.Policy,
-		"generate.kyverno.io/resource-name"      engineResponse.PolicyResponse.Resource.Name,
+		"generate.kyverno.io/resource-name":      engineResponse.PolicyResponse.Resource.Name,
 		"generate.kyverno.io/resource-kind":      engineResponse.PolicyResponse.Resource.Kind,
 		"generate.kyverno.io/resource-namespace": engineResponse.PolicyResponse.Resource.Namespace,
 	}))
