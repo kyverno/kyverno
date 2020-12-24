@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -344,7 +345,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	}
 
 	if genClone != nil && len(genClone) != 0 {
-		rdata, mode, err = manageClone(logger, genAPIVersion, genKind, genNamespace, genName, genClone, client)
+		rdata, mode, err = manageClone(logger, genAPIVersion, genKind, genNamespace, genName, policy, genClone, client)
 	} else {
 		rdata, mode, err = manageData(logger, genAPIVersion, genKind, genNamespace, genName, genData, client)
 	}
@@ -379,6 +380,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	label := newResource.GetLabels()
 	label["generate.kyverno.io/policy-name"] = policy
 	label["generate.kyverno.io/gr-name"] = gr.Name
+	delete(label, "generate.kyverno.io/clone-policy-name")
 	if mode == Create {
 		if rule.Generation.Synchronize {
 			label["generate.kyverno.io/synchronize"] = "enable"
@@ -442,7 +444,7 @@ func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data 
 	return updateObj.UnstructuredContent(), Update, nil
 }
 
-func manageClone(log logr.Logger, apiVersion, kind, namespace, name string, clone map[string]interface{}, client *dclient.Client) (map[string]interface{}, ResourceMode, error) {
+func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy string, clone map[string]interface{}, client *dclient.Client) (map[string]interface{}, ResourceMode, error) {
 	rNamespace, _, err := unstructured.NestedString(clone, "namespace")
 	if err != nil {
 		return nil, Skip, fmt.Errorf("failed to find source namespace: %v", err)
@@ -462,6 +464,38 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name string, clon
 	obj, err := client.GetResource(apiVersion, kind, rNamespace, rName)
 	if err != nil {
 		return nil, Skip, fmt.Errorf("source resource %s %s/%s/%s not found. %v", apiVersion, kind, rNamespace, rName, err)
+	}
+
+	updateSource := true
+
+	// add label
+	label := obj.GetLabels()
+	if len(label) == 0 {
+		label = make(map[string]string)
+		label["generate.kyverno.io/clone-policy-name"] = policy
+	} else {
+		if label["generate.kyverno.io/clone-policy-name"] != "" {
+			policyNames := label["generate.kyverno.io/clone-policy-name"]
+			if !strings.Contains(policyNames, policy) {
+				policyNames = policyNames + "," + policy
+				label["generate.kyverno.io/clone-policy-name"] = policyNames
+			} else {
+				updateSource = false
+			}
+		} else {
+			label["generate.kyverno.io/clone-policy-name"] = policy
+		}
+	}
+
+	if updateSource {
+		log.V(4).Info("updating existing clone source")
+		obj.SetLabels(label)
+		_, err = client.UpdateResource(apiVersion, kind, rNamespace, obj, false)
+		if err != nil {
+			logger.Error(err, "updating existing resource")
+			return nil, Skip, fmt.Errorf("failed to update source label: %v", err)
+		}
+		log.V(2).Info("updated source")
 	}
 
 	// check if resource to be generated exists
