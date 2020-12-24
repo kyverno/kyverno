@@ -167,7 +167,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to load userInfo in context")
 	}
-	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	err = ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
 		return errors.Wrap(err, "failed to load service account in context")
 	}

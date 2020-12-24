@@ -29,7 +29,7 @@ import (
 func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo, dynamicConfig config.Interface) {
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	logger.V(4).Info("incoming request")
-	var engineResponses []response.EngineResponse
+	var engineResponses []*response.EngineResponse
 
 	if len(policies) == 0 {
 		return
@@ -44,7 +44,6 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		NewResource:         new,
 		OldResource:         old,
 		AdmissionInfo:       userRequestInfo,
-		Context:             ctx,
 		ExcludeGroupRole:    dynamicConfig.GetExcludeGroupRole(),
 		ExcludeResourceFunc: ws.configHandler.ToFilter,
 		ResourceCache:       ws.resCache,
@@ -86,7 +85,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	return
 }
 
-func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse response.EngineResponse) {
+func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.EngineResponse) {
 	logger.V(4).Info("querying all generate requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
 		"policyName":        engineResponse.PolicyResponse.Policy,
@@ -110,7 +109,7 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse response.En
 }
 
 func applyGenerateRequest(gnGenerator generate.GenerateRequests, userRequestInfo kyverno.RequestInfo,
-	action v1beta1.Operation, engineResponses ...response.EngineResponse) (failedGenerateRequest []generateRequestResponse) {
+	action v1beta1.Operation, engineResponses ...*response.EngineResponse) (failedGenerateRequest []generateRequestResponse) {
 
 	for _, er := range engineResponses {
 		gr := transform(userRequestInfo, er)
@@ -122,8 +121,7 @@ func applyGenerateRequest(gnGenerator generate.GenerateRequests, userRequestInfo
 	return
 }
 
-func transform(userRequestInfo kyverno.RequestInfo, er response.EngineResponse) kyverno.GenerateRequestSpec {
-
+func transform(userRequestInfo kyverno.RequestInfo, er *response.EngineResponse) kyverno.GenerateRequestSpec {
 	gr := kyverno.GenerateRequestSpec{
 		Policy: er.PolicyResponse.Policy,
 		Resource: kyverno.ResourceSpec{
@@ -135,11 +133,12 @@ func transform(userRequestInfo kyverno.RequestInfo, er response.EngineResponse) 
 			UserRequestInfo: userRequestInfo,
 		},
 	}
+
 	return gr
 }
 
 type generateStats struct {
-	resp response.EngineResponse
+	resp *response.EngineResponse
 }
 
 func (gs generateStats) PolicyName() string {

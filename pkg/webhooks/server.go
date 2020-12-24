@@ -330,7 +330,7 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 	if err != nil {
 		logger.Error(err, "failed to load userInfo in context")
 	}
-	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	err = ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
 		logger.Error(err, "failed to load service account in context")
 	}
@@ -441,7 +441,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	if err != nil {
 		logger.Error(err, "failed to load userInfo in context")
 	}
-	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	err = ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
 		logger.Error(err, "failed to load service account in context")
 	}

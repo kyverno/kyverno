@@ -115,7 +115,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		return nil, err
 	}
 
-	err = ctx.AddSA(gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
+	err = ctx.AddServiceAccount(gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
 		logger.Error(err, "failed to load UserInfo in context")
 		return nil, err
@@ -124,7 +124,6 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	policyContext := engine.PolicyContext{
 		NewResource:         resource,
 		Policy:              *policyObj,
-		Context:             ctx,
 		AdmissionInfo:       gr.Spec.Context.UserRequestInfo,
 		ExcludeGroupRole:    c.Config.GetExcludeGroupRole(),
 		ExcludeResourceFunc: c.Config.ToFilter,
@@ -187,7 +186,6 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 	// - - substitute values
 	policy := policyContext.Policy
 	resource := policyContext.NewResource
-	ctx := policyContext.Context
 
 	resCache := policyContext.ResourceCache
 	jsonContext := policyContext.JSONContext
@@ -222,7 +220,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 			return nil, err
 		}
 
-		genResource, err := applyRule(log, c.client, rule, resource, ctx, policy.Name, gr, processExisting)
+		genResource, err := applyRule(log, c.client, rule, resource, jsonContext, policy.Name, gr, processExisting)
 		if err != nil {
 			log.Error(err, "failed to apply generate rule", "policy", policy.Name,
 				"rule", rule.Name, "resource", resource.GetName())

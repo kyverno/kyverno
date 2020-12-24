@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-var engineResponses = []response.EngineResponse{
+var engineResponses = []*response.EngineResponse{
 	{
 		PatchedResource: unstructured.Unstructured{
 			Object: map[string]interface{}{

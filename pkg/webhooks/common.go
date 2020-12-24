@@ -16,7 +16,7 @@ import (
 )
 
 // isResponseSuccessful return true if all responses are successful
-func isResponseSuccessful(engineReponses []response.EngineResponse) bool {
+func isResponseSuccessful(engineReponses []*response.EngineResponse) bool {
 	for _, er := range engineReponses {
 		if !er.IsSuccessful() {
 			return false
@@ -27,7 +27,7 @@ func isResponseSuccessful(engineReponses []response.EngineResponse) bool {
 
 // returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
-func toBlockResource(engineReponses []response.EngineResponse, log logr.Logger) bool {
+func toBlockResource(engineReponses []*response.EngineResponse, log logr.Logger) bool {
 	for _, er := range engineReponses {
 		if !er.IsSuccessful() && er.PolicyResponse.ValidationFailureAction == common.Enforce {
 			log.Info("spec.ValidationFailureAction set to enforce blocking resource request", "policy", er.PolicyResponse.Policy)
@@ -39,7 +39,7 @@ func toBlockResource(engineReponses []response.EngineResponse, log logr.Logger) 
 }
 
 // getEnforceFailureErrorMsg gets the error messages for failed enforce policy
-func getEnforceFailureErrorMsg(engineResponses []response.EngineResponse) string {
+func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) string {
 	policyToRule := make(map[string]interface{})
 	var resourceName string
 	for _, er := range engineResponses {
@@ -61,7 +61,7 @@ func getEnforceFailureErrorMsg(engineResponses []response.EngineResponse) string
 }
 
 // getErrorMsg gets all failed engine response message
-func getErrorMsg(engineReponses []response.EngineResponse) string {
+func getErrorMsg(engineReponses []*response.EngineResponse) string {
 	var str []string
 	var resourceInfo string
 

@@ -36,11 +36,10 @@ func (ws *WebhookServer) HandleMutation(
 	logger := ws.log.WithValues("action", "mutate", "resource", resourceName, "operation", request.Operation)
 
 	var patches [][]byte
-	var engineResponses []response.EngineResponse
-	policyContext := engine.PolicyContext{
+	var engineResponses []*response.EngineResponse
+	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
 		AdmissionInfo:       userRequestInfo,
-		Context:             ctx,
 		ExcludeGroupRole:    ws.configHandler.GetExcludeGroupRole(),
 		ExcludeResourceFunc: ws.configHandler.ToFilter,
 		ResourceCache:       ws.resCache,
@@ -117,7 +116,7 @@ func (ws *WebhookServer) HandleMutation(
 }
 
 type mutateStats struct {
-	resp      response.EngineResponse
+	resp      *response.EngineResponse
 	namespace string
 }
 
