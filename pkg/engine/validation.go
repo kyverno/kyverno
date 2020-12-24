@@ -50,14 +50,14 @@ func buildResponse(logger logr.Logger, ctx *PolicyContext, resp *response.Engine
 		return
 	}
 
-	var resource unstructured.Unstructured
 	if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
 		// for delete requests patched resource will be oldResource since newResource is empty
+		var resource unstructured.Unstructured = ctx.NewResource
 		if reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
 			resource = ctx.OldResource
-		} else {
-			resource = ctx.NewResource
 		}
+
+		resp.PatchedResource = resource
 	}
 
 	for i := range resp.PolicyResponse.Rules {
@@ -70,12 +70,11 @@ func buildResponse(logger logr.Logger, ctx *PolicyContext, resp *response.Engine
 		resp.PolicyResponse.Rules[i].Message, _ = messageInterface.(string)
 	}
 
-	resp.PatchedResource = resource
 	resp.PolicyResponse.Policy = ctx.Policy.Name
-	resp.PolicyResponse.Resource.Name = resource.GetName()
-	resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
-	resp.PolicyResponse.Resource.Kind = resource.GetKind()
-	resp.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
+	resp.PolicyResponse.Resource.Name = resp.PatchedResource.GetName()
+	resp.PolicyResponse.Resource.Namespace = resp.PatchedResource.GetNamespace()
+	resp.PolicyResponse.Resource.Kind = resp.PatchedResource.GetKind()
+	resp.PolicyResponse.Resource.APIVersion = resp.PatchedResource.GetAPIVersion()
 	resp.PolicyResponse.ValidationFailureAction = ctx.Policy.Spec.ValidationFailureAction
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
 }
