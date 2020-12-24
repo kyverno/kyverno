@@ -86,8 +86,8 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	return
 }
 
-//HandleUpdateAndDelete handles admission-requests for update and delete
-func (ws *WebhookServer) handleUpdateAndDelete(request *v1beta1.AdmissionRequest) {
+//HandleUpdateAndDelete handles admission-requests for delete
+func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
 	if err != nil {
 		logger.Error(err, "failed to convert object resource to unstructured format")
@@ -101,6 +101,33 @@ func (ws *WebhookServer) handleUpdateAndDelete(request *v1beta1.AdmissionRequest
 			logger.Error(err, "failed to get generate request", "name", grName)
 		}
 		ws.grController.EnqueueGenerateRequestFromWebhook(gr)
+	}
+}
+
+//HandleUpdateAndDelete handles admission-requests for update
+func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest) {
+	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
+	if err != nil {
+		logger.Error(err, "failed to convert object resource to unstructured format")
+	}
+
+	resLabels := resource.GetLabels()
+	if resLabels["generate.kyverno.io/clone-policy-name"] != "" {
+		policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
+		for _, policyName := range policyNames {
+			selector := labels.SelectorFromSet(labels.Set(map[string]string{
+				"generate.kyverno.io/policy-name": policyName,
+			}))
+
+			grList, err := ws.grLister.List(selector)
+			if err != nil {
+				logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
+
+			}
+			for _, gr := range grList {
+				ws.grController.EnqueueGenerateRequestFromWebhook(gr)
+			}
+		}
 	}
 }
 
