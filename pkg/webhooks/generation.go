@@ -104,7 +104,7 @@ func (ws *WebhookServer) handleUpdateAndDelete(request *v1beta1.AdmissionRequest
 	}
 }
 
-func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse response.EngineResponse) {
+func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.EngineResponse) {
 	logger.V(4).Info("querying all generate requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
 		"generate.kyverno.io/policy-name":        engineResponse.PolicyResponse.Policy,

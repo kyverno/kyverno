@@ -218,7 +218,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 		}
 
 		if !processExisting {
-			genResource, err = applyRule(log, c.client, rule, resource, ctx, policy.Name, gr)
+			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy.Name, gr)
 			if err != nil {
 				log.Error(err, "failed to apply generate rule", "policy", policy.Name,
 					"rule", rule.Name, "resource", resource.GetName())
