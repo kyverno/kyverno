@@ -20,7 +20,6 @@ func Test_GeneratePatches(t *testing.T) {
 
 	patches, err := generatePatches(baseBytes, out)
 	assert.NilError(t, err)
-	t.Logf("patches\n%v", patches)
 
 	var overlay unstructured.Unstructured
 	err = json.Unmarshal(baseBytes, &overlay)
@@ -177,6 +176,10 @@ var expectBytes = []byte(`
       "spec": {
         "containers": [
           {
+            "name": "nginx",
+            "image": "nginx"
+          },
+          {
             "image": "wordpress:4.8-apache",
             "name": "wordpress",
             "ports": [
@@ -206,10 +209,6 @@ var expectBytes = []byte(`
                 }
               }
             ]
-          },
-          {
-            "name": "nginx",
-            "image": "nginx"
           }
         ],
         "volumes": [

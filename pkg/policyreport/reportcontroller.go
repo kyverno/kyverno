@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
@@ -13,7 +14,6 @@ import (
 	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/constant"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -180,7 +180,7 @@ func (g *ReportGenerator) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(g.runWorker, constant.PolicyReportControllerResync, stopCh)
+		go wait.Until(g.runWorker, time.Second, stopCh)
 	}
 
 	<-stopCh
