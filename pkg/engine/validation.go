@@ -30,7 +30,8 @@ func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		logger.V(4).Info("finished processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
-	return validateResource(logger, policyContext)
+	resp = validateResource(logger, policyContext)
+	return
 }
 
 func buildLogger(ctx *PolicyContext) logr.Logger {
@@ -70,16 +71,12 @@ func buildResponse(logger logr.Logger, ctx *PolicyContext, resp *response.Engine
 	}
 
 	resp.PatchedResource = resource
-	setResponse(resp, ctx.Policy, resource, startTime)
-}
-
-func setResponse(resp *response.EngineResponse, policy kyverno.ClusterPolicy, resource unstructured.Unstructured, startTime time.Time) {
-	resp.PolicyResponse.Policy = policy.Name
+	resp.PolicyResponse.Policy = ctx.Policy.Name
 	resp.PolicyResponse.Resource.Name = resource.GetName()
 	resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
 	resp.PolicyResponse.Resource.Kind = resource.GetKind()
 	resp.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
-	resp.PolicyResponse.ValidationFailureAction = policy.Spec.ValidationFailureAction
+	resp.PolicyResponse.ValidationFailureAction = ctx.Policy.Spec.ValidationFailureAction
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
 }
 
