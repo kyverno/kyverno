@@ -188,7 +188,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 			return
 		}
 
-		if r != nil && r.GetLabels()["generate.kyverno.io/synchronize"] == "enable" {
+		if r != nil && r.GetLabels()["policy.kyverno.io//synchronize"] == "enable" {
 			if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
 				logger.Error(err, "failed to delete the generated resource", "resource", r.GetName())
 				return

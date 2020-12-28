@@ -83,7 +83,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 					continue
 				}
 
-				if resp != nil && resp.GetLabels()["generate.kyverno.io/synchronize"] == "enable" {
+				if resp != nil && resp.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
 					if err := c.client.DeleteResource(resp.GetAPIVersion(), resp.GetKind(), resp.GetNamespace(), resp.GetName(), false); err != nil {
 						logger.Error(err, "generated resource is not deleted", "Resource", e.Name)
 					}
@@ -377,14 +377,14 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	manageLabels(newResource, resource)
 	// Add Synchronize label
 	label := newResource.GetLabels()
-	label["generate.kyverno.io/policy-name"] = policy
-	label["generate.kyverno.io/gr-name"] = gr.Name
+	label["policy.kyverno.io/policy-name"] = policy
+	label["policy.kyverno.io/gr-name"] = gr.Name
 	delete(label, "generate.kyverno.io/clone-policy-name")
 	if mode == Create {
 		if rule.Generation.Synchronize {
-			label["generate.kyverno.io/synchronize"] = "enable"
+			label["policy.kyverno.io/synchronize"] = "enable"
 		} else {
-			label["generate.kyverno.io/synchronize"] = "disable"
+			label["policy.kyverno.io/synchronize"] = "disable"
 		}
 
 		// Reset resource version
@@ -400,9 +400,9 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 
 	} else if mode == Update {
 		if rule.Generation.Synchronize {
-			label["generate.kyverno.io/synchronize"] = "enable"
+			label["policy.kyverno.io/synchronize"] = "enable"
 		} else {
-			label["generate.kyverno.io/synchronize"] = "disable"
+			label["policy.kyverno.io/synchronize"] = "disable"
 		}
 
 		if rule.Generation.Synchronize {
