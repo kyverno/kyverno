@@ -377,10 +377,8 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 
 func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	logger := ws.log.WithName("Validate").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
-	if request.Operation == v1beta1.Delete {
-		ws.handleDelete(request)
-	} else if request.Operation == v1beta1.Update {
-		ws.handleUpdate(request)
+	if request.Operation == v1beta1.Delete || request.Operation == v1beta1.Update {
+		ws.handleDeleteAndUpdate(request)
 	}
 
 	if !ws.supportMutateValidate {

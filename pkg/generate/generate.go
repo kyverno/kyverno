@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -492,10 +491,10 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy stri
 		obj.SetLabels(label)
 		_, err = client.UpdateResource(apiVersion, kind, rNamespace, obj, false)
 		if err != nil {
-			logger.Error(err, "updating existing resource")
+			log.Error(err, "failed to update source  name:%v namespace:%v kind:%v", obj.GetName(), obj.GetNamespace(), obj.GetKind())
 			return nil, Skip, fmt.Errorf("failed to update source label: %v", err)
 		}
-		log.V(2).Info("updated source")
+		log.V(4).Info("updated source  name:%v namespace:%v kind:%v", obj.GetName(), obj.GetNamespace(), obj.GetKind())
 	}
 
 	// check if resource to be generated exists

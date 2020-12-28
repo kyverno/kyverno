@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -86,33 +85,23 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	return
 }
 
-//HandleUpdateAndDelete handles admission-requests for delete
-func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
+//HandleUpdateAndDelete handles admission-requests for delete and update
+func (ws *WebhookServer) handleDeleteAndUpdate(request *v1beta1.AdmissionRequest) {
+	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
 	if err != nil {
 		logger.Error(err, "failed to convert object resource to unstructured format")
 	}
 
 	resLabels := resource.GetLabels()
-	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["generate.kyverno.io/synchronize"] == "enable" {
+	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["generate.kyverno.io/synchronize"] == "enable" && request.Operation == v1beta1.Delete {
 		grName := resLabels["generate.kyverno.io/gr-name"]
 		gr, err := ws.grLister.Get(grName)
 		if err != nil {
 			logger.Error(err, "failed to get generate request", "name", grName)
 		}
 		ws.grController.EnqueueGenerateRequestFromWebhook(gr)
-	}
-}
-
-//HandleUpdateAndDelete handles admission-requests for update
-func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest) {
-	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
-	if err != nil {
-		logger.Error(err, "failed to convert object resource to unstructured format")
-	}
-
-	resLabels := resource.GetLabels()
-	if resLabels["generate.kyverno.io/clone-policy-name"] != "" {
+	} else if resLabels["generate.kyverno.io/clone-policy-name"] != "" && request.Operation == v1beta1.Update {
 		policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
 		for _, policyName := range policyNames {
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
