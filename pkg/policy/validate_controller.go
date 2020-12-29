@@ -436,15 +436,18 @@ func deleteGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 	}
 }
 
-func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*kyverno.GenerateRequest, logger logr.Logger) {
-	for _, v := range grList {
-		if policyKey == v.Spec.Policy {
-			v.SetLabels(map[string]string{
-				"policy-update": fmt.Sprintf("revision-count-%d", rand.Intn(100000)),
-			})
-			_, err := kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
+func 	(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*kyverno.GenerateRequest, logger logr.Logger) {
+	for _, gr := range grList {
+		if policyKey == gr.Spec.Policy {
+			grLabels := gr.Labels
+			if grLabels == nil || len(grLabels) == 0 {
+				grLabels = make(map[string]string)
+			}
+			grLabels["policy-update"] = fmt.Sprintf("revision-count-%d", rand.Intn(100000))		
+			gr.SetLabels(grLabels)
+			_, err := kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
 			if err != nil {
-				logger.Error(err, "failed to update gr", "name", v.GetName())
+				logger.Error(err, "failed to update gr", "name", gr.GetName())
 			}
 		}
 	}
