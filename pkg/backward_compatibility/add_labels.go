@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -41,8 +42,42 @@ func AddLabels(client *kyvernoclient.Clientset, grInformer kyvernoinformer.Gener
 		if err != nil {
 			fmt.Println("error occured while updating gr", gr.Name)
 			fmt.Println(err)
+			for n := 0; n <= 3; n++ {
+				time.Sleep(100 * time.Millisecond)
+				errInGettingGR := addLabelForGR(gr.Name, gr.Namespace, client, grInformer)
+				if errInGettingGR != nil {
+					continue
+				} else {
+					break
+				}
+			}
 		}
 	}
+}
+
+func addLabelForGR(name string, namespace string, client *kyvernoclient.Clientset, grInformer kyvernoinformer.GenerateRequestInformer) error {
+	gr, err := grInformer.Lister().GenerateRequests(namespace).Get(name)
+	if err != nil {
+		return err
+	}
+
+	grLabels := gr.Labels
+	if grLabels == nil || len(grLabels) == 0 {
+		grLabels = make(map[string]string)
+	}
+	grLabels["generate.kyverno.io/policy-name"] = gr.Spec.Policy
+	grLabels["generate.kyverno.io/resource-name"] = gr.Spec.Resource.Name
+	grLabels["generate.kyverno.io/resource-kind"] = gr.Spec.Resource.Kind
+	grLabels["generate.kyverno.io/resource-namespace"] = gr.Spec.Resource.Namespace
+
+	gr.SetLabels(grLabels)
+
+	_, err = client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // AddCloneLabel - add label to the source resource about the new clone
@@ -57,7 +92,6 @@ func AddCloneLabel(client *dclient.Client, pInformer kyvernoinformer.ClusterPoli
 	}
 
 	for _, policy := range policies {
-		// policyHasClone := false
 		for _, rule := range policy.Spec.Rules {
 			if rule.HasGenerate() {
 				clone := rule.Generation.Clone
@@ -102,17 +136,6 @@ func AddCloneLabel(client *dclient.Client, pInformer kyvernoinformer.ClusterPoli
 						}
 						fmt.Printf("updated source  name:%v namespace:%v kind:%v\n", obj.GetName(), obj.GetNamespace(), obj.GetKind())
 					}
-
-					// fmt.Println("-------------------------------------------------------------------------")
-					// fmt.Println("policy name: ", policy.Name)
-					// fmt.Println("rule name: ", rule.Name)
-					// fmt.Println("namespace: ", namespace)
-					// fmt.Println("name       ", name)
-					// fmt.Println("kind:      ", kind)
-					// b, _ := json.Marshal(obj)
-					// fmt.Println("Cloned resource: \n", string(b))
-					// fmt.Println("-------------------------------------------------------------------------")
-
 				}
 			}
 		}
