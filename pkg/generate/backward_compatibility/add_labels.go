@@ -23,12 +23,17 @@ func AddLabels(client *kyvernoclient.Clientset, grInformer kyvernoinformer.Gener
 	}
 
 	for _, gr := range grList {
-		gr.SetLabels(map[string]string{
-			"generate.kyverno.io/policy-name":        gr.Spec.Policy,
-			"generate.kyverno.io/resource-name":      gr.Spec.Resource.Name,
-			"generate.kyverno.io/resource-kind":      gr.Spec.Resource.Kind,
-			"generate.kyverno.io/resource-namespace": gr.Spec.Resource.Namespace,
-		})
+
+		grLabels := gr.Labels
+		if grLabels == nil || len(grLabels) == 0 {
+			grLabels = make(map[string]string)
+		}
+		grLabels["generate.kyverno.io/policy-name"] = gr.Spec.Policy
+		grLabels["generate.kyverno.io/resource-name"] = gr.Spec.Resource.Name
+		grLabels["generate.kyverno.io/resource-kind"] = gr.Spec.Resource.Kind
+		grLabels["generate.kyverno.io/resource-namespace"] = gr.Spec.Resource.Namespace
+
+		gr.SetLabels(grLabels)
 
 		_, err = client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
 		if err != nil {

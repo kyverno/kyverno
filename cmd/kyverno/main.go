@@ -15,7 +15,7 @@ import (
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
-	backwardcompatibility "github.com/kyverno/kyverno/pkg/generate/backwardCompatibility"
+	backwardcompatibility "github.com/kyverno/kyverno/pkg/generate/backward_compatibility"
 	generatecleanup "github.com/kyverno/kyverno/pkg/generate/cleanup"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policy"
