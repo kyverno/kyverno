@@ -12,6 +12,7 @@ import (
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // AddLabels - adds labels to all the existing generate requests
@@ -20,9 +21,8 @@ func AddLabels(client *kyvernoclient.Clientset, grInformer kyvernoinformer.Gener
 	// Extract and Update all of them with the with the labels
 	grList, err := grInformer.Lister().List(labels.NewSelector())
 	if err != nil {
-		// throw some error!
-		fmt.Println("error occurred while getting gr list")
-		fmt.Println(err)
+		log.Log.Error(err, "failed to get generate request list")
+		return
 	}
 
 	for _, gr := range grList {
@@ -40,9 +40,9 @@ func AddLabels(client *kyvernoclient.Clientset, grInformer kyvernoinformer.Gener
 
 		_, err = client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
 		if err != nil {
-			fmt.Println("error occured while updating gr", gr.Name)
-			fmt.Println(err)
+			log.Log.V(4).Info(fmt.Sprintf("failed to update the GR %v. error: %v", gr.Name, err))
 			for n := 0; n <= 3; n++ {
+				log.Log.V(4).Info(fmt.Sprintf("retrying to get GR %v", gr.Name))
 				time.Sleep(100 * time.Millisecond)
 				errInGettingGR := addLabelForGR(gr.Name, gr.Namespace, client, grInformer)
 				if errInGettingGR != nil {
@@ -53,11 +53,13 @@ func AddLabels(client *kyvernoclient.Clientset, grInformer kyvernoinformer.Gener
 			}
 		}
 	}
+	return
 }
 
 func addLabelForGR(name string, namespace string, client *kyvernoclient.Clientset, grInformer kyvernoinformer.GenerateRequestInformer) error {
 	gr, err := grInformer.Lister().GenerateRequests(namespace).Get(name)
 	if err != nil {
+		log.Log.Error(err, fmt.Sprintf("failed to update the GR %v", name))
 		return err
 	}
 
@@ -74,6 +76,7 @@ func addLabelForGR(name string, namespace string, client *kyvernoclient.Clientse
 
 	_, err = client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
 	if err != nil {
+		log.Log.Error(err, fmt.Sprintf("failed to update the GR %v", gr.Name))
 		return err
 	}
 
@@ -87,8 +90,8 @@ func AddCloneLabel(client *dclient.Client, pInformer kyvernoinformer.ClusterPoli
 	// Add Policy name if label not found
 	policies, err := pInformer.Lister().List(labels.NewSelector())
 	if err != nil {
-		fmt.Println("error occurred while getting policy list")
-		fmt.Println(err)
+		log.Log.Error(err, "failed to get policies")
+		return
 	}
 
 	for _, policy := range policies {
@@ -99,11 +102,11 @@ func AddCloneLabel(client *dclient.Client, pInformer kyvernoinformer.ClusterPoli
 					namespace := clone.Namespace
 					name := clone.Name
 					kind := rule.Generation.Kind
-					obj, err := client.GetResource("", kind, namespace, name)
 
+					obj, err := client.GetResource("", kind, namespace, name)
 					if err != nil {
-						fmt.Println("error occured while getting resource")
-						fmt.Println(err)
+						log.Log.Error(err, fmt.Sprintf("source not found  name:%v namespace:%v kind:%v", name, namespace, kind))
+						continue
 					}
 					updateSource := true
 
@@ -127,14 +130,14 @@ func AddCloneLabel(client *dclient.Client, pInformer kyvernoinformer.ClusterPoli
 					}
 
 					if updateSource {
-						fmt.Println("updating existing clone source")
+						log.Log.V(4).Info("updating existing clone source")
 						obj.SetLabels(label)
 						_, err = client.UpdateResource(obj.GetAPIVersion(), kind, namespace, obj, false)
 						if err != nil {
-							fmt.Printf("failed to update source  name:%v namespace:%v kind:%v\n", obj.GetName(), obj.GetNamespace(), obj.GetKind())
+							log.Log.Error(err, fmt.Sprintf("failed to update source  name:%v namespace:%v kind:%v\n", obj.GetName(), obj.GetNamespace(), obj.GetKind()))
 							return
 						}
-						fmt.Printf("updated source  name:%v namespace:%v kind:%v\n", obj.GetName(), obj.GetNamespace(), obj.GetKind())
+						log.Log.V(4).Info(fmt.Sprintf("updated source  name:%v namespace:%v kind:%v\n", obj.GetName(), obj.GetNamespace(), obj.GetKind()))
 					}
 				}
 			}
