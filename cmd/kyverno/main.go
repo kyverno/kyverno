@@ -359,7 +359,7 @@ func main() {
 	server.RunAsync(stopCh)
 
 	go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
-
+	go backwardcompatibility.AddCloneLabel(client, pInformer.Kyverno().V1().ClusterPolicies())
 	<-stopCh
 
 	// by default http.Server waits indefinitely for connections to return to idle and then shuts down
