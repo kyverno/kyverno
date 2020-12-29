@@ -15,6 +15,7 @@ import (
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
+	backwardcompatibility "github.com/kyverno/kyverno/pkg/generate/backwardCompatibility"
 	generatecleanup "github.com/kyverno/kyverno/pkg/generate/cleanup"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policy"
@@ -356,6 +357,9 @@ func main() {
 
 	// verifies if the admission control is enabled and active
 	server.RunAsync(stopCh)
+
+	go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
+
 	<-stopCh
 
 	// by default http.Server waits indefinitely for connections to return to idle and then shuts down
