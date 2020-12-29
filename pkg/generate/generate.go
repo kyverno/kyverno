@@ -410,7 +410,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 			newResource.SetLabels(label)
 			_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
 			if err != nil {
-				logger.Error(err, "updating existing resource")
+				logger.Error(err, "failed to update resource")
 				return noGenResource, err
 			}
 			logger.V(2).Info("updated target resource")
