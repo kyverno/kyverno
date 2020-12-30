@@ -465,38 +465,6 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy stri
 		return nil, Skip, fmt.Errorf("source resource %s %s/%s/%s not found. %v", apiVersion, kind, rNamespace, rName, err)
 	}
 
-	updateSource := true
-
-	// add label
-	label := obj.GetLabels()
-	if len(label) == 0 {
-		label = make(map[string]string)
-		label["generate.kyverno.io/clone-policy-name"] = policy
-	} else {
-		if label["generate.kyverno.io/clone-policy-name"] != "" {
-			policyNames := label["generate.kyverno.io/clone-policy-name"]
-			if !strings.Contains(policyNames, policy) {
-				policyNames = policyNames + "," + policy
-				label["generate.kyverno.io/clone-policy-name"] = policyNames
-			} else {
-				updateSource = false
-			}
-		} else {
-			label["generate.kyverno.io/clone-policy-name"] = policy
-		}
-	}
-
-	if updateSource {
-		log.V(4).Info("updating existing clone source")
-		obj.SetLabels(label)
-		_, err = client.UpdateResource(apiVersion, kind, rNamespace, obj, false)
-		if err != nil {
-			log.Error(err, "failed to update source  name:%v namespace:%v kind:%v", obj.GetName(), obj.GetNamespace(), obj.GetKind())
-			return nil, Skip, fmt.Errorf("failed to update source label: %v", err)
-		}
-		log.V(4).Info("updated source  name:%v namespace:%v kind:%v", obj.GetName(), obj.GetNamespace(), obj.GetKind())
-	}
-
 	// check if resource to be generated exists
 	newResource, err := client.GetResource(apiVersion, kind, namespace, name)
 	if err == nil {
