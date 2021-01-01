@@ -343,3 +343,8 @@ func (c *Controller) syncGenerateRequest(key string) error {
 
 	return c.processGR(gr)
 }
+
+// EnqueueGenerateRequestFromWebhook - enqueing generate requests from webhook
+func (c *Controller) EnqueueGenerateRequestFromWebhook(gr *kyverno.GenerateRequest) {
+	c.enqueueGenerateRequest(gr)
+}

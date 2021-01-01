@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	backwardcompatibility "github.com/kyverno/kyverno/pkg/backward_compatibility"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -328,6 +329,7 @@ func main() {
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
 		rCache,
+		grc,
 	)
 
 	if err != nil {
@@ -355,6 +357,9 @@ func main() {
 
 	// verifies if the admission control is enabled and active
 	server.RunAsync(stopCh)
+
+	go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
+	go backwardcompatibility.AddCloneLabel(client, pInformer.Kyverno().V1().ClusterPolicies())
 	<-stopCh
 
 	// by default http.Server waits indefinitely for connections to return to idle and then shuts down

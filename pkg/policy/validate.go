@@ -120,6 +120,46 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		if !isLabelAndAnnotationsString(rule) {
 			return fmt.Errorf("labels and annotations supports only string values, \"use double quotes around the non string values\"")
 		}
+
+		// add label to source mentioned in policy
+		if !mock && rule.Generation.Clone.Name != "" {
+			obj, err := client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+			if err != nil {
+				log.Log.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
+				continue
+			}
+
+			updateSource := true
+			label := obj.GetLabels()
+
+			if len(label) == 0 {
+				label = make(map[string]string)
+				label["generate.kyverno.io/clone-policy-name"] = p.GetName()
+			} else {
+				if label["generate.kyverno.io/clone-policy-name"] != "" {
+					policyNames := label["generate.kyverno.io/clone-policy-name"]
+					if !strings.Contains(policyNames, p.GetName()) {
+						policyNames = policyNames + "," + p.GetName()
+						label["generate.kyverno.io/clone-policy-name"] = policyNames
+					} else {
+						updateSource = false
+					}
+				} else {
+					label["generate.kyverno.io/clone-policy-name"] = p.GetName()
+				}
+			}
+
+			if updateSource {
+				log.Log.V(4).Info("updating existing clone source")
+				obj.SetLabels(label)
+				_, err = client.UpdateResource(obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
+				if err != nil {
+					log.Log.Error(err, "failed to update source  name:%v namespace:%v kind:%v", obj.GetName(), obj.GetNamespace(), obj.GetKind())
+					continue
+				}
+				log.Log.V(4).Info("updated source  name:%v namespace:%v kind:%v", obj.GetName(), obj.GetNamespace(), obj.GetKind())
+			}
+		}
 	}
 
 	if !mock {

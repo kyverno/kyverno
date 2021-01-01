@@ -20,6 +20,7 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	context2 "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/generate"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -29,7 +30,7 @@ import (
 	userinfo "github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
-	"github.com/kyverno/kyverno/pkg/webhooks/generate"
+	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
@@ -104,7 +105,7 @@ type WebhookServer struct {
 	prGenerator policyreport.GeneratorInterface
 
 	// generate request generator
-	grGenerator *generate.Generator
+	grGenerator *webhookgenerate.Generator
 
 	auditHandler AuditHandler
 
@@ -116,6 +117,8 @@ type WebhookServer struct {
 
 	// resCache - controls creation and fetching of resource informer cache
 	resCache resourcecache.ResourceCacheIface
+
+	grController *generate.Controller
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -137,13 +140,14 @@ func NewWebhookServer(
 	statusSync policystatus.Listener,
 	configHandler config.Interface,
 	prGenerator policyreport.GeneratorInterface,
-	grGenerator *generate.Generator,
+	grGenerator *webhookgenerate.Generator,
 	auditHandler AuditHandler,
 	supportMutateValidate bool,
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
 	resCache resourcecache.ResourceCacheIface,
+	grc *generate.Controller,
 ) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -182,6 +186,7 @@ func NewWebhookServer(
 		webhookMonitor:        webhookMonitor,
 		prGenerator:           prGenerator,
 		grGenerator:           grGenerator,
+		grController:          grc,
 		auditHandler:          auditHandler,
 		log:                   log,
 		openAPIController:     openAPIController,
@@ -372,6 +377,9 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 
 func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	logger := ws.log.WithName("Validate").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	if request.Operation == v1beta1.Delete {
+		ws.handleDelete(request)
+	}
 
 	if !ws.supportMutateValidate {
 		logger.Info("mutate and validate rules are not supported prior to Kubernetes 1.14.0")
