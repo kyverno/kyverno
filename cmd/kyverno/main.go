@@ -50,10 +50,8 @@ var (
 
 	excludeGroupRole string
 	excludeUsername  string
-	// User FQDN as CSR CN
-	fqdncn       bool
-	policyReport bool
-	setupLog     = log.Log.WithName("setup")
+	policyReport     bool
+	setupLog         = log.Log.WithName("setup")
 )
 
 func main() {
@@ -72,8 +70,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Generate CSR with CN as FQDN due to https://github.com/kyverno/kyverno/issues/542
-	flag.BoolVar(&fqdncn, "fqdn-as-cn", false, "use FQDN as Common Name in CSR")
 	flag.Parse()
 
 	if profile {
@@ -276,7 +272,7 @@ func main() {
 	)
 
 	// Configure certificates
-	tlsPair, err := client.InitTLSPemPair(clientConfig, fqdncn)
+	tlsPair, err := client.InitTLSPemPair(clientConfig, serverIP)
 	if err != nil {
 		setupLog.Error(err, "Failed to initialize TLS key/certificate pair")
 		os.Exit(1)

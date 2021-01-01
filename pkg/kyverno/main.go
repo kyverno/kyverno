@@ -17,7 +17,7 @@ import (
 func CLI() {
 	cli := &cobra.Command{
 		Use:   "kyverno",
-		Short: "kyverno manages native policies of Kubernetes",
+		Short: "Kubernetes Native Policy Management",
 	}
 
 	configurelog(cli)
@@ -29,8 +29,6 @@ func CLI() {
 	}
 
 	cli.AddCommand(commands...)
-
-	cli.SilenceUsage = true
 
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)

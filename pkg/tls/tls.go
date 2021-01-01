@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -20,6 +21,7 @@ type CertificateProps struct {
 	Service       string
 	Namespace     string
 	APIServerHost string
+	ServerIP      string
 }
 
 // PemPair The pair of TLS certificate corresponding private key, both in PEM format
@@ -65,6 +67,7 @@ func GenerateCACert() (*KeyPair, *PemPair, error) {
 	now := time.Now()
 	begin := now.Add(-1 * time.Hour)
 	end := now.Add(certValidityDuration)
+
 	templ := &x509.Certificate{
 		SerialNumber: big.NewInt(0),
 		Subject: pkix.Name{
@@ -76,10 +79,12 @@ func GenerateCACert() (*KeyPair, *PemPair, error) {
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 	}
+
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error generating key: %v", err)
 	}
+
 	der, err := x509.CreateCertificate(rand.Reader, templ, templ, key.Public(), key)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating certificate: %v", err)
@@ -105,7 +110,7 @@ func GenerateCACert() (*KeyPair, *PemPair, error) {
 
 // GenerateCertPem takes the results of GenerateCACert and uses it to create the
 // PEM-encoded public certificate and private key, respectively
-func GenerateCertPem(caCert *KeyPair, props CertificateProps, fqdncn bool) (*PemPair, error) {
+func GenerateCertPem(caCert *KeyPair, props CertificateProps, serverIP string) (*PemPair, error) {
 	now := time.Now()
 	begin := now.Add(-1 * time.Hour)
 	end := now.Add(certValidityDuration)
@@ -119,11 +124,6 @@ func GenerateCertPem(caCert *KeyPair, props CertificateProps, fqdncn bool) (*Pem
 	commonName := GenerateInClusterServiceName(props)
 	dnsNames[2] = fmt.Sprintf("%s", commonName)
 
-	if fqdncn {
-		// use FQDN as CommonName as a workaournd for https://github.com/kyverno/kyverno/issues/542
-		csCommonName = commonName
-	}
-
 	var ips []net.IP
 	apiServerIP := net.ParseIP(props.APIServerHost)
 	if apiServerIP != nil {
@@ -132,13 +132,23 @@ func GenerateCertPem(caCert *KeyPair, props CertificateProps, fqdncn bool) (*Pem
 		dnsNames = append(dnsNames, props.APIServerHost)
 	}
 
+	if serverIP != "" {
+		if strings.Contains(serverIP, ":") {
+			host, _, _ := net.SplitHostPort(serverIP)
+			serverIP = host
+		}
+
+		ip := net.ParseIP(serverIP)
+		ips = append(ips, ip)
+	}
+
 	templ := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
 			CommonName: csCommonName,
 		},
-		DNSNames: dnsNames,
-		// IPAddresses:           ips,
+		DNSNames:              dnsNames,
+		IPAddresses:           ips,
 		NotBefore:             begin,
 		NotAfter:              end,
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
