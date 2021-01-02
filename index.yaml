@@ -187,6 +187,29 @@ entries:
     - kyverno-v1.3.0-rc2.tgz
     version: v1.3.0-rc2
   - apiVersion: v1
+    appVersion: v1.3.0-rc10
+    created: "2021-01-02T01:29:50.3745974-08:00"
+    description: Kubernetes Native Policy Management
+    digest: 216ea7bc833ebe767edf266f2f22c24cd0056fe001702b46cce58dc0965ef154
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.10.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-v1.3.0-rc10.tgz
+    version: v1.3.0-rc10
+  - apiVersion: v1
     appVersion: v1.3.0-rc1
     created: "2020-11-19T23:11:00.55684536Z"
     description: Kubernetes Native Policy Management
@@ -521,5 +544,5 @@ entries:
     - https://github.com/nirmata/kyverno
     urls:
     - kyverno-0.0.1.tgz
-    version: 0.0.1    
-generated: "2021-01-01T17:16:46.7295147-08:00"
+    version: 0.0.1
+generated: "2021-01-02T01:29:50.3715974-08:00"
