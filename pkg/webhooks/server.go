@@ -410,7 +410,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	nsPolicies := ws.pCache.Get(policycache.ValidateEnforce, &request.Namespace)
 	policies = append(policies, nsPolicies...)
 	if len(policies) == 0 {
-		logger.V(4).Info("No enforce Validation policy found, returning")
+		logger.V(4).Info("no enforce validation policies; returning AdmissionResponse.Allowed: true")
 		return &v1beta1.AdmissionResponse{Allowed: true}
 	}
 
