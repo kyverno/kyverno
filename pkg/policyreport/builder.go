@@ -32,7 +32,7 @@ func generatePolicyReportName(ns string) string {
 		return clusterpolicyreport
 	}
 
-	name := fmt.Sprintf("pr-ns-%s", ns)
+	name := fmt.Sprintf("polr-ns-%s", ns)
 	if len(name) > 63 {
 		return name[:63]
 	}

@@ -80,7 +80,6 @@ func HandleValidation(
 
 	var engineResponses []*response.EngineResponse
 	for _, policy := range policies {
-
 		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 		policyContext.Policy = *policy
 		engineResponse := engine.Validate(policyContext)
@@ -97,11 +96,13 @@ func HandleValidation(
 		})
 
 		if !engineResponse.IsSuccessful() {
-			logger.V(4).Info("failed to apply policy", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
+			logger.V(2).Info("validation failed", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
 			continue
 		}
 
-		logger.Info("validation rules from policy applied successfully", "policy", policy.Name)
+		if len(engineResponse.GetSuccessRules()) > 0 {
+			logger.V(2).Info("validation passed", "policy", policy.Name)
+		}
 	}
 
 	// If Validation fails then reject the request

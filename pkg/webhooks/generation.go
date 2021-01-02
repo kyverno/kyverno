@@ -2,7 +2,6 @@ package webhooks
 
 import (
 	contextdefault "context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -126,9 +125,6 @@ func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
 	if err != nil {
 		logger.Error(err, "failed to convert object resource to unstructured format")
 	}
-
-	r, _ := json.Marshal(resource)
-	fmt.Println(string(r))
 
 	resLabels := resource.GetLabels()
 	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == v1beta1.Delete {
