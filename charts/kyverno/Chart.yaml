@@ -1,7 +1,7 @@
 apiVersion: v1
 name: kyverno
-version: v1.3.0-rc8
-appVersion: v1.3.0-rc8
+version: v1.3.0-rc9
+appVersion: v1.3.0-rc9
 icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
 description: Kubernetes Native Policy Management
 keywords:
