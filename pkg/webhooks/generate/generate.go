@@ -155,7 +155,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.Generate
 			for _, v := range grList {
 
 				grLabels := gr.Labels
-				if grLabels == nil || len(grLabels) == 0 {
+				if len(grLabels) == 0 {
 					grLabels = make(map[string]string)
 				}
 				grLabels["resources-update"] = "true"

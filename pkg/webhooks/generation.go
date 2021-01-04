@@ -86,8 +86,6 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	if request.Operation == v1beta1.Update {
 		ws.handleUpdate(request)
 	}
-
-	return
 }
 
 //HandleUpdate handles admission-requests for update

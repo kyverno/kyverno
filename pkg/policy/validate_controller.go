@@ -440,13 +440,10 @@ func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 	for _, gr := range grList {
 		if policyKey == gr.Spec.Policy {
 			grLabels := gr.Labels
-			if grLabels == nil || len(grLabels) == 0 {
+			if len(grLabels) == 0 {
 				grLabels = make(map[string]string)
 			}
 			grLabels["policy-update"] = fmt.Sprintf("revision-count-%d", rand.Intn(100000))
-			// gr.SetLabels(map[string]string{
-			// 	"policy-update": fmt.Sprintf("revision-count-%d", rand.Intn(100000)),
-			// })
 			gr.SetLabels(grLabels)
 			_, err := kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
 			if err != nil {
