@@ -2,8 +2,9 @@ package policy
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"reflect"
 	"time"
 
@@ -440,19 +441,21 @@ func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 	for _, gr := range grList {
 		if policyKey == gr.Spec.Policy {
 			grLabels := gr.Labels
-			if grLabels == nil || len(grLabels) == 0 {
+			if len(grLabels) == 0 {
 				grLabels = make(map[string]string)
 			}
-			grLabels["policy-update"] = fmt.Sprintf("revision-count-%d", rand.Intn(100000))
-			// gr.SetLabels(map[string]string{
-			// 	"policy-update": fmt.Sprintf("revision-count-%d", rand.Intn(100000)),
-			// })
+
+			nBig, err := rand.Int(rand.Reader, big.NewInt(100000))
+			if err != nil {
+				logger.Error(err, "failed to generate random interger")
+			}
+			grLabels["policy-update"] = fmt.Sprintf("revision-count-%d", nBig.Int64())
 			gr.SetLabels(grLabels)
-			_, err := kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
+
+			_, err = kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
 			if err != nil {
 				logger.Error(err, "failed to update gr", "name", gr.GetName())
 			}
 		}
 	}
-
 }
