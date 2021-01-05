@@ -8,39 +8,60 @@ import (
 	"strings"
 	"sync"
 
-	data "github.com/kyverno/kyverno/api"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
-
-	"github.com/kyverno/kyverno/pkg/engine"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-
 	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
 	"github.com/googleapis/gnostic/compiler"
+	data "github.com/kyverno/kyverno/api"
+	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
+	cmap "github.com/orcaman/concurrent-map"
+	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kube-openapi/pkg/util/proto"
 	"k8s.io/kube-openapi/pkg/util/proto/validation"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"gopkg.in/yaml.v2"
 )
+
+type concurrentMap struct{ cmap.ConcurrentMap }
 
 // Controller represents OpenAPIController
 type Controller struct {
-	mutex       sync.RWMutex
-	definitions map[string]*openapi_v2.Schema
+	// definitions holds the kind - *openapi_v2.Schema map
+	definitions concurrentMap
 	// kindToDefinitionName holds the kind - definition map
 	// i.e. - Namespace: io.k8s.api.core.v1.Namespace
-	kindToDefinitionName map[string]string
+	kindToDefinitionName concurrentMap
 	crdList              []string
 	models               proto.Models
+}
+
+func newConcurrentMap() concurrentMap {
+	return concurrentMap{cmap.New()}
+}
+
+func (m concurrentMap) GetKind(key string) string {
+	k, ok := m.Get(key)
+	if !ok {
+		return ""
+	}
+
+	return k.(string)
+}
+
+func (m concurrentMap) GetSchema(key string) *openapi_v2.Schema {
+	k, ok := m.Get(key)
+	if !ok {
+		return nil
+	}
+
+	return k.(*openapi_v2.Schema)
 }
 
 // NewOpenAPIController initializes a new instance of OpenAPIController
 func NewOpenAPIController() (*Controller, error) {
 	controller := &Controller{
-		definitions:          make(map[string]*openapi_v2.Schema),
-		kindToDefinitionName: make(map[string]string),
+		definitions:          newConcurrentMap(),
+		kindToDefinitionName: newConcurrentMap(),
 	}
 
 	defaultDoc, err := getSchemaDocument()
@@ -58,8 +79,6 @@ func NewOpenAPIController() (*Controller, error) {
 
 // ValidatePolicyFields ...
 func (o *Controller) ValidatePolicyFields(policyRaw []byte) error {
-	o.mutex.RLock()
-	defer o.mutex.RUnlock()
 
 	var policy v1.ClusterPolicy
 	err := json.Unmarshal(policyRaw, &policy)
@@ -82,11 +101,9 @@ func (o *Controller) ValidatePolicyFields(policyRaw []byte) error {
 
 // ValidateResource ...
 func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
-	o.mutex.RLock()
-	defer o.mutex.RUnlock()
 	var err error
 
-	kind = o.kindToDefinitionName[kind]
+	kind = o.kindToDefinitionName.GetKind(kind)
 	schema := o.models.LookupModel(kind)
 	if schema == nil {
 		// Check if kind is a CRD
@@ -109,18 +126,8 @@ func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured,
 	return nil
 }
 
-// GetDefinitionNameFromKind ...
-func (o *Controller) GetDefinitionNameFromKind(kind string) string {
-	o.mutex.RLock()
-	defer o.mutex.RUnlock()
-	return o.kindToDefinitionName[kind]
-}
-
 // ValidatePolicyMutation ...
 func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
-	o.mutex.RLock()
-	defer o.mutex.RUnlock()
-
 	var kindToRules = make(map[string][]v1.Rule)
 	for _, rule := range policy.Spec.Rules {
 		if rule.HasMutate() {
@@ -133,7 +140,8 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	for kind, rules := range kindToRules {
 		newPolicy := *policy.DeepCopy()
 		newPolicy.Spec.Rules = rules
-		resource, _ := o.generateEmptyResource(o.definitions[o.kindToDefinitionName[kind]]).(map[string]interface{})
+		k := o.kindToDefinitionName.GetKind(kind)
+		resource, _ := o.generateEmptyResource(o.definitions.GetSchema(k)).(map[string]interface{})
 		if resource == nil || len(resource) == 0 {
 			log.Log.V(2).Info("unable to validate resource. OpenApi definition not found", "kind", kind)
 			return nil
@@ -157,13 +165,10 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 }
 
 func (o *Controller) useOpenAPIDocument(doc *openapi_v2.Document) error {
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
-
 	for _, definition := range doc.GetDefinitions().AdditionalProperties {
-		o.definitions[definition.GetName()] = definition.GetValue()
+		o.definitions.Set(definition.GetName(), definition.GetValue())
 		path := strings.Split(definition.GetName(), ".")
-		o.kindToDefinitionName[path[len(path)-1]] = definition.GetName()
+		o.kindToDefinitionName.Set(path[len(path)-1], definition.GetName())
 	}
 
 	var err error
@@ -192,7 +197,7 @@ func (o *Controller) getCRDSchema(kind string) (proto.Schema, error) {
 	}
 
 	path := proto.NewPath(kind)
-	definition := o.definitions[kind]
+	definition := o.definitions.GetSchema(kind)
 	if definition == nil {
 		return nil, errors.New("could not find definition")
 	}
@@ -211,7 +216,7 @@ func (o *Controller) generateEmptyResource(kindSchema *openapi_v2.Schema) interf
 	types := kindSchema.GetType().GetValue()
 
 	if kindSchema.GetXRef() != "" {
-		return o.generateEmptyResource(o.definitions[strings.TrimPrefix(kindSchema.GetXRef(), "#/definitions/")])
+		return o.generateEmptyResource(o.definitions.GetSchema(strings.TrimPrefix(kindSchema.GetXRef(), "#/definitions/")))
 	}
 
 	if len(types) != 1 {

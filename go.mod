@@ -25,6 +25,7 @@ require (
 	github.com/minio/minio v0.0.0-20200114012931-30922148fbb5
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1
+	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
 	github.com/ory/go-acc v0.2.6 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.4.1
