@@ -259,7 +259,7 @@ func (gen *Generator) processNextWorkItem() bool {
 }
 
 func (gen *Generator) syncHandler(info Info) error {
-	gen.log.V(3).Info("generating report change request")
+	gen.log.V(4).Info("reconcile report change request")
 
 	builder := NewBuilder(gen.cpolLister, gen.polLister)
 	rcrUnstructured, err := builder.build(info)
