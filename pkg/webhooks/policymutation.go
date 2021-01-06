@@ -14,12 +14,12 @@ import (
 
 func (ws *WebhookServer) policyMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	logger := ws.log.WithValues("action", "policymutation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
-	var policy, oldPolicy *kyverno.ClusterPolicy
+	var policy *kyverno.ClusterPolicy
 	raw := request.Object.Raw
 
 	//TODO: can this happen? wont this be picked by OpenAPI spec schema ?
 	if err := json.Unmarshal(raw, &policy); err != nil {
-		logger.Error(err, "failed to unmarshall policy admission request")
+		logger.Error(err, "failed to unmarshal policy admission request")
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 			Result: &metav1.Status{
@@ -29,8 +29,9 @@ func (ws *WebhookServer) policyMutation(request *v1beta1.AdmissionRequest) *v1be
 	}
 
 	if request.Operation == v1beta1.Update {
-		if err := json.Unmarshal(request.OldObject.Raw, &oldPolicy); err != nil {
-			logger.Error(err, "failed to unmarshall old policy admission request")
+		change, err := hasPolicyChanged(policy, request.OldObject.Raw)
+		if err != nil {
+			logger.Error(err, "failed to unmarshal old policy admission request")
 			return &v1beta1.AdmissionResponse{
 				Allowed: true,
 				Result: &metav1.Status{
@@ -39,7 +40,7 @@ func (ws *WebhookServer) policyMutation(request *v1beta1.AdmissionRequest) *v1be
 			}
 		}
 
-		if isStatusUpdate(oldPolicy, policy) {
+		if !change {
 			logger.V(3).Info("skip policy mutation on status update")
 			return &v1beta1.AdmissionResponse{Allowed: true}
 		}
@@ -61,6 +62,15 @@ func (ws *WebhookServer) policyMutation(request *v1beta1.AdmissionRequest) *v1be
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
+}
+
+func hasPolicyChanged(policy *kyverno.ClusterPolicy, oldRaw []byte) (bool, error) {
+	var oldPolicy *kyverno.ClusterPolicy
+	if err := json.Unmarshal(oldRaw, &oldPolicy); err != nil {
+		return false, err
+	}
+
+	return isStatusUpdate(oldPolicy, policy), nil
 }
 
 func isStatusUpdate(old, new *kyverno.ClusterPolicy) bool {

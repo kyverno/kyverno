@@ -1,7 +1,6 @@
 package openapi
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -13,7 +12,6 @@ import (
 	data "github.com/kyverno/kyverno/api"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	cmap "github.com/orcaman/concurrent-map"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -78,24 +76,7 @@ func NewOpenAPIController() (*Controller, error) {
 }
 
 // ValidatePolicyFields ...
-func (o *Controller) ValidatePolicyFields(policyRaw []byte) error {
-
-	var policy v1.ClusterPolicy
-	err := json.Unmarshal(policyRaw, &policy)
-	if err != nil {
-		return err
-	}
-
-	policyUnst, err := utils.ConvertToUnstructured(policyRaw)
-	if err != nil {
-		return err
-	}
-
-	err = o.ValidateResource(*policyUnst.DeepCopy(), "ClusterPolicy")
-	if err != nil {
-		return err
-	}
-
+func (o *Controller) ValidatePolicyFields(policy v1.ClusterPolicy) error {
 	return o.ValidatePolicyMutation(policy)
 }
 
