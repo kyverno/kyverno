@@ -255,7 +255,9 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 
 		admissionReview.Response = handler(request)
 		writeResponse(rw, admissionReview)
-		logger.V(3).Info("admission review request processed", "time", time.Since(startTime).String())
+		if admissionReview.Request.Kind.Group != "kyverno.io" {
+			logger.V(3).Info("admission review request processed", "time", time.Since(startTime).String())
+		}
 
 		return
 	}

@@ -263,8 +263,6 @@ func (gen *Generator) processNextWorkItem() bool {
 }
 
 func (gen *Generator) syncHandler(info Info) error {
-	gen.log.V(4).Info("reconcile report change request")
-
 	builder := NewBuilder(gen.cpolLister, gen.polLister)
 	rcrUnstructured, err := builder.build(info)
 	if err != nil {
@@ -275,6 +273,7 @@ func (gen *Generator) syncHandler(info Info) error {
 		return nil
 	}
 
+	gen.log.V(4).Info("reconcile report change request", "key", info.ToKey())
 	return gen.sync(rcrUnstructured, info)
 }
 

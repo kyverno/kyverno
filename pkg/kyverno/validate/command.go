@@ -96,7 +96,7 @@ func Command() *cobra.Command {
 			invalidPolicyFound := false
 			for _, policy := range policies {
 				fmt.Println("----------------------------------------------------------------------")
-				err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
+				err := policy2.Validate(policy, nil, true, openAPIController)
 				if err != nil {
 					fmt.Printf("Policy %s is invalid.\n", policy.Name)
 					fmt.Printf("Error: invalid policy.\nCause: %s\n\n", err)

@@ -28,28 +28,12 @@ func (ws *WebhookServer) policyMutation(request *v1beta1.AdmissionRequest) *v1be
 		}
 	}
 
-	if request.Operation == v1beta1.Update {
-		change, err := hasPolicyChanged(policy, request.OldObject.Raw)
-		if err != nil {
-			logger.Error(err, "failed to unmarshal old policy admission request")
-			return &v1beta1.AdmissionResponse{
-				Allowed: true,
-				Result: &metav1.Status{
-					Message: fmt.Sprintf("failed to default value, check kyverno controller logs for details: %v", err),
-				},
-			}
-		}
-
-		if !change {
-			logger.V(3).Info("skip policy mutation on status update")
-			return &v1beta1.AdmissionResponse{Allowed: true}
-		}
-	}
-
 	// Generate JSON Patches for defaults
 	patches, updateMsgs := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
-	if patches != nil {
+	logger.Info("patches", "len", len(patches), "object", string(patches))
+	if len(patches) != 0 {
 		patchType := v1beta1.PatchTypeJSONPatch
+		logger.Info("patches patched")
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 			Result: &metav1.Status{
@@ -59,6 +43,8 @@ func (ws *WebhookServer) policyMutation(request *v1beta1.AdmissionRequest) *v1be
 			PatchType: &patchType,
 		}
 	}
+
+	logger.Info("patches empty")
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}
@@ -70,7 +56,7 @@ func hasPolicyChanged(policy *kyverno.ClusterPolicy, oldRaw []byte) (bool, error
 		return false, err
 	}
 
-	return isStatusUpdate(oldPolicy, policy), nil
+	return !isStatusUpdate(oldPolicy, policy), nil
 }
 
 func isStatusUpdate(old, new *kyverno.ClusterPolicy) bool {
