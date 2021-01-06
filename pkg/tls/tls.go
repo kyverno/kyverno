@@ -105,7 +105,7 @@ func GenerateCACert() (*KeyPair, *PemPair, error) {
 
 // GenerateCertPem takes the results of GenerateCACert and uses it to create the
 // PEM-encoded public certificate and private key, respectively
-func GenerateCertPem(caCert *KeyPair, props CertificateProps, fqdncn bool) (*PemPair, error) {
+func GenerateCertPem(caCert *KeyPair, props CertificateProps) (*PemPair, error) {
 	now := time.Now()
 	begin := now.Add(-1 * time.Hour)
 	end := now.Add(certValidityDuration)
@@ -118,11 +118,6 @@ func GenerateCertPem(caCert *KeyPair, props CertificateProps, fqdncn bool) (*Pem
 	// The full service name is the CommonName for the certificate
 	commonName := GenerateInClusterServiceName(props)
 	dnsNames[2] = fmt.Sprintf("%s", commonName)
-
-	if fqdncn {
-		// use FQDN as CommonName as a workaournd for https://github.com/kyverno/kyverno/issues/542
-		csCommonName = commonName
-	}
 
 	var ips []net.IP
 	apiServerIP := net.ParseIP(props.APIServerHost)

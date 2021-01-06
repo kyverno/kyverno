@@ -38,20 +38,19 @@ import (
 const resyncPeriod = 15 * time.Minute
 
 var (
-	kubeconfig                     string
-	serverIP                       string
-	webhookTimeout                 int
-	backgroundSync                 int
-	runValidationInMutatingWebhook string
-	profile                        bool
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
-	filterK8Resources string
+	filterK8Resources              string
+	kubeconfig                     string
+	serverIP                       string
+	runValidationInMutatingWebhook string
+	excludeGroupRole               string
+	excludeUsername                string
 
-	excludeGroupRole string
-	excludeUsername  string
-	// User FQDN as CSR CN
-	fqdncn       bool
+	webhookTimeout int
+	backgroundSync int
+
+	profile      bool
 	policyReport bool
 	setupLog     = log.Log.WithName("setup")
 )
@@ -71,9 +70,6 @@ func main() {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
 	}
-
-	// Generate CSR with CN as FQDN due to https://github.com/kyverno/kyverno/issues/542
-	flag.BoolVar(&fqdncn, "fqdn-as-cn", false, "use FQDN as Common Name in CSR")
 	flag.Parse()
 
 	version.PrintVersionInfo(log.Log)
@@ -277,7 +273,7 @@ func main() {
 	)
 
 	// Configure certificates
-	tlsPair, err := client.InitTLSPemPair(clientConfig, fqdncn)
+	tlsPair, err := client.InitTLSPemPair(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to initialize TLS key/certificate pair")
 		os.Exit(1)
