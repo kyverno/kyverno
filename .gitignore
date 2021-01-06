@@ -9,4 +9,3 @@ cmd/initContainer/kyvernopre
 cmd/kyverno/kyverno
 cmd/cli/kubectl-kyverno/kyverno
 kubectl-kyverno
-vendor/
