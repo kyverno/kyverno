@@ -46,6 +46,7 @@ var (
 	runValidationInMutatingWebhook string
 	excludeGroupRole               string
 	excludeUsername                string
+	profilePort                    string
 
 	webhookTimeout int
 	backgroundSync int
@@ -66,6 +67,7 @@ func main() {
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
+	flag.StringVar(&profilePort, "profile-port", "6060", "Enable profiling at given port, default to 6060.")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -82,8 +84,15 @@ func main() {
 	}
 
 	if profile {
-		setupLog.Info("Enable profiling")
-		go http.ListenAndServe("localhost:6060", nil)
+		addr := ":" + profilePort
+		setupLog.Info("Enable profiling, see details at https://github.com/kyverno/kyverno/wiki/Profiling-Kyverno-on-Kubernetes", "port", profilePort)
+		go func() {
+			if err := http.ListenAndServe(addr, nil); err != nil {
+				setupLog.Error(err, "Failed to enable profiling")
+				os.Exit(1)
+			}
+		}()
+
 	}
 
 	// KYVERNO CRD CLIENT
