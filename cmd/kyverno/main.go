@@ -76,10 +76,6 @@ func main() {
 	flag.BoolVar(&fqdncn, "fqdn-as-cn", false, "use FQDN as Common Name in CSR")
 	flag.Parse()
 
-	if profile {
-		go http.ListenAndServe("localhost:6060", nil)
-	}
-
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
@@ -87,6 +83,11 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
+	}
+
+	if profile {
+		setupLog.Info("Enable profiling")
+		go http.ListenAndServe("localhost:6060", nil)
 	}
 
 	// KYVERNO CRD CLIENT

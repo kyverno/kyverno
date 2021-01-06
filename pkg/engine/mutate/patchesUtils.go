@@ -34,7 +34,7 @@ func generatePatches(src, dst []byte) ([][]byte, error) {
 	return patchesBytes, err
 }
 
-// preProcessJSONPatchesgo deals with the JsonPatch when reinvocation
+// preProcessJSONPatches deals with the JsonPatch when reinvocation
 // policy is set in webhook, to avoid generating duplicate values.
 // This duplicate error only occurs on type array, if it's adding to a map
 // the value will be added to the map if nil, otherwise it overwrites the old value
