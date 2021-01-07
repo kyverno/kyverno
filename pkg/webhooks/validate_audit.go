@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -129,7 +130,7 @@ func (h *auditHandler) processNextWorkItem() bool {
 	}
 
 	err := h.process(request)
-	h.handleErr(err)
+	h.handleErr(err, obj, request)
 
 	return true
 }
@@ -176,6 +177,20 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	return nil
 }
 
-func (h *auditHandler) handleErr(err error) {
+func (h *auditHandler) handleErr(err error, key interface{}, request *v1beta1.AdmissionRequest) {
+	logger := h.log.WithName("handleErr")
+	if err == nil {
+		h.queue.Forget(key)
+		return
+	}
 
+	k := strings.Join([]string{request.Kind.Kind, request.Namespace, request.Name}, "/")
+	if h.queue.NumRequeues(key) < workQueueRetryLimit {
+		logger.V(3).Info("retrying processing admission request", "key", k, "error", err.Error())
+		h.queue.AddRateLimited(key)
+		return
+	}
+
+	logger.Error(err, "failed to process admission request", "key", k)
+	h.queue.Forget(key)
 }
