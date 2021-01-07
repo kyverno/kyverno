@@ -181,7 +181,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	logger := pc.log
 	p := obj.(*kyverno.ClusterPolicy)
 
-	logger.Info("policy created event", "uid", p.UID, "kind", "Policy", "policy_name", p.Name)
+	logger.Info("policy created event", "uid", p.UID, "kind", "ClusterPolicy", "policy_name", p.Name)
 
 	if !pc.canBackgroundProcess(p) {
 		return
@@ -227,7 +227,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 		}
 	}
 
-	logger.Info("policy deleted event", "uid", p.UID, "kind", "Policy", "policy_name", p.Name)
+	logger.Info("policy deleted event", "uid", p.UID, "kind", "ClusterPolicy", "policy_name", p.Name)
 
 	// we process policies that are not set of background processing
 	// as we need to clean up GRs when a policy is deleted
@@ -285,9 +285,9 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 		}
 	}
 
-	pol := ConvertPolicyToClusterPolicy(p)
+	logger.Info("policy deleted event", "uid", p.UID, "kind", "Policy", "policy_name", p.Name, "namespaces", p.Namespace)
 
-	logger.Info("policy deleted event", "uid", pol.UID, "kind", "Policy", "policy_name", pol.Name, "namespaces", pol.Namespace)
+	pol := ConvertPolicyToClusterPolicy(p)
 
 	// we process policies that are not set of background processing
 	// as we need to clean up GRs when a policy is deleted
