@@ -40,7 +40,6 @@ nodeSelector: {}
 tolerations: []
 
 extraArgs: []
-# - --fqdn-as-cn
 # - --webhooktimeout=4
 
 resources:

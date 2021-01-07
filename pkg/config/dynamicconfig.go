@@ -83,7 +83,7 @@ type Interface interface {
 }
 
 // NewConfigData ...
-func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8Resources, excludeGroupRole, excludeUsername string, log logr.Logger) *ConfigData {
+func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8sResources, excludeGroupRole, excludeUsername string, log logr.Logger) *ConfigData {
 	// environment var is read at start only
 	if cmNameEnv == "" {
 		log.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
@@ -100,9 +100,9 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
-	if filterK8Resources != "" {
-		cd.log.Info("init configuration from commandline arguments for filterK8Resources")
-		cd.initFilters(filterK8Resources)
+	if filterK8sResources != "" {
+		cd.log.Info("init configuration from commandline arguments for filterK8sResources")
+		cd.initFilters(filterK8sResources)
 	}
 
 	if excludeGroupRole != "" {

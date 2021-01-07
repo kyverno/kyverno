@@ -279,6 +279,8 @@ func (gen *Generator) syncHandler(info Info) error {
 
 func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) error {
 	logger := gen.log.WithName("sync report change request")
+	defer logger.V(3).Info("successfully reconciled report change request", "kind", reportReq.GetKind(), "key", info.ToKey())
+
 	reportReq.SetCreationTimestamp(v1.Now())
 	if reportReq.GetKind() == "ClusterReportChangeRequest" {
 		return gen.syncClusterReportChangeRequest(reportReq, logger)
@@ -295,7 +297,6 @@ func (gen *Generator) syncClusterReportChangeRequest(reportReq *unstructured.Uns
 				return fmt.Errorf("failed to create clusterReportChangeRequest: %v", err)
 			}
 
-			logger.V(3).Info("successfully created clusterReportChangeRequest", "name", reportReq.GetName())
 			return nil
 		}
 		return fmt.Errorf("unable to get %s: %v", reportReq.GetKind(), err)
@@ -309,12 +310,9 @@ func (gen *Generator) syncReportChangeRequest(reportReq *unstructured.Unstructur
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), config.KyvernoNamespace, reportReq, false); err != nil {
-				if !apierrors.IsNotFound(err) {
-					return fmt.Errorf("failed to create ReportChangeRequest: %v", err)
-				}
+				return fmt.Errorf("failed to create ReportChangeRequest: %v", err)
 			}
 
-			logger.V(3).Info("successfully created reportChangeRequest", "name", reportReq.GetName())
 			return nil
 		}
 		return fmt.Errorf("unable to get existing reportChangeRequest %v", err)
