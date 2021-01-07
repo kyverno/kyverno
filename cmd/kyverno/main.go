@@ -49,7 +49,6 @@ var (
 	profilePort                    string
 
 	webhookTimeout int
-	backgroundSync int
 
 	profile      bool
 	policyReport bool

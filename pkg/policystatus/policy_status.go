@@ -87,7 +87,7 @@ func (s *Sync) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	// sync the status to the existing policy every minute
-	wait.Until(s.updatePolicyStatus, time.Minute, stopCh)
+	wait.Until(s.writePolicyStatus, time.Minute, stopCh)
 	<-stopCh
 }
 
@@ -131,9 +131,9 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 	}
 }
 
-// updatePolicyStatus sends the update request to the APIServer
+// writePolicyStatus sends the update request to the APIServer
 // syncs the status (from cache) to the policy
-func (s *Sync) updatePolicyStatus() {
+func (s *Sync) writePolicyStatus() {
 	for key, status := range s.getCachedStatus() {
 		s.log.V(4).Info("updating policy status", "policy", key)
 		namespace, policyName := s.parseStatusKey(key)

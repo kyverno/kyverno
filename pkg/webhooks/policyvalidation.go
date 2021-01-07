@@ -35,8 +35,8 @@ func (ws *WebhookServer) policyValidation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	startTime := time.Now()
-	logger.V(3).Info("start validating policy")
-	defer logger.V(3).Info("finished validating policy", "time", time.Since(startTime).String())
+	logger.V(3).Info("start policy change validation")
+	defer logger.V(3).Info("finished policy change validation", "time", time.Since(startTime).String())
 
 	if err := policyvalidate.Validate(policy, ws.client, false, ws.openAPIController); err != nil {
 		logger.Error(err, "policy validation errors")
