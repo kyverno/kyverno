@@ -24,10 +24,10 @@ func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	startTime := time.Now()
 
 	logger := buildLogger(policyContext)
-	logger.V(4).Info("start processing", "startTime", startTime)
+	logger.V(4).Info("start policy processing", "startTime", startTime)
 	defer func() {
 		buildResponse(logger, policyContext, resp, startTime)
-		logger.V(4).Info("finished processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
+		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
 	resp = validateResource(logger, policyContext)
@@ -95,15 +95,19 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 			continue
 		}
 
+		log = log.WithValues("rule", rule.Name)
+
 		// add configmap json data to context
 		if err := AddResourceToContext(log, rule.Context, ctx.ResourceCache, ctx.JSONContext); err != nil {
-			log.V(4).Info("cannot add configmaps to context", "reason", err.Error())
+			log.V(2).Info("failed to add configmaps to context", "reason", err.Error())
 			continue
 		}
 
 		if !matches(log, rule, ctx) {
 			continue
 		}
+
+		log.V(3).Info("matched validate rule")
 
 		// operate on the copy of the conditions, as we perform variable substitution
 		preconditionsCopy := copyConditions(rule.Conditions)

@@ -61,13 +61,15 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		}
 
 		if err := MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource); err != nil {
-			logger.V(3).Info("resource not matched", "reason", err.Error())
+			logger.V(4).Info("rule not matched", "reason", err.Error())
 			continue
 		}
 
+		logger.V(3).Info("matched mutate rule")
+
 		// add configmap json data to context
 		if err := AddResourceToContext(logger, rule.Context, resCache, jsonContext); err != nil {
-			logger.V(4).Info("failed to add configmaps to context", "reason", err.Error())
+			logger.V(2).Info("failed to add configmaps to context", "reason", err.Error())
 			continue
 		}
 
@@ -122,5 +124,5 @@ func endMutateResultResponse(logger logr.Logger, resp *response.EngineResponse, 
 	}
 
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	logger.V(4).Info("finished processing policy", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
+	logger.V(5).Info("finished processing policy", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 }
