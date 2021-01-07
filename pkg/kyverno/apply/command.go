@@ -237,7 +237,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	skippedPolicies = make([]SkippedPolicy, 0)
 
 	for _, policy := range mutatedPolicies {
-		err := policy2.Validate(utils.MarshalPolicy(*policy), nil, true, openAPIController)
+		err := policy2.Validate(policy, nil, true, openAPIController)
 		if err != nil {
 			rc.skip += len(resources)
 			log.Log.V(3).Info(fmt.Sprintf("skipping policy %v as it is not valid", policy.Name), "error", err)

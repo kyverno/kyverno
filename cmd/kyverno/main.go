@@ -38,20 +38,19 @@ import (
 const resyncPeriod = 15 * time.Minute
 
 var (
-	kubeconfig                     string
-	serverIP                       string
-	webhookTimeout                 int
-	backgroundSync                 int
-	runValidationInMutatingWebhook string
-	profile                        bool
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
-	filterK8Resources string
+	filterK8Resources              string
+	kubeconfig                     string
+	serverIP                       string
+	runValidationInMutatingWebhook string
+	excludeGroupRole               string
+	excludeUsername                string
+	profilePort                    string
 
-	excludeGroupRole string
-	excludeUsername  string
-	// User FQDN as CSR CN
-	fqdncn       bool
+	webhookTimeout int
+
+	profile      bool
 	policyReport bool
 	setupLog     = log.Log.WithName("setup")
 )
@@ -67,18 +66,12 @@ func main() {
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
+	flag.StringVar(&profilePort, "profile-port", "6060", "Enable profiling at given port, default to 6060.")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
 	}
-
-	// Generate CSR with CN as FQDN due to https://github.com/kyverno/kyverno/issues/542
-	flag.BoolVar(&fqdncn, "fqdn-as-cn", false, "use FQDN as Common Name in CSR")
 	flag.Parse()
-
-	if profile {
-		go http.ListenAndServe("localhost:6060", nil)
-	}
 
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
@@ -87,6 +80,18 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
+	}
+
+	if profile {
+		addr := ":" + profilePort
+		setupLog.Info("Enable profiling, see details at https://github.com/kyverno/kyverno/wiki/Profiling-Kyverno-on-Kubernetes", "port", profilePort)
+		go func() {
+			if err := http.ListenAndServe(addr, nil); err != nil {
+				setupLog.Error(err, "Failed to enable profiling")
+				os.Exit(1)
+			}
+		}()
+
 	}
 
 	// KYVERNO CRD CLIENT
@@ -276,7 +281,7 @@ func main() {
 	)
 
 	// Configure certificates
-	tlsPair, err := client.InitTLSPemPair(clientConfig, fqdncn)
+	tlsPair, err := client.InitTLSPemPair(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to initialize TLS key/certificate pair")
 		os.Exit(1)

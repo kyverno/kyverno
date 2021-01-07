@@ -16,7 +16,7 @@ import (
 // InitTLSPemPair Loads or creates PEM private key and TLS certificate for webhook server.
 // Created pair is stored in cluster's secret.
 // Returns struct with key/certificate pair.
-func (c *Client) InitTLSPemPair(configuration *rest.Config, fqdncn bool) (*tls.PemPair, error) {
+func (c *Client) InitTLSPemPair(configuration *rest.Config) (*tls.PemPair, error) {
 	logger := c.log
 	certProps, err := c.GetTLSCertProps(configuration)
 	if err != nil {
@@ -24,7 +24,7 @@ func (c *Client) InitTLSPemPair(configuration *rest.Config, fqdncn bool) (*tls.P
 	}
 
 	logger.Info("Building key/certificate pair for TLS")
-	tlsPair, err := c.buildTLSPemPair(certProps, fqdncn)
+	tlsPair, err := c.buildTLSPemPair(certProps)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func (c *Client) InitTLSPemPair(configuration *rest.Config, fqdncn bool) (*tls.P
 
 // buildTLSPemPair Issues TLS certificate for webhook server using self-signed CA cert
 // Returns signed and approved TLS certificate in PEM format
-func (c *Client) buildTLSPemPair(props tls.CertificateProps, fqdncn bool) (*tls.PemPair, error) {
+func (c *Client) buildTLSPemPair(props tls.CertificateProps) (*tls.PemPair, error) {
 	caCert, caPEM, err := tls.GenerateCACert()
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func (c *Client) buildTLSPemPair(props tls.CertificateProps, fqdncn bool) (*tls.
 	if err := c.WriteCACertToSecret(caPEM, props); err != nil {
 		return nil, fmt.Errorf("failed to write CA cert to secret: %v", err)
 	}
-	return tls.GenerateCertPem(caCert, props, fqdncn)
+	return tls.GenerateCertPem(caCert, props)
 }
 
 //ReadRootCASecret returns the RootCA from the pre-defined secret

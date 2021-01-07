@@ -201,8 +201,14 @@ func (gen *Generator) runWorker() {
 
 func (gen *Generator) handleErr(err error, key interface{}) {
 	logger := gen.log
+	keyHash, ok := key.(string)
+	if !ok {
+		keyHash = ""
+	}
+
 	if err == nil {
 		gen.queue.Forget(key)
+		gen.dataStore.delete(keyHash)
 		return
 	}
 
@@ -215,9 +221,7 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 
 	logger.Error(err, "failed to process report request", "key", key)
 	gen.queue.Forget(key)
-	if keyHash, ok := key.(string); ok {
-		gen.dataStore.delete(keyHash)
-	}
+	gen.dataStore.delete(keyHash)
 }
 
 func (gen *Generator) processNextWorkItem() bool {
@@ -259,8 +263,6 @@ func (gen *Generator) processNextWorkItem() bool {
 }
 
 func (gen *Generator) syncHandler(info Info) error {
-	gen.log.V(4).Info("reconcile report change request")
-
 	builder := NewBuilder(gen.cpolLister, gen.polLister)
 	rcrUnstructured, err := builder.build(info)
 	if err != nil {
@@ -271,6 +273,7 @@ func (gen *Generator) syncHandler(info Info) error {
 		return nil
 	}
 
+	gen.log.V(4).Info("reconcile report change request", "key", info.ToKey())
 	return gen.sync(rcrUnstructured, info)
 }
 

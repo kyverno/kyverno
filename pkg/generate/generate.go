@@ -230,7 +230,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 	}
 
 	if gr.Status.State == "" && len(genResources) > 0 {
-		log.V(3).Info("updating policy status", "policy", policy.Name, "data", ruleNameToProcessingTime)
+		log.V(4).Info("updating policy status", "policy", policy.Name, "data", ruleNameToProcessingTime)
 		c.policyStatusListener.Update(generateSyncStats{
 			policyName:               policy.Name,
 			ruleNameToProcessingTime: ruleNameToProcessingTime,
