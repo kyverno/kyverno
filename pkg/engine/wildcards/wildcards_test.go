@@ -15,7 +15,7 @@ func TestExpandInMetadata(t *testing.T) {
 	testExpand(t, map[string]string{"=(test/*)": "test"}, map[string]string{"test/test": "test"},
 		map[string]interface{}{"=(test/test)": "test"})
 
-	testExpand(t, map[string]string{"test/*": "*"}, map[string]string{"test/test1": "test1", "test/test2": "test2"},
+	testExpand(t, map[string]string{"test/*": "*"}, map[string]string{"test/test1": "test1"},
 		map[string]interface{}{"test/test1": "*"})
 }
 
