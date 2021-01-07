@@ -104,7 +104,7 @@ func (ac *AnchorKey) CheckAnchorInResource(pattern interface{}, resource interfa
 
 // Checks if anchor key has value in resource
 func doesAnchorsKeyHasValue(key string, resource interface{}) bool {
-	akey := common.RemoveAnchor(key)
+	akey, _ := common.RemoveAnchor(key)
 	switch typed := resource.(type) {
 	case map[string]interface{}:
 		if _, ok := typed[akey]; ok {
