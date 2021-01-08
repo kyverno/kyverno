@@ -7,7 +7,7 @@ on:
       - 'README.md'
       - 'samples/**'
       - 'charts/**'
-      - 'documentation/**'
+      - 'docs/**'
   pull_request:
     branches:
       - 'main'
@@ -15,7 +15,7 @@ on:
       - 'README.md'
       - 'samples/**'
       - 'charts/**'
-      - 'documentation/**'
+      - 'docs/**'
 
 jobs:
   e2e-test:
