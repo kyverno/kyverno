@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	contextdefault "context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -17,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/event"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
@@ -84,12 +86,12 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	}
 
 	if request.Operation == v1beta1.Update {
-		ws.handleUpdate(request)
+		ws.handleUpdate(request, policies)
 	}
 }
 
 //HandleUpdate handles admission-requests for update
-func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest) {
+func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy) {
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
 	if err != nil {
@@ -112,6 +114,48 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest) {
 			for _, gr := range grList {
 				ws.grController.EnqueueGenerateRequestFromWebhook(gr)
 			}
+		}
+	}
+
+	enqueBool := false
+	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == v1beta1.Update {
+		oldRes := resource
+		newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
+		if err != nil {
+			logger.Error(err, "failed to convert object resource to unstructured format")
+		}
+		o, _ := json.Marshal(oldRes)
+		fmt.Println("oldRes:      ", string(o))
+		n, _ := json.Marshal(newRes)
+		fmt.Println("newRes:      ", string(n))
+
+		policyName := resLabels["policy.kyverno.io/policy-name"]
+		fmt.Println("policyNmae: ", policyName)
+		targetSourceName := newRes.GetName()
+		targetSourceKind := newRes.GetKind()
+
+		for _, policy := range policies {
+			if policy.GetName() == policyName {
+				for _, rule := range policy.Spec.Rules {
+					if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
+						data := rule.Generation.DeepCopy().Data
+						if _, err := validate.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
+							enqueBool = true
+							break
+						}
+					}
+				}
+			}
+		}
+
+		if enqueBool {
+			grName := resLabels["policy.kyverno.io/gr-name"]
+			gr, err := ws.grLister.Get(grName)
+			if err != nil {
+				logger.Error(err, "failed to get generate request", "name", grName)
+			}
+			fmt.Println("-------- enqueue ---------")
+			ws.grController.EnqueueGenerateRequestFromWebhook(gr)
 		}
 	}
 }
