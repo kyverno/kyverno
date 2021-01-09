@@ -185,6 +185,12 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 			rawResource: []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "hello2"},"spec": {"containers": [{"name": "hello","image": "gcr.io/google-containers/busybox:latest"}]}}`),
 			expected:    []byte(`{"spec":{"containers":[{"name":"hello"}],"imagePullSecrets":[{"name":"regcred"}]}}`),
 		},
+		{
+			// only the third container matches the given condition
+			rawPolicy:   []byte(`{"spec": {"containers": [{"(image)": "gcr.io/google-containers/busybox:*"}],"imagePullSecrets": [{"name": "regcred"}]}}`),
+			rawResource: []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "hello"},"spec": {"containers": [{"name": "hello","image": "gcr.io/google-containers/busybox:latest"},{"name": "hello2","image": "gcr.io/google-containers/busybox:latest"},{"name": "hello3","image": "gcr.io/google-containers/nginx:latest"}]}}`),
+			expected:    []byte(`{"spec":{"containers":[{"name":"hello"},{"name":"hello2"}],"imagePullSecrets":[{"name":"regcred"}]}}`),
+		},
 	}
 
 	for i, test := range testCases {

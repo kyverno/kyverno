@@ -214,8 +214,8 @@ func processAssocSequence(pattern, resource *yaml.RNode) error {
 			}
 		}
 	}
-	// remove the sequence with anchors
-	err = removeAnchorSequence(pattern)
+	// remove the elements with anchors
+	err = removeAnchorElements(pattern)
 	if err != nil {
 		return err
 	}
@@ -259,7 +259,7 @@ func preProcessArrayPattern(pattern, resource *yaml.RNode) error {
 }
 
 /*
-	removeAnchorSequence :- removes sequence containing conditional anchor
+	removeAnchorSequence :- removes element containing conditional anchor
 
 	Pattern:
 		"spec": {
@@ -278,7 +278,7 @@ func preProcessArrayPattern(pattern, resource *yaml.RNode) error {
 			"imagePullPolicy": "Always"
 		}]}
 */
-func removeAnchorSequence(pattern *yaml.RNode) error {
+func removeAnchorElements(pattern *yaml.RNode) error {
 	patternElements, err := pattern.Elements()
 	if err != nil {
 		return err
