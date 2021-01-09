@@ -15,11 +15,11 @@ func Test_Apply(t *testing.T) {
 	}
 
 	testcases := []TestCase{
-		TestCase{
+		{
 			PolicyPaths:   []string{"../../../samples/best_practices/disallow_latest_tag.yaml"},
 			ResourcePaths: []string{"../../../test/resources/pod_with_version_tag.yaml"},
 			expectedPolicyReports: []preport.PolicyReport{
-				preport.PolicyReport{
+				{
 					Summary: preport.PolicyReportSummary{
 						Pass:  2,
 						Fail:  0,
@@ -30,11 +30,11 @@ func Test_Apply(t *testing.T) {
 				},
 			},
 		},
-		TestCase{
+		{
 			PolicyPaths:   []string{"../../../samples/best_practices/require_pod_requests_limits.yaml"},
 			ResourcePaths: []string{"../../../test/resources/pod_with_latest_tag.yaml"},
 			expectedPolicyReports: []preport.PolicyReport{
-				preport.PolicyReport{
+				{
 					Summary: preport.PolicyReportSummary{
 						Pass:  0,
 						Fail:  1,

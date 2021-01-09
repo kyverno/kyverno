@@ -199,7 +199,7 @@ func walkArray(pattern, resource *yaml.RNode) error {
 		}]}
 
 	kustomize uses name field to match resource for processing. So if containers doesn't contains name field then it will be skipped.
-	So if a conditional anchor image matches resouce then remove "(image)" field from yaml and add the matching names from the resource.
+	So if a conditional anchor image matches resource then remove "(image)" field from yaml and add the matching names from the resource.
 */
 func processAssocSequence(pattern, resource *yaml.RNode) error {
 	patternElements, err := pattern.Elements()
@@ -214,8 +214,8 @@ func processAssocSequence(pattern, resource *yaml.RNode) error {
 			}
 		}
 	}
-	// remove the sequence with anchors
-	err = removeAnchorSequence(pattern, resource)
+	// remove the elements with anchors
+	err = removeAnchorElements(pattern)
 	if err != nil {
 		return err
 	}
@@ -259,7 +259,7 @@ func preProcessArrayPattern(pattern, resource *yaml.RNode) error {
 }
 
 /*
-	removeAnchorSequence :- removes sequence containing conditional anchor
+	removeAnchorSequence :- removes element containing conditional anchor
 
 	Pattern:
 		"spec": {
@@ -278,25 +278,23 @@ func preProcessArrayPattern(pattern, resource *yaml.RNode) error {
 			"imagePullPolicy": "Always"
 		}]}
 */
-func removeAnchorSequence(pattern, resource *yaml.RNode) error {
+func removeAnchorElements(pattern *yaml.RNode) error {
 	patternElements, err := pattern.Elements()
 	if err != nil {
 		return err
 	}
-	for index, patternElement := range patternElements {
-		if hasAnchors(patternElement) {
-			sfields, _, err := getAnchorSortedFields(patternElement)
-			if err != nil {
-				return err
-			}
-			for _, key := range sfields {
-				if anchor.IsConditionAnchor(key) {
-					pattern.YNode().Content = append(pattern.YNode().Content[:index], pattern.YNode().Content[index+1:]...)
-				}
-			}
-		}
+
+	removedIndex, err := getIndexToBeRemoved(patternElements)
+	if err != nil {
+		return err
 	}
 
+	if len(removedIndex) == 0 {
+		return nil
+	}
+
+	preservedPatterns := removeByIndex(pattern, removedIndex)
+	pattern.YNode().Content = preservedPatterns
 	return nil
 }
 
@@ -519,4 +517,36 @@ func hasAnchors(pattern *yaml.RNode) bool {
 		}
 	}
 	return false
+}
+
+func removeByIndex(pattern *yaml.RNode, removedIndex []int) []*yaml.Node {
+	preservedPatterns := make([]*yaml.Node, 0)
+	i := 0
+	for index := 0; index < (len(pattern.YNode().Content)); index++ {
+		if i < len(removedIndex) && index == removedIndex[i] {
+			i++
+			continue
+		}
+
+		preservedPatterns = append(preservedPatterns, pattern.YNode().Content[index])
+	}
+	return preservedPatterns
+}
+
+func getIndexToBeRemoved(patternElements []*yaml.RNode) (removedIndex []int, err error) {
+	for index, patternElement := range patternElements {
+		if hasAnchors(patternElement) {
+			sfields, _, err := getAnchorSortedFields(patternElement)
+			if err != nil {
+				return nil, err
+			}
+			for _, key := range sfields {
+				if anchor.IsConditionAnchor(key) {
+					removedIndex = append(removedIndex, index)
+					break
+				}
+			}
+		}
+	}
+	return
 }
