@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno
 
-go 1.13
+go 1.14
 
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
