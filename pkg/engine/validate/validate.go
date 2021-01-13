@@ -44,12 +44,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 	// map
 	case map[string]interface{}:
 		typedResourceElement, ok := resourceElement.(map[string]interface{})
-		fmt.Println("\n\n\n----map----")
-		// fmt.Println("\nresourceElement:  ", resourceElement)
-		// fmt.Println("\npatternElement:  ", patternElement)
-		// fmt.Println("\noriginPattern: ", originPattern)
 		if !ok {
-			fmt.Println("--------- should not come here ------------")
 			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
 			return path, fmt.Errorf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", path, patternElement, resourceElement)
 		}
@@ -58,24 +53,14 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 		return validateMap(log, typedResourceElement, typedPatternElement, originPattern, path, ac)
 	// array
 	case []interface{}:
-		fmt.Println("\n\n\n----interface----")
-		// fmt.Println("\nresourceElement:  ", resourceElement)
-		// fmt.Println("\npatternElement:  ", patternElement)
-		// fmt.Println("\noriginPattern: ", originPattern)
 		typedResourceElement, ok := resourceElement.([]interface{})
 		if !ok {
-			fmt.Println("--------- should not come here ------------")
 			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
 			return path, fmt.Errorf("Validation rule Failed at path %s, resource does not satisfy the expected overlay pattern", path)
 		}
 		return validateArray(log, typedResourceElement, typedPatternElement, originPattern, path, ac)
 	// elementary values
 	case string, float64, int, int64, bool, nil:
-		fmt.Println("\n\n\n----other----")
-		fmt.Println("\ntypedPatternElement: ", typedPatternElement)
-		// fmt.Println("\nresourceElement:  ", resourceElement)
-		// fmt.Println("\npatternElement:  ", patternElement)
-		// fmt.Println("\noriginPattern: ", originPattern)
 		/*Analyze pattern */
 		if checkedPattern := reflect.ValueOf(patternElement); checkedPattern.Kind() == reflect.String {
 			if isStringIsReference(checkedPattern.String()) { //check for $ anchor
@@ -87,16 +72,10 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 		}
 
 		if !ValidateValueWithPattern(log, resourceElement, patternElement) {
-			fmt.Println("--------- should not come here ------------")
 			return path, fmt.Errorf("Validation rule failed at '%s' to validate value '%v' with pattern '%v'", path, resourceElement, patternElement)
 		}
 
 	default:
-		fmt.Println("\n\n\n----default----")
-		fmt.Println("\ntypedPatternElement: ", typedPatternElement)
-		// fmt.Println("\nresourceElement:  ", resourceElement)
-		// fmt.Println("\npatternElement:  ", patternElement)
-		// fmt.Println("\noriginPattern: ", originPattern)
 		log.V(4).Info("Pattern contains unknown type", "path", path, "current", fmt.Sprintf("%T", patternElement))
 		return path, fmt.Errorf("Validation rule failed at '%s', pattern contains unknown type", path)
 	}

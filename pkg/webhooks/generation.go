@@ -131,7 +131,6 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 		// fmt.Println("\nnewRes:      ", string(n))
 
 		policyName := resLabels["policy.kyverno.io/policy-name"]
-		fmt.Println("policyNmae: ", policyName)
 		targetSourceName := newRes.GetName()
 		targetSourceKind := newRes.GetKind()
 
@@ -141,7 +140,6 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 					if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
 						data := rule.Generation.DeepCopy().Data
 						if data != nil {
-							fmt.Println("-----data is not nil-------")
 							if path, err := validate.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
 								fmt.Println("path: ", path)
 								enqueueBool = true
@@ -151,7 +149,6 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 
 						cloneName := rule.Generation.Clone.Name
 						if cloneName != "" {
-							fmt.Println("-----------generation with clone----------")
 							obj, err := ws.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 							if err != nil {
 								log.Log.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
