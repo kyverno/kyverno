@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -117,17 +118,17 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 		}
 	}
 
-	enqueBool := false
+	enqueueBool := false
 	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == v1beta1.Update {
-		oldRes := resource
+		// oldRes := resource
 		newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
 		if err != nil {
 			logger.Error(err, "failed to convert object resource to unstructured format")
 		}
-		o, _ := json.Marshal(oldRes)
-		fmt.Println("oldRes:      ", string(o))
-		n, _ := json.Marshal(newRes)
-		fmt.Println("newRes:      ", string(n))
+		// o, _ := json.Marshal(oldRes)
+		// fmt.Println("\noldRes:      ", string(o))
+		// n, _ := json.Marshal(newRes)
+		// fmt.Println("\nnewRes:      ", string(n))
 
 		policyName := resLabels["policy.kyverno.io/policy-name"]
 		fmt.Println("policyNmae: ", policyName)
@@ -139,16 +140,68 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 				for _, rule := range policy.Spec.Rules {
 					if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
 						data := rule.Generation.DeepCopy().Data
-						if _, err := validate.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
-							enqueBool = true
-							break
+						if data != nil {
+							fmt.Println("-----data is not nil-------")
+							if path, err := validate.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
+								fmt.Println("path: ", path)
+								enqueueBool = true
+								break
+							}
+						}
+
+						cloneName := rule.Generation.Clone.Name
+						if cloneName != "" {
+							fmt.Println("-----------generation with clone----------")
+							obj, err := ws.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+							if err != nil {
+								log.Log.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
+								continue
+							}
+							o, _ := json.Marshal(obj)
+							fmt.Println("\nclone source: ", string(o), "\n")
+
+							unstructuredData, _, _ := unstructured.NestedMap(obj.Object, "data")
+							unstructuredAnnotations := obj.GetAnnotations()
+
+							delete(unstructuredAnnotations, "kubectl.kubernetes.io/last-applied-configuration")
+
+							unstructuredAnnotationsInterface := make(map[string]interface{})
+							for k, v := range unstructuredAnnotations {
+								unstructuredAnnotationsInterface[k] = v
+							}
+							unstructuredLabels := obj.GetLabels()
+							delete(unstructuredLabels, "generate.kyverno.io/clone-policy-name")
+
+							unstructedMap := make(map[string]interface{})
+							unstructuredMetaData := make(map[string]interface{})
+
+							if len(unstructuredAnnotations) != 0 {
+								unstructuredMetaData["annotations"] = unstructuredAnnotationsInterface
+
+							}
+							if len(unstructuredLabels) != 0 {
+								unstructuredMetaData["labels"] = unstructuredLabels
+							}
+
+							unstructedMap["metadata"] = unstructuredMetaData
+
+							unstructedMap["data"] = unstructuredData
+
+							fmt.Println("unstructedMap: ", unstructedMap)
+							if path, err := validate.ValidateResourceWithPattern(logger, newRes.Object, unstructedMap); err != nil {
+								fmt.Println("path: ", path)
+								// enqueueBool = true
+								break
+							} else {
+								fmt.Println("passessssss......")
+							}
 						}
 					}
 				}
 			}
 		}
 
-		if enqueBool {
+		if enqueueBool {
 			grName := resLabels["policy.kyverno.io/gr-name"]
 			gr, err := ws.grLister.Get(grName)
 			if err != nil {

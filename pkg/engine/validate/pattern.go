@@ -3,6 +3,7 @@ package validate
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -157,7 +158,12 @@ func validateValueWithStringPatterns(log logr.Logger, value interface{}, pattern
 	statements := strings.Split(pattern, "|")
 	for _, statement := range statements {
 		statement = strings.Trim(statement, " ")
-		if validateValueWithStringPattern(log, value, statement) {
+
+		replacedStatement := strings.Replace(statement, "\n", "", -1)
+		fmt.Println("+++++++++++++++++++++++++++")
+		fmt.Println("value: ", value)
+		fmt.Println("statement: ", statement)
+		if validateValueWithStringPattern(log, value, replacedStatement) {
 			return true
 		}
 	}
@@ -168,10 +174,13 @@ func validateValueWithStringPatterns(log logr.Logger, value interface{}, pattern
 // Handler for single pattern value during validation process
 // Detects if pattern has a number
 func validateValueWithStringPattern(log logr.Logger, value interface{}, pattern string) bool {
-
+	fmt.Println("-----validateValueWithStringPattern----------")
+	fmt.Println("pattern: ", pattern)
 	operator := operator.GetOperatorFromStringPattern(pattern)
 	pattern = pattern[len(operator):]
 	number, str := getNumberAndStringPartsFromPattern(pattern)
+	fmt.Println("str: ", str)
+	fmt.Println("number: ", number)
 
 	if "" == number {
 		return validateString(log, value, str, operator)
@@ -185,31 +194,50 @@ func validateString(log logr.Logger, value interface{}, pattern string, operator
 	if operator.NotEqual == operatorVariable || operator.Equal == operatorVariable {
 		var strValue string
 		var ok bool = false
+		fmt.Println(reflect.ValueOf(value).Kind())
+
 		switch value.(type) {
 		case float64:
+			fmt.Println("Inside validateString ....1 ")
 			strValue = strconv.FormatFloat(value.(float64), 'E', -1, 64)
 			ok = true
 		case int:
+			fmt.Println("Inside validateString ....2 ")
 			strValue = strconv.FormatInt(int64(value.(int)), 10)
 			ok = true
 		case int64:
+			fmt.Println("Inside validateString ....3 ")
 			strValue = strconv.FormatInt(value.(int64), 10)
 			ok = true
 		case string:
+			fmt.Println("Inside validateString ....4 ")
 			strValue = value.(string)
 			ok = true
 		case bool:
+			fmt.Println("Inside validateString ....5 ")
 			strValue = strconv.FormatBool(value.(bool))
 			ok = true
 		case nil:
+			fmt.Println("Inside validateString ....6 ")
 			ok = false
 		}
 		if !ok {
-			log.V(4).Info("unexpected type", "got", value, "expect", pattern)
+			fmt.Println("Inside validateString ....7 ")
+			log.V(1).Info("unexpected type", "got", value, "expect", pattern)
 			return false
 		}
 
-		wildcardResult := wildcard.Match(pattern, strValue)
+		fmt.Println("---------------------------- 11")
+		fmt.Println("pattern: ", pattern, "\nstrValue: ", strValue)
+		fmt.Println("length: ", len(pattern), len(strValue))
+		pattern = strings.Trim(strings.Trim(strings.Trim(pattern, ""), "\n"), "\t")
+		strValue = strings.Trim(strings.Trim(strings.Trim(strValue, ""), "\n"), "\t")
+		replacedValue := strings.Replace(strValue, "\n", "", -1)
+		fmt.Println("length: ", len(pattern), len(strValue))
+		fmt.Println("----after:\npattern: ", pattern, "\replacedValue: ", replacedValue)
+		fmt.Println("---------------------------- 11")
+
+		wildcardResult := wildcard.Match(pattern, replacedValue)
 
 		if operator.NotEqual == operatorVariable {
 			return !wildcardResult
@@ -276,5 +304,6 @@ func getNumberAndStringPartsFromPattern(pattern string) (number, str string) {
 	re := regexp.MustCompile(regexpStr)
 	matches := re.FindAllStringSubmatch(pattern, -1)
 	match := matches[0]
+	fmt.Println("match: ", match)
 	return match[1], match[3]
 }
