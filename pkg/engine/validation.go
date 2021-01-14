@@ -24,10 +24,10 @@ func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	startTime := time.Now()
 
 	logger := buildLogger(policyContext)
-	logger.V(4).Info("start processing", "startTime", startTime)
+	logger.V(4).Info("start policy processing", "startTime", startTime)
 	defer func() {
 		buildResponse(logger, policyContext, resp, startTime)
-		logger.V(4).Info("finished processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
+		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
 	resp = validateResource(logger, policyContext)
@@ -86,7 +86,7 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 	if ManagedPodResource(ctx.Policy, ctx.NewResource) {
-		log.V(5).Info("skip applying policy as direct changes to pods managed by workload controllers are not allowed", "policy", ctx.Policy.GetName())
+		log.V(5).Info("skip policy as direct changes to pods managed by workload controllers are not allowed", "policy", ctx.Policy.GetName())
 		return resp
 	}
 
@@ -95,15 +95,19 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 			continue
 		}
 
+		log = log.WithValues("rule", rule.Name)
+
 		// add configmap json data to context
 		if err := AddResourceToContext(log, rule.Context, ctx.ResourceCache, ctx.JSONContext); err != nil {
-			log.V(4).Info("cannot add configmaps to context", "reason", err.Error())
+			log.V(2).Info("failed to add configmaps to context", "reason", err.Error())
 			continue
 		}
 
 		if !matches(log, rule, ctx) {
 			continue
 		}
+
+		log.V(3).Info("matched validate rule")
 
 		// operate on the copy of the conditions, as we perform variable substitution
 		preconditionsCopy := copyConditions(rule.Conditions)
@@ -117,9 +121,11 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 
 		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
 			ruleResponse := validateResourceWithRule(log, ctx, rule)
-			if !common.IsConditionalAnchorError(ruleResponse.Message) {
-				incrementAppliedCount(resp)
-				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
+			if ruleResponse != nil {
+				if !common.IsConditionalAnchorError(ruleResponse.Message) {
+					incrementAppliedCount(resp)
+					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResponse)
+				}
 			}
 		} else if rule.Validation.Deny != nil {
 			denyConditionsCopy := copyConditions(rule.Validation.Deny.Conditions)
@@ -139,18 +145,25 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	return resp
 }
 
-func validateResourceWithRule(log logr.Logger, ctx *PolicyContext, rule kyverno.Rule) (resp response.RuleResponse) {
+func validateResourceWithRule(log logr.Logger, ctx *PolicyContext, rule kyverno.Rule) (resp *response.RuleResponse) {
 	if reflect.DeepEqual(ctx.OldResource, unstructured.Unstructured{}) {
-		return validatePatterns(log, ctx.JSONContext, ctx.NewResource, rule)
+		resp := validatePatterns(log, ctx.JSONContext, ctx.NewResource, rule)
+		return &resp
+	}
+
+	if reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
+		log.V(3).Info("skipping validation on deleted resource")
+		return nil
 	}
 
 	oldResp := validatePatterns(log, ctx.JSONContext, ctx.OldResource, rule)
 	newResp := validatePatterns(log, ctx.JSONContext, ctx.NewResource, rule)
-	if !isSameRuleResponse(oldResp, newResp) {
-		return newResp
+	if isSameRuleResponse(oldResp, newResp) {
+		log.V(3).Info("skipping modified resource as validation results have not changed")
+		return nil
 	}
 
-	return response.RuleResponse{}
+	return &newResp
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
@@ -167,7 +180,7 @@ func matches(logger logr.Logger, rule kyverno.Rule, ctx *PolicyContext) bool {
 		}
 	}
 
-	logger.V(4).Info("resource fails the match description", "reason", err.Error())
+	logger.V(4).Info("resource does not match rule", "reason", err.Error())
 	return false
 }
 
@@ -277,7 +290,8 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 			return resp
 		}
 	}
-	return response.RuleResponse{}
+
+	return resp
 }
 
 func buildErrorMessage(rule kyverno.Rule, path string) string {

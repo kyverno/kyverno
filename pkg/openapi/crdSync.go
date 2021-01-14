@@ -78,7 +78,7 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 	c.sync()
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(c.sync, time.Second, stopCh)
+		go wait.Until(c.sync, 15*time.Minute, stopCh)
 	}
 }
 
@@ -93,9 +93,6 @@ func (c *crdSync) sync() {
 		return
 	}
 
-	c.controller.mutex.Lock()
-	defer c.controller.mutex.Unlock()
-
 	c.controller.deleteCRDFromPreviousSync()
 
 	for _, crd := range crds.Items {
@@ -105,8 +102,8 @@ func (c *crdSync) sync() {
 
 func (o *Controller) deleteCRDFromPreviousSync() {
 	for _, crd := range o.crdList {
-		delete(o.kindToDefinitionName, crd)
-		delete(o.definitions, crd)
+		o.kindToDefinitionName.Remove(crd)
+		o.definitions.Remove(crd)
 	}
 
 	o.crdList = make([]string, 0)
@@ -163,8 +160,8 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 	}
 
 	o.crdList = append(o.crdList, crdName)
-	o.kindToDefinitionName[crdName] = crdName
-	o.definitions[crdName] = parsedSchema
+	o.kindToDefinitionName.Set(crdName, crdName)
+	o.definitions.Set(crdName, parsedSchema)
 }
 
 func isOpenV3Error(err error) bool {

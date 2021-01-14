@@ -10,11 +10,13 @@ import (
 // ReplaceInSelector replaces label selector keys and values containing
 // wildcard characters with matching keys and values from the resource labels.
 func ReplaceInSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) {
-	result := replaceWildcardsInMap(labelSelector.MatchLabels, resourceLabels)
+	result := replaceWildcardsInMapKeyValues(labelSelector.MatchLabels, resourceLabels)
 	labelSelector.MatchLabels = result
 }
 
-func replaceWildcardsInMap(patternMap map[string]string, resourceMap map[string]string) map[string]string {
+// replaceWildcardsInMap will expand  the "key" and "value" and will replace wildcard characters
+// It also does not handle anchors as these are not expected in selectors
+func replaceWildcardsInMapKeyValues(patternMap map[string]string, resourceMap map[string]string) map[string]string {
 	result := map[string]string{}
 	for k, v := range patternMap {
 		if hasWildcards(k) || hasWildcards(v) {
@@ -61,7 +63,8 @@ func replaceWildCardChars(s string) string {
 
 // ExpandInMetadata substitutes wildcard characters in map keys for metadata.labels and
 // metadata.annotations that are present in a validation pattern. Values are not substituted
-// here, as they are evaluated separately while processing the validation pattern.
+// here, as they are evaluated separately while processing the validation pattern. Anchors
+// on the tags (e.g. "=(kubernetes.io/*)" will be preserved when the values are expanded.
 func ExpandInMetadata(patternMap, resourceMap map[string]interface{}) map[string]interface{} {
 
 	_, patternMetadata := getPatternValue("metadata", patternMap)
@@ -90,7 +93,8 @@ func ExpandInMetadata(patternMap, resourceMap map[string]interface{}) map[string
 
 func getPatternValue(tag string, pattern map[string]interface{}) (string, interface{}) {
 	for k, v := range pattern {
-		if commonAnchor.RemoveAnchor(k) == tag {
+		k2, _ := commonAnchor.RemoveAnchor(k)
+		if k2 == tag {
 			return k, v
 		}
 	}
@@ -98,6 +102,7 @@ func getPatternValue(tag string, pattern map[string]interface{}) (string, interf
 	return "", nil
 }
 
+// expandWildcardsInTag
 func expandWildcardsInTag(tag string, patternMetadata, resourceMetadata interface{}) (string, map[string]interface{}) {
 	patternKey, patternData := getValueAsStringMap(tag, patternMetadata)
 	if patternData == nil {
@@ -109,17 +114,7 @@ func expandWildcardsInTag(tag string, patternMetadata, resourceMetadata interfac
 		return "", nil
 	}
 
-	results := map[string]interface{}{}
-	for k, v := range patternData {
-		if hasWildcards(k) {
-			anchorFreeKey := commonAnchor.RemoveAnchor(k)
-			matchK, _ := expandWildcards(anchorFreeKey, v, resourceData, false, false)
-			results[matchK] = v
-		} else {
-			results[k] = v
-		}
-	}
-
+	results := replaceWildcardsInMapKeys(patternData, resourceData)
 	return patternKey, results
 }
 
@@ -141,4 +136,25 @@ func getValueAsStringMap(key string, data interface{}) (string, map[string]strin
 	}
 
 	return patternKey, result
+}
+
+// replaceWildcardsInMapKeys will expand only the "key" and not replace wildcard characters in the key or values
+// It also preserves anchors in keys
+func replaceWildcardsInMapKeys(patternData, resourceData map[string]string) map[string]interface{} {
+	results := map[string]interface{}{}
+	for k, v := range patternData {
+		if hasWildcards(k) {
+			anchorFreeKey, anchorPrefix := commonAnchor.RemoveAnchor(k)
+			matchK, _ := expandWildcards(anchorFreeKey, v, resourceData, false, false)
+			if anchorPrefix != "" {
+				matchK = commonAnchor.AddAnchor(matchK, anchorPrefix)
+			}
+
+			results[matchK] = v
+		} else {
+			results[k] = v
+		}
+	}
+
+	return results
 }

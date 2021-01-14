@@ -131,26 +131,74 @@ func Test_subVars_failed(t *testing.T) {
 	}
 }
 
-func Test_SubvarRecursive(t *testing.T) {
-	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.test}}}}"`)
-	var pattern interface{}
-	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
-
-	resourceRaw := []byte(`
+var resourceRaw = []byte(`
 	{
 		"metadata": {
 			"name": "temp",
 			"namespace": "n1",
-			"test":"name"
+			"annotations": {
+			  "test": "name"
+            }
 		},
 		"spec": {
 			"namespace": "n1",
 			"name": "temp1"
 		}
 	}
-		`)
+`)
 
+func Test_SubstituteSuccess(t *testing.T) {
 	ctx := context.NewContext()
 	assert.Assert(t, ctx.AddResource(resourceRaw))
-	subValR(log.Log, ctx, string(patternRaw), "/")
+
+	var pattern interface{}
+	patternRaw := []byte(`"{{request.object.metadata.annotations.test}}"`)
+	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
+	results, err := subValR(log.Log, ctx, string(patternRaw), "/")
+	if err != nil {
+		t.Errorf("substitution failed: %v", err.Error())
+		return
+	}
+
+	if results.(string) != `"name"` {
+		t.Errorf("expected %s received %v", "name", results)
+	}
+}
+
+func Test_SubstituteRecursiveErrors(t *testing.T) {
+	ctx := context.NewContext()
+	assert.Assert(t, ctx.AddResource(resourceRaw))
+
+	var pattern interface{}
+	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.annotations.test2}}}}"`)
+	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
+	results, err := subValR(log.Log, ctx, string(patternRaw), "/")
+	if err == nil {
+		t.Errorf("expected error but received: %v", results)
+	}
+
+	patternRaw = []byte(`"{{request.object.metadata2.{{request.object.metadata.annotations.test}}}}"`)
+	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
+	results, err = subValR(log.Log, ctx, string(patternRaw), "/")
+	if err == nil {
+		t.Errorf("expected error but received: %v", results)
+	}
+}
+
+func Test_SubstituteRecursive(t *testing.T) {
+	ctx := context.NewContext()
+	assert.Assert(t, ctx.AddResource(resourceRaw))
+
+	var pattern interface{}
+	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.annotations.test}}}}"`)
+	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
+	results, err := subValR(log.Log, ctx, string(patternRaw), "/")
+	if err != nil {
+		t.Errorf("substitution failed: %v", err.Error())
+		return
+	}
+
+	if results.(string) != `"temp"` {
+		t.Errorf("expected %s received %v", "temp", results)
+	}
 }

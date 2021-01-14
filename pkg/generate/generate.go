@@ -230,7 +230,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 	}
 
 	if gr.Status.State == "" && len(genResources) > 0 {
-		log.V(3).Info("updating policy status", "policy", policy.Name, "data", ruleNameToProcessingTime)
+		log.V(4).Info("updating policy status", "policy", policy.Name, "data", ruleNameToProcessingTime)
 		c.policyStatusListener.Update(generateSyncStats{
 			policyName:               policy.Name,
 			ruleNameToProcessingTime: ruleNameToProcessingTime,
@@ -350,11 +350,11 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	}
 
 	if err != nil {
-		logger.Error(err, "failed to generate resource", "data", rdata, "mode", mode)
+		logger.Error(err, "failed to generate resource", "mode", mode)
 		return newGenResource, err
 	}
 
-	logger.V(2).Info("applying generate rule", "data", rdata, "mode", mode)
+	logger.V(2).Info("applying generate rule", "mode", mode)
 
 	if rdata == nil && mode == Update {
 		logger.V(4).Info("no changes required for target resource")
@@ -431,9 +431,9 @@ func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data 
 		return nil, Skip, err
 	}
 
-	log.Info("found target resource", "resource", obj)
+	log.V(3).Info("found target resource", "resource", obj)
 	if data == nil {
-		log.Info("data is nil - skipping update", "resource", obj)
+		log.V(3).Info("data is nil - skipping update", "resource", obj)
 		return nil, Skip, nil
 	}
 

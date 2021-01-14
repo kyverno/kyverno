@@ -201,8 +201,14 @@ func (gen *Generator) runWorker() {
 
 func (gen *Generator) handleErr(err error, key interface{}) {
 	logger := gen.log
+	keyHash, ok := key.(string)
+	if !ok {
+		keyHash = ""
+	}
+
 	if err == nil {
 		gen.queue.Forget(key)
+		gen.dataStore.delete(keyHash)
 		return
 	}
 
@@ -215,9 +221,7 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 
 	logger.Error(err, "failed to process report request", "key", key)
 	gen.queue.Forget(key)
-	if keyHash, ok := key.(string); ok {
-		gen.dataStore.delete(keyHash)
-	}
+	gen.dataStore.delete(keyHash)
 }
 
 func (gen *Generator) processNextWorkItem() bool {
@@ -259,8 +263,6 @@ func (gen *Generator) processNextWorkItem() bool {
 }
 
 func (gen *Generator) syncHandler(info Info) error {
-	gen.log.V(3).Info("generating report change request")
-
 	builder := NewBuilder(gen.cpolLister, gen.polLister)
 	rcrUnstructured, err := builder.build(info)
 	if err != nil {
@@ -271,11 +273,14 @@ func (gen *Generator) syncHandler(info Info) error {
 		return nil
 	}
 
+	gen.log.V(4).Info("reconcile report change request", "key", info.ToKey())
 	return gen.sync(rcrUnstructured, info)
 }
 
 func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) error {
 	logger := gen.log.WithName("sync report change request")
+	defer logger.V(3).Info("successfully reconciled report change request", "kind", reportReq.GetKind(), "key", info.ToKey())
+
 	reportReq.SetCreationTimestamp(v1.Now())
 	if reportReq.GetKind() == "ClusterReportChangeRequest" {
 		return gen.syncClusterReportChangeRequest(reportReq, logger)
@@ -292,7 +297,6 @@ func (gen *Generator) syncClusterReportChangeRequest(reportReq *unstructured.Uns
 				return fmt.Errorf("failed to create clusterReportChangeRequest: %v", err)
 			}
 
-			logger.V(3).Info("successfully created clusterReportChangeRequest", "name", reportReq.GetName())
 			return nil
 		}
 		return fmt.Errorf("unable to get %s: %v", reportReq.GetKind(), err)
@@ -306,12 +310,9 @@ func (gen *Generator) syncReportChangeRequest(reportReq *unstructured.Unstructur
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), config.KyvernoNamespace, reportReq, false); err != nil {
-				if !apierrors.IsNotFound(err) {
-					return fmt.Errorf("failed to create ReportChangeRequest: %v", err)
-				}
+				return fmt.Errorf("failed to create ReportChangeRequest: %v", err)
 			}
 
-			logger.V(3).Info("successfully created reportChangeRequest", "name", reportReq.GetName())
 			return nil
 		}
 		return fmt.Errorf("unable to get existing reportChangeRequest %v", err)

@@ -51,7 +51,7 @@ type NegationHandler struct {
 
 //Handle process negation handler
 func (nh NegationHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}, ac *common.AnchorKey) (string, error) {
-	anchorKey := commonAnchors.RemoveAnchor(nh.anchor)
+	anchorKey, _ := commonAnchors.RemoveAnchor(nh.anchor)
 	currentPath := nh.path + anchorKey + "/"
 	// if anchor is present in the resource then fail
 	if _, ok := resourceMap[anchorKey]; ok {
@@ -80,7 +80,7 @@ type EqualityHandler struct {
 
 //Handle processed condition anchor
 func (eh EqualityHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}, ac *common.AnchorKey) (string, error) {
-	anchorKey := commonAnchors.RemoveAnchor(eh.anchor)
+	anchorKey, _ := commonAnchors.RemoveAnchor(eh.anchor)
 	currentPath := eh.path + anchorKey + "/"
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
@@ -144,7 +144,7 @@ type ConditionAnchorHandler struct {
 
 //Handle processed condition anchor
 func (ch ConditionAnchorHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}, ac *common.AnchorKey) (string, error) {
-	anchorKey := commonAnchors.RemoveAnchor(ch.anchor)
+	anchorKey, _ := commonAnchors.RemoveAnchor(ch.anchor)
 	currentPath := ch.path + anchorKey + "/"
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
@@ -178,7 +178,7 @@ type ExistenceHandler struct {
 //Handle processes the existence anchor handler
 func (eh ExistenceHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}, ac *common.AnchorKey) (string, error) {
 	// skip is used by existence anchor to not process further if condition is not satisfied
-	anchorKey := commonAnchors.RemoveAnchor(eh.anchor)
+	anchorKey, _ := commonAnchors.RemoveAnchor(eh.anchor)
 	currentPath := eh.path + anchorKey + "/"
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {

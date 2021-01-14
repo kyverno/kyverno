@@ -2,8 +2,9 @@ package policy
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"reflect"
 	"time"
 
@@ -180,6 +181,9 @@ func (pc *PolicyController) canBackgroundProcess(p *kyverno.ClusterPolicy) bool 
 func (pc *PolicyController) addPolicy(obj interface{}) {
 	logger := pc.log
 	p := obj.(*kyverno.ClusterPolicy)
+
+	logger.Info("policy created event", "uid", p.UID, "kind", "ClusterPolicy", "policy_name", p.Name)
+
 	if !pc.canBackgroundProcess(p) {
 		return
 	}
@@ -224,7 +228,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 		}
 	}
 
-	logger.V(4).Info("deleting policy", "name", p.Name)
+	logger.Info("policy deleted event", "uid", p.UID, "kind", "ClusterPolicy", "policy_name", p.Name)
 
 	// we process policies that are not set of background processing
 	// as we need to clean up GRs when a policy is deleted
@@ -235,6 +239,9 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	logger := pc.log
 	p := obj.(*kyverno.Policy)
+
+	logger.Info("policy created event", "uid", p.UID, "kind", "Policy", "policy_name", p.Name, "namespaces", p.Namespace)
+
 	pol := ConvertPolicyToClusterPolicy(p)
 	if !pc.canBackgroundProcess(pol) {
 		return
@@ -278,8 +285,10 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 			return
 		}
 	}
+
+	logger.Info("policy deleted event", "uid", p.UID, "kind", "Policy", "policy_name", p.Name, "namespaces", p.Namespace)
+
 	pol := ConvertPolicyToClusterPolicy(p)
-	logger.V(4).Info("deleting namespace policy", "namespace", pol.Namespace, "name", pol.Name)
 
 	// we process policies that are not set of background processing
 	// as we need to clean up GRs when a policy is deleted
@@ -440,19 +449,21 @@ func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 	for _, gr := range grList {
 		if policyKey == gr.Spec.Policy {
 			grLabels := gr.Labels
-			if grLabels == nil || len(grLabels) == 0 {
+			if len(grLabels) == 0 {
 				grLabels = make(map[string]string)
 			}
-			grLabels["policy-update"] = fmt.Sprintf("revision-count-%d", rand.Intn(100000))
-			// gr.SetLabels(map[string]string{
-			// 	"policy-update": fmt.Sprintf("revision-count-%d", rand.Intn(100000)),
-			// })
+
+			nBig, err := rand.Int(rand.Reader, big.NewInt(100000))
+			if err != nil {
+				logger.Error(err, "failed to generate random interger")
+			}
+			grLabels["policy-update"] = fmt.Sprintf("revision-count-%d", nBig.Int64())
 			gr.SetLabels(grLabels)
-			_, err := kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
+
+			_, err = kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
 			if err != nil {
 				logger.Error(err, "failed to update gr", "name", gr.GetName())
 			}
 		}
 	}
-
 }

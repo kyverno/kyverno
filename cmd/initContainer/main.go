@@ -285,6 +285,7 @@ func removePolicyReport(client *client.Client, kind string) error {
 		reportNames := []string{
 			fmt.Sprintf("policyreport-ns-%s", ns.GetName()),
 			fmt.Sprintf("pr-ns-%s", ns.GetName()),
+			fmt.Sprintf("polr-ns-%s", ns.GetName()),
 		}
 
 		var wg sync.WaitGroup

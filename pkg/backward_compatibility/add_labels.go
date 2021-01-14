@@ -28,7 +28,7 @@ func AddLabels(client *kyvernoclient.Clientset, grInformer kyvernoinformer.Gener
 	for _, gr := range grList {
 
 		grLabels := gr.Labels
-		if grLabels == nil || len(grLabels) == 0 {
+		if len(grLabels) == 0 {
 			grLabels = make(map[string]string)
 		}
 		grLabels["generate.kyverno.io/policy-name"] = gr.Spec.Policy
@@ -53,7 +53,6 @@ func AddLabels(client *kyvernoclient.Clientset, grInformer kyvernoinformer.Gener
 			}
 		}
 	}
-	return
 }
 
 func addLabelForGR(name string, namespace string, client *kyvernoclient.Clientset, grInformer kyvernoinformer.GenerateRequestInformer) error {
@@ -64,7 +63,7 @@ func addLabelForGR(name string, namespace string, client *kyvernoclient.Clientse
 	}
 
 	grLabels := gr.Labels
-	if grLabels == nil || len(grLabels) == 0 {
+	if len(grLabels) == 0 {
 		grLabels = make(map[string]string)
 	}
 	grLabels["generate.kyverno.io/policy-name"] = gr.Spec.Policy

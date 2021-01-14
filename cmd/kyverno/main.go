@@ -38,26 +38,27 @@ import (
 const resyncPeriod = 15 * time.Minute
 
 var (
-	kubeconfig                     string
-	serverIP                       string
-	webhookTimeout                 int
-	backgroundSync                 int
-	runValidationInMutatingWebhook string
-	profile                        bool
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
-	filterK8Resources string
+	filterK8sResources             string
+	kubeconfig                     string
+	serverIP                       string
+	runValidationInMutatingWebhook string
+	excludeGroupRole               string
+	excludeUsername                string
+	profilePort                    string
 
-	excludeGroupRole string
-	excludeUsername  string
-	policyReport     bool
-	setupLog         = log.Log.WithName("setup")
+	webhookTimeout int
+
+	profile      bool
+	policyReport bool
+	setupLog     = log.Log.WithName("setup")
 )
 
 func main() {
 	klog.InitFlags(nil)
 	log.SetLogger(klogr.New())
-	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
+	flag.StringVar(&filterK8sResources, "filterK8sResources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
 	flag.StringVar(&excludeGroupRole, "excludeGroupRole", "", "")
 	flag.StringVar(&excludeUsername, "excludeUsername", "", "")
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
@@ -65,16 +66,13 @@ func main() {
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
+	flag.StringVar(&profilePort, "profile-port", "6060", "Enable profiling at given port, default to 6060.")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
 	}
 
 	flag.Parse()
-
-	if profile {
-		go http.ListenAndServe("localhost:6060", nil)
-	}
 
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
@@ -83,6 +81,18 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
+	}
+
+	if profile {
+		addr := ":" + profilePort
+		setupLog.Info("Enable profiling, see details at https://github.com/kyverno/kyverno/wiki/Profiling-Kyverno-on-Kubernetes", "port", profilePort)
+		go func() {
+			if err := http.ListenAndServe(addr, nil); err != nil {
+				setupLog.Error(err, "Failed to enable profiling")
+				os.Exit(1)
+			}
+		}()
+
 	}
 
 	// KYVERNO CRD CLIENT
@@ -152,7 +162,7 @@ func main() {
 	configData := config.NewConfigData(
 		kubeClient,
 		kubeInformer.Core().V1().ConfigMaps(),
-		filterK8Resources,
+		filterK8sResources,
 		excludeGroupRole,
 		excludeUsername,
 		log.Log.WithName("ConfigData"),
