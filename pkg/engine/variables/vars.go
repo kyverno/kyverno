@@ -89,34 +89,39 @@ func (n NotFoundVariableErr) Error() string {
 func subValR(log logr.Logger, ctx context.EvalInterface, valuePattern string, path string) (interface{}, error) {
 	originalPattern := valuePattern
 	vars := regexVariables.FindAllString(valuePattern, -1)
-	for _, v := range vars {
-		variable := strings.ReplaceAll(v, "{{", "")
-		variable = strings.ReplaceAll(variable, "}}", "")
-		variable = strings.TrimSpace(variable)
-		substitutedVar, err := ctx.Query(variable)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve %v at path %s", variable, path)
-		}
-
-		log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", path)
-
-		if val, ok := substitutedVar.(string); ok {
-			valuePattern = strings.Replace(valuePattern, v, val, -1)
-			continue
-		}
-
-		if substitutedVar != nil {
-			if originalPattern == v {
-				return substitutedVar, nil
+	for len(vars) > 0 {
+		for _, v := range vars {
+			variable := strings.ReplaceAll(v, "{{", "")
+			variable = strings.ReplaceAll(variable, "}}", "")
+			variable = strings.TrimSpace(variable)
+			substitutedVar, err := ctx.Query(variable)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve %v at path %s", variable, path)
 			}
 
-			return nil, fmt.Errorf("failed to resolve %v at path %s", variable, path)
+			log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", path)
+
+			if val, ok := substitutedVar.(string); ok {
+				valuePattern = strings.Replace(valuePattern, v, val, -1)
+				continue
+			}
+
+			if substitutedVar != nil {
+				if originalPattern == v {
+					return substitutedVar, nil
+				}
+
+				return nil, fmt.Errorf("failed to resolve %v at path %s", variable, path)
+			}
+
+			return nil, NotFoundVariableErr{
+				variable: variable,
+				path:     path,
+			}
 		}
 
-		return nil, NotFoundVariableErr{
-			variable: variable,
-			path:     path,
-		}
+		// check for nested variables in strings
+		vars = regexVariables.FindAllString(valuePattern, -1)
 	}
 
 	return valuePattern, nil
