@@ -2,7 +2,6 @@ package webhooks
 
 import (
 	contextdefault "context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -125,8 +124,7 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 			logger.Error(err, "failed to convert object resource to unstructured format")
 		}
 
-		n, _ := json.Marshal(newRes)
-		fmt.Println("updated source:  ", string(n))
+		fmt.Println("updated source:  ", newRes.Object)
 
 		policyName := resLabels["policy.kyverno.io/policy-name"]
 		targetSourceName := newRes.GetName()
@@ -163,7 +161,9 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 							delete(obj.Object["metadata"].(map[string]interface{}), "uid")
 							delete(obj.Object["metadata"].(map[string]interface{}), "namespace")
 							delete(obj.Object["metadata"].(map[string]interface{}), "name")
-							delete(obj.Object["metadata"].(map[string]interface{}), "status")
+							delete(obj.Object, "status")
+							delete(newRes.Object["metadata"].(map[string]interface{}), "managedFields")
+							delete(obj.Object["spec"].(map[string]interface{}), "tolerations")
 
 							if _, found := obj.Object["data"]; found {
 								originalResourceData := obj.Object["data"].(map[string]interface{})["ca"]
@@ -183,7 +183,7 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 
 							if path, err := validate.ValidateResourceWithPattern(logger, newRes.Object, obj.Object); err != nil {
 								fmt.Println("path: ", path)
-								enqueueBool = true
+								// enqueueBool = true
 								break
 							} else {
 								fmt.Println("passessssss......")
