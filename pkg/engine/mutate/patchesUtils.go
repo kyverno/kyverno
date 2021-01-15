@@ -19,9 +19,6 @@ func generatePatches(src, dst []byte) ([][]byte, error) {
 	var patchesBytes [][]byte
 	pp, err := jsonpatch.CreatePatch(src, dst)
 	for _, p := range pp {
-		// TODO: handle remove nil value, i.e.,
-		// {remove /spec/securityContext <nil>}
-
 		if ignorePatch(p.Path) {
 			continue
 		}
