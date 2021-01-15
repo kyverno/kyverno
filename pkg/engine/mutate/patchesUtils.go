@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mattbaird/jsonpatch"
-
 	evanjsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/mattbaird/jsonpatch"
+	"github.com/minio/minio/pkg/wildcard"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -21,7 +21,10 @@ func generatePatches(src, dst []byte) ([][]byte, error) {
 	for _, p := range pp {
 		// TODO: handle remove nil value, i.e.,
 		// {remove /spec/securityContext <nil>}
-		// {remove /status/conditions/0/lastProbeTime <nil>}
+
+		if ignorePatch(p.Path) {
+			continue
+		}
 
 		pbytes, err := p.MarshalJSON()
 		if err != nil {
@@ -32,6 +35,30 @@ func generatePatches(src, dst []byte) ([][]byte, error) {
 	}
 
 	return patchesBytes, err
+}
+
+// ignorePatch ignores the patch with the following path:
+// - not */metadata/name, */metadata/namespace, */metadata/labels, */metadata/annotations
+// - /status
+func ignorePatch(path string) bool {
+	if strings.Contains(path, "/status") {
+		return true
+	}
+
+	if wildcard.Match("*/metadata", path) {
+		return false
+	}
+
+	if strings.Contains(path, "/metadata") {
+		if !strings.Contains(path, "/metadata/name") &&
+			!strings.Contains(path, "/metadata/namespace") &&
+			!strings.Contains(path, "/metadata/annotations") &&
+			!strings.Contains(path, "/metadata/labels") {
+			return true
+		}
+	}
+
+	return false
 }
 
 // preProcessJSONPatches deals with the JsonPatch when reinvocation

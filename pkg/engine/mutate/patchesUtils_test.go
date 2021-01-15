@@ -2,6 +2,7 @@ package mutate
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -305,4 +306,69 @@ func Test_getObject_get_last_element(t *testing.T) {
 	object, err := getObject(path, pod.UnstructuredContent())
 	assertnew.Nil(t, err)
 	assertnew.Equal(t, expectedObject, object)
+}
+
+func Test_ignorePath(t *testing.T) {
+	tests := []struct {
+		path   string
+		ignore bool
+	}{
+		{
+			path:   "/",
+			ignore: false,
+		},
+		{
+			path:   "/metadata",
+			ignore: false,
+		},
+		{
+			path:   "/metadata/name",
+			ignore: false,
+		},
+		{
+			path:   "spec/template/metadata/name",
+			ignore: false,
+		},
+		{
+			path:   "/metadata/namespace",
+			ignore: false,
+		},
+		{
+			path:   "/metadata/annotations",
+			ignore: false,
+		},
+		{
+			path:   "/metadata/labels",
+			ignore: false,
+		},
+		{
+			path:   "/metadata/creationTimestamp",
+			ignore: true,
+		},
+		{
+			path:   "spec/template/metadata/creationTimestamp",
+			ignore: true,
+		},
+		{
+			path:   "/metadata/resourceVersion",
+			ignore: true,
+		},
+		{
+			path:   "/status",
+			ignore: true,
+		},
+		{
+			path:   "/spec",
+			ignore: false,
+		},
+		{
+			path:   "/kind",
+			ignore: false,
+		},
+	}
+
+	for _, test := range tests {
+		res := ignorePatch(test.path)
+		assertnew.Equal(t, test.ignore, res, fmt.Sprintf("test fails at %s", test.path))
+	}
 }
