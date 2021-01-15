@@ -157,8 +157,7 @@ func validateValueWithStringPatterns(log logr.Logger, value interface{}, pattern
 	statements := strings.Split(pattern, "|")
 	for _, statement := range statements {
 		statement = strings.Trim(statement, " ")
-		replacedStatement := strings.Replace(statement, "\n", "", -1)
-		if validateValueWithStringPattern(log, value, replacedStatement) {
+		if validateValueWithStringPattern(log, value, statement) {
 			return true
 		}
 	}
@@ -206,16 +205,11 @@ func validateString(log logr.Logger, value interface{}, pattern string, operator
 			ok = false
 		}
 		if !ok {
-			log.V(1).Info("unexpected type", "got", value, "expect", pattern)
+			log.V(4).Info("unexpected type", "got", value, "expect", pattern)
 			return false
 		}
 
-		pattern = strings.Trim(strings.Trim(strings.Trim(pattern, ""), "\n"), "\t")
-		strValue = strings.Trim(strings.Trim(strings.Trim(strValue, ""), "\n"), "\t")
-		replacedValue := strings.Replace(strValue, "\n", "", -1)
-
-		wildcardResult := wildcard.Match(pattern, replacedValue)
-
+		wildcardResult := wildcard.Match(pattern, strValue)
 		if operator.NotEqual == operatorVariable {
 			return !wildcardResult
 		}

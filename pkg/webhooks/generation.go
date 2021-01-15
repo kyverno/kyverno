@@ -120,15 +120,13 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 
 	enqueueBool := false
 	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == v1beta1.Update {
-		// oldRes := resource
 		newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
 		if err != nil {
 			logger.Error(err, "failed to convert object resource to unstructured format")
 		}
-		// o, _ := json.Marshal(oldRes)
-		// fmt.Println("\noldRes:      ", string(o))
-		// n, _ := json.Marshal(newRes)
-		// fmt.Println("\nnewRes:      ", string(n))
+
+		n, _ := json.Marshal(newRes)
+		fmt.Println("updated source:  ", string(n))
 
 		policyName := resLabels["policy.kyverno.io/policy-name"]
 		targetSourceName := newRes.GetName()
@@ -154,40 +152,38 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 								log.Log.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
 								continue
 							}
-							o, _ := json.Marshal(obj)
-							fmt.Println("\nclone source: ", string(o), "\n")
+							fmt.Println("\nclone source : ", obj.Object, "\n")
 
-							unstructuredData, _, _ := unstructured.NestedMap(obj.Object, "data")
-							unstructuredAnnotations := obj.GetAnnotations()
+							delete(obj.Object["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
+							delete(obj.Object["metadata"].(map[string]interface{}), "creationTimestamp")
+							delete(obj.Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
+							delete(obj.Object["metadata"].(map[string]interface{}), "managedFields")
+							delete(obj.Object["metadata"].(map[string]interface{}), "resourceVersion")
+							delete(obj.Object["metadata"].(map[string]interface{}), "selfLink")
+							delete(obj.Object["metadata"].(map[string]interface{}), "uid")
+							delete(obj.Object["metadata"].(map[string]interface{}), "namespace")
+							delete(obj.Object["metadata"].(map[string]interface{}), "name")
+							delete(obj.Object["metadata"].(map[string]interface{}), "status")
 
-							delete(unstructuredAnnotations, "kubectl.kubernetes.io/last-applied-configuration")
+							if _, found := obj.Object["data"]; found {
+								originalResourceData := obj.Object["data"].(map[string]interface{})["ca"]
+								replaceData := strings.Replace(originalResourceData.(string), "\n", "", -1)
+								obj.Object["data"].(map[string]interface{})["ca"] = replaceData
 
-							unstructuredAnnotationsInterface := make(map[string]interface{})
-							for k, v := range unstructuredAnnotations {
-								unstructuredAnnotationsInterface[k] = v
-							}
-							unstructuredLabels := obj.GetLabels()
-							delete(unstructuredLabels, "generate.kyverno.io/clone-policy-name")
+								newResourceData := newRes.Object["data"].(map[string]interface{})["ca"]
+								replacenewResourceData := strings.Replace(newResourceData.(string), "\n", "", -1)
+								newRes.Object["data"].(map[string]interface{})["ca"] = replacenewResourceData
 
-							unstructedMap := make(map[string]interface{})
-							unstructuredMetaData := make(map[string]interface{})
-
-							if len(unstructuredAnnotations) != 0 {
-								unstructuredMetaData["annotations"] = unstructuredAnnotationsInterface
-
-							}
-							if len(unstructuredLabels) != 0 {
-								unstructuredMetaData["labels"] = unstructuredLabels
 							}
 
-							unstructedMap["metadata"] = unstructuredMetaData
+							fmt.Println("------------------------------------------------------------------------------------")
+							fmt.Println("\nclone source after : ", obj.Object, "\n")
+							fmt.Println("\nupdated source after : ", newRes.Object, "\n")
+							fmt.Println("------------------------------------------------------------------------------------")
 
-							unstructedMap["data"] = unstructuredData
-
-							fmt.Println("unstructedMap: ", unstructedMap)
-							if path, err := validate.ValidateResourceWithPattern(logger, newRes.Object, unstructedMap); err != nil {
+							if path, err := validate.ValidateResourceWithPattern(logger, newRes.Object, obj.Object); err != nil {
 								fmt.Println("path: ", path)
-								// enqueueBool = true
+								enqueueBool = true
 								break
 							} else {
 								fmt.Println("passessssss......")
