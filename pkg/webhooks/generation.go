@@ -132,8 +132,6 @@ func (ws *WebhookServer) handleUpdateTargetSource(request *v1beta1.AdmissionRequ
 		logger.Error(err, "failed to convert object resource to unstructured format")
 	}
 
-	fmt.Println("updated source:  ", newRes.Object)
-
 	policyName := resLabels["policy.kyverno.io/policy-name"]
 	targetSourceName := newRes.GetName()
 	targetSourceKind := newRes.GetKind()
@@ -144,8 +142,7 @@ func (ws *WebhookServer) handleUpdateTargetSource(request *v1beta1.AdmissionRequ
 				if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
 					data := rule.Generation.DeepCopy().Data
 					if data != nil {
-						if path, err := validate.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
-							fmt.Println("path: ", path)
+						if _, err := validate.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
 							enqueueBool = true
 							break
 						}
@@ -161,8 +158,7 @@ func (ws *WebhookServer) handleUpdateTargetSource(request *v1beta1.AdmissionRequ
 
 						sourceObj, newResObj := updateFeildsInSourceAndUpdatedResource(obj, newRes, logger)
 
-						if path, err := validate.ValidateResourceWithPattern(logger, newResObj, sourceObj); err != nil {
-							fmt.Println("path: ", path)
+						if _, err := validate.ValidateResourceWithPattern(logger, newResObj, sourceObj); err != nil {
 							enqueueBool = true
 							break
 						}

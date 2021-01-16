@@ -168,6 +168,7 @@ func validateValueWithStringPatterns(log logr.Logger, value interface{}, pattern
 // Handler for single pattern value during validation process
 // Detects if pattern has a number
 func validateValueWithStringPattern(log logr.Logger, value interface{}, pattern string) bool {
+
 	operator := operator.GetOperatorFromStringPattern(pattern)
 	pattern = pattern[len(operator):]
 	number, str := getNumberAndStringPartsFromPattern(pattern)
@@ -184,7 +185,6 @@ func validateString(log logr.Logger, value interface{}, pattern string, operator
 	if operator.NotEqual == operatorVariable || operator.Equal == operatorVariable {
 		var strValue string
 		var ok bool = false
-
 		switch value.(type) {
 		case float64:
 			strValue = strconv.FormatFloat(value.(float64), 'E', -1, 64)
@@ -210,6 +210,7 @@ func validateString(log logr.Logger, value interface{}, pattern string, operator
 		}
 
 		wildcardResult := wildcard.Match(pattern, strValue)
+
 		if operator.NotEqual == operatorVariable {
 			return !wildcardResult
 		}
