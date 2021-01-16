@@ -99,121 +99,132 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 
 	resLabels := resource.GetLabels()
 	if resLabels["generate.kyverno.io/clone-policy-name"] != "" {
-		policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
-		for _, policyName := range policyNames {
-			selector := labels.SelectorFromSet(labels.Set(map[string]string{
-				"generate.kyverno.io/policy-name": policyName,
-			}))
-
-			grList, err := ws.grLister.List(selector)
-			if err != nil {
-				logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
-
-			}
-			for _, gr := range grList {
-				ws.grController.EnqueueGenerateRequestFromWebhook(gr)
-			}
-		}
+		ws.handleUpdateCloneSource(resLabels, logger)
 	}
 
-	enqueueBool := false
 	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == v1beta1.Update {
-		newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
+		ws.handleUpdateTargetSource(request, policies, resLabels, logger)
+	}
+}
+
+func (ws *WebhookServer) handleUpdateCloneSource(resLabels map[string]string, logger logr.Logger) {
+	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
+	for _, policyName := range policyNames {
+		selector := labels.SelectorFromSet(labels.Set(map[string]string{
+			"generate.kyverno.io/policy-name": policyName,
+		}))
+
+		grList, err := ws.grLister.List(selector)
 		if err != nil {
-			logger.Error(err, "failed to convert object resource to unstructured format")
+			logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
+
 		}
+		for _, gr := range grList {
+			ws.grController.EnqueueGenerateRequestFromWebhook(gr)
+		}
+	}
+}
 
-		fmt.Println("updated source:  ", newRes.Object)
+func (ws *WebhookServer) handleUpdateTargetSource(request *v1beta1.AdmissionRequest, policies []*v1.ClusterPolicy, resLabels map[string]string, logger logr.Logger) {
+	enqueueBool := false
+	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
+	if err != nil {
+		logger.Error(err, "failed to convert object resource to unstructured format")
+	}
 
-		policyName := resLabels["policy.kyverno.io/policy-name"]
-		targetSourceName := newRes.GetName()
-		targetSourceKind := newRes.GetKind()
+	fmt.Println("updated source:  ", newRes.Object)
 
-		for _, policy := range policies {
-			if policy.GetName() == policyName {
-				for _, rule := range policy.Spec.Rules {
-					if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
-						data := rule.Generation.DeepCopy().Data
-						if data != nil {
-							if path, err := validate.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
-								fmt.Println("path: ", path)
-								enqueueBool = true
-								break
-							}
+	policyName := resLabels["policy.kyverno.io/policy-name"]
+	targetSourceName := newRes.GetName()
+	targetSourceKind := newRes.GetKind()
+
+	for _, policy := range policies {
+		if policy.GetName() == policyName {
+			for _, rule := range policy.Spec.Rules {
+				if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
+					data := rule.Generation.DeepCopy().Data
+					if data != nil {
+						if path, err := validate.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
+							fmt.Println("path: ", path)
+							enqueueBool = true
+							break
+						}
+					}
+
+					cloneName := rule.Generation.Clone.Name
+					if cloneName != "" {
+						obj, err := ws.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+						if err != nil {
+							logger.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
+							continue
 						}
 
-						cloneName := rule.Generation.Clone.Name
-						if cloneName != "" {
-							obj, err := ws.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
-							if err != nil {
-								logger.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
-								continue
-							}
+						sourceObj, newResObj := updateFeildsInSourceAndUpdatedResource(obj, newRes, logger)
 
-							delete(obj.Object["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
-							delete(obj.Object["metadata"].(map[string]interface{}), "creationTimestamp")
-							delete(obj.Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
-							delete(obj.Object["metadata"].(map[string]interface{}), "managedFields")
-							delete(obj.Object["metadata"].(map[string]interface{}), "resourceVersion")
-							delete(obj.Object["metadata"].(map[string]interface{}), "selfLink")
-							delete(obj.Object["metadata"].(map[string]interface{}), "uid")
-							delete(obj.Object["metadata"].(map[string]interface{}), "namespace")
-							delete(obj.Object["metadata"].(map[string]interface{}), "name")
-							delete(obj.Object, "status")
-							delete(newRes.Object["metadata"].(map[string]interface{}), "managedFields")
-							if _, found := obj.Object["spec"]; found {
-								delete(obj.Object["spec"].(map[string]interface{}), "tolerations")
-							}
-
-							if _, found := obj.Object["data"]; found {
-								keyInData := make([]string, 0)
-								dataMap := obj.Object["data"]
-								switch dataMap.(type) {
-								case map[string]interface{}:
-									for k, _ := range dataMap.(map[string]interface{}) {
-										keyInData = append(keyInData, k)
-									}
-								}
-
-								if len(keyInData) > 0 {
-									for _, dataKey := range keyInData {
-										originalResourceData := obj.Object["data"].(map[string]interface{})[dataKey]
-										replaceData := strings.Replace(originalResourceData.(string), "\n", "", -1)
-										obj.Object["data"].(map[string]interface{})[dataKey] = replaceData
-
-										newResourceData := newRes.Object["data"].(map[string]interface{})[dataKey]
-										replacenewResourceData := strings.Replace(newResourceData.(string), "\n", "", -1)
-										newRes.Object["data"].(map[string]interface{})[dataKey] = replacenewResourceData
-									}
-								} else {
-									logger.V(4).Info("data is not of type map[string]interface{}")
-								}
-
-							}
-
-							if path, err := validate.ValidateResourceWithPattern(logger, newRes.Object, obj.Object); err != nil {
-								fmt.Println("path: ", path)
-								enqueueBool = true
-								break
-							} else {
-								fmt.Println("passessssss......")
-							}
+						if path, err := validate.ValidateResourceWithPattern(logger, newResObj, sourceObj); err != nil {
+							fmt.Println("path: ", path)
+							enqueueBool = true
+							break
 						}
 					}
 				}
 			}
 		}
+	}
 
-		if enqueueBool {
-			grName := resLabels["policy.kyverno.io/gr-name"]
-			gr, err := ws.grLister.Get(grName)
-			if err != nil {
-				logger.Error(err, "failed to get generate request", "name", grName)
+	if enqueueBool {
+		grName := resLabels["policy.kyverno.io/gr-name"]
+		gr, err := ws.grLister.Get(grName)
+		if err != nil {
+			logger.Error(err, "failed to get generate request", "name", grName)
+		}
+		fmt.Println("-------- enqueue ---------")
+		ws.grController.EnqueueGenerateRequestFromWebhook(gr)
+	}
+}
+
+func updateFeildsInSourceAndUpdatedResource(obj *unstructured.Unstructured, newRes *unstructured.Unstructured, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
+	delete(obj.Object["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
+	delete(obj.Object["metadata"].(map[string]interface{}), "creationTimestamp")
+	delete(obj.Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
+	delete(obj.Object["metadata"].(map[string]interface{}), "managedFields")
+	delete(obj.Object["metadata"].(map[string]interface{}), "resourceVersion")
+	delete(obj.Object["metadata"].(map[string]interface{}), "selfLink")
+	delete(obj.Object["metadata"].(map[string]interface{}), "uid")
+	delete(obj.Object["metadata"].(map[string]interface{}), "namespace")
+	delete(obj.Object["metadata"].(map[string]interface{}), "name")
+	delete(obj.Object, "status")
+	delete(newRes.Object["metadata"].(map[string]interface{}), "managedFields")
+
+	if _, found := obj.Object["spec"]; found {
+		delete(obj.Object["spec"].(map[string]interface{}), "tolerations")
+	}
+
+	if _, found := obj.Object["data"]; found {
+		keyInData := make([]string, 0)
+		dataMap := obj.Object["data"]
+		switch dataMap.(type) {
+		case map[string]interface{}:
+			for k, _ := range dataMap.(map[string]interface{}) {
+				keyInData = append(keyInData, k)
 			}
-			fmt.Println("-------- enqueue ---------")
-			ws.grController.EnqueueGenerateRequestFromWebhook(gr)
+		}
+
+		if len(keyInData) > 0 {
+			for _, dataKey := range keyInData {
+				originalResourceData := obj.Object["data"].(map[string]interface{})[dataKey]
+				replaceData := strings.Replace(originalResourceData.(string), "\n", "", -1)
+				obj.Object["data"].(map[string]interface{})[dataKey] = replaceData
+
+				newResourceData := newRes.Object["data"].(map[string]interface{})[dataKey]
+				replacenewResourceData := strings.Replace(newResourceData.(string), "\n", "", -1)
+				newRes.Object["data"].(map[string]interface{})[dataKey] = replacenewResourceData
+			}
+		} else {
+			logger.V(4).Info("data is not of type map[string]interface{}")
 		}
 	}
+	return obj.Object, newRes.Object
 }
 
 //HandleDelete handles admission-requests for delete
