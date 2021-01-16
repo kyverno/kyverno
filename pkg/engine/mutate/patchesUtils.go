@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -18,11 +19,9 @@ import (
 func generatePatches(src, dst []byte) ([][]byte, error) {
 	var patchesBytes [][]byte
 	pp, err := jsonpatch.CreatePatch(src, dst)
-	for _, p := range pp {
-		if ignorePatch(p.Path) {
-			continue
-		}
+	sortedPatches := sortRemovalPatches(pp)
 
+	for _, p := range sortedPatches {
 		pbytes, err := p.MarshalJSON()
 		if err != nil {
 			return patchesBytes, err
@@ -34,9 +33,102 @@ func generatePatches(src, dst []byte) ([][]byte, error) {
 	return patchesBytes, err
 }
 
-// ignorePatch ignores the patch with the following path:
+// sortRemovalPatches sort the removal patches(with same path) by the key of index in descending order
+//
+// [{"op":"remove","path":"/a/b/0"},{"op":"remove","path":"/a/b/1"}]
+// will be reordered to
+// [{"op":"remove","path":"/a/b/1"},{"op":"remove","path":"/a/b/0"}]
+func sortRemovalPatches(originalPatches []jsonpatch.JsonPatchOperation) []jsonpatch.JsonPatchOperation {
+	patches := filterInvalidPatches(originalPatches)
+
+	result := make([]jsonpatch.JsonPatchOperation, len(patches))
+	index := getIndexToBeReversed(patches)
+
+	if len(index) == 0 {
+		return patches
+	}
+
+	start := 0
+	for _, idx := range index {
+		end := idx[0]
+		copy(result[start:end], patches[:end])
+		reversedPatches := reverse(patches, idx)
+		copy(result[end:], reversedPatches)
+		start = idx[1] + 1
+	}
+	copy(result[start:], patches[start:])
+	return result
+}
+
+func getIndexToBeReversed(patches []jsonpatch.JsonPatchOperation) [][]int {
+	removePaths := make([]string, len(patches))
+
+	for i, patch := range patches {
+		if patch.Operation == "remove" {
+			removePaths[i] = patch.Path
+		}
+	}
+	return getRemoveInterval(removePaths)
+
+}
+
+func getRemoveInterval(removePaths []string) [][]int {
+	// get paths end with '/number'
+	regex := regexp.MustCompile(`\/\d+$`)
+	for i, path := range removePaths {
+		if !regex.Match([]byte(path)) {
+			removePaths[i] = ""
+		}
+	}
+
+	res := [][]int{}
+	for i := 0; i < len(removePaths); {
+		if removePaths[i] != "" {
+			baseDir := filepath.Dir(removePaths[i])
+			j := i + 1
+			for ; j < len(removePaths); j++ {
+				curDir := filepath.Dir(removePaths[j])
+				if baseDir != curDir {
+					break
+				}
+			}
+			if i != j-1 {
+				res = append(res, []int{i, j - 1})
+			}
+			i = j
+		} else {
+			i++
+		}
+	}
+
+	return res
+}
+
+func reverse(patches []jsonpatch.JsonPatchOperation, interval []int) []jsonpatch.JsonPatchOperation {
+	res := make([]jsonpatch.JsonPatchOperation, interval[1]-interval[0]+1)
+	j := 0
+	for i := interval[1]; i >= interval[0]; i-- {
+		res[j] = patches[i]
+		j++
+	}
+	return res
+}
+
+// filterInvalidPatches filters out patch with the following path:
 // - not */metadata/name, */metadata/namespace, */metadata/labels, */metadata/annotations
 // - /status
+func filterInvalidPatches(patches []jsonpatch.JsonPatchOperation) []jsonpatch.JsonPatchOperation {
+	res := []jsonpatch.JsonPatchOperation{}
+	for _, patch := range patches {
+		if ignorePatch(patch.Path) {
+			continue
+		}
+
+		res = append(res, patch)
+	}
+	return res
+}
+
 func ignorePatch(path string) bool {
 	if strings.Contains(path, "/status") {
 		return true
