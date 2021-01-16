@@ -89,7 +89,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	}
 }
 
-//HandleUpdate handles admission-requests for update
+//handleUpdate handles admission-requests for update
 func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy) {
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
@@ -107,6 +107,7 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 	}
 }
 
+//handleUpdateCloneSource - handles updation of clone source for generate policy
 func (ws *WebhookServer) handleUpdateCloneSource(resLabels map[string]string, logger logr.Logger) {
 	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
 	for _, policyName := range policyNames {
@@ -125,6 +126,7 @@ func (ws *WebhookServer) handleUpdateCloneSource(resLabels map[string]string, lo
 	}
 }
 
+//handleUpdateTargetSource - handles updation of target resource for generate policy
 func (ws *WebhookServer) handleUpdateTargetSource(request *v1beta1.AdmissionRequest, policies []*v1.ClusterPolicy, resLabels map[string]string, logger logr.Logger) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
@@ -174,11 +176,11 @@ func (ws *WebhookServer) handleUpdateTargetSource(request *v1beta1.AdmissionRequ
 		if err != nil {
 			logger.Error(err, "failed to get generate request", "name", grName)
 		}
-		fmt.Println("-------- enqueue ---------")
 		ws.grController.EnqueueGenerateRequestFromWebhook(gr)
 	}
 }
 
+//updateFeildsInSourceAndUpdatedResource - delete the required feilds from the source and target resource
 func updateFeildsInSourceAndUpdatedResource(obj *unstructured.Unstructured, newRes *unstructured.Unstructured, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
 	delete(obj.Object["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
 	delete(obj.Object["metadata"].(map[string]interface{}), "creationTimestamp")
