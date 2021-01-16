@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -147,10 +146,9 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 						if cloneName != "" {
 							obj, err := ws.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 							if err != nil {
-								log.Log.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
+								logger.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
 								continue
 							}
-							fmt.Println("\nclone source : ", obj.Object, "\n")
 
 							delete(obj.Object["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
 							delete(obj.Object["metadata"].(map[string]interface{}), "creationTimestamp")
@@ -163,27 +161,39 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 							delete(obj.Object["metadata"].(map[string]interface{}), "name")
 							delete(obj.Object, "status")
 							delete(newRes.Object["metadata"].(map[string]interface{}), "managedFields")
-							delete(obj.Object["spec"].(map[string]interface{}), "tolerations")
+							if _, found := obj.Object["spec"]; found {
+								delete(obj.Object["spec"].(map[string]interface{}), "tolerations")
+							}
 
 							if _, found := obj.Object["data"]; found {
-								originalResourceData := obj.Object["data"].(map[string]interface{})["ca"]
-								replaceData := strings.Replace(originalResourceData.(string), "\n", "", -1)
-								obj.Object["data"].(map[string]interface{})["ca"] = replaceData
+								keyInData := make([]string, 0)
+								dataMap := obj.Object["data"]
+								switch dataMap.(type) {
+								case map[string]interface{}:
+									for k, _ := range dataMap.(map[string]interface{}) {
+										keyInData = append(keyInData, k)
+									}
+								}
 
-								newResourceData := newRes.Object["data"].(map[string]interface{})["ca"]
-								replacenewResourceData := strings.Replace(newResourceData.(string), "\n", "", -1)
-								newRes.Object["data"].(map[string]interface{})["ca"] = replacenewResourceData
+								if len(keyInData) > 0 {
+									for _, dataKey := range keyInData {
+										originalResourceData := obj.Object["data"].(map[string]interface{})[dataKey]
+										replaceData := strings.Replace(originalResourceData.(string), "\n", "", -1)
+										obj.Object["data"].(map[string]interface{})[dataKey] = replaceData
+
+										newResourceData := newRes.Object["data"].(map[string]interface{})[dataKey]
+										replacenewResourceData := strings.Replace(newResourceData.(string), "\n", "", -1)
+										newRes.Object["data"].(map[string]interface{})[dataKey] = replacenewResourceData
+									}
+								} else {
+									logger.V(4).Info("data is not of type map[string]interface{}")
+								}
 
 							}
 
-							fmt.Println("------------------------------------------------------------------------------------")
-							fmt.Println("\nclone source after : ", obj.Object, "\n")
-							fmt.Println("\nupdated source after : ", newRes.Object, "\n")
-							fmt.Println("------------------------------------------------------------------------------------")
-
 							if path, err := validate.ValidateResourceWithPattern(logger, newRes.Object, obj.Object); err != nil {
 								fmt.Println("path: ", path)
-								// enqueueBool = true
+								enqueueBool = true
 								break
 							} else {
 								fmt.Println("passessssss......")
