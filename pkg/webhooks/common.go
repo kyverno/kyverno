@@ -104,7 +104,7 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 
 	resource, err := engineutils.ApplyPatchNew(resource, patch)
 	if err != nil {
-		log.Error(err, "failed to patch resource:")
+		log.Error(err, "failed to patch resource:", "patch", string(patch), "resource", string(resource))
 		return nil
 	}
 	return resource

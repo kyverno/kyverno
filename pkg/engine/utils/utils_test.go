@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetAnchorsFromMap_ThereAreNoAnchors(t *testing.T) {
@@ -25,5 +25,5 @@ func TestGetAnchorsFromMap_ThereAreNoAnchors(t *testing.T) {
 		t.Error(err)
 	}
 	actualMap := GetAnchorsFromMap(unmarshalled)
-	assert.Assert(t, len(actualMap) == 0)
+	assert.Equal(t, len(actualMap), 0)
 }
