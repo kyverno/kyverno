@@ -19,7 +19,7 @@ import (
 func generatePatches(src, dst []byte) ([][]byte, error) {
 	var patchesBytes [][]byte
 	pp, err := jsonpatch.CreatePatch(src, dst)
-	sortedPatches := sortRemovalPatches(pp)
+	sortedPatches := filtersAndSortsPatches(pp)
 
 	for _, p := range sortedPatches {
 		pbytes, err := p.MarshalJSON()
@@ -33,12 +33,16 @@ func generatePatches(src, dst []byte) ([][]byte, error) {
 	return patchesBytes, err
 }
 
-// sortRemovalPatches sort the removal patches(with same path) by the key of index in descending order
+// filtersAndSortsPatches
+// 1. filters out patches with the certain paths
+// 2. sorts the removal patches(with same path) by the key of index
+// in descending order. For example, when removes 2 elements from an
+// array, once the first is removed, index 1 will be invalid
 //
 // [{"op":"remove","path":"/a/b/0"},{"op":"remove","path":"/a/b/1"}]
 // will be reordered to
 // [{"op":"remove","path":"/a/b/1"},{"op":"remove","path":"/a/b/0"}]
-func sortRemovalPatches(originalPatches []jsonpatch.JsonPatchOperation) []jsonpatch.JsonPatchOperation {
+func filtersAndSortsPatches(originalPatches []jsonpatch.JsonPatchOperation) []jsonpatch.JsonPatchOperation {
 	patches := filterInvalidPatches(originalPatches)
 
 	result := make([]jsonpatch.JsonPatchOperation, len(patches))

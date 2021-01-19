@@ -425,7 +425,7 @@ func Test_sortRemovalPatches(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		sortedPatches := sortRemovalPatches(test.patches)
+		sortedPatches := filtersAndSortsPatches(test.patches)
 		assertnew.Equal(t, test.expected, sortedPatches, fmt.Sprintf("%dth test fails", i))
 	}
 }
