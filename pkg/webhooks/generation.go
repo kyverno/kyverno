@@ -158,7 +158,7 @@ func (ws *WebhookServer) handleUpdateTargetSource(request *v1beta1.AdmissionRequ
 							continue
 						}
 
-						sourceObj, newResObj := updateFeildsInSourceAndUpdatedResource(obj, newRes, logger)
+						sourceObj, newResObj := updateFeildsInSourceAndUpdatedResource(obj.Object, newRes.Object, logger)
 
 						if _, err := validate.ValidateResourceWithPattern(logger, newResObj, sourceObj); err != nil {
 							enqueueBool = true
@@ -181,26 +181,30 @@ func (ws *WebhookServer) handleUpdateTargetSource(request *v1beta1.AdmissionRequ
 }
 
 //updateFeildsInSourceAndUpdatedResource - delete the required feilds from the source and target resource
-func updateFeildsInSourceAndUpdatedResource(obj *unstructured.Unstructured, newRes *unstructured.Unstructured, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
-	delete(obj.Object["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
-	delete(obj.Object["metadata"].(map[string]interface{}), "creationTimestamp")
-	delete(obj.Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
-	delete(obj.Object["metadata"].(map[string]interface{}), "managedFields")
-	delete(obj.Object["metadata"].(map[string]interface{}), "resourceVersion")
-	delete(obj.Object["metadata"].(map[string]interface{}), "selfLink")
-	delete(obj.Object["metadata"].(map[string]interface{}), "uid")
-	delete(obj.Object["metadata"].(map[string]interface{}), "namespace")
-	delete(obj.Object["metadata"].(map[string]interface{}), "name")
-	delete(obj.Object, "status")
-	delete(newRes.Object["metadata"].(map[string]interface{}), "managedFields")
+func updateFeildsInSourceAndUpdatedResource(obj, newRes map[string]interface{}, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
 
-	if _, found := obj.Object["spec"]; found {
-		delete(obj.Object["spec"].(map[string]interface{}), "tolerations")
+	delete(obj["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
+	delete(obj["metadata"].(map[string]interface{}), "creationTimestamp")
+	delete(obj["metadata"].(map[string]interface{})["labels"].(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
+	delete(obj["metadata"].(map[string]interface{}), "managedFields")
+	delete(obj["metadata"].(map[string]interface{}), "resourceVersion")
+	delete(obj["metadata"].(map[string]interface{}), "selfLink")
+	delete(obj["metadata"].(map[string]interface{}), "uid")
+	delete(obj["metadata"].(map[string]interface{}), "namespace")
+	delete(obj["metadata"].(map[string]interface{}), "name")
+	delete(newRes["metadata"].(map[string]interface{}), "managedFields")
+
+	if _, found := obj["status"]; found {
+		delete(obj, "status")
 	}
 
-	if _, found := obj.Object["data"]; found {
+	if _, found := obj["spec"]; found {
+		delete(obj["spec"].(map[string]interface{}), "tolerations")
+	}
+
+	if _, found := obj["data"]; found {
 		keyInData := make([]string, 0)
-		dataMap := obj.Object["data"]
+		dataMap := obj["data"]
 		switch dataMap.(type) {
 		case map[string]interface{}:
 			for k, _ := range dataMap.(map[string]interface{}) {
@@ -210,19 +214,20 @@ func updateFeildsInSourceAndUpdatedResource(obj *unstructured.Unstructured, newR
 
 		if len(keyInData) > 0 {
 			for _, dataKey := range keyInData {
-				originalResourceData := obj.Object["data"].(map[string]interface{})[dataKey]
+				originalResourceData := obj["data"].(map[string]interface{})[dataKey]
 				replaceData := strings.Replace(originalResourceData.(string), "\n", "", -1)
-				obj.Object["data"].(map[string]interface{})[dataKey] = replaceData
+				obj["data"].(map[string]interface{})[dataKey] = replaceData
 
-				newResourceData := newRes.Object["data"].(map[string]interface{})[dataKey]
+				newResourceData := newRes["data"].(map[string]interface{})[dataKey]
 				replacenewResourceData := strings.Replace(newResourceData.(string), "\n", "", -1)
-				newRes.Object["data"].(map[string]interface{})[dataKey] = replacenewResourceData
+				newRes["data"].(map[string]interface{})[dataKey] = replacenewResourceData
 			}
 		} else {
 			logger.V(4).Info("data is not of type map[string]interface{}")
 		}
 	}
-	return obj.Object, newRes.Object
+
+	return obj, newRes
 }
 
 //HandleDelete handles admission-requests for delete
