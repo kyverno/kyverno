@@ -71,6 +71,7 @@ func main() {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
 	}
+
 	flag.Parse()
 
 	version.PrintVersionInfo(log.Log)
@@ -281,7 +282,7 @@ func main() {
 	)
 
 	// Configure certificates
-	tlsPair, err := client.InitTLSPemPair(clientConfig)
+	tlsPair, err := client.InitTLSPemPair(clientConfig, serverIP)
 	if err != nil {
 		setupLog.Error(err, "Failed to initialize TLS key/certificate pair")
 		os.Exit(1)
@@ -310,6 +311,7 @@ func main() {
 	// -- annotations on resources with update details on mutation JSON patches
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
+	debug := serverIP != ""
 	server, err := webhooks.NewWebhookServer(
 		pclient,
 		client,
@@ -335,6 +337,7 @@ func main() {
 		openAPIController,
 		rCache,
 		grc,
+		debug,
 	)
 
 	if err != nil {

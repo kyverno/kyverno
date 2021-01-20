@@ -119,6 +119,8 @@ type WebhookServer struct {
 	resCache resourcecache.ResourceCacheIface
 
 	grController *generate.Controller
+
+	debug bool
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -148,6 +150,7 @@ func NewWebhookServer(
 	openAPIController *openapi.Controller,
 	resCache resourcecache.ResourceCacheIface,
 	grc *generate.Controller,
+	debug bool,
 ) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -192,6 +195,7 @@ func NewWebhookServer(
 		openAPIController:     openAPIController,
 		supportMutateValidate: supportMutateValidate,
 		resCache:              resCache,
+		debug:                 debug,
 	}
 
 	mux := httprouter.New()
@@ -490,7 +494,9 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 
 	logger.Info("starting service")
 
-	go ws.webhookMonitor.Run(ws.webhookRegister, ws.eventGen, ws.client, stopCh)
+	if !ws.debug {
+		go ws.webhookMonitor.Run(ws.webhookRegister, ws.eventGen, ws.client, stopCh)
+	}
 }
 
 // Stop TLS server and returns control after the server is shut down

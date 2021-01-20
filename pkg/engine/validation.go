@@ -127,15 +127,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResponse)
 				}
 			}
-
 		} else if rule.Validation.Deny != nil {
-
-			// validate new resource if available - otherwise old resource
-			resource := ctx.NewResource
-			if reflect.DeepEqual(resource, unstructured.Unstructured{}) {
-				resource = ctx.OldResource
-			}
-
 			denyConditionsCopy := copyConditions(rule.Validation.Deny.Conditions)
 			deny := variables.EvaluateConditions(log, ctx.JSONContext, denyConditionsCopy)
 			ruleResp := response.RuleResponse{
