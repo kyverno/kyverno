@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
@@ -13,7 +14,6 @@ import (
 	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/constant"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -180,7 +180,7 @@ func (g *ReportGenerator) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(g.runWorker, constant.PolicyReportControllerResync, stopCh)
+		go wait.Until(g.runWorker, time.Second, stopCh)
 	}
 
 	<-stopCh
@@ -232,6 +232,8 @@ func (g *ReportGenerator) handleErr(err error, key interface{}) {
 // syncHandler reconciles clusterPolicyReport if namespace == ""
 // otherwise it updates policyReport
 func (g *ReportGenerator) syncHandler(key string) error {
+	g.log.V(4).Info("syncing policy report", "key", key)
+
 	if policy, rule, ok := isDeletedPolicyKey(key); ok {
 		return g.removePolicyEntryFromReport(policy, rule)
 	}
@@ -243,8 +245,12 @@ func (g *ReportGenerator) syncHandler(key string) error {
 	}
 
 	var old interface{}
-	if old, err = g.createReportIfNotPresent(namespace, new, aggregatedRequests); err != nil || old == nil {
+	if old, err = g.createReportIfNotPresent(namespace, new, aggregatedRequests); err != nil {
 		return err
+	}
+	if old == nil {
+		g.cleanupReportRequests(aggregatedRequests)
+		return nil
 	}
 
 	if err := g.updateReport(old, new, aggregatedRequests); err != nil {
@@ -260,10 +266,16 @@ func (g *ReportGenerator) syncHandler(key string) error {
 func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstructured.Unstructured, aggregatedRequests interface{}) (report interface{}, err error) {
 	log := g.log.WithName("createReportIfNotPresent")
 	if namespace != "" {
-		if ns, err := g.nsLister.Get(namespace); err == nil {
-			if ns.GetDeletionTimestamp() != nil {
+		ns, err := g.nsLister.Get(namespace)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
 				return nil, nil
 			}
+			return nil, fmt.Errorf("failed to fetch namespace: %v", err)
+		}
+
+		if ns.GetDeletionTimestamp() != nil {
+			return nil, nil
 		}
 
 		report, err = g.reportLister.PolicyReports(namespace).Get(generatePolicyReportName((namespace)))
@@ -302,6 +314,31 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstru
 }
 
 func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName string) error {
+	if err := g.removeFromClusterPolicyReport(policyName, ruleName); err != nil {
+		return err
+	}
+
+	if err := g.removeFromPolicyReport(policyName, ruleName); err != nil {
+		return err
+	}
+
+	labelset := labels.Set(map[string]string{deletedLabelPolicy: policyName})
+	if ruleName != "" {
+		labelset = labels.Set(map[string]string{
+			deletedLabelPolicy: policyName,
+			deletedLabelRule:   ruleName,
+		})
+	}
+	aggregatedRequests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).List(labels.SelectorFromSet(labelset))
+	if err != nil {
+		return err
+	}
+
+	g.cleanupReportRequests(aggregatedRequests)
+	return nil
+}
+
+func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName string) error {
 	cpolrs, err := g.clusterReportLister.List(labels.Everything())
 	if err != nil {
 		return fmt.Errorf("failed to list clusterPolicyReport %v", err)
@@ -325,7 +362,10 @@ func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName strin
 			return fmt.Errorf("failed to update clusterPolicyReport %s %v", cpolr.Name, err)
 		}
 	}
+	return nil
+}
 
+func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) error {
 	namespaces, err := g.dclient.ListResource("", "Namespace", "", nil)
 	if err != nil {
 		return fmt.Errorf("unable to list namespace %v", err)
@@ -360,23 +400,10 @@ func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName strin
 			return fmt.Errorf("failed to update PolicyReport %s %v", r.GetName(), err)
 		}
 	}
-
-	labelset := labels.Set(map[string]string{deletedLabelPolicy: policyName})
-	if ruleName != "" {
-		labelset = labels.Set(map[string]string{
-			deletedLabelPolicy: policyName,
-			deletedLabelRule:   ruleName,
-		})
-	}
-	aggregatedRequests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).List(labels.SelectorFromSet(labelset))
-	if err != nil {
-		return err
-	}
-
-	g.cleanupReportRequests(aggregatedRequests)
 	return nil
 }
 
+// aggregateReports aggregates cluster / report change requests to a policy report
 func (g *ReportGenerator) aggregateReports(namespace string) (
 	report *unstructured.Unstructured, aggregatedRequests interface{}, err error) {
 
@@ -395,6 +422,11 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 			if !apierrors.IsNotFound(err) {
 				return nil, nil, fmt.Errorf("unable to get namespace %s: %v", namespace, err)
 			}
+			// Namespace is deleted, create a fake ns to clean up RCRs
+			ns = new(v1.Namespace)
+			ns.SetName(namespace)
+			now := metav1.Now()
+			ns.SetDeletionTimestamp(&now)
 		}
 
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{resourceLabelNamespace: namespace}))
@@ -465,6 +497,7 @@ func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured
 
 		req := &unstructured.Unstructured{Object: obj}
 		setReport(req, ns)
+
 		return req, aggregatedRequests, nil
 	}
 
@@ -537,7 +570,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 	new.Object = obj
 
 	if !hasResultsChanged(oldUnstructured, new.UnstructuredContent()) {
-		g.log.V(4).Info("unchanged policy report", "namespace", new.GetNamespace(), "name", new.GetName())
+		g.log.V(4).Info("unchanged policy report", "kind", new.GetKind(), "namespace", new.GetNamespace(), "name", new.GetName())
 		return nil
 	}
 

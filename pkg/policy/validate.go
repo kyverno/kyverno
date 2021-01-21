@@ -11,6 +11,7 @@ import (
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/openapi"
+	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/minio/pkg/wildcard"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,19 +21,8 @@ import (
 // Validate does some initial check to verify some conditions
 // - One operation per rule
 // - ResourceDescription mandatory checks
-func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
-	// check for invalid fields
-	err := checkInvalidFields(policyRaw)
-	if err != nil {
-		return err
-	}
-
-	var p kyverno.ClusterPolicy
-	err = json.Unmarshal(policyRaw, &p)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal policy: %v", err)
-	}
-
+func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
+	p := *policy
 	if len(common.PolicyHasVariables(p)) > 0 && common.PolicyHasNonAllowedVariables(p) {
 		return fmt.Errorf("policy contains invalid variables")
 	}
@@ -47,7 +37,9 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 	}
 
 	for i, rule := range p.Spec.Rules {
-
+		if jsonPatchOnPod(rule) {
+			log.Log.V(1).Info("warning: pods managed by workload controllers cannot be mutated using policies. Use the auto-gen feature or write policies that match pod controllers.")
+		}
 		// validate resource description
 		if path, err := validateResources(rule); err != nil {
 			return fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
@@ -117,10 +109,50 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		if !isLabelAndAnnotationsString(rule) {
 			return fmt.Errorf("labels and annotations supports only string values, \"use double quotes around the non string values\"")
 		}
+
+		// add label to source mentioned in policy
+		if !mock && rule.Generation.Clone.Name != "" {
+			obj, err := client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+			if err != nil {
+				log.Log.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
+				continue
+			}
+
+			updateSource := true
+			label := obj.GetLabels()
+
+			if len(label) == 0 {
+				label = make(map[string]string)
+				label["generate.kyverno.io/clone-policy-name"] = p.GetName()
+			} else {
+				if label["generate.kyverno.io/clone-policy-name"] != "" {
+					policyNames := label["generate.kyverno.io/clone-policy-name"]
+					if !strings.Contains(policyNames, p.GetName()) {
+						policyNames = policyNames + "," + p.GetName()
+						label["generate.kyverno.io/clone-policy-name"] = policyNames
+					} else {
+						updateSource = false
+					}
+				} else {
+					label["generate.kyverno.io/clone-policy-name"] = p.GetName()
+				}
+			}
+
+			if updateSource {
+				log.Log.V(4).Info("updating existing clone source")
+				obj.SetLabels(label)
+				_, err = client.UpdateResource(obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
+				if err != nil {
+					log.Log.Error(err, "failed to update source  name:%v namespace:%v kind:%v", obj.GetName(), obj.GetNamespace(), obj.GetKind())
+					continue
+				}
+				log.Log.V(4).Info("updated source  name:%v namespace:%v kind:%v", obj.GetName(), obj.GetNamespace(), obj.GetKind())
+			}
+		}
 	}
 
 	if !mock {
-		if err := openAPIController.ValidatePolicyFields(policyRaw); err != nil {
+		if err := openAPIController.ValidatePolicyFields(p); err != nil {
 			return err
 		}
 	} else {
@@ -129,35 +161,6 @@ func Validate(policyRaw []byte, client *dclient.Client, mock bool, openAPIContro
 		}
 	}
 
-	return nil
-}
-
-// checkInvalidFields - checks invalid fields in webhook policy request
-// policy supports 5 json fields in types.go i.e. "apiVersion", "kind", "metadata", "spec", "status"
-// If the webhook request policy contains new fields then block creation of policy
-func checkInvalidFields(policyRaw []byte) error {
-	// hardcoded supported fields by policy
-	var allowedKeys = []string{"apiVersion", "kind", "metadata", "spec", "status"}
-	var data interface{}
-	err := json.Unmarshal(policyRaw, &data)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal policy admission request err %v", err)
-	}
-	mapData := data.(map[string]interface{})
-	// validate any new fields in the admission request against the supported fields and block the request with any new fields
-	for requestField := range mapData {
-		ok := false
-		for _, allowedField := range allowedKeys {
-			if requestField == allowedField {
-				ok = true
-				break
-			}
-		}
-
-		if !ok {
-			return fmt.Errorf("unknown field \"%s\" in policy", requestField)
-		}
-	}
 	return nil
 }
 
@@ -360,7 +363,7 @@ func isLabelAndAnnotationsString(rule kyverno.Rule) bool {
 	} else if rule.Validation.AnyPattern != nil {
 		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 		if err != nil {
-			log.Log.Error(err, "failed to deserialze anyPattern, expect type array")
+			log.Log.Error(err, "failed to deserialize anyPattern, expect type array")
 			return false
 		}
 
@@ -400,7 +403,7 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 
 	anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 	if err != nil {
-		log.Log.Error(err, "failed to deserialze anyPattern, expect type array")
+		log.Log.Error(err, "failed to deserialize anyPattern, expect type array")
 		return false
 	}
 
@@ -438,7 +441,7 @@ func validateUniqueRuleName(p kyverno.ClusterPolicy) (string, error) {
 	var ruleNames []string
 
 	for i, rule := range p.Spec.Rules {
-		if containString(ruleNames, rule.Name) {
+		if utils.ContainsString(ruleNames, rule.Name) {
 			return fmt.Sprintf("rule[%d]", i), fmt.Errorf(`duplicate rule name: '%s'`, rule.Name)
 		}
 		ruleNames = append(ruleNames, rule.Name)
@@ -492,7 +495,7 @@ func validateRuleContext(rule kyverno.Rule) error {
 	return nil
 }
 
-// validateResourceDescription checks if all necesarry fields are present and have values. Also checks a Selector.
+// validateResourceDescription checks if all necessary fields are present and have values. Also checks a Selector.
 // field type is checked through openapi
 // Returns error if
 // - kinds is empty array in matched resource block, i.e. kinds: []
@@ -616,4 +619,17 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources [
 
 	}
 	return nil
+}
+
+// jsonPatchOnPod checks if a rule applies JSON patches to Pod
+func jsonPatchOnPod(rule kyverno.Rule) bool {
+	if !rule.HasMutate() {
+		return false
+	}
+
+	if utils.ContainsString(rule.MatchResources.Kinds, "Pod") && rule.Mutation.PatchesJSON6902 != "" {
+		return true
+	}
+
+	return false
 }

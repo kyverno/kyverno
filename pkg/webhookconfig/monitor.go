@@ -86,10 +86,6 @@ func (t *Monitor) Run(register *Register, eventGen event.Interface, client *dcli
 					logger.Error(err, "failed to annotate deployment webhook status to failure")
 				}
 
-				cleanUp := make(chan struct{})
-				register.Remove(cleanUp)
-				<-cleanUp
-
 				if err := register.Register(); err != nil {
 					logger.Error(err, "Failed to register webhooks")
 				}

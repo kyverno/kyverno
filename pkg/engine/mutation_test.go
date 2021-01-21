@@ -84,9 +84,9 @@ func Test_VariableSubstitutionOverlay(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	policyContext := PolicyContext{
+	policyContext := &PolicyContext{
 		Policy:      policy,
-		Context:     ctx,
+		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Mutate(policyContext)
 	t.Log(string(expectedPatch))
@@ -155,12 +155,12 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	err = ctx.AddResource(resourceRaw)
 	assert.NilError(t, err)
 
-	policyContext := PolicyContext{
+	policyContext := &PolicyContext{
 		Policy:      policy,
-		Context:     ctx,
+		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Mutate(policyContext)
-	expectedErrorStr := "variable request.object.metadata.name1 not found (path: /spec/name)"
+	expectedErrorStr := "variable request.object.metadata.name1 not resolved at path /spec/name"
 	t.Log(er.PolicyResponse.Rules[0].Message)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, expectedErrorStr)
 }

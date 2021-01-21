@@ -6,7 +6,6 @@ import (
 
 	backoff "github.com/cenkalti/backoff"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -56,28 +55,4 @@ func converLabelToSelector(labelMap map[string]string) (labels.Selector, error) 
 	}
 
 	return policyViolationSelector, nil
-}
-
-type violationCount struct {
-	policyName    string
-	violatedRules []v1.ViolatedRule
-}
-
-func (vc violationCount) PolicyName() string {
-	return vc.policyName
-}
-
-func (vc violationCount) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {
-
-	var ruleNameToViolations = make(map[string]int)
-	for _, rule := range vc.violatedRules {
-		ruleNameToViolations[rule.Name]++
-	}
-
-	for i := range status.Rules {
-		status.ViolationCount += ruleNameToViolations[status.Rules[i].Name]
-		status.Rules[i].ViolationCount += ruleNameToViolations[status.Rules[i].Name]
-	}
-
-	return status
 }

@@ -10,7 +10,7 @@ import (
 func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
 	logger := c.log.WithValues("kind", gr.Kind, "namespace", gr.Namespace, "name", gr.Name)
 	// 1- Corresponding policy has been deleted
-	// then we dont delete the generated resources
+	// then we don't delete the generated resources
 
 	// 2- The trigger resource is deleted, then delete the generated resources
 	if !ownerResourceExists(logger, c.client, gr) {
@@ -34,7 +34,7 @@ func ownerResourceExists(log logr.Logger, client *dclient.Client, gr kyverno.Gen
 	if err != nil {
 		log.Error(err, "failed to get resource", "genKind", gr.Spec.Resource.Kind, "genNamespace", gr.Spec.Resource.Namespace, "genName", gr.Spec.Resource.Name)
 	}
-	// if there was an error while querying the resources we dont delete the generated resources
+	// if there was an error while querying the resources we don't delete the generated resources
 	// but expect the deletion in next reconciliation loop
 	return true
 }

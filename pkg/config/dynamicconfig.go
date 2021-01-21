@@ -23,26 +23,15 @@ var defaultExcludeGroupRole []string = []string{"system:serviceaccounts:kube-sys
 
 // ConfigData stores the configuration
 type ConfigData struct {
-	client kubernetes.Interface
-	// configMap Name
-	cmName string
-	// lock configuration
-	mux sync.RWMutex
-	// configuration data
-	filters []k8Resource
-
-	// excludeGroupRole Role
-	excludeGroupRole []string
-
-	//excludeUsername exclude username
-	excludeUsername []string
-
-	//restrictDevelopmentUsername exclude dev username like minikube and kind
+	client                      kubernetes.Interface
+	cmName                      string
+	mux                         sync.RWMutex
+	filters                     []k8Resource
+	excludeGroupRole            []string
+	excludeUsername             []string
 	restrictDevelopmentUsername []string
-	// hasynced
-	cmSycned cache.InformerSynced
-
-	log logr.Logger
+	cmSycned                    cache.InformerSynced
+	log                         logr.Logger
 }
 
 // ToFilter checks if the given resource is set to be filtered in the configuration
@@ -52,6 +41,13 @@ func (cd *ConfigData) ToFilter(kind, namespace, name string) bool {
 	for _, f := range cd.filters {
 		if wildcard.Match(f.Kind, kind) && wildcard.Match(f.Namespace, namespace) && wildcard.Match(f.Name, name) {
 			return true
+		}
+
+		if kind == "Namespace" {
+			// [Namespace,kube-system,*] || [*,kube-system,*]
+			if (f.Kind == "Namespace" || f.Kind == "*") && wildcard.Match(f.Namespace, name) {
+				return true
+			}
 		}
 	}
 	return false
@@ -87,24 +83,26 @@ type Interface interface {
 }
 
 // NewConfigData ...
-func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8Resources, excludeGroupRole, excludeUsername string, log logr.Logger) *ConfigData {
+func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8sResources, excludeGroupRole, excludeUsername string, log logr.Logger) *ConfigData {
 	// environment var is read at start only
 	if cmNameEnv == "" {
 		log.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
 	}
+
 	cd := ConfigData{
 		client:   rclient,
 		cmName:   os.Getenv(cmNameEnv),
 		cmSycned: cmInformer.Informer().HasSynced,
 		log:      log,
 	}
+
 	cd.restrictDevelopmentUsername = []string{"minikube-user", "kubernetes-admin"}
 
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
-	if filterK8Resources != "" {
-		cd.log.Info("init configuration from commandline arguments for filterK8Resources")
-		cd.initFilters(filterK8Resources)
+	if filterK8sResources != "" {
+		cd.log.Info("init configuration from commandline arguments for filterK8sResources")
+		cd.initFilters(filterK8sResources)
 	}
 
 	if excludeGroupRole != "" {
@@ -124,6 +122,7 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 		UpdateFunc: cd.updateCM,
 		DeleteFunc: cd.deleteCM,
 	})
+
 	return &cd
 }
 

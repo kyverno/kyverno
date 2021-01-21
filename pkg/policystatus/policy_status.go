@@ -27,7 +27,7 @@ import (
 //on a channel.
 //The worker then updates the current status using the methods
 //exposed by the interface.
-//Current implementation is designed to be thread safe with optimised
+//Current implementation is designed to be thread safe with optimized
 //locking for each policy.
 
 // statusUpdater defines a type to have a method which
@@ -86,18 +86,19 @@ func (s *Sync) Run(workers int, stopCh <-chan struct{}) {
 		go s.updateStatusCache(stopCh)
 	}
 
-	wait.Until(s.updatePolicyStatus, 60*time.Second, stopCh)
+	// sync the status to the existing policy every minute
+	wait.Until(s.writePolicyStatus, time.Minute, stopCh)
 	<-stopCh
 }
 
-// updateStatusCache is a worker which updates the current status
-//using the statusUpdater interface
+// updateStatusCache is a worker which adds the current status
+// to the cache, using the statusUpdater interface
 func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 	for {
 		select {
 		case statusUpdater := <-s.Listener:
 			name := statusUpdater.PolicyName()
-			s.log.V(3).Info("received policy status update request", "policy", name)
+			s.log.V(4).Info("received policy status update request", "policy", name)
 
 			s.cache.keyToMutex.Get(name).Lock()
 
@@ -121,7 +122,7 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 			oldStatus, _ := json.Marshal(status)
 			newStatus, _ := json.Marshal(updatedStatus)
 
-			s.log.V(4).Info("updated policy status", "policy", statusUpdater.PolicyName(),
+			s.log.V(5).Info("updated policy status in the cache", "policy", statusUpdater.PolicyName(),
 				"oldStatus", string(oldStatus), "newStatus", string(newStatus))
 
 		case <-stopCh:
@@ -130,11 +131,11 @@ func (s *Sync) updateStatusCache(stopCh <-chan struct{}) {
 	}
 }
 
-// updatePolicyStatus updates the status in the policy resource definition
-// from the status cache, syncing them
-func (s *Sync) updatePolicyStatus() {
+// writePolicyStatus sends the update request to the APIServer
+// syncs the status (from cache) to the policy
+func (s *Sync) writePolicyStatus() {
 	for key, status := range s.getCachedStatus() {
-		s.log.V(3).Info("updating policy status", "policy", key)
+		s.log.V(4).Info("updating policy status", "policy", key)
 		namespace, policyName := s.parseStatusKey(key)
 		if namespace == "" {
 			s.updateClusterPolicy(policyName, key, status)

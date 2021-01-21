@@ -30,9 +30,9 @@ func Test_Exclude(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, errs := utils.GetPolicy(file)
-	if len(errs) != 0 {
-		t.Log(errs)
+	policies, err := utils.GetPolicy(file)
+	if err != nil {
+		t.Log(err)
 	}
 
 	policy := policies[0]
@@ -61,9 +61,9 @@ func Test_CronJobOnly(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, errs := utils.GetPolicy(file)
-	if len(errs) != 0 {
-		t.Log(errs)
+	policies, err := utils.GetPolicy(file)
+	if err != nil {
+		t.Log(err)
 	}
 
 	policy := policies[0]
@@ -94,9 +94,9 @@ func Test_CronJob_hasExclude(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, errs := utils.GetPolicy(file)
-	if len(errs) != 0 {
-		t.Log(errs)
+	policies, err := utils.GetPolicy(file)
+	if err != nil {
+		t.Log(err)
 	}
 
 	policy := policies[0]
@@ -130,9 +130,9 @@ func Test_CronJobAndDeployment(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, errs := utils.GetPolicy(file)
-	if len(errs) != 0 {
-		t.Log(errs)
+	policies, err := utils.GetPolicy(file)
+	if err != nil {
+		t.Log(err)
 	}
 
 	policy := policies[0]

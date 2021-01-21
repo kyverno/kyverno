@@ -2,9 +2,9 @@ package policy
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
-	"os"
+	"math/big"
 	"reflect"
 	"time"
 
@@ -14,9 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/constant"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -52,7 +50,7 @@ type PolicyController struct {
 	eventGen      event.Interface
 	eventRecorder record.EventRecorder
 
-	// Policys that need to be synced
+	// Policies that need to be synced
 	queue workqueue.RateLimitingInterface
 
 	// pLister can list/get policy from the shared informer's store
@@ -64,7 +62,7 @@ type PolicyController struct {
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestLister
 
-	// nsLister can list/get namespacecs from the shared informer's store
+	// nsLister can list/get namespaces from the shared informer's store
 	nsLister listerv1.NamespaceLister
 
 	// pListerSynced returns true if the cluster policy store has been synced at least once
@@ -84,6 +82,7 @@ type PolicyController struct {
 
 	// grListerSynced returns true if the generate request store has been synced at least once
 	grListerSynced cache.InformerSynced
+
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
 
@@ -182,6 +181,9 @@ func (pc *PolicyController) canBackgroundProcess(p *kyverno.ClusterPolicy) bool 
 func (pc *PolicyController) addPolicy(obj interface{}) {
 	logger := pc.log
 	p := obj.(*kyverno.ClusterPolicy)
+
+	logger.Info("policy created event", "uid", p.UID, "kind", "ClusterPolicy", "policy_name", p.Name)
+
 	if !pc.canBackgroundProcess(p) {
 		return
 	}
@@ -204,9 +206,8 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	}
 
 	logger.V(4).Info("updating policy", "name", oldP.Name)
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		pc.enqueueDeletedRule(oldP, curP)
-	}
+
+	pc.enqueueRCRDeletedRule(oldP, curP)
 	pc.enqueuePolicy(curP)
 }
 
@@ -216,7 +217,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			logger.Info("couldnt get object from tomstone", "obj", obj)
+			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
 
@@ -227,16 +228,20 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 		}
 	}
 
-	logger.V(4).Info("deleting policy", "name", p.Name)
+	logger.Info("policy deleted event", "uid", p.UID, "kind", "ClusterPolicy", "policy_name", p.Name)
 
-	// we process policies that are not set of background processing as we need to perform policy violation
-	// cleanup when a policy is deleted.
+	// we process policies that are not set of background processing
+	// as we need to clean up GRs when a policy is deleted
 	pc.enqueuePolicy(p)
+	pc.enqueueRCRDeletedPolicy(p.Name)
 }
 
 func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	logger := pc.log
 	p := obj.(*kyverno.Policy)
+
+	logger.Info("policy created event", "uid", p.UID, "kind", "Policy", "policy_name", p.Name, "namespaces", p.Namespace)
+
 	pol := ConvertPolicyToClusterPolicy(p)
 	if !pc.canBackgroundProcess(pol) {
 		return
@@ -259,9 +264,8 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	}
 
 	logger.V(4).Info("updating namespace policy", "namespace", oldP.Namespace, "name", oldP.Name)
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		pc.enqueueDeletedRule(ConvertPolicyToClusterPolicy(oldP), ncurP)
-	}
+
+	pc.enqueueRCRDeletedRule(ConvertPolicyToClusterPolicy(oldP), ncurP)
 	pc.enqueuePolicy(ncurP)
 }
 
@@ -271,7 +275,7 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			logger.Info("couldnt get object from tomstone", "obj", obj)
+			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
 
@@ -281,15 +285,18 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 			return
 		}
 	}
-	pol := ConvertPolicyToClusterPolicy(p)
-	logger.V(4).Info("deleting namespace policy", "namespace", pol.Namespace, "name", pol.Name)
 
-	// we process policies that are not set of background processing as we need to perform policy violation
-	// cleanup when a policy is deleted.
+	logger.Info("policy deleted event", "uid", p.UID, "kind", "Policy", "policy_name", p.Name, "namespaces", p.Namespace)
+
+	pol := ConvertPolicyToClusterPolicy(p)
+
+	// we process policies that are not set of background processing
+	// as we need to clean up GRs when a policy is deleted
 	pc.enqueuePolicy(pol)
+	pc.enqueueRCRDeletedPolicy(p.Name)
 }
 
-func (pc *PolicyController) enqueueDeletedRule(old, cur *kyverno.ClusterPolicy) {
+func (pc *PolicyController) enqueueRCRDeletedRule(old, cur *kyverno.ClusterPolicy) {
 	curRule := make(map[string]bool)
 	for _, rule := range cur.Spec.Rules {
 		curRule[rule.Name] = true
@@ -299,12 +306,22 @@ func (pc *PolicyController) enqueueDeletedRule(old, cur *kyverno.ClusterPolicy) 
 		if !curRule[rule.Name] {
 			pc.prGenerator.Add(policyreport.Info{
 				PolicyName: cur.GetName(),
-				Rules: []kyverno.ViolatedRule{
-					{Name: rule.Name},
+				Results: []policyreport.EngineResponseResult{
+					{
+						Rules: []kyverno.ViolatedRule{
+							{Name: rule.Name},
+						},
+					},
 				},
 			})
 		}
 	}
+}
+
+func (pc *PolicyController) enqueueRCRDeletedPolicy(policyName string) {
+	pc.prGenerator.Add(policyreport.Info{
+		PolicyName: policyName,
+	})
 }
 
 func (pc *PolicyController) enqueuePolicy(policy *kyverno.ClusterPolicy) {
@@ -333,7 +350,7 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(pc.worker, constant.PolicyControllerResync, stopCh)
+		go wait.Until(pc.worker, time.Second, stopCh)
 	}
 	<-stopCh
 }
@@ -376,7 +393,7 @@ func (pc *PolicyController) handleErr(err error, key interface{}) {
 }
 
 func (pc *PolicyController) syncPolicy(key string) error {
-	logger := pc.log
+	logger := pc.log.WithName("syncPolicy")
 	startTime := time.Now()
 	logger.V(4).Info("started syncing policy", "key", key, "startTime", startTime)
 	defer func() {
@@ -388,53 +405,65 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		logger.Error(err, "failed to list generate request")
 	}
 
-	var policy *kyverno.ClusterPolicy
-	namespace, key, isNamespacedPolicy := parseNamespacedPolicy(key)
-	if !isNamespacedPolicy {
-		policy, err = pc.pLister.Get(key)
-	} else {
-		var nspolicy *kyverno.Policy
-		nspolicy, err = pc.npLister.Policies(namespace).Get(key)
-		policy = ConvertPolicyToClusterPolicy(nspolicy)
-	}
-
+	policy, err := pc.getPolicy(key)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			for _, v := range grList {
-				if key == v.Spec.Policy {
-					err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
-					if err != nil && !errors.IsNotFound(err) {
-						logger.Error(err, "failed to delete gr")
-					}
-				}
-			}
-
-			go pc.removeResultsEntryFromPolicyReport(key)
+			deleteGR(pc.kyvernoClient, key, grList, logger)
 			return nil
 		}
 
 		return err
 	}
 
-	for _, v := range grList {
-		if policy.Name == v.Spec.Policy {
-			v.SetLabels(map[string]string{
-				"policy-update": fmt.Sprintf("revision-count-%d", rand.Intn(100000)),
-			})
-			_, err := pc.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
-			if err != nil {
-				logger.Error(err, "failed to update gr", "policy", policy.GetName(), "gr", v.GetName())
-			}
-		}
-	}
-
-	engineResponses := pc.processExistingResources(policy)
-	pc.cleanupAndReport(engineResponses)
+	updateGR(pc.kyvernoClient, policy.Name, grList, logger)
+	pc.processExistingResources(policy)
 	return nil
 }
 
-func (pc *PolicyController) removeResultsEntryFromPolicyReport(policyName string) {
-	pc.prGenerator.Add(policyreport.Info{
-		PolicyName: policyName,
-	})
+func (pc *PolicyController) getPolicy(key string) (policy *kyverno.ClusterPolicy, err error) {
+	namespace, key, isNamespacedPolicy := parseNamespacedPolicy(key)
+	if !isNamespacedPolicy {
+		return pc.pLister.Get(key)
+	}
+
+	nsPolicy, err := pc.npLister.Policies(namespace).Get(key)
+	if err == nil && nsPolicy != nil {
+		policy = ConvertPolicyToClusterPolicy(nsPolicy)
+	}
+
+	return
+}
+
+func deleteGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*kyverno.GenerateRequest, logger logr.Logger) {
+	for _, v := range grList {
+		if policyKey == v.Spec.Policy {
+			err := kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
+			if err != nil && !errors.IsNotFound(err) {
+				logger.Error(err, "failed to delete gr", "name", v.GetName())
+			}
+		}
+	}
+}
+
+func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*kyverno.GenerateRequest, logger logr.Logger) {
+	for _, gr := range grList {
+		if policyKey == gr.Spec.Policy {
+			grLabels := gr.Labels
+			if len(grLabels) == 0 {
+				grLabels = make(map[string]string)
+			}
+
+			nBig, err := rand.Int(rand.Reader, big.NewInt(100000))
+			if err != nil {
+				logger.Error(err, "failed to generate random interger")
+			}
+			grLabels["policy-update"] = fmt.Sprintf("revision-count-%d", nBig.Int64())
+			gr.SetLabels(grLabels)
+
+			_, err = kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
+			if err != nil {
+				logger.Error(err, "failed to update gr", "name", gr.GetName())
+			}
+		}
+	}
 }

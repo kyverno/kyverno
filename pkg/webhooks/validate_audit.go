@@ -1,11 +1,13 @@
 package webhooks
 
 import (
+	"strings"
+	"time"
+
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/constant"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policycache"
@@ -101,7 +103,7 @@ func (h *auditHandler) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(h.runWorker, constant.GenerateControllerResync, stopCh)
+		go wait.Until(h.runWorker, time.Second, stopCh)
 	}
 
 	<-stopCh
@@ -124,11 +126,11 @@ func (h *auditHandler) processNextWorkItem() bool {
 	if !ok {
 		h.queue.Forget(obj)
 		logger.Info("incorrect type: expecting type 'AdmissionRequest'", "object", obj)
-		return false
+		return true
 	}
 
 	err := h.process(request)
-	h.handleErr(err)
+	h.handleErr(err, obj, request)
 
 	return true
 }
@@ -166,7 +168,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to load userInfo in context")
 	}
-	err = ctx.AddSA(userRequestInfo.AdmissionUserInfo.Username)
+	err = ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
 		return errors.Wrap(err, "failed to load service account in context")
 	}
@@ -175,6 +177,20 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	return nil
 }
 
-func (h *auditHandler) handleErr(err error) {
+func (h *auditHandler) handleErr(err error, key interface{}, request *v1beta1.AdmissionRequest) {
+	logger := h.log.WithName("handleErr")
+	if err == nil {
+		h.queue.Forget(key)
+		return
+	}
 
+	k := strings.Join([]string{request.Kind.Kind, request.Namespace, request.Name}, "/")
+	if h.queue.NumRequeues(key) < workQueueRetryLimit {
+		logger.V(3).Info("retrying processing admission request", "key", k, "error", err.Error())
+		h.queue.AddRateLimited(key)
+		return
+	}
+
+	logger.Error(err, "failed to process admission request", "key", k)
+	h.queue.Forget(key)
 }

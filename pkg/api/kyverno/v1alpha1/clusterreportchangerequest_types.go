@@ -30,7 +30,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=clusterreportchangerequests
+// +kubebuilder:resource:path=clusterreportchangerequests,scope="Cluster",shortName=crcr
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1
 // +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=`.summary.pass`
@@ -39,8 +39,6 @@ import (
 // +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=`.summary.error`
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.skip`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:resource:shortName=crcr
-// +kubebuilder:resource:scope=Cluster
 type ClusterReportChangeRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

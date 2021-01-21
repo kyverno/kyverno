@@ -1,9 +1,10 @@
-name: prereleaser
+name: release kyverno-cli plugin
 on:
   push:
     tags:
       - 'v*'
       - '!v*-rc*'
+
 jobs:
   release-cli-via-krew:
     runs-on: ubuntu-latest

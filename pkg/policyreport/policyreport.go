@@ -15,27 +15,39 @@ type deletedResource struct {
 	kind, ns, name string
 }
 
+func buildLabelForDeletedResource(labels map[string]string) *deletedResource {
+	ok := true
+	kind, kindOk := labels[deletedLabelResourceKind]
+	ok = ok && kindOk
+
+	name, nameOk := labels[deletedLabelResource]
+	ok = ok && nameOk
+
+	if !ok {
+		return nil
+	}
+
+	return &deletedResource{
+		kind: kind,
+		name: name,
+		ns:   labels[resourceLabelNamespace],
+	}
+}
+
 func getDeletedResources(aggregatedRequests interface{}) (resources []deletedResource) {
 	if requests, ok := aggregatedRequests.([]*changerequest.ClusterReportChangeRequest); ok {
 		for _, request := range requests {
-			labels := request.GetLabels()
-			dr := deletedResource{
-				kind: labels[deletedLabelResourceKind],
-				name: labels[deletedLabelResource],
-				ns:   labels[resourceLabelNamespace],
+			dr := buildLabelForDeletedResource(request.GetLabels())
+			if dr != nil {
+				resources = append(resources, *dr)
 			}
-
-			resources = append(resources, dr)
 		}
 	} else if requests, ok := aggregatedRequests.([]*changerequest.ReportChangeRequest); ok {
 		for _, request := range requests {
-			labels := request.GetLabels()
-			dr := deletedResource{
-				kind: labels[deletedLabelResourceKind],
-				name: labels[deletedLabelResource],
-				ns:   labels[resourceLabelNamespace],
+			dr := buildLabelForDeletedResource(request.GetLabels())
+			if dr != nil {
+				resources = append(resources, *dr)
 			}
-			resources = append(resources, dr)
 		}
 	}
 	return
@@ -115,9 +127,16 @@ func generateHashKey(result map[string]interface{}, dr deletedResource) (string,
 
 	resource := resources[0].(map[string]interface{})
 	if !reflect.DeepEqual(dr, deletedResource{}) {
-		if resource["kind"] == dr.kind && resource["name"] == dr.name && resource["namespace"] == dr.ns {
-			return "", false
+		if resource["kind"] == dr.kind {
+			if resource["name"] == dr.name && resource["namespace"] == dr.ns {
+				return "", false
+			}
+
+			if dr.kind == "Namespace" && resource["name"] == dr.name {
+				return "", false
+			}
 		}
+
 	}
 
 	return fmt.Sprintf(

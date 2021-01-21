@@ -9,9 +9,9 @@ import (
 	"os"
 	"time"
 
+	backwardcompatibility "github.com/kyverno/kyverno/pkg/backward_compatibility"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
@@ -38,20 +38,19 @@ import (
 const resyncPeriod = 15 * time.Minute
 
 var (
-	kubeconfig                     string
-	serverIP                       string
-	webhookTimeout                 int
-	backgroundSync                 int
-	runValidationInMutatingWebhook string
-	profile                        bool
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
-	filterK8Resources string
+	filterK8sResources             string
+	kubeconfig                     string
+	serverIP                       string
+	runValidationInMutatingWebhook string
+	excludeGroupRole               string
+	excludeUsername                string
+	profilePort                    string
 
-	excludeGroupRole string
-	excludeUsername  string
-	// User FQDN as CSR CN
-	fqdncn       bool
+	webhookTimeout int
+
+	profile      bool
 	policyReport bool
 	setupLog     = log.Log.WithName("setup")
 )
@@ -59,7 +58,7 @@ var (
 func main() {
 	klog.InitFlags(nil)
 	log.SetLogger(klogr.New())
-	flag.StringVar(&filterK8Resources, "filterK8Resources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
+	flag.StringVar(&filterK8sResources, "filterK8sResources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
 	flag.StringVar(&excludeGroupRole, "excludeGroupRole", "", "")
 	flag.StringVar(&excludeUsername, "excludeUsername", "", "")
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
@@ -67,21 +66,13 @@ func main() {
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
+	flag.StringVar(&profilePort, "profile-port", "6060", "Enable profiling at given port, default to 6060.")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
 	}
 
-	// Generate CSR with CN as FQDN due to https://github.com/kyverno/kyverno/issues/542
-	flag.BoolVar(&fqdncn, "fqdn-as-cn", false, "use FQDN as Common Name in CSR")
 	flag.Parse()
-
-	if profile {
-		go http.ListenAndServe("localhost:6060", nil)
-	}
-
-	// Policy report is enabled by default in Kyverno 1.3.0+
-	os.Setenv("POLICY-TYPE", common.PolicyReport)
 
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
@@ -90,6 +81,18 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
+	}
+
+	if profile {
+		addr := ":" + profilePort
+		setupLog.Info("Enable profiling, see details at https://github.com/kyverno/kyverno/wiki/Profiling-Kyverno-on-Kubernetes", "port", profilePort)
+		go func() {
+			if err := http.ListenAndServe(addr, nil); err != nil {
+				setupLog.Error(err, "Failed to enable profiling")
+				os.Exit(1)
+			}
+		}()
+
 	}
 
 	// KYVERNO CRD CLIENT
@@ -159,7 +162,7 @@ func main() {
 	configData := config.NewConfigData(
 		kubeClient,
 		kubeInformer.Core().V1().ConfigMaps(),
-		filterK8Resources,
+		filterK8sResources,
 		excludeGroupRole,
 		excludeUsername,
 		log.Log.WithName("ConfigData"),
@@ -224,7 +227,7 @@ func main() {
 	}
 
 	// GENERATE REQUEST GENERATOR
-	grgen := webhookgenerate.NewGenerator(pclient, stopCh, log.Log.WithName("GenerateRequestGenerator"))
+	grgen := webhookgenerate.NewGenerator(pclient, pInformer.Kyverno().V1().GenerateRequests(), stopCh, log.Log.WithName("GenerateRequestGenerator"))
 
 	// GENERATE CONTROLLER
 	// - applies generate rules on resources based on generate requests created by webhook
@@ -279,7 +282,7 @@ func main() {
 	)
 
 	// Configure certificates
-	tlsPair, err := client.InitTLSPemPair(clientConfig, fqdncn)
+	tlsPair, err := client.InitTLSPemPair(clientConfig, serverIP)
 	if err != nil {
 		setupLog.Error(err, "Failed to initialize TLS key/certificate pair")
 		os.Exit(1)
@@ -308,10 +311,12 @@ func main() {
 	// -- annotations on resources with update details on mutation JSON patches
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
+	debug := serverIP != ""
 	server, err := webhooks.NewWebhookServer(
 		pclient,
 		client,
 		tlsPair,
+		pInformer.Kyverno().V1().GenerateRequests(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
@@ -331,6 +336,8 @@ func main() {
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
 		rCache,
+		grc,
+		debug,
 	)
 
 	if err != nil {
@@ -345,7 +352,7 @@ func main() {
 
 	go reportReqGen.Run(2, stopCh)
 	go prgen.Run(1, stopCh)
-	go grgen.Run(1)
+	go grgen.Run(1, stopCh)
 	go configData.Run(stopCh)
 	go policyCtrl.Run(2, stopCh)
 	go eventGenerator.Run(3, stopCh)
@@ -358,6 +365,9 @@ func main() {
 
 	// verifies if the admission control is enabled and active
 	server.RunAsync(stopCh)
+
+	go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
+	go backwardcompatibility.AddCloneLabel(client, pInformer.Kyverno().V1().ClusterPolicies())
 	<-stopCh
 
 	// by default http.Server waits indefinitely for connections to return to idle and then shuts down

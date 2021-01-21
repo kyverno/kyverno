@@ -58,15 +58,22 @@ func IsExistenceAnchor(str string) bool {
 	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
 }
 
-// RemoveAnchor remove anchor from the given key
-func RemoveAnchor(key string) string {
+// RemoveAnchor remove anchor from the given key. It returns
+// the anchor-free tag value and the prefix of the anchor.
+func RemoveAnchor(key string) (string, string) {
 	if IsConditionAnchor(key) {
-		return key[1 : len(key)-1]
+		return key[1 : len(key)-1], key[0:1]
 	}
 
 	if IsExistenceAnchor(key) || IsAddingAnchor(key) || IsEqualityAnchor(key) || IsNegationAnchor(key) {
-		return key[2 : len(key)-1]
+		return key[2 : len(key)-1], key[0:2]
 	}
 
-	return key
+	return key, ""
+}
+
+// AddAnchor adds an anchor with the supplied prefix.
+// The suffix is assumed to be ")".
+func AddAnchor(key, anchorPrefix string) string {
+	return anchorPrefix + key + ")"
 }

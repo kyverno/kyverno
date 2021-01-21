@@ -37,7 +37,7 @@ spec:
           image: ghcr.io/kyverno/kyverno:latest
           imagePullPolicy: Always
           args:
-          - "--filterK8Resources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]"
+          - "--filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]"
           # customize webhook timeout
           #- "--webhooktimeout=4"
           # enable profiling
@@ -70,7 +70,7 @@ spec:
               memory: "50Mi"
               cpu: "100m"
             limits:
-              memory: "128Mi"
+              memory: "256Mi"
           livenessProbe:
             httpGet:
               path: /health/liveness

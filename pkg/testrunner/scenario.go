@@ -126,9 +126,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		t.FailNow()
 	}
 
-	var er response.EngineResponse
-
-	er = engine.Mutate(engine.PolicyContext{Policy: *policy, NewResource: *resource, ExcludeGroupRole: []string{}})
+	er := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, ExcludeGroupRole: []string{}})
 	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
 	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
@@ -138,7 +136,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		resource = &er.PatchedResource
 	}
 
-	er = engine.Validate(engine.PolicyContext{Policy: *policy, NewResource: *resource, ExcludeGroupRole: []string{}})
+	er = engine.Validate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, ExcludeGroupRole: []string{}})
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 
@@ -157,6 +155,9 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 				Policy:           *policy,
 				Client:           client,
 				ExcludeGroupRole: []string{},
+				ExcludeResourceFunc: func(s1, s2, s3 string) bool {
+					return false
+				},
 			}
 
 			er = engine.Generate(policyContext)
@@ -232,7 +233,7 @@ func validateResponse(t *testing.T, er response.PolicyResponse, expected respons
 
 	// rules
 	if len(er.Rules) != len(expected.Rules) {
-		t.Errorf("rule count error, er.Rules=%d, expected.Rules=%d", len(er.Rules), len(expected.Rules))
+		t.Errorf("rule count error, er.Rules=%v, expected.Rules=%v", er.Rules, expected.Rules)
 		return
 	}
 	if len(er.Rules) == len(expected.Rules) {

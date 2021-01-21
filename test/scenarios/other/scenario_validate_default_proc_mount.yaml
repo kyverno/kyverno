@@ -15,5 +15,5 @@ expected:
       rules:
         - name: validate-default-proc-mount
           type: Validation
-          message: "Validation rule 'validate-default-proc-mount' succeeded."
+          message: "validation rule 'validate-default-proc-mount' passed."
           success: true

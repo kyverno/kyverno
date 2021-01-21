@@ -10,7 +10,7 @@ import (
 )
 
 //generateEvents generates event info for the engine responses
-func generateEvents(engineResponses []response.EngineResponse, blocked, onUpdate bool, log logr.Logger) []event.Info {
+func generateEvents(engineResponses []*response.EngineResponse, blocked, onUpdate bool, log logr.Logger) []event.Info {
 	var events []event.Info
 
 	// - Admission-Response is SUCCESS

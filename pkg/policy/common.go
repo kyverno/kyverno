@@ -8,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/minio/pkg/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -92,7 +91,7 @@ func ExcludePod(resourceMap map[string]unstructured.Unstructured, log logr.Logge
 	return resourceMap
 }
 
-// GetNamespacesForRule gets the matched namespacse list for the given rule
+// GetNamespacesForRule gets the matched namespaces list for the given rule
 func GetNamespacesForRule(rule *kyverno.Rule, nslister listerv1.NamespaceLister, log logr.Logger) []string {
 	if len(rule.MatchResources.Namespaces) == 0 {
 		return GetAllNamespaces(nslister, log)
@@ -160,7 +159,7 @@ func GetAllNamespaces(nslister listerv1.NamespaceLister, log logr.Logger) []stri
 }
 
 // GetResourcesPerNamespace ...
-func GetResourcesPerNamespace(kind string, client *client.Client, namespace string, rule kyverno.Rule, configHandler config.Interface, log logr.Logger) map[string]unstructured.Unstructured {
+func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace string, rule kyverno.Rule, log logr.Logger) map[string]unstructured.Unstructured {
 	resourceMap := map[string]unstructured.Unstructured{}
 	ls := rule.MatchResources.Selector
 
@@ -168,7 +167,7 @@ func GetResourcesPerNamespace(kind string, client *client.Client, namespace stri
 		namespace = ""
 	}
 
-	list, err := client.ListResource("", kind, namespace, ls)
+	list, err := pc.client.ListResource("", kind, namespace, ls)
 	if err != nil {
 		log.Error(err, "failed to list resources", "kind", kind, "namespace", namespace)
 		return nil
@@ -192,7 +191,7 @@ func GetResourcesPerNamespace(kind string, client *client.Client, namespace stri
 			}
 		}
 		// Skip the filtered resources
-		if configHandler.ToFilter(r.GetKind(), r.GetNamespace(), r.GetName()) {
+		if pc.configHandler.ToFilter(r.GetKind(), r.GetNamespace(), r.GetName()) {
 			continue
 		}
 
@@ -202,12 +201,12 @@ func GetResourcesPerNamespace(kind string, client *client.Client, namespace stri
 
 	// exclude the resources
 	// skip resources to be filtered
-	ExcludeResources(resourceMap, rule.ExcludeResources.ResourceDescription, configHandler, log)
+	excludeResources(resourceMap, rule.ExcludeResources.ResourceDescription, pc.configHandler, log)
 	return resourceMap
 }
 
 // ExcludeResources ...
-func ExcludeResources(included map[string]unstructured.Unstructured, exclude kyverno.ResourceDescription, configHandler config.Interface, log logr.Logger) {
+func excludeResources(included map[string]unstructured.Unstructured, exclude kyverno.ResourceDescription, configHandler config.Interface, log logr.Logger) {
 	if reflect.DeepEqual(exclude, (kyverno.ResourceDescription{})) {
 		return
 	}
@@ -270,7 +269,7 @@ func ExcludeResources(included map[string]unstructured.Unstructured, exclude kyv
 
 	// check exclude condition for each resource
 	for uid, resource := range included {
-		// 0 -> dont check
+		// 0 -> don't check
 		// 1 -> is not to be exclude
 		// 2 -> to be exclude
 		excludeEval := []Condition{}

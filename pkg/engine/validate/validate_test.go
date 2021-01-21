@@ -2,6 +2,7 @@ package validate
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/engine/common"
@@ -1416,5 +1417,164 @@ func testValidationPattern(t *testing.T, num string, patternBytes []byte, resour
 		assert.NilError(t, err, num)
 	} else {
 		assert.Assert(t, err != nil, num)
+	}
+}
+
+func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
+	testCases := []struct {
+		name     string
+		pattern  []byte
+		resource []byte
+		nilErr   bool
+	}{
+		{
+			name:     "test-1",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-2",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-x",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "!*:* | *:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-3",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-4",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Never"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-5",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Never"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-6",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Never"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-7",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"},{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-8",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"},{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-9",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Always"},{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-10",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Never"},{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-11",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Never"},{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-12",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Never"},{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-13",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-14",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-15",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-16",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx", "imagePullPolicy": "Never"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-17",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Never"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-18",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Never"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-19",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-20",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:latest", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-21",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.2.3", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   true,
+		},
+	}
+
+	for _, testCase := range testCases {
+		var pattern, resource interface{}
+		err := json.Unmarshal(testCase.pattern, &pattern)
+		assert.NilError(t, err)
+		err = json.Unmarshal(testCase.resource, &resource)
+		assert.NilError(t, err)
+
+		_, err = ValidateResourceWithPattern(log.Log, resource, pattern)
+		if testCase.nilErr {
+			assert.NilError(t, err, fmt.Sprintf("\ntest: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
+		} else {
+			assert.Assert(t,
+				err != nil,
+				fmt.Sprintf("\ntest: %s\npattern: %s\nresource: %s\nmsg: %v", testCase.name, pattern, resource, err))
+		}
 	}
 }

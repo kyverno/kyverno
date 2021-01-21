@@ -9,7 +9,6 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/constant"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -130,7 +129,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			logger.Info("ouldn't get object from tombstone", "obj", obj)
+			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
 		_, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
@@ -185,13 +184,13 @@ func (c *Controller) deleteGR(obj interface{}) {
 	for _, resource := range gr.Status.GeneratedResources {
 		r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
 		if err != nil && !apierrors.IsNotFound(err) {
-			logger.Error(err, "Generated resource is not deleted", "Resource", resource.Name)
+			logger.Error(err, "failed to fetch generated resource", "resource", resource.Name)
 			return
 		}
 
 		if r != nil && r.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
 			if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
-				logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
+				logger.Error(err, "failed to delete the generated resource", "resource", r.GetName())
 				return
 			}
 		}
@@ -227,12 +226,12 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 		return
 	}
 	for i := 0; i < workers; i++ {
-		go wait.Until(c.worker, constant.GenerateRequestControllerResync, stopCh)
+		go wait.Until(c.worker, time.Second, stopCh)
 	}
 	<-stopCh
 }
 
-// worker runs a worker thread that just dequeues items, processes them, and marks them done.
+// worker runs a worker thread that just de-queues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
 func (c *Controller) worker() {
 	for c.processNextWorkItem() {

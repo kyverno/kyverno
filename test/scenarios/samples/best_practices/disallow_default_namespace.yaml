@@ -10,7 +10,7 @@ expected:
         kind: Pod
         apiVersion: v1
         # this is set to pass resource NS check
-        # actual valiation is defined through rule success=false
+        # actual validation is defined through rule success=false
         namespace: 'default'
         name: myapp-pod
       rules:

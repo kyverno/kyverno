@@ -31,11 +31,14 @@ type PolicyResponse struct {
 
 //ResourceSpec resource action applied on
 type ResourceSpec struct {
-	//TODO: support ApiVersion
 	Kind       string `json:"kind"`
 	APIVersion string `json:"apiVersion"`
 	Namespace  string `json:"namespace"`
 	Name       string `json:"name"`
+
+	// UID is not used to build the unique identifier
+	// optional
+	UID string `json:"uid"`
 }
 
 //GetKey returns the key
@@ -51,7 +54,7 @@ type PolicyStats struct {
 	RulesAppliedCount int `json:"rulesAppliedCount"`
 }
 
-//RuleResponse details for each rule applicatino
+//RuleResponse details for each rule application
 type RuleResponse struct {
 	// rule name specified in policy
 	Name string `json:"name"`
@@ -108,6 +111,17 @@ func (er EngineResponse) GetFailedRules() []string {
 //GetSuccessRules returns success rules
 func (er EngineResponse) GetSuccessRules() []string {
 	return er.getRules(true)
+}
+
+// GetResourceSpec returns resourceSpec of er
+func (er EngineResponse) GetResourceSpec() ResourceSpec {
+	return ResourceSpec{
+		Kind:       er.PatchedResource.GetKind(),
+		APIVersion: er.PatchedResource.GetAPIVersion(),
+		Namespace:  er.PatchedResource.GetNamespace(),
+		Name:       er.PatchedResource.GetName(),
+		UID:        string(er.PatchedResource.GetUID()),
+	}
 }
 
 func (er EngineResponse) getRules(success bool) []string {

@@ -1,8 +1,60 @@
 package common
 
 import (
+	"errors"
+	"fmt"
+	"strings"
+
 	"github.com/kyverno/kyverno/pkg/engine/anchor/common"
 )
+
+// IsConditionalAnchorError checks if error message has conditional anchor error string
+func IsConditionalAnchorError(msg string) bool {
+	if strings.Contains(msg, ConditionalAnchorErrMsg) {
+		return true
+	}
+	return false
+}
+
+// NewConditionalAnchorError returns a new instance of ConditionalAnchorError
+func NewConditionalAnchorError(msg string) ValidateAnchorError {
+	return ValidateAnchorError{
+		Err:     ConditionalAnchorErr,
+		Message: fmt.Sprintf("%s: %s", ConditionalAnchorErrMsg, msg),
+	}
+}
+
+// IsConditionAnchorError ...
+func (e ValidateAnchorError) IsConditionAnchorError() bool {
+	if e.Err == ConditionalAnchorErr {
+		return true
+	}
+	return false
+}
+
+// IsNil ...
+func (e ValidateAnchorError) IsNil() bool {
+	return e == ValidateAnchorError{}
+}
+
+func (e ValidateAnchorError) Error() error {
+	return errors.New(e.Message)
+}
+
+// AnchorError is the const specification of anchor errors
+type AnchorError int
+
+// ConditionalAnchorErr ...
+const ConditionalAnchorErr AnchorError = iota
+
+// ValidateAnchorError represents the error type of validation anchors
+type ValidateAnchorError struct {
+	Err     AnchorError
+	Message string
+}
+
+// ConditionalAnchorErrMsg - the error message for conditional anchor error
+var ConditionalAnchorErrMsg = "conditionalAnchorError"
 
 // AnchorKey - contains map of anchors
 type AnchorKey struct {
@@ -10,7 +62,7 @@ type AnchorKey struct {
 	// if anchor key of the pattern exists in the resource then (key)=true else (key)=false
 	anchorMap map[string]bool
 	// AnchorError - used in validate to break execution of the recursion when if condition fails
-	AnchorError error
+	AnchorError ValidateAnchorError
 }
 
 // NewAnchorMap -initialize anchorMap
@@ -52,7 +104,7 @@ func (ac *AnchorKey) CheckAnchorInResource(pattern interface{}, resource interfa
 
 // Checks if anchor key has value in resource
 func doesAnchorsKeyHasValue(key string, resource interface{}) bool {
-	akey := common.RemoveAnchor(key)
+	akey, _ := common.RemoveAnchor(key)
 	switch typed := resource.(type) {
 	case map[string]interface{}:
 		if _, ok := typed[akey]; ok {

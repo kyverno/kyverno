@@ -3,13 +3,14 @@ package generate
 import (
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/constant"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policystatus"
@@ -33,6 +34,7 @@ const (
 type Controller struct {
 	// dynamic client implementation
 	client *dclient.Client
+
 	// typed client for Kyverno CRDs
 	kyvernoClient *kyvernoclient.Clientset
 
@@ -56,6 +58,7 @@ type Controller struct {
 
 	// grSynced returns true if the Generate Request store has been synced at least once
 	grSynced cache.InformerSynced
+
 	// dynamic shared informer factory
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
 
@@ -112,7 +115,7 @@ func NewController(
 	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
 
 	c.policySynced = policyInformer.Informer().HasSynced
-	c.grSynced = policyInformer.Informer().HasSynced
+	c.grSynced = grInformer.Informer().HasSynced
 
 	//TODO: dynamic registration
 	// Only supported for namespaces
@@ -262,15 +265,19 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
+
 	for i := 0; i < workers; i++ {
-		go wait.Until(c.worker, constant.GenerateControllerResync, stopCh)
+		go wait.Until(c.worker, time.Second, stopCh)
 	}
+
 	<-stopCh
 }
 
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
 func (c *Controller) worker() {
+	log.Log.Info("starting new worker...")
+
 	for c.processNextWorkItem() {
 	}
 }
@@ -280,10 +287,10 @@ func (c *Controller) processNextWorkItem() bool {
 	if quit {
 		return false
 	}
+
 	defer c.queue.Done(key)
 	err := c.syncGenerateRequest(key.(string))
 	c.handleErr(err, key)
-
 	return true
 }
 
@@ -335,4 +342,9 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	}
 
 	return c.processGR(gr)
+}
+
+// EnqueueGenerateRequestFromWebhook - enqueing generate requests from webhook
+func (c *Controller) EnqueueGenerateRequestFromWebhook(gr *kyverno.GenerateRequest) {
+	c.enqueueGenerateRequest(gr)
 }

@@ -1,7 +1,6 @@
 package webhooks
 
 import (
-	"os"
 	"reflect"
 	"sort"
 	"time"
@@ -9,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -70,19 +68,18 @@ func HandleValidation(
 		return true, ""
 	}
 
-	policyContext := engine.PolicyContext{
-		NewResource:      newR,
-		OldResource:      oldR,
-		Context:          ctx,
-		AdmissionInfo:    userRequestInfo,
-		ExcludeGroupRole: dynamicConfig.GetExcludeGroupRole(),
-		ResourceCache:    resCache,
-		JSONContext:      ctx,
+	policyContext := &engine.PolicyContext{
+		NewResource:         newR,
+		OldResource:         oldR,
+		AdmissionInfo:       userRequestInfo,
+		ExcludeGroupRole:    dynamicConfig.GetExcludeGroupRole(),
+		ExcludeResourceFunc: dynamicConfig.ToFilter,
+		ResourceCache:       resCache,
+		JSONContext:         ctx,
 	}
 
-	var engineResponses []response.EngineResponse
+	var engineResponses []*response.EngineResponse
 	for _, policy := range policies {
-
 		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 		policyContext.Policy = *policy
 		engineResponse := engine.Validate(policyContext)
@@ -99,11 +96,13 @@ func HandleValidation(
 		})
 
 		if !engineResponse.IsSuccessful() {
-			logger.V(4).Info("failed to apply policy", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
+			logger.V(2).Info("validation failed", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
 			continue
 		}
 
-		logger.Info("validation rules from policy applied successfully", "policy", policy.Name)
+		if len(engineResponse.GetSuccessRules()) > 0 {
+			logger.V(2).Info("validation passed", "policy", policy.Name)
+		}
 	}
 
 	// If Validation fails then reject the request
@@ -130,26 +129,30 @@ func HandleValidation(
 	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
 	prGenerator.Add(prInfos...)
 
-	if os.Getenv("POLICY-TYPE") == common.PolicyReport {
-		if request.Operation == v1beta1.Delete {
-			prGenerator.Add(policyreport.Info{
-				Resource: unstructured.Unstructured{
-					Object: map[string]interface{}{
-						"kind": oldR.GetKind(),
-						"metadata": map[string]interface{}{
-							"name":      oldR.GetName(),
-							"namespace": oldR.GetNamespace(),
-						},
-					},
-				},
-			})
-		}
+	if request.Operation == v1beta1.Delete {
+		prGenerator.Add(buildDeletionPrInfo(oldR))
 	}
+
 	return true, ""
 }
 
+func buildDeletionPrInfo(oldR unstructured.Unstructured) policyreport.Info {
+	return policyreport.Info{
+		Namespace: oldR.GetNamespace(),
+		Results: []policyreport.EngineResponseResult{
+			{Resource: response.ResourceSpec{
+				Kind:       oldR.GetKind(),
+				APIVersion: oldR.GetAPIVersion(),
+				Namespace:  oldR.GetNamespace(),
+				Name:       oldR.GetName(),
+				UID:        string(oldR.GetUID()),
+			}},
+		},
+	}
+}
+
 type validateStats struct {
-	resp      response.EngineResponse
+	resp      *response.EngineResponse
 	namespace string
 }
 

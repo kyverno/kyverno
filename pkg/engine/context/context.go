@@ -15,14 +15,19 @@ import (
 
 //Interface to manage context operations
 type Interface interface {
-	//AddJSON  merges the json with context
+
+	// AddJSON  merges the json with context
 	AddJSON(dataRaw []byte) error
-	//AddResource merges resource json under request.object
+
+	// AddResource merges resource json under request.object
 	AddResource(dataRaw []byte) error
-	//AddUserInfo merges userInfo json under kyverno.userInfo
+
+	// AddUserInfo merges userInfo json under kyverno.userInfo
 	AddUserInfo(userInfo kyverno.UserInfo) error
-	//AddSA merges serrviceaccount
-	AddSA(userName string) error
+
+	// AddServiceAccount merges ServiceAccount types
+	AddServiceAccount(userName string) error
+
 	EvalInterface
 }
 
@@ -126,8 +131,8 @@ func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 	return ctx.AddJSON(objRaw)
 }
 
-//AddSA removes prefix 'system:serviceaccount:' and namespace, then loads only SA name and SA namespace
-func (ctx *Context) AddSA(userName string) error {
+//AddServiceAccount removes prefix 'system:serviceaccount:' and namespace, then loads only SA name and SA namespace
+func (ctx *Context) AddServiceAccount(userName string) error {
 	saPrefix := "system:serviceaccount:"
 	var sa string
 	saName := ""

@@ -26,6 +26,10 @@ openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 1024 -out rootCA.crt
 openssl genrsa -out webhook.key 4096
 # generate certificate
 openssl req -new -key webhook.key -out webhook.csr -subj "/C=US/ST=test /L=test /O=test /OU=PIB/CN=${service}.kyverno.svc/emailAddress=test@test.com"
+
+# generate SANs
+echo "subjectAltName = DNS:kyverno-svc,DNS:kyverno-svc.kyverno,DNS:kyverno-svc.kyverno.svc" >> webhook.ext
+
 # sign the certificate using the root CA
 openssl x509 -req -in webhook.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out webhook.crt -days 1024 -sha256
 

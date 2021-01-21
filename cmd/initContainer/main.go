@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/signal"
@@ -266,11 +265,7 @@ func removeClusterPolicyReport(client *client.Client, kind string) error {
 	}
 
 	for _, cpolr := range cpolrs.Items {
-		if err := client.DeleteResource(cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName(), false); err != nil {
-			logger.Error(err, "failed to delete clusterPolicyReport", "name", cpolr.GetName())
-		} else {
-			logger.Info("successfully cleaned up ClusterPolicyReport")
-		}
+		deleteResource(client, cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName(), nil)
 	}
 	return nil
 }
@@ -290,16 +285,15 @@ func removePolicyReport(client *client.Client, kind string) error {
 		reportNames := []string{
 			fmt.Sprintf("policyreport-ns-%s", ns.GetName()),
 			fmt.Sprintf("pr-ns-%s", ns.GetName()),
+			fmt.Sprintf("polr-ns-%s", ns.GetName()),
 		}
 
+		var wg sync.WaitGroup
+		wg.Add(len(reportNames))
 		for _, reportName := range reportNames {
-			err := client.DeleteResource("", kind, ns.GetName(), reportName, false)
-			if err != nil && !errors.IsNotFound(err) {
-				logger.Error(err, "failed to delete resource", "kind", kind, "name", reportName)
-			} else {
-				logger.Info("successfully cleaned up resource", "kind", kind, "name", reportName)
-			}
+			go deleteResource(client, "", kind, ns.GetName(), reportName, &wg)
 		}
+		wg.Wait()
 	}
 
 	return nil
@@ -316,28 +310,21 @@ func removeReportChangeRequest(client *client.Client, kind string) error {
 	}
 
 	for _, rcr := range rcrList.Items {
-		if err := client.DeleteResource(rcr.GetAPIVersion(), rcr.GetKind(), rcr.GetNamespace(), rcr.GetName(), false); err != nil {
-			logger.Error(err, "failed to delete reportChangeRequest", "name", rcr.GetName())
-		} else {
-			logger.Info("successfully cleaned up reportChangeRequest", "name", rcr.GetName())
-		}
+		deleteResource(client, rcr.GetAPIVersion(), rcr.GetKind(), rcr.GetNamespace(), rcr.GetName(), nil)
 	}
+
 	return nil
 }
 
 func removeClusterReportChangeRequest(client *client.Client, kind string) error {
 	crcrList, err := client.ListResource("", kind, "", nil)
 	if err != nil && !errors.IsNotFound(err) {
-		logger.Error(err, "failed to list clusterReportChangeRequest")
+		log.Log.Error(err, "failed to list clusterReportChangeRequest")
 		return nil
 	}
 
 	for _, crcr := range crcrList.Items {
-		if err := client.DeleteResource(crcr.GetAPIVersion(), crcr.GetKind(), "", crcr.GetName(), false); err != nil {
-			logger.Error(err, "failed to delete clusterReportChangeRequest", "name", crcr.GetName())
-		} else {
-			logger.Info("successfully cleaned up clusterReportChangeRequest")
-		}
+		deleteResource(client, crcr.GetAPIVersion(), crcr.GetKind(), "", crcr.GetName(), nil)
 	}
 	return nil
 }
@@ -345,13 +332,13 @@ func removeClusterReportChangeRequest(client *client.Client, kind string) error 
 func removeViolationCRD(client *client.Client) error {
 	if err := client.DeleteResource("", "CustomResourceDefinition", "", "policyviolations.kyverno.io", false); err != nil {
 		if !errors.IsNotFound(err) {
-			logger.Error(err, "failed to delete CRD policyViolation")
+			log.Log.Error(err, "failed to delete CRD policyViolation")
 		}
 	}
 
 	if err := client.DeleteResource("", "CustomResourceDefinition", "", "clusterpolicyviolations.kyverno.io", false); err != nil {
 		if !errors.IsNotFound(err) {
-			logger.Error(err, "failed to delete CRD clusterPolicyViolation")
+			log.Log.Error(err, "failed to delete CRD clusterPolicyViolation")
 		}
 	}
 	return nil
@@ -364,4 +351,18 @@ func getKyvernoNameSpace() string {
 		kyvernoNamespace = "kyverno"
 	}
 	return kyvernoNamespace
+}
+
+func deleteResource(client *client.Client, apiversion, kind, ns, name string, wg *sync.WaitGroup) {
+	if wg != nil {
+		defer wg.Done()
+	}
+
+	err := client.DeleteResource(apiversion, kind, ns, name, false)
+	if err != nil && !errors.IsNotFound(err) {
+		log.Log.Error(err, "failed to delete resource", "kind", kind, "name", name)
+		return
+	}
+
+	log.Log.Info("successfully cleaned up resource", "kind", kind, "name", name)
 }

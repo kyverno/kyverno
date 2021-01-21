@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno
 
-go 1.13
+go 1.14
 
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
@@ -25,11 +25,11 @@ require (
 	github.com/minio/minio v0.0.0-20200114012931-30922148fbb5
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1
+	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.6.0 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.5.1
-	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
@@ -45,8 +45,8 @@ require (
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	sigs.k8s.io/controller-runtime v0.5.0
-	sigs.k8s.io/kustomize/api v0.5.1
-	sigs.k8s.io/kustomize/kyaml v0.6.1
+	sigs.k8s.io/kustomize/api v0.7.0
+	sigs.k8s.io/kustomize/kyaml v0.10.3
 	sigs.k8s.io/yaml v1.2.0
 )
 

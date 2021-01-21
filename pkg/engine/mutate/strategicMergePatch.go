@@ -104,14 +104,13 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 
 func strategicMergePatch(base, overlay string) ([]byte, error) {
 
-	patch := yaml.MustParse(overlay)
 	preprocessedYaml, err := preProcessStrategicMergePatch(overlay, base)
 	if err != nil {
 		return []byte{}, fmt.Errorf("failed to preProcess rule: %+v", err)
 	}
-	patch = preprocessedYaml
+
 	f := patchstrategicmerge.Filter{
-		Patch: patch,
+		Patch: preprocessedYaml,
 	}
 
 	baseObj := buffer{Buffer: bytes.NewBufferString(base)}

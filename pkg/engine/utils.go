@@ -45,12 +45,18 @@ func checkName(name, resourceName string) bool {
 	return wildcard.Match(name, resourceName)
 }
 
-func checkNameSpace(namespaces []string, resourceNameSpace string) bool {
+func checkNameSpace(namespaces []string, resource unstructured.Unstructured) bool {
+	resourceNameSpace := resource.GetNamespace()
+	if resource.GetKind() == "Namespace" {
+		resourceNameSpace = resource.GetName()
+	}
+
 	for _, namespace := range namespaces {
 		if wildcard.Match(namespace, resourceNameSpace) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -103,31 +109,36 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 // 		ClusterRoles []string
 // 		Subjects     []rbacv1.Subject
 // To filter out the targeted resources with ResourceDescription, the check
-// should be: AND across attibutes but an OR inside attributes that of type list
+// should be: AND across attributes but an OR inside attributes that of type list
 // To filter out the targeted resources with UserInfo, the check
 // should be: OR (across & inside) attributes
 func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string) []error {
 	var errs []error
+
 	if len(conditionBlock.Kinds) > 0 {
 		if !checkKind(conditionBlock.Kinds, resource.GetKind()) {
 			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}
+
 	if conditionBlock.Name != "" {
 		if !checkName(conditionBlock.Name, resource.GetName()) {
 			errs = append(errs, fmt.Errorf("name does not match"))
 		}
 	}
+
 	if len(conditionBlock.Namespaces) > 0 {
-		if !checkNameSpace(conditionBlock.Namespaces, resource.GetNamespace()) {
+		if !checkNameSpace(conditionBlock.Namespaces, resource) {
 			errs = append(errs, fmt.Errorf("namespace does not match"))
 		}
 	}
+
 	if len(conditionBlock.Annotations) > 0 {
 		if !checkAnnotations(conditionBlock.Annotations, resource.GetAnnotations()) {
 			errs = append(errs, fmt.Errorf("annotations does not match"))
 		}
 	}
+
 	if conditionBlock.Selector != nil {
 		hasPassed, err := checkSelector(conditionBlock.Selector, resource.GetLabels())
 		if err != nil {
@@ -258,10 +269,15 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	return nil
 }
 func copyConditions(original []kyverno.Condition) []kyverno.Condition {
+	if original == nil || len(original) == 0 {
+		return []kyverno.Condition{}
+	}
+
 	var copy []kyverno.Condition
 	for _, condition := range original {
 		copy = append(copy, *condition.DeepCopy())
 	}
+
 	return copy
 }
 
@@ -277,10 +293,10 @@ func excludeResource(resource unstructured.Unstructured) bool {
 	return false
 }
 
-// SkipPolicyApplication returns true:
+// ManagedPodResource returns true:
 // - if the policy has auto-gen annotation && resource == Pod
 // - if the auto-gen contains cronJob && resource == Job
-func SkipPolicyApplication(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) bool {
+func ManagedPodResource(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) bool {
 	if policy.HasAutoGenAnnotation() && excludeResource(resource) {
 		return true
 	}
