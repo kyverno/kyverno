@@ -23,7 +23,7 @@ The list of organizations that have publicly shared the usage of Kyverno:
 Here is a list of individual users that have publicly shared usage of Kyverno:
 
 | User  | Success Story |
-| :--- | :--- | :--- |
+| :--- | :--- |
 
 <!-- append the line below and tell your story
 | [name](GitHub URL) | brief description | 
