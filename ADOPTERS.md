@@ -10,7 +10,7 @@ The list of organizations that have publicly shared the usage of Kyverno:
 
 | Organization | Success Story |
 | :--- | :--- |
-| [EKS Best Practices](https://github.com/aws/aws-eks-best-practices/tree/master/policies/kyverno) | Policies for security and best practices |
+| [Amazon EKS Best Practices](https://github.com/aws/aws-eks-best-practices/tree/master/policies/kyverno) | Policies for security and best practices |
 | [Flux2](https://github.com/fluxcd/flux2-multi-tenancy#enforce-tenant-isolation) | Manage multi-tenancy and tenant isolation with GitOps |
 | [Nirmata](https://nirmata.com) | Kubernetes policy-as-code solution using Kyverno |
 
