@@ -24,7 +24,7 @@ Here is a list of individual users that have publicly shared usage of Kyverno:
 
 | User  | Success Story |
 | :--- | :--- |
-
+| [Chip Zoller](https://github.com/chipzoller) | Using Kyverno to develop community policies and audit best practices for ecosystem projects |
 <!-- append the line below and tell your story
 | [name](GitHub URL) | brief description | 
 -->
