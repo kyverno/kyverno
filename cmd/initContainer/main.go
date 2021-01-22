@@ -259,7 +259,7 @@ func removeClusterPolicyReport(client *client.Client, kind string) error {
 	logger := log.Log.WithName("removeClusterPolicyReport")
 
 	cpolrs, err := client.ListResource("", kind, "", nil)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil {
 		logger.Error(err, "failed to list clusterPolicyReport")
 		return nil
 	}
@@ -304,7 +304,7 @@ func removeReportChangeRequest(client *client.Client, kind string) error {
 
 	ns := getKyvernoNameSpace()
 	rcrList, err := client.ListResource("", kind, ns, nil)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil {
 		logger.Error(err, "failed to list reportChangeRequest")
 		return nil
 	}
@@ -318,7 +318,7 @@ func removeReportChangeRequest(client *client.Client, kind string) error {
 
 func removeClusterReportChangeRequest(client *client.Client, kind string) error {
 	crcrList, err := client.ListResource("", kind, "", nil)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil {
 		log.Log.Error(err, "failed to list clusterReportChangeRequest")
 		return nil
 	}

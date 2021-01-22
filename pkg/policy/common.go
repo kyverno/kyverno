@@ -91,25 +91,32 @@ func ExcludePod(resourceMap map[string]unstructured.Unstructured, log logr.Logge
 	return resourceMap
 }
 
-// GetNamespacesForRule gets the matched namespaces list for the given rule
-func GetNamespacesForRule(rule *kyverno.Rule, nslister listerv1.NamespaceLister, log logr.Logger) []string {
+// getNamespacesForRule gets the matched namespaces list for the given rule
+func (pc *PolicyController) getNamespacesForRule(rule *kyverno.Rule, log logr.Logger) []string {
+	var results []string
+	var matchedNS []string
+
+	defer func() {
+		results = pc.configHandler.FilterNamespaces(matchedNS)
+	}()
+
 	if len(rule.MatchResources.Namespaces) == 0 {
-		return GetAllNamespaces(nslister, log)
+		matchedNS = GetAllNamespaces(pc.nsLister, log)
+		return results
 	}
 
 	var wildcards []string
-	var results []string
 	for _, nsName := range rule.MatchResources.Namespaces {
 		if HasWildcard(nsName) {
 			wildcards = append(wildcards, nsName)
 		}
 
-		results = append(results, nsName)
+		matchedNS = append(matchedNS, nsName)
 	}
 
 	if len(wildcards) > 0 {
-		wildcardMatches := GetMatchingNamespaces(wildcards, nslister, log)
-		results = append(results, wildcardMatches...)
+		wildcardMatches := GetMatchingNamespaces(wildcards, pc.nsLister, log)
+		matchedNS = append(matchedNS, wildcardMatches...)
 	}
 
 	return results

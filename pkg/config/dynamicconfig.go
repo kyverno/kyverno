@@ -74,12 +74,25 @@ func (cd *ConfigData) GetExcludeUsername() []string {
 	return cd.excludeUsername
 }
 
+// FilterNamespaces filters exclude namespace
+func (cd *ConfigData) FilterNamespaces(namespaces []string) []string {
+	var results []string
+
+	for _, ns := range namespaces {
+		if !cd.ToFilter("", ns, "") {
+			results = append(results, ns)
+		}
+	}
+	return results
+}
+
 // Interface to be used by consumer to check filters
 type Interface interface {
 	ToFilter(kind, namespace, name string) bool
 	GetExcludeGroupRole() []string
 	GetExcludeUsername() []string
 	RestrictDevelopmentUsername() []string
+	FilterNamespaces(namespaces []string) []string
 }
 
 // NewConfigData ...

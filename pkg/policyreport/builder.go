@@ -49,6 +49,10 @@ func GeneratePRsFromEngineResponse(ers []*response.EngineResponse, log logr.Logg
 			continue
 		}
 
+		if len(er.PolicyResponse.Rules) == 0 {
+			continue
+		}
+
 		// build policy violation info
 		pvInfos = append(pvInfos, buildPVInfo(er))
 	}

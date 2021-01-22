@@ -43,7 +43,7 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 				continue
 			}
 
-			namespaces := GetNamespacesForRule(&rule, pc.nsLister, logger)
+			namespaces := pc.getNamespacesForRule(&rule, logger)
 			for _, ns := range namespaces {
 				pc.applyAndReportPerNamespace(policy, k, ns, rule, logger)
 			}
