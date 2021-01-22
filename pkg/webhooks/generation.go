@@ -99,16 +99,16 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 
 	resLabels := resource.GetLabels()
 	if resLabels["generate.kyverno.io/clone-policy-name"] != "" {
-		ws.handleUpdateCloneSource(resLabels, logger)
+		ws.handleUpdateCloneSourceResource(resLabels, logger)
 	}
 
 	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == v1beta1.Update {
-		ws.handleUpdateTargetSource(request, policies, resLabels, logger)
+		ws.handleUpdateTargetResource(request, policies, resLabels, logger)
 	}
 }
 
-//handleUpdateCloneSource - handles updation of clone source for generate policy
-func (ws *WebhookServer) handleUpdateCloneSource(resLabels map[string]string, logger logr.Logger) {
+//handleUpdateCloneSourceResource - handles updation of clone source for generate policy
+func (ws *WebhookServer) handleUpdateCloneSourceResource(resLabels map[string]string, logger logr.Logger) {
 	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
 	for _, policyName := range policyNames {
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{
@@ -126,8 +126,8 @@ func (ws *WebhookServer) handleUpdateCloneSource(resLabels map[string]string, lo
 	}
 }
 
-//handleUpdateTargetSource - handles updation of target resource for generate policy
-func (ws *WebhookServer) handleUpdateTargetSource(request *v1beta1.AdmissionRequest, policies []*v1.ClusterPolicy, resLabels map[string]string, logger logr.Logger) {
+//handleUpdateTargetResource - handles updation of target resource for generate policy
+func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRequest, policies []*v1.ClusterPolicy, resLabels map[string]string, logger logr.Logger) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
@@ -158,7 +158,7 @@ func (ws *WebhookServer) handleUpdateTargetSource(request *v1beta1.AdmissionRequ
 							continue
 						}
 
-						sourceObj, newResObj := updateFeildsInSourceAndUpdatedResource(obj.Object, newRes.Object, logger)
+						sourceObj, newResObj := updateFieldsInSourceAndUpdatedResource(obj.Object, newRes.Object, logger)
 
 						if _, err := validate.ValidateResourceWithPattern(logger, newResObj, sourceObj); err != nil {
 							enqueueBool = true
@@ -180,7 +180,7 @@ func (ws *WebhookServer) handleUpdateTargetSource(request *v1beta1.AdmissionRequ
 	}
 }
 
-//updateFeildsInSourceAndUpdatedResource - delete the required feilds from the source and target resource
+//updateFeildsInSourceAndUpdatedResource - remove feilds which get updated with each request by kyverno
 func updateFeildsInSourceAndUpdatedResource(obj, newRes map[string]interface{}, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
 
 	delete(obj["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
