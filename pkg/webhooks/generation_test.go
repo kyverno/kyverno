@@ -270,16 +270,8 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		o, n := updateFeildsInSourceAndUpdatedResource(tc.obj, tc.newRes, nil)
-
-		// fmt.Println("---------------------------------------------")
-		// fmt.Println(tc.expectedNewRes)
-		// fmt.Println("---------------------------------------------")
-		// fmt.Println(n)
-		// fmt.Println("---------------------------------------------")
-
+		o, n := stripNonPolicyFields(tc.obj, tc.newRes, nil)
 		assert.Assert(t, reflect.DeepEqual(tc.expectedObj, o))
 		assert.Assert(t, reflect.DeepEqual(tc.expectedNewRes, n))
-
 	}
 }

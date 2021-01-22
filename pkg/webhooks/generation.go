@@ -158,7 +158,7 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 							continue
 						}
 
-						sourceObj, newResObj := updateFieldsInSourceAndUpdatedResource(obj.Object, newRes.Object, logger)
+						sourceObj, newResObj := stripNonPolicyFields(obj.Object, newRes.Object, logger)
 
 						if _, err := validate.ValidateResourceWithPattern(logger, newResObj, sourceObj); err != nil {
 							enqueueBool = true
@@ -180,8 +180,8 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 	}
 }
 
-//updateFeildsInSourceAndUpdatedResource - remove feilds which get updated with each request by kyverno
-func updateFeildsInSourceAndUpdatedResource(obj, newRes map[string]interface{}, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
+//stripNonPolicyFields - remove feilds which get updated with each request by kyverno and are non policy fields
+func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
 
 	delete(obj["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
 	delete(obj["metadata"].(map[string]interface{}), "creationTimestamp")
