@@ -97,11 +97,7 @@ func (pc *PolicyController) getNamespacesForRule(rule *kyverno.Rule, log logr.Lo
 	var matchedNS []string
 
 	defer func() {
-		for _, ns := range matchedNS {
-			if !pc.configHandler.ToFilter("", ns, "") {
-				results = append(results, ns)
-			}
-		}
+		results = pc.configHandler.FilterNamespaces(matchedNS)
 	}()
 
 	if len(rule.MatchResources.Namespaces) == 0 {
