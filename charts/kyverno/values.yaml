@@ -1,6 +1,8 @@
 nameOverride:
 fullnameOverride:
 namespace:
+# Supported- default/restricted
+policyType: default
 
 rbac:
   create: true
