@@ -28,7 +28,7 @@ LABEL maintainer="Kyverno"
 ARG UID
 ARG GID
 
-COPY --from=builder /output/kyverno /
+COPY --from=builder /output/kyvernopre /
 
 ENTRYPOINT ["./kyvernopre"]
 
