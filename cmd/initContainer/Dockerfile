@@ -1,26 +1,35 @@
-
 # Multi-stage docker build
 # Build stage
+ARG USER=kyverno
+ARG UID=1000
+ARG GID=1000
+
 FROM golang:1.14 AS builder
 
 LABEL maintainer="Kyverno"
 
 # LD_FLAGS is passed as argument from Makefile. It will be empty, if no argument passed
 ARG LD_FLAGS
+ARG USER
+ARG UID
 
-ADD . /kyvernopre
-WORKDIR /kyvernopre
+ADD . /kyverno
+WORKDIR /kyverno
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /output/kyvernopre -ldflags="${LD_FLAGS}" -v ./cmd/initContainer/
 
-## Packaging stage
-FROM alpine:latest
+RUN useradd -m $USER --uid=${UID}
+
+# Packaging stage
+FROM scratch
 
 LABEL maintainer="Kyverno"
 
-COPY --from=builder /output/kyvernopre /
+ARG UID
+ARG GID
 
-RUN addgroup -S kyverno && adduser -S -G kyverno 1001
-USER 1001
+COPY --from=builder /output/kyverno /
 
 ENTRYPOINT ["./kyvernopre"]
+
+USER ${UID}:${GID}
