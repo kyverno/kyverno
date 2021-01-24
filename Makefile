@@ -37,9 +37,6 @@ docker-publish-initContainer: docker-build-initContainer docker-tag-repo-initCon
 
 docker-build-initContainer:
 	@docker build -f $(PWD)/$(INITC_PATH)/Dockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
-#	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
-#	echo $(PWD)/$(INITC_PATH)/
-#	@docker build -f $(PWD)/$(INITC_PATH)/Dockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) $(PWD)/$(INITC_PATH)/
 
 docker-tag-repo-initContainer:
 	@docker tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) $(REPO)/$(INITC_IMAGE):latest
@@ -98,8 +95,6 @@ docker-publish-cli: docker-build-cli  docker-tag-repo-cli  docker-push-cli
 
 docker-build-cli:
 	@docker build -f $(PWD)/$(CLI_PATH)/Dockerfile -t $(REPO)/$(CLI_PATH):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
-#	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(CLI_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)/main.go
-#	@docker build -f $(PWD)/$(CLI_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(PWD)/$(CLI_PATH)
 
 docker-tag-repo-cli:
 	@echo "docker tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(REPO)/$(KYVERNO_CLI_IMAGE):latest"
