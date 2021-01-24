@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - 'main'
+      - 'dockerfile-refactor'
   pull_request:
     branches:
       - 'main'

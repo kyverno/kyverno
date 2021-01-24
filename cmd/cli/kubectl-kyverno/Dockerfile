@@ -1,3 +1,25 @@
-FROM scratch
-ADD kyverno /kyverno
-ENTRYPOINT ["/kyverno"]
+# Multi-stage docker build
+# Build stage
+FROM golang:1.14 AS builder
+
+LABEL maintainer="Kyverno"
+
+# LD_FLAGS is passed as argument from Makefile. It will be empty, if no argument passed
+ARG LD_FLAGS
+
+ADD . /kyverno
+WORKDIR /kyverno
+
+RUN CGO_ENABLED=0 GOOS=linux go build -o /output/kyverno -ldflags="${LD_FLAGS}" -v ./cmd/cli/kubectl-kyverno/
+
+## Packaging stage
+FROM alpine:latest
+
+LABEL maintainer="Kyverno"
+
+COPY --from=builder /output/kyverno /
+
+RUN addgroup -S kyverno && adduser -S -G kyverno 1001
+USER 1001
+
+ENTRYPOINT ["./kyverno"]
