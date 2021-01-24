@@ -1,4 +1,4 @@
-{{- if eq .Values.policyType "restricted" }}
+{{- if eq .Values.podSecurityStandard "restricted" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:

@@ -1,4 +1,4 @@
-{{- if eq .Values.policyType "default" }}
+{{- if eq .Values.podSecurityStandard "default" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:

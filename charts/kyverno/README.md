@@ -99,7 +99,7 @@ Parameter | Description | Default
 `service.type` | type of service | `ClusterIP`
 `tolerations` | list of node taints to tolerate | `[]`
 `securityContext` | security context configuration | `{}`
-
+`podSecurityStandard` | set desired pod security level `privileged`, `default`, `restricted`. Set to `restricted` for maximum security for your cluster. See:  https://kyverno.io/policies/pod-security/ | `default`
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
