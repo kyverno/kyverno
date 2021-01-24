@@ -123,7 +123,7 @@ func main() {
 
 	// CRD CHECK
 	// - verify if Kyverno CRDs are available
-	if !utils.CRDInstalled(client.DiscoveryClient, log.Log) {
+	if !utils.CRDsInstalled(client.DiscoveryClient) {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
 		os.Exit(1)
 	}

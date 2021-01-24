@@ -3,8 +3,6 @@ package generate
 import (
 	"time"
 
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -276,8 +274,6 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
 func (c *Controller) worker() {
-	log.Log.Info("starting new worker...")
-
 	for c.processNextWorkItem() {
 	}
 }

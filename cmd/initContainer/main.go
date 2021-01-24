@@ -46,6 +46,7 @@ func main() {
 	if err := flag.Set("v", "2"); err != nil {
 		klog.Fatalf("failed to set log level: %v", err)
 	}
+
 	flag.Parse()
 
 	// os signal handler
@@ -109,9 +110,10 @@ func main() {
 			log.Log.Error(err, "failed to cleanup resource")
 		}
 	}
+
 	// if there is any failure then we fail process
 	if failure {
-		log.Log.Info("failed to cleanup webhook configurations")
+		log.Log.Info("failed to cleanup prior configurations")
 		os.Exit(1)
 	}
 }
@@ -131,6 +133,7 @@ func executeRequest(client *client.Client, req request) error {
 	case policyViolation, clusterPolicyViolation:
 		return removeViolationCRD(client)
 	}
+
 	return nil
 }
 
@@ -140,6 +143,7 @@ func createClientConfig(kubeconfig string) (*rest.Config, error) {
 		logger.Info("Using in-cluster configuration")
 		return rest.InClusterConfig()
 	}
+
 	logger.Info(fmt.Sprintf("Using configuration from '%s'", kubeconfig))
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }
