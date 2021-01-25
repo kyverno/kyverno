@@ -167,12 +167,12 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 						"apiVersion": "v1",
 						"fieldsType": "FieldsV1",
 					},
-					"spec": map[string]interface{}{
-						"containers": map[string]interface{}{
-							"image":           "redis:5.0.4",
-							"imagePullPolicy": "IfNotPresent",
-							"name":            "redis",
-						},
+				},
+				"spec": map[string]interface{}{
+					"containers": map[string]interface{}{
+						"image":           "redis:5.0.4",
+						"imagePullPolicy": "IfNotPresent",
+						"name":            "redis",
 					},
 				},
 				"status": map[string]interface{}{
@@ -200,12 +200,12 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 						"apiVersion": "v1",
 						"fieldsType": "FieldsV1",
 					},
-					"spec": map[string]interface{}{
-						"containers": map[string]interface{}{
-							"image":           "redis:5.0.4",
-							"imagePullPolicy": "IfNotPresent",
-							"name":            "redis",
-						},
+				},
+				"spec": map[string]interface{}{
+					"containers": map[string]interface{}{
+						"image":           "redis:5.0.4",
+						"imagePullPolicy": "IfNotPresent",
+						"name":            "redis",
 					},
 				},
 				"status": map[string]interface{}{
@@ -228,12 +228,12 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 				"metadata": map[string]interface{}{
 					"annotations": map[string]interface{}{},
 					"labels":      map[string]interface{}{},
-					"spec": map[string]interface{}{
-						"containers": map[string]interface{}{
-							"image":           "redis:5.0.4",
-							"imagePullPolicy": "IfNotPresent",
-							"name":            "redis",
-						},
+				},
+				"spec": map[string]interface{}{
+					"containers": map[string]interface{}{
+						"image":           "redis:5.0.4",
+						"imagePullPolicy": "IfNotPresent",
+						"name":            "redis",
 					},
 				},
 			},
@@ -245,12 +245,12 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 					"annotations":       map[string]interface{}{},
 					"creationTimestamp": "2021-01-09T12:37:26Z",
 					"labels":            map[string]interface{}{},
-					"spec": map[string]interface{}{
-						"containers": map[string]interface{}{
-							"image":           "redis:5.0.4",
-							"imagePullPolicy": "IfNotPresent",
-							"name":            "redis",
-						},
+				},
+				"spec": map[string]interface{}{
+					"containers": map[string]interface{}{
+						"image":           "redis:5.0.4",
+						"imagePullPolicy": "IfNotPresent",
+						"name":            "redis",
 					},
 				},
 				"status": map[string]interface{}{
