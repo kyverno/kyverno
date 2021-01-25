@@ -213,6 +213,14 @@ type ResourceDescription struct {
 	// using ["*" : "*"] matches any key and value but does not match an empty label set.
 	// +optional
 	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
+
+	// NamespaceSelector is a label selector for the resource namespace. Label keys and values
+	// in `matchLabels` support the wildcard characters `*` (matches zero or many characters)
+	// and `?` (matches one character).Wildcards allows writing label selectors like
+	// ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but
+	// does not match an empty label set.
+	// +optional
+	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty" yaml:"namespaceSelector,omitempty"`
 }
 
 // Mutation defines how resource are modified.
