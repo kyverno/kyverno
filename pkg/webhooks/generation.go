@@ -184,15 +184,13 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
 
 	delete(obj["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
-	delete(obj["metadata"].(map[string]interface{}), "creationTimestamp")
 	delete(obj["metadata"].(map[string]interface{})["labels"].(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
-	delete(obj["metadata"].(map[string]interface{}), "managedFields")
-	delete(obj["metadata"].(map[string]interface{}), "resourceVersion")
-	delete(obj["metadata"].(map[string]interface{}), "selfLink")
-	delete(obj["metadata"].(map[string]interface{}), "uid")
-	delete(obj["metadata"].(map[string]interface{}), "namespace")
-	delete(obj["metadata"].(map[string]interface{}), "name")
 	delete(newRes["metadata"].(map[string]interface{}), "managedFields")
+
+	requiredMetadata := make(map[string]interface{})
+	requiredMetadata["annotations"] = obj["metadata"].(map[string]interface{})["annotations"]
+	requiredMetadata["labels"] = obj["metadata"].(map[string]interface{})["labels"]
+	obj["metadata"] = requiredMetadata
 
 	if _, found := obj["status"]; found {
 		delete(obj, "status")
