@@ -200,11 +200,19 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		excludeNamespaces[namespace] = true
 	}
 
-	excludeMatchExpressions := make(map[string]bool)
+	excludeSelectorMatchExpressions := make(map[string]bool)
 	if rule.ExcludeResources.ResourceDescription.Selector != nil {
 		for _, matchExpression := range rule.ExcludeResources.ResourceDescription.Selector.MatchExpressions {
 			matchExpressionRaw, _ := json.Marshal(matchExpression)
-			excludeMatchExpressions[string(matchExpressionRaw)] = true
+			excludeSelectorMatchExpressions[string(matchExpressionRaw)] = true
+		}
+	}
+
+	excludeNamespaceSelectorMatchExpressions := make(map[string]bool)
+	if rule.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
+		for _, matchExpression := range rule.ExcludeResources.ResourceDescription.NamespaceSelector.MatchExpressions {
+			matchExpressionRaw, _ := json.Marshal(matchExpression)
+			excludeNamespaceSelectorMatchExpressions[string(matchExpressionRaw)] = true
 		}
 	}
 
@@ -276,14 +284,14 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 	}
 
 	if rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector != nil {
-		if len(excludeMatchExpressions) > 0 {
+		if len(excludeSelectorMatchExpressions) > 0 {
 			if len(rule.MatchResources.ResourceDescription.Selector.MatchExpressions) == 0 {
 				return false
 			}
 
 			for _, matchExpression := range rule.MatchResources.ResourceDescription.Selector.MatchExpressions {
 				matchExpressionRaw, _ := json.Marshal(matchExpression)
-				if !excludeMatchExpressions[string(matchExpressionRaw)] {
+				if !excludeSelectorMatchExpressions[string(matchExpressionRaw)] {
 					return false
 				}
 			}
@@ -302,8 +310,40 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		}
 	}
 
+	if rule.MatchResources.ResourceDescription.NamespaceSelector != nil && rule.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
+		if len(excludeNamespaceSelectorMatchExpressions) > 0 {
+			if len(rule.MatchResources.ResourceDescription.NamespaceSelector.MatchExpressions) == 0 {
+				return false
+			}
+
+			for _, matchExpression := range rule.MatchResources.ResourceDescription.NamespaceSelector.MatchExpressions {
+				matchExpressionRaw, _ := json.Marshal(matchExpression)
+				if !excludeNamespaceSelectorMatchExpressions[string(matchExpressionRaw)] {
+					return false
+				}
+			}
+		}
+
+		if len(rule.ExcludeResources.ResourceDescription.NamespaceSelector.MatchLabels) > 0 {
+			if len(rule.MatchResources.ResourceDescription.NamespaceSelector.MatchLabels) == 0 {
+				return false
+			}
+
+			for label, value := range rule.MatchResources.ResourceDescription.NamespaceSelector.MatchLabels {
+				if rule.ExcludeResources.ResourceDescription.NamespaceSelector.MatchLabels[label] != value {
+					return false
+				}
+			}
+		}
+	}
+
 	if (rule.MatchResources.ResourceDescription.Selector == nil && rule.ExcludeResources.ResourceDescription.Selector != nil) ||
 		(rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector == nil) {
+		return false
+	}
+
+	if (rule.MatchResources.ResourceDescription.NamespaceSelector == nil && rule.ExcludeResources.ResourceDescription.NamespaceSelector != nil) ||
+		(rule.MatchResources.ResourceDescription.NamespaceSelector != nil && rule.ExcludeResources.ResourceDescription.NamespaceSelector == nil) {
 		return false
 	}
 
