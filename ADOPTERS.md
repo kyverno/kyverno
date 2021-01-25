@@ -25,6 +25,8 @@ Here is a list of individual users that have publicly shared usage of Kyverno:
 | User  | Success Story |
 | :--- | :--- |
 | [Chip Zoller](https://github.com/chipzoller) | Using Kyverno to develop community policies and audit best practices for ecosystem projects |
+| [Greg May](https://github.com/mnrgreg) | Managing enterprise, self-service, namespace-based multi-tenancy using Kyverno policy and namespace labels |
+
 <!-- append the line below and tell your story
 | [name](GitHub URL) | brief description | 
 -->
