@@ -71,10 +71,8 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 				"data": map[string]interface{}{
 					"ca": "-----BEGIN CERTIFICATE-----MIID5zCCAs+gAwIBAgIUCl6BKlpe2QiS5IQby6QOW7vexMwwDQYJKoZIhvcNAQELBQAwgYIxCzAJBgNVBAYTAlVTMQswCQYDVQQIDAJDQTENMAsGA1UEBwwEVG93bjEQ-----END CERTIFICATE-----",
 				},
-				"kind": "ConfigMap",
-				"metadata": map[string]interface{}{
-					"creationTimestamp": "2021-01-09T12:37:26Z",
-				},
+				"kind":     "ConfigMap",
+				"metadata": map[string]interface{}{},
 			},
 		},
 		TestCase{
@@ -144,8 +142,7 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 				"kind": "Secret",
 				"type": "kubernetes.io/tls",
 				"metadata": map[string]interface{}{
-					"annotations":       map[string]interface{}{},
-					"creationTimestamp": "2021-01-09T12:37:26Z",
+					"annotations": map[string]interface{}{},
 					"labels": map[string]interface{}{
 						"policy.kyverno.io/gr-name":     "gr-qmjr9",
 						"policy.kyverno.io/policy-name": "generate-policy",
@@ -242,9 +239,8 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 				"apiVersion": "v1",
 				"kind":       "Pod",
 				"metadata": map[string]interface{}{
-					"annotations":       map[string]interface{}{},
-					"creationTimestamp": "2021-01-09T12:37:26Z",
-					"labels":            map[string]interface{}{},
+					"annotations": map[string]interface{}{},
+					"labels":      map[string]interface{}{},
 				},
 				"spec": map[string]interface{}{
 					"containers": map[string]interface{}{
