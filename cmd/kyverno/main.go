@@ -114,13 +114,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	rCache, err := resourcecache.NewResourceCache(log.Log, clientConfig, client, []string{"configmaps"}, []string{})
-	if err != nil {
-		setupLog.Error(err, "ConfigMap lookup disabled: failed to create resource cache")
-	} else {
-		rCache.RunAllInformers(log.Log)
-	}
-
 	// CRD CHECK
 	// - verify if Kyverno CRDs are available
 	if !utils.CRDInstalled(client.DiscoveryClient, log.Log) {
@@ -136,6 +129,11 @@ func main() {
 
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	kubedynamicInformer := client.NewDynamicSharedInformerFactory(resyncPeriod)
+
+	rCache, err := resourcecache.NewResourceCache(client, kubedynamicInformer, log.Log.WithName("resourcecache"))
+	if err != nil {
+		setupLog.Error(err, "ConfigMap lookup disabled: failed to create resource cache")
+	}
 
 	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,

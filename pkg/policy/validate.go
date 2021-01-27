@@ -63,7 +63,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			clusterResourcesMap := make(map[string]*struct{})
 			// Get all the cluster type kind supported by cluster
 
-			res, err := client.GetDiscoveryCache().ServerPreferredResources()
+			res, err := client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
 			if err != nil {
 				return err
 			}

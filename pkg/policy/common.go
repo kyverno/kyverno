@@ -159,51 +159,85 @@ func GetAllNamespaces(nslister listerv1.NamespaceLister, log logr.Logger) []stri
 	return results
 }
 
+func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) interface{} {
+	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
+
+	genericCache, _ := pc.resCache.GetGVRCache(kind)
+
+	var list []*unstructured.Unstructured
+	if namespace != "" {
+		list, err = genericCache.NamespacedLister(namespace).List(labels.Everything())
+	} else {
+		list, err = genericCache.Lister().List(selector)
+	}
+
+	if err != nil {
+		log.V(3).Info("failed to list resource using lister, try to query from the API server", "err", err.Error())
+	} else {
+		return list
+	}
+
+	resourceList, err := pc.client.ListResource("", kind, namespace, labelSelector)
+	if err != nil {
+		log.Error(err, "failed to list resources", "kind")
+		return nil
+	}
+
+	return resourceList
+}
+
 // GetResourcesPerNamespace ...
 func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace string, rule kyverno.Rule, log logr.Logger) map[string]unstructured.Unstructured {
 	resourceMap := map[string]unstructured.Unstructured{}
-	ls := rule.MatchResources.Selector
 
 	if kind == "Namespace" {
 		namespace = ""
 	}
 
-	list, err := pc.client.ListResource("", kind, namespace, ls)
-	if err != nil {
-		log.Error(err, "failed to list resources", "kind", kind, "namespace", namespace)
-		return nil
-	}
-	// filter based on name
-	for _, r := range list.Items {
-		if r.GetDeletionTimestamp() != nil {
-			continue
-		}
-
-		if r.GetKind() == "Pod" {
-			if !isRunningPod(r) {
-				continue
+	list := pc.getResourceList(kind, namespace, rule.MatchResources.Selector, log)
+	switch typedList := list.(type) {
+	case []*unstructured.Unstructured:
+		for _, r := range typedList {
+			if pc.match(*r, rule) {
+				resourceMap[string(r.GetUID())] = *r
 			}
 		}
-
-		// match name
-		if rule.MatchResources.Name != "" {
-			if !wildcard.Match(rule.MatchResources.Name, r.GetName()) {
-				continue
+	case *unstructured.UnstructuredList:
+		for _, r := range typedList.Items {
+			if pc.match(r, rule) {
+				resourceMap[string(r.GetUID())] = r
 			}
 		}
-		// Skip the filtered resources
-		if pc.configHandler.ToFilter(r.GetKind(), r.GetNamespace(), r.GetName()) {
-			continue
-		}
-
-		//TODO check if the group version kind is present or not
-		resourceMap[string(r.GetUID())] = r
 	}
 
-	// exclude the resources
 	// skip resources to be filtered
 	excludeResources(resourceMap, rule.ExcludeResources.ResourceDescription, pc.configHandler, log)
 	return resourceMap
+}
+
+func (pc *PolicyController) match(r unstructured.Unstructured, rule kyverno.Rule) bool {
+	if r.GetDeletionTimestamp() != nil {
+		return false
+	}
+
+	if r.GetKind() == "Pod" {
+		if !isRunningPod(r) {
+			return false
+		}
+	}
+
+	// match name
+	if rule.MatchResources.Name != "" {
+		if !wildcard.Match(rule.MatchResources.Name, r.GetName()) {
+			return false
+		}
+	}
+	// Skip the filtered resources
+	if pc.configHandler.ToFilter(r.GetKind(), r.GetNamespace(), r.GetName()) {
+		return false
+	}
+
+	return true
 }
 
 // ExcludeResources ...

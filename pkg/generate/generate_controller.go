@@ -69,7 +69,7 @@ type Controller struct {
 	log                  logr.Logger
 
 	Config   config.Interface
-	resCache resourcecache.ResourceCacheIface
+	resCache resourcecache.ResourceCache
 }
 
 //NewController returns an instance of the Generate-Request Controller
@@ -83,7 +83,7 @@ func NewController(
 	policyStatus policystatus.Listener,
 	log logr.Logger,
 	dynamicConfig config.Interface,
-	resourceCache resourcecache.ResourceCacheIface,
+	resourceCache resourcecache.ResourceCache,
 ) (*Controller, error) {
 
 	c := Controller{

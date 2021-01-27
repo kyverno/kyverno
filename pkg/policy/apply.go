@@ -20,7 +20,7 @@ import (
 
 // applyPolicy applies policy on a resource
 func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured,
-	logger logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface) (responses []*response.EngineResponse) {
+	logger logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCache) (responses []*response.EngineResponse) {
 	startTime := time.Now()
 	defer func() {
 		name := resource.GetKind() + "/" + resource.GetName()
@@ -53,7 +53,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	return engineResponses
 }
 
-func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, log logr.Logger, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context) (*response.EngineResponse, error) {
+func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, log logr.Logger, resCache resourcecache.ResourceCache, jsonContext *context.Context) (*response.EngineResponse, error) {
 
 	policyContext := &engine.PolicyContext{
 		Policy:        policy,
