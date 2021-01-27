@@ -36,7 +36,7 @@ func HandleValidation(
 	prGenerator policyreport.GeneratorInterface,
 	log logr.Logger,
 	dynamicConfig config.Interface,
-	resCache resourcecache.ResourceCacheIface) (bool, string) {
+	resCache resourcecache.ResourceCache) (bool, string) {
 
 	if len(policies) == 0 {
 		return true, ""
