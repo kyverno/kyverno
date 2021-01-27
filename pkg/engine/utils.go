@@ -93,6 +93,12 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 	return false, nil
 }
 
+func checkNamespaceSelector(NamespaceSelector *metav1.LabelSelector, namespace string) (bool, error) {
+	// get the namespace obj
+	//get label and compare with namespaceSelector - check func checkSelector
+	return false, nil
+}
+
 // doesResourceMatchConditionBlock filters the resource with defined conditions
 // for a match / exclude block, it has the following attributes:
 // ResourceDescription:
@@ -137,6 +143,17 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 
 	if conditionBlock.Selector != nil {
 		hasPassed, err := checkSelector(conditionBlock.Selector, resource.GetLabels())
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse selector: %v", err))
+		} else {
+			if !hasPassed {
+				errs = append(errs, fmt.Errorf("selector does not match"))
+			}
+		}
+	}
+
+	if conditionBlock.NamespaceSelector != nil {
+		hasPassed, err := checkNamespaceSelector(conditionBlock.NamespaceSelector, resource.GetNamespace())
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse selector: %v", err))
 		} else {
