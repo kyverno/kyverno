@@ -185,12 +185,16 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 
 	delete(obj["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
 	delete(obj["metadata"].(map[string]interface{})["labels"].(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
-	delete(newRes["metadata"].(map[string]interface{}), "managedFields")
 
-	requiredMetadata := make(map[string]interface{})
-	requiredMetadata["annotations"] = obj["metadata"].(map[string]interface{})["annotations"]
-	requiredMetadata["labels"] = obj["metadata"].(map[string]interface{})["labels"]
-	obj["metadata"] = requiredMetadata
+	requiredMetadataInObj := make(map[string]interface{})
+	requiredMetadataInObj["annotations"] = obj["metadata"].(map[string]interface{})["annotations"]
+	requiredMetadataInObj["labels"] = obj["metadata"].(map[string]interface{})["labels"]
+	obj["metadata"] = requiredMetadataInObj
+
+	requiredMetadataInNewRes := make(map[string]interface{})
+	requiredMetadataInNewRes["annotations"] = newRes["metadata"].(map[string]interface{})["annotations"]
+	requiredMetadataInNewRes["labels"] = newRes["metadata"].(map[string]interface{})["labels"]
+	newRes["metadata"] = requiredMetadataInNewRes
 
 	if _, found := obj["status"]; found {
 		delete(obj, "status")
