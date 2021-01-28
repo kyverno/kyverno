@@ -21,6 +21,7 @@ import (
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 )
 
 // HandleValidation handles validating webhook admission request
@@ -39,6 +40,7 @@ func HandleValidation(
 	dynamicConfig config.Interface,
 	resCache resourcecache.ResourceCache,
 	client *client.Client) (bool, string) {
+	nsLister listerv1.NamespaceLister) (bool, string) {
 
 	if len(policies) == 0 {
 		return true, ""
@@ -85,7 +87,7 @@ func HandleValidation(
 	for _, policy := range policies {
 		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 		policyContext.Policy = *policy
-		engineResponse := engine.Validate(policyContext)
+		engineResponse := engine.Validate(policyContext, nsLister)
 		if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
 			// we get an empty response if old and new resources created the same response
 			// allow updates if resource update doesnt change the policy evaluation

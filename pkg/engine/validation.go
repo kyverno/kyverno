@@ -15,11 +15,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //Validate applies validation rules from policy on the resource
-func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
+func Validate(policyContext *PolicyContext, nsLister listerv1.NamespaceLister) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	startTime := time.Now()
 
@@ -30,7 +31,7 @@ func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
-	resp = validateResource(logger, policyContext)
+	resp = validateResource(logger, policyContext, nsLister)
 	return
 }
 
@@ -83,7 +84,7 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }
 
-func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineResponse {
+func validateResource(log logr.Logger, ctx *PolicyContext, nsLister listerv1.NamespaceLister) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 	if ManagedPodResource(ctx.Policy, ctx.NewResource) {
 		log.V(5).Info("skip policy as direct changes to pods managed by workload controllers are not allowed", "policy", ctx.Policy.GetName())
@@ -103,7 +104,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 			continue
 		}
 
-		if !matches(log, rule, ctx) {
+		if !matches(log, rule, ctx, nsLister) {
 			continue
 		}
 
@@ -167,14 +168,14 @@ func validateResourceWithRule(log logr.Logger, ctx *PolicyContext, rule kyverno.
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
-func matches(logger logr.Logger, rule kyverno.Rule, ctx *PolicyContext) bool {
-	err := MatchesResourceDescription(ctx.NewResource, rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole)
+func matches(logger logr.Logger, rule kyverno.Rule, ctx *PolicyContext, nsLister listerv1.NamespaceLister) bool {
+	err := MatchesResourceDescription(ctx.NewResource, rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, nsLister)
 	if err == nil {
 		return true
 	}
 
 	if !reflect.DeepEqual(ctx.OldResource, unstructured.Unstructured{}) {
-		err := MatchesResourceDescription(ctx.OldResource, rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole)
+		err := MatchesResourceDescription(ctx.OldResource, rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, nsLister)
 		if err == nil {
 			return true
 		}

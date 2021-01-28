@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/minio/pkg/wildcard"
@@ -16,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -93,10 +96,17 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 	return false, nil
 }
 
-func checkNamespaceSelector(NamespaceSelector *metav1.LabelSelector, namespace string) (bool, error) {
-	// get the namespace obj
-	//get label and compare with namespaceSelector - check func checkSelector
-	return false, nil
+func checkNamespaceSelector(NamespaceSelector *metav1.LabelSelector, namespace string, nsLister listerv1.NamespaceLister) (bool, error) {
+	namespaceObj, err := nsLister.Get(namespace)
+	if err != nil {
+		log.Log.Error(err, "failed to get the namespace", "name", namespace)
+	}
+
+	namespaceRaw, err := json.Marshal(namespaceObj)
+	namespaceUnstructured, err := enginutils.ConvertToUnstructured(namespaceRaw)
+	hasPassed, _ := checkSelector(NamespaceSelector, namespaceUnstructured.GetLabels())
+
+	return hasPassed, nil
 }
 
 // doesResourceMatchConditionBlock filters the resource with defined conditions
@@ -114,7 +124,7 @@ func checkNamespaceSelector(NamespaceSelector *metav1.LabelSelector, namespace s
 // should be: AND across attributes but an OR inside attributes that of type list
 // To filter out the targeted resources with UserInfo, the check
 // should be: OR (across & inside) attributes
-func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string) []error {
+func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, nsLister listerv1.NamespaceLister) []error {
 	var errs []error
 
 	if len(conditionBlock.Kinds) > 0 {
@@ -152,13 +162,13 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 		}
 	}
 
-	if conditionBlock.NamespaceSelector != nil {
-		hasPassed, err := checkNamespaceSelector(conditionBlock.NamespaceSelector, resource.GetNamespace())
+	if conditionBlock.NamespaceSelector != nil && nsLister != nil {
+		hasPassed, err := checkNamespaceSelector(conditionBlock.NamespaceSelector, resource.GetNamespace(), nsLister)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse selector: %v", err))
+			errs = append(errs, fmt.Errorf("failed to parse namespace selector: %v", err))
 		} else {
 			if !hasPassed {
-				errs = append(errs, fmt.Errorf("selector does not match"))
+				errs = append(errs, fmt.Errorf("namespace selector does not match"))
 			}
 		}
 	}
@@ -237,7 +247,7 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 }
 
 //MatchesResourceDescription checks if the resource matches resource description of the rule or not
-func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo, dynamicConfig []string) error {
+func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo, dynamicConfig []string, nsLister listerv1.NamespaceLister) error {
 
 	rule := *ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
@@ -252,7 +262,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	// checking if resource matches the rule
 	if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) ||
 		!reflect.DeepEqual(rule.MatchResources.UserInfo, kyverno.UserInfo{}) {
-		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource, dynamicConfig)
+		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource, dynamicConfig, nsLister)
 		reasonsForFailure = append(reasonsForFailure, matchErrs...)
 	} else {
 		reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
@@ -261,7 +271,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	// checking if resource has been excluded
 	if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) ||
 		!reflect.DeepEqual(rule.ExcludeResources.UserInfo, kyverno.UserInfo{}) {
-		excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource, dynamicConfig)
+		excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource, dynamicConfig, nsLister)
 		if excludeErrs == nil {
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded"))
 		}

@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 )
 
 func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
@@ -44,7 +45,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	}
 
 	// 2 - Apply the generate policy on the resource
-	genResources, err = c.applyGenerate(*resource, *gr)
+	genResources, err = c.applyGenerate(c.nsLister, *resource, *gr)
 
 	if err != nil {
 		// Need not update the stauts when policy doesn't apply on resource, because all the generate requests are removed by the cleanup controller
@@ -64,7 +65,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 
 const doesNotApply = "policy does not apply to resource"
 
-func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest) ([]kyverno.ResourceSpec, error) {
+func (c *Controller) applyGenerate(nsLister listerv1.NamespaceLister, resource unstructured.Unstructured, gr kyverno.GenerateRequest) ([]kyverno.ResourceSpec, error) {
 	logger := c.log.WithValues("name", gr.Name, "policy", gr.Spec.Policy, "kind", gr.Spec.Resource.Kind, "apiVersion", gr.Spec.Resource.APIVersion, "namespace", gr.Spec.Resource.Namespace, "name", gr.Spec.Resource.Name)
 	// Get the list of rules to be applied
 	// get policy
@@ -132,7 +133,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	}
 
 	// check if the policy still applies to the resource
-	engineResponse := engine.Generate(policyContext)
+	engineResponse := engine.Generate(policyContext, nsLister)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		logger.V(4).Info(doesNotApply)
 		return nil, errors.New(doesNotApply)

@@ -1,11 +1,12 @@
 package engine
 
 import (
+	"time"
+
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"time"
 )
 
 // Generate checks for validity of generate rule on the resource
