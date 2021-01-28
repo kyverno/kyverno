@@ -100,10 +100,16 @@ func checkNamespaceSelector(NamespaceSelector *metav1.LabelSelector, namespace s
 	namespaceObj, err := nsLister.Get(namespace)
 	if err != nil {
 		log.Log.Error(err, "failed to get the namespace", "name", namespace)
+		return false, err
 	}
 
+	namespaceObj.Kind = "Namespace"
 	namespaceRaw, err := json.Marshal(namespaceObj)
 	namespaceUnstructured, err := enginutils.ConvertToUnstructured(namespaceRaw)
+	if err != nil {
+		log.Log.Error(err, "failed to convert object resource to unstructured format")
+		return false, err
+	}
 	hasPassed, _ := checkSelector(NamespaceSelector, namespaceUnstructured.GetLabels())
 
 	return hasPassed, nil
@@ -162,7 +168,7 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 		}
 	}
 
-	if conditionBlock.NamespaceSelector != nil && nsLister != nil {
+	if conditionBlock.NamespaceSelector != nil && nsLister != nil && resource.GetKind() != "Namespace" && resource.GetKind() != "" {
 		hasPassed, err := checkNamespaceSelector(conditionBlock.NamespaceSelector, resource.GetNamespace(), nsLister)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse namespace selector: %v", err))
