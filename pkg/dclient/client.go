@@ -147,6 +147,7 @@ func (c *Client) ListResource(apiVersion string, kind string, namespace string, 
 	if lselector != nil {
 		options = meta.ListOptions{LabelSelector: helperv1.FormatLabelSelector(lselector)}
 	}
+
 	return c.getResourceInterface(apiVersion, kind, namespace).List(context.TODO(), options)
 }
 
@@ -326,31 +327,38 @@ func (c ServerPreferredResources) FindResource(apiVersion string, kind string) (
 }
 
 func (c ServerPreferredResources) findResource(apiVersion string, kind string) (*meta.APIResource, schema.GroupVersionResource, error) {
-	var serverresources []*meta.APIResourceList
+	var serverResources []*meta.APIResourceList
 	var err error
 	if apiVersion == "" {
-		serverresources, err = c.cachedClient.ServerPreferredResources()
+		serverResources, err = c.cachedClient.ServerPreferredResources()
 	} else {
-		serverresources, err = c.cachedClient.ServerResources()
+		_, serverResources, err = c.cachedClient.ServerGroupsAndResources()
 	}
 
 	if err != nil {
-		c.log.Error(err, "failed to get registered preferred resources")
-		return nil, schema.GroupVersionResource{}, err
+		if discovery.IsGroupDiscoveryFailedError(err) {
+			logDiscoveryErrors(err, c)
+		} else if isMetricsServerUnavailable(kind, err) {
+			c.log.V(3).Info("failed to find preferred resource version", "error", err.Error())
+		} else {
+			c.log.Error(err, "failed to find preferred resource version")
+			return nil, schema.GroupVersionResource{}, err
+		}
 	}
 
-	for _, serverresource := range serverresources {
+	for _, serverResource := range serverResources {
 
-		if apiVersion != "" && serverresource.GroupVersion != apiVersion {
+		if apiVersion != "" && serverResource.GroupVersion != apiVersion {
 			continue
 		}
-		for _, resource := range serverresource.APIResources {
+
+		for _, resource := range serverResource.APIResources {
 
 			// skip the resource names with "/", to avoid comparison with subresources
 			if resource.Kind == kind && !strings.Contains(resource.Name, "/") {
-				gv, err := schema.ParseGroupVersion(serverresource.GroupVersion)
+				gv, err := schema.ParseGroupVersion(serverResource.GroupVersion)
 				if err != nil {
-					c.log.Error(err, "failed to parse groupVersion", "groupVersion", serverresource.GroupVersion)
+					c.log.Error(err, "failed to parse groupVersion", "groupVersion", serverResource.GroupVersion)
 					return nil, schema.GroupVersionResource{}, err
 				}
 
@@ -360,4 +368,25 @@ func (c ServerPreferredResources) findResource(apiVersion string, kind string) (
 	}
 
 	return nil, schema.GroupVersionResource{}, fmt.Errorf("kind '%s' not found in apiVersion '%s'", kind, apiVersion)
+}
+
+func logDiscoveryErrors(err error, c ServerPreferredResources) {
+	discoveryError := err.(*discovery.ErrGroupDiscoveryFailed)
+	for gv, e := range discoveryError.Groups {
+		if gv.Group == "custom.metrics.k8s.io" || gv.Group == "metrics.k8s.io" {
+			// These error occur when Prometheus is installed as an external metrics server
+			// See: https://github.com/kyverno/kyverno/issues/1490
+			c.log.V(3).Info("failed to retrieve metrics API group", "gv", gv)
+			continue
+		}
+
+		c.log.Error(e, "failed to retrieve API group", "gv", gv)
+	}
+}
+
+func isMetricsServerUnavailable(kind string, err error) bool {
+	// error message is defined at:
+	// https://github.com/kubernetes/apimachinery/blob/2456ebdaba229616fab2161a615148884b46644b/pkg/api/errors/errors.go#L432
+	return strings.HasPrefix(kind, "metrics.k8s.io/") &&
+		strings.Contains(err.Error(), "the server is currently unable to handle the request")
 }

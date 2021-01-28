@@ -2,10 +2,9 @@ package utils
 
 import (
 	"fmt"
-	"reflect"
 	"regexp"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strconv"
-	"strings"
 
 	"github.com/go-logr/logr"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -57,35 +56,30 @@ func NewKubeClient(config *rest.Config) (kubernetes.Interface, error) {
 	return kclient, nil
 }
 
-//CRDInstalled to check if the CRD is installed or not
-func CRDInstalled(discovery client.IDiscovery, log logr.Logger) bool {
-	logger := log.WithName("CRDInstalled")
-	check := func(kind string) bool {
-		gvr, err := discovery.GetGVRFromKind(kind)
-		if err != nil {
-			if isServerUnavailable(err) {
-				logger.Info("**WARNING** unable to check CRD status", "kind", kind, "error", err.Error())
-				return true
-			}
-
-			logger.Error(err, "failed to check CRD status", "kind", kind)
-			return false
-		}
-
-		if reflect.DeepEqual(gvr, schema.GroupVersionResource{}) {
-			logger.Info("CRD not installed", "kind", kind)
-			return false
-		}
-		logger.Info("CRD found", "kind", kind)
-		return true
-	}
-
+// CRDsInstalled checks if the Kyverno CRDs are installed or not
+func CRDsInstalled(discovery client.IDiscovery) bool {
 	kyvernoCRDs := []string{"ClusterPolicy", "ClusterPolicyReport", "PolicyReport", "ClusterReportChangeRequest", "ReportChangeRequest"}
 	for _, crd := range kyvernoCRDs {
-		if !check(crd) {
+		if !isCRDInstalled(discovery, crd) {
 			return false
 		}
 	}
+
+	return true
+}
+
+func isCRDInstalled(discoveryClient client.IDiscovery, kind string) bool {
+	gvr, err := discoveryClient.GetGVRFromKind(kind)
+	if gvr.Empty() {
+		if err == nil {
+			err = fmt.Errorf("not found")
+		}
+
+		log.Log.Error(err, "failed to retrieve CRD", "kind", kind)
+		return false
+	}
+
+	log.Log.Info("CRD found", "gvr", gvr.String())
 	return true
 }
 
@@ -192,10 +186,4 @@ func SliceContains(slice []string, values ...string) bool {
 	}
 
 	return false
-}
-
-func isServerUnavailable(err error) bool {
-	// error message -
-	// https://github.com/kubernetes/apimachinery/blob/2456ebdaba229616fab2161a615148884b46644b/pkg/api/errors/errors.go#L432
-	return strings.Contains(err.Error(), "the server is currently unable to handle the request")
 }
