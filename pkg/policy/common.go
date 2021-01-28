@@ -160,16 +160,25 @@ func GetAllNamespaces(nslister listerv1.NamespaceLister, log logr.Logger) []stri
 }
 
 func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) interface{} {
-	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
+	list, err := func() (list []*unstructured.Unstructured, err error) {
+		var selector labels.Selector
+		if labelSelector == nil {
+			selector = labels.Everything()
+		} else {
+			if selector, err = metav1.LabelSelectorAsSelector(labelSelector); err != nil {
+				return nil, err
+			}
+		}
 
-	genericCache, _ := pc.resCache.GetGVRCache(kind)
+		genericCache, _ := pc.resCache.GetGVRCache(kind)
 
-	var list []*unstructured.Unstructured
-	if namespace != "" {
-		list, err = genericCache.NamespacedLister(namespace).List(labels.Everything())
-	} else {
-		list, err = genericCache.Lister().List(selector)
-	}
+		if namespace != "" {
+			list, err = genericCache.NamespacedLister(namespace).List(selector)
+		} else {
+			list, err = genericCache.Lister().List(selector)
+		}
+		return list, err
+	}()
 
 	if err != nil {
 		log.V(3).Info("failed to list resource using lister, try to query from the API server", "err", err.Error())

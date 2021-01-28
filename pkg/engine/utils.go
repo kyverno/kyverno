@@ -319,7 +319,7 @@ func AddResourceToContext(logger logr.Logger, contextEntries []kyverno.ContextEn
 		return nil
 	}
 
-	gvrC, ok := resCache.GetGVRCache("configmaps")
+	gvrC, ok := resCache.GetGVRCache("ConfigMap")
 	if ok {
 		lister := gvrC.Lister()
 		for _, context := range contextEntries {
