@@ -22,7 +22,6 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -275,7 +274,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
 func (c *Controller) worker() {
-	log.Log.Info("starting new worker...")
+	c.log.Info("starting new worker...")
 
 	for c.processNextWorkItem() {
 	}
