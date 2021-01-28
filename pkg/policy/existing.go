@@ -74,7 +74,7 @@ func (pc *PolicyController) applyPolicy(policy *kyverno.ClusterPolicy, resource 
 		logger.V(4).Info("policy and resource already processed", "policyResourceVersion", policy.ResourceVersion, "resourceResourceVersion", resource.GetResourceVersion(), "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
 	}
 
-	engineResponse := applyPolicy(*policy, resource, logger, pc.configHandler.GetExcludeGroupRole(), pc.resCache)
+	engineResponse := applyPolicy(*policy, resource, logger, pc.configHandler.GetExcludeGroupRole(), pc.resCache, pc.nsLister)
 	engineResponses = append(engineResponses, engineResponse...)
 
 	// post-processing, register the resource as processed

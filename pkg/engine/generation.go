@@ -1,22 +1,24 @@
 package engine
 
 import (
+	"time"
+
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"time"
 )
 
 // Generate checks for validity of generate rule on the resource
 // 1. validate variables to be substitute in the general ruleInfo (match,exclude,condition)
 //    - the caller has to check the ruleResponse to determine whether the path exist
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
-func Generate(policyContext PolicyContext) (resp *response.EngineResponse) {
-	return filterRules(policyContext)
+func Generate(policyContext PolicyContext, nsLister listerv1.NamespaceLister) (resp *response.EngineResponse) {
+	return filterRules(policyContext, nsLister)
 }
 
-func filterRules(policyContext PolicyContext) *response.EngineResponse {
+func filterRules(policyContext PolicyContext, nsLister listerv1.NamespaceLister) *response.EngineResponse {
 	kind := policyContext.NewResource.GetKind()
 	name := policyContext.NewResource.GetName()
 	namespace := policyContext.NewResource.GetNamespace()
@@ -38,7 +40,7 @@ func filterRules(policyContext PolicyContext) *response.EngineResponse {
 	}
 
 	for _, rule := range policyContext.Policy.Spec.Rules {
-		if ruleResp := filterRule(rule, policyContext); ruleResp != nil {
+		if ruleResp := filterRule(rule, policyContext, nsLister); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}
@@ -46,7 +48,7 @@ func filterRules(policyContext PolicyContext) *response.EngineResponse {
 	return resp
 }
 
-func filterRule(rule kyverno.Rule, policyContext PolicyContext) *response.RuleResponse {
+func filterRule(rule kyverno.Rule, policyContext PolicyContext, nsLister listerv1.NamespaceLister) *response.RuleResponse {
 	if !rule.HasGenerate() {
 		return nil
 	}
@@ -65,10 +67,10 @@ func filterRule(rule kyverno.Rule, policyContext PolicyContext) *response.RuleRe
 	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name,
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 
-	if err := MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole); err != nil {
+	if err := MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, nsLister); err != nil {
 
 		// if the oldResource matched, return "false" to delete GR for it
-		if err := MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole); err == nil {
+		if err := MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, nsLister); err == nil {
 			return &response.RuleResponse{
 				Name:    rule.Name,
 				Type:    "Generation",
