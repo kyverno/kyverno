@@ -10,7 +10,7 @@ ARG LD_FLAGS
 ADD . /kyverno
 WORKDIR /kyverno
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /output/kyverno -ldflags="${LD_FLAGS}" -v ./cmd/kubectl-kyverno/
+RUN CGO_ENABLED=0 GOOS=linux go build -o /output/kyverno -ldflags="${LD_FLAGS}" -v ./cmd/cli/kubectl-kyverno/
 
 RUN useradd -u 10001 kyverno
 
