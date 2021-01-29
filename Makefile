@@ -94,7 +94,7 @@ cli:
 docker-publish-cli: docker-build-cli  docker-tag-repo-cli  docker-push-cli
 
 docker-build-cli:
-	@docker build -f $(PWD)/$(CLI_PATH)/Dockerfile -t $(REPO)/$(CLI_PATH):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker build -f $(PWD)/$(CLI_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 docker-tag-repo-cli:
 	@echo "docker tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(REPO)/$(KYVERNO_CLI_IMAGE):latest"
