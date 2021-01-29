@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	context2 "github.com/kyverno/kyverno/pkg/engine/context"
+	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -38,6 +39,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // WebhookServer contains configured TLS server with MutationWebhook.
@@ -468,7 +470,12 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		logger.Error(err, "failed to load service account in context")
 	}
 
-	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.prGenerator, ws.log, ws.configHandler, ws.resCache, ws.nsLister)
+	fmt.Println("---------------------------------------------------------------------")
+	r, _ := json.Marshal(request)
+	fmt.Println(string(r))
+	fmt.Println("---------------------------------------------------------------------")
+
+	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.prGenerator, ws.log, ws.configHandler, ws.resCache, ws.getNamespaceSelectors(request))
 	if !ok {
 		logger.Info("admission request denied")
 		return &v1beta1.AdmissionResponse{
@@ -557,4 +564,25 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 	}
 
 	return admissionReview
+}
+
+func (ws *WebhookServer) getNamespaceSelectors(request *v1beta1.AdmissionRequest) map[string]string {
+	var namespaceLabels map[string]string
+	if request.Kind.Kind != "Namespace" {
+		namespaceOfResource := request.Namespace
+		namespaceObj, err := ws.nsLister.Get(namespaceOfResource)
+		if err != nil {
+			log.Log.Error(err, "failed to get the namespace", "name", namespaceOfResource)
+		}
+
+		namespaceObj.Kind = "Namespace"
+		namespaceRaw, err := json.Marshal(namespaceObj)
+		namespaceUnstructured, err := enginutils.ConvertToUnstructured(namespaceRaw)
+		if err != nil {
+			log.Log.Error(err, "failed to convert object resource to unstructured format")
+		}
+		fmt.Println("namespaceUnstructured  ", namespaceUnstructured)
+		namespaceLabels = namespaceUnstructured.GetLabels()
+	}
+	return namespaceLabels
 }

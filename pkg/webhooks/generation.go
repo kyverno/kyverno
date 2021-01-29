@@ -54,7 +54,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		for _, policy := range policies {
 			var rules []response.RuleResponse
 			policyContext.Policy = *policy
-			engineResponse := engine.Generate(policyContext, ws.nsLister)
+			engineResponse := engine.Generate(policyContext, ws.getNamespaceSelectors(request))
 			for _, rule := range engineResponse.PolicyResponse.Rules {
 				if !rule.Success {
 					ws.deleteGR(logger, engineResponse)

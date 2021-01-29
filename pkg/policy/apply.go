@@ -16,12 +16,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 )
 
 // applyPolicy applies policy on a resource
 func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured,
-	logger logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface, nsLister listerv1.NamespaceLister) (responses []*response.EngineResponse) {
+	logger logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface, namespaceLabel map[string]string) (responses []*response.EngineResponse) {
 	startTime := time.Now()
 	defer func() {
 		name := resource.GetKind() + "/" + resource.GetName()
@@ -43,18 +42,18 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		logger.Error(err, "enable to add transform resource to ctx")
 	}
 
-	engineResponseMutation, err = mutation(policy, resource, logger, resCache, ctx, nsLister)
+	engineResponseMutation, err = mutation(policy, resource, logger, resCache, ctx, namespaceLabel)
 	if err != nil {
 		logger.Error(err, "failed to process mutation rule")
 	}
 
-	engineResponseValidation = engine.Validate(&engine.PolicyContext{Policy: policy, NewResource: resource, ExcludeGroupRole: excludeGroupRole, ResourceCache: resCache, JSONContext: ctx}, nsLister)
+	engineResponseValidation = engine.Validate(&engine.PolicyContext{Policy: policy, NewResource: resource, ExcludeGroupRole: excludeGroupRole, ResourceCache: resCache, JSONContext: ctx}, namespaceLabel)
 	engineResponses = append(engineResponses, mergeRuleRespose(engineResponseMutation, engineResponseValidation))
 
 	return engineResponses
 }
 
-func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, log logr.Logger, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context, nsLister listerv1.NamespaceLister) (*response.EngineResponse, error) {
+func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, log logr.Logger, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context, namespaceLabel map[string]string) (*response.EngineResponse, error) {
 
 	policyContext := &engine.PolicyContext{
 		Policy:        policy,
@@ -63,7 +62,7 @@ func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, 
 		JSONContext:   jsonContext,
 	}
 
-	engineResponse := engine.Mutate(policyContext, nsLister)
+	engineResponse := engine.Mutate(policyContext, namespaceLabel)
 	if !engineResponse.IsSuccessful() {
 		log.V(4).Info("failed to apply mutation rules; reporting them")
 		return engineResponse, nil

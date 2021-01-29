@@ -1,6 +1,8 @@
 package webhooks
 
 import (
+	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -9,6 +11,7 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
+	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -180,7 +183,25 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		return errors.Wrap(err, "failed to load service account in context")
 	}
 
-	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, h.nsLister)
+	var namespaceLabels map[string]string
+	if request.Kind.Kind != "Namespace" {
+		namespaceOfResource := request.Namespace
+		namespaceObj, err := h.nsLister.Get(namespaceOfResource)
+		if err != nil {
+			logger.Error(err, "failed to get the namespace", "name", namespaceOfResource)
+		}
+
+		namespaceObj.Kind = "Namespace"
+		namespaceRaw, err := json.Marshal(namespaceObj)
+		namespaceUnstructured, err := enginutils.ConvertToUnstructured(namespaceRaw)
+		if err != nil {
+			logger.Error(err, "failed to convert object resource to unstructured format")
+		}
+		fmt.Println("namespaceUnstructured  ", namespaceUnstructured)
+		namespaceLabels = namespaceUnstructured.GetLabels()
+	}
+
+	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, namespaceLabels)
 	return nil
 }
 

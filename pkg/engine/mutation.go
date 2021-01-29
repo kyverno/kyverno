@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -23,7 +22,7 @@ const (
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(policyContext *PolicyContext, nsLister listerv1.NamespaceLister) (resp *response.EngineResponse) {
+func Mutate(policyContext *PolicyContext, namespaceLabel map[string]string) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	startTime := time.Now()
 	policy := policyContext.Policy
@@ -61,7 +60,7 @@ func Mutate(policyContext *PolicyContext, nsLister listerv1.NamespaceLister) (re
 			excludeResource = policyContext.ExcludeGroupRole
 		}
 
-		if err := MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, nsLister); err != nil {
+		if err := MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, namespaceLabel); err != nil {
 			logger.V(4).Info("rule not matched", "reason", err.Error())
 			continue
 		}
