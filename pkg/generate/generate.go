@@ -16,13 +16,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 )
 
 func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
@@ -45,7 +45,24 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	}
 
 	// 2 - Apply the generate policy on the resource
-	genResources, err = c.applyGenerate(c.nsLister, *resource, *gr)
+	var namespaceLabels map[string]string
+	if resource.GetKind() != "Namespace" {
+		namespaceOfResource := resource.GetNamespace()
+		namespaceObj, err := c.nsLister.Get(namespaceOfResource)
+		if err != nil {
+			logger.Error(err, "failed to get the namespace", "name", namespaceOfResource)
+		}
+
+		namespaceObj.Kind = "Namespace"
+		namespaceRaw, err := json.Marshal(namespaceObj)
+		namespaceUnstructured, err := enginutils.ConvertToUnstructured(namespaceRaw)
+		if err != nil {
+			logger.Error(err, "failed to convert object resource to unstructured format")
+		}
+		fmt.Println("namespaceUnstructured  ", namespaceUnstructured)
+		namespaceLabels = namespaceUnstructured.GetLabels()
+	}
+	genResources, err = c.applyGenerate(namespaceLabels, *resource, *gr)
 
 	if err != nil {
 		// Need not update the stauts when policy doesn't apply on resource, because all the generate requests are removed by the cleanup controller
@@ -65,7 +82,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 
 const doesNotApply = "policy does not apply to resource"
 
-func (c *Controller) applyGenerate(nsLister listerv1.NamespaceLister, resource unstructured.Unstructured, gr kyverno.GenerateRequest) ([]kyverno.ResourceSpec, error) {
+func (c *Controller) applyGenerate(namespaceLabel map[string]string, resource unstructured.Unstructured, gr kyverno.GenerateRequest) ([]kyverno.ResourceSpec, error) {
 	logger := c.log.WithValues("name", gr.Name, "policy", gr.Spec.Policy, "kind", gr.Spec.Resource.Kind, "apiVersion", gr.Spec.Resource.APIVersion, "namespace", gr.Spec.Resource.Namespace, "name", gr.Spec.Resource.Name)
 	// Get the list of rules to be applied
 	// get policy
@@ -133,7 +150,7 @@ func (c *Controller) applyGenerate(nsLister listerv1.NamespaceLister, resource u
 	}
 
 	// check if the policy still applies to the resource
-	engineResponse := engine.Generate(policyContext, nsLister)
+	engineResponse := engine.Generate(policyContext, namespaceLabel)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		logger.V(4).Info(doesNotApply)
 		return nil, errors.New(doesNotApply)
