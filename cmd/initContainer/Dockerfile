@@ -24,4 +24,4 @@ COPY --from=builder /etc/passwd /etc/passwd
 
 USER kyverno
 
-ENTRYPOINT ["./kyverno"]
+ENTRYPOINT ["./kyvernopre"]
