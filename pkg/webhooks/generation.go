@@ -42,7 +42,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 			logger.Error(err, "failed to extract resource")
 		}
 
-		policyContext := engine.PolicyContext{
+		policyContext := &engine.PolicyContext{
 			NewResource:         new,
 			OldResource:         old,
 			AdmissionInfo:       userRequestInfo,

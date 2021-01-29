@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-logr/logr"
+	"github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/cache"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
@@ -310,10 +312,8 @@ func ManagedPodResource(policy kyverno.ClusterPolicy, resource unstructured.Unst
 	return false
 }
 
-// AddResourceToContext - Add the Configmap JSON to Context.
-// it will read configmaps (can be extended to get other type of resource like secrets, namespace etc)
-// from the informer cache and add the configmap data to context
-func AddResourceToContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCacheIface, ctx *context.Context) error {
+// BuildContext - Fetches and adds external data to the Context.
+func BuildContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCacheIface, ctx *PolicyContext) error {
 	if len(contextEntries) == 0 {
 		return nil
 	}
@@ -321,49 +321,141 @@ func AddResourceToContext(logger logr.Logger, contextEntries []kyverno.ContextEn
 	// get GVR Cache for "configmaps"
 	// can get cache for other resources if the informers are enabled in resource cache
 	gvrC := resCache.GetGVRCache("configmaps")
-
-	if gvrC != nil {
-		lister := gvrC.GetLister()
-		for _, context := range contextEntries {
-			contextData := make(map[string]interface{})
-			name := context.ConfigMap.Name
-			namespace := context.ConfigMap.Namespace
-			if namespace == "" {
-				namespace = "default"
-			}
-
-			key := fmt.Sprintf("%s/%s", namespace, name)
-			obj, err := lister.Get(key)
-			if err != nil {
-				logger.Error(err, fmt.Sprintf("failed to read configmap %s/%s from cache", namespace, name))
-				continue
-			}
-
-			unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-			if err != nil {
-				logger.Error(err, "failed to convert context runtime object to unstructured")
-				continue
-			}
-
-			// extract configmap data
-			contextData["data"] = unstructuredObj["data"]
-			contextData["metadata"] = unstructuredObj["metadata"]
-			contextNamedData := make(map[string]interface{})
-			contextNamedData[context.Name] = contextData
-			jdata, err := json.Marshal(contextNamedData)
-			if err != nil {
-				logger.Error(err, "failed to unmarshal context data")
-				continue
-			}
-
-			// add data to context
-			err = ctx.AddJSON(jdata)
-			if err != nil {
-				logger.Error(err, "failed to load context json")
-				continue
-			}
-		}
-		return nil
+	if gvrC == nil {
+		return errors.New("configmaps GVR Cache not found")
 	}
-	return errors.New("configmaps GVR Cache not found")
+
+	lister := gvrC.GetLister()
+
+	for _, entry := range contextEntries {
+		if entry.ConfigMap != nil {
+			loadConfigMap(logger, entry, lister, ctx.JSONContext)
+		} else if entry.APICall != nil {
+			loadAPIData(logger, entry, ctx)
+		}
+	}
+
+	return nil
+}
+
+func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) {
+	if entry.APICall == nil {
+		err := fmt.Errorf("missing APICall")
+		logger.Error(err, "failed to load context API data", "contextEntry", entry)
+		return
+	}
+
+	p, err := NewAPIPath(entry.APICall.URLPath)
+	if err != nil {
+		logger.Error(err, "failed to build API path", "contextEntry", entry)
+		return
+	}
+
+	var data []byte
+	if p.Name != "" {
+		data, err = loadResource(ctx, p)
+		if err != nil {
+			logger.Error(err, "failed to add resource", "urlPath", p)
+			return
+		}
+
+	} else {
+		data, err = loadResourceList(ctx, p)
+		if err != nil {
+			logger.Error(err, "failed to add resource list", "urlPath", p)
+			return
+		}
+	}
+
+	if entry.APICall.JMESPath == "" {
+		err = ctx.JSONContext.AddJSON(data)
+		if err != nil {
+			logger.Error(err, "failed to add resource data to context", "urlPath", p)
+		}
+
+		return
+	}
+
+	jp, err := jmespath.Compile(entry.APICall.JMESPath)
+	if err != nil {
+		logger.Error(err, "failed to compile JMESPath", "jmesPath", entry.APICall.JMESPath)
+	}
+
+	results, err := jp.Search(data)
+	if err != nil {
+		logger.Error(err, "failed to apply JMESPath", "urlPath", p, "jmesPath", entry.APICall.JMESPath)
+	}
+
+	resultData, err := json.Marshal(results)
+	if err != nil {
+		logger.Error(err, "failed to marshall JMESPath results", "urlPath", p, "jmesPath", entry.APICall.JMESPath)
+	}
+
+	err = ctx.JSONContext.AddJSON(resultData)
+	if err != nil {
+		logger.Error(err, "failed to add JMESPath results to context", "urlPath", p, "jmesPath", entry.APICall.JMESPath)
+	}
+}
+
+func loadResourceList(ctx *PolicyContext, p *APIPath) ([]byte, error) {
+	l, err := ctx.Client.ListResource(p.Version, p.ResourceType, p.Namespace, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return l.MarshalJSON()
+}
+
+func loadResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
+	r, err := ctx.Client.GetResource(p.Version, p.ResourceType, p.Namespace, p.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.MarshalJSON()
+}
+
+func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister cache.GenericLister, ctx *context.Context) {
+	data, err := retrieveConfigMap(entry, lister)
+	if err != nil {
+		logger.Error(err, "failed to retrieve config map", "contextEntry", entry)
+		return
+	}
+
+	err = ctx.AddJSON(data)
+	if err != nil {
+		logger.Error(err, "failed to add config map", "contextEntry", entry)
+	}
+}
+
+func retrieveConfigMap(entry kyverno.ContextEntry, lister cache.GenericLister) ([]byte, error) {
+	contextData := make(map[string]interface{})
+	name := entry.ConfigMap.Name
+	namespace := entry.ConfigMap.Namespace
+	if namespace == "" {
+		namespace = "default"
+	}
+
+	key := fmt.Sprintf("%s/%s", namespace, name)
+	obj, err := lister.Get(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read configmap %s/%s from cache: %v", namespace, name, err)
+	}
+
+	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert configmap %s/%s: %v", namespace, name, err)
+	}
+
+	// extract configmap data
+	contextData["data"] = unstructuredObj["data"]
+	contextData["metadata"] = unstructuredObj["metadata"]
+	contextNamedData := make(map[string]interface{})
+	contextNamedData[entry.Name] = contextData
+	data, err := json.Marshal(contextNamedData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal configmap %s/%s: %v", namespace, name, err)
+	}
+
+	return data, nil
 }
