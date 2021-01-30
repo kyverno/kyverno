@@ -37,8 +37,12 @@ func HandleValidation(
 	prGenerator policyreport.GeneratorInterface,
 	log logr.Logger,
 	dynamicConfig config.Interface,
+<<<<<<< HEAD
 	resCache resourcecache.ResourceCacheIface,
 	client *client.Client) (bool, string) {
+=======
+	resCache resourcecache.ResourceCache) (bool, string) {
+>>>>>>> c6922631 (Refactor resourceCache; Reduce throttling requests (background controller) (#1500))
 
 	if len(policies) == 0 {
 		return true, ""

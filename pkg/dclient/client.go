@@ -238,6 +238,7 @@ type IDiscovery interface {
 	GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource
 	GetServerVersion() (*version.Info, error)
 	OpenAPISchema() (*openapi_v2.Document, error)
+	DiscoveryCache() discovery.CachedDiscoveryInterface
 }
 
 // SetDiscovery sets the discovery client implementation
@@ -245,15 +246,15 @@ func (c *Client) SetDiscovery(discoveryClient IDiscovery) {
 	c.DiscoveryClient = discoveryClient
 }
 
-// GetDiscoveryCache gets the discovery client cache
-func (c *Client) GetDiscoveryCache() discovery.CachedDiscoveryInterface {
-	return memory.NewMemCacheClient(c.kclient.Discovery())
-}
-
 //ServerPreferredResources stores the cachedClient instance for discovery client
 type ServerPreferredResources struct {
 	cachedClient discovery.CachedDiscoveryInterface
 	log          logr.Logger
+}
+
+// DiscoveryCache gets the discovery client cache
+func (c ServerPreferredResources) DiscoveryCache() discovery.CachedDiscoveryInterface {
+	return c.cachedClient
 }
 
 //Poll will keep invalidate the local cache

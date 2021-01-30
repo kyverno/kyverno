@@ -55,7 +55,7 @@ type auditHandler struct {
 
 	log           logr.Logger
 	configHandler config.Interface
-	resCache      resourcecache.ResourceCacheIface
+	resCache      resourcecache.ResourceCache
 }
 
 // NewValidateAuditHandler returns a new instance of audit policy handler
@@ -67,8 +67,12 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	log logr.Logger,
 	dynamicConfig config.Interface,
+<<<<<<< HEAD
 	resCache resourcecache.ResourceCacheIface,
 	client *client.Client) AuditHandler {
+=======
+	resCache resourcecache.ResourceCache) AuditHandler {
+>>>>>>> c6922631 (Refactor resourceCache; Reduce throttling requests (background controller) (#1500))
 
 	return &auditHandler{
 		pCache:         pCache,

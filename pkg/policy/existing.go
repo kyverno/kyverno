@@ -2,6 +2,7 @@ package policy
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -28,33 +29,42 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 			logger = logger.WithValues("rule", rule.Name, "kind", k)
 			namespaced, err := pc.rm.GetScope(k)
 			if err != nil {
-				resourceSchema, _, err := pc.client.DiscoveryClient.FindResource("", k)
-				if err != nil {
+				if err := pc.registerResource(k); err != nil {
 					logger.Error(err, "failed to find resource", "kind", k)
 					continue
 				}
 
-				namespaced = resourceSchema.Namespaced
-				pc.rm.RegisterScope(k, namespaced)
+				namespaced, _ = pc.rm.GetScope(k)
 			}
 
 			if !namespaced {
-				pc.applyAndReportPerNamespace(policy, k, "", rule, logger)
+				pc.applyAndReportPerNamespace(policy, k, "", rule, logger.WithValues("kind", k))
 				continue
 			}
 
-			namespaces := pc.getNamespacesForRule(&rule, logger)
+			namespaces := pc.getNamespacesForRule(&rule, logger.WithValues("kind", k))
 			for _, ns := range namespaces {
-				pc.applyAndReportPerNamespace(policy, k, ns, rule, logger)
+				pc.applyAndReportPerNamespace(policy, k, ns, rule, logger.WithValues("kind", k).WithValues("ns", ns))
 			}
 		}
 	}
 }
 
+func (pc *PolicyController) registerResource(kind string) (err error) {
+	genericCache, ok := pc.resCache.GetGVRCache(kind)
+	if !ok {
+		if genericCache, err = pc.resCache.CreateResourceInformer(kind); err != nil {
+			return fmt.Errorf("failed to create informer for %s: %v", kind, err)
+		}
+	}
+
+	pc.rm.RegisterScope(kind, genericCache.IsNamespaced())
+	return nil
+}
+
 func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPolicy, kind string, ns string, rule kyverno.Rule, logger logr.Logger) {
 	rMap := pc.getResourcesPerNamespace(kind, ns, rule, logger)
 	excludeAutoGenResources(*policy, rMap, logger)
-
 	if len(rMap) == 0 {
 		return
 	}

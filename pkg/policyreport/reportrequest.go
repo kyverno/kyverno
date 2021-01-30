@@ -279,7 +279,7 @@ func (gen *Generator) syncHandler(info Info) error {
 
 func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) error {
 	logger := gen.log.WithName("sync report change request")
-	defer logger.V(3).Info("successfully reconciled report change request", "kind", reportReq.GetKind(), "key", info.ToKey())
+	defer logger.V(4).Info("successfully reconciled report change request", "kind", reportReq.GetKind(), "key", info.ToKey())
 
 	reportReq.SetCreationTimestamp(v1.Now())
 	if reportReq.GetKind() == "ClusterReportChangeRequest" {

@@ -1,48 +1,63 @@
 package resourcecache
 
 import (
-	"github.com/go-logr/logr"
+	"fmt"
 )
 
-// RunAllInformers - run the informers for the GVR of all the resources available in GVRCacheData
-func (resc *ResourceCache) RunAllInformers(log logr.Logger) {
-	for key := range resc.GVRCacheData {
-		resc.CreateResourceInformer(log, key)
-		log.V(4).Info("created informer for resource", "name", key)
+// CreateInformers ...
+func (resc *resourceCache) CreateInformers(resources ...string) []error {
+	var errs []error
+	for _, resource := range resources {
+		if _, err := resc.CreateResourceInformer(resource); err != nil {
+			errs = append(errs, fmt.Errorf("failed to create informer for %s: %v", resource, err))
+		}
 	}
+	return errs
 }
 
-// CreateResourceInformer - check the availability of the given resource in ResourceCache.
-// if available then create an informer for that GVR and store that GenericInformer instance in the cache and start watching for that resource
-func (resc *ResourceCache) CreateResourceInformer(log logr.Logger, resource string) (bool, error) {
-	res, ok := resc.GVRCacheData[resource]
+// CreateResourceInformer creates informer for the given resource
+func (resc *resourceCache) CreateResourceInformer(resource string) (GenericCache, error) {
+	gc, ok := resc.GetGVRCache(resource)
 	if ok {
-		stopCh := make(chan struct{})
-		res.stopCh = stopCh
-		genInformer := resc.dinformer.ForResource(res.GVR)
-		res.genericInformer = genInformer
-		go startWatching(stopCh, genInformer.Informer())
+		return gc, nil
 	}
-	return true, nil
+
+	apiResource, gvr, err := resc.dclient.DiscoveryClient.FindResource("", resource)
+	if err != nil {
+		return nil, fmt.Errorf("cannot find API resource %s", resource)
+	}
+
+	stopCh := make(chan struct{})
+	genInformer := resc.dinformer.ForResource(gvr)
+	gvrIface := NewGVRCache(gvr, apiResource.Namespaced, stopCh, genInformer)
+
+	resc.gvrCache.Set(resource, gvrIface)
+	resc.dinformer.Start(stopCh)
+
+	if synced := resc.dinformer.WaitForCacheSync(stopCh); !synced[gvr] {
+		return nil, fmt.Errorf("informer for %s hasn't synced", gvr)
+	}
+
+	return gvrIface, nil
 }
 
 // StopResourceInformer - delete the given resource information from ResourceCache and stop watching for the given resource
-func (resc *ResourceCache) StopResourceInformer(log logr.Logger, resource string) bool {
-	res, ok := resc.GVRCacheData[resource]
+func (resc *resourceCache) StopResourceInformer(resource string) {
+	res, ok := resc.GetGVRCache(resource)
 	if ok {
-		delete(resc.GVRCacheData, resource)
-		log.V(4).Info("deleted resource from gvr cache", "name", resource)
+		resc.gvrCache.Remove(resource)
+		resc.log.V(4).Info("deleted resource from gvr cache", "name", resource)
 		res.StopInformer()
-		log.V(4).Info("closed informer for resource", "name", resource)
+		resc.log.V(4).Info("closed informer for resource", "name", resource)
 	}
-	return false
 }
 
 // GetGVRCache - get the GVRCache for a given resource if available
-func (resc *ResourceCache) GetGVRCache(resource string) *GVRCache {
-	res, ok := resc.GVRCacheData[resource]
+func (resc *resourceCache) GetGVRCache(resource string) (GenericCache, bool) {
+	res, ok := resc.gvrCache.Get(resource)
 	if ok {
-		return res
+		return res.(*genericCache), true
 	}
-	return nil
+
+	return nil, false
 }
