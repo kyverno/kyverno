@@ -427,16 +427,84 @@ func validateResources(rule kyverno.Rule) (string, error) {
 
 	// matched resources
 	if path, err := validateMatchedResourceDescription(rule.MatchResources.ResourceDescription); err != nil {
-		return fmt.Sprintf("resources.%s", path), err
+		return fmt.Sprintf("match.resources.%s", path), err
 	}
 	// exclude resources
 	if path, err := validateExcludeResourceDescription(rule.ExcludeResources.ResourceDescription); err != nil {
-		return fmt.Sprintf("resources.%s", path), err
+		return fmt.Sprintf("exclude.resources.%s", path), err
+	}
+
+	//validating the values present under validation.preconditions, if they exist
+	if rule.Conditions != nil {
+		if path, err := validateConditions(rule.Conditions, "preconditions"); err != nil {
+			return fmt.Sprintf("validate.%s", path), err
+		}
+	}
+	// validating the values present under validation.deny.conditions, if they exist
+	if rule.Validation.Deny != nil {
+		if path, err := validateConditions(rule.Validation.Deny.Conditions, "conditions"); err != nil {
+			return fmt.Sprintf("validate.deny.%s", path), err
+		}
+	}
+
+	return "", nil
+}
+
+// validateConditions validates all the 'conditions' or 'preconditions' of a rule depending on the corresponding 'condition.key'.
+// As of now, it is validating the 'value' field whether it contains the only allowed set of values or not when 'condition.key' is {{request.operation}}
+func validateConditions(conditions []kyverno.Condition, schemaKey string) (string, error) {
+	// []kyverno.Condition can only exist under either 'conditions' or 'preconditions' key of the policy schema
+	if schemaKey != "conditions" && schemaKey != "preconditions" {
+		return fmt.Sprintf(schemaKey), fmt.Errorf("wrong schema key found for validating the conditions. Conditions can only occur under 'preconditions' or 'conditions' key in the policy schema")
+	}
+	for i, condition := range conditions {
+		if path, err := validateConditionValues(condition); err != nil {
+			return fmt.Sprintf("%s[%d].%s", schemaKey, i, path), err
+		}
 	}
 	return "", nil
 }
 
-// ValidateUniqueRuleName checks if the rule names are unique across a policy
+// validateConditionValues validates whether all the values under the 'value' field of a 'conditions' field
+// are apt with respect to the provided 'condition.key'
+func validateConditionValues(c kyverno.Condition) (string, error) {
+	switch strings.ReplaceAll(c.Key.(string), " ", "") {
+	case "{{request.operation}}":
+		return validateConditionValuesKeyRequestOperation(c)
+	default:
+		return "", nil
+	}
+}
+
+// validateConditionValuesKeyRequestOperation validates whether all the values under the 'value' field of a 'conditions' field
+// are one of ["CREATE", "UPDATE", "DELETE", "CONNECT"] when 'condition.key' is {{request.operation}}
+func validateConditionValuesKeyRequestOperation(c kyverno.Condition) (string, error) {
+	valuesAllowed := map[string]bool{
+		"CREATE":  true,
+		"UPDATE":  true,
+		"DELETE":  true,
+		"CONNECT": true,
+	}
+	switch reflect.TypeOf(c.Value).Kind() {
+	case reflect.String:
+		if !valuesAllowed[c.Value.(string)] {
+			return fmt.Sprintf("value: %s", c.Value.(string)), fmt.Errorf("unknown value '%s' found under the 'value' field. Only the following values are allowed: [CREATE, UPDATE, DELETE, CONNECT]", c.Value.(string))
+		}
+	case reflect.Slice:
+		values := reflect.ValueOf(c.Value)
+		for i := 0; i < values.Len(); i++ {
+			value := values.Index(i).Interface().(string)
+			if !valuesAllowed[value] {
+				return fmt.Sprintf("value[%d]", i), fmt.Errorf("unknown value '%s' found under the 'value' field. Only the following values are allowed: [CREATE, UPDATE, DELETE, CONNECT]", value)
+			}
+		}
+	default:
+		return fmt.Sprintf("value"), fmt.Errorf("'value' field found to be of the type %v. The provided value/values are expected to be either in the form of a string or list", reflect.TypeOf(c.Value).Kind())
+	}
+	return "", nil
+}
+
+// validateUniqueRuleName checks if the rule names are unique across a policy
 func validateUniqueRuleName(p kyverno.ClusterPolicy) (string, error) {
 	var ruleNames []string
 
