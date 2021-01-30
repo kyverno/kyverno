@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic/fake"
 	kubernetesfake "k8s.io/client-go/kubernetes/fake"
 )
@@ -89,6 +90,10 @@ func (c *fakeDiscoveryClient) FindResource(apiVersion string, kind string) (*met
 
 func (c *fakeDiscoveryClient) OpenAPISchema() (*openapi_v2.Document, error) {
 	return nil, nil
+}
+
+func (c *fakeDiscoveryClient) DiscoveryCache() discovery.CachedDiscoveryInterface {
+	return nil
 }
 
 func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {

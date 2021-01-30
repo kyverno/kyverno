@@ -4,6 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
+	"strings"
+	"time"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -17,10 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"strings"
-	"time"
 )
 
 //EngineStats stores in the statistics for a single application of resource
@@ -313,17 +314,14 @@ func ManagedPodResource(policy kyverno.ClusterPolicy, resource unstructured.Unst
 // AddResourceToContext - Add the Configmap JSON to Context.
 // it will read configmaps (can be extended to get other type of resource like secrets, namespace etc)
 // from the informer cache and add the configmap data to context
-func AddResourceToContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCacheIface, ctx *context.Context) error {
+func AddResourceToContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCache, ctx *context.Context) error {
 	if len(contextEntries) == 0 {
 		return nil
 	}
 
-	// get GVR Cache for "configmaps"
-	// can get cache for other resources if the informers are enabled in resource cache
-	gvrC := resCache.GetGVRCache("configmaps")
-
-	if gvrC != nil {
-		lister := gvrC.GetLister()
+	gvrC, ok := resCache.GetGVRCache("ConfigMap")
+	if ok {
+		lister := gvrC.Lister()
 		for _, context := range contextEntries {
 			contextData := make(map[string]interface{})
 			name := context.ConfigMap.Name

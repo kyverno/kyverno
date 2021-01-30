@@ -93,7 +93,7 @@ type PolicyController struct {
 	prGenerator policyreport.GeneratorInterface
 
 	// resCache - controls creation and fetching of resource informer cache
-	resCache resourcecache.ResourceCacheIface
+	resCache resourcecache.ResourceCache
 
 	log logr.Logger
 }
@@ -109,7 +109,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	prGenerator policyreport.GeneratorInterface,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
-	resCache resourcecache.ResourceCacheIface) (*PolicyController, error) {
+	resCache resourcecache.ResourceCache) (*PolicyController, error) {
 
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()

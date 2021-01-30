@@ -116,7 +116,7 @@ type WebhookServer struct {
 	supportMutateValidate bool
 
 	// resCache - controls creation and fetching of resource informer cache
-	resCache resourcecache.ResourceCacheIface
+	resCache resourcecache.ResourceCache
 
 	grController *generate.Controller
 
@@ -148,7 +148,7 @@ func NewWebhookServer(
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
-	resCache resourcecache.ResourceCacheIface,
+	resCache resourcecache.ResourceCache,
 	grc *generate.Controller,
 	debug bool,
 ) (*WebhookServer, error) {

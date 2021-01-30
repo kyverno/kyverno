@@ -11,8 +11,8 @@ import (
 type TestGVRCache struct {
 }
 
-func NewTestGVRCache() GVRCacheIface {
-	return &GVRCache{}
+func NewTestGVRCache() GenericCache {
+	return &genericCache{}
 }
 
 func (tg *TestGVRCache) StopInformer() {
