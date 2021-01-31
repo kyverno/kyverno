@@ -98,7 +98,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		log = log.WithValues("rule", rule.Name)
 
 		// add configmap json data to context
-		if err := BuildContext(log, rule.Context, ctx.ResourceCache, ctx); err != nil {
+		if err := LoadContext(log, rule.Context, ctx.ResourceCache, ctx); err != nil {
 			log.V(2).Info("failed to add configmaps to context", "reason", err.Error())
 			continue
 		}

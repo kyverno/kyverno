@@ -3,6 +3,7 @@ package policy
 import (
 	"encoding/json"
 	"fmt"
+	client "github.com/kyverno/kyverno/pkg/dclient"
 	"reflect"
 	"strings"
 	"time"
@@ -20,7 +21,9 @@ import (
 
 // applyPolicy applies policy on a resource
 func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured,
-	logger logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface) (responses []*response.EngineResponse) {
+	logger logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface,
+	client *client.Client) (responses []*response.EngineResponse) {
+
 	startTime := time.Now()
 	defer func() {
 		name := resource.GetKind() + "/" + resource.GetName()
@@ -47,7 +50,16 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		logger.Error(err, "failed to process mutation rule")
 	}
 
-	engineResponseValidation = engine.Validate(&engine.PolicyContext{Policy: policy, NewResource: resource, ExcludeGroupRole: excludeGroupRole, ResourceCache: resCache, JSONContext: ctx})
+	policyCtx := &engine.PolicyContext{
+		Policy:           policy,
+		NewResource:      resource,
+		ExcludeGroupRole: excludeGroupRole,
+		ResourceCache:    resCache,
+		JSONContext:      ctx,
+		Client:           client,
+	}
+
+	engineResponseValidation = engine.Validate(policyCtx)
 	engineResponses = append(engineResponses, mergeRuleRespose(engineResponseMutation, engineResponseValidation))
 
 	return engineResponses

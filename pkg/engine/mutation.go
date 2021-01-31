@@ -67,7 +67,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		logger.V(3).Info("matched mutate rule")
 
 		// add configmap json data to context
-		if err := BuildContext(logger, rule.Context, resCache, policyContext); err != nil {
+		if err := LoadContext(logger, rule.Context, resCache, policyContext); err != nil {
 			logger.V(2).Info("failed to add configmaps to context", "reason", err.Error())
 			continue
 		}

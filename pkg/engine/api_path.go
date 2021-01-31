@@ -17,18 +17,40 @@ type APIPath struct {
 // NewAPIPath validates and parses an API path.
 // See: https://kubernetes.io/docs/reference/using-api/api-concepts/
 func NewAPIPath(path string) (*APIPath, error) {
-	paths := strings.Split(path, "/")
+	trimmedPath := strings.Trim(path, "/ ")
+	paths := strings.Split(trimmedPath, "/")
 
-	if len(paths) < 4 || len(paths) > 7 {
-		return nil, fmt.Errorf("invalid path %s", path)
+	if len(paths) < 3 || len(paths) > 7 {
+		return nil, fmt.Errorf("invalid path length %s", path)
 	}
 
 	if paths[0] != "api" && paths[0] != "apis" {
-		return nil, fmt.Errorf("urlPath must start with /api/v1/ or /apis")
+		return nil, fmt.Errorf("urlPath must start with /api or /apis")
 	}
 
 	if paths[0] == "api" && paths[1] != "v1" {
-		return nil, fmt.Errorf("urlPath must start with /api/v1/ or /apis")
+		return nil, fmt.Errorf("expected urlPath to start with /api/v1/")
+	}
+
+	if paths[0] == "api" {
+		if len(paths) == 3 {
+			return &APIPath{
+				Root:         paths[0],
+				Group:        paths[1],
+				ResourceType: paths[2],
+			}, nil
+		}
+
+		if len(paths) == 4 {
+			return &APIPath{
+				Root:         paths[0],
+				Group:        paths[1],
+				ResourceType: paths[2],
+				Name:         paths[3],
+			}, nil
+		}
+
+		return nil, fmt.Errorf("invalid /api/v1 path %s", path)
 	}
 
 	// /apis/GROUP/VERSION/RESOURCETYPE/
@@ -75,23 +97,23 @@ func NewAPIPath(path string) (*APIPath, error) {
 		}, nil
 	}
 
-	return nil, fmt.Errorf("invalid path %s", path)
+	return nil, fmt.Errorf("invalid /apis path %s", path)
 }
 
 func (a *APIPath) String() string {
 	if a.Namespace != "" {
 		if a.Name == "" {
 			paths := []string{a.Root, a.Group, a.Version, a.ResourceType, "namespaces", a.Namespace}
-			return strings.Join(paths, "/")
+			return "/" + strings.Join(paths, "/")
 		}
 
 		paths := []string{a.Root, a.Group, a.Version, a.ResourceType, "namespaces", a.Namespace, a.Name}
-		return strings.Join(paths, "/")
+		return "/" + strings.Join(paths, "/")
 	}
 
 	if a.Name != "" {
-		return strings.Join([]string{a.Root, a.Group, a.Version, a.ResourceType, a.Name}, "/")
+		return "/" + strings.Join([]string{a.Root, a.Group, a.Version, a.ResourceType, a.Name}, "/")
 	}
 
-	return strings.Join([]string{a.Root, a.Group, a.Version, a.ResourceType}, "/")
+	return "/" + strings.Join([]string{a.Root, a.Group, a.Version, a.ResourceType}, "/")
 }
