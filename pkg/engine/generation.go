@@ -12,11 +12,11 @@ import (
 // 1. validate variables to be substitute in the general ruleInfo (match,exclude,condition)
 //    - the caller has to check the ruleResponse to determine whether the path exist
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
-func Generate(policyContext PolicyContext) (resp *response.EngineResponse) {
+func Generate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	return filterRules(policyContext)
 }
 
-func filterRules(policyContext PolicyContext) *response.EngineResponse {
+func filterRules(policyContext *PolicyContext) *response.EngineResponse {
 	kind := policyContext.NewResource.GetKind()
 	name := policyContext.NewResource.GetName()
 	namespace := policyContext.NewResource.GetNamespace()
@@ -46,7 +46,7 @@ func filterRules(policyContext PolicyContext) *response.EngineResponse {
 	return resp
 }
 
-func filterRule(rule kyverno.Rule, policyContext PolicyContext) *response.RuleResponse {
+func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleResponse {
 	if !rule.HasGenerate() {
 		return nil
 	}
@@ -59,7 +59,6 @@ func filterRule(rule kyverno.Rule, policyContext PolicyContext) *response.RuleRe
 	admissionInfo := policyContext.AdmissionInfo
 	ctx := policyContext.JSONContext
 	resCache := policyContext.ResourceCache
-	jsonContext := policyContext.JSONContext
 	excludeGroupRole := policyContext.ExcludeGroupRole
 
 	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name,
@@ -83,7 +82,7 @@ func filterRule(rule kyverno.Rule, policyContext PolicyContext) *response.RuleRe
 	}
 
 	// add configmap json data to context
-	if err := AddResourceToContext(logger, rule.Context, resCache, jsonContext); err != nil {
+	if err := LoadContext(logger, rule.Context, resCache, policyContext); err != nil {
 		logger.V(4).Info("cannot add configmaps to context", "reason", err.Error())
 		return nil
 	}

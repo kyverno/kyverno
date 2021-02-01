@@ -150,7 +150,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		if err := createNamespace(client, resource); err != nil {
 			t.Error(err)
 		} else {
-			policyContext := engine.PolicyContext{
+			policyContext := &engine.PolicyContext{
 				NewResource:      *resource,
 				Policy:           *policy,
 				Client:           client,

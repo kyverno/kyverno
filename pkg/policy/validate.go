@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jmespath/go-jmespath"
+	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"reflect"
 	"strings"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/minio/pkg/wildcard"
@@ -481,14 +483,59 @@ func validateRuleContext(rule kyverno.Rule) error {
 			return fmt.Errorf("a name is required for context entries")
 		}
 
+		var err error
 		if entry.ConfigMap != nil {
-			if entry.ConfigMap.Name == "" {
-				return fmt.Errorf("a name is required for configMap context entry")
-			}
+			err = validateConfigMap(entry)
+		} else if entry.APICall != nil {
+			err = validateAPICall(entry)
+		} else {
+			return fmt.Errorf("a configMap or apiCall is required for context entries")
+		}
 
-			if entry.ConfigMap.Namespace == "" {
-				return fmt.Errorf("a namespace is required for configMap context entry")
-			}
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateConfigMap(entry kyverno.ContextEntry) error {
+	if entry.ConfigMap == nil {
+		return fmt.Errorf("configMap is empty")
+	}
+
+	if entry.APICall != nil {
+		return fmt.Errorf("both configMap and apiCall are not allowed in a context entry")
+	}
+
+	if entry.ConfigMap.Name == "" {
+		return fmt.Errorf("a name is required for configMap context entry")
+	}
+
+	if entry.ConfigMap.Namespace == "" {
+		return fmt.Errorf("a namespace is required for configMap context entry")
+	}
+
+	return nil
+}
+
+func validateAPICall(entry kyverno.ContextEntry) error {
+	if entry.APICall == nil {
+		return fmt.Errorf("apiCall is empty")
+	}
+
+	if entry.ConfigMap != nil {
+		return fmt.Errorf("both configMap and apiCall are not allowed in a context entry")
+	}
+
+	if _, err := engine.NewAPIPath(entry.APICall.URLPath); err != nil {
+		return err
+	}
+
+	if entry.APICall.JMESPath != "" {
+		if _, err := jmespath.NewParser().Parse(entry.APICall.JMESPath); err != nil {
+			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.APICall.JMESPath, err)
 		}
 	}
 

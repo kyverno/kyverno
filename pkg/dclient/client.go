@@ -55,8 +55,13 @@ func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}
 		kclient:      kclient,
 		log:          log.WithName("dclient"),
 	}
+
 	// Set discovery client
-	discoveryClient := ServerPreferredResources{cachedClient: memory.NewMemCacheClient(kclient.Discovery()), log: client.log}
+	discoveryClient := &ServerPreferredResources{
+		cachedClient: memory.NewMemCacheClient(kclient.Discovery()),
+		log:          client.log,
+	}
+
 	// client will invalidate registered resources cache every x seconds,
 	// As there is no way to identify if the registered resource is available or not
 	// we will be invalidating the local cache, so the next request get a fresh cache
@@ -121,8 +126,8 @@ func (c *Client) getGroupVersionMapper(apiVersion string, kind string) schema.Gr
 		gvr, _ := c.DiscoveryClient.GetGVRFromKind(kind)
 		return gvr
 	}
-	return c.DiscoveryClient.GetGVRFromAPIVersionKind(apiVersion, kind)
 
+	return c.DiscoveryClient.GetGVRFromAPIVersionKind(apiVersion, kind)
 }
 
 // GetResource returns the resource in unstructured/json format
@@ -347,15 +352,19 @@ func (c ServerPreferredResources) findResource(apiVersion string, kind string) (
 	}
 
 	for _, serverResource := range serverResources {
-
 		if apiVersion != "" && serverResource.GroupVersion != apiVersion {
 			continue
 		}
 
 		for _, resource := range serverResource.APIResources {
+			if strings.Contains(resource.Name, "/") {
+				// skip the sub-resources like deployment/status
+				continue
+			}
 
-			// skip the resource names with "/", to avoid comparison with subresources
-			if resource.Kind == kind && !strings.Contains(resource.Name, "/") {
+			// match kind or names (e.g. Namespace, namespaces, namespace)
+			// to allow matching API paths (e.g. /api/v1/namespaces).
+			if resource.Kind == kind || resource.Name == kind || resource.SingularName == kind {
 				gv, err := schema.ParseGroupVersion(serverResource.GroupVersion)
 				if err != nil {
 					c.log.Error(err, "failed to parse groupVersion", "groupVersion", serverResource.GroupVersion)
