@@ -1,17 +1,15 @@
 package policy
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -77,24 +75,7 @@ func (pc *PolicyController) applyPolicy(policy *kyverno.ClusterPolicy, resource 
 		logger.V(4).Info("policy and resource already processed", "policyResourceVersion", policy.ResourceVersion, "resourceResourceVersion", resource.GetResourceVersion(), "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
 	}
 
-	var namespaceLabels map[string]string
-	if resource.GetKind() != "Namespace" {
-		namespaceOfResource := resource.GetNamespace()
-		namespaceObj, err := pc.nsLister.Get(namespaceOfResource)
-		if err != nil {
-			logger.Error(err, "failed to get the namespace", "name", namespaceOfResource)
-		}
-
-		namespaceObj.Kind = "Namespace"
-		namespaceRaw, err := json.Marshal(namespaceObj)
-		namespaceUnstructured, err := enginutils.ConvertToUnstructured(namespaceRaw)
-		if err != nil {
-			logger.Error(err, "failed to convert object resource to unstructured format")
-		}
-		fmt.Println("namespaceUnstructured  ", namespaceUnstructured)
-		namespaceLabels = namespaceUnstructured.GetLabels()
-	}
-
+	namespaceLabels := common.GetNamespaceSelectors(nil, &resource, pc.nsLister)
 	engineResponse := applyPolicy(*policy, resource, logger, pc.configHandler.GetExcludeGroupRole(), pc.resCache, namespaceLabels)
 	engineResponses = append(engineResponses, engineResponse...)
 

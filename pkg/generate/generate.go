@@ -11,12 +11,12 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
-	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,23 +45,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	}
 
 	// 2 - Apply the generate policy on the resource
-	var namespaceLabels map[string]string
-	if resource.GetKind() != "Namespace" {
-		namespaceOfResource := resource.GetNamespace()
-		namespaceObj, err := c.nsLister.Get(namespaceOfResource)
-		if err != nil {
-			logger.Error(err, "failed to get the namespace", "name", namespaceOfResource)
-		}
-
-		namespaceObj.Kind = "Namespace"
-		namespaceRaw, err := json.Marshal(namespaceObj)
-		namespaceUnstructured, err := enginutils.ConvertToUnstructured(namespaceRaw)
-		if err != nil {
-			logger.Error(err, "failed to convert object resource to unstructured format")
-		}
-		fmt.Println("namespaceUnstructured  ", namespaceUnstructured)
-		namespaceLabels = namespaceUnstructured.GetLabels()
-	}
+	namespaceLabels := pkgcommon.GetNamespaceSelectors(nil, resource, c.nsLister)
 	genResources, err = c.applyGenerate(namespaceLabels, *resource, *gr)
 
 	if err != nil {

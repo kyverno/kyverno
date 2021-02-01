@@ -98,25 +98,6 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 	return false, nil
 }
 
-// func checkNamespaceSelector(NamespaceSelector *metav1.LabelSelector, namespace string, namespaceLabels map[string]string) (bool, error) {
-// 	namespaceObj, err := nsLister.Get(namespace)
-// 	if err != nil {
-// 		log.Log.Error(err, "failed to get the namespace", "name", namespace)
-// 		return false, err
-// 	}
-
-// 	namespaceObj.Kind = "Namespace"
-// 	namespaceRaw, err := json.Marshal(namespaceObj)
-// 	namespaceUnstructured, err := enginutils.ConvertToUnstructured(namespaceRaw)
-// 	if err != nil {
-// 		log.Log.Error(err, "failed to convert object resource to unstructured format")
-// 		return false, err
-// 	}
-// 	hasPassed, _ := checkSelector(NamespaceSelector, namespaceUnstructured.GetLabels())
-
-// 	return hasPassed, nil
-// }
-
 // doesResourceMatchConditionBlock filters the resource with defined conditions
 // for a match / exclude block, it has the following attributes:
 // ResourceDescription:
