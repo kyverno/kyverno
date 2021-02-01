@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -112,7 +113,9 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 		if err != nil {
 			getErrString = getErrString + err.Error() + "\n"
 		}
-		resources = append(resources, resource)
+		if resource != nil {
+			resources = append(resources, resource)
+		}
 	}
 
 	if getErrString != "" {
@@ -157,9 +160,19 @@ func getFileBytes(path string) ([]byte, error) {
 }
 
 func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error) {
+	kind := [1]string{"Ingress"}
 	decode := scheme.Codecs.UniversalDeserializer().Decode
 	resourceObject, metaData, err := decode(resourceYaml, nil, nil)
+
 	if err != nil {
+		if strings.Contains(err.Error(), "is registered for version") {
+			for i := 0; i < len(kind); i++ {
+				if strings.Contains(err.Error(), kind[i]) {
+					log.Log.V(3).Info(fmt.Sprintf("failed to load resources kind: %s.", kind[i]), "error", err.Error())
+					return nil, nil
+				}
+			}
+		}
 		return nil, err
 	}
 
@@ -179,7 +192,6 @@ func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructu
 	}
 
 	resource.SetGroupVersionKind(*metaData)
-
 	if resource.GetNamespace() == "" {
 		resource.SetNamespace("default")
 	}
