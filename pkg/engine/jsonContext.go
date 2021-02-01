@@ -131,6 +131,10 @@ func loadResourceList(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 }
 
 func loadResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
+	if ctx.Client == nil {
+		return nil, fmt.Errorf("API client is not available")
+	}
+
 	r, err := ctx.Client.GetResource(p.Version, p.ResourceType, p.Namespace, p.Name)
 	if err != nil {
 		return nil, err
