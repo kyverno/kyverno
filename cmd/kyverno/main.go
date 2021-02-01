@@ -171,6 +171,7 @@ func main() {
 	eventGenerator := event.NewEventGenerator(
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
+		rCache,
 		log.Log.WithName("EventGenerator"))
 
 	// Policy Status Handler - deals with all logic related to policy status
