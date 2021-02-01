@@ -10,23 +10,23 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/dynamic/dynamiclister"
 )
 
 // LoadContext - Fetches and adds external data to the Context.
-func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCacheIface, ctx *PolicyContext) error {
+func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCache, ctx *PolicyContext) error {
 	if len(contextEntries) == 0 {
 		return nil
 	}
 
 	// get GVR Cache for "configmaps"
 	// can get cache for other resources if the informers are enabled in resource cache
-	gvrC := resCache.GetGVRCache("configmaps")
-	if gvrC == nil {
+	gvrC, ok := resCache.GetGVRCache("ConfigMap")
+	if !ok {
 		return errors.New("configmaps GVR Cache not found")
 	}
 
-	lister := gvrC.GetLister()
+	lister := gvrC.Lister()
 
 	for _, entry := range contextEntries {
 		if entry.ConfigMap != nil {
@@ -139,7 +139,7 @@ func loadResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 	return r.MarshalJSON()
 }
 
-func loadConfigMap(entry kyverno.ContextEntry, lister cache.GenericLister, ctx *context.Context) error {
+func loadConfigMap(entry kyverno.ContextEntry, lister dynamiclister.Lister, ctx *context.Context) error {
 	data, err := fetchConfigMap(entry, lister)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve config map for context entry %v: %v", entry, err)
@@ -153,7 +153,7 @@ func loadConfigMap(entry kyverno.ContextEntry, lister cache.GenericLister, ctx *
 	return nil
 }
 
-func fetchConfigMap(entry kyverno.ContextEntry, lister cache.GenericLister) ([]byte, error) {
+func fetchConfigMap(entry kyverno.ContextEntry, lister dynamiclister.Lister) ([]byte, error) {
 	contextData := make(map[string]interface{})
 	name := entry.ConfigMap.Name
 	namespace := entry.ConfigMap.Namespace
