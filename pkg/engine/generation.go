@@ -47,7 +47,7 @@ func filterRules(policyContext *PolicyContext) *response.EngineResponse {
 	return resp
 }
 
-func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleResponse {
+func filterRule(rule kyverno.Rule, policyContext PolicyContext, namespaceLabels map[string]string) *response.RuleResponse {
 	if !rule.HasGenerate() {
 		return nil
 	}
@@ -65,10 +65,10 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name,
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 
-	if err := MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabel); err != nil {
+	if err := MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err != nil {
 
 		// if the oldResource matched, return "false" to delete GR for it
-		if err := MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabel); err == nil {
+		if err := MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err == nil {
 			return &response.RuleResponse{
 				Name:    rule.Name,
 				Type:    "Generation",
