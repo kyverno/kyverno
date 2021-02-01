@@ -3,7 +3,6 @@ package policy
 import (
 	"encoding/json"
 	"fmt"
-	client "github.com/kyverno/kyverno/pkg/dclient"
 	"reflect"
 	"strings"
 	"time"
@@ -11,6 +10,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -21,13 +21,9 @@ import (
 
 // applyPolicy applies policy on a resource
 func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured,
-<<<<<<< HEAD
-	logger logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCacheIface,
+	logger logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCache,
 	client *client.Client) (responses []*response.EngineResponse) {
 
-=======
-	logger logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCache) (responses []*response.EngineResponse) {
->>>>>>> c6922631 (Refactor resourceCache; Reduce throttling requests (background controller) (#1500))
 	startTime := time.Now()
 	defer func() {
 		name := resource.GetKind() + "/" + resource.GetName()

@@ -3,14 +3,10 @@ package engine
 import (
 	"errors"
 	"fmt"
-<<<<<<< HEAD
-=======
 	"reflect"
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
->>>>>>> c6922631 (Refactor resourceCache; Reduce throttling requests (background controller) (#1500))
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -20,11 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-<<<<<<< HEAD
-	"reflect"
-=======
-	"k8s.io/apimachinery/pkg/runtime"
->>>>>>> c6922631 (Refactor resourceCache; Reduce throttling requests (background controller) (#1500))
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -315,61 +306,3 @@ func ManagedPodResource(policy kyverno.ClusterPolicy, resource unstructured.Unst
 
 	return false
 }
-<<<<<<< HEAD
-=======
-
-// AddResourceToContext - Add the Configmap JSON to Context.
-// it will read configmaps (can be extended to get other type of resource like secrets, namespace etc)
-// from the informer cache and add the configmap data to context
-func AddResourceToContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCache, ctx *context.Context) error {
-	if len(contextEntries) == 0 {
-		return nil
-	}
-
-	gvrC, ok := resCache.GetGVRCache("ConfigMap")
-	if ok {
-		lister := gvrC.Lister()
-		for _, context := range contextEntries {
-			contextData := make(map[string]interface{})
-			name := context.ConfigMap.Name
-			namespace := context.ConfigMap.Namespace
-			if namespace == "" {
-				namespace = "default"
-			}
-
-			key := fmt.Sprintf("%s/%s", namespace, name)
-			obj, err := lister.Get(key)
-			if err != nil {
-				logger.Error(err, fmt.Sprintf("failed to read configmap %s/%s from cache", namespace, name))
-				continue
-			}
-
-			unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-			if err != nil {
-				logger.Error(err, "failed to convert context runtime object to unstructured")
-				continue
-			}
-
-			// extract configmap data
-			contextData["data"] = unstructuredObj["data"]
-			contextData["metadata"] = unstructuredObj["metadata"]
-			contextNamedData := make(map[string]interface{})
-			contextNamedData[context.Name] = contextData
-			jdata, err := json.Marshal(contextNamedData)
-			if err != nil {
-				logger.Error(err, "failed to unmarshal context data")
-				continue
-			}
-
-			// add data to context
-			err = ctx.AddJSON(jdata)
-			if err != nil {
-				logger.Error(err, "failed to load context json")
-				continue
-			}
-		}
-		return nil
-	}
-	return errors.New("configmaps GVR Cache not found")
-}
->>>>>>> c6922631 (Refactor resourceCache; Reduce throttling requests (background controller) (#1500))
