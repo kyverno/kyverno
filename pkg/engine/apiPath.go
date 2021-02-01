@@ -101,19 +101,23 @@ func NewAPIPath(path string) (*APIPath, error) {
 }
 
 func (a *APIPath) String() string {
+	var paths []string
 	if a.Namespace != "" {
 		if a.Name == "" {
-			paths := []string{a.Root, a.Group, a.Version, a.ResourceType, "namespaces", a.Namespace}
-			return "/" + strings.Join(paths, "/")
+			paths = []string{a.Root, a.Group, a.Version, a.ResourceType, "namespaces", a.Namespace}
+		} else {
+			paths = []string{a.Root, a.Group, a.Version, a.ResourceType, "namespaces", a.Namespace, a.Name}
 		}
-
-		paths := []string{a.Root, a.Group, a.Version, a.ResourceType, "namespaces", a.Namespace, a.Name}
-		return "/" + strings.Join(paths, "/")
+	} else {
+		if a.Name != "" {
+			paths = []string{a.Root, a.Group, a.Version, a.ResourceType, a.Name}
+		} else {
+			paths = []string{a.Root, a.Group, a.Version, a.ResourceType}
+		}
 	}
 
-	if a.Name != "" {
-		return "/" + strings.Join([]string{a.Root, a.Group, a.Version, a.ResourceType, a.Name}, "/")
-	}
 
-	return "/" + strings.Join([]string{a.Root, a.Group, a.Version, a.ResourceType}, "/")
+	result := "/" + strings.Join(paths, "/")
+	result = strings.ReplaceAll(result, "//", "/")
+	return result
 }
