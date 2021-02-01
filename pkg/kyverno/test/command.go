@@ -42,7 +42,7 @@ func Command() *cobra.Command {
 	return &cobra.Command{
 		Use:   "test",
 		Short: "Shows current test of kyverno",
-		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
+		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
 			defer func() {
 				if err != nil {
 					if !sanitizederror.IsErrorSanitized(err) {
@@ -51,12 +51,11 @@ func Command() *cobra.Command {
 					}
 				}
 			}()
-
-			err = testCommandHelper(policyPaths, valuesFile)
+			err = testCommandHelper(dirPath, valuesFile)
 			if err != nil {
+				log.Log.V(3).Info("Test command fail to apply")
 				return err
 			}
-			log.Log.V(3).Info("Test command fail to apply")
 			return nil
 		},
 	}
@@ -108,25 +107,25 @@ type Values struct {
 	Policies []Policy `json:"policies"`
 }
 
-func testCommandHelper(policyPaths []string, valuesFile string) (err error) {
+func testCommandHelper(dirPath []string, valuesFile string) (err error) {
 	var errors []error
 	fs := memfs.New()
 	
-	if len(policyPaths) == 0 {
+	if len(dirPath) == 0 {
 			return  sanitizederror.NewWithError(fmt.Sprintf("require test yamls"), err)
 		}
-	if strings.Contains(string(policyPaths[0]), "https://github.com/") {
-		u, err := url.Parse(policyPaths[0])
+	if strings.Contains(string(dirPath[0]), "https://github.com/") {
+		gitUrl, err := url.Parse(dirPath[0])
 		if err != nil {
 			return  sanitizederror.NewWithError("failed to parse URL", err)
 		}
-		pathElems := strings.Split(u.Path[1:], "/")
+		pathElems := strings.Split(gitUrl.Path[1:], "/")
 		if len(pathElems) != 3 {
-			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch", u.Path)
+			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch", gitUrl.Path)
 			return  sanitizederror.NewWithError("failed to parse URL", err)
 		}
-		u.Path = strings.Join([]string{"/", pathElems[0], pathElems[1]}, "/")
-		repoURL := u.String()
+		gitUrl.Path = strings.Join([]string{"/", pathElems[0], pathElems[1]}, "/")
+		repoURL := gitUrl.String()
 		cloneRepo, err := clone(repoURL, fs)
 		if err != nil {
 			return  sanitizederror.NewWithError("failed to clone repository ", err)
@@ -153,7 +152,7 @@ func testCommandHelper(policyPaths []string, valuesFile string) (err error) {
 			}	
 		}
 	} else {
-		path := filepath.Clean(policyPaths[0])
+		path := filepath.Clean(dirPath[0])
 		fileDesc, err := os.Stat(path)
 		if err != nil {
 			errors = append(errors, err)
@@ -183,15 +182,15 @@ func testCommandHelper(policyPaths []string, valuesFile string) (err error) {
 			fmt.Printf("ignoring errors: \n")
 			for _, e := range errors {
 				fmt.Printf("    %v \n", e.Error())
+			}
 		}
-	}
 	}
 	return nil
 }
-func getPoliciesFromPaths(fs billy.Filesystem, policyPaths []string, isGit bool) (policies []*v1.ClusterPolicy, err error) {
+func getPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool) (policies []*v1.ClusterPolicy, err error) {
 	var errors []error
 	if isGit {
-		for _, pp := range policyPaths {
+		for _, pp := range dirPath {
 			filep, err := fs.Open(pp)
 			bytes, err := ioutil.ReadAll(filep)
 			if err != nil {
@@ -211,14 +210,13 @@ func getPoliciesFromPaths(fs billy.Filesystem, policyPaths []string, isGit bool)
 			policies = append(policies, policiesFromFile...)
 		}
 	} else {
-		if len(policyPaths) > 0 && policyPaths[0] == "-" {
+		if len(dirPath) > 0 && dirPath[0] == "-" {
 			if common.IsInputFromPipe() {
 				policyStr := ""
 				scanner := bufio.NewScanner(os.Stdin)
 				for scanner.Scan() {
 					policyStr = policyStr + scanner.Text() + "\n"
 				}
-	
 				yamlBytes := []byte(policyStr)
 				policies, err = ut.GetPolicy(yamlBytes)
 				if err != nil {
@@ -227,12 +225,12 @@ func getPoliciesFromPaths(fs billy.Filesystem, policyPaths []string, isGit bool)
 			}
 		} else {
 			var errors []error
-			policies, errors = common.GetPolicies(policyPaths)
+			policies, errors = common.GetPolicies(dirPath)
 			if len(policies) == 0 {
 				if len(errors) > 0 {
-					return nil, sanitizederror.NewWithErrors("failed to read policies", errors)
+					return nil, sanitizederror.NewWithErrors("failed to read file", errors)
 				}
-				return nil, sanitizederror.New(fmt.Sprintf("no policies found in paths %v", policyPaths))
+				return nil, sanitizederror.New(fmt.Sprintf("no file found in paths %v", dirPath))
 			}
 			if len(errors) > 0 && log.Log.V(1).Enabled() {
 				fmt.Printf("ignoring errors: \n")
@@ -328,10 +326,9 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 
 		}
 	}
-	
-
 	return engineResponses, validateResponse, nil
 }
+
 func buildPolicyResults(resps []*response.EngineResponse) map[string][]interface{} {
 	results := make(map[string][]interface{})
 	infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
@@ -355,7 +352,6 @@ func buildPolicyResults(resps []*response.EngineResponse) map[string][]interface
 			}
 		}
 	}
-	
 	return results
 }
 func getVariable( valuesFile string) ( valuesMap map[string]map[string]Resource, err error) {
