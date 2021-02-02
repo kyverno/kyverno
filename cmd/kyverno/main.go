@@ -277,6 +277,7 @@ func main() {
 		log.Log.WithName("ValidateAuditHandler"),
 		configData,
 		rCache,
+		client,
 	)
 
 	// Configure certificates

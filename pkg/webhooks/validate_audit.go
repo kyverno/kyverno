@@ -1,12 +1,12 @@
 package webhooks
 
 import (
+	client "github.com/kyverno/kyverno/pkg/dclient"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -41,7 +41,7 @@ type AuditHandler interface {
 }
 
 type auditHandler struct {
-	client         *kyvernoclient.Clientset
+	client         *client.Client
 	queue          workqueue.RateLimitingInterface
 	pCache         policycache.Interface
 	eventGen       event.Interface
@@ -67,7 +67,8 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	log logr.Logger,
 	dynamicConfig config.Interface,
-	resCache resourcecache.ResourceCache) AuditHandler {
+	resCache resourcecache.ResourceCache,
+	client *client.Client) AuditHandler {
 
 	return &auditHandler{
 		pCache:         pCache,
@@ -82,6 +83,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		prGenerator:    prGenerator,
 		configHandler:  dynamicConfig,
 		resCache:       resCache,
+		client:         client,
 	}
 }
 
@@ -173,7 +175,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		return errors.Wrap(err, "failed to load service account in context")
 	}
 
-	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache)
+	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, h.client)
 	return nil
 }
 

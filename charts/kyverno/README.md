@@ -68,9 +68,11 @@ Parameter | Description | Default
 `createSelfSignedCert` | generate a self signed cert and certificate authority. Kyverno defaults to using kube-controller-manager CA-signed certificate or existing cert secret if false. | `false`
 `config.existingConfig` | existing Kubernetes configmap to use for the resource filters configuration | `nil`
 `config.resourceFilters` | list of filter of resource types to be skipped by kyverno policy engine. See [documentation](https://github.com/kyverno/kyverno/blob/master/documentation/installation.md#filter-kubernetes-resources-that-admission-webhook-should-not-process) for details | `["[Event,*,*]","[*,kube-system,*]","[*,kube-public,*]","[*,kube-node-lease,*]","[Node,*,*]","[APIService,*,*]","[TokenReview,*,*]","[SubjectAccessReview,*,*]","[*,kyverno,*]"]`
+`dnsPolicy` | Sets the DNS Policy which determines the manner in which DNS resolution happens across the cluster. For further reference, see [the official docs](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy) | `ClusterFirst`
 `extraArgs` | list of extra arguments to give the binary | `[]`
 `fullnameOverride` | override the expanded name of the chart | `nil`
 `generatecontrollerExtraResources` | extra resource type Kyverno is allowed to generate | `[]`
+`hostNetwork` | Use the host network's namespace. Set it to `true` when dealing with a custom CNI over Amazon EKS | `false`
 `image.pullPolicy` | Image pull policy | `IfNotPresent`
 `image.pullSecrets` | Specify image pull secrets | `[]` (does not add image pull secrets to deployed pods)
 `image.repository` | Image repository | `ghcr.io/kyverno/kyverno`

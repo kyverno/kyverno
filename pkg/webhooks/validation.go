@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	client "github.com/kyverno/kyverno/pkg/dclient"
 	"reflect"
 	"sort"
 	"time"
@@ -36,7 +37,8 @@ func HandleValidation(
 	prGenerator policyreport.GeneratorInterface,
 	log logr.Logger,
 	dynamicConfig config.Interface,
-	resCache resourcecache.ResourceCache) (bool, string) {
+	resCache resourcecache.ResourceCache,
+	client *client.Client) (bool, string) {
 
 	if len(policies) == 0 {
 		return true, ""
@@ -76,6 +78,7 @@ func HandleValidation(
 		ExcludeResourceFunc: dynamicConfig.ToFilter,
 		ResourceCache:       resCache,
 		JSONContext:         ctx,
+		Client:              client,
 	}
 
 	var engineResponses []*response.EngineResponse

@@ -98,16 +98,41 @@ type Rule struct {
 	Generation Generation `json:"generate,omitempty" yaml:"generate,omitempty"`
 }
 
-// ContextEntry adds variables and data sources to a rule Context
+// ContextEntry adds variables and data sources to a rule Context. Either a
+// ConfigMap reference or a APILookup must be provided.
 type ContextEntry struct {
-	Name      string              `json:"name,omitempty" yaml:"name,omitempty"`
+
+	// Name is the variable name.
+	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+
+	// ConfigMap is the ConfigMap reference.
 	ConfigMap *ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
+
+	// APICall is an API server request to retrieve data
+	APICall *APICall `json:"apiCall,omitempty" yaml:"apiCall,omitempty"`
 }
 
 // ConfigMapReference refers to a ConfigMap
 type ConfigMapReference struct {
-	Name      string `json:"name,omitempty" yaml:"name,omitempty"`
+
+	// Name is the ConfigMap name.
+	Name string `json:"name" yaml:"name"`
+
+	// Namespace is the ConfigMap namespace.
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+}
+
+// APICall contains an API server URL path used to perform an HTTP GET request
+// and an optional JMESPath to transform the retrieved data.
+type APICall struct {
+
+	// URLPath is the URL path to be used in the HTTP GET request
+	URLPath string `json:"urlPath" yaml:"urlPath"`
+
+	// JMESPath is an optional JSON Match Expression that can be used to
+	// transform the JSON response from the API server.
+	// +optional
+	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
 }
 
 // Condition defines variable-based conditional criteria for rule execution.
