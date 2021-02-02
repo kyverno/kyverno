@@ -138,6 +138,7 @@ func main() {
 	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,
 		client,
+		rCache,
 		serverIP,
 		int32(webhookTimeout),
 		log.Log)

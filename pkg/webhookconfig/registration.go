@@ -7,13 +7,13 @@ import (
 	"sync"
 	"time"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/resourcecache"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -31,6 +31,7 @@ const (
 type Register struct {
 	client         *client.Client
 	clientConfig   *rest.Config
+	resCache       resourcecache.ResourceCache
 	serverIP       string // when running outside a cluster
 	timeoutSeconds int32
 	log            logr.Logger
@@ -40,12 +41,14 @@ type Register struct {
 func NewRegister(
 	clientConfig *rest.Config,
 	client *client.Client,
+	resCache resourcecache.ResourceCache,
 	serverIP string,
 	webhookTimeout int32,
 	log logr.Logger) *Register {
 	return &Register{
 		clientConfig:   clientConfig,
 		client:         client,
+		resCache:       resCache,
 		serverIP:       serverIP,
 		timeoutSeconds: webhookTimeout,
 		log:            log.WithName("Register"),

@@ -8,8 +8,6 @@ import (
 
 	"github.com/go-logr/logr"
 	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
-	"github.com/kyverno/kyverno/pkg/config"
-	apps "k8s.io/api/apps/v1"
 	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	helperv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,19 +74,6 @@ func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}
 //NewDynamicSharedInformerFactory returns a new instance of DynamicSharedInformerFactory
 func (c *Client) NewDynamicSharedInformerFactory(defaultResync time.Duration) dynamicinformer.DynamicSharedInformerFactory {
 	return dynamicinformer.NewDynamicSharedInformerFactory(c.client, defaultResync)
-}
-
-//GetKubePolicyDeployment returns kube policy depoyment value
-func (c *Client) GetKubePolicyDeployment() (*apps.Deployment, error) {
-	kubePolicyDeployment, err := c.GetResource("", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName)
-	if err != nil {
-		return nil, err
-	}
-	deploy := apps.Deployment{}
-	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(kubePolicyDeployment.UnstructuredContent(), &deploy); err != nil {
-		return nil, err
-	}
-	return &deploy, nil
 }
 
 //GetEventsInterface provides typed interface for events

@@ -1,6 +1,8 @@
 package resourcecache
 
 import (
+	"fmt"
+
 	"github.com/go-logr/logr"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	cmap "github.com/orcaman/concurrent-map"
@@ -27,6 +29,8 @@ type resourceCache struct {
 	log logr.Logger
 }
 
+var KyvernoDefaultInformer = []string{"ConfigMap", "Secret", "Deployment"}
+
 // NewResourceCache - initializes the ResourceCache
 func NewResourceCache(dclient *dclient.Client, dInformer dynamicinformer.DynamicSharedInformerFactory, logger logr.Logger) (ResourceCache, error) {
 	rCache := &resourceCache{
@@ -36,8 +40,9 @@ func NewResourceCache(dclient *dclient.Client, dInformer dynamicinformer.Dynamic
 		log:       logger,
 	}
 
-	if _, err := rCache.CreateResourceInformer("ConfigMap"); err != nil {
-		return nil, err
+	errs := rCache.CreateInformers(KyvernoDefaultInformer...)
+	if len(errs) != 0 {
+		return rCache, fmt.Errorf("failed to register default informers %v", errs)
 	}
 
 	return rCache, nil
