@@ -409,7 +409,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	}
 
 	if policyHasGenerate {
-		generateResponse := engine.Generate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
+		generateResponse := engine.Generate(&engine.PolicyContext{Policy: *policy, NewResource: *resource})
 		engineResponses = append(engineResponses, generateResponse)
 		if len(generateResponse.PolicyResponse.Rules) > 0 {
 			log.Log.V(3).Info("generate resource is valid", "policy", policy.Name, "resource", resPath)
