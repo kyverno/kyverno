@@ -19,7 +19,7 @@ import (
 )
 
 //Validate applies validation rules from policy on the resource
-func Validate(policyContext *PolicyContext, namespaceLabels map[string]string) (resp *response.EngineResponse) {
+func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	startTime := time.Now()
 
@@ -30,7 +30,7 @@ func Validate(policyContext *PolicyContext, namespaceLabels map[string]string) (
 		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
-	resp = validateResource(logger, policyContext, namespaceLabels)
+	resp = validateResource(logger, policyContext)
 	return
 }
 
@@ -83,7 +83,7 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }
 
-func validateResource(log logr.Logger, ctx *PolicyContext, namespaceLabels map[string]string) *response.EngineResponse {
+func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 	if ManagedPodResource(ctx.Policy, ctx.NewResource) {
 		log.V(5).Info("skip policy as direct changes to pods managed by workload controllers are not allowed", "policy", ctx.Policy.GetName())
@@ -103,7 +103,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext, namespaceLabels map[s
 			continue
 		}
 
-		if !matches(log, rule, ctx, namespaceLabels) {
+		if !matches(log, rule, ctx) {
 			continue
 		}
 
@@ -167,14 +167,14 @@ func validateResourceWithRule(log logr.Logger, ctx *PolicyContext, rule kyverno.
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
-func matches(logger logr.Logger, rule kyverno.Rule, ctx *PolicyContext, namespaceLabels map[string]string) bool {
-	err := MatchesResourceDescription(ctx.NewResource, rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, namespaceLabels)
+func matches(logger logr.Logger, rule kyverno.Rule, ctx *PolicyContext) bool {
+	err := MatchesResourceDescription(ctx.NewResource, rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, ctx.NamespaceLabels)
 	if err == nil {
 		return true
 	}
 
 	if !reflect.DeepEqual(ctx.OldResource, unstructured.Unstructured{}) {
-		err := MatchesResourceDescription(ctx.OldResource, rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, namespaceLabels)
+		err := MatchesResourceDescription(ctx.OldResource, rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, ctx.NamespaceLabels)
 		if err == nil {
 			return true
 		}

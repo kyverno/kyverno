@@ -47,7 +47,7 @@ func filterRules(policyContext *PolicyContext) *response.EngineResponse {
 	return resp
 }
 
-func filterRule(rule kyverno.Rule, policyContext PolicyContext, namespaceLabels map[string]string) *response.RuleResponse {
+func filterRule(rule kyverno.Rule, policyContext PolicyContext) *response.RuleResponse {
 	if !rule.HasGenerate() {
 		return nil
 	}
@@ -61,6 +61,7 @@ func filterRule(rule kyverno.Rule, policyContext PolicyContext, namespaceLabels 
 	ctx := policyContext.JSONContext
 	resCache := policyContext.ResourceCache
 	excludeGroupRole := policyContext.ExcludeGroupRole
+	namespaceLabels := policyContext.NamespaceLabels
 
 	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name,
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())

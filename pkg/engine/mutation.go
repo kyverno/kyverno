@@ -22,7 +22,7 @@ const (
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(policyContext *PolicyContext, namespaceLabels map[string]string) (resp *response.EngineResponse) {
+func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	startTime := time.Now()
 	policy := policyContext.Policy
@@ -59,7 +59,7 @@ func Mutate(policyContext *PolicyContext, namespaceLabels map[string]string) (re
 			excludeResource = policyContext.ExcludeGroupRole
 		}
 
-		if err := MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, namespaceLabels); err != nil {
+		if err := MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, policyContext.NamespaceLabels); err != nil {
 			logger.V(4).Info("rule not matched", "reason", err.Error())
 			continue
 		}

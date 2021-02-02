@@ -463,7 +463,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		ctx.AddJSON(jsonData)
 	}
 
-	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, JSONContext: ctx}, nil)
+	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, JSONContext: ctx})
 	engineResponses = append(engineResponses, mutateResponse)
 
 	if !mutateResponse.IsSuccessful() {
@@ -506,7 +506,7 @@ func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	}
 
 	policyCtx := &engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx}
-	validateResponse := engine.Validate(policyCtx, nil)
+	validateResponse := engine.Validate(policyCtx)
 	if !policyReport {
 		if !validateResponse.IsSuccessful() {
 			fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.Name, resPath)

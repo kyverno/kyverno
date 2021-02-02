@@ -184,7 +184,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		return errors.Wrap(err, "failed to load service account in context")
 	}
 
-	namespaceLabels := common.GetNamespaceSelectors(request, nil, h.nsLister)
+	namespaceLabels := common.GetNamespaceSelectors(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, h.client, namespaceLabels)
 
 	return nil

@@ -126,7 +126,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		t.FailNow()
 	}
 
-	er := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, ExcludeGroupRole: []string{}}, nil)
+	er := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, ExcludeGroupRole: []string{}})
 	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
 	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
@@ -136,7 +136,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		resource = &er.PatchedResource
 	}
 
-	er = engine.Validate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, ExcludeGroupRole: []string{}}, nil)
+	er = engine.Validate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, ExcludeGroupRole: []string{}})
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 
@@ -160,7 +160,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 				},
 			}
 
-			er = engine.Generate(policyContext, nil)
+			er = engine.Generate(policyContext)
 			t.Log(("---Generation---"))
 			validateResponse(t, er.PolicyResponse, tc.Expected.Generation.PolicyResponse)
 			// Expected generate resource will be in same namespaces as resource
