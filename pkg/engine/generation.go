@@ -13,11 +13,11 @@ import (
 // 1. validate variables to be substitute in the general ruleInfo (match,exclude,condition)
 //    - the caller has to check the ruleResponse to determine whether the path exist
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
-func Generate(policyContext PolicyContext, namespaceLabels map[string]string) (resp *response.EngineResponse) {
-	return filterRules(policyContext, namespaceLabels)
+func Generate(policyContext PolicyContext) (resp *response.EngineResponse) {
+	return filterRules(policyContext)
 }
 
-func filterRules(policyContext PolicyContext, namespaceLabels map[string]string) *response.EngineResponse {
+func filterRules(policyContext PolicyContext) *response.EngineResponse {
 	kind := policyContext.NewResource.GetKind()
 	name := policyContext.NewResource.GetName()
 	namespace := policyContext.NewResource.GetNamespace()
@@ -39,7 +39,7 @@ func filterRules(policyContext PolicyContext, namespaceLabels map[string]string)
 	}
 
 	for _, rule := range policyContext.Policy.Spec.Rules {
-		if ruleResp := filterRule(rule, policyContext, namespaceLabels); ruleResp != nil {
+		if ruleResp := filterRule(rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}
@@ -47,7 +47,7 @@ func filterRules(policyContext PolicyContext, namespaceLabels map[string]string)
 	return resp
 }
 
-func filterRule(rule kyverno.Rule, policyContext PolicyContext, namespaceLabels map[string]string) *response.RuleResponse {
+func filterRule(rule kyverno.Rule, policyContext PolicyContext) *response.RuleResponse {
 	if !rule.HasGenerate() {
 		return nil
 	}
@@ -62,6 +62,7 @@ func filterRule(rule kyverno.Rule, policyContext PolicyContext, namespaceLabels 
 	resCache := policyContext.ResourceCache
 	jsonContext := policyContext.JSONContext
 	excludeGroupRole := policyContext.ExcludeGroupRole
+	namespaceLabels := policyContext.NamespaceLabels
 
 	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name,
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())

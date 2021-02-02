@@ -47,7 +47,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		logger.Error(err, "failed to process mutation rule")
 	}
 
-	engineResponseValidation = engine.Validate(&engine.PolicyContext{Policy: policy, NewResource: resource, ExcludeGroupRole: excludeGroupRole, ResourceCache: resCache, JSONContext: ctx}, namespaceLabels)
+	engineResponseValidation = engine.Validate(&engine.PolicyContext{Policy: policy, NewResource: resource, ExcludeGroupRole: excludeGroupRole, ResourceCache: resCache, JSONContext: ctx, NamespaceLabels: namespaceLabels})
 	engineResponses = append(engineResponses, mergeRuleRespose(engineResponseMutation, engineResponseValidation))
 
 	return engineResponses
@@ -56,13 +56,14 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, log logr.Logger, resCache resourcecache.ResourceCacheIface, jsonContext *context.Context, namespaceLabels map[string]string) (*response.EngineResponse, error) {
 
 	policyContext := &engine.PolicyContext{
-		Policy:        policy,
-		NewResource:   resource,
-		ResourceCache: resCache,
-		JSONContext:   jsonContext,
+		Policy:          policy,
+		NewResource:     resource,
+		ResourceCache:   resCache,
+		JSONContext:     jsonContext,
+		NamespaceLabels: namespaceLabels,
 	}
 
-	engineResponse := engine.Mutate(policyContext, namespaceLabels)
+	engineResponse := engine.Mutate(policyContext)
 	if !engineResponse.IsSuccessful() {
 		log.V(4).Info("failed to apply mutation rules; reporting them")
 		return engineResponse, nil

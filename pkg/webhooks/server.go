@@ -469,12 +469,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		logger.Error(err, "failed to load service account in context")
 	}
 
-	fmt.Println("---------------------------------------------------------------------")
-	r, _ := json.Marshal(request)
-	fmt.Println(string(r))
-	fmt.Println("---------------------------------------------------------------------")
-
-	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.prGenerator, ws.log, ws.configHandler, ws.resCache, common.GetNamespaceSelectors(request, nil, ws.nsLister))
+	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.prGenerator, ws.log, ws.configHandler, ws.resCache, common.GetNamespaceSelectors(request.Kind.Kind, request.Namespace, ws.nsLister, logger))
 	if !ok {
 		logger.Info("admission request denied")
 		return &v1beta1.AdmissionResponse{

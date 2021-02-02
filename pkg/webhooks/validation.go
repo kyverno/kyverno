@@ -83,7 +83,8 @@ func HandleValidation(
 	for _, policy := range policies {
 		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 		policyContext.Policy = *policy
-		engineResponse := engine.Validate(policyContext, namespaceLabels)
+		policyContext.NamespaceLabels = namespaceLabels
+		engineResponse := engine.Validate(policyContext)
 		if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
 			// we get an empty response if old and new resources created the same response
 			// allow updates if resource update doesnt change the policy evaluation

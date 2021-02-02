@@ -2,11 +2,9 @@ package common
 
 import (
 	"encoding/json"
-	"fmt"
 
+	"github.com/go-logr/logr"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"k8s.io/api/admission/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -23,18 +21,8 @@ const (
 	PolicyReport    = "POLICYREPORT"
 )
 
-func GetNamespaceSelectors(request *v1beta1.AdmissionRequest, resource *unstructured.Unstructured, nsLister listerv1.NamespaceLister) map[string]string {
+func GetNamespaceSelectors(kind, namespaceOfResource string, nsLister listerv1.NamespaceLister, logger logr.Logger) map[string]string {
 	var namespaceLabels map[string]string
-	var kind, namespaceOfResource string
-
-	if request != nil {
-		kind = request.Kind.Kind
-		namespaceOfResource = request.Namespace
-	} else if resource != nil {
-		kind = resource.GetKind()
-		namespaceOfResource = resource.GetNamespace()
-	}
-
 	if kind != "Namespace" {
 		namespaceObj, err := nsLister.Get(namespaceOfResource)
 		if err != nil {
@@ -45,9 +33,8 @@ func GetNamespaceSelectors(request *v1beta1.AdmissionRequest, resource *unstruct
 		namespaceRaw, err := json.Marshal(namespaceObj)
 		namespaceUnstructured, err := enginutils.ConvertToUnstructured(namespaceRaw)
 		if err != nil {
-			log.Log.Error(err, "failed to convert object resource to unstructured format")
+			logger.Error(err, "failed to convert object resource to unstructured format")
 		}
-		fmt.Println("namespaceUnstructured  ", namespaceUnstructured)
 		namespaceLabels = namespaceUnstructured.GetLabels()
 	}
 

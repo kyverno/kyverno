@@ -45,7 +45,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	}
 
 	// 2 - Apply the generate policy on the resource
-	namespaceLabels := pkgcommon.GetNamespaceSelectors(nil, resource, c.nsLister)
+	namespaceLabels := pkgcommon.GetNamespaceSelectors(resource.GetKind(), resource.GetNamespace(), c.nsLister, logger)
 	genResources, err = c.applyGenerate(namespaceLabels, *resource, *gr)
 
 	if err != nil {
@@ -66,7 +66,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 
 const doesNotApply = "policy does not apply to resource"
 
-func (c *Controller) applyGenerate(namespaceLabel map[string]string, resource unstructured.Unstructured, gr kyverno.GenerateRequest) ([]kyverno.ResourceSpec, error) {
+func (c *Controller) applyGenerate(namespaceLabels map[string]string, resource unstructured.Unstructured, gr kyverno.GenerateRequest) ([]kyverno.ResourceSpec, error) {
 	logger := c.log.WithValues("name", gr.Name, "policy", gr.Spec.Policy, "kind", gr.Spec.Resource.Kind, "apiVersion", gr.Spec.Resource.APIVersion, "namespace", gr.Spec.Resource.Namespace, "name", gr.Spec.Resource.Name)
 	// Get the list of rules to be applied
 	// get policy
@@ -131,10 +131,11 @@ func (c *Controller) applyGenerate(namespaceLabel map[string]string, resource un
 		ExcludeResourceFunc: c.Config.ToFilter,
 		ResourceCache:       c.resCache,
 		JSONContext:         ctx,
+		NamespaceLabels:     namespaceLabels,
 	}
 
 	// check if the policy still applies to the resource
-	engineResponse := engine.Generate(policyContext, namespaceLabel)
+	engineResponse := engine.Generate(policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		logger.V(4).Info(doesNotApply)
 		return nil, errors.New(doesNotApply)
