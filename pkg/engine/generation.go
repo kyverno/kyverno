@@ -81,6 +81,9 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 		return nil
 	}
 
+	policyContext.JSONContext.Checkpoint()
+	defer policyContext.JSONContext.Restore()
+
 	// add configmap json data to context
 	if err := LoadContext(logger, rule.Context, resCache, policyContext); err != nil {
 		logger.V(4).Info("cannot add configmaps to context", "reason", err.Error())

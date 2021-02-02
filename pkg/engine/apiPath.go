@@ -33,6 +33,8 @@ func NewAPIPath(path string) (*APIPath, error) {
 	}
 
 	if paths[0] == "api" {
+
+		// /api/v1/namespaces
 		if len(paths) == 3 {
 			return &APIPath{
 				Root:         paths[0],
@@ -41,6 +43,7 @@ func NewAPIPath(path string) (*APIPath, error) {
 			}, nil
 		}
 
+		// /api/v1/namespaces/foo
 		if len(paths) == 4 {
 			return &APIPath{
 				Root:         paths[0],
@@ -50,7 +53,27 @@ func NewAPIPath(path string) (*APIPath, error) {
 			}, nil
 		}
 
-		return nil, fmt.Errorf("invalid /api/v1 path %s", path)
+		// /api/v1/namespaces/foo/pods
+		if len(paths) == 5 {
+			return &APIPath{
+				Root:         paths[0],
+				Group:        paths[1],
+				Namespace:    paths[3],
+				ResourceType: paths[4],
+			}, nil
+		}
+
+		if len(paths) == 6 {
+			return &APIPath{
+				Root:         paths[0],
+				Group:        paths[1],
+				Namespace:    paths[3],
+				ResourceType: paths[4],
+				Name:         paths[5],
+			}, nil
+		}
+
+		return nil, fmt.Errorf("invalid API v1 path %s", path)
 	}
 
 	// /apis/GROUP/VERSION/RESOURCETYPE/
@@ -97,7 +120,7 @@ func NewAPIPath(path string) (*APIPath, error) {
 		}, nil
 	}
 
-	return nil, fmt.Errorf("invalid /apis path %s", path)
+	return nil, fmt.Errorf("invalid API path %s", path)
 }
 
 func (a *APIPath) String() string {
@@ -115,7 +138,6 @@ func (a *APIPath) String() string {
 			paths = []string{a.Root, a.Group, a.Version, a.ResourceType}
 		}
 	}
-
 
 	result := "/" + strings.Join(paths, "/")
 	result = strings.ReplaceAll(result, "//", "/")

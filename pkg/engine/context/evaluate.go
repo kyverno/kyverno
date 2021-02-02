@@ -28,8 +28,8 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 		return emptyResult, fmt.Errorf("incorrect query %s: %v", query, err)
 	}
 	// search
-	ctx.mu.RLock()
-	defer ctx.mu.RUnlock()
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
 
 	var data interface{}
 	if err := json.Unmarshal(ctx.jsonRaw, &data); err != nil {

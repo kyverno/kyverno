@@ -8,6 +8,7 @@ import (
 	"github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic/dynamiclister"
@@ -44,7 +45,7 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resC
 }
 
 func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) error {
-	jsonData, err := fetchAPIData(entry, ctx)
+	jsonData, err := fetchAPIData(logger, entry, ctx)
 	if err != nil {
 		return err
 	}
@@ -94,14 +95,20 @@ func applyJMESPath(jmesPath string, jsonData []byte) (interface{}, error) {
 	return jp.Search(data)
 }
 
-func fetchAPIData(entry kyverno.ContextEntry, ctx *PolicyContext) ([]byte, error) {
+func fetchAPIData(log logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) ([]byte, error) {
 	if entry.APICall == nil {
-		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
+		return nil, fmt.Errorf("missing APICall in context entry %s %v", entry.Name, entry.APICall)
 	}
 
-	p, err := NewAPIPath(entry.APICall.URLPath)
+	path, err := variables.SubstituteVars(log, ctx.JSONContext, entry.APICall.URLPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build API path for %v: %v", entry, err)
+		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.APICall.URLPath, err)
+	}
+
+	pathStr := path.(string)
+	p, err := NewAPIPath(pathStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build API path for %s %v: %v", entry.Name, entry.APICall, err)
 	}
 
 	var jsonData []byte
