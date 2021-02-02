@@ -35,6 +35,8 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 		)
 
 		isHttpPath := strings.Contains(path, "http")
+
+		// path clean and retrieving file info can be possible if it's not an HTTP URL
 		if !isHttpPath {
 			path = filepath.Clean(path)
 			fileDesc, err = os.Stat(path)
@@ -44,6 +46,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 			}
 		}
 
+		// apply file from a directory is possible only if the path is not HTTP URL
 		if !isHttpPath && fileDesc.IsDir() {
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
