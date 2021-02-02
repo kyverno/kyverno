@@ -77,7 +77,6 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	} else if len(resourcePaths) > 0 {
 		for _, resourcePath := range resourcePaths {
 			resourceBytes, err := getFileBytes(resourcePath)
-			fmt.Print(resourcePath)
 			if err != nil {
 				if policyReport {
 					log.Log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", resourcePath), "error", err)
