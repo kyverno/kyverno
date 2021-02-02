@@ -1,10 +1,11 @@
 package webhooks
 
 import (
-	client "github.com/kyverno/kyverno/pkg/dclient"
 	"reflect"
 	"sort"
 	"time"
+
+	client "github.com/kyverno/kyverno/pkg/dclient"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -38,9 +39,7 @@ func HandleValidation(
 	log logr.Logger,
 	dynamicConfig config.Interface,
 	resCache resourcecache.ResourceCache,
-	client *client.Client) (bool, string) {
-	nsLister listerv1.NamespaceLister) (bool, string) {
-	labels map[string]string) (bool, string) {
+	client *client.Client,
 	namespaceLabels map[string]string) (bool, string) {
 
 	if len(policies) == 0 {
