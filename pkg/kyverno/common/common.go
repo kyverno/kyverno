@@ -5,18 +5,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/kyverno/kyverno/pkg/utils"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/policymutation"
-	"github.com/kyverno/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	yaml_v2 "sigs.k8s.io/yaml"
@@ -27,14 +29,22 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 	for _, path := range paths {
 		log.Log.V(5).Info("reading policies", "path", path)
 
-		path = filepath.Clean(path)
-		fileDesc, err := os.Stat(path)
-		if err != nil {
-			errors = append(errors, err)
-			continue
+		var (
+			fileDesc os.FileInfo
+			err      error
+		)
+
+		isHttpPath := strings.Contains(path, "http")
+		if !isHttpPath {
+			path = filepath.Clean(path)
+			fileDesc, err = os.Stat(path)
+			if err != nil {
+				errors = append(errors, err)
+				continue
+			}
 		}
 
-		if fileDesc.IsDir() {
+		if !isHttpPath && fileDesc.IsDir() {
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
 				errors = append(errors, fmt.Errorf("failed to read %v: %v", path, err.Error()))
@@ -54,10 +64,34 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 			policies = append(policies, policiesFromDir...)
 
 		} else {
-			fileBytes, err := ioutil.ReadFile(path)
-			if err != nil {
-				errors = append(errors, fmt.Errorf("failed to read %v: %v", path, err.Error()))
-				continue
+			var fileBytes []byte
+			if isHttpPath {
+				resp, err := http.Get(path)
+				if err != nil {
+					fmt.Errorf("failed to process %s", err)
+				}
+				defer resp.Body.Close()
+
+				if resp.StatusCode != http.StatusOK {
+					errors = append(errors, fmt.Errorf("failed to process %v: %v", path, err.Error()))
+					continue
+				}
+
+				fileBytes, err = ioutil.ReadAll(resp.Body)
+				if err != nil {
+					fmt.Errorf("failed to process %s", err)
+				}
+
+				if err != nil {
+					errors = append(errors, fmt.Errorf("failed to read %v: %v", path, err.Error()))
+					continue
+				}
+			} else {
+				fileBytes, err = ioutil.ReadFile(path)
+				if err != nil {
+					errors = append(errors, fmt.Errorf("failed to read %v: %v", path, err.Error()))
+					continue
+				}
 			}
 
 			policiesFromFile, errFromFile := utils.GetPolicy(fileBytes)
@@ -68,6 +102,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 			}
 
 			policies = append(policies, policiesFromFile...)
+
 		}
 	}
 

@@ -4,17 +4,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils"
+	"io/ioutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
+	"net/http"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
 )
 
 // GetResources gets matched resources by the given policies
@@ -75,6 +76,7 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	} else if len(resourcePaths) > 0 {
 		for _, resourcePath := range resourcePaths {
 			resourceBytes, err := getFileBytes(resourcePath)
+			fmt.Print(resourcePath)
 			if err != nil {
 				if policyReport {
 					log.Log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", resourcePath), "error", err)
@@ -149,10 +151,34 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Clien
 }
 
 func getFileBytes(path string) ([]byte, error) {
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
+
+	var (
+		file []byte
+		err  error
+	)
+
+	if strings.Contains(path, "http") {
+		resp, err := http.Get(path)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, err
+		}
+
+		file, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		file, err = ioutil.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	return file, err
 }
 
