@@ -44,6 +44,9 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		return
 	}
 
+	policyContext.JSONContext.Checkpoint()
+	defer policyContext.JSONContext.Restore()
+
 	for _, rule := range policy.Spec.Rules {
 		var ruleResponse response.RuleResponse
 		logger := logger.WithValues("rule", rule.Name)
@@ -66,9 +69,9 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 		logger.V(3).Info("matched mutate rule")
 
-		// add configmap json data to context
+		policyContext.JSONContext.Restore()
 		if err := LoadContext(logger, rule.Context, resCache, policyContext); err != nil {
-			logger.V(2).Info("failed to add configmaps to context", "reason", err.Error())
+			logger.V(2).Info("failed to load context", "reason", err.Error())
 			continue
 		}
 

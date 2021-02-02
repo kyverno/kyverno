@@ -38,10 +38,11 @@ type EvalInterface interface {
 
 //Context stores the data resources as JSON
 type Context struct {
-	mu          sync.RWMutex
-	jsonRaw     []byte
-	builtInVars []string
-	log         logr.Logger
+	mutex             sync.RWMutex
+	jsonRaw           []byte
+	jsonRawCheckpoint []byte
+	builtInVars       []string
+	log               logr.Logger
 }
 
 //NewContext returns a new context
@@ -60,8 +61,8 @@ func NewContext(builtInVars ...string) *Context {
 // AddJSON merges json data
 func (ctx *Context) AddJSON(dataRaw []byte) error {
 	var err error
-	ctx.mu.Lock()
-	defer ctx.mu.Unlock()
+	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
 	// merge json
 	ctx.jsonRaw, err = jsonpatch.MergePatch(ctx.jsonRaw, dataRaw)
 	if err != nil {
@@ -178,4 +179,28 @@ func (ctx *Context) AddServiceAccount(userName string) error {
 	}
 
 	return nil
+}
+
+// Checkpoint creates a copy of the internal state.
+// Prior checkpoints will be overridden.
+func (ctx *Context) Checkpoint() {
+	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
+
+	ctx.jsonRawCheckpoint = make([]byte, len(ctx.jsonRaw))
+	copy(ctx.jsonRawCheckpoint, ctx.jsonRaw)
+}
+
+// Restore restores internal state from a prior checkpoint, if one exists.
+// If a prior checkpoint does not exist, the state will not be changed.
+func (ctx *Context) Restore() {
+	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
+
+	if ctx.jsonRawCheckpoint == nil || len(ctx.jsonRawCheckpoint) == 0 {
+		return
+	}
+
+	ctx.jsonRaw = make([]byte, len(ctx.jsonRawCheckpoint))
+	copy(ctx.jsonRaw, ctx.jsonRawCheckpoint)
 }
