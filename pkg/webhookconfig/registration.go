@@ -92,26 +92,28 @@ func (wrc *Register) Register() error {
 	return nil
 }
 
-// CheckWebhooks returns an error if any of the webhooks are not configured
+// Check returns an error if any of the webhooks are not configured
 func (wrc *Register) Check() error {
+	mutatingCache, _ := wrc.resCache.GetGVRCache(kindMutating)
+	validatingCache, _ := wrc.resCache.GetGVRCache(kindValidating)
 
-	if _, err := wrc.client.GetResource("", kindMutating, "", wrc.getVerifyWebhookMutatingWebhookName()); err != nil {
+	if _, err := mutatingCache.Lister().Get(wrc.getVerifyWebhookMutatingWebhookName()); err != nil {
 		return err
 	}
 
-	if _, err := wrc.client.GetResource("", kindMutating, "", wrc.getResourceMutatingWebhookConfigName()); err != nil {
+	if _, err := mutatingCache.Lister().Get(wrc.getResourceMutatingWebhookConfigName()); err != nil {
 		return err
 	}
 
-	if _, err := wrc.client.GetResource("", kindValidating, "", wrc.getResourceValidatingWebhookConfigName()); err != nil {
+	if _, err := validatingCache.Lister().Get(wrc.getResourceValidatingWebhookConfigName()); err != nil {
 		return err
 	}
 
-	if _, err := wrc.client.GetResource("", kindMutating, "", wrc.getPolicyMutatingWebhookConfigurationName()); err != nil {
+	if _, err := mutatingCache.Lister().Get(wrc.getPolicyMutatingWebhookConfigurationName()); err != nil {
 		return err
 	}
 
-	if _, err := wrc.client.GetResource("", kindValidating, "", wrc.getPolicyValidatingWebhookConfigurationName()); err != nil {
+	if _, err := validatingCache.Lister().Get(wrc.getPolicyValidatingWebhookConfigurationName()); err != nil {
 		return err
 	}
 
