@@ -3,6 +3,7 @@ package testrunner
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/kyverno/kyverno/pkg/engine/context"
 	"io/ioutil"
 	"os"
 	ospath "path"
@@ -126,7 +127,14 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		t.FailNow()
 	}
 
-	er := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, ExcludeGroupRole: []string{}})
+	ctx := &engine.PolicyContext{
+		Policy: *policy,
+		NewResource: *resource,
+		ExcludeGroupRole: []string{},
+		JSONContext: context.NewContext(),
+	}
+
+	er := engine.Mutate(ctx)
 	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
 	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
@@ -136,7 +144,14 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		resource = &er.PatchedResource
 	}
 
-	er = engine.Validate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, ExcludeGroupRole: []string{}})
+	ctx = &engine.PolicyContext{
+		Policy: *policy,
+		NewResource: *resource,
+		ExcludeGroupRole: []string{},
+		JSONContext: context.NewContext(),
+	}
+
+	er = engine.Validate(ctx)
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 
@@ -158,6 +173,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 				ExcludeResourceFunc: func(s1, s2, s3 string) bool {
 					return false
 				},
+				JSONContext: context.NewContext(),
 			}
 
 			er = engine.Generate(policyContext)

@@ -49,7 +49,6 @@ type Context struct {
 // builtInVars is the list of known variables (e.g. serviceAccountName)
 func NewContext(builtInVars ...string) *Context {
 	ctx := Context{
-		// data:    map[string]interface{}{},
 		jsonRaw:     []byte(`{}`), // empty json struct
 		builtInVars: builtInVars,
 		log:         log.Log.WithName("context"),
