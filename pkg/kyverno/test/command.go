@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"sort"
 	"reflect"
-	"bufio"
 	"strings"
 	"github.com/spf13/cobra"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
@@ -16,23 +15,19 @@ import (
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
-	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	yamlv2 "gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
-	ut "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kataras/tablewriter"
 	"github.com/lensesio/tableprinter"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-billy/v5"
 	"github.com/fatih/color"
+	client "github.com/kyverno/kyverno/pkg/dclient"
 )
 
 // Command returns version command
@@ -51,9 +46,9 @@ func Command() *cobra.Command {
 					}
 				}
 			}()
-			err = testCommandHelper(dirPath, valuesFile)
+			err = testCommandExecute(dirPath, valuesFile)
 			if err != nil {
-				log.Log.V(3).Info("Test command fail to apply")
+				log.Log.V(3).Info("a directory is required")
 				return err
 			}
 			return nil
@@ -66,7 +61,7 @@ type Test struct {
 	Policies      []string     `json:"policies"`
 	Resources     []string     `json:"resources"`
 	Variables     string     `json:"variables"`
-	TResults      []TestResults     `json:"results"`
+	Results      []TestResults     `json:"results"`
 }
 
 type SkippedPolicy struct {
@@ -107,14 +102,14 @@ type Values struct {
 	Policies []Policy `json:"policies"`
 }
 
-func testCommandHelper(dirPath []string, valuesFile string) (err error) {
+func testCommandExecute(dirPath []string, valuesFile string) (err error) {
 	var errors []error
 	fs := memfs.New()
 	
 	if len(dirPath) == 0 {
-			return  sanitizederror.NewWithError(fmt.Sprintf("require test yamls"), err)
+			return  sanitizederror.NewWithError(fmt.Sprintf("a directory is required"), err)
 		}
-	if strings.Contains(string(dirPath[0]), "https://github.com/") {
+	if strings.Contains(string(dirPath[0]), "https://") {
 		gitUrl, err := url.Parse(dirPath[0])
 		if err != nil {
 			return  sanitizederror.NewWithError("failed to parse URL", err)
@@ -187,147 +182,6 @@ func testCommandHelper(dirPath []string, valuesFile string) (err error) {
 	}
 	return nil
 }
-func getPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool) (policies []*v1.ClusterPolicy, err error) {
-	var errors []error
-	if isGit {
-		for _, pp := range dirPath {
-			filep, err := fs.Open(pp)
-			bytes, err := ioutil.ReadAll(filep)
-			if err != nil {
-				fmt.Printf("Error: failed to read file %s: %v", filep.Name(), err.Error())
-			}
-			policyBytes, err := yaml.ToJSON(bytes)
-			if err != nil {
-				fmt.Printf("failed to convert to JSON: %v", err)
-				continue
-			}
-			policiesFromFile, errFromFile := ut.GetPolicy(policyBytes)
-			if errFromFile != nil {
-				err := fmt.Errorf("failed to process : %v", errFromFile.Error())
-				errors = append(errors, err)
-				continue
-			}
-			policies = append(policies, policiesFromFile...)
-		}
-	} else {
-		if len(dirPath) > 0 && dirPath[0] == "-" {
-			if common.IsInputFromPipe() {
-				policyStr := ""
-				scanner := bufio.NewScanner(os.Stdin)
-				for scanner.Scan() {
-					policyStr = policyStr + scanner.Text() + "\n"
-				}
-				yamlBytes := []byte(policyStr)
-				policies, err = ut.GetPolicy(yamlBytes)
-				if err != nil {
-					return nil, sanitizederror.NewWithError("failed to extract the resources", err)
-				}
-			}
-		} else {
-			var errors []error
-			policies, errors = common.GetPolicies(dirPath)
-			if len(policies) == 0 {
-				if len(errors) > 0 {
-					return nil, sanitizederror.NewWithErrors("failed to read file", errors)
-				}
-				return nil, sanitizederror.New(fmt.Sprintf("no file found in paths %v", dirPath))
-			}
-			if len(errors) > 0 && log.Log.V(1).Enabled() {
-				fmt.Printf("ignoring errors: \n")
-				for _, e := range errors {
-					fmt.Printf("    %v \n", e.Error())
-				}
-			}
-		}
-	}	
-	return
-}
-
-func mutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
-	newPolicies := make([]*v1.ClusterPolicy, 0)
-	logger := log.Log.WithName("apply")
-
-	for _, policy := range policies {
-		p, err := common.MutatePolicy(policy, logger)
-		if err != nil {
-			if !sanitizederror.IsErrorSanitized(err) {
-				return nil, sanitizederror.NewWithError("failed to mutate policy.", err)
-			}
-			return nil, err
-		}
-		newPolicies = append(newPolicies, p)
-	}
-	return newPolicies, nil
-}
-func getResourceAccordingToResourcePath(fs billy.Filesystem,resourcePaths []string,  policies []*v1.ClusterPolicy, isGit bool) (resources []*unstructured.Unstructured, err error) {
-	resources, err = common.GetResourcesWithTest(fs, policies, resourcePaths, isGit)
-	if err != nil {
-		return resources, err
-	}
-	return resources, err
-}
-	
-func applyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured) ([]*response.EngineResponse, *response.EngineResponse, error) {
-	engineResponses := make([]*response.EngineResponse, 0)
-
-	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
-	log.Log.V(3).Info("applying policy on resource", "policy", policy.Name, "resource", resPath)
-
-	ctx := context.NewContext()
-
-	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, JSONContext: ctx})
-	engineResponses = append(engineResponses, mutateResponse)
-
-	if !mutateResponse.IsSuccessful() {
-		fmt.Printf("Failed to apply mutate policy %s -> resource %s", policy.Name, resPath)
-		for i, r := range mutateResponse.PolicyResponse.Rules {
-			fmt.Printf("\n%d. %s", i+1, r.Message)
-		}
-	} else {
-		if len(mutateResponse.PolicyResponse.Rules) > 0 {
-			yamlEncodedResource, err := yamlv2.Marshal(mutateResponse.PatchedResource.Object)
-			if err != nil {
-				log.Log.V(3).Info(fmt.Sprintf("yaml encoded resource not valid"), "error", err)
-			}
-			mutatedResource := string(yamlEncodedResource)
-				if len(strings.TrimSpace(mutatedResource)) > 0 {
-					fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
-					fmt.Printf("\n" + mutatedResource)
-					fmt.Printf("\n")
-				}
-		}
-	}
-
-	if resource.GetKind() == "Pod" && len(resource.GetOwnerReferences()) > 0 {
-		if policy.HasAutoGenAnnotation() {
-			if _, ok := policy.GetAnnotations()[engine.PodControllersAnnotation]; ok {
-				delete(policy.Annotations, engine.PodControllersAnnotation)
-			}
-		}
-	}
-	policyCtx := &engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx}
-	validateResponse := engine.Validate(policyCtx)
-	var policyHasGenerate bool
-	for _, rule := range policy.Spec.Rules {
-		if rule.HasGenerate() {
-			policyHasGenerate = true
-		}
-	}
-	if policyHasGenerate {
-		generateResponse := engine.Generate(engine.PolicyContext{Policy: *policy, NewResource: *resource})
-		engineResponses = append(engineResponses, generateResponse)
-		if len(generateResponse.PolicyResponse.Rules) > 0 {
-			log.Log.V(3).Info("generate resource is valid", "policy", policy.Name, "resource", resPath)
-		} else {
-			fmt.Printf("generate policy %s resource %s is invalid \n", policy.Name, resPath)
-			for i, r := range generateResponse.PolicyResponse.Rules {
-				fmt.Printf("%d. %s \b", i+1, r.Message)
-			}
-
-		}
-	}
-	return engineResponses, validateResponse, nil
-}
 
 func buildPolicyResults(resps []*response.EngineResponse) map[string][]interface{} {
 	results := make(map[string][]interface{})
@@ -354,73 +208,39 @@ func buildPolicyResults(resps []*response.EngineResponse) map[string][]interface
 	}
 	return results
 }
-func getVariable( valuesFile string) ( valuesMap map[string]map[string]Resource, err error) {
-	if valuesFile != "" {
-		yamlFile, err := ioutil.ReadFile(valuesFile)
-		if err != nil {
-			return valuesMap, sanitizederror.NewWithError("unable to read yaml", err)
-		}
-		valuesBytes, err := yaml.ToJSON(yamlFile)
-		if err != nil {
-			return valuesMap, sanitizederror.NewWithError("failed to convert json", err)
-		}
-		values := &Values{}
-		if err := json.Unmarshal(valuesBytes, values); err != nil {
-			return valuesMap, sanitizederror.NewWithError("failed to decode yaml", err)
-		}
-		for _, p := range values.Policies {
-			pmap := make(map[string]Resource)
-			for _, r := range p.Resources {
-				pmap[r.Name] = r
-			}
-			valuesMap[p.Name] = pmap
-		}
-	}
-	return  valuesMap, nil
-}
 
-func removeDuplicatevariables(matches [][]string) string {
-	var variableStr string
-	for _, m := range matches {
-		for _, v := range m {
-			foundVariable := strings.Contains(variableStr, v)
-			if !foundVariable {
-				variableStr = variableStr + " " + v
-			}
-		}
-	}
-	return variableStr
-}
 
 func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool) (err error) {
 	openAPIController, err := openapi.NewOpenAPIController()
 	engineResponses := make([]*response.EngineResponse, 0)
 	validateEngineResponses := make([]*response.EngineResponse, 0)
 	skippedPolicies := make([]SkippedPolicy, 0)
+	var dClient *client.Client
 	values := &Test{}
+	var variablesString string
 
 	if err := json.Unmarshal(policyBytes, values); err != nil {
 		return sanitizederror.NewWithError("failed to decode yaml", err)
 	}	
-	valuesMap, err := getVariable(values.Variables)
+	_, valuesMap, err := common.GetVariable(variablesString, values.Variables)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return  sanitizederror.NewWithError("failed to decode yaml", err)
 		}
 		return  err
 	}
-	policies, err := getPoliciesFromPaths(fs, values.Policies, isGit)
+	policies, err := common.GetPoliciesFromPaths(fs, values.Policies, isGit)
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		os.Exit(1)
 	}
-	mutatedPolicies, err := mutatePolices(policies)
+	mutatedPolicies, err := common.MutatePolices(policies)
 		if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return  sanitizederror.NewWithError("failed to mutate policy", err)
 			}
 		}
-		resources, err := getResourceAccordingToResourcePath(fs,values.Resources, mutatedPolicies, isGit)
+		resources, err := common.GetResourceAccordingToResourcePath(fs, values.Resources, false,  mutatedPolicies, dClient, "", false, isGit)
 		if err != nil {
 			fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 			os.Exit(1)
@@ -447,7 +267,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 				continue
 			}
 			matches := common.PolicyHasVariables(*policy)
-			variable := removeDuplicatevariables(matches)
+			variable := common.RemoveDuplicateVariables(matches)
 			if len(matches) > 0 && valuesFile == "" {
 				skipPolicy := SkippedPolicy{
 						Name:     policy.GetName(),
@@ -467,8 +287,8 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 				if len(common.PolicyHasVariables(*policy)) > 0 && len(thisPolicyResourceValues) == 0 {
 					return  sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 				}
-
-				ers, validateErs, err := applyPolicyOnResource(policy, resource)
+				
+				ers, validateErs, _, _, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true)
 				if err != nil {
 					return  sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 				}
@@ -477,13 +297,14 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			}
 		}
 		resultsMap := buildPolicyResults(validateEngineResponses)
-		resuleErr := printTestResult(resultsMap, values.TResults)
+		resuleErr := printTestResult(resultsMap, values.Results)
 		if resuleErr != nil {
 			return  sanitizederror.NewWithError("Unable to genrate result. error:", resuleErr)
 			os.Exit(1)
 		}
 	return
 }
+
 
 func printTestResult(resps map[string][]interface {}, testResults []TestResults) (error){
 	printer := tableprinter.New(os.Stdout)
@@ -502,6 +323,7 @@ func printTestResult(resps map[string][]interface {}, testResults []TestResults)
 		}
 		var c []ReportResult
 		json.Unmarshal(valuesBytes, &c)
+		res.Result = boldRed.Sprintf("Fail")
 		if len(c) != 0 {
 			var resource1 TestResults
 			for _, c1 := range c {
@@ -510,11 +332,9 @@ func printTestResult(resps map[string][]interface {}, testResults []TestResults)
 				resource1.Rule = c1.Rule
 				resource1.Status = c1.Status
 				resource1.Resource = c1.Resources[0].Name
-					if v != resource1 {
-						res.Result = boldRed.Sprintf("Fail")
-					} else {
+				
+					if v == resource1 {
 						res.Result =  "Pass"
-						continue
 					}
 				}
 			}
