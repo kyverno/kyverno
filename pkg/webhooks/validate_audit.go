@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 
 	"github.com/go-logr/logr"
@@ -183,7 +184,12 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		return errors.Wrap(err, "failed to load service account in context")
 	}
 
-	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, h.client)
+	namespaceLabels := make(map[string]string)
+	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
+		namespaceLabels = common.GetNamespaceSelectors(request.Kind.Kind, request.Namespace, h.nsLister, logger)
+	}
+
+	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, h.client, namespaceLabels)
 	return nil
 }
 
