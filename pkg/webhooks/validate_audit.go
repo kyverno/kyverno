@@ -186,7 +186,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 
 	namespaceLabels := make(map[string]string)
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		namespaceLabels = common.GetNamespaceSelectors(request.Kind.Kind, request.Namespace, h.nsLister, logger)
+		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 
 	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, h.client, namespaceLabels)

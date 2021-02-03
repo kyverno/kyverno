@@ -45,7 +45,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	}
 
 	// 2 - Apply the generate policy on the resource
-	namespaceLabels := pkgcommon.GetNamespaceSelectors(resource.GetKind(), resource.GetNamespace(), c.nsLister, logger)
+	namespaceLabels := pkgcommon.GetNamespaceSelectorsFromGenericInformer(resource.GetKind(), resource.GetNamespace(), c.nsInformer, logger)
 	genResources, err = c.applyGenerate(*resource, *gr, namespaceLabels)
 
 	if err != nil {

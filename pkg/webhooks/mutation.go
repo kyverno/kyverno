@@ -57,7 +57,7 @@ func (ws *WebhookServer) HandleMutation(
 
 		policyContext.Policy = *policy
 		if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-			policyContext.NamespaceLabels = common.GetNamespaceSelectors(request.Kind.Kind, request.Namespace, ws.nsLister, logger)
+			policyContext.NamespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, ws.nsLister, logger)
 		}
 		engineResponse := engine.Mutate(policyContext)
 		policyPatches := engineResponse.GetPatches()

@@ -237,7 +237,6 @@ func main() {
 		eventGenerator,
 		kubedynamicInformer,
 		statusSync.Listener,
-		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("GenerateController"),
 		configData,
 		rCache,
