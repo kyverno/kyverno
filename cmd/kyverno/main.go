@@ -322,6 +322,7 @@ func main() {
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		kubeInformer.Rbac().V1().Roles(),
 		kubeInformer.Rbac().V1().ClusterRoles(),
+		kubeInformer.Core().V1().Namespaces(),
 		eventGenerator,
 		pCacheController.Cache,
 		webhookCfg,
