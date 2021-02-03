@@ -33,9 +33,7 @@ import (
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	informers "k8s.io/client-go/informers/core/v1"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -109,10 +107,10 @@ type WebhookServer struct {
 	// generate request generator
 	grGenerator *webhookgenerate.Generator
 
-	nsLister listerv1.NamespaceLister
+	// nsLister listerv1.NamespaceLister
 
 	// nsListerSynced returns true if the namespace store has been synced at least once
-	nsListerSynced cache.InformerSynced
+	// nsListerSynced cache.InformerSynced
 
 	auditHandler AuditHandler
 
@@ -142,7 +140,7 @@ func NewWebhookServer(
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	rInformer rbacinformer.RoleInformer,
 	crInformer rbacinformer.ClusterRoleInformer,
-	namespace informers.NamespaceInformer,
+	// namespace informers.NamespaceInformer,
 	eventGen event.Interface,
 	pCache policycache.Interface,
 	webhookRegistrationClient *webhookconfig.Register,
@@ -173,18 +171,18 @@ func NewWebhookServer(
 	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
-		client:         client,
-		kyvernoClient:  kyvernoClient,
-		grLister:       grInformer.Lister().GenerateRequests(config.KyvernoNamespace),
-		grSynced:       grInformer.Informer().HasSynced,
-		pLister:        pInformer.Lister(),
-		pSynced:        pInformer.Informer().HasSynced,
-		rbLister:       rbInformer.Lister(),
-		rbSynced:       rbInformer.Informer().HasSynced,
-		rLister:        rInformer.Lister(),
-		rSynced:        rInformer.Informer().HasSynced,
-		nsLister:       namespace.Lister(),
-		nsListerSynced: namespace.Informer().HasSynced,
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		grLister:      grInformer.Lister().GenerateRequests(config.KyvernoNamespace),
+		grSynced:      grInformer.Informer().HasSynced,
+		pLister:       pInformer.Lister(),
+		pSynced:       pInformer.Informer().HasSynced,
+		rbLister:      rbInformer.Lister(),
+		rbSynced:      rbInformer.Informer().HasSynced,
+		rLister:       rInformer.Lister(),
+		rSynced:       rInformer.Informer().HasSynced,
+		// nsLister:       namespace.Lister(),
+		// nsListerSynced: namespace.Informer().HasSynced,
 
 		crbLister:             crbInformer.Lister(),
 		crLister:              crInformer.Lister(),

@@ -12,7 +12,6 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -56,7 +55,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		for _, policy := range policies {
 			var rules []response.RuleResponse
 			policyContext.Policy = *policy
-			policyContext.NamespaceLabels = common.GetNamespaceSelectors(request.Kind.Kind, request.Namespace, ws.nsLister, logger)
+			// policyContext.NamespaceLabels = common.GetNamespaceSelectors(request.Kind.Kind, request.Namespace, ws.nsLister, logger)
 			engineResponse := engine.Generate(policyContext)
 			for _, rule := range engineResponse.PolicyResponse.Rules {
 				if !rule.Success {
