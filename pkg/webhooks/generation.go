@@ -56,7 +56,9 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		for _, policy := range policies {
 			var rules []response.RuleResponse
 			policyContext.Policy = *policy
-			policyContext.NamespaceLabels = common.GetNamespaceSelectors(request.Kind.Kind, request.Namespace, ws.nsLister, logger)
+			if request.Kind.Kind != "Namespace" && request.Namespace != "" {
+				policyContext.NamespaceLabels = common.GetNamespaceSelectors(request.Kind.Kind, request.Namespace, ws.nsLister, logger)
+			}
 			engineResponse := engine.Generate(policyContext)
 			for _, rule := range engineResponse.PolicyResponse.Rules {
 				if !rule.Success {
