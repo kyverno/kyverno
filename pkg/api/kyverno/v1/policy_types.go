@@ -108,7 +108,8 @@ type ContextEntry struct {
 	// ConfigMap is the ConfigMap reference.
 	ConfigMap *ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
 
-	// APICall is an API server request to retrieve data
+	// APICall defines an HTTP request to the Kubernetes API server. The JSON
+	// data retrieved is stored in the context.
 	APICall *APICall `json:"apiCall,omitempty" yaml:"apiCall,omitempty"`
 }
 
@@ -122,15 +123,22 @@ type ConfigMapReference struct {
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 }
 
-// APICall contains an API server URL path used to perform an HTTP GET request
-// and an optional JMESPath to transform the retrieved data.
+// APICall defines an HTTP request to the Kubernetes API server. The JSON
+// data retrieved is stored in the context. An APICall contains a URLPath
+// used to perform the HTTP GET request and an optional JMESPath used to
+// transform the retrieved JSON data.
 type APICall struct {
 
-	// URLPath is the URL path to be used in the HTTP GET request
+	// URLPath is the URL path to be used in the HTTP GET request to the
+	// Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
+	// The format required is the same format used by the `kubectl get --raw` command.
 	URLPath string `json:"urlPath" yaml:"urlPath"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to
-	// transform the JSON response from the API server.
+	// transform the JSON response returned from the API server. For example
+	// a JMESPath of "items | length(@)" applied to the API server response
+	// to the URLPath "/apis/apps/v1/deployments" will return the total count
+	// of deployments across all namespaces.
 	// +optional
 	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
 }
