@@ -22,7 +22,7 @@ import (
 // applyPolicy applies policy on a resource
 func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured,
 	logger logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCache,
-	client *client.Client) (responses []*response.EngineResponse) {
+	client *client.Client, namespaceLabels map[string]string) (responses []*response.EngineResponse) {
 
 	startTime := time.Now()
 	defer func() {
@@ -45,7 +45,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		logger.Error(err, "enable to add transform resource to ctx")
 	}
 
-	engineResponseMutation, err = mutation(policy, resource, logger, resCache, ctx)
+	engineResponseMutation, err = mutation(policy, resource, logger, resCache, ctx, namespaceLabels)
 	if err != nil {
 		logger.Error(err, "failed to process mutation rule")
 	}
@@ -65,13 +65,14 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	return engineResponses
 }
 
-func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, log logr.Logger, resCache resourcecache.ResourceCache, jsonContext *context.Context) (*response.EngineResponse, error) {
+func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, log logr.Logger, resCache resourcecache.ResourceCache, jsonContext *context.Context, namespaceLabels map[string]string) (*response.EngineResponse, error) {
 
 	policyContext := &engine.PolicyContext{
-		Policy:        policy,
-		NewResource:   resource,
-		ResourceCache: resCache,
-		JSONContext:   jsonContext,
+		Policy:          policy,
+		NewResource:     resource,
+		ResourceCache:   resCache,
+		JSONContext:     jsonContext,
+		NamespaceLabels: namespaceLabels,
 	}
 
 	engineResponse := engine.Mutate(policyContext)
