@@ -32,7 +32,7 @@ type PolicyContext struct {
 	ExcludeResourceFunc func(kind, namespace, name string) bool
 
 	// ResourceCache provides listers to resources. Currently Supports Configmap
-	ResourceCache resourcecache.ResourceCacheIface
+	ResourceCache resourcecache.ResourceCache
 
 	// JSONContext is the variable context
 	JSONContext *context.Context

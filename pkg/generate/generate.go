@@ -123,7 +123,7 @@ func (c *Controller) applyGenerate(namespaceLabels map[string]string, resource u
 		return nil, err
 	}
 
-	policyContext := engine.PolicyContext{
+	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
 		Policy:              *policyObj,
 		AdmissionInfo:       gr.Spec.Context.UserRequestInfo,
@@ -182,7 +182,7 @@ func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateReque
 	return statusControl.Success(gr, genResources)
 }
 
-func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.PolicyContext, gr kyverno.GenerateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, err error) {
+func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, gr kyverno.GenerateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, err error) {
 	// Get the response as the actions to be performed on the resource
 	// - - substitute values
 	policy := policyContext.Policy
@@ -215,7 +215,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 		}
 
 		// add configmap json data to context
-		if err := engine.AddResourceToContext(log, rule.Context, resCache, jsonContext); err != nil {
+		if err := engine.LoadContext(log, rule.Context, resCache, policyContext); err != nil {
 			log.Info("cannot add configmaps to context", "reason", err.Error())
 			return nil, err
 		}

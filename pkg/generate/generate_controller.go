@@ -75,7 +75,7 @@ type Controller struct {
 	log                  logr.Logger
 
 	Config   config.Interface
-	resCache resourcecache.ResourceCacheIface
+	resCache resourcecache.ResourceCache
 }
 
 //NewController returns an instance of the Generate-Request Controller
@@ -90,7 +90,7 @@ func NewController(
 	namespaces informersv1.NamespaceInformer,
 	log logr.Logger,
 	dynamicConfig config.Interface,
-	resourceCache resourcecache.ResourceCacheIface,
+	resourceCache resourcecache.ResourceCache,
 ) (*Controller, error) {
 
 	c := Controller{
@@ -286,6 +286,8 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
 func (c *Controller) worker() {
+	c.log.Info("starting new worker...")
+
 	for c.processNextWorkItem() {
 	}
 }

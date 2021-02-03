@@ -4,9 +4,10 @@ import (
 	"strings"
 	"time"
 
+	client "github.com/kyverno/kyverno/pkg/dclient"
+
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
@@ -44,7 +45,7 @@ type AuditHandler interface {
 }
 
 type auditHandler struct {
-	client         *kyvernoclient.Clientset
+	client         *client.Client
 	queue          workqueue.RateLimitingInterface
 	pCache         policycache.Interface
 	eventGen       event.Interface
@@ -60,7 +61,7 @@ type auditHandler struct {
 
 	log           logr.Logger
 	configHandler config.Interface
-	resCache      resourcecache.ResourceCacheIface
+	resCache      resourcecache.ResourceCache
 }
 
 // NewValidateAuditHandler returns a new instance of audit policy handler
@@ -73,7 +74,8 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
 	dynamicConfig config.Interface,
-	resCache resourcecache.ResourceCacheIface) AuditHandler {
+	resCache resourcecache.ResourceCache,
+	client *client.Client) AuditHandler {
 
 	return &auditHandler{
 		pCache:         pCache,
@@ -90,6 +92,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		prGenerator:    prGenerator,
 		configHandler:  dynamicConfig,
 		resCache:       resCache,
+		client:         client,
 	}
 }
 
@@ -182,7 +185,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	}
 
 	namespaceLabels := common.GetNamespaceSelectors(request.Kind.Kind, request.Namespace, h.nsLister, logger)
-	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, namespaceLabels)
+	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, namespaceLabels, h.client)
 
 	return nil
 }

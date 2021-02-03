@@ -124,7 +124,7 @@ type WebhookServer struct {
 	supportMutateValidate bool
 
 	// resCache - controls creation and fetching of resource informer cache
-	resCache resourcecache.ResourceCacheIface
+	resCache resourcecache.ResourceCache
 
 	grController *generate.Controller
 
@@ -157,7 +157,7 @@ func NewWebhookServer(
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
-	resCache resourcecache.ResourceCacheIface,
+	resCache resourcecache.ResourceCache,
 	grc *generate.Controller,
 	debug bool,
 ) (*WebhookServer, error) {
@@ -469,7 +469,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		logger.Error(err, "failed to load service account in context")
 	}
 
-	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.prGenerator, ws.log, ws.configHandler, ws.resCache, common.GetNamespaceSelectors(request.Kind.Kind, request.Namespace, ws.nsLister, logger))
+	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.prGenerator, ws.log, ws.configHandler, ws.resCache, common.GetNamespaceSelectors(request.Kind.Kind, request.Namespace, ws.nsLister, logger), ws.client)
 	if !ok {
 		logger.Info("admission request denied")
 		return &v1beta1.AdmissionResponse{
