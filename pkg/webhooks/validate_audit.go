@@ -1,9 +1,10 @@
 package webhooks
 
 import (
-	client "github.com/kyverno/kyverno/pkg/dclient"
 	"strings"
 	"time"
+
+	client "github.com/kyverno/kyverno/pkg/dclient"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -20,7 +21,9 @@ import (
 	"k8s.io/api/admission/v1beta1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	informers "k8s.io/client-go/informers/core/v1"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -48,10 +51,12 @@ type auditHandler struct {
 	statusListener policystatus.Listener
 	prGenerator    policyreport.GeneratorInterface
 
-	rbLister  rbaclister.RoleBindingLister
-	rbSynced  cache.InformerSynced
-	crbLister rbaclister.ClusterRoleBindingLister
-	crbSynced cache.InformerSynced
+	rbLister       rbaclister.RoleBindingLister
+	rbSynced       cache.InformerSynced
+	crbLister      rbaclister.ClusterRoleBindingLister
+	crbSynced      cache.InformerSynced
+	nsLister       listerv1.NamespaceLister
+	nsListerSynced cache.InformerSynced
 
 	log           logr.Logger
 	configHandler config.Interface
@@ -65,6 +70,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	prGenerator policyreport.GeneratorInterface,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
+	namespaces informers.NamespaceInformer,
 	log logr.Logger,
 	dynamicConfig config.Interface,
 	resCache resourcecache.ResourceCache,
@@ -79,6 +85,8 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		rbSynced:       rbInformer.Informer().HasSynced,
 		crbLister:      crbInformer.Lister(),
 		crbSynced:      crbInformer.Informer().HasSynced,
+		nsLister:       namespaces.Lister(),
+		nsListerSynced: namespaces.Informer().HasSynced,
 		log:            log,
 		prGenerator:    prGenerator,
 		configHandler:  dynamicConfig,
