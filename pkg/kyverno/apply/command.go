@@ -104,6 +104,7 @@ To apply policy with variables:
 More info: https://kyverno.io/docs/kyverno-cli/
 `
 
+// apply command
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
