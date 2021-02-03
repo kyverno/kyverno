@@ -263,23 +263,23 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		for _, policy := range mutatedPolicies {
 			err := policy2.Validate(policy, nil, true, openAPIController)
 			if err != nil {
+				fmt.Println("valuesMap1")
 				log.Log.V(3).Info(fmt.Sprintf("skipping policy %v as it is not valid", policy.Name), "error", err)
 				continue
 			}
 			matches := common.PolicyHasVariables(*policy)
 			variable := common.RemoveDuplicateVariables(matches)
-			if len(matches) > 0 && valuesFile == "" {
+			if len(matches) > 0 && variablesString == "" && values.Variables == "" {
 				skipPolicy := SkippedPolicy{
-						Name:     policy.GetName(),
-						Rules:    policy.Spec.Rules,
-						Variable: variable,
+					Name:     policy.GetName(),
+					Rules:    policy.Spec.Rules,
+					Variable: variable,
 				}
 				skippedPolicies = append(skippedPolicies, skipPolicy)
 				log.Log.V(3).Info(fmt.Sprintf("skipping policy %s", policy.Name), "error", fmt.Sprintf("policy have variable - %s", variable))
 				continue
 			}
 			for _, resource := range resources {
-
 				thisPolicyResourceValues := make(map[string]string)
 				if len(valuesMap[policy.GetName()]) != 0 && !reflect.DeepEqual(valuesMap[policy.GetName()][resource.GetName()], Resource{}) {
 					thisPolicyResourceValues = valuesMap[policy.GetName()][resource.GetName()].Values
@@ -297,9 +297,9 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			}
 		}
 		resultsMap := buildPolicyResults(validateEngineResponses)
-		resuleErr := printTestResult(resultsMap, values.Results)
-		if resuleErr != nil {
-			return  sanitizederror.NewWithError("Unable to genrate result. error:", resuleErr)
+		resultErr := printTestResult(resultsMap, values.Results)
+		if resultErr != nil {
+			return  sanitizederror.NewWithError("Unable to genrate result. Error:", resultErr)
 			os.Exit(1)
 		}
 	return
@@ -321,25 +321,24 @@ func printTestResult(resps map[string][]interface {}, testResults []TestResults)
 		if err != nil {
 			return  sanitizederror.NewWithError("failed to convert json", err)
 		}
-		var c []ReportResult
-		json.Unmarshal(valuesBytes, &c)
+		var r []ReportResult
+		json.Unmarshal(valuesBytes, &r)
 		res.Result = boldRed.Sprintf("Fail")
-		if len(c) != 0 {
-			var resource1 TestResults
-			for _, c1 := range c {
-				if c1.Resources[0].Name == v.Resource {
-				resource1.Policy = c1.Policy
-				resource1.Rule = c1.Rule
-				resource1.Status = c1.Status
-				resource1.Resource = c1.Resources[0].Name
-				
-					if v == resource1 {
+		if len(r) != 0 {
+			var resource TestResults
+			for _, testRes := range r {
+				if testRes.Resources[0].Name == v.Resource {
+				resource.Policy = testRes.Policy 
+				resource.Rule = testRes.Rule
+				resource.Status = testRes.Status
+				resource.Resource = testRes.Resources[0].Name
+					if v == resource {
 						res.Result =  "Pass"
 					}
 				}
 			}
-		table = append(table, res)
 		}
+		table = append(table, res)
 	}	
 	printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
 	printer.CenterSeparator = "│"

@@ -263,7 +263,9 @@ func RemoveDuplicateVariables(matches [][]string) string {
 }
 
 // GetVariable - get the variables from console/file
-func GetVariable(variablesString, valuesFile string) (variables map[string]string, valuesMap map[string]map[string]Resource, err error) {
+func GetVariable(variablesString, valuesFile string) (  map[string]string,  map[string]map[string]Resource,  error) {
+	valuesMap := make(map[string]map[string]Resource)
+	variables := make(map[string]string)
 	if variablesString != "" {
 		kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
 		for _, kvpair := range kvpairs {
@@ -271,7 +273,6 @@ func GetVariable(variablesString, valuesFile string) (variables map[string]strin
 			variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
 		}
 	}
-
 	if valuesFile != "" {
 		yamlFile, err := ioutil.ReadFile(valuesFile)
 		if err != nil {
