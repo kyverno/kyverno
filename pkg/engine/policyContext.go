@@ -36,4 +36,7 @@ type PolicyContext struct {
 
 	// JSONContext is the variable context
 	JSONContext *context.Context
+
+	// NamespaceLabels stores the label of namespace to be processed by namespace selector
+	NamespaceLabels map[string]string
 }
