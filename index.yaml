@@ -475,8 +475,4 @@ entries:
     urls:
     - kyverno-0.0.1.tgz
     version: 0.0.1
-<<<<<<< Updated upstream
-generated: "2021-02-02T12:40:17.605194-08:00"
-=======
 generated: "2021-02-03T16:24:04.157627-08:00"
->>>>>>> Stashed changes
