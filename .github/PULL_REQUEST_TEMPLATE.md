@@ -7,7 +7,7 @@ with a maintainer, please mention her/him using the `@` syntax (e.g. `@JimBugwad
 If this change neither resolves an existing issue nor has sign-off from one of the maintainers, there is a
 chance substantial changes will be requested or that the changes will be rejected.
 
-You can discuss changes with maintainers in the [Kyvrno Slack Channel](https://kubernetes.slack.com/).
+You can discuss changes with maintainers in the [Kyverno Slack Channel](https://kubernetes.slack.com/).
 -->
 
 **What type of PR is this?**
