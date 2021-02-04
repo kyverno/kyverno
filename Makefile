@@ -37,7 +37,6 @@ docker-publish-initContainer: docker-build-initContainer docker-tag-repo-initCon
 
 docker-build-initContainer:
 	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64 --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
-#	@docker build -f $(PWD)/$(INITC_PATH)/Dockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 docker-tag-repo-initContainer:
 	@docker tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) $(REPO)/$(INITC_IMAGE):latest
@@ -45,8 +44,6 @@ docker-tag-repo-initContainer:
 docker-push-initContainer:
 	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) .
 	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(INITC_IMAGE):latest .
-#	@docker push $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG)
-#	@docker push $(REPO)/$(INITC_IMAGE):latest
 
 ##################################
 # KYVERNO CONTAINER
@@ -67,8 +64,6 @@ docker-publish-kyverno: docker-build-kyverno  docker-tag-repo-kyverno  docker-pu
 docker-build-kyverno:
 	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
-#	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
-
 docker-tag-repo-kyverno:
 	@echo "docker tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REPO)/$(KYVERNO_IMAGE):latest"
 	@docker tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REPO)/$(KYVERNO_IMAGE):latest
@@ -76,9 +71,6 @@ docker-tag-repo-kyverno:
 docker-push-kyverno:
 	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) .
 	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):latest .
-#
-#	@docker push $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG)
-#	@docker push $(REPO)/$(KYVERNO_IMAGE):latest
 
 ##################################
 

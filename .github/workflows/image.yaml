@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - 'main'
-      - 'multi-arch'
 jobs:
   push-docker-images:
     runs-on: ubuntu-latest
@@ -19,8 +18,8 @@ jobs:
         with:
           go-version: 1.14
 
-#      - name: login to GitHub Container Registry
-#        run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+      - name: login to GitHub Container Registry
+        run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
