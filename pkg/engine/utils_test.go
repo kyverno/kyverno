@@ -70,7 +70,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		resource, _ := utils.ConvertToUnstructured(tc.Resource)
 
 		for _, rule := range policy.Spec.Rules {
-			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, []string{}, nil)
+			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, []string{})
 			if err != nil {
 				if !tc.areErrorsExpected {
 					t.Errorf("Testcase %d Unexpected error: %v", i+1, err)
@@ -138,7 +138,7 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 	}
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}, []string{}, nil); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}, []string{}); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 
@@ -199,7 +199,7 @@ func TestResourceDescriptionMatch_Name(t *testing.T) {
 	}
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}, []string{}, nil); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}, []string{}); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -259,7 +259,7 @@ func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
 	}
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}, []string{}, nil); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}, []string{}); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -327,7 +327,7 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 	}
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}, []string{}, nil); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}, []string{}); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -396,7 +396,7 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 	}
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}, []string{}, nil); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}, []string{}); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -476,7 +476,7 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 	rule := kyverno.Rule{MatchResources: kyverno.MatchResources{ResourceDescription: resourceDescription},
 		ExcludeResources: kyverno.ExcludeResources{ResourceDescription: resourceDescriptionExclude}}
 
-	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}, []string{}, nil); err == nil {
+	if err := MatchesResourceDescription(*resource, rule, kyverno.RequestInfo{}, []string{}); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")
 	}
 }

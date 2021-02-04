@@ -1,12 +1,11 @@
 package engine
 
 import (
-	"time"
-
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"time"
 )
 
 // Generate checks for validity of generate rule on the resource
@@ -61,15 +60,14 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	ctx := policyContext.JSONContext
 	resCache := policyContext.ResourceCache
 	excludeGroupRole := policyContext.ExcludeGroupRole
-	namespaceLabels := policyContext.NamespaceLabels
 
 	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name,
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 
-	if err := MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err != nil {
+	if err := MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole); err != nil {
 
 		// if the oldResource matched, return "false" to delete GR for it
-		if err := MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err == nil {
+		if err := MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole); err == nil {
 			return &response.RuleResponse{
 				Name:    rule.Name,
 				Type:    "Generation",

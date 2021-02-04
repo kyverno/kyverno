@@ -108,7 +108,7 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 // should be: AND across attributes but an OR inside attributes that of type list
 // To filter out the targeted resources with UserInfo, the check
 // should be: OR (across & inside) attributes
-func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
+func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string) []error {
 	var errs []error
 
 	if len(conditionBlock.Kinds) > 0 {
@@ -142,17 +142,6 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 		} else {
 			if !hasPassed {
 				errs = append(errs, fmt.Errorf("selector does not match"))
-			}
-		}
-	}
-
-	if conditionBlock.NamespaceSelector != nil && namespaceLabels != nil && resource.GetKind() != "Namespace" && resource.GetKind() != "" {
-		hasPassed, err := checkSelector(conditionBlock.NamespaceSelector, namespaceLabels)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse namespace selector: %v", err))
-		} else {
-			if !hasPassed {
-				errs = append(errs, fmt.Errorf("namespace selector does not match"))
 			}
 		}
 	}
@@ -231,7 +220,7 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 }
 
 //MatchesResourceDescription checks if the resource matches resource description of the rule or not
-func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string) error {
+func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo, dynamicConfig []string) error {
 
 	rule := *ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
@@ -246,7 +235,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	// checking if resource matches the rule
 	if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) ||
 		!reflect.DeepEqual(rule.MatchResources.UserInfo, kyverno.UserInfo{}) {
-		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
+		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource, dynamicConfig)
 		reasonsForFailure = append(reasonsForFailure, matchErrs...)
 	} else {
 		reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
@@ -255,7 +244,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	// checking if resource has been excluded
 	if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) ||
 		!reflect.DeepEqual(rule.ExcludeResources.UserInfo, kyverno.UserInfo{}) {
-		excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
+		excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource, dynamicConfig)
 		if excludeErrs == nil {
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded"))
 		}

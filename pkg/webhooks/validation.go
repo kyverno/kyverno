@@ -1,11 +1,10 @@
 package webhooks
 
 import (
+	client "github.com/kyverno/kyverno/pkg/dclient"
 	"reflect"
 	"sort"
 	"time"
-
-	client "github.com/kyverno/kyverno/pkg/dclient"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -39,8 +38,7 @@ func HandleValidation(
 	log logr.Logger,
 	dynamicConfig config.Interface,
 	resCache resourcecache.ResourceCache,
-	client *client.Client,
-	namespaceLabels map[string]string) (bool, string) {
+	client *client.Client) (bool, string) {
 
 	if len(policies) == 0 {
 		return true, ""
@@ -87,7 +85,6 @@ func HandleValidation(
 	for _, policy := range policies {
 		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 		policyContext.Policy = *policy
-		policyContext.NamespaceLabels = namespaceLabels
 		engineResponse := engine.Validate(policyContext)
 		if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
 			// we get an empty response if old and new resources created the same response

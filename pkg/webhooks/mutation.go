@@ -7,7 +7,6 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -56,9 +55,6 @@ func (ws *WebhookServer) HandleMutation(
 		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 
 		policyContext.Policy = *policy
-		if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-			policyContext.NamespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, ws.nsLister, logger)
-		}
 		engineResponse := engine.Mutate(policyContext)
 		policyPatches := engineResponse.GetPatches()
 

@@ -72,25 +72,17 @@ spec:
                           must be provided.
                         properties:
                           apiCall:
-                            description: APICall defines an HTTP request to the Kubernetes
-                              API server. The JSON data retrieved is stored in the
-                              context.
+                            description: APICall is an API server request to retrieve
+                              data
                             properties:
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the JSON response
-                                  returned from the API server. For example a JMESPath
-                                  of "items | length(@)" applied to the API server
-                                  response to the URLPath "/apis/apps/v1/deployments"
-                                  will return the total count of deployments across
-                                  all namespaces.
+                                  from the API server.
                                 type: string
                               urlPath:
                                 description: URLPath is the URL path to be used in
-                                  the HTTP GET request to the Kubernetes API server
-                                  (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
-                                  The format required is the same format used by the
-                                  `kubectl get --raw` command.
+                                  the HTTP GET request
                                 type: string
                             required:
                             - urlPath
@@ -161,58 +153,6 @@ spec:
                                 one character). Wildcards allows writing label selectors
                                 like ["storage.k8s.io/*": "*"]. Note that using ["*"
                                 : "*"] matches any key and value but does not match
-                                an empty label set.'
-                              properties:
-                                matchExpressions:
-                                  description: matchExpressions is a list of label
-                                    selector requirements. The requirements are ANDed.
-                                  items:
-                                    description: A label selector requirement is a
-                                      selector that contains values, a key, and an
-                                      operator that relates the key and values.
-                                    properties:
-                                      key:
-                                        description: key is the label key that the
-                                          selector applies to.
-                                        type: string
-                                      operator:
-                                        description: operator represents a key's relationship
-                                          to a set of values. Valid operators are
-                                          In, NotIn, Exists and DoesNotExist.
-                                        type: string
-                                      values:
-                                        description: values is an array of string
-                                          values. If the operator is In or NotIn,
-                                          the values array must be non-empty. If the
-                                          operator is Exists or DoesNotExist, the
-                                          values array must be empty. This array is
-                                          replaced during a strategic merge patch.
-                                        items:
-                                          type: string
-                                        type: array
-                                    required:
-                                    - key
-                                    - operator
-                                    type: object
-                                  type: array
-                                matchLabels:
-                                  additionalProperties:
-                                    type: string
-                                  description: matchLabels is a map of {key,value}
-                                    pairs. A single {key,value} in the matchLabels
-                                    map is equivalent to an element of matchExpressions,
-                                    whose key field is "key", the operator is "In",
-                                    and the values array contains only "value". The
-                                    requirements are ANDed.
-                                  type: object
-                              type: object
-                            namespaceSelector:
-                              description: 'NamespaceSelector is a label selector for namespace.
-                                Label keys and values in `matchLabels` support the wildcard 
-                                characters `*` (matches zero or many characters) and `?` 
-                                (matches one character). Wildcards allows writing label 
-                                selectors like ["storage.k8s.io/*": "*"]. Note that using 
-                                ["*" : "*"] matches any key and value but does not match
                                 an empty label set.'
                               properties:
                                 matchExpressions:
@@ -395,58 +335,6 @@ spec:
                                 one character). Wildcards allows writing label selectors
                                 like ["storage.k8s.io/*": "*"]. Note that using ["*"
                                 : "*"] matches any key and value but does not match
-                                an empty label set.'
-                              properties:
-                                matchExpressions:
-                                  description: matchExpressions is a list of label
-                                    selector requirements. The requirements are ANDed.
-                                  items:
-                                    description: A label selector requirement is a
-                                      selector that contains values, a key, and an
-                                      operator that relates the key and values.
-                                    properties:
-                                      key:
-                                        description: key is the label key that the
-                                          selector applies to.
-                                        type: string
-                                      operator:
-                                        description: operator represents a key's relationship
-                                          to a set of values. Valid operators are
-                                          In, NotIn, Exists and DoesNotExist.
-                                        type: string
-                                      values:
-                                        description: values is an array of string
-                                          values. If the operator is In or NotIn,
-                                          the values array must be non-empty. If the
-                                          operator is Exists or DoesNotExist, the
-                                          values array must be empty. This array is
-                                          replaced during a strategic merge patch.
-                                        items:
-                                          type: string
-                                        type: array
-                                    required:
-                                    - key
-                                    - operator
-                                    type: object
-                                  type: array
-                                matchLabels:
-                                  additionalProperties:
-                                    type: string
-                                  description: matchLabels is a map of {key,value}
-                                    pairs. A single {key,value} in the matchLabels
-                                    map is equivalent to an element of matchExpressions,
-                                    whose key field is "key", the operator is "In",
-                                    and the values array contains only "value". The
-                                    requirements are ANDed.
-                                  type: object
-                              type: object
-                            namespaceSelector:
-                              description: 'NamespaceSelector is a label selector for namespace.
-                                Label keys and values in `matchLabels` support the wildcard 
-                                characters `*` (matches zero or many characters) and `?` 
-                                (matches one character). Wildcards allows writing label 
-                                selectors like ["storage.k8s.io/*": "*"]. Note that using 
-                                ["*" : "*"] matches any key and value but does not match
                                 an empty label set.'
                               properties:
                                 matchExpressions:
