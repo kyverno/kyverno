@@ -154,15 +154,27 @@ func validateValueWithNilPattern(log logr.Logger, value interface{}) bool {
 
 // Handler for pattern values during validation process
 func validateValueWithStringPatterns(log logr.Logger, value interface{}, pattern string) bool {
-	statements := strings.Split(pattern, "|")
-	for _, statement := range statements {
-		statement = strings.Trim(statement, " ")
-		if validateValueWithStringPattern(log, value, statement) {
+	conditions := strings.Split(pattern, "|")
+	for _, condition := range conditions {
+		condition = strings.Trim(condition, " ")
+		if checkForAndConditionsAndValidate(log, value, condition) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func checkForAndConditionsAndValidate(log logr.Logger, value interface{}, pattern string) bool {
+	conditions := strings.Split(pattern, "&")
+	for _, condition := range conditions {
+		condition = strings.Trim(condition, " ")
+		if !validateValueWithStringPattern(log, value, condition) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // Handler for single pattern value during validation process
