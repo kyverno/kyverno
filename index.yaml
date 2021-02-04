@@ -7,7 +7,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: 7750e5e906cb7a77095168a5474e5c052f755eed5a1517d6f383d7d12431dd03
     home: https://kyverno.io/
-    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/main/img/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -30,7 +30,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: 40903dee54a4e2e26042ba073bbc5ae0003bc9320d1307aad38db656e9c25813
     home: https://kyverno.io/
-    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/main/img/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -53,7 +53,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: 9d4e9b1635395ddeff0891b00394e549e29d5e0cfbda6379b3fbea3fa16f17cd
     home: https://kyverno.io/
-    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/main/img/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -76,7 +76,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: fb773d2c59f99bccde49198a0efc3d5cac966c01402c53d5604d1eac95b347cc
     home: https://kyverno.io/
-    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/main/img/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -99,7 +99,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: b6291b063bd37ef6b84d696e4226d2e32f1362cadb2c129abcc91c9dc418ac6b
     home: https://kyverno.io/
-    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/main/img/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -122,7 +122,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: afea9fde0aa1bb1dc00ab992dbdbff1c590efe947b4f9a38708eb0130d505a64
     home: https://kyverno.io/
-    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/main/img/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -145,7 +145,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: 6d1f811eab772ef3dbd4bb52ffb8c06302149c68a057ff81b8e0a3f221f2ee49
     home: https://kyverno.io/
-    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/main/img/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -168,7 +168,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: f50dec98f09a2c43cba43d033c8839c8033df2a85fead98f6ae28980f7b72e5f
     home: https://kyverno.io/
-    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/main/img/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -191,7 +191,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: ac4beee71de8260fa38bcfbd0c702f15ab393a678ebc3875cbb2bcd5022027f5
     home: https://kyverno.io/
-    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/main/img/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -214,7 +214,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: 981825fc3baf31d4a96c7ddfce78010fc4859dd0983974f06fe51cc7e2f546b5
     home: https://kyverno.io/
-    icon: https://github.com/nirmata/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/main/img/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -237,7 +237,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: ff3d523b5f3bc51ecea3298a5525243783c74f8e376ed07c77e2ae45a9a135f9
     home: https://kyverno.io/
-    icon: https://github.com/nirmata/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/main/img/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
@@ -260,7 +260,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: 00422185695d4013fe3f39d4cc65b48cf45c892dda2c9cea4c2297ed7e29db6d
     home: https://kyverno.io/
-    icon: https://github.com/nirmata/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/main/img/Kyverno_Horizontal.png
     keywords:
     - kubernetes
     - nirmata
