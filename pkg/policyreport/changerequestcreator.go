@@ -59,6 +59,8 @@ func (c *changeRequestCreator) add(request *unstructured.Unstructured) {
 		c.CRCRCache.Add(uid.String(), request, cache.NoExpiration)
 	case "ReportChangeRequest":
 		c.RCRCache.Add(uid.String(), request, cache.NoExpiration)
+	default:
+		return
 	}
 
 	c.mutex.Lock()
@@ -67,7 +69,11 @@ func (c *changeRequestCreator) add(request *unstructured.Unstructured) {
 }
 
 func (c *changeRequestCreator) create(request *unstructured.Unstructured) error {
-	_, err := c.dclient.CreateResource(request.GetAPIVersion(), request.GetKind(), config.KyvernoNamespace, request, false)
+	ns := ""
+	if request.GetNamespace() != "" {
+		ns = config.KyvernoNamespace
+	}
+	_, err := c.dclient.CreateResource(request.GetAPIVersion(), request.GetKind(), ns, request, false)
 	return err
 }
 
@@ -81,7 +87,7 @@ func (c *changeRequestCreator) run(stopChan <-chan struct{}) {
 			requests, size := c.mergeRequests()
 			for _, request := range requests {
 				if err := c.create(request); err != nil {
-					c.log.Error(err, "failed to create report change request")
+					c.log.Error(err, "failed to create report change request", "req", request.Object)
 				}
 			}
 

@@ -20,12 +20,11 @@ import (
 )
 
 const (
-	clusterreportchangerequest string = "clusterreportchangerequest"
-	resourceLabelNamespace     string = "kyverno.io/resource.namespace"
-	deletedLabelResource       string = "kyverno.io/delete.resource.name"
-	deletedLabelResourceKind   string = "kyverno.io/delete.resource.kind"
-	deletedLabelPolicy         string = "kyverno.io/delete.policy"
-	deletedLabelRule           string = "kyverno.io/delete.rule"
+	resourceLabelNamespace   string = "kyverno.io/resource.namespace"
+	deletedLabelResource     string = "kyverno.io/delete.resource.name"
+	deletedLabelResourceKind string = "kyverno.io/delete.resource.kind"
+	deletedLabelPolicy       string = "kyverno.io/delete.policy"
+	deletedLabelRule         string = "kyverno.io/delete.rule"
 )
 
 func generatePolicyReportName(ns string) string {
@@ -154,7 +153,7 @@ func set(obj *unstructured.Unstructured, info Info) {
 	obj.SetAPIVersion(request.SchemeGroupVersion.Group + "/" + request.SchemeGroupVersion.Version)
 
 	if info.Namespace == "" {
-		obj.SetGenerateName(clusterreportchangerequest + "-")
+		obj.SetGenerateName("crcr-")
 		obj.SetKind("ClusterReportChangeRequest")
 	} else {
 		obj.SetGenerateName("rcr-")
