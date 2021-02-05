@@ -64,13 +64,11 @@ func NewOpenAPIController() (*Controller, error) {
 
 	defaultDoc, err := getSchemaDocument()
 	if err != nil {
-		fmt.Println("===1")
 		return nil, err
 	}
 
 	err = controller.useOpenAPIDocument(defaultDoc)
 	if err != nil {
-		fmt.Println("===2")
 		return nil, err
 	}
 
