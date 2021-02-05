@@ -117,11 +117,3 @@ func TestCSRInterface(t *testing.T) {
 		t.Errorf("Testing CSR interface not working: %s", err)
 	}
 }
-
-func TestKubePolicyDeployment(t *testing.T) {
-	f := newFixture(t)
-	_, err := f.client.GetKubePolicyDeployment()
-	if err != nil {
-		t.Fatal(err)
-	}
-}
