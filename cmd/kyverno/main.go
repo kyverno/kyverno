@@ -138,6 +138,7 @@ func main() {
 	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,
 		client,
+		rCache,
 		serverIP,
 		int32(webhookTimeout),
 		log.Log)
@@ -171,6 +172,7 @@ func main() {
 	eventGenerator := event.NewEventGenerator(
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
+		rCache,
 		log.Log.WithName("EventGenerator"))
 
 	// Policy Status Handler - deals with all logic related to policy status
