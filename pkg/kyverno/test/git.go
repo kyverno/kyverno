@@ -1,10 +1,11 @@
 package test
+
 import (
-	"os"
-	"path/filepath"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/storage/memory"
+	"os"
+	"path/filepath"
 )
 
 func clone(path string, fs billy.Filesystem) (*git.Repository, error) {

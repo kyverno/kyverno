@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/go-git/go-billy/v5"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -15,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
-	"github.com/go-git/go-billy/v5"
 )
 
 // GetResources gets matched resources by the given policies
@@ -97,8 +97,9 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	}
 	return resources, nil
 }
+
 // GetResourcesWithTest with gets matched resources by the given policies
-func GetResourcesWithTest(fs billy.Filesystem,policies []*v1.ClusterPolicy, resourcePaths []string, isGit bool) ([]*unstructured.Unstructured,  error) {
+func GetResourcesWithTest(fs billy.Filesystem, policies []*v1.ClusterPolicy, resourcePaths []string, isGit bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var resourceTypesMap = make(map[string]bool)
 	var resourceTypes []string
@@ -117,7 +118,7 @@ func GetResourcesWithTest(fs billy.Filesystem,policies []*v1.ClusterPolicy, reso
 			var resourceBytes []byte
 			var err error
 			if isGit {
-				filep, err := fs.Open(resourcePath) 
+				filep, err := fs.Open(resourcePath)
 				if err != nil {
 					fmt.Printf("Unable to open resource file: %s. error: %s", resourcePath, err)
 					continue

@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
-
+	openapiv2 "github.com/googleapis/gnostic/openapiv2"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -88,7 +87,7 @@ func (c *fakeDiscoveryClient) FindResource(apiVersion string, kind string) (*met
 	return nil, schema.GroupVersionResource{}, fmt.Errorf("Not implemented")
 }
 
-func (c *fakeDiscoveryClient) OpenAPISchema() (*openapi_v2.Document, error) {
+func (c *fakeDiscoveryClient) OpenAPISchema() (*openapiv2.Document, error) {
 	return nil, nil
 }
 

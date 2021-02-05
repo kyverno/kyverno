@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-git/go-billy/v5/memfs"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -21,7 +22,6 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 	yaml1 "sigs.k8s.io/yaml"
-	"github.com/go-git/go-billy/v5/memfs"
 )
 
 type resultCounts struct {
@@ -147,7 +147,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("pass the values either using set flag or values_file flag", err)
 	}
 
-	variables, valuesMap, err :=  common.GetVariable(variablesString, valuesFile)
+	variables, valuesMap, err := common.GetVariable(variablesString, valuesFile)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -180,7 +180,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("a stdin pipe can be used for either policies or resources, not both", err)
 	}
 
-	policies, err := common.GetPoliciesFromPaths(fs,policyPaths, false)
+	policies, err := common.GetPoliciesFromPaths(fs, policyPaths, false)
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		os.Exit(1)
@@ -385,4 +385,3 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 
 	return nil
 }
-

@@ -7,13 +7,13 @@ import (
 	"strings"
 	"sync"
 
-	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
 	"github.com/googleapis/gnostic/compiler"
+	openapiv2 "github.com/googleapis/gnostic/openapiv2"
 	data "github.com/kyverno/kyverno/api"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	cmap "github.com/orcaman/concurrent-map"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kube-openapi/pkg/util/proto"
 	"k8s.io/kube-openapi/pkg/util/proto/validation"
@@ -24,7 +24,7 @@ type concurrentMap struct{ cmap.ConcurrentMap }
 
 // Controller represents OpenAPIController
 type Controller struct {
-	// definitions holds the kind - *openapi_v2.Schema map
+	// definitions holds the kind - *openapiv2.Schema map
 	definitions concurrentMap
 	// kindToDefinitionName holds the kind - definition map
 	// i.e. - Namespace: io.k8s.api.core.v1.Namespace
@@ -46,13 +46,13 @@ func (m concurrentMap) GetKind(key string) string {
 	return k.(string)
 }
 
-func (m concurrentMap) GetSchema(key string) *openapi_v2.Schema {
+func (m concurrentMap) GetSchema(key string) *openapiv2.Schema {
 	k, ok := m.Get(key)
 	if !ok {
 		return nil
 	}
 
-	return k.(*openapi_v2.Schema)
+	return k.(*openapiv2.Schema)
 }
 
 // NewOpenAPIController initializes a new instance of OpenAPIController
@@ -64,11 +64,13 @@ func NewOpenAPIController() (*Controller, error) {
 
 	defaultDoc, err := getSchemaDocument()
 	if err != nil {
+		fmt.Println("===1")
 		return nil, err
 	}
 
 	err = controller.useOpenAPIDocument(defaultDoc)
 	if err != nil {
+		fmt.Println("===2")
 		return nil, err
 	}
 
@@ -145,7 +147,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	return nil
 }
 
-func (o *Controller) useOpenAPIDocument(doc *openapi_v2.Document) error {
+func (o *Controller) useOpenAPIDocument(doc *openapiv2.Document) error {
 	for _, definition := range doc.GetDefinitions().AdditionalProperties {
 		o.definitions.Set(definition.GetName(), definition.GetValue())
 		path := strings.Split(definition.GetName(), ".")
@@ -161,14 +163,15 @@ func (o *Controller) useOpenAPIDocument(doc *openapi_v2.Document) error {
 	return nil
 }
 
-func getSchemaDocument() (*openapi_v2.Document, error) {
-	var spec yaml.MapSlice
+func getSchemaDocument() (*openapiv2.Document, error) {
+	var spec yaml.Node
 	err := yaml.Unmarshal([]byte(data.SwaggerDoc), &spec)
 	if err != nil {
 		return nil, err
 	}
 
-	return openapi_v2.NewDocument(spec, compiler.NewContext("$root", nil))
+	root := spec.Content[0]
+	return openapiv2.NewDocument(root, compiler.NewContext("$root", root, nil))
 }
 
 // For crd, we do not store definition in document
@@ -192,7 +195,7 @@ func (o *Controller) getCRDSchema(kind string) (proto.Schema, error) {
 	return (existingDefinitions).ParseSchema(definition, &path)
 }
 
-func (o *Controller) generateEmptyResource(kindSchema *openapi_v2.Schema) interface{} {
+func (o *Controller) generateEmptyResource(kindSchema *openapiv2.Schema) interface{} {
 
 	types := kindSchema.GetType().GetValue()
 
@@ -227,7 +230,7 @@ func (o *Controller) generateEmptyResource(kindSchema *openapi_v2.Schema) interf
 	return nil
 }
 
-func getArrayValue(kindSchema *openapi_v2.Schema, o *Controller) interface{} {
+func getArrayValue(kindSchema *openapiv2.Schema, o *Controller) interface{} {
 	var array []interface{}
 	for _, schema := range kindSchema.GetItems().GetSchema() {
 		array = append(array, o.generateEmptyResource(schema))
@@ -236,7 +239,7 @@ func getArrayValue(kindSchema *openapi_v2.Schema, o *Controller) interface{} {
 	return array
 }
 
-func getObjectValue(kindSchema *openapi_v2.Schema, o *Controller) interface{} {
+func getObjectValue(kindSchema *openapiv2.Schema, o *Controller) interface{} {
 	var props = make(map[string]interface{})
 	properties := kindSchema.GetProperties().GetAdditionalProperties()
 	if len(properties) == 0 {
@@ -247,7 +250,7 @@ func getObjectValue(kindSchema *openapi_v2.Schema, o *Controller) interface{} {
 	var mutex sync.Mutex
 	wg.Add(len(properties))
 	for _, property := range properties {
-		go func(property *openapi_v2.NamedSchema) {
+		go func(property *openapiv2.NamedSchema) {
 			prop := o.generateEmptyResource(property.GetValue())
 			mutex.Lock()
 			props[property.GetName()] = prop
@@ -259,7 +262,7 @@ func getObjectValue(kindSchema *openapi_v2.Schema, o *Controller) interface{} {
 	return props
 }
 
-func getBoolValue(kindSchema *openapi_v2.Schema) bool {
+func getBoolValue(kindSchema *openapiv2.Schema) bool {
 	if d := kindSchema.GetDefault(); d != nil {
 		v := getAnyValue(d)
 		return string(v) == "true"
@@ -273,7 +276,7 @@ func getBoolValue(kindSchema *openapi_v2.Schema) bool {
 	return false
 }
 
-func getNumericValue(kindSchema *openapi_v2.Schema) int64 {
+func getNumericValue(kindSchema *openapiv2.Schema) int64 {
 	if d := kindSchema.GetDefault(); d != nil {
 		v := getAnyValue(d)
 		val, _ := strconv.Atoi(string(v))
@@ -289,7 +292,7 @@ func getNumericValue(kindSchema *openapi_v2.Schema) int64 {
 	return int64(0)
 }
 
-func getStringValue(kindSchema *openapi_v2.Schema) string {
+func getStringValue(kindSchema *openapiv2.Schema) string {
 	if d := kindSchema.GetDefault(); d != nil {
 		v := getAnyValue(d)
 		return string(v)
@@ -303,7 +306,7 @@ func getStringValue(kindSchema *openapi_v2.Schema) string {
 	return ""
 }
 
-func getAnyValue(any *openapi_v2.Any) []byte {
+func getAnyValue(any *openapiv2.Any) []byte {
 	if any != nil {
 		if val := any.GetValue(); val != nil {
 			return val.GetValue()

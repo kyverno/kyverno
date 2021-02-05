@@ -128,10 +128,10 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 	}
 
 	ctx := &engine.PolicyContext{
-		Policy: *policy,
-		NewResource: *resource,
+		Policy:           *policy,
+		NewResource:      *resource,
 		ExcludeGroupRole: []string{},
-		JSONContext: context.NewContext(),
+		JSONContext:      context.NewContext(),
 	}
 
 	er := engine.Mutate(ctx)
@@ -145,10 +145,10 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 	}
 
 	ctx = &engine.PolicyContext{
-		Policy: *policy,
-		NewResource: *resource,
+		Policy:           *policy,
+		NewResource:      *resource,
 		ExcludeGroupRole: []string{},
-		JSONContext: context.NewContext(),
+		JSONContext:      context.NewContext(),
 	}
 
 	er = engine.Validate(ctx)
