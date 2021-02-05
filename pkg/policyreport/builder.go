@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -72,7 +73,7 @@ type requestBuilder struct {
 }
 
 // NewBuilder ...
-func NewBuilder(cpolLister kyvernolister.ClusterPolicyLister, polLister kyvernolister.PolicyLister) *requestBuilder {
+func NewBuilder(cpolLister kyvernolister.ClusterPolicyLister, polLister kyvernolister.PolicyLister) Builder {
 	return &requestBuilder{cpolLister: cpolLister, polLister: polLister}
 }
 
@@ -123,6 +124,7 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 		}
 	}
 
+	req.SetCreationTimestamp(metav1.Now())
 	return req, nil
 }
 

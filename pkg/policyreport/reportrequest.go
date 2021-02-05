@@ -10,21 +10,14 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
 	policyreportclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	requestinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
-	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/policystatus"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -62,7 +55,10 @@ type Generator struct {
 
 	queue     workqueue.RateLimitingInterface
 	dataStore *dataStore
-	log       logr.Logger
+
+	requestCreator creator
+
+	log logr.Logger
 }
 
 // NewReportChangeRequestGenerator returns a new instance of report request generator
@@ -86,6 +82,7 @@ func NewReportChangeRequestGenerator(client *policyreportclient.Clientset,
 		polListerSynced:                  polInformer.Informer().HasSynced,
 		queue:                            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:                        newDataStore(),
+		requestCreator:                   newChangeRequestCreator(dclient, 3*time.Second, log.WithName("requestCreator")),
 		log:                              log,
 	}
 
@@ -191,6 +188,8 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(gen.runWorker, time.Second, stopCh)
 	}
 
+	go gen.requestCreator.run(stopCh)
+
 	<-stopCh
 }
 
@@ -264,91 +263,17 @@ func (gen *Generator) processNextWorkItem() bool {
 
 func (gen *Generator) syncHandler(info Info) error {
 	builder := NewBuilder(gen.cpolLister, gen.polLister)
-	rcrUnstructured, err := builder.build(info)
+	reportReq, err := builder.build(info)
 	if err != nil {
 		return fmt.Errorf("unable to build reportChangeRequest: %v", err)
 	}
 
-	if rcrUnstructured == nil {
+	if reportReq == nil {
 		return nil
 	}
 
-	gen.log.V(4).Info("reconcile report change request", "key", info.ToKey())
-	return gen.sync(rcrUnstructured, info)
-}
-
-func (gen *Generator) sync(reportReq *unstructured.Unstructured, info Info) error {
-	logger := gen.log.WithName("sync report change request")
-	defer logger.V(4).Info("successfully reconciled report change request", "kind", reportReq.GetKind(), "key", info.ToKey())
-
-	reportReq.SetCreationTimestamp(v1.Now())
-	if reportReq.GetKind() == "ClusterReportChangeRequest" {
-		return gen.syncClusterReportChangeRequest(reportReq, logger)
-	}
-
-	return gen.syncReportChangeRequest(reportReq, logger)
-}
-
-func (gen *Generator) syncClusterReportChangeRequest(reportReq *unstructured.Unstructured, logger logr.Logger) error {
-	old, err := gen.clusterReportChangeRequestLister.Get(reportReq.GetName())
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), "", reportReq, false); err != nil {
-				return fmt.Errorf("failed to create clusterReportChangeRequest: %v", err)
-			}
-
-			return nil
-		}
-		return fmt.Errorf("unable to get %s: %v", reportReq.GetKind(), err)
-	}
-
-	return updateReportChangeRequest(gen.dclient, old, reportReq, logger)
-}
-
-func (gen *Generator) syncReportChangeRequest(reportReq *unstructured.Unstructured, logger logr.Logger) error {
-	old, err := gen.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).Get(reportReq.GetName())
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			if _, err = gen.dclient.CreateResource(reportReq.GetAPIVersion(), reportReq.GetKind(), config.KyvernoNamespace, reportReq, false); err != nil {
-				return fmt.Errorf("failed to create ReportChangeRequest: %v", err)
-			}
-
-			return nil
-		}
-		return fmt.Errorf("unable to get existing reportChangeRequest %v", err)
-	}
-
-	return updateReportChangeRequest(gen.dclient, old, reportReq, logger)
-}
-
-func updateReportChangeRequest(dClient *client.Client, old interface{}, new *unstructured.Unstructured, log logr.Logger) (err error) {
-	oldUnstructured := make(map[string]interface{})
-	if oldTyped, ok := old.(*changerequest.ReportChangeRequest); ok {
-		if oldUnstructured, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
-			return fmt.Errorf("unable to convert reportChangeRequest: %v", err)
-		}
-		new.SetResourceVersion(oldTyped.GetResourceVersion())
-		new.SetUID(oldTyped.GetUID())
-	} else {
-		oldTyped := old.(*changerequest.ClusterReportChangeRequest)
-		if oldUnstructured, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
-			return fmt.Errorf("unable to convert clusterReportChangeRequest: %v", err)
-		}
-		new.SetUID(oldTyped.GetUID())
-		new.SetResourceVersion(oldTyped.GetResourceVersion())
-	}
-
-	if !hasResultsChanged(oldUnstructured, new.UnstructuredContent()) {
-		log.V(4).Info("unchanged report request", "name", new.GetName())
-		return nil
-	}
-
-	if _, err = dClient.UpdateResource(new.GetAPIVersion(), new.GetKind(), config.KyvernoNamespace, new, false); err != nil {
-		return fmt.Errorf("failed to update report request: %v", err)
-	}
-
-	log.V(4).Info("successfully updated report request", "kind", new.GetKind(), "name", new.GetName())
-	return
+	gen.requestCreator.add(reportReq)
+	return nil
 }
 
 func hasResultsChanged(old, new map[string]interface{}) bool {
