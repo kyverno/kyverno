@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/go-git/go-billy/v5"
 )
 
 // GetResources gets matched resources by the given policies
@@ -81,6 +82,52 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 				} else {
 					fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
 				}
+				continue
+			}
+
+			getResources, err := GetResource(resourceBytes)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, resource := range getResources {
+				resources = append(resources, resource)
+			}
+		}
+	}
+	return resources, nil
+}
+// GetResourcesWithTest with gets matched resources by the given policies
+func GetResourcesWithTest(fs billy.Filesystem,policies []*v1.ClusterPolicy, resourcePaths []string, isGit bool) ([]*unstructured.Unstructured,  error) {
+	resources := make([]*unstructured.Unstructured, 0)
+	var resourceTypesMap = make(map[string]bool)
+	var resourceTypes []string
+	for _, policy := range policies {
+		for _, rule := range policy.Spec.Rules {
+			for _, kind := range rule.MatchResources.Kinds {
+				resourceTypesMap[kind] = true
+			}
+		}
+	}
+	for kind := range resourceTypesMap {
+		resourceTypes = append(resourceTypes, kind)
+	}
+	if len(resourcePaths) > 0 {
+		for _, resourcePath := range resourcePaths {
+			var resourceBytes []byte
+			var err error
+			if isGit {
+				filep, err := fs.Open(resourcePath) 
+				if err != nil {
+					fmt.Printf("Unable to open resource file: %s. error: %s", resourcePath, err)
+					continue
+				}
+				resourceBytes, err = ioutil.ReadAll(filep)
+			} else {
+				resourceBytes, err = getFileBytes(resourcePath)
+			}
+			if err != nil {
+				fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
 				continue
 			}
 
