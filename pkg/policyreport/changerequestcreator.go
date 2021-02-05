@@ -2,7 +2,6 @@ package policyreport
 
 import (
 	"crypto/rand"
-	"fmt"
 	"math/big"
 	"reflect"
 	"sync"
@@ -70,7 +69,7 @@ func (c *changeRequestCreator) add(request *unstructured.Unstructured) {
 
 func (c *changeRequestCreator) create(request *unstructured.Unstructured) error {
 	ns := ""
-	if request.GetNamespace() != "" {
+	if request.GetKind() == "ReportChangeRequest" {
 		ns = config.KyvernoNamespace
 	}
 	_, err := c.dclient.CreateResource(request.GetAPIVersion(), request.GetKind(), ns, request, false)
@@ -116,9 +115,11 @@ func (c *changeRequestCreator) cleanupQueue(size int) {
 func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstructured, size int) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	mergedCRCR, mergedRCR := &unstructured.Unstructured{}, &unstructured.Unstructured{}
 
+	mergedCRCR := &unstructured.Unstructured{}
+	mergedRCR := make(map[string]*unstructured.Unstructured, 0)
 	size = len(c.queue)
+
 	for _, uid := range c.queue {
 		if unstr, ok := c.CRCRCache.Get(uid); ok {
 			if crcr, ok := unstr.(*unstructured.Unstructured); ok {
@@ -146,22 +147,30 @@ func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstruct
 
 		if unstr, ok := c.RCRCache.Get(uid); ok {
 			if rcr, ok := unstr.(*unstructured.Unstructured); ok {
+				resourceNS := rcr.GetLabels()[resourceLabelNamespace]
+				mergedNamespacedRCR, ok := mergedRCR[resourceNS]
+				if !ok {
+					mergedNamespacedRCR = &unstructured.Unstructured{}
+				}
+
 				if isDeleteRequest(rcr) {
-					if !reflect.DeepEqual(mergedRCR, &unstructured.Unstructured{}) {
-						results = append(results, mergedRCR)
-						mergedRCR = &unstructured.Unstructured{}
+					if !reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
+						results = append(results, mergedNamespacedRCR)
+						mergedRCR[resourceNS] = &unstructured.Unstructured{}
 					}
 
 					results = append(results, rcr)
 				} else {
-					if reflect.DeepEqual(mergedRCR, &unstructured.Unstructured{}) {
-						mergedRCR = rcr
+					if reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
+						mergedRCR[resourceNS] = rcr
 						continue
 					}
 
-					if ok := merge(mergedRCR, rcr); !ok {
-						results = append(results, mergedRCR)
-						mergedRCR = rcr
+					if ok := merge(mergedNamespacedRCR, rcr); !ok {
+						results = append(results, mergedNamespacedRCR)
+						mergedRCR[resourceNS] = rcr
+					} else {
+						mergedRCR[resourceNS] = mergedNamespacedRCR
 					}
 				}
 			}
@@ -172,8 +181,10 @@ func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstruct
 		results = append(results, mergedCRCR)
 	}
 
-	if !reflect.DeepEqual(mergedRCR, &unstructured.Unstructured{}) {
-		results = append(results, mergedRCR)
+	for _, mergedNamespacedRCR := range mergedRCR {
+		if !reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
+			results = append(results, mergedNamespacedRCR)
+		}
 	}
 
 	return
@@ -207,7 +218,6 @@ func addSummary(dst, src *unstructured.Unstructured) {
 			for key, dstVal := range dstSum {
 				if dstValInt, ok := dstVal.(int64); ok {
 					if srcVal, ok := srcSum[key].(int64); ok {
-						fmt.Println(dstValInt, srcVal)
 						dstSum[key] = dstValInt + srcVal
 					}
 				}
