@@ -178,6 +178,14 @@ const (
 	In ConditionOperator = "In"
 	// NotIn evaluates if the key is not contained in the set of values.
 	NotIn ConditionOperator = "NotIn"
+	// GreaterThanOrEquals evaluates if the key (numeric) is greater than or equal to the value (numeric).
+	GreaterThanOrEquals ConditionOperator = "GreaterThanOrEquals"
+	// GreaterThan evaluates if the key (numeric) is greater than the value (numeric).
+	GreaterThan ConditionOperator = "GreaterThan"
+	// LessThan evaluates if the key (numeric) is less than or equal to the value (numeric).
+	LessThanOrEquals ConditionOperator = "LessThanOrEquals"
+	// LessThan evaluates if the key (numeric) is less than the value (numeric).
+	LessThan ConditionOperator = "LessThan"
 )
 
 // MatchResources is used to specify resource and admission review request data for
