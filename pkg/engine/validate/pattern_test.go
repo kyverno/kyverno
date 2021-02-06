@@ -196,6 +196,22 @@ func TestValidateValueWithPattern_StringsLogicalOr(t *testing.T) {
 	assert.Assert(t, ValidateValueWithPattern(log.Log, value, pattern))
 }
 
+func TestValidateValueWithPattern_StringsLogicalAnd(t *testing.T) {
+	pattern := ">1 & <20"
+	value := "10"
+	assert.Assert(t, ValidateValueWithPattern(log.Log, value, pattern))
+}
+
+func TestValidateValueWithPattern_StringsAllLogicalOperators(t *testing.T) {
+	pattern := ">1 & <20 | >31 & <33"
+	value := "10"
+	assert.Assert(t, ValidateValueWithPattern(log.Log, value, pattern))
+	value = "32"
+	assert.Assert(t, ValidateValueWithPattern(log.Log, value, pattern))
+	value = "21"
+	assert.Assert(t, !ValidateValueWithPattern(log.Log, value, pattern))
+}
+
 func TestValidateValueWithPattern_EqualTwoFloats(t *testing.T) {
 	assert.Assert(t, ValidateValueWithPattern(log.Log, 7.0, 7.000))
 }
