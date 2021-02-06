@@ -122,7 +122,7 @@ func (ws *WebhookServer) handleUpdateCloneSourceResource(resLabels map[string]st
 		grList, err := ws.grLister.List(selector)
 		if err != nil {
 			logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
-
+			return
 		}
 		for _, gr := range grList {
 			ws.grController.EnqueueGenerateRequestFromWebhook(gr)
@@ -179,6 +179,7 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 		gr, err := ws.grLister.Get(grName)
 		if err != nil {
 			logger.Error(err, "failed to get generate request", "name", grName)
+			return
 		}
 		ws.grController.EnqueueGenerateRequestFromWebhook(gr)
 	}
@@ -253,6 +254,7 @@ func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
 		gr, err := ws.grLister.Get(grName)
 		if err != nil {
 			logger.Error(err, "failed to get generate request", "name", grName)
+			return
 		}
 		ws.grController.EnqueueGenerateRequestFromWebhook(gr)
 	}
@@ -270,7 +272,7 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.E
 	grList, err := ws.grLister.List(selector)
 	if err != nil {
 		logger.Error(err, "failed to get generate request for the resource", "kind", engineResponse.PolicyResponse.Resource.Kind, "name", engineResponse.PolicyResponse.Resource.Name, "namespace", engineResponse.PolicyResponse.Resource.Namespace)
-
+		return
 	}
 
 	for _, v := range grList {
