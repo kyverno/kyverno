@@ -3,7 +3,6 @@ package testrunner
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/kyverno/kyverno/pkg/engine/context"
 	"io/ioutil"
 	"os"
 	ospath "path"
@@ -13,14 +12,14 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes/scheme"
-
-	"gopkg.in/yaml.v2"
 	apiyaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 type scenarioT struct {
@@ -332,7 +331,7 @@ func getClient(t *testing.T, files []string) *client.Client {
 	// create mock client
 	scheme := runtime.NewScheme()
 	// mock client expects the resource to be as runtime.Object
-	c, err := client.NewMockClient(scheme, objects...)
+	c, err := client.NewMockClient(scheme, nil, objects...)
 	if err != nil {
 		t.Errorf("failed to create client. %v", err)
 		return nil

@@ -27,8 +27,8 @@ const (
 )
 
 //NewMockClient ---testing utilities
-func NewMockClient(scheme *runtime.Scheme, objects ...runtime.Object) (*Client, error) {
-	client := fake.NewSimpleDynamicClient(scheme, objects...)
+func NewMockClient(scheme *runtime.Scheme, gvrToListKind map[schema.GroupVersionResource]string, objects ...runtime.Object) (*Client, error) {
+	client := fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, objects...)
 	// the typed and dynamic client are initialized with similar resources
 	kclient := kubernetesfake.NewSimpleClientset(objects...)
 	return &Client{
