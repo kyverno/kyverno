@@ -217,7 +217,7 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 		keyInData := make([]string, 0)
 		switch dataMap.(type) {
 		case map[string]interface{}:
-			for k, _ := range dataMap.(map[string]interface{}) {
+			for k := range dataMap.(map[string]interface{}) {
 				keyInData = append(keyInData, k)
 			}
 		}

@@ -92,7 +92,7 @@ func generateDebugMutatingWebhook(name, url string, caData []byte, validate bool
 		},
 		SideEffects: &sideEffect,
 		Rules: []admregapi.RuleWithOperations{
-			admregapi.RuleWithOperations{
+			{
 				Operations: operationTypes,
 				Rule: admregapi.Rule{
 					APIGroups: []string{
@@ -122,7 +122,7 @@ func generateDebugValidatingWebhook(name, url string, caData []byte, validate bo
 		},
 		SideEffects: &sideEffect,
 		Rules: []admregapi.RuleWithOperations{
-			admregapi.RuleWithOperations{
+			{
 				Operations: operationTypes,
 				Rule: admregapi.Rule{
 					APIGroups: []string{
@@ -195,7 +195,7 @@ func generateValidatingWebhook(name, servicePath string, caData []byte, validati
 		},
 		SideEffects: &sideEffect,
 		Rules: []admregapi.RuleWithOperations{
-			admregapi.RuleWithOperations{
+			{
 				Operations: operationTypes,
 				Rule: admregapi.Rule{
 					APIGroups: []string{
