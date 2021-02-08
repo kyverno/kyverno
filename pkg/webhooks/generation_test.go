@@ -16,7 +16,7 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 	}
 
 	testcases := []TestCase{
-		TestCase{
+		{
 			obj: map[string]interface{}{
 				"apiVersion": "v1",
 				"data": map[string]interface{}{
@@ -75,7 +75,7 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 				"metadata": map[string]interface{}{},
 			},
 		},
-		TestCase{
+		{
 			obj: map[string]interface{}{
 				"apiVersion": "v1",
 				"data": map[string]interface{}{
@@ -150,7 +150,7 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 				},
 			},
 		},
-		TestCase{
+		{
 			obj: map[string]interface{}{
 				"apiVersion": "v1",
 				"kind":       "Pod",
