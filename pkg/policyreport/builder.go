@@ -13,18 +13,18 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
-	clusterreportchangerequest string = "clusterreportchangerequest"
-	resourceLabelNamespace     string = "kyverno.io/resource.namespace"
-	deletedLabelResource       string = "kyverno.io/delete.resource.name"
-	deletedLabelResourceKind   string = "kyverno.io/delete.resource.kind"
-	deletedLabelPolicy         string = "kyverno.io/delete.policy"
-	deletedLabelRule           string = "kyverno.io/delete.rule"
+	resourceLabelNamespace   string = "kyverno.io/resource.namespace"
+	deletedLabelResource     string = "kyverno.io/delete.resource.name"
+	deletedLabelResourceKind string = "kyverno.io/delete.resource.kind"
+	deletedLabelPolicy       string = "kyverno.io/delete.policy"
+	deletedLabelRule         string = "kyverno.io/delete.rule"
 )
 
 func generatePolicyReportName(ns string) string {
@@ -72,7 +72,7 @@ type requestBuilder struct {
 }
 
 // NewBuilder ...
-func NewBuilder(cpolLister kyvernolister.ClusterPolicyLister, polLister kyvernolister.PolicyLister) *requestBuilder {
+func NewBuilder(cpolLister kyvernolister.ClusterPolicyLister, polLister kyvernolister.PolicyLister) Builder {
 	return &requestBuilder{cpolLister: cpolLister, polLister: polLister}
 }
 
@@ -123,6 +123,7 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 		}
 	}
 
+	req.SetCreationTimestamp(metav1.Now())
 	return req, nil
 }
 
@@ -152,7 +153,7 @@ func set(obj *unstructured.Unstructured, info Info) {
 	obj.SetAPIVersion(request.SchemeGroupVersion.Group + "/" + request.SchemeGroupVersion.Version)
 
 	if info.Namespace == "" {
-		obj.SetGenerateName(clusterreportchangerequest + "-")
+		obj.SetGenerateName("crcr-")
 		obj.SetKind("ClusterReportChangeRequest")
 	} else {
 		obj.SetGenerateName("rcr-")

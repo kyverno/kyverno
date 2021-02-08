@@ -1,10 +1,11 @@
 package operator
 
 import (
+	"strings"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"strings"
 )
 
 //OperatorHandler provides interface to manage types
@@ -43,6 +44,12 @@ func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvern
 
 	case strings.ToLower(string(kyverno.NotIn)):
 		return NewNotInHandler(log, ctx, subHandler)
+
+	case strings.ToLower(string(kyverno.GreaterThanOrEquals)),
+		strings.ToLower(string(kyverno.GreaterThan)),
+		strings.ToLower(string(kyverno.LessThanOrEquals)),
+		strings.ToLower(string(kyverno.LessThan)):
+		return NewNumericOperatorHandler(log, ctx, subHandler, op)
 
 	default:
 		log.Info("operator not supported", "operator", str)
