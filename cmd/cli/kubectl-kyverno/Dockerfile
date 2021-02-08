@@ -6,13 +6,13 @@ LABEL maintainer="Kyverno"
 
 # LD_FLAGS is passed as argument from Makefile. It will be empty, if no argument passed
 ARG LD_FLAGS
-ARG TARGETARCH
+ARG TARGETPLATFORM
 
 ADD . /kyverno
 WORKDIR /kyverno
 
-RUN export GOOS=${TARGETARCH} && \
-    export GOARCH=${TARGETARCH}
+RUN export GOOS=$(echo ${TARGETPLATFORM} | cut -d / -f1) && \
+    export GOARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2)
 
 RUN CGO_ENABLED=0 go build -o /output/kyverno -ldflags="${LD_FLAGS}" -v ./cmd/cli/kubectl-kyverno/
 

@@ -51,7 +51,7 @@ jobs:
 
       - name: docker images build
         run: |
-          make docker-build-all
+          make docker-build-all-amd64
 
       - name :  Create Kind Cluster and setup kustomize
         run: |
