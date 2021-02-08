@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"strings"
 
 	"github.com/go-git/go-billy/v5"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -197,10 +199,34 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Clien
 }
 
 func getFileBytes(path string) ([]byte, error) {
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
+
+	var (
+		file []byte
+		err  error
+	)
+
+	if strings.Contains(path, "http") {
+		resp, err := http.Get(path)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, err
+		}
+
+		file, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		file, err = ioutil.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	return file, err
 }
 
