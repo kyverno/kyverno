@@ -187,13 +187,16 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 
 //stripNonPolicyFields - remove feilds which get updated with each request by kyverno and are non policy fields
 func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
-
-	delete(obj["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
-	delete(obj["metadata"].(map[string]interface{})["labels"].(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
-
 	requiredMetadataInObj := make(map[string]interface{})
-	requiredMetadataInObj["annotations"] = obj["metadata"].(map[string]interface{})["annotations"]
-	requiredMetadataInObj["labels"] = obj["metadata"].(map[string]interface{})["labels"]
+	if _, found := obj["metadata"].(map[string]interface{})["annotations"]; found {
+		delete(obj["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
+		requiredMetadataInObj["annotations"] = obj["metadata"].(map[string]interface{})["annotations"]
+	}
+
+	if _, found := newRes["metadata"].(map[string]interface{})["labels"]; found {
+		delete(obj["metadata"].(map[string]interface{})["labels"].(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
+		requiredMetadataInObj["labels"] = obj["metadata"].(map[string]interface{})["labels"]
+	}
 	obj["metadata"] = requiredMetadataInObj
 
 	requiredMetadataInNewRes := make(map[string]interface{})
