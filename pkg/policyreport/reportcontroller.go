@@ -265,6 +265,13 @@ func (g *ReportGenerator) syncHandler(key string) error {
 // return the existing report if exist
 func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstructured.Unstructured, aggregatedRequests interface{}) (report interface{}, err error) {
 	log := g.log.WithName("createReportIfNotPresent")
+	obj, err := updateResults(new.UnstructuredContent(), new.UnstructuredContent(), nil)
+	if err != nil {
+		g.log.Info("warning: post-scanning report's results failed", "policy report", new.GetName(), "err", err.Error())
+	} else {
+		new.Object = obj
+	}
+
 	if namespace != "" {
 		ns, err := g.nsLister.Get(namespace)
 		if err != nil {
