@@ -5,12 +5,12 @@ import (
 	"os"
 
 	"github.com/kyverno/kyverno/pkg/kyverno/apply"
+	"github.com/kyverno/kyverno/pkg/kyverno/test"
 	"github.com/kyverno/kyverno/pkg/kyverno/validate"
 	"github.com/kyverno/kyverno/pkg/kyverno/version"
-	"github.com/kyverno/kyverno/pkg/kyverno/test"
 	"github.com/spf13/cobra"
-	"k8s.io/klog"
-	"k8s.io/klog/klogr"
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/klogr"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -27,7 +27,7 @@ func CLI() {
 		version.Command(),
 		apply.Command(),
 		validate.Command(),
-		test.Command(), 
+		test.Command(),
 	}
 
 	cli.AddCommand(commands...)

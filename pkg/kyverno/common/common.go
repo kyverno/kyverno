@@ -10,24 +10,24 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/go-git/go-billy/v5"
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
-	"github.com/kyverno/kyverno/pkg/policymutation"
-	"github.com/kyverno/kyverno/pkg/utils"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/yaml"
-	yaml_v2 "sigs.k8s.io/yaml"
+	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	yamlv2 "gopkg.in/yaml.v2"
-	"github.com/go-git/go-billy/v5"
+	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	"github.com/kyverno/kyverno/pkg/policymutation"
+	"github.com/kyverno/kyverno/pkg/utils"
 	ut "github.com/kyverno/kyverno/pkg/utils"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	yamlv2 "gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	yaml_v2 "sigs.k8s.io/yaml"
 )
 
 // GetPolicies - Extracting the policies from multiple YAML
@@ -45,7 +45,6 @@ type Policy struct {
 type Values struct {
 	Policies []Policy `json:"policies"`
 }
-
 
 func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) {
 	for _, path := range paths {
@@ -247,7 +246,6 @@ func IsInputFromPipe() bool {
 	return fileInfo.Mode()&os.ModeCharDevice == 0
 }
 
-
 // RemoveDuplicateVariables - remove duplicate variables
 func RemoveDuplicateVariables(matches [][]string) string {
 	var variableStr string
@@ -263,7 +261,7 @@ func RemoveDuplicateVariables(matches [][]string) string {
 }
 
 // GetVariable - get the variables from console/file
-func GetVariable(variablesString, valuesFile string) (  map[string]string,  map[string]map[string]Resource,  error) {
+func GetVariable(variablesString, valuesFile string) (map[string]string, map[string]map[string]Resource, error) {
 	valuesMap := make(map[string]map[string]Resource)
 	variables := make(map[string]string)
 	if variablesString != "" {
@@ -321,7 +319,7 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool) ([]*response.EngineResponse, *response.EngineResponse,  bool,  bool, error) {
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool) ([]*response.EngineResponse, *response.EngineResponse, bool, bool, error) {
 
 	responseError := false
 	rcError := false
@@ -423,7 +421,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			responseError = true
 		}
 	}
-	
+
 	return engineResponses, validateResponse, responseError, rcError, nil
 }
 
@@ -506,12 +504,12 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool) (po
 				}
 			}
 		}
-	}	
+	}
 	return
 }
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
-func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string, 
+func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
 	cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string, policyReport bool, isGit bool) (resources []*unstructured.Unstructured, err error) {
 	if isGit {
 		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit)
