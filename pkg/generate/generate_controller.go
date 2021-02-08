@@ -60,12 +60,6 @@ type Controller struct {
 	// dynamic shared informer factory
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
 
-	// // nsLister can list/get namespaces from the shared informer's store
-	// nsLister listerv1.NamespaceLister
-
-	// // nsListerSynced returns true if the namespace store has been synced at least once
-	// nsListerSynced cache.InformerSynced
-
 	//TODO: list of generic informers
 	// only support Namespaces for re-evaluation on resource updates
 	nsInformer           informers.GenericInformer
@@ -133,9 +127,6 @@ func NewController(
 	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateGenericResource,
 	})
-
-	// c.nsLister = namespaces.Lister()
-	// c.nsListerSynced = namespaces.Informer().HasSynced
 
 	return &c, nil
 }
