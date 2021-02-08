@@ -2,6 +2,7 @@ Thank you for installing {{ .Chart.Name }} 😀
 
 Your release is named {{ .Release.Name }}.
 
-Kyverno chart is installed in "default" Pod Security Standards have been automatically deployed and in audit mode.
+We have installed the "default" profile of Pod Security Standards and set them in audit mode.
 
-Please visit this https://kyverno.io/policies/ to know about policies.
+Visit https://kyverno.io/policies/ to find more sample policies.
+
