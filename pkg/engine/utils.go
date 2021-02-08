@@ -146,7 +146,7 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 		}
 	}
 
-	if conditionBlock.NamespaceSelector != nil && namespaceLabels != nil && resource.GetKind() != "Namespace" && resource.GetKind() != "" {
+	if conditionBlock.NamespaceSelector != nil && resource.GetKind() != "Namespace" && resource.GetKind() != "" {
 		hasPassed, err := checkSelector(conditionBlock.NamespaceSelector, namespaceLabels)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse namespace selector: %v", err))
