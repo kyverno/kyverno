@@ -35,16 +35,25 @@ func newFixture(t *testing.T) *fixture {
 		{Group: "apps", Version: "v1", Resource: "deployments"},
 	}
 
-	objects := []runtime.Object{newUnstructured("group/version", "TheKind", "ns-foo", "name-foo"),
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "group", Version: "version", Resource: "thekinds"}:  "TheKindList",
+		{Group: "group2", Version: "version", Resource: "thekinds"}: "TheKindList",
+		{Group: "", Version: "v1", Resource: "namespaces"}:          "NamespaceList",
+		{Group: "apps", Version: "v1", Resource: "deployments"}:     "DeploymentList",
+	}
+
+	objects := []runtime.Object{
+		newUnstructured("group/version", "TheKind", "ns-foo", "name-foo"),
 		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-foo"),
 		newUnstructured("group/version", "TheKind", "ns-foo", "name-bar"),
 		newUnstructured("group/version", "TheKind", "ns-foo", "name-baz"),
 		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-baz"),
 		newUnstructured("apps/v1", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName),
 	}
+
 	scheme := runtime.NewScheme()
 	// Create mock client
-	client, err := NewMockClient(scheme, objects...)
+	client, err := NewMockClient(scheme, gvrToListKind, objects...)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -357,7 +357,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		return newGenResource, err
 	}
 
-	logger.V(2).Info("applying generate rule", "mode", mode)
+	logger.V(3).Info("applying generate rule", "mode", mode)
 
 	if rdata == nil && mode == Update {
 		logger.V(4).Info("no changes required for target resource")

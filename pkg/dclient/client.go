@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
+	openapiv2 "github.com/googleapis/gnostic/openapiv2"
 	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	helperv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -222,7 +222,7 @@ type IDiscovery interface {
 	GetGVRFromKind(kind string) (schema.GroupVersionResource, error)
 	GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource
 	GetServerVersion() (*version.Info, error)
-	OpenAPISchema() (*openapi_v2.Document, error)
+	OpenAPISchema() (*openapiv2.Document, error)
 	DiscoveryCache() discovery.CachedDiscoveryInterface
 }
 
@@ -263,7 +263,7 @@ func (c ServerPreferredResources) Poll(resync time.Duration, stopCh <-chan struc
 }
 
 // OpenAPISchema returns the API server OpenAPI schema document
-func (c ServerPreferredResources) OpenAPISchema() (*openapi_v2.Document, error) {
+func (c ServerPreferredResources) OpenAPISchema() (*openapiv2.Document, error) {
 	return c.cachedClient.OpenAPISchema()
 }
 
