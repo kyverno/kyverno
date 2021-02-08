@@ -4,6 +4,7 @@ namespace:
 # Supported- default/restricted/privileged
 # For more info- https://kyverno.io/policies/pod-security
 podSecurityStandard: default
+validationFailureAction: audit
 
 rbac:
   create: true

@@ -1,4 +1,4 @@
-{{- if eq .Values.podSecurityStandard "default" }}
+{{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -11,7 +11,7 @@ metadata:
       sysctl is considered safe if it is namespaced in the container or the
       Pod, and it is isolated from other Pods or processes on the same Node.
 spec:
-  validationFailureAction: audit
+  validationFailureAction: {{ .Values.validationFailureAction }}
   background: true
   rules:
   - name: sysctls

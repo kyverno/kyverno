@@ -10,7 +10,7 @@ metadata:
       limits usage of non-core volume types to those defined through PersistentVolumes.
 spec:
   background: true
-  validationFailureAction: audit
+  validationFailureAction: {{ .Values.validationFailureAction }}
   rules:
   - name: restricted-vol-gcePersistentDisk
     match:
