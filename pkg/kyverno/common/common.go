@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,17 +51,30 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 	for _, path := range paths {
 		log.Log.V(5).Info("reading policies", "path", path)
 
-		path = filepath.Clean(path)
-		fileDesc, err := os.Stat(path)
-		if err != nil {
-			errors = append(errors, err)
-			continue
+		var (
+			fileDesc os.FileInfo
+			err      error
+		)
+
+		isHttpPath := strings.Contains(path, "http")
+
+		// path clean and retrieving file info can be possible if it's not an HTTP URL
+		if !isHttpPath {
+			path = filepath.Clean(path)
+			fileDesc, err = os.Stat(path)
+			if err != nil {
+				err := fmt.Errorf("failed to process %v: %v", path, err.Error())
+				errors = append(errors, err)
+				continue
+			}
 		}
 
-		if fileDesc.IsDir() {
+		// apply file from a directory is possible only if the path is not HTTP URL
+		if !isHttpPath && fileDesc.IsDir() {
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
-				errors = append(errors, fmt.Errorf("failed to read %v: %v", path, err.Error()))
+				err := fmt.Errorf("failed to process %v: %v", path, err.Error())
+				errors = append(errors, err)
 				continue
 			}
 
@@ -77,10 +91,35 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 			policies = append(policies, policiesFromDir...)
 
 		} else {
-			fileBytes, err := ioutil.ReadFile(path)
-			if err != nil {
-				errors = append(errors, fmt.Errorf("failed to read %v: %v", path, err.Error()))
-				continue
+			var fileBytes []byte
+			if isHttpPath {
+				resp, err := http.Get(path)
+				if err != nil {
+					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
+					errors = append(errors, err)
+					continue
+				}
+				defer resp.Body.Close()
+
+				if resp.StatusCode != http.StatusOK {
+					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
+					errors = append(errors, err)
+					continue
+				}
+
+				fileBytes, err = ioutil.ReadAll(resp.Body)
+				if err != nil {
+					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
+					errors = append(errors, err)
+					continue
+				}
+			} else {
+				fileBytes, err = ioutil.ReadFile(path)
+				if err != nil {
+					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
+					errors = append(errors, err)
+					continue
+				}
 			}
 
 			policiesFromFile, errFromFile := utils.GetPolicy(fileBytes)
