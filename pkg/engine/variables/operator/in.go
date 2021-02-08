@@ -103,6 +103,74 @@ func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidTy
 	return false, false
 }
 
+func (in InHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
+	invalidType, keyExists := setExistsInArray(key, value, in.log)
+	if invalidType {
+		in.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		return false
+	}
+
+	return keyExists
+}
+
+// setExistsInArray checks if the key is a subset of value
+// The value can be a string, an array of strings, or a JSON format
+// array of strings (e.g. ["val1", "val2", "val3"].
+func setExistsInArray(key []string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
+	switch valuesAvailable := value.(type) {
+
+	case []interface{}:
+		var valueSlice []string
+		for _, val := range valuesAvailable {
+			v, ok := val.(string)
+			if !ok {
+				return true, false
+			}
+			valueSlice = append(valueSlice, v)
+		}
+
+		return false, checkSubset(key, valueSlice)
+
+	case string:
+
+		if len(key) == 1 && key[0] == valuesAvailable {
+			return false, true
+		}
+
+		var arr []string
+		if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
+			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
+			return true, false
+		}
+
+		return false, checkSubset(key, arr)
+
+	default:
+		return true, false
+	}
+}
+
+func checkSubset(key []string, value []string) bool {
+	set := make(map[string]int)
+
+	for _, val := range value {
+		set[val]++
+	}
+
+	for _, val := range key {
+		count, found := set[val]
+		if !found {
+			return false
+		} else if count < 1 {
+			return false
+		} else {
+			set[val] = count - 1
+		}
+	}
+
+	return true
+}
+
 func (in InHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {
 	return false
 }

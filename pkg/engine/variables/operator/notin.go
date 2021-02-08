@@ -57,6 +57,16 @@ func (nin NotInHandler) validateValueWithStringPattern(key string, value interfa
 	return !keyExists
 }
 
+func (nin NotInHandler) validateValueWithStringSetPattern(key []string, value interface{}) bool {
+	invalidType, keyExists := setExistsInArray(key, value, nin.log)
+	if invalidType {
+		nin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		return false
+	}
+
+	return !keyExists
+}
+
 func (nin NotInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {
 	return false
 }
