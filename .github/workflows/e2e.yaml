@@ -39,6 +39,9 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      
+      - name: gofmt check
+        run: if [ "$(gofmt -s -l . | wc -l)" -ne 0 ]; then exit 1; fi
 
       - name: golangci-lint
         uses: reviewdog/action-golangci-lint@v1
