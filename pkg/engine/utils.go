@@ -8,6 +8,7 @@ import (
 	"time"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/minio/pkg/wildcard"
@@ -27,10 +28,17 @@ type EngineStats struct {
 	RulesAppliedCount int
 }
 
-func checkKind(kinds []string, resourceKind string) bool {
+func checkKind(kinds []string, resource unstructured.Unstructured) bool {
 	for _, kind := range kinds {
-		if resourceKind == kind {
-			return true
+		SplitGVK := pkgcommon.SplitGVK(kind, "/")
+		if len(SplitGVK) == 1 {
+			if resource.GetKind() == kind {
+				return true
+			}
+		} else {
+			if resource.GroupVersionKind().Group == SplitGVK[0] && resource.GroupVersionKind().Kind == SplitGVK[2] && (resource.GroupVersionKind().Version == SplitGVK[1] || resource.GroupVersionKind().Version == "*") {
+				return true
+			}
 		}
 	}
 
@@ -112,7 +120,7 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	var errs []error
 
 	if len(conditionBlock.Kinds) > 0 {
-		if !checkKind(conditionBlock.Kinds, resource.GetKind()) {
+		if !checkKind(conditionBlock.Kinds, resource) {
 			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}
