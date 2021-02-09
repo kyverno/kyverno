@@ -7,7 +7,7 @@ entries:
     description: Kubernetes Native Policy Management
     digest: 29763c351611f6fcb90e5f3e309d5e986d0ed67b426165950663fb05bda35f38
     home: https://kyverno.io/
-    icon: https://github.com/kyverno/kyverno/blob/master/documentation/images/Kyverno_Horizontal.png
+    icon: https://github.com/kyverno/kyverno/blob/main/img/logo.png
     keywords:
     - kubernetes
     - nirmata
