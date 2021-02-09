@@ -120,7 +120,6 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	var errs []error
 
 	if len(conditionBlock.Kinds) > 0 {
-		fmt.Println("resource GroupVersionKind", resource.GroupVersionKind())
 		if !checkKind(conditionBlock.Kinds, resource) {
 			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
