@@ -193,8 +193,8 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 
 	if _, found := obj["metadata"]; found {
 		requiredMetadataInObj := make(map[string]interface{})
-		if _, found := obj["metadata"].(map[string]interface{})["annotations"]; found {
-			requiredMetadataInObj["annotations"] = obj["metadata"].(map[string]interface{})["annotations"]
+		if annotations, found := obj["metadata"].(map[string]interface{})["annotations"]; found {
+			requiredMetadataInObj["annotations"] = annotations
 		}
 
 		if _, found := newRes["metadata"].(map[string]interface{})["labels"]; found {
