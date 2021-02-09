@@ -8,6 +8,7 @@ import (
 	"time"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/minio/pkg/wildcard"
@@ -27,10 +28,17 @@ type EngineStats struct {
 	RulesAppliedCount int
 }
 
-func checkKind(kinds []string, resourceKind string) bool {
+func checkKind(kinds []string, resource unstructured.Unstructured) bool {
 	for _, kind := range kinds {
-		if resourceKind == kind {
-			return true
+		SplitGVK := pkgcommon.SplitGVK(kind, "/")
+		if len(SplitGVK) == 1 {
+			if resource.GetKind() == kind {
+				return true
+			}
+		} else {
+			if resource.GroupVersionKind().Group == SplitGVK[0] && resource.GroupVersionKind().Kind == SplitGVK[2] && (resource.GroupVersionKind().Version == SplitGVK[1] || resource.GroupVersionKind().Version == "*") {
+				return true
+			}
 		}
 	}
 
@@ -112,7 +120,8 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	var errs []error
 
 	if len(conditionBlock.Kinds) > 0 {
-		if !checkKind(conditionBlock.Kinds, resource.GetKind()) {
+		fmt.Println("resource GroupVersionKind", resource.GroupVersionKind())
+		if !checkKind(conditionBlock.Kinds, resource) {
 			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}
@@ -233,6 +242,8 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 //MatchesResourceDescription checks if the resource matches resource description of the rule or not
 func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string) error {
 
+	//fmt.Printf("%s", "I'm here")
+
 	rule := *ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()
@@ -242,6 +253,9 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
 		rule.MatchResources.UserInfo = kyverno.UserInfo{}
 	}
+
+	///fmt.Printf("\n %s \n", rule.MatchResources.ResourceDescription.Kinds)
+	//fmt.Printf("\n %s \n", kyverno.ResourceDescription{})
 
 	// checking if resource matches the rule
 	if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) ||

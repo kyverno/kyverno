@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
+	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -26,7 +27,8 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 			continue
 		}
 
-		for _, k := range rule.MatchResources.Kinds {
+		for _, kind := range rule.MatchResources.Kinds {
+			k := pkgcommon.GetKindFromGVK(kind)
 			logger = logger.WithValues("rule", rule.Name, "kind", k)
 			namespaced, err := pc.rm.GetScope(k)
 			if err != nil {

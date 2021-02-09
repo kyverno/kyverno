@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/jmespath/go-jmespath"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	pkgcommon "github.com/kyverno/kyverno/pkg/common"
+	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
-
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/minio/pkg/wildcard"
@@ -193,7 +193,7 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 
 	excludeKinds := make(map[string]bool)
 	for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-		excludeKinds[kind] = true
+		excludeKinds[pkgcommon.GetKindFromGVK(kind)] = true
 	}
 
 	excludeNamespaces := make(map[string]bool)
@@ -278,7 +278,7 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		}
 
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
-			if !excludeKinds[kind] {
+			if !excludeKinds[pkgcommon.GetKindFromGVK(kind)] {
 				return false
 			}
 		}
