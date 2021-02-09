@@ -13,7 +13,7 @@ assignees: ''
 
 <!-- Put an `x` in the boxes that apply to indicate you have done these things. -->
 
-- [ ] I have verified the policy does not exist in the [samples library](https://github.com/kyverno/kyverno/blob/main/samples/README.md).
+- [x] I have verified the policy does not exist in the [samples library](https://kyverno.io/policies/).
 
 **Is your policy request related to a problem? Please describe.**
 
