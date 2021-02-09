@@ -242,8 +242,6 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 //MatchesResourceDescription checks if the resource matches resource description of the rule or not
 func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string) error {
 
-	//fmt.Printf("%s", "I'm here")
-
 	rule := *ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()
@@ -253,9 +251,6 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
 		rule.MatchResources.UserInfo = kyverno.UserInfo{}
 	}
-
-	///fmt.Printf("\n %s \n", rule.MatchResources.ResourceDescription.Kinds)
-	//fmt.Printf("\n %s \n", kyverno.ResourceDescription{})
 
 	// checking if resource matches the rule
 	if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) ||
