@@ -9,7 +9,7 @@ metadata:
       Containers should be forbidden from running with a root primary or supplementary GID.
 spec:
   background: true
-  validationFailureAction: audit
+  validationFailureAction: {{ .Values.validationFailureAction }}
   rules:
     - name: check-runasgroup
       match:

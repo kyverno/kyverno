@@ -8,7 +8,7 @@ metadata:
     policies.kyverno.io/description: Containers must be required to run as non-root users.
 spec:
   background: true
-  validationFailureAction: audit
+  validationFailureAction: {{ .Values.validationFailureAction }}
   rules:
   - name: check-containers
     match:

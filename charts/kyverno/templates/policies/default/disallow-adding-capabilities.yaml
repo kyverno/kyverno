@@ -1,4 +1,4 @@
-{{- if eq .Values.podSecurityStandard "default" }}
+{{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -9,7 +9,7 @@ metadata:
       Capabilities permit privileged actions without giving full root access.
       Adding capabilities beyond the default set must not be allowed.
 spec:
-  validationFailureAction: audit
+  validationFailureAction: {{ .Values.validationFailureAction }}
   background: true
   rules:
   - name: capabilities
