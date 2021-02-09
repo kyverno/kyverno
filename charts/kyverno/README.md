@@ -102,6 +102,7 @@ Parameter | Description | Default
 `tolerations` | list of node taints to tolerate | `[]`
 `securityContext` | security context configuration | `{}`
 `podSecurityStandard` | set desired pod security level `privileged`, `default`, `restricted`. Set to `restricted` for maximum security for your cluster. See:  https://kyverno.io/policies/pod-security/ | `default`
+`validationFailureAction` | set to get response in failed validation check. Supported values- `audit`, `enforce`. See:  https://kyverno.io/docs/writing-policies/validate/ | `audit`
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 

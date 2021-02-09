@@ -9,7 +9,7 @@ metadata:
       Privilege escalation, such as via set-user-ID or set-group-ID file mode, should not be allowed.
 spec:
   background: true
-  validationFailureAction: audit
+  validationFailureAction: {{ .Values.validationFailureAction }}
   rules:
   - name: deny-privilege-escalation
     match:
