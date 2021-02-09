@@ -62,7 +62,6 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 					"annotations": map[string]interface{}{
 						"imageregistry": "https://hub.docker.com/",
 					},
-					"labels": map[string]interface{}{},
 				},
 			},
 

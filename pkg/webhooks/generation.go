@@ -191,19 +191,28 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 	delete(obj["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
 	delete(obj["metadata"].(map[string]interface{})["labels"].(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
 
-	requiredMetadataInObj := make(map[string]interface{})
-	requiredMetadataInObj["annotations"] = obj["metadata"].(map[string]interface{})["annotations"]
-	requiredMetadataInObj["labels"] = obj["metadata"].(map[string]interface{})["labels"]
-	obj["metadata"] = requiredMetadataInObj
+	if _, found := obj["metadata"]; found {
+		requiredMetadataInObj := make(map[string]interface{})
+		if _, found := obj["metadata"].(map[string]interface{})["annotations"]; found {
+			requiredMetadataInObj["annotations"] = obj["metadata"].(map[string]interface{})["annotations"]
+		}
 
-	requiredMetadataInNewRes := make(map[string]interface{})
-	if _, found := newRes["metadata"].(map[string]interface{})["annotations"]; found {
-		requiredMetadataInNewRes["annotations"] = newRes["metadata"].(map[string]interface{})["annotations"]
+		if _, found := newRes["metadata"].(map[string]interface{})["labels"]; found {
+			requiredMetadataInObj["labels"] = obj["metadata"].(map[string]interface{})["labels"]
+		}
+		obj["metadata"] = requiredMetadataInObj
 	}
-	if _, found := newRes["metadata"].(map[string]interface{})["labels"]; found {
-		requiredMetadataInNewRes["labels"] = newRes["metadata"].(map[string]interface{})["labels"]
+
+	if _, found := newRes["metadata"]; found {
+		requiredMetadataInNewRes := make(map[string]interface{})
+		if _, found := newRes["metadata"].(map[string]interface{})["annotations"]; found {
+			requiredMetadataInNewRes["annotations"] = newRes["metadata"].(map[string]interface{})["annotations"]
+		}
+		if _, found := newRes["metadata"].(map[string]interface{})["labels"]; found {
+			requiredMetadataInNewRes["labels"] = newRes["metadata"].(map[string]interface{})["labels"]
+		}
+		newRes["metadata"] = requiredMetadataInNewRes
 	}
-	newRes["metadata"] = requiredMetadataInNewRes
 
 	if _, found := obj["status"]; found {
 		delete(obj, "status")
