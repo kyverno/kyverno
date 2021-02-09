@@ -23,7 +23,7 @@ Try the [quick start guide](https://kyverno.io/docs/introduction/#quick-start) t
 
 ## Contributing
 
-Checkout out the Kyverno <a href="https://kyverno.io/docs/community">Community</a> page for ways to get involved and details on joining our next community meeting.
+Checkout out the Kyverno <a href="https://kyverno.io/community">Community</a> page for ways to get involved and details on joining our next community meeting.
 
 ## Getting Help
 
