@@ -1,4 +1,4 @@
-{{- if eq .Values.podSecurityStandard "default" }}
+{{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -10,7 +10,7 @@ metadata:
       Using host resources can be used to access shared data or escalate privileges
       and should not be allowed.
 spec:
-  validationFailureAction: audit
+  validationFailureAction: {{ .Values.validationFailureAction }}
   background: true
   rules:
   - name: host-path
