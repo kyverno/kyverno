@@ -38,7 +38,11 @@ Put an `x` in the boxes that apply. You can also fill these out after creating t
 them, don't hesitate to ask. We're here to help! This is simply a reminder of what we are going to look for before merging your code.
 -->
 
+<<<<<<< HEAD
 - [] I have read the [contributing guidelines](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md).
+=======
+- [] I have read the [contributing guidelines](../blob/main/CONTRIBUTING.md).
+>>>>>>> update links and formatting in PR template (#1573)
 - [] I have added tests that prove my fix is effective or that my feature works.
 - [] I have added or changed [the documentation](https://github.com/kyverno/website).
 
