@@ -208,7 +208,7 @@ endif
 
 # Run go fmt against code
 fmt:
-	go fmt ./...
+	gofmt -s -w .
 
 vet:
 	go vet ./...
