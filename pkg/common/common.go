@@ -65,7 +65,7 @@ func GetNamespaceLabels(namespaceObj *v1.Namespace, logger logr.Logger) map[stri
 	return namespaceUnstructured.GetLabels()
 }
 
-// SplitGVK - from GVK  
+// SplitGVK - from GVK
 func SplitGVK(str, sep string) []string {
 	return strings.Split(str, sep)
 }
