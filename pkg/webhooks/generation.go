@@ -199,7 +199,7 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 			delete(labels.(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
 			requiredMetadataInObj["labels"] = labels
 		}
-		metadata = requiredMetadataInObj
+		obj["metadata"] = requiredMetadataInObj
 	}
 
 	if metadata, found := newRes["metadata"]; found {
@@ -207,10 +207,11 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 		if annotations, found := metadata.(map[string]interface{})["annotations"]; found {
 			requiredMetadataInNewRes["annotations"] = annotations
 		}
+
 		if labels, found := metadata.(map[string]interface{})["labels"]; found {
 			requiredMetadataInNewRes["labels"] = labels
 		}
-		metadata = requiredMetadataInNewRes
+		newRes["metadata"] = requiredMetadataInNewRes
 	}
 
 	if _, found := obj["status"]; found {
