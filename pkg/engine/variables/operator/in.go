@@ -104,7 +104,7 @@ func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidTy
 }
 
 func (in InHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
-	invalidType, keyExists := setExistsInArray(key, value, in.log)
+	invalidType, keyExists := setExistsInArray(key, value, in.log, false)
 	if invalidType {
 		in.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
@@ -116,7 +116,8 @@ func (in InHandler) validateValueWithStringSetPattern(key []string, value interf
 // setExistsInArray checks if the key is a subset of value
 // The value can be a string, an array of strings, or a JSON format
 // array of strings (e.g. ["val1", "val2", "val3"].
-func setExistsInArray(key []string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
+// notIn argument is set to true when we want to check if key is NOT a subset of value
+func setExistsInArray(key []string, value interface{}, log logr.Logger, notIn bool) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
 
 	case []interface{}:
@@ -128,8 +129,10 @@ func setExistsInArray(key []string, value interface{}, log logr.Logger) (invalid
 			}
 			valueSlice = append(valueSlice, v)
 		}
-
-		return false, checkSubset(key, valueSlice)
+		if notIn {
+			return false, checkInSubsetForNotIn(key, valueSlice)
+		}
+		return false, checkInSubset(key, valueSlice)
 
 	case string:
 
@@ -142,15 +145,18 @@ func setExistsInArray(key []string, value interface{}, log logr.Logger) (invalid
 			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
 			return true, false
 		}
-
-		return false, checkSubset(key, arr)
+		if notIn {
+			return false, checkInSubsetForNotIn(key, arr)
+		}
+		return false, checkInSubset(key, arr)
 
 	default:
 		return true, false
 	}
 }
 
-func checkSubset(key []string, value []string) bool {
+// checkInSubset checks if ALL values of S1 are in S2
+func checkInSubset(key []string, value []string) bool {
 	set := make(map[string]int)
 
 	for _, val := range value {
