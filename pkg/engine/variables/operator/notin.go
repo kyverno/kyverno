@@ -57,6 +57,34 @@ func (nin NotInHandler) validateValueWithStringPattern(key string, value interfa
 	return !keyExists
 }
 
+func (nin NotInHandler) validateValueWithStringSetPattern(key []string, value interface{}) bool {
+	invalidType, keyExists := setExistsInArray(key, value, nin.log, true)
+	if invalidType {
+		nin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		return false
+	}
+
+	return !keyExists
+}
+
+// checkInSubsetForNotIn checks if ANY of the values of S1 is in S2
+func checkInSubsetForNotIn(key []string, value []string) bool {
+	set := make(map[string]int)
+
+	for _, val := range value {
+		set[val]++
+	}
+
+	for _, val := range key {
+		_, found := set[val]
+		if found {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (nin NotInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {
 	return false
 }
