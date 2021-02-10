@@ -62,6 +62,7 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 					"annotations": map[string]interface{}{
 						"imageregistry": "https://hub.docker.com/",
 					},
+					"labels": map[string]interface{}{},
 				},
 			},
 
@@ -269,4 +270,5 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 		assert.Assert(t, reflect.DeepEqual(tc.expectedObj, o))
 		assert.Assert(t, reflect.DeepEqual(tc.expectedNewRes, n))
 	}
+
 }
