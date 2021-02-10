@@ -188,30 +188,29 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 //stripNonPolicyFields - remove feilds which get updated with each request by kyverno and are non policy fields
 func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
 
-	delete(obj["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
-	delete(obj["metadata"].(map[string]interface{})["labels"].(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
-
-	if _, found := obj["metadata"]; found {
+	if metadata, found := obj["metadata"]; found {
 		requiredMetadataInObj := make(map[string]interface{})
-		if annotations, found := obj["metadata"].(map[string]interface{})["annotations"]; found {
+		if annotations, found := metadata.(map[string]interface{})["annotations"]; found {
+			delete(annotations.(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
 			requiredMetadataInObj["annotations"] = annotations
 		}
 
-		if _, found := newRes["metadata"].(map[string]interface{})["labels"]; found {
-			requiredMetadataInObj["labels"] = obj["metadata"].(map[string]interface{})["labels"]
+		if labels, found := metadata.(map[string]interface{})["labels"]; found {
+			delete(labels.(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
+			requiredMetadataInObj["labels"] = labels
 		}
-		obj["metadata"] = requiredMetadataInObj
+		metadata = requiredMetadataInObj
 	}
 
-	if _, found := newRes["metadata"]; found {
+	if metadata, found := newRes["metadata"]; found {
 		requiredMetadataInNewRes := make(map[string]interface{})
-		if _, found := newRes["metadata"].(map[string]interface{})["annotations"]; found {
-			requiredMetadataInNewRes["annotations"] = newRes["metadata"].(map[string]interface{})["annotations"]
+		if annotations, found := metadata.(map[string]interface{})["annotations"]; found {
+			requiredMetadataInNewRes["annotations"] = annotations
 		}
-		if _, found := newRes["metadata"].(map[string]interface{})["labels"]; found {
-			requiredMetadataInNewRes["labels"] = newRes["metadata"].(map[string]interface{})["labels"]
+		if labels, found := metadata.(map[string]interface{})["labels"]; found {
+			requiredMetadataInNewRes["labels"] = labels
 		}
-		newRes["metadata"] = requiredMetadataInNewRes
+		metadata = requiredMetadataInNewRes
 	}
 
 	if _, found := obj["status"]; found {
