@@ -1,7 +1,6 @@
 package common
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -14,10 +13,10 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/yaml"
 )
 
 // GetResources gets matched resources by the given policies
@@ -232,17 +231,12 @@ func getFileBytes(path string) ([]byte, error) {
 
 func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error) {
 	decode := scheme.Codecs.UniversalDeserializer().Decode
-	resourceObject, metaData, err := decode(resourceYaml, nil, nil)
+	_, metaData, err := decode(resourceYaml, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	resourceUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&resourceObject)
-	if err != nil {
-		return nil, err
-	}
-
-	resourceJSON, err := json.Marshal(resourceUnstructured)
+	resourceJSON, err := yaml.YAMLToJSON(resourceYaml)
 	if err != nil {
 		return nil, err
 	}
