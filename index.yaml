@@ -3,9 +3,9 @@ entries:
   kyverno:
   - apiVersion: v1
     appVersion: v1.3.2
-    created: "2021-02-09T12:44:33.203336-08:00"
+    created: "2021-02-10T16:53:50.09532-08:00"
     description: Kubernetes Native Policy Management
-    digest: 29763c351611f6fcb90e5f3e309d5e986d0ed67b426165950663fb05bda35f38
+    digest: ddec81104995df23ecde5c126c418f56c3fad0e0535d3f153ad6bb8eff5952bd
     home: https://kyverno.io/
     icon: https://github.com/kyverno/kyverno/blob/main/img/logo.png
     keywords:
@@ -475,4 +475,4 @@ entries:
     urls:
     - kyverno-0.0.1.tgz
     version: 0.0.1
-generated: "2021-02-09T12:44:33.19919-08:00"
+generated: "2021-02-10T16:53:50.089415-08:00"
