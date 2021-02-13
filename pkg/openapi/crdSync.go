@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
 	"github.com/googleapis/gnostic/compiler"
+	openapiv2 "github.com/googleapis/gnostic/openapiv2"
 	client "github.com/kyverno/kyverno/pkg/dclient"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	runtimeSchema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -147,10 +147,10 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 		return
 	}
 
-	var schema yaml.MapSlice
+	var schema yaml.Node
 	_ = yaml.Unmarshal(schemaRaw, &schema)
 
-	parsedSchema, err := openapi_v2.NewSchema(schema, compiler.NewContext("schema", nil))
+	parsedSchema, err := openapiv2.NewSchema(&schema, compiler.NewContext("schema", &schema, nil))
 	if err != nil {
 		v3valueFound := isOpenV3Error(err)
 		if v3valueFound == false {

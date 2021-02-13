@@ -7,37 +7,74 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/go-git/go-billy/v5"
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/utils"
+	ut "github.com/kyverno/kyverno/pkg/utils"
+	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	yaml_v2 "sigs.k8s.io/yaml"
 )
 
 // GetPolicies - Extracting the policies from multiple YAML
+
+type Resource struct {
+	Name   string            `json:"name"`
+	Values map[string]string `json:"values"`
+}
+
+type Policy struct {
+	Name      string     `json:"name"`
+	Resources []Resource `json:"resources"`
+}
+
+type Values struct {
+	Policies []Policy `json:"policies"`
+}
+
 func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) {
 	for _, path := range paths {
 		log.Log.V(5).Info("reading policies", "path", path)
 
-		path = filepath.Clean(path)
-		fileDesc, err := os.Stat(path)
-		if err != nil {
-			errors = append(errors, err)
-			continue
+		var (
+			fileDesc os.FileInfo
+			err      error
+		)
+
+		isHttpPath := strings.Contains(path, "http")
+
+		// path clean and retrieving file info can be possible if it's not an HTTP URL
+		if !isHttpPath {
+			path = filepath.Clean(path)
+			fileDesc, err = os.Stat(path)
+			if err != nil {
+				err := fmt.Errorf("failed to process %v: %v", path, err.Error())
+				errors = append(errors, err)
+				continue
+			}
 		}
 
-		if fileDesc.IsDir() {
+		// apply file from a directory is possible only if the path is not HTTP URL
+		if !isHttpPath && fileDesc.IsDir() {
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
-				errors = append(errors, fmt.Errorf("failed to read %v: %v", path, err.Error()))
+				err := fmt.Errorf("failed to process %v: %v", path, err.Error())
+				errors = append(errors, err)
 				continue
 			}
 
@@ -54,10 +91,35 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 			policies = append(policies, policiesFromDir...)
 
 		} else {
-			fileBytes, err := ioutil.ReadFile(path)
-			if err != nil {
-				errors = append(errors, fmt.Errorf("failed to read %v: %v", path, err.Error()))
-				continue
+			var fileBytes []byte
+			if isHttpPath {
+				resp, err := http.Get(path)
+				if err != nil {
+					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
+					errors = append(errors, err)
+					continue
+				}
+				defer resp.Body.Close()
+
+				if resp.StatusCode != http.StatusOK {
+					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
+					errors = append(errors, err)
+					continue
+				}
+
+				fileBytes, err = ioutil.ReadAll(resp.Body)
+				if err != nil {
+					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
+					errors = append(errors, err)
+					continue
+				}
+			} else {
+				fileBytes, err = ioutil.ReadFile(path)
+				if err != nil {
+					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
+					errors = append(errors, err)
+					continue
+				}
 			}
 
 			policiesFromFile, errFromFile := utils.GetPolicy(fileBytes)
@@ -221,4 +283,300 @@ func GetCRD(path string) (unstructuredCrds []*unstructured.Unstructured, err err
 func IsInputFromPipe() bool {
 	fileInfo, _ := os.Stdin.Stat()
 	return fileInfo.Mode()&os.ModeCharDevice == 0
+}
+
+// RemoveDuplicateVariables - remove duplicate variables
+func RemoveDuplicateVariables(matches [][]string) string {
+	var variableStr string
+	for _, m := range matches {
+		for _, v := range m {
+			foundVariable := strings.Contains(variableStr, v)
+			if !foundVariable {
+				variableStr = variableStr + " " + v
+			}
+		}
+	}
+	return variableStr
+}
+
+// GetVariable - get the variables from console/file
+func GetVariable(variablesString, valuesFile string) (map[string]string, map[string]map[string]Resource, error) {
+	valuesMap := make(map[string]map[string]Resource)
+	variables := make(map[string]string)
+	if variablesString != "" {
+		kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
+		for _, kvpair := range kvpairs {
+			kvs := strings.Split(strings.Trim(kvpair, " "), "=")
+			variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
+		}
+	}
+	if valuesFile != "" {
+		yamlFile, err := ioutil.ReadFile(valuesFile)
+		if err != nil {
+			return variables, valuesMap, sanitizederror.NewWithError("unable to read yaml", err)
+		}
+
+		valuesBytes, err := yaml.ToJSON(yamlFile)
+		if err != nil {
+			return variables, valuesMap, sanitizederror.NewWithError("failed to convert json", err)
+		}
+
+		values := &Values{}
+		if err := json.Unmarshal(valuesBytes, values); err != nil {
+			return variables, valuesMap, sanitizederror.NewWithError("failed to decode yaml", err)
+		}
+
+		for _, p := range values.Policies {
+			pmap := make(map[string]Resource)
+			for _, r := range p.Resources {
+				pmap[r.Name] = r
+			}
+			valuesMap[p.Name] = pmap
+		}
+	}
+
+	return variables, valuesMap, nil
+}
+
+// MutatePolices - function to apply mutation on policies
+func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
+	newPolicies := make([]*v1.ClusterPolicy, 0)
+	logger := log.Log.WithName("apply")
+
+	for _, policy := range policies {
+		p, err := MutatePolicy(policy, logger)
+		if err != nil {
+			if !sanitizederror.IsErrorSanitized(err) {
+				return nil, sanitizederror.NewWithError("failed to mutate policy.", err)
+			}
+			return nil, err
+		}
+		newPolicies = append(newPolicies, p)
+	}
+	return newPolicies, nil
+}
+
+// ApplyPolicyOnResource - function to apply policy on resource
+func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool) ([]*response.EngineResponse, *response.EngineResponse, bool, bool, error) {
+
+	responseError := false
+	rcError := false
+	engineResponses := make([]*response.EngineResponse, 0)
+
+	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
+	log.Log.V(3).Info("applying policy on resource", "policy", policy.Name, "resource", resPath)
+
+	ctx := context.NewContext()
+	for key, value := range variables {
+		startString := ""
+		endString := ""
+		for _, k := range strings.Split(key, ".") {
+			startString += fmt.Sprintf(`{"%s":`, k)
+			endString += `}`
+		}
+
+		midString := fmt.Sprintf(`"%s"`, value)
+		finalString := startString + midString + endString
+		var jsonData = []byte(finalString)
+		ctx.AddJSON(jsonData)
+	}
+
+	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, JSONContext: ctx})
+	engineResponses = append(engineResponses, mutateResponse)
+
+	if !mutateResponse.IsSuccessful() {
+		fmt.Printf("Failed to apply mutate policy %s -> resource %s", policy.Name, resPath)
+		for i, r := range mutateResponse.PolicyResponse.Rules {
+			fmt.Printf("\n%d. %s", i+1, r.Message)
+		}
+		responseError = true
+	} else {
+		if len(mutateResponse.PolicyResponse.Rules) > 0 {
+			yamlEncodedResource, err := yamlv2.Marshal(mutateResponse.PatchedResource.Object)
+			if err != nil {
+				rcError = true
+			}
+
+			if mutateLogPath == "" {
+				mutatedResource := string(yamlEncodedResource)
+				if len(strings.TrimSpace(mutatedResource)) > 0 {
+					fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
+					fmt.Printf("\n" + mutatedResource)
+					fmt.Printf("\n")
+				}
+			} else {
+				err := PrintMutatedOutput(mutateLogPath, mutateLogPathIsDir, string(yamlEncodedResource), resource.GetName()+"-mutated")
+				if err != nil {
+					return engineResponses, &response.EngineResponse{}, responseError, rcError, sanitizederror.NewWithError("failed to print mutated result", err)
+				}
+				fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
+			}
+
+		}
+	}
+
+	if resource.GetKind() == "Pod" && len(resource.GetOwnerReferences()) > 0 {
+		if policy.HasAutoGenAnnotation() {
+			if _, ok := policy.GetAnnotations()[engine.PodControllersAnnotation]; ok {
+				delete(policy.Annotations, engine.PodControllersAnnotation)
+			}
+		}
+	}
+
+	policyCtx := &engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx}
+	validateResponse := engine.Validate(policyCtx)
+	if !policyReport {
+		if !validateResponse.IsSuccessful() {
+			fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.Name, resPath)
+			for i, r := range validateResponse.PolicyResponse.Rules {
+				if !r.Success {
+					fmt.Printf("%d. %s: %s \n", i+1, r.Name, r.Message)
+				}
+			}
+
+			responseError = true
+		}
+	}
+
+	var policyHasGenerate bool
+	for _, rule := range policy.Spec.Rules {
+		if rule.HasGenerate() {
+			policyHasGenerate = true
+		}
+	}
+
+	if policyHasGenerate {
+		generateResponse := engine.Generate(&engine.PolicyContext{Policy: *policy, NewResource: *resource})
+		engineResponses = append(engineResponses, generateResponse)
+		if len(generateResponse.PolicyResponse.Rules) > 0 {
+			log.Log.V(3).Info("generate resource is valid", "policy", policy.Name, "resource", resPath)
+		} else {
+			fmt.Printf("generate policy %s resource %s is invalid \n", policy.Name, resPath)
+			for i, r := range generateResponse.PolicyResponse.Rules {
+				fmt.Printf("%d. %s \b", i+1, r.Message)
+			}
+
+			responseError = true
+		}
+	}
+
+	return engineResponses, validateResponse, responseError, rcError, nil
+}
+
+// PrintMutatedOutput - function to print output in provided file or directory
+func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml string, fileName string) error {
+	var f *os.File
+	var err error
+	yaml = yaml + ("\n---\n\n")
+
+	if !mutateLogPathIsDir {
+		f, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0644)
+	} else {
+		f, err = os.OpenFile(mutateLogPath+"/"+fileName+".yaml", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	}
+
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write([]byte(yaml)); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GetPoliciesFromPaths - get policies according to the resource path
+func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool) (policies []*v1.ClusterPolicy, err error) {
+	var errors []error
+	if isGit {
+		for _, pp := range dirPath {
+			filep, err := fs.Open(pp)
+			bytes, err := ioutil.ReadAll(filep)
+			if err != nil {
+				fmt.Printf("Error: failed to read file %s: %v", filep.Name(), err.Error())
+			}
+			policyBytes, err := yaml.ToJSON(bytes)
+			if err != nil {
+				fmt.Printf("failed to convert to JSON: %v", err)
+				continue
+			}
+			policiesFromFile, errFromFile := ut.GetPolicy(policyBytes)
+			if errFromFile != nil {
+				err := fmt.Errorf("failed to process : %v", errFromFile.Error())
+				errors = append(errors, err)
+				continue
+			}
+			policies = append(policies, policiesFromFile...)
+		}
+	} else {
+		if len(dirPath) > 0 && dirPath[0] == "-" {
+			if IsInputFromPipe() {
+				policyStr := ""
+				scanner := bufio.NewScanner(os.Stdin)
+				for scanner.Scan() {
+					policyStr = policyStr + scanner.Text() + "\n"
+				}
+				yamlBytes := []byte(policyStr)
+				policies, err = ut.GetPolicy(yamlBytes)
+				if err != nil {
+					return nil, sanitizederror.NewWithError("failed to extract the resources", err)
+				}
+			}
+		} else {
+			var errors []error
+			policies, errors = GetPolicies(dirPath)
+			if len(policies) == 0 {
+				if len(errors) > 0 {
+					return nil, sanitizederror.NewWithErrors("failed to read file", errors)
+				}
+				return nil, sanitizederror.New(fmt.Sprintf("no file found in paths %v", dirPath))
+			}
+			if len(errors) > 0 && log.Log.V(1).Enabled() {
+				fmt.Printf("ignoring errors: \n")
+				for _, e := range errors {
+					fmt.Printf("    %v \n", e.Error())
+				}
+			}
+		}
+	}
+	return
+}
+
+// GetResourceAccordingToResourcePath - get resources according to the resource path
+func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
+	cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string, policyReport bool, isGit bool) (resources []*unstructured.Unstructured, err error) {
+	if isGit {
+		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit)
+		if err != nil {
+			return nil, sanitizederror.NewWithError("failed to extract the resources", err)
+		}
+	} else {
+		if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
+			if IsInputFromPipe() {
+				resourceStr := ""
+				scanner := bufio.NewScanner(os.Stdin)
+				for scanner.Scan() {
+					resourceStr = resourceStr + scanner.Text() + "\n"
+				}
+
+				yamlBytes := []byte(resourceStr)
+				resources, err = GetResource(yamlBytes)
+				if err != nil {
+					return nil, sanitizederror.NewWithError("failed to extract the resources", err)
+				}
+			}
+		} else if (len(resourcePaths) > 0 && resourcePaths[0] != "-") || len(resourcePaths) < 0 || cluster {
+			resources, err = GetResources(policies, resourcePaths, dClient, cluster, namespace, policyReport)
+			if err != nil {
+				return resources, err
+			}
+		}
+
+	}
+	return resources, err
 }

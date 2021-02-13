@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"strings"
 
-	yamlv2 "gopkg.in/yaml.v2"
-
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	yamlv2 "gopkg.in/yaml.v2"
 )
 
 const (

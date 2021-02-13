@@ -22,13 +22,6 @@ func Test_validate_healthChecks(t *testing.T) {
 	testScenario(t, "/test/scenarios/other/scenario_validate_healthChecks.yaml")
 }
 
-//TODO: add generate
-// func Test_add_networkPolicy(t *testing.T) {
-// 	testScenario(t, "/test/scenarios/samples/best_practices/add_networkPolicy.yaml")
-// }
-
-// namespace is blank, not "default" as testrunner evaulates the policyengine, but the "default" is added by kubeapiserver
-
 func Test_validate_disallow_latest_tag(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/disallow_latest_tag.yaml")
 }

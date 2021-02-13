@@ -2327,6 +2327,7 @@ rules:
   - get
   - list
   - update
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -2508,8 +2509,8 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: ghcr.io/kyverno/kyverno:v1.3.2-rc2
-        imagePullPolicy: Always
+        image: ghcr.io/kyverno/kyverno:v1.3.2
+        imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 4
           httpGet:
@@ -2551,8 +2552,8 @@ spec:
           runAsNonRoot: true
           runAsUser: 1000
       initContainers:
-      - image: ghcr.io/kyverno/kyvernopre:v1.3.2-rc2
-        imagePullPolicy: Always
+      - image: ghcr.io/kyverno/kyvernopre:v1.3.2
+        imagePullPolicy: IfNotPresent
         name: kyverno-pre
         securityContext:
           allowPrivilegeEscalation: false
