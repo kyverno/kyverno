@@ -151,7 +151,7 @@ type Condition struct {
 
 	// Operator is the operation to perform.
 	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
-	Logic Logic `json:"operator,omitempty" yaml:"logix,omitempty"`
+	Logic    Logic             `json:"operator,omitempty" yaml:"logix,omitempty"`
 
 	// Value is the conditional value, or set of values. The values can be fixed set
 	// or can be variables declared using using JMESPath.
