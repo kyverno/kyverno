@@ -31,18 +31,15 @@ INITC_IMAGE := kyvernopre
 initContainer: fmt vet
 	GOOS=$(GOOS) go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
 
-.PHONY: docker-build-initContainer docker-tag-repo-initContainer docker-push-initContainer
+.PHONY: docker-build-initContainer docker-push-initContainer
 
-docker-publish-initContainer: docker-build-initContainer docker-tag-repo-initContainer docker-push-initContainer
+docker-publish-initContainer: docker-build-initContainer docker-push-initContainer
 
 docker-build-initContainer:
 	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64 --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 docker-build-initContainer-amd64:
 	@docker build -f $(PWD)/$(INITC_PATH)/Dockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64"
-
-docker-tag-repo-initContainer:
-	@docker tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) $(REPO)/$(INITC_IMAGE):latest
 
 docker-push-initContainer:
 	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) .
@@ -51,7 +48,7 @@ docker-push-initContainer:
 ##################################
 # KYVERNO CONTAINER
 ##################################
-.PHONY: docker-build-kyverno docker-tag-repo-kyverno docker-push-kyverno
+.PHONY: docker-build-kyverno docker-push-kyverno
 KYVERNO_PATH := cmd/kyverno
 KYVERNO_IMAGE := kyverno
 
@@ -62,17 +59,13 @@ local:
 kyverno: fmt vet
 	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
 
-docker-publish-kyverno: docker-build-kyverno  docker-tag-repo-kyverno  docker-push-kyverno
+docker-publish-kyverno: docker-build-kyverno docker-push-kyverno
 
 docker-build-kyverno:
 	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 docker-build-kyverno-amd64:
 	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64"
-
-docker-tag-repo-kyverno:
-	@echo "docker tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REPO)/$(KYVERNO_IMAGE):latest"
-	@docker tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REPO)/$(KYVERNO_IMAGE):latest
 
 docker-push-kyverno:
 	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) .
@@ -90,24 +83,20 @@ generate-api-docs:
 ##################################
 # CLI
 ##################################
-.PHONY: docker-build-cli docker-tag-repo-cli docker-push-cli
+.PHONY: docker-build-cli docker-push-cli
 CLI_PATH := cmd/cli/kubectl-kyverno
 KYVERNO_CLI_IMAGE := kyverno-cli
 
 cli:
 	GOOS=$(GOOS) go build -o $(PWD)/$(CLI_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)/main.go
 
-docker-publish-cli: docker-build-cli  docker-tag-repo-cli  docker-push-cli
+docker-publish-cli: docker-build-cli docker-push-cli
 
 docker-build-cli:
 	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 docker-build-cli-amd64:
 	@docker build -f $(PWD)/$(CLI_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64"
-
-docker-tag-repo-cli:
-	@echo "docker tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(REPO)/$(KYVERNO_CLI_IMAGE):latest"
-	@docker tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) $(REPO)/$(KYVERNO_CLI_IMAGE):latest
 
 docker-push-cli:
 	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) .
@@ -119,8 +108,6 @@ docker-publish-all: docker-publish-initContainer docker-publish-kyverno docker-p
 docker-build-all: docker-build-initContainer docker-build-kyverno docker-build-cli
 
 docker-build-all-amd64: docker-build-initContainer-amd64 docker-build-kyverno-amd64 docker-build-cli-amd64
-
-docker-tag-all: docker-tag-repo-initContainer docker-tag-repo-kyverno docker-tag-repo-cli
 
 ##################################
 # Create e2e Infrastruture
