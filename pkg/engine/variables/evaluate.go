@@ -17,12 +17,19 @@ func Evaluate(log logr.Logger, ctx context.EvalInterface, condition kyverno.Cond
 	return handle.Evaluate(condition.Key, condition.Value)
 }
 
-//EvaluateConditions evaluates multiple conditions as a logical AND operation
+//EvaluateConditions evaluates multiple conditions as a logical AND or OR operation
 func EvaluateConditions(log logr.Logger, ctx context.EvalInterface, conditions []kyverno.Condition) bool {
 	for _, condition := range conditions {
-		if !Evaluate(log, ctx, condition) {
-			return false
+		if condition.Logic == "And" {
+			if !Evaluate(log, ctx, condition) {
+				return false
+			}
+		} else if condition.Logic == "Or" {
+			if !Evaluate(log, ctx, condition) {
+				return true
+			}
 		}
+
 	}
 
 	return true

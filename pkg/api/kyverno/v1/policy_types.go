@@ -151,6 +151,7 @@ type Condition struct {
 
 	// Operator is the operation to perform.
 	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
+	Logic Logic `json:"operator,omitempty" yaml:"logix,omitempty"`
 
 	// Value is the conditional value, or set of values. The values can be fixed set
 	// or can be variables declared using using JMESPath.
@@ -162,7 +163,12 @@ type Condition struct {
 // ConditionOperator is the operation performed on condition key and value.
 // +kubebuilder:validation:Enum=Equals;NotEquals;In;NotIn
 type ConditionOperator string
+type Logic string
 
+const (
+	AND Logic = "And"
+	OR  Logic = "Or"
+)
 const (
 	// Equal evaluates if the key is equal to the value.
 	// Deprecated. Use Equals instead.
