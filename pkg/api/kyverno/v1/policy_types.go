@@ -80,11 +80,15 @@ type Rule struct {
 	// +optional
 	ExcludeResources ExcludeResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 
-	// Conditions enable variable-based conditional rule execution. This is useful for
+	// AnyAllConditions enable variable-based conditional rule execution. This is useful for
 	// finer control of when an rule is applied. A condition can reference object data
 	// using JMESPath notation.
+	// This too can be made to happen in a logical-manner where in some situation all the conditions need to pass
+	// and in some other situation, atleast one condition is enough to pass.
+	// For the sake of backwards compatibility, it can be populated with []kyverno.Condition.
+	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
-	Conditions []Condition `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+	AnyAllConditions apiextensions.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
 	// Mutation is used to modify matching resources.
 	// +optional
@@ -97,6 +101,25 @@ type Rule struct {
 	// Generation is used to create new resources.
 	// +optional
 	Generation Generation `json:"generate,omitempty" yaml:"generate,omitempty"`
+}
+
+// AnyAllCondition consists of conditions wrapped denoting a logical criteria to be fulfilled.
+// AnyConditions get fulfilled when at least one of its sub-conditions passes.
+// AllConditions get fulfilled only when all of its sub-conditions pass.
+type AnyAllConditions struct {
+	// AnyConditions enable variable-based conditional rule execution. This is useful for
+	// finer control of when an rule is applied. A condition can reference object data
+	// using JMESPath notation.
+	// Here, atleast one of the conditions need to pass
+	// +optional
+	AnyConditions []Condition `json:"any,omitempty" yaml:"any,omitempty"`
+
+	// AllConditions enable variable-based conditional rule execution. This is useful for
+	// finer control of when an rule is applied. A condition can reference object data
+	// using JMESPath notation.
+	// Here, all of the conditions need to pass
+	// +optional
+	AllConditions []Condition `json:"all,omitempty" yaml:"all,omitempty"`
 }
 
 // ContextEntry adds variables and data sources to a rule Context. Either a
@@ -341,8 +364,10 @@ type Validation struct {
 // Deny specifies a list of conditions. The validation rule fails, if any Condition
 // evaluates to "false".
 type Deny struct {
-	// Specifies set of condition to deny.
-	Conditions []Condition `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+	// specifies the set of conditions to deny in a logical manner
+	// For the sake of backwards compatibility, it can be populated with []kyverno.Condition.
+	// +kubebuilder:validation:XPreserveUnknownFields
+	AnyAllConditions apiextensions.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
 // Generation defines how new resources should be created and managed.

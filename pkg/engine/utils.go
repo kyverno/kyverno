@@ -13,6 +13,7 @@ import (
 	"github.com/minio/minio/pkg/wildcard"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -276,7 +277,15 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	return nil
 }
 
-func copyConditions(original []kyverno.Condition) []kyverno.Condition {
+func copyAnyAllConditions(original kyverno.AnyAllConditions) kyverno.AnyAllConditions {
+	if reflect.DeepEqual(original, kyverno.AnyAllConditions{}) {
+		return kyverno.AnyAllConditions{}
+	}
+	return *original.DeepCopy()
+}
+
+// backwards compatibility
+func copyOldConditions(original []kyverno.Condition) []kyverno.Condition {
 	if original == nil || len(original) == 0 {
 		return []kyverno.Condition{}
 	}
@@ -287,6 +296,21 @@ func copyConditions(original []kyverno.Condition) []kyverno.Condition {
 	}
 
 	return copies
+}
+
+func copyConditions(original apiextensions.JSON) (interface{}, error) {
+	// conditions are currently in the form of []interface{}
+	kyvernoOriginalConditions, err := utils.ApiextensionsJsonToKyvernoConditions(original)
+	if err != nil {
+		return nil, err
+	}
+	switch typedValue := kyvernoOriginalConditions.(type) {
+	case kyverno.AnyAllConditions:
+		return copyAnyAllConditions(typedValue), nil
+	case []kyverno.Condition: // backwards compatibility
+		return copyOldConditions(typedValue), nil
+	}
+	return nil, fmt.Errorf("wrongfully configured data")
 }
 
 // excludeResource checks if the resource has ownerRef set

@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/openapi"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"gotest.tools/assert"
 )
 
@@ -253,8 +255,11 @@ func Test_Validate_ResourceDescription_MatchedValid(t *testing.T) {
 func Test_Validate_DenyConditions_KeyRequestOperation_Empty(t *testing.T) {
 	denyConditions := []byte(`[]`)
 
-	var dcs []kyverno.Condition
+	var dcs apiextensions.JSON
 	err := json.Unmarshal(denyConditions, &dcs)
+	assert.NilError(t, err)
+
+	_, err = validateConditions(dcs, "conditions")
 	assert.NilError(t, err)
 
 	_, err = validateConditions(dcs, "conditions")
@@ -264,8 +269,11 @@ func Test_Validate_DenyConditions_KeyRequestOperation_Empty(t *testing.T) {
 func Test_Validate_Preconditions_KeyRequestOperation_Empty(t *testing.T) {
 	preConditions := []byte(`[]`)
 
-	var pcs []kyverno.Condition
+	var pcs apiextensions.JSON
 	err := json.Unmarshal(preConditions, &pcs)
+	assert.NilError(t, err)
+
+	_, err = validateConditions(pcs, "preconditions")
 	assert.NilError(t, err)
 
 	_, err = validateConditions(pcs, "preconditions")
@@ -303,8 +311,11 @@ func Test_Validate_DenyConditionsValuesString_KeyRequestOperation_ExpectedValue(
 	]
 	`)
 
-	var dcs []kyverno.Condition
+	var dcs apiextensions.JSON
 	err := json.Unmarshal(denyConditions, &dcs)
+	assert.NilError(t, err)
+
+	_, err = validateConditions(dcs, "conditions")
 	assert.NilError(t, err)
 
 	_, err = validateConditions(dcs, "conditions")
@@ -327,8 +338,11 @@ func Test_Validate_DenyConditionsValuesString_KeyRequestOperation_RightfullyTemp
 	]
 	`)
 
-	var dcs []kyverno.Condition
+	var dcs apiextensions.JSON
 	err := json.Unmarshal(denyConditions, &dcs)
+	assert.NilError(t, err)
+
+	_, err = validateConditions(dcs, "conditions")
 	assert.NilError(t, err)
 
 	_, err = validateConditions(dcs, "conditions")
@@ -375,9 +389,12 @@ func Test_Validate_PreconditionsValuesString_KeyRequestOperation_UnknownValue(t 
 	]
 	`)
 
-	var pcs []kyverno.Condition
+	var pcs apiextensions.JSON
 	err := json.Unmarshal(preConditions, &pcs)
 	assert.NilError(t, err)
+
+	_, err = validateConditions(pcs, "preconditions")
+	assert.Assert(t, err != nil)
 
 	_, err = validateConditions(pcs, "preconditions")
 	assert.Assert(t, err != nil)
@@ -439,9 +456,12 @@ func Test_Validate_PreconditionsValuesList_KeyRequestOperation_UnknownItem(t *te
 	]
 	`)
 
-	var pcs []kyverno.Condition
+	var pcs apiextensions.JSON
 	err := json.Unmarshal(preConditions, &pcs)
 	assert.NilError(t, err)
+
+	_, err = validateConditions(pcs, "preconditions")
+	assert.Assert(t, err != nil)
 
 	_, err = validateConditions(pcs, "preconditions")
 	assert.Assert(t, err != nil)
@@ -1203,7 +1223,7 @@ func Test_doesMatchExcludeConflict(t *testing.T) {
 		},
 		{
 			description:    "empty case",
-			rule:           []byte(`{"name":"check-allow-deletes","match":{"resources":{"selector":{"matchLabels":{"allow-deletes":"false"}}}},"exclude":{"clusterRoles":["random"]},"validate":{"message":"Deleting {{request.object.kind}}/{{request.object.metadata.name}} is not allowed","deny":{"conditions":[{"key":"{{request.operation}}","operator":"Equal","value":"DELETE"}]}}}`),
+			rule:           []byte(`{"name":"check-allow-deletes","match":{"resources":{"selector":{"matchLabels":{"allow-deletes":"false"}}}},"exclude":{"clusterRoles":["random"]},"validate":{"message":"Deleting {{request.object.kind}}/{{request.object.metadata.name}} is not allowed","deny":{"conditions":{"all":[{"key":"{{request.operation}}","operator":"Equal","value":"DELETE"}]}}}}`),
 			expectedOutput: false,
 		},
 	}
