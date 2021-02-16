@@ -166,34 +166,6 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (e
 		if err != nil {
 			errors = append(errors, err)
 		}
-		// if fileDesc.IsDir() {
-		// 	files, err := ioutil.ReadDir(path)
-		// 	if err != nil {
-		// 		errors = append(errors, fmt.Errorf("failed to read %v: %v", path, err.Error()))
-		// 	}
-
-		// 	for _, file := range files {
-		// 		//fmt.Println(file.Name())
-		// 		//fmt.Println(file.IsDir())
-		// 		if strings.Contains(file.Name(), fileName) {
-
-		// 			yamlFile, err := ioutil.ReadFile(filepath.Join(path, file.Name()))
-		// 			if err != nil {
-		// 				sanitizederror.NewWithError("unable to read yaml", err)
-		// 				continue
-		// 			}
-		// 			valuesBytes, err := yaml.ToJSON(yamlFile)
-		// 			if err != nil {
-		// 				sanitizederror.NewWithError("failed to convert json", err)
-		// 				continue
-		// 			}
-		// 			if err := applyPoliciesFromPath(fs, valuesBytes, valuesFile, false, ""); err != nil {
-		// 				sanitizederror.NewWithError("failed to apply test command", err)
-		// 				continue
-		// 			}
-		// 		}
-		// 	}
-		// }
 		if len(errors) > 0 && log.Log.V(1).Enabled() {
 			fmt.Printf("ignoring errors: \n")
 			for _, e := range errors {
