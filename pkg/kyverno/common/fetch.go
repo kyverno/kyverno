@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
@@ -100,7 +101,7 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 }
 
 // GetResourcesWithTest with gets matched resources by the given policies
-func GetResourcesWithTest(fs billy.Filesystem, policies []*v1.ClusterPolicy, resourcePaths []string, isGit bool) ([]*unstructured.Unstructured, error) {
+func GetResourcesWithTest(fs billy.Filesystem, policies []*v1.ClusterPolicy, resourcePaths []string, isGit bool, policyresoucePath string) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var resourceTypesMap = make(map[string]bool)
 	var resourceTypes []string
@@ -119,7 +120,7 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []*v1.ClusterPolicy, res
 			var resourceBytes []byte
 			var err error
 			if isGit {
-				filep, err := fs.Open(resourcePath)
+				filep, err := fs.Open(filepath.Join(policyresoucePath, resourcePath))
 				if err != nil {
 					fmt.Printf("Unable to open resource file: %s. error: %s", resourcePath, err)
 					continue
