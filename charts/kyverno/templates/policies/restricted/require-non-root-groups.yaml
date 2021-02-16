@@ -1,8 +1,10 @@
 {{- if eq .Values.podSecurityStandard "restricted" }}
+{{ $name := trimSuffix (ext .Template.Name) (base .Template.Name) -}}
+{{- if not (has $name .Values.podSecurityExclude) }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: require-non-root-groups
+  name: {{ $name }}
   annotations:
     policies.kyverno.io/category: Pod Security Standards (Restricted)
     policies.kyverno.io/description: >-
@@ -58,4 +60,5 @@ spec:
           spec:
             =(securityContext):
               X(fsGroup): "*"
+{{- end -}}
 {{- end -}}

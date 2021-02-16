@@ -1,8 +1,10 @@
 {{- if eq .Values.podSecurityStandard "restricted" }}
+{{ $name := trimSuffix (ext .Template.Name) (base .Template.Name) -}}
+{{- if not (has $name .Values.podSecurityExclude) }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: restrict-volume-types
+  name: {{ $name }}
   annotations:
     policies.kyverno.io/category: Pod Security Standards (Restricted)
     policies.kyverno.io/description: >-
@@ -272,4 +274,5 @@ spec:
         spec:
           =(volumes):
           - X(csi): "null"
+{{- end -}}
 {{- end -}}

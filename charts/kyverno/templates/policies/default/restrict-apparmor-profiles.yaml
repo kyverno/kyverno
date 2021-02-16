@@ -1,8 +1,10 @@
 {{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
+{{ $name := trimSuffix (ext .Template.Name) (base .Template.Name) -}}
+{{- if not (has $name .Values.podSecurityExclude) }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: restrict-apparmor-profiles
+  name: {{ $name }}
   annotations:
     policies.kyverno.io/title: Restrict AppArmor
     policies.kyverno.io/category: Pod Security Standards (Default)
@@ -28,4 +30,5 @@ spec:
         metadata:
           =(annotations):
             =(container.apparmor.security.beta.kubernetes.io/*): "runtime/default"
+{{- end -}}
 {{- end -}}

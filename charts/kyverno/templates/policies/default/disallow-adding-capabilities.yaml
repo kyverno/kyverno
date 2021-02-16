@@ -1,8 +1,10 @@
 {{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
+{{ $name := trimSuffix (ext .Template.Name) (base .Template.Name) -}}
+{{- if not (has $name .Values.podSecurityExclude) }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: disallow-add-capabilities
+  name: {{ $name }}
   annotations:
     policies.kyverno.io/category: Pod Security Standards (Default)
     policies.kyverno.io/description: >-
@@ -32,4 +34,5 @@ spec:
           - =(securityContext):
               =(capabilities):
                 X(add): null
+{{- end -}}
 {{- end -}}

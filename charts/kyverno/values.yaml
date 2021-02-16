@@ -4,6 +4,8 @@ namespace:
 # Supported- default/restricted/privileged
 # For more info- https://kyverno.io/policies/pod-security
 podSecurityStandard: default
+# Policies to exclude
+podSecurityExclude: []
 # Supported values- `audit`, `enforce`
 # For more info- https://kyverno.io/docs/writing-policies/validate/
 validationFailureAction: audit

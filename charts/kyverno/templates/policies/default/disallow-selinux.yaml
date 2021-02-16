@@ -1,8 +1,10 @@
 {{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
+{{ $name := trimSuffix (ext .Template.Name) (base .Template.Name) -}}
+{{- if not (has $name .Values.podSecurityExclude) }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: disallow-selinux
+  name: {{ $name }}
   annotations:
     policies.kyverno.io/title: Disallow SELinux
     policies.kyverno.io/category: Pod Security Standards (Default)
@@ -32,4 +34,5 @@ spec:
           containers:
           - =(securityContext):
               X(seLinuxOptions): "null"
+{{- end -}}
 {{- end -}}

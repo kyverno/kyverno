@@ -1,8 +1,10 @@
 {{- if eq .Values.podSecurityStandard "restricted" }}
+{{ $name := trimSuffix (ext .Template.Name) (base .Template.Name) -}}
+{{- if not (has $name .Values.podSecurityExclude) }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: require-run-as-non-root
+  name: {{ $name }}
   annotations:
     policies.kyverno.io/category: Pod Security Standards (Restricted)
     policies.kyverno.io/description: Containers must be required to run as non-root users.
@@ -37,4 +39,5 @@ spec:
           =(initContainers):
           - securityContext:
               runAsNonRoot: true         
+{{- end -}}
 {{- end -}}
