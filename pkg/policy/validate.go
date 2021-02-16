@@ -530,7 +530,13 @@ func validateConditionValuesKeyRequestOperation(c kyverno.Condition) (string, er
 	}
 	switch reflect.TypeOf(c.Value).Kind() {
 	case reflect.String:
-		if !valuesAllowed[c.Value.(string)] {
+		valueStr := c.Value.(string)
+		// allow templatized values like {{ config-map.data.sample-key }}
+		// because they might be actually pointing to a rightful value in the provided config-map
+		if len(valueStr) >= 4 && valueStr[:2] == "{{" && valueStr[len(valueStr)-2:] == "}}" {
+			return "", nil
+		}
+		if !valuesAllowed[valueStr] {
 			return fmt.Sprintf("value: %s", c.Value.(string)), fmt.Errorf("unknown value '%s' found under the 'value' field. Only the following values are allowed: [CREATE, UPDATE, DELETE, CONNECT]", c.Value.(string))
 		}
 	case reflect.Slice:
