@@ -312,6 +312,54 @@ func Test_Validate_DenyConditionsValuesString_KeyRequestOperation_ExpectedValue(
 	assert.NilError(t, err)
 }
 
+func Test_Validate_DenyConditionsValuesString_KeyRequestOperation_RightfullyTemplatizedValue(t *testing.T) {
+	denyConditions := []byte(`
+	[
+		{
+			"key":"{{request.operation}}",
+			"operator":"Equals",
+			"value":"{{ \"ops-cm\".data.\"deny-ops\"}}"
+		},
+		{
+			"key":"{{ request.operation }}",
+			"operator":"NotEquals",
+			"value":"UPDATE"
+		}
+	]
+	`)
+
+	var dcs []kyverno.Condition
+	err := json.Unmarshal(denyConditions, &dcs)
+	assert.NilError(t, err)
+
+	_, err = validateConditions(dcs, "conditions")
+	assert.NilError(t, err)
+}
+
+func Test_Validate_DenyConditionsValuesString_KeyRequestOperation_WrongfullyTemplatizedValue(t *testing.T) {
+	denyConditions := []byte(`
+	[
+		{
+			"key":"{{request.operation}}",
+			"operator":"Equals",
+			"value":"{{ \"ops-cm\".data.\"deny-ops\" }"
+		},
+		{
+			"key":"{{ request.operation }}",
+			"operator":"NotEquals",
+			"value":"UPDATE"
+		}
+	]
+	`)
+
+	var dcs []kyverno.Condition
+	err := json.Unmarshal(denyConditions, &dcs)
+	assert.NilError(t, err)
+
+	_, err = validateConditions(dcs, "conditions")
+	assert.Assert(t, err != nil)
+}
+
 func Test_Validate_PreconditionsValuesString_KeyRequestOperation_UnknownValue(t *testing.T) {
 	preConditions := []byte(`
 	[
