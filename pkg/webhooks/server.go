@@ -347,6 +347,9 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	err = ctx.AddImageDetails(resource[kind], resource[spec])
+	if err != nil {
+		logger.Error(err, "failed to load image details in context")
+	}
 
 	err = ctx.AddUserInfo(userRequestInfo)
 	if err != nil {
