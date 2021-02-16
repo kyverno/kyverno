@@ -48,6 +48,12 @@ type Context struct {
 	log               logr.Logger
 }
 
+type imgInfo struct {
+	imgRegistryURL string `json:"registryURL"`
+	imgName        string `json:"name"`
+	imgTag         string `json:"tag"`
+}
+
 //NewContext returns a new context
 // builtInVars is the list of known variables (e.g. serviceAccountName)
 func NewContext(builtInVars ...string) *Context {
@@ -142,6 +148,58 @@ func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 		return err
 	}
 	return ctx.AddJSON(objRaw)
+}
+
+//AddImageDetails checks if kind is pod or pod controller, then loads details about the image
+func (ctx *Context) AddImageDetails(kind string, spec map[interface{}]interface{}) error {
+	var images []string
+	var imgs []imgInfo
+
+	if kind == "Pod" {
+		for _, v := range spec[containers] { //conainers is an array with multiple maps
+			images = append(images, v[image])
+		}
+	}
+
+	if kind == "Deployment" || kind == "Job" || kind == "CronJob" || kind == "ReplicaSet" {
+		for _, v := range spec[template[spec[containers]]] {
+			images = append(images, v[image])
+		}
+	}
+
+	for _, image := range images {
+		var img imgInfo
+		if strings.Contains(image, "/") {
+			res := strings.Split(image, "/")
+			img.imgRegistryURL = res[0]
+			image = res[1]
+		}
+		if strings.Contains(image, ":") {
+			res := strings.Split(image, ":")
+			img.imgName = res[0]
+			img.imgTag = res[1]
+		} else {
+			img.imgName = image
+			img.imgTag = "latest"
+		}
+		imgs = append(imgs, img)
+	}
+
+	imgsObj := struct {
+		IMGS []imgInfo `json:"images"`
+	}{
+		IMGS: imgs,
+	}
+	imgsRaw, err := json.Marshal(imgsObj)
+	if err != nil {
+		ctx.log.Error(err, "failed to marshal the IMG")
+		return err
+	}
+	if err := ctx.AddJSON(imgsRaw); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 //AddServiceAccount removes prefix 'system:serviceaccount:' and namespace, then loads only SA name and SA namespace
