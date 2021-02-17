@@ -19,7 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
-	context2 "github.com/kyverno/kyverno/pkg/engine/context"
+	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -340,7 +340,7 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 		AdmissionUserInfo: *request.UserInfo.DeepCopy()}
 
 	// build context
-	ctx := context2.NewContext()
+	ctx := enginectx.NewContext()
 	err = ctx.AddRequest(request)
 	if err != nil {
 		logger.Error(err, "failed to load incoming request in context")
@@ -454,7 +454,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		AdmissionUserInfo: request.UserInfo}
 
 	// build context
-	ctx := context2.NewContext()
+	ctx := enginectx.NewContext()
 	err = ctx.AddRequest(request)
 	if err != nil {
 		logger.Error(err, "failed to load incoming request in context")
@@ -464,6 +464,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	if err != nil {
 		logger.Error(err, "failed to load userInfo in context")
 	}
+
 	err = ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
 		logger.Error(err, "failed to load service account in context")
