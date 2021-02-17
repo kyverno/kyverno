@@ -38,7 +38,7 @@ func Command() *cobra.Command {
 	var valuesFile, fileName string
 	cmd = &cobra.Command{
 		Use:   "test",
-		Short: "Shows current test of kyverno",
+		Short: "run tests from directory",
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
 			defer func() {
 				if err != nil {
@@ -56,7 +56,7 @@ func Command() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&fileName, "file-name", "f", "test.yaml", "Set name of test file")
+	cmd.Flags().StringVarP(&fileName, "file-name", "f", "test.yaml", "test filename")
 	return cmd
 }
 
@@ -256,7 +256,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		return sanitizederror.NewWithError("failed to decode yaml", err)
 	}
 
-	fmt.Printf("\napplying test on %s...", values.Name)
+	fmt.Printf("\nExecuting %s...", values.Name)
 
 	_, valuesMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyresoucePath)
 	if err != nil {
