@@ -151,21 +151,39 @@ func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 }
 
 //AddImageDetails checks if kind is pod or pod controller, then loads details about the image
-func (ctx *Context) AddImageDetails(kind string, spec map[interface{}]interface{}) error {
+func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface interface{}) error {
 	var images []string
 	var imgs []imgInfo
 
+	kind := kindInterface.(string)
+	spec := specInterface.(map[string]interface{})
+	// fmt.Println("---------------")
+	// fmt.Println(kind)
+	// fmt.Println("---------------")
+	// fmt.Println(spec)
+	// fmt.Println("---------------")
 	if kind == "Pod" {
-		for _, v := range spec[containers] { //conainers is an array with multiple maps
-			images = append(images, v[image])
+		containersMap := spec["containers"].([]interface{})
+		for _, v := range containersMap { //containers is a slice of maps where each map represents an image
+			v2 := v.(map[string]interface{})
+			imageString := v2["image"].(string)
+			images = append(images, imageString)
 		}
 	}
 
 	if kind == "Deployment" || kind == "Job" || kind == "CronJob" || kind == "ReplicaSet" {
-		for _, v := range spec[template[spec[containers]]] {
-			images = append(images, v[image])
+		template := spec["template"].(map[string]interface{})
+		spec2 := template["spec"].(map[string]interface{})
+		containersMap := spec2["containers"].([]interface{})
+		for _, v := range containersMap { //containers is a slice of maps where each map represents an image
+			v2 := v.(map[string]interface{})
+			imageString := v2["image"].(string)
+			images = append(images, imageString)
 		}
 	}
+
+	// fmt.Println("---------------")
+	// fmt.Println(images)
 
 	for _, image := range images {
 		var img imgInfo
@@ -184,6 +202,10 @@ func (ctx *Context) AddImageDetails(kind string, spec map[interface{}]interface{
 		}
 		imgs = append(imgs, img)
 	}
+
+	// fmt.Println("*")
+	// fmt.Println(imgs)
+	// fmt.Println("---------------")
 
 	imgsObj := struct {
 		IMGS []imgInfo `json:"images"`

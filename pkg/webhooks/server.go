@@ -334,6 +334,8 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 		}
 	}
 
+	obj := resource.UnstructuredContent()
+
 	userRequestInfo := v1.RequestInfo{
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
@@ -346,15 +348,16 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 		logger.Error(err, "failed to load incoming request in context")
 	}
 
-	err = ctx.AddImageDetails(resource[kind], resource[spec])
-	if err != nil {
-		logger.Error(err, "failed to load image details in context")
-	}
-
 	err = ctx.AddUserInfo(userRequestInfo)
 	if err != nil {
 		logger.Error(err, "failed to load userInfo in context")
 	}
+
+	err = ctx.AddImageDetails(obj["kind"], obj["spec"])
+	if err != nil {
+		logger.Error(err, "failed to load image details in context")
+	}
+
 	err = ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
 		logger.Error(err, "failed to load service account in context")
