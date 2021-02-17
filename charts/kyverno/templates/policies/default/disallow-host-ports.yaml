@@ -1,6 +1,5 @@
-{{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
-{{ $name := trimSuffix (ext .Template.Name) (base .Template.Name) -}}
-{{- if not (has $name .Values.podSecurityExclude) }}
+{{- $name := "disallow-host-ports" }}
+{{- if eq (include "kyverno.podSecurityDefault" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -31,5 +30,4 @@ spec:
           containers:
           - =(ports):
               - X(hostPort): 0
-{{- end -}}
 {{- end -}}

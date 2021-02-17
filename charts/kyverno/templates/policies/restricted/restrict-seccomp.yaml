@@ -1,6 +1,5 @@
-{{- if eq .Values.podSecurityStandard "restricted" }}
-{{ $name := trimSuffix (ext .Template.Name) (base .Template.Name) -}}
-{{- if not (has $name .Values.podSecurityExclude) }}
+{{ $name := "restrict-seccomp" -}}
+{{- if eq (include "kyverno.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -40,5 +39,4 @@ spec:
           - =(securityContext):
               =(seccompProfile):
                 =(type): "runtime/default"
-{{- end -}}
 {{- end -}}

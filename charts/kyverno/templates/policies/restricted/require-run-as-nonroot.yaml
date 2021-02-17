@@ -1,6 +1,5 @@
-{{- if eq .Values.podSecurityStandard "restricted" }}
-{{ $name := trimSuffix (ext .Template.Name) (base .Template.Name) -}}
-{{- if not (has $name .Values.podSecurityExclude) }}
+{{ $name := "require-run-as-non-root" -}}
+{{- if eq (include "kyverno.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -39,5 +38,4 @@ spec:
           =(initContainers):
           - securityContext:
               runAsNonRoot: true         
-{{- end -}}
 {{- end -}}
