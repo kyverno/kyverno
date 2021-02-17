@@ -90,6 +90,9 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		return resp
 	}
 
+	ctx.JSONContext.Checkpoint()
+	defer ctx.JSONContext.Restore()
+
 	for _, rule := range ctx.Policy.Spec.Rules {
 		if !rule.HasValidate() {
 			continue
@@ -97,13 +100,13 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 
 		log = log.WithValues("rule", rule.Name)
 
-		// add configmap json data to context
-		if err := AddResourceToContext(log, rule.Context, ctx.ResourceCache, ctx.JSONContext); err != nil {
-			log.V(2).Info("failed to add configmaps to context", "reason", err.Error())
+		if !matches(log, rule, ctx) {
 			continue
 		}
 
-		if !matches(log, rule, ctx) {
+		ctx.JSONContext.Restore()
+		if err := LoadContext(log, rule.Context, ctx.ResourceCache, ctx); err != nil {
+			log.V(2).Info("failed to load context", "reason", err.Error())
 			continue
 		}
 
@@ -168,13 +171,13 @@ func validateResourceWithRule(log logr.Logger, ctx *PolicyContext, rule kyverno.
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
 func matches(logger logr.Logger, rule kyverno.Rule, ctx *PolicyContext) bool {
-	err := MatchesResourceDescription(ctx.NewResource, rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole)
+	err := MatchesResourceDescription(ctx.NewResource, rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, ctx.NamespaceLabels)
 	if err == nil {
 		return true
 	}
 
 	if !reflect.DeepEqual(ctx.OldResource, unstructured.Unstructured{}) {
-		err := MatchesResourceDescription(ctx.OldResource, rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole)
+		err := MatchesResourceDescription(ctx.OldResource, rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, ctx.NamespaceLabels)
 		if err == nil {
 			return true
 		}

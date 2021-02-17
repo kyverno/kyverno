@@ -98,16 +98,49 @@ type Rule struct {
 	Generation Generation `json:"generate,omitempty" yaml:"generate,omitempty"`
 }
 
-// ContextEntry adds variables and data sources to a rule Context
+// ContextEntry adds variables and data sources to a rule Context. Either a
+// ConfigMap reference or a APILookup must be provided.
 type ContextEntry struct {
-	Name      string              `json:"name,omitempty" yaml:"name,omitempty"`
+
+	// Name is the variable name.
+	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+
+	// ConfigMap is the ConfigMap reference.
 	ConfigMap *ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
+
+	// APICall defines an HTTP request to the Kubernetes API server. The JSON
+	// data retrieved is stored in the context.
+	APICall *APICall `json:"apiCall,omitempty" yaml:"apiCall,omitempty"`
 }
 
 // ConfigMapReference refers to a ConfigMap
 type ConfigMapReference struct {
-	Name      string `json:"name,omitempty" yaml:"name,omitempty"`
+
+	// Name is the ConfigMap name.
+	Name string `json:"name" yaml:"name"`
+
+	// Namespace is the ConfigMap namespace.
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+}
+
+// APICall defines an HTTP request to the Kubernetes API server. The JSON
+// data retrieved is stored in the context. An APICall contains a URLPath
+// used to perform the HTTP GET request and an optional JMESPath used to
+// transform the retrieved JSON data.
+type APICall struct {
+
+	// URLPath is the URL path to be used in the HTTP GET request to the
+	// Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
+	// The format required is the same format used by the `kubectl get --raw` command.
+	URLPath string `json:"urlPath" yaml:"urlPath"`
+
+	// JMESPath is an optional JSON Match Expression that can be used to
+	// transform the JSON response returned from the API server. For example
+	// a JMESPath of "items | length(@)" applied to the API server response
+	// to the URLPath "/apis/apps/v1/deployments" will return the total count
+	// of deployments across all namespaces.
+	// +optional
+	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
 }
 
 // Condition defines variable-based conditional criteria for rule execution.
@@ -145,6 +178,14 @@ const (
 	In ConditionOperator = "In"
 	// NotIn evaluates if the key is not contained in the set of values.
 	NotIn ConditionOperator = "NotIn"
+	// GreaterThanOrEquals evaluates if the key (numeric) is greater than or equal to the value (numeric).
+	GreaterThanOrEquals ConditionOperator = "GreaterThanOrEquals"
+	// GreaterThan evaluates if the key (numeric) is greater than the value (numeric).
+	GreaterThan ConditionOperator = "GreaterThan"
+	// LessThan evaluates if the key (numeric) is less than or equal to the value (numeric).
+	LessThanOrEquals ConditionOperator = "LessThanOrEquals"
+	// LessThan evaluates if the key (numeric) is less than the value (numeric).
+	LessThan ConditionOperator = "LessThan"
 )
 
 // MatchResources is used to specify resource and admission review request data for
@@ -213,6 +254,14 @@ type ResourceDescription struct {
 	// using ["*" : "*"] matches any key and value but does not match an empty label set.
 	// +optional
 	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
+
+	// NamespaceSelector is a label selector for the resource namespace. Label keys and values
+	// in `matchLabels` support the wildcard characters `*` (matches zero or many characters)
+	// and `?` (matches one character).Wildcards allows writing label selectors like
+	// ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but
+	// does not match an empty label set.
+	// +optional
+	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty" yaml:"namespaceSelector,omitempty"`
 }
 
 // Mutation defines how resource are modified.

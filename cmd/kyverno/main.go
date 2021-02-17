@@ -30,8 +30,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/generate"
 	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/klog"
-	"k8s.io/klog/klogr"
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/klogr"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -138,6 +138,7 @@ func main() {
 	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,
 		client,
+		rCache,
 		serverIP,
 		int32(webhookTimeout),
 		log.Log)
@@ -171,6 +172,7 @@ func main() {
 	eventGenerator := event.NewEventGenerator(
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
+		rCache,
 		log.Log.WithName("EventGenerator"))
 
 	// Policy Status Handler - deals with all logic related to policy status
@@ -274,9 +276,11 @@ func main() {
 		reportReqGen,
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
+		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("ValidateAuditHandler"),
 		configData,
 		rCache,
+		client,
 	)
 
 	// Configure certificates
@@ -320,6 +324,7 @@ func main() {
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		kubeInformer.Rbac().V1().Roles(),
 		kubeInformer.Rbac().V1().ClusterRoles(),
+		kubeInformer.Core().V1().Namespaces(),
 		eventGenerator,
 		pCacheController.Cache,
 		webhookCfg,

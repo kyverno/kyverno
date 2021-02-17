@@ -265,6 +265,13 @@ func (g *ReportGenerator) syncHandler(key string) error {
 // return the existing report if exist
 func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstructured.Unstructured, aggregatedRequests interface{}) (report interface{}, err error) {
 	log := g.log.WithName("createReportIfNotPresent")
+	obj, hasDuplicate, err := updateResults(new.UnstructuredContent(), new.UnstructuredContent(), nil)
+	if hasDuplicate && err != nil {
+		g.log.Error(err, "failed to remove duplicate results", "policy report", new.GetName())
+	} else {
+		new.Object = obj
+	}
+
 	if namespace != "" {
 		ns, err := g.nsLister.Get(namespace)
 		if err != nil {
@@ -563,7 +570,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		new.SetResourceVersion(oldTyped.GetResourceVersion())
 	}
 
-	obj, err := updateResults(oldUnstructured, new.UnstructuredContent(), aggregatedRequests)
+	obj, _, err := updateResults(oldUnstructured, new.UnstructuredContent(), aggregatedRequests)
 	if err != nil {
 		return fmt.Errorf("failed to update results entry: %v", err)
 	}

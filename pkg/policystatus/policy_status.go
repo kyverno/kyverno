@@ -3,6 +3,7 @@ package policystatus
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -167,6 +168,10 @@ func (s *Sync) updateClusterPolicy(policyName, key string, status v1.PolicyStatu
 		return
 	}
 
+	if reflect.DeepEqual(status, policy.Status) {
+		return
+	}
+
 	policy.Status = status
 	_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), policy, metav1.UpdateOptions{})
 	if err != nil {
@@ -180,6 +185,10 @@ func (s *Sync) updateNamespacedPolicyStatus(policyName, namespace, key string, s
 	policy, err := s.nsLister.Policies(namespace).Get(policyName)
 	if err != nil {
 		s.log.Error(err, "failed to update policy status", "policy", policyName)
+		return
+	}
+
+	if reflect.DeepEqual(status, policy.Status) {
 		return
 	}
 

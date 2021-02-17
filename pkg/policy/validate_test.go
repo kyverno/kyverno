@@ -251,6 +251,203 @@ func Test_Validate_ResourceDescription_MatchedValid(t *testing.T) {
 	assert.NilError(t, err)
 }
 
+func Test_Validate_DenyConditions_KeyRequestOperation_Empty(t *testing.T) {
+	denyConditions := []byte(`[]`)
+
+	var dcs []kyverno.Condition
+	err := json.Unmarshal(denyConditions, &dcs)
+	assert.NilError(t, err)
+
+	_, err = validateConditions(dcs, "conditions")
+	assert.NilError(t, err)
+}
+
+func Test_Validate_Preconditions_KeyRequestOperation_Empty(t *testing.T) {
+	preConditions := []byte(`[]`)
+
+	var pcs []kyverno.Condition
+	err := json.Unmarshal(preConditions, &pcs)
+	assert.NilError(t, err)
+
+	_, err = validateConditions(pcs, "preconditions")
+	assert.NilError(t, err)
+}
+
+func Test_Validate_DenyConditionsValuesString_KeyRequestOperation_ExpectedValue(t *testing.T) {
+	denyConditions := []byte(`
+	[
+		{
+			"key":"{{request.operation}}",
+			"operator":"Equals",
+			"value":"DELETE"
+		},
+		{
+			"key":"{{request.operation}}",
+			"operator":"NotEquals",
+			"value":"CREATE"
+		},
+		{
+			"key":"{{request.operation}}",
+			"operator":"NotEquals",
+			"value":"CONNECT"
+		},
+		{
+			"key":"{{ request.operation }}",
+			"operator":"NotEquals",
+			"value":"UPDATE"
+		},
+		{
+			"key":"{{lbServiceCount}}",
+			"operator":"Equals",
+			"value":"2"
+		}
+	]
+	`)
+
+	var dcs []kyverno.Condition
+	err := json.Unmarshal(denyConditions, &dcs)
+	assert.NilError(t, err)
+
+	_, err = validateConditions(dcs, "conditions")
+	assert.NilError(t, err)
+}
+
+func Test_Validate_DenyConditionsValuesString_KeyRequestOperation_RightfullyTemplatizedValue(t *testing.T) {
+	denyConditions := []byte(`
+	[
+		{
+			"key":"{{request.operation}}",
+			"operator":"Equals",
+			"value":"{{ \"ops-cm\".data.\"deny-ops\"}}"
+		},
+		{
+			"key":"{{ request.operation }}",
+			"operator":"NotEquals",
+			"value":"UPDATE"
+		}
+	]
+	`)
+
+	var dcs []kyverno.Condition
+	err := json.Unmarshal(denyConditions, &dcs)
+	assert.NilError(t, err)
+
+	_, err = validateConditions(dcs, "conditions")
+	assert.NilError(t, err)
+}
+
+func Test_Validate_DenyConditionsValuesString_KeyRequestOperation_WrongfullyTemplatizedValue(t *testing.T) {
+	denyConditions := []byte(`
+	[
+		{
+			"key":"{{request.operation}}",
+			"operator":"Equals",
+			"value":"{{ \"ops-cm\".data.\"deny-ops\" }"
+		},
+		{
+			"key":"{{ request.operation }}",
+			"operator":"NotEquals",
+			"value":"UPDATE"
+		}
+	]
+	`)
+
+	var dcs []kyverno.Condition
+	err := json.Unmarshal(denyConditions, &dcs)
+	assert.NilError(t, err)
+
+	_, err = validateConditions(dcs, "conditions")
+	assert.Assert(t, err != nil)
+}
+
+func Test_Validate_PreconditionsValuesString_KeyRequestOperation_UnknownValue(t *testing.T) {
+	preConditions := []byte(`
+	[
+		{
+			"key":"{{request.operation}}",
+			"operator":"Equals",
+			"value":"foobar"
+		},
+		{
+			"key": "{{request.operation}}",
+			"operator": "NotEquals",
+			"value": "CREATE"
+		}
+	]
+	`)
+
+	var pcs []kyverno.Condition
+	err := json.Unmarshal(preConditions, &pcs)
+	assert.NilError(t, err)
+
+	_, err = validateConditions(pcs, "preconditions")
+	assert.Assert(t, err != nil)
+}
+
+func Test_Validate_DenyConditionsValuesList_KeyRequestOperation_ExpectedItem(t *testing.T) {
+	denyConditions := []byte(`
+	[
+		{
+			"key":"{{request.operation}}",
+			"operator":"Equals",
+			"value": [
+				"CREATE",
+				"DELETE",
+				"CONNECT"
+			]
+		},
+		{
+			"key":"{{request.operation}}",
+			"operator":"NotEquals",
+			"value": [
+				"UPDATE"
+			]
+		},
+		{
+			"key": "{{lbServiceCount}}",
+			"operator": "Equals",
+			"value": "2"
+		}
+	]
+	`)
+
+	var dcs []kyverno.Condition
+	err := json.Unmarshal(denyConditions, &dcs)
+	assert.NilError(t, err)
+
+	_, err = validateConditions(dcs, "conditions")
+	assert.NilError(t, err)
+}
+
+func Test_Validate_PreconditionsValuesList_KeyRequestOperation_UnknownItem(t *testing.T) {
+	preConditions := []byte(`
+	[
+		{
+			"key":"{{request.operation}}",
+			"operator":"Equals",
+			"value": [
+				"foobar",
+				"CREATE"
+			]
+		},
+		{
+			"key":"{{request.operation}}",
+			"operator":"NotEquals",
+			"value": [
+				"foobar"
+			]
+		}
+	]
+	`)
+
+	var pcs []kyverno.Condition
+	err := json.Unmarshal(preConditions, &pcs)
+	assert.NilError(t, err)
+
+	_, err = validateConditions(pcs, "preconditions")
+	assert.Assert(t, err != nil)
+}
+
 func Test_Validate_ResourceDescription_MissingKindsOnExclude(t *testing.T) {
 	var err error
 	excludeResourcedescirption := []byte(`

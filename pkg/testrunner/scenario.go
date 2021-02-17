@@ -12,14 +12,14 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes/scheme"
-
-	"gopkg.in/yaml.v2"
 	apiyaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 type scenarioT struct {
@@ -126,7 +126,14 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		t.FailNow()
 	}
 
-	er := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, ExcludeGroupRole: []string{}})
+	ctx := &engine.PolicyContext{
+		Policy:           *policy,
+		NewResource:      *resource,
+		ExcludeGroupRole: []string{},
+		JSONContext:      context.NewContext(),
+	}
+
+	er := engine.Mutate(ctx)
 	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
 	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
@@ -136,7 +143,14 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		resource = &er.PatchedResource
 	}
 
-	er = engine.Validate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, ExcludeGroupRole: []string{}})
+	ctx = &engine.PolicyContext{
+		Policy:           *policy,
+		NewResource:      *resource,
+		ExcludeGroupRole: []string{},
+		JSONContext:      context.NewContext(),
+	}
+
+	er = engine.Validate(ctx)
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 
@@ -150,7 +164,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		if err := createNamespace(client, resource); err != nil {
 			t.Error(err)
 		} else {
-			policyContext := engine.PolicyContext{
+			policyContext := &engine.PolicyContext{
 				NewResource:      *resource,
 				Policy:           *policy,
 				Client:           client,
@@ -158,6 +172,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 				ExcludeResourceFunc: func(s1, s2, s3 string) bool {
 					return false
 				},
+				JSONContext: context.NewContext(),
 			}
 
 			er = engine.Generate(policyContext)
@@ -316,7 +331,7 @@ func getClient(t *testing.T, files []string) *client.Client {
 	// create mock client
 	scheme := runtime.NewScheme()
 	// mock client expects the resource to be as runtime.Object
-	c, err := client.NewMockClient(scheme, objects...)
+	c, err := client.NewMockClient(scheme, nil, objects...)
 	if err != nil {
 		t.Errorf("failed to create client. %v", err)
 		return nil

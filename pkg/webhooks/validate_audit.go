@@ -4,9 +4,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/common"
+	client "github.com/kyverno/kyverno/pkg/dclient"
+
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -20,7 +22,9 @@ import (
 	"k8s.io/api/admission/v1beta1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	informers "k8s.io/client-go/informers/core/v1"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -41,17 +45,19 @@ type AuditHandler interface {
 }
 
 type auditHandler struct {
-	client         *kyvernoclient.Clientset
+	client         *client.Client
 	queue          workqueue.RateLimitingInterface
 	pCache         policycache.Interface
 	eventGen       event.Interface
 	statusListener policystatus.Listener
 	prGenerator    policyreport.GeneratorInterface
 
-	rbLister  rbaclister.RoleBindingLister
-	rbSynced  cache.InformerSynced
-	crbLister rbaclister.ClusterRoleBindingLister
-	crbSynced cache.InformerSynced
+	rbLister       rbaclister.RoleBindingLister
+	rbSynced       cache.InformerSynced
+	crbLister      rbaclister.ClusterRoleBindingLister
+	crbSynced      cache.InformerSynced
+	nsLister       listerv1.NamespaceLister
+	nsListerSynced cache.InformerSynced
 
 	log           logr.Logger
 	configHandler config.Interface
@@ -65,9 +71,11 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	prGenerator policyreport.GeneratorInterface,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
+	namespaces informers.NamespaceInformer,
 	log logr.Logger,
 	dynamicConfig config.Interface,
-	resCache resourcecache.ResourceCache) AuditHandler {
+	resCache resourcecache.ResourceCache,
+	client *client.Client) AuditHandler {
 
 	return &auditHandler{
 		pCache:         pCache,
@@ -78,10 +86,13 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		rbSynced:       rbInformer.Informer().HasSynced,
 		crbLister:      crbInformer.Lister(),
 		crbSynced:      crbInformer.Informer().HasSynced,
+		nsLister:       namespaces.Lister(),
+		nsListerSynced: namespaces.Informer().HasSynced,
 		log:            log,
 		prGenerator:    prGenerator,
 		configHandler:  dynamicConfig,
 		resCache:       resCache,
+		client:         client,
 	}
 }
 
@@ -173,7 +184,12 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		return errors.Wrap(err, "failed to load service account in context")
 	}
 
-	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache)
+	namespaceLabels := make(map[string]string)
+	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
+		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
+	}
+
+	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, h.client, namespaceLabels)
 	return nil
 }
 

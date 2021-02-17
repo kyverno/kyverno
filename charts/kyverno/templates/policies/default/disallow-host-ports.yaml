@@ -1,4 +1,4 @@
-{{- if eq .Values.podSecurityStandard "default" }}
+{{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -9,7 +9,7 @@ metadata:
       Access to host ports allows potential snooping of network traffic and should not be
       allowed, or at minimum restricted to a known list.
 spec:
-  validationFailureAction: audit
+  validationFailureAction: {{ .Values.validationFailureAction }}
   background: true
   rules:
   - name: host-ports

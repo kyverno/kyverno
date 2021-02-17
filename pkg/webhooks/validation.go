@@ -5,6 +5,8 @@ import (
 	"sort"
 	"time"
 
+	client "github.com/kyverno/kyverno/pkg/dclient"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -36,7 +38,9 @@ func HandleValidation(
 	prGenerator policyreport.GeneratorInterface,
 	log logr.Logger,
 	dynamicConfig config.Interface,
-	resCache resourcecache.ResourceCache) (bool, string) {
+	resCache resourcecache.ResourceCache,
+	client *client.Client,
+	namespaceLabels map[string]string) (bool, string) {
 
 	if len(policies) == 0 {
 		return true, ""
@@ -76,12 +80,14 @@ func HandleValidation(
 		ExcludeResourceFunc: dynamicConfig.ToFilter,
 		ResourceCache:       resCache,
 		JSONContext:         ctx,
+		Client:              client,
 	}
 
 	var engineResponses []*response.EngineResponse
 	for _, policy := range policies {
 		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 		policyContext.Policy = *policy
+		policyContext.NamespaceLabels = namespaceLabels
 		engineResponse := engine.Validate(policyContext)
 		if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
 			// we get an empty response if old and new resources created the same response

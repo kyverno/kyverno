@@ -7,9 +7,12 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/jmespath/go-jmespath"
+	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/kyverno/common"
+
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/minio/pkg/wildcard"
@@ -198,11 +201,19 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		excludeNamespaces[namespace] = true
 	}
 
-	excludeMatchExpressions := make(map[string]bool)
+	excludeSelectorMatchExpressions := make(map[string]bool)
 	if rule.ExcludeResources.ResourceDescription.Selector != nil {
 		for _, matchExpression := range rule.ExcludeResources.ResourceDescription.Selector.MatchExpressions {
 			matchExpressionRaw, _ := json.Marshal(matchExpression)
-			excludeMatchExpressions[string(matchExpressionRaw)] = true
+			excludeSelectorMatchExpressions[string(matchExpressionRaw)] = true
+		}
+	}
+
+	excludeNamespaceSelectorMatchExpressions := make(map[string]bool)
+	if rule.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
+		for _, matchExpression := range rule.ExcludeResources.ResourceDescription.NamespaceSelector.MatchExpressions {
+			matchExpressionRaw, _ := json.Marshal(matchExpression)
+			excludeNamespaceSelectorMatchExpressions[string(matchExpressionRaw)] = true
 		}
 	}
 
@@ -274,14 +285,14 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 	}
 
 	if rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector != nil {
-		if len(excludeMatchExpressions) > 0 {
+		if len(excludeSelectorMatchExpressions) > 0 {
 			if len(rule.MatchResources.ResourceDescription.Selector.MatchExpressions) == 0 {
 				return false
 			}
 
 			for _, matchExpression := range rule.MatchResources.ResourceDescription.Selector.MatchExpressions {
 				matchExpressionRaw, _ := json.Marshal(matchExpression)
-				if !excludeMatchExpressions[string(matchExpressionRaw)] {
+				if !excludeSelectorMatchExpressions[string(matchExpressionRaw)] {
 					return false
 				}
 			}
@@ -300,8 +311,40 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		}
 	}
 
+	if rule.MatchResources.ResourceDescription.NamespaceSelector != nil && rule.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
+		if len(excludeNamespaceSelectorMatchExpressions) > 0 {
+			if len(rule.MatchResources.ResourceDescription.NamespaceSelector.MatchExpressions) == 0 {
+				return false
+			}
+
+			for _, matchExpression := range rule.MatchResources.ResourceDescription.NamespaceSelector.MatchExpressions {
+				matchExpressionRaw, _ := json.Marshal(matchExpression)
+				if !excludeNamespaceSelectorMatchExpressions[string(matchExpressionRaw)] {
+					return false
+				}
+			}
+		}
+
+		if len(rule.ExcludeResources.ResourceDescription.NamespaceSelector.MatchLabels) > 0 {
+			if len(rule.MatchResources.ResourceDescription.NamespaceSelector.MatchLabels) == 0 {
+				return false
+			}
+
+			for label, value := range rule.MatchResources.ResourceDescription.NamespaceSelector.MatchLabels {
+				if rule.ExcludeResources.ResourceDescription.NamespaceSelector.MatchLabels[label] != value {
+					return false
+				}
+			}
+		}
+	}
+
 	if (rule.MatchResources.ResourceDescription.Selector == nil && rule.ExcludeResources.ResourceDescription.Selector != nil) ||
 		(rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector == nil) {
+		return false
+	}
+
+	if (rule.MatchResources.ResourceDescription.NamespaceSelector == nil && rule.ExcludeResources.ResourceDescription.NamespaceSelector != nil) ||
+		(rule.MatchResources.ResourceDescription.NamespaceSelector != nil && rule.ExcludeResources.ResourceDescription.NamespaceSelector == nil) {
 		return false
 	}
 
@@ -427,16 +470,90 @@ func validateResources(rule kyverno.Rule) (string, error) {
 
 	// matched resources
 	if path, err := validateMatchedResourceDescription(rule.MatchResources.ResourceDescription); err != nil {
-		return fmt.Sprintf("resources.%s", path), err
+		return fmt.Sprintf("match.resources.%s", path), err
 	}
 	// exclude resources
 	if path, err := validateExcludeResourceDescription(rule.ExcludeResources.ResourceDescription); err != nil {
-		return fmt.Sprintf("resources.%s", path), err
+		return fmt.Sprintf("exclude.resources.%s", path), err
+	}
+
+	//validating the values present under validation.preconditions, if they exist
+	if rule.Conditions != nil {
+		if path, err := validateConditions(rule.Conditions, "preconditions"); err != nil {
+			return fmt.Sprintf("validate.%s", path), err
+		}
+	}
+	// validating the values present under validation.deny.conditions, if they exist
+	if rule.Validation.Deny != nil {
+		if path, err := validateConditions(rule.Validation.Deny.Conditions, "conditions"); err != nil {
+			return fmt.Sprintf("validate.deny.%s", path), err
+		}
+	}
+
+	return "", nil
+}
+
+// validateConditions validates all the 'conditions' or 'preconditions' of a rule depending on the corresponding 'condition.key'.
+// As of now, it is validating the 'value' field whether it contains the only allowed set of values or not when 'condition.key' is {{request.operation}}
+func validateConditions(conditions []kyverno.Condition, schemaKey string) (string, error) {
+	// []kyverno.Condition can only exist under either 'conditions' or 'preconditions' key of the policy schema
+	if schemaKey != "conditions" && schemaKey != "preconditions" {
+		return fmt.Sprintf(schemaKey), fmt.Errorf("wrong schema key found for validating the conditions. Conditions can only occur under 'preconditions' or 'conditions' key in the policy schema")
+	}
+	for i, condition := range conditions {
+		if path, err := validateConditionValues(condition); err != nil {
+			return fmt.Sprintf("%s[%d].%s", schemaKey, i, path), err
+		}
 	}
 	return "", nil
 }
 
-// ValidateUniqueRuleName checks if the rule names are unique across a policy
+// validateConditionValues validates whether all the values under the 'value' field of a 'conditions' field
+// are apt with respect to the provided 'condition.key'
+func validateConditionValues(c kyverno.Condition) (string, error) {
+	switch strings.ReplaceAll(c.Key.(string), " ", "") {
+	case "{{request.operation}}":
+		return validateConditionValuesKeyRequestOperation(c)
+	default:
+		return "", nil
+	}
+}
+
+// validateConditionValuesKeyRequestOperation validates whether all the values under the 'value' field of a 'conditions' field
+// are one of ["CREATE", "UPDATE", "DELETE", "CONNECT"] when 'condition.key' is {{request.operation}}
+func validateConditionValuesKeyRequestOperation(c kyverno.Condition) (string, error) {
+	valuesAllowed := map[string]bool{
+		"CREATE":  true,
+		"UPDATE":  true,
+		"DELETE":  true,
+		"CONNECT": true,
+	}
+	switch reflect.TypeOf(c.Value).Kind() {
+	case reflect.String:
+		valueStr := c.Value.(string)
+		// allow templatized values like {{ config-map.data.sample-key }}
+		// because they might be actually pointing to a rightful value in the provided config-map
+		if len(valueStr) >= 4 && valueStr[:2] == "{{" && valueStr[len(valueStr)-2:] == "}}" {
+			return "", nil
+		}
+		if !valuesAllowed[valueStr] {
+			return fmt.Sprintf("value: %s", c.Value.(string)), fmt.Errorf("unknown value '%s' found under the 'value' field. Only the following values are allowed: [CREATE, UPDATE, DELETE, CONNECT]", c.Value.(string))
+		}
+	case reflect.Slice:
+		values := reflect.ValueOf(c.Value)
+		for i := 0; i < values.Len(); i++ {
+			value := values.Index(i).Interface().(string)
+			if !valuesAllowed[value] {
+				return fmt.Sprintf("value[%d]", i), fmt.Errorf("unknown value '%s' found under the 'value' field. Only the following values are allowed: [CREATE, UPDATE, DELETE, CONNECT]", value)
+			}
+		}
+	default:
+		return fmt.Sprintf("value"), fmt.Errorf("'value' field found to be of the type %v. The provided value/values are expected to be either in the form of a string or list", reflect.TypeOf(c.Value).Kind())
+	}
+	return "", nil
+}
+
+// validateUniqueRuleName checks if the rule names are unique across a policy
 func validateUniqueRuleName(p kyverno.ClusterPolicy) (string, error) {
 	var ruleNames []string
 
@@ -481,14 +598,59 @@ func validateRuleContext(rule kyverno.Rule) error {
 			return fmt.Errorf("a name is required for context entries")
 		}
 
+		var err error
 		if entry.ConfigMap != nil {
-			if entry.ConfigMap.Name == "" {
-				return fmt.Errorf("a name is required for configMap context entry")
-			}
+			err = validateConfigMap(entry)
+		} else if entry.APICall != nil {
+			err = validateAPICall(entry)
+		} else {
+			return fmt.Errorf("a configMap or apiCall is required for context entries")
+		}
 
-			if entry.ConfigMap.Namespace == "" {
-				return fmt.Errorf("a namespace is required for configMap context entry")
-			}
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateConfigMap(entry kyverno.ContextEntry) error {
+	if entry.ConfigMap == nil {
+		return fmt.Errorf("configMap is empty")
+	}
+
+	if entry.APICall != nil {
+		return fmt.Errorf("both configMap and apiCall are not allowed in a context entry")
+	}
+
+	if entry.ConfigMap.Name == "" {
+		return fmt.Errorf("a name is required for configMap context entry")
+	}
+
+	if entry.ConfigMap.Namespace == "" {
+		return fmt.Errorf("a namespace is required for configMap context entry")
+	}
+
+	return nil
+}
+
+func validateAPICall(entry kyverno.ContextEntry) error {
+	if entry.APICall == nil {
+		return fmt.Errorf("apiCall is empty")
+	}
+
+	if entry.ConfigMap != nil {
+		return fmt.Errorf("both configMap and apiCall are not allowed in a context entry")
+	}
+
+	if _, err := engine.NewAPIPath(entry.APICall.URLPath); err != nil {
+		return err
+	}
+
+	if entry.APICall.JMESPath != "" {
+		if _, err := jmespath.NewParser().Parse(entry.APICall.JMESPath); err != nil {
+			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.APICall.JMESPath, err)
 		}
 	}
 

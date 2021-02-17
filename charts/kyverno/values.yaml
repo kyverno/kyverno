@@ -4,6 +4,9 @@ namespace:
 # Supported- default/restricted/privileged
 # For more info- https://kyverno.io/policies/pod-security
 podSecurityStandard: default
+# Supported values- `audit`, `enforce`
+# For more info- https://kyverno.io/docs/writing-policies/validate/
+validationFailureAction: audit
 
 rbac:
   create: true
@@ -41,6 +44,16 @@ podSecurityContext: {}
 affinity: {}
 nodeSelector: {}
 tolerations: []
+
+# change hostNetwork to true when you want the kyverno's pod to share its host's network namespace
+# useful for situations like when you end up dealing with a custom CNI over Amazon EKS
+# update the 'dnsPolicy' accordingly as well to suit the host network mode
+hostNetwork: false
+
+# dnsPolicy determines the manner in which DNS resolution happens in the cluster
+# in case of hostNetwork: true, usually, the dnsPolicy is suitable to be "ClusterFirstWithHostNet"
+# for further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+dnsPolicy: "ClusterFirst"
 
 extraArgs: []
 # - --webhooktimeout=4

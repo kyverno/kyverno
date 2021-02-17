@@ -11,7 +11,7 @@ metadata:
       additional profiles should be allowed.
 spec:
   background: true
-  validationFailureAction: audit
+  validationFailureAction: {{ .Values.validationFailureAction }}
   rules:
   - name: seccomp
     match:

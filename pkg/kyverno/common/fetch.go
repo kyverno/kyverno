@@ -1,20 +1,23 @@
 package common
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"path/filepath"
+	"strings"
 
+	"github.com/go-git/go-billy/v5"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/yaml"
 )
 
 // GetResources gets matched resources by the given policies
@@ -97,6 +100,53 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	return resources, nil
 }
 
+// GetResourcesWithTest with gets matched resources by the given policies
+func GetResourcesWithTest(fs billy.Filesystem, policies []*v1.ClusterPolicy, resourcePaths []string, isGit bool, policyresoucePath string) ([]*unstructured.Unstructured, error) {
+	resources := make([]*unstructured.Unstructured, 0)
+	var resourceTypesMap = make(map[string]bool)
+	var resourceTypes []string
+	for _, policy := range policies {
+		for _, rule := range policy.Spec.Rules {
+			for _, kind := range rule.MatchResources.Kinds {
+				resourceTypesMap[kind] = true
+			}
+		}
+	}
+	for kind := range resourceTypesMap {
+		resourceTypes = append(resourceTypes, kind)
+	}
+	if len(resourcePaths) > 0 {
+		for _, resourcePath := range resourcePaths {
+			var resourceBytes []byte
+			var err error
+			if isGit {
+				filep, err := fs.Open(filepath.Join(policyresoucePath, resourcePath))
+				if err != nil {
+					fmt.Printf("Unable to open resource file: %s. error: %s", resourcePath, err)
+					continue
+				}
+				resourceBytes, err = ioutil.ReadAll(filep)
+			} else {
+				resourceBytes, err = getFileBytes(resourcePath)
+			}
+			if err != nil {
+				fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
+				continue
+			}
+
+			getResources, err := GetResource(resourceBytes)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, resource := range getResources {
+				resources = append(resources, resource)
+			}
+		}
+	}
+	return resources, nil
+}
+
 // GetResource converts raw bytes to unstructured object
 func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
@@ -149,26 +199,45 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Clien
 }
 
 func getFileBytes(path string) ([]byte, error) {
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
+
+	var (
+		file []byte
+		err  error
+	)
+
+	if strings.Contains(path, "http") {
+		resp, err := http.Get(path)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, err
+		}
+
+		file, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		file, err = ioutil.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	return file, err
 }
 
 func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error) {
 	decode := scheme.Codecs.UniversalDeserializer().Decode
-	resourceObject, metaData, err := decode(resourceYaml, nil, nil)
+	_, metaData, err := decode(resourceYaml, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	resourceUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&resourceObject)
-	if err != nil {
-		return nil, err
-	}
-
-	resourceJSON, err := json.Marshal(resourceUnstructured)
+	resourceJSON, err := yaml.YAMLToJSON(resourceYaml)
 	if err != nil {
 		return nil, err
 	}

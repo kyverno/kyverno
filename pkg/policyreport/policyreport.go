@@ -53,9 +53,10 @@ func getDeletedResources(aggregatedRequests interface{}) (resources []deletedRes
 	return
 }
 
-func updateResults(oldReport, newReport map[string]interface{}, aggregatedRequests interface{}) (map[string]interface{}, error) {
+func updateResults(oldReport, newReport map[string]interface{}, aggregatedRequests interface{}) (map[string]interface{}, bool, error) {
 	deleteResources := getDeletedResources(aggregatedRequests)
 	oldResults := hashResults(oldReport, deleteResources)
+	var hasDuplicate bool
 
 	if newresults, ok := newReport["results"].([]interface{}); ok {
 		for _, res := range newresults {
@@ -64,6 +65,10 @@ func updateResults(oldReport, newReport map[string]interface{}, aggregatedReques
 				continue
 			}
 			if key, ok := generateHashKey(resMap, deletedResource{}); ok {
+				if _, exist := oldResults.Get(key); exist {
+					hasDuplicate = exist
+				}
+
 				oldResults.Set(key, res)
 			}
 		}
@@ -71,14 +76,14 @@ func updateResults(oldReport, newReport map[string]interface{}, aggregatedReques
 
 	results := getResultsFromHash(oldResults)
 	if err := unstructured.SetNestedSlice(newReport, results, "results"); err != nil {
-		return nil, err
+		return nil, hasDuplicate, err
 	}
 
 	summary := updateSummary(results)
 	if err := unstructured.SetNestedMap(newReport, summary, "summary"); err != nil {
-		return nil, err
+		return nil, hasDuplicate, err
 	}
-	return newReport, nil
+	return newReport, hasDuplicate, nil
 }
 
 func hashResults(policyReport map[string]interface{}, deleteResources []deletedResource) *hashmap.HashMap {

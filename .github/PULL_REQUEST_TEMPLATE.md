@@ -7,10 +7,11 @@ with a maintainer, please mention her/him using the `@` syntax (e.g. `@JimBugwad
 If this change neither resolves an existing issue nor has sign-off from one of the maintainers, there is a
 chance substantial changes will be requested or that the changes will be rejected.
 
-You can discuss changes with maintainers in the [Kyvrno Slack Channel](https://kubernetes.slack.com/).
+You can discuss changes with maintainers in the [Kyverno Slack Channel](https://kubernetes.slack.com/).
 -->
 
-**What type of PR is this?**
+## What type of PR is this
+
 <!--
 
 > Uncomment only one ` /kind <>` line, hit enter to put that in a new line, and remove leading whitespaces from that line:
@@ -37,10 +38,9 @@ Put an `x` in the boxes that apply. You can also fill these out after creating t
 them, don't hesitate to ask. We're here to help! This is simply a reminder of what we are going to look for before merging your code.
 -->
 
-- [ ] I have read the [contributing guidelines](../blob/master/CONTRIBUTING.md).
-- [ ] I have added tests that prove my fix is effective or that my feature
-      works.
-- [ ] I have added or changed [the documentation](documentation/).
+- [] I have read the [contributing guidelines](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md).
+- [] I have added tests that prove my fix is effective or that my feature works.
+- [] I have added or changed [the documentation](https://github.com/kyverno/website).
 
 ## Further comments
 

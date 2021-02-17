@@ -1,0 +1,8 @@
+Thank you for installing {{ .Chart.Name }} 😀
+
+Your release is named {{ .Release.Name }}.
+
+We have installed the "default" profile of Pod Security Standards and set them in audit mode.
+
+Visit https://kyverno.io/policies/ to find more sample policies.
+

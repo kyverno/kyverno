@@ -5,7 +5,9 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/config"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
+	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -47,7 +49,7 @@ func extractCA(config *rest.Config) (result []byte) {
 
 func (wrc *Register) constructOwner() v1.OwnerReference {
 	logger := wrc.log
-	kubePolicyDeployment, err := wrc.client.GetKubePolicyDeployment()
+	kubePolicyDeployment, err := wrc.getKubePolicyDeployment()
 
 	if err != nil {
 		logger.Error(err, "failed to construct OwnerReference")
@@ -60,6 +62,19 @@ func (wrc *Register) constructOwner() v1.OwnerReference {
 		Name:       kubePolicyDeployment.ObjectMeta.Name,
 		UID:        kubePolicyDeployment.ObjectMeta.UID,
 	}
+}
+
+func (wrc *Register) getKubePolicyDeployment() (*apps.Deployment, error) {
+	lister, _ := wrc.resCache.GetGVRCache("Deployment")
+	kubePolicyDeployment, err := lister.NamespacedLister(config.KyvernoNamespace).Get(config.KyvernoDeploymentName)
+	if err != nil {
+		return nil, err
+	}
+	deploy := apps.Deployment{}
+	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(kubePolicyDeployment.UnstructuredContent(), &deploy); err != nil {
+		return nil, err
+	}
+	return &deploy, nil
 }
 
 // debug mutating webhook
@@ -77,7 +92,7 @@ func generateDebugMutatingWebhook(name, url string, caData []byte, validate bool
 		},
 		SideEffects: &sideEffect,
 		Rules: []admregapi.RuleWithOperations{
-			admregapi.RuleWithOperations{
+			{
 				Operations: operationTypes,
 				Rule: admregapi.Rule{
 					APIGroups: []string{
@@ -107,7 +122,7 @@ func generateDebugValidatingWebhook(name, url string, caData []byte, validate bo
 		},
 		SideEffects: &sideEffect,
 		Rules: []admregapi.RuleWithOperations{
-			admregapi.RuleWithOperations{
+			{
 				Operations: operationTypes,
 				Rule: admregapi.Rule{
 					APIGroups: []string{
@@ -180,7 +195,7 @@ func generateValidatingWebhook(name, servicePath string, caData []byte, validati
 		},
 		SideEffects: &sideEffect,
 		Rules: []admregapi.RuleWithOperations{
-			admregapi.RuleWithOperations{
+			{
 				Operations: operationTypes,
 				Rule: admregapi.Rule{
 					APIGroups: []string{

@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -44,7 +45,8 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	}
 
 	// 2 - Apply the generate policy on the resource
-	genResources, err = c.applyGenerate(*resource, *gr)
+	namespaceLabels := pkgcommon.GetNamespaceSelectorsFromGenericInformer(resource.GetKind(), resource.GetNamespace(), c.nsInformer, logger)
+	genResources, err = c.applyGenerate(*resource, *gr, namespaceLabels)
 
 	if err != nil {
 		// Need not update the stauts when policy doesn't apply on resource, because all the generate requests are removed by the cleanup controller
@@ -64,7 +66,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 
 const doesNotApply = "policy does not apply to resource"
 
-func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest) ([]kyverno.ResourceSpec, error) {
+func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest, namespaceLabels map[string]string) ([]kyverno.ResourceSpec, error) {
 	logger := c.log.WithValues("name", gr.Name, "policy", gr.Spec.Policy, "kind", gr.Spec.Resource.Kind, "apiVersion", gr.Spec.Resource.APIVersion, "namespace", gr.Spec.Resource.Namespace, "name", gr.Spec.Resource.Name)
 	// Get the list of rules to be applied
 	// get policy
@@ -121,7 +123,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		return nil, err
 	}
 
-	policyContext := engine.PolicyContext{
+	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
 		Policy:              *policyObj,
 		AdmissionInfo:       gr.Spec.Context.UserRequestInfo,
@@ -129,6 +131,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		ExcludeResourceFunc: c.Config.ToFilter,
 		ResourceCache:       c.resCache,
 		JSONContext:         ctx,
+		NamespaceLabels:     namespaceLabels,
 	}
 
 	// check if the policy still applies to the resource
@@ -179,7 +182,7 @@ func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateReque
 	return statusControl.Success(gr, genResources)
 }
 
-func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.PolicyContext, gr kyverno.GenerateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, err error) {
+func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, gr kyverno.GenerateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, err error) {
 	// Get the response as the actions to be performed on the resource
 	// - - substitute values
 	policy := policyContext.Policy
@@ -212,7 +215,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext engine.P
 		}
 
 		// add configmap json data to context
-		if err := engine.AddResourceToContext(log, rule.Context, resCache, jsonContext); err != nil {
+		if err := engine.LoadContext(log, rule.Context, resCache, policyContext); err != nil {
 			log.Info("cannot add configmaps to context", "reason", err.Error())
 			return nil, err
 		}
@@ -354,7 +357,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		return newGenResource, err
 	}
 
-	logger.V(2).Info("applying generate rule", "mode", mode)
+	logger.V(3).Info("applying generate rule", "mode", mode)
 
 	if rdata == nil && mode == Update {
 		logger.V(4).Info("no changes required for target resource")

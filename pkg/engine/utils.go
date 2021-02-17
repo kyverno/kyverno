@@ -1,18 +1,14 @@
 package engine
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/minio/pkg/wildcard"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -20,7 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -113,7 +108,7 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 // should be: AND across attributes but an OR inside attributes that of type list
 // To filter out the targeted resources with UserInfo, the check
 // should be: OR (across & inside) attributes
-func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string) []error {
+func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
 	var errs []error
 
 	if len(conditionBlock.Kinds) > 0 {
@@ -147,6 +142,17 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 		} else {
 			if !hasPassed {
 				errs = append(errs, fmt.Errorf("selector does not match"))
+			}
+		}
+	}
+
+	if conditionBlock.NamespaceSelector != nil && resource.GetKind() != "Namespace" && resource.GetKind() != "" {
+		hasPassed, err := checkSelector(conditionBlock.NamespaceSelector, namespaceLabels)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse namespace selector: %v", err))
+		} else {
+			if !hasPassed {
+				errs = append(errs, fmt.Errorf("namespace selector does not match"))
 			}
 		}
 	}
@@ -225,7 +231,7 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 }
 
 //MatchesResourceDescription checks if the resource matches resource description of the rule or not
-func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo, dynamicConfig []string) error {
+func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string) error {
 
 	rule := *ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
@@ -240,7 +246,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	// checking if resource matches the rule
 	if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) ||
 		!reflect.DeepEqual(rule.MatchResources.UserInfo, kyverno.UserInfo{}) {
-		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource, dynamicConfig)
+		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
 		reasonsForFailure = append(reasonsForFailure, matchErrs...)
 	} else {
 		reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
@@ -249,7 +255,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	// checking if resource has been excluded
 	if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) ||
 		!reflect.DeepEqual(rule.ExcludeResources.UserInfo, kyverno.UserInfo{}) {
-		excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource, dynamicConfig)
+		excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
 		if excludeErrs == nil {
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded"))
 		}
@@ -269,17 +275,18 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 
 	return nil
 }
+
 func copyConditions(original []kyverno.Condition) []kyverno.Condition {
 	if original == nil || len(original) == 0 {
 		return []kyverno.Condition{}
 	}
 
-	var copy []kyverno.Condition
+	var copies []kyverno.Condition
 	for _, condition := range original {
-		copy = append(copy, *condition.DeepCopy())
+		copies = append(copies, *condition.DeepCopy())
 	}
 
-	return copy
+	return copies
 }
 
 // excludeResource checks if the resource has ownerRef set
@@ -309,59 +316,4 @@ func ManagedPodResource(policy kyverno.ClusterPolicy, resource unstructured.Unst
 	}
 
 	return false
-}
-
-// AddResourceToContext - Add the Configmap JSON to Context.
-// it will read configmaps (can be extended to get other type of resource like secrets, namespace etc)
-// from the informer cache and add the configmap data to context
-func AddResourceToContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCache, ctx *context.Context) error {
-	if len(contextEntries) == 0 {
-		return nil
-	}
-
-	gvrC, ok := resCache.GetGVRCache("ConfigMap")
-	if ok {
-		lister := gvrC.Lister()
-		for _, context := range contextEntries {
-			contextData := make(map[string]interface{})
-			name := context.ConfigMap.Name
-			namespace := context.ConfigMap.Namespace
-			if namespace == "" {
-				namespace = "default"
-			}
-
-			key := fmt.Sprintf("%s/%s", namespace, name)
-			obj, err := lister.Get(key)
-			if err != nil {
-				logger.Error(err, fmt.Sprintf("failed to read configmap %s/%s from cache", namespace, name))
-				continue
-			}
-
-			unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-			if err != nil {
-				logger.Error(err, "failed to convert context runtime object to unstructured")
-				continue
-			}
-
-			// extract configmap data
-			contextData["data"] = unstructuredObj["data"]
-			contextData["metadata"] = unstructuredObj["metadata"]
-			contextNamedData := make(map[string]interface{})
-			contextNamedData[context.Name] = contextData
-			jdata, err := json.Marshal(contextNamedData)
-			if err != nil {
-				logger.Error(err, "failed to unmarshal context data")
-				continue
-			}
-
-			// add data to context
-			err = ctx.AddJSON(jdata)
-			if err != nil {
-				logger.Error(err, "failed to load context json")
-				continue
-			}
-		}
-		return nil
-	}
-	return errors.New("configmaps GVR Cache not found")
 }

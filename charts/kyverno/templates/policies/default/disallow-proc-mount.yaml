@@ -1,4 +1,4 @@
-{{- if eq .Values.podSecurityStandard "default" }}
+{{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -8,7 +8,7 @@ metadata:
     policies.kyverno.io/description: >-
       The default /proc masks are set up to reduce attack surface and should be required.
 spec:
-  validationFailureAction: audit
+  validationFailureAction: {{ .Values.validationFailureAction }}
   background: true
   rules:
   - name: check-proc-mount

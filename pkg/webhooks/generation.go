@@ -12,6 +12,7 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -42,7 +43,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 			logger.Error(err, "failed to extract resource")
 		}
 
-		policyContext := engine.PolicyContext{
+		policyContext := &engine.PolicyContext{
 			NewResource:         new,
 			OldResource:         old,
 			AdmissionInfo:       userRequestInfo,
@@ -55,6 +56,9 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 		for _, policy := range policies {
 			var rules []response.RuleResponse
 			policyContext.Policy = *policy
+			if request.Kind.Kind != "Namespace" && request.Namespace != "" {
+				policyContext.NamespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, ws.nsLister, logger)
+			}
 			engineResponse := engine.Generate(policyContext)
 			for _, rule := range engineResponse.PolicyResponse.Rules {
 				if !rule.Success {
@@ -118,7 +122,7 @@ func (ws *WebhookServer) handleUpdateCloneSourceResource(resLabels map[string]st
 		grList, err := ws.grLister.List(selector)
 		if err != nil {
 			logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
-
+			return
 		}
 		for _, gr := range grList {
 			ws.grController.EnqueueGenerateRequestFromWebhook(gr)
@@ -175,6 +179,7 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 		gr, err := ws.grLister.Get(grName)
 		if err != nil {
 			logger.Error(err, "failed to get generate request", "name", grName)
+			return
 		}
 		ws.grController.EnqueueGenerateRequestFromWebhook(gr)
 	}
@@ -183,22 +188,31 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 //stripNonPolicyFields - remove feilds which get updated with each request by kyverno and are non policy fields
 func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
 
-	delete(obj["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
-	delete(obj["metadata"].(map[string]interface{})["labels"].(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
+	if metadata, found := obj["metadata"]; found {
+		requiredMetadataInObj := make(map[string]interface{})
+		if annotations, found := metadata.(map[string]interface{})["annotations"]; found {
+			delete(annotations.(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
+			requiredMetadataInObj["annotations"] = annotations
+		}
 
-	requiredMetadataInObj := make(map[string]interface{})
-	requiredMetadataInObj["annotations"] = obj["metadata"].(map[string]interface{})["annotations"]
-	requiredMetadataInObj["labels"] = obj["metadata"].(map[string]interface{})["labels"]
-	obj["metadata"] = requiredMetadataInObj
+		if labels, found := metadata.(map[string]interface{})["labels"]; found {
+			delete(labels.(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
+			requiredMetadataInObj["labels"] = labels
+		}
+		obj["metadata"] = requiredMetadataInObj
+	}
 
-	requiredMetadataInNewRes := make(map[string]interface{})
-	if _, found := newRes["metadata"].(map[string]interface{})["annotations"]; found {
-		requiredMetadataInNewRes["annotations"] = newRes["metadata"].(map[string]interface{})["annotations"]
+	if metadata, found := newRes["metadata"]; found {
+		requiredMetadataInNewRes := make(map[string]interface{})
+		if annotations, found := metadata.(map[string]interface{})["annotations"]; found {
+			requiredMetadataInNewRes["annotations"] = annotations
+		}
+
+		if labels, found := metadata.(map[string]interface{})["labels"]; found {
+			requiredMetadataInNewRes["labels"] = labels
+		}
+		newRes["metadata"] = requiredMetadataInNewRes
 	}
-	if _, found := newRes["metadata"].(map[string]interface{})["labels"]; found {
-		requiredMetadataInNewRes["labels"] = newRes["metadata"].(map[string]interface{})["labels"]
-	}
-	newRes["metadata"] = requiredMetadataInNewRes
 
 	if _, found := obj["status"]; found {
 		delete(obj, "status")
@@ -212,7 +226,7 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 		keyInData := make([]string, 0)
 		switch dataMap.(type) {
 		case map[string]interface{}:
-			for k, _ := range dataMap.(map[string]interface{}) {
+			for k := range dataMap.(map[string]interface{}) {
 				keyInData = append(keyInData, k)
 			}
 		}
@@ -249,6 +263,7 @@ func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
 		gr, err := ws.grLister.Get(grName)
 		if err != nil {
 			logger.Error(err, "failed to get generate request", "name", grName)
+			return
 		}
 		ws.grController.EnqueueGenerateRequestFromWebhook(gr)
 	}
@@ -266,7 +281,7 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.E
 	grList, err := ws.grLister.List(selector)
 	if err != nil {
 		logger.Error(err, "failed to get generate request for the resource", "kind", engineResponse.PolicyResponse.Resource.Kind, "name", engineResponse.PolicyResponse.Resource.Name, "namespace", engineResponse.PolicyResponse.Resource.Namespace)
-
+		return
 	}
 
 	for _, v := range grList {
