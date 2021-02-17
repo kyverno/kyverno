@@ -41,6 +41,8 @@ func (nin NotInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
 		return nin.validateValueWithStringPattern(typedKey, value)
+	case []string:
+		return nin.validateValueWithStringSetPattern(typedKey, value)
 	default:
 		nin.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false

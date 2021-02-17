@@ -43,6 +43,8 @@ func (in InHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
 		return in.validateValueWithStringPattern(typedKey, value)
+	case []string:
+		return in.validateValueWithStringSetPattern(typedKey, value)
 	default:
 		in.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
@@ -51,6 +53,7 @@ func (in InHandler) Evaluate(key, value interface{}) bool {
 
 func (in InHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
 	invalidType, keyExists := keyExistsInArray(key, value, in.log)
+	fmt.Println("Hello from here")
 	if invalidType {
 		in.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
