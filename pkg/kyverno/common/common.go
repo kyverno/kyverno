@@ -300,9 +300,11 @@ func RemoveDuplicateVariables(matches [][]string) string {
 }
 
 // GetVariable - get the variables from console/file
-func GetVariable(variablesString, valuesFile string) (map[string]string, map[string]map[string]Resource, error) {
+func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyresoucePath string) (map[string]string, map[string]map[string]Resource, error) {
 	valuesMap := make(map[string]map[string]Resource)
 	variables := make(map[string]string)
+	var yamlFile []byte
+	var err error
 	if variablesString != "" {
 		kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
 		for _, kvpair := range kvpairs {
@@ -311,7 +313,16 @@ func GetVariable(variablesString, valuesFile string) (map[string]string, map[str
 		}
 	}
 	if valuesFile != "" {
-		yamlFile, err := ioutil.ReadFile(valuesFile)
+		if isGit {
+			filep, err := fs.Open(filepath.Join(policyresoucePath, valuesFile))
+			if err != nil {
+				fmt.Printf("Unable to open variable file: %s. error: %s", valuesFile, err)
+			}
+			yamlFile, err = ioutil.ReadAll(filep)
+		} else {
+			yamlFile, err = ioutil.ReadFile(valuesFile)
+		}
+
 		if err != nil {
 			return variables, valuesMap, sanitizederror.NewWithError("unable to read yaml", err)
 		}
@@ -500,14 +511,19 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 }
 
 // GetPoliciesFromPaths - get policies according to the resource path
-func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool) (policies []*v1.ClusterPolicy, err error) {
+func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyresoucePath string) (policies []*v1.ClusterPolicy, err error) {
 	var errors []error
 	if isGit {
 		for _, pp := range dirPath {
-			filep, err := fs.Open(pp)
+			filep, err := fs.Open(filepath.Join(policyresoucePath, pp))
+			if err != nil {
+				fmt.Printf("Error: file not available with path %s: %v", filep.Name(), err.Error())
+				continue
+			}
 			bytes, err := ioutil.ReadAll(filep)
 			if err != nil {
 				fmt.Printf("Error: failed to read file %s: %v", filep.Name(), err.Error())
+				continue
 			}
 			policyBytes, err := yaml.ToJSON(bytes)
 			if err != nil {
@@ -558,9 +574,9 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool) (po
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
-	cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string, policyReport bool, isGit bool) (resources []*unstructured.Unstructured, err error) {
+	cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string, policyReport bool, isGit bool, policyresoucePath string) (resources []*unstructured.Unstructured, err error) {
 	if isGit {
-		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit)
+		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyresoucePath)
 		if err != nil {
 			return nil, sanitizederror.NewWithError("failed to extract the resources", err)
 		}
