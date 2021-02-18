@@ -6,6 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/informers"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -28,14 +29,14 @@ func GetNamespaceSelectorsFromGenericInformer(kind, namespaceOfResource string, 
 	namespaceLabels := make(map[string]string)
 	if kind != "Namespace" {
 		runtimeNamespaceObj, err := nsInformer.Lister().Get(namespaceOfResource)
-		namespaceObj := runtimeNamespaceObj.(*v1.Namespace)
-
 		if err != nil {
 			log.Log.Error(err, "failed to get the namespace", "name", namespaceOfResource)
+			return namespaceLabels
 		}
-		return GetNamespaceLabels(namespaceObj, logger)
-	}
 
+		unstructuredObj := runtimeNamespaceObj.(*unstructured.Unstructured)
+		return unstructuredObj.GetLabels()
+	}
 	return namespaceLabels
 }
 
@@ -46,6 +47,7 @@ func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, 
 		namespaceObj, err := nsLister.Get(namespaceOfResource)
 		if err != nil {
 			log.Log.Error(err, "failed to get the namespace", "name", namespaceOfResource)
+			return namespaceLabels
 		}
 		return GetNamespaceLabels(namespaceObj, logger)
 	}

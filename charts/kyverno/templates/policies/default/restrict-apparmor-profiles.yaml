@@ -1,8 +1,9 @@
-{{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
+{{ $name := "restrict-apparmor-profiles" -}}
+{{- if eq (include "kyverno.podSecurityDefault" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: restrict-apparmor-profiles
+  name: {{ $name }}
   annotations:
     policies.kyverno.io/title: Restrict AppArmor
     policies.kyverno.io/category: Pod Security Standards (Default)

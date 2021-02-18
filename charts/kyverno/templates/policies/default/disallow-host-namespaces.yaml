@@ -1,8 +1,9 @@
-{{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
+{{ $name := "disallow-host-namespaces" -}}
+{{- if eq (include "kyverno.podSecurityDefault" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: disallow-host-namespaces
+  name: {{ $name }}
   annotations:
     policies.kyverno.io/category: Pod Security Standards (Default)
     policies.kyverno.io/description: >- 
