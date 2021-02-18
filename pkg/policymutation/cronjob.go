@@ -72,9 +72,9 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 
 	if (jobRule.Validation != nil) && (jobRule.Validation.AnyPattern != nil) {
 		var patterns []interface{}
-		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
+		anyPatterns, err := jobRule.Validation.DeserializeAnyPattern()
 		if err != nil {
-			logger.Error(err, "failed to deserialze anyPattern, expect tyepe array")
+			logger.Error(err, "failed to deserialize anyPattern, expect type array")
 		}
 
 		for _, pattern := range anyPatterns {
