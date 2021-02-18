@@ -1,8 +1,9 @@
-{{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
+{{- $name := "require-default-proc-mount" }}
+{{- if eq (include "kyverno.podSecurityDefault" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: require-default-proc-mount
+  name: {{ $name }}
   annotations:
     policies.kyverno.io/category: Pod Security Standards (Default)
     policies.kyverno.io/description: >-

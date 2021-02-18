@@ -1,8 +1,9 @@
-{{- if eq .Values.podSecurityStandard "restricted" }}
+{{ $name := "restrict-seccomp" -}}
+{{- if eq (include "kyverno.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: restrict-seccomp
+  name: {{ $name }}
   annotations:
     policies.kyverno.io/title: Restrict Seccomp
     policies.kyverno.io/category: Pod Security Standards (Restricted)
