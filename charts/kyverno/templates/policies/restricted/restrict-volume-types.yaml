@@ -1,8 +1,9 @@
-{{- if eq .Values.podSecurityStandard "restricted" }}
+{{ $name := "restrict-volume-types" -}}
+{{- if eq (include "kyverno.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: restrict-volume-types
+  name: {{ $name }}
   annotations:
     policies.kyverno.io/category: Pod Security Standards (Restricted)
     policies.kyverno.io/description: >-

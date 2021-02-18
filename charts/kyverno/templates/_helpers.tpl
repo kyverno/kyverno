@@ -70,3 +70,25 @@ app.kubernetes.io/instance: {{ .Release.Name }}
     {{ default "default" .Values.rbac.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
+
+{{/* Set if a default policy is managed */}}
+{{- define "kyverno.podSecurityDefault" -}}
+{{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
+{{- true }}
+{{- else if and (eq .Values.podSecurityStandard "custom") (has .name .Values.podSecurityPolicies) }}
+{{- true }}
+{{- else -}}
+{{- false }}
+{{- end -}}
+{{- end -}}
+
+{{/* Set if a restricted policy is managed */}}
+{{- define "kyverno.podSecurityRestricted" -}}
+{{- if eq .Values.podSecurityStandard "restricted" }}
+{{- true }}
+{{- else if and (eq .Values.podSecurityStandard "custom") (has .name .Values.podSecurityPolicies) }}
+{{- true }}
+{{- else -}}
+{{- false }}
+{{- end -}}
+{{- end -}}
