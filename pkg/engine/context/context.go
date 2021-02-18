@@ -157,11 +157,7 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 
 	kind := kindInterface.(string)
 	spec := specInterface.(map[string]interface{})
-	// fmt.Println("---------------")
-	// fmt.Println(kind)
-	// fmt.Println("---------------")
-	// fmt.Println(spec)
-	// fmt.Println("---------------")
+
 	if kind == "Pod" {
 		containersMap := spec["containers"].([]interface{})
 		for _, v := range containersMap { //containers is a slice of maps where each map represents an image
@@ -173,17 +169,14 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 
 	if kind == "Deployment" || kind == "Job" || kind == "CronJob" || kind == "ReplicaSet" {
 		template := spec["template"].(map[string]interface{})
-		spec2 := template["spec"].(map[string]interface{})
-		containersMap := spec2["containers"].([]interface{})
+		templateSpec := template["spec"].(map[string]interface{})
+		containersMap := templateSpec["containers"].([]interface{})
 		for _, v := range containersMap { //containers is a slice of maps where each map represents an image
 			v2 := v.(map[string]interface{})
 			imageString := v2["image"].(string)
 			images = append(images, imageString)
 		}
 	}
-
-	// fmt.Println("---------------")
-	// fmt.Println(images)
 
 	for _, image := range images {
 		var img imgInfo
@@ -202,10 +195,6 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 		}
 		imgs = append(imgs, img)
 	}
-
-	// fmt.Println("*")
-	// fmt.Println(imgs)
-	// fmt.Println("---------------")
 
 	imgsObj := struct {
 		IMGS []imgInfo `json:"images"`
