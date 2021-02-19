@@ -26,7 +26,13 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 	}
 
 	cronJobRule := &jobRule
-	cronJobRule.Name = fmt.Sprintf("autogen-cronjob-%s", rule.Name)
+
+	name := fmt.Sprintf("autogen-cronjob-%s", rule.Name)
+	if len(name) > 63 {
+		name = name[:63]
+	}
+	cronJobRule.Name = name
+
 	cronJobRule.MatchResources.Kinds = []string{engine.PodControllerCronJob}
 	if (jobRule.ExcludeResources) != nil && (len(jobRule.ExcludeResources.Kinds) > 0) {
 		cronJobRule.ExcludeResources.Kinds = []string{engine.PodControllerCronJob}

@@ -51,7 +51,7 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 
 		anyPattern, err := rule.Validation.DeserializeAnyPattern()
 		if err != nil {
-			return fmt.Errorf("failed to deserialze anyPattern, expect array: %v", err)
+			return fmt.Errorf("failed to deserialize anyPattern, expect array: %v", err)
 		}
 
 		for idx2, pattern := range anyPattern {
