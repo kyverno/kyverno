@@ -61,6 +61,7 @@ type Spec struct {
 type Rule struct {
 
 	// Name is a label to identify the rule, It must be unique within the policy.
+	// +kubebuilder:validation:MaxLength=63
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 
 	// Context defines variables and data sources that can be used during rule execution.
@@ -182,7 +183,7 @@ const (
 	GreaterThanOrEquals ConditionOperator = "GreaterThanOrEquals"
 	// GreaterThan evaluates if the key (numeric) is greater than the value (numeric).
 	GreaterThan ConditionOperator = "GreaterThan"
-	// LessThan evaluates if the key (numeric) is less than or equal to the value (numeric).
+	// LessThanOrEquals evaluates if the key (numeric) is less than or equal to the value (numeric).
 	LessThanOrEquals ConditionOperator = "LessThanOrEquals"
 	// LessThan evaluates if the key (numeric) is less than the value (numeric).
 	LessThan ConditionOperator = "LessThan"

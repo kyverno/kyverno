@@ -228,7 +228,7 @@ func addSummary(dst, src *unstructured.Unstructured) {
 }
 
 func isDeleteRequest(request *unstructured.Unstructured) bool {
-	deleteLabels := []string{deletedLabelPolicy, deletedLabelRule, deletedLabelResource, deletedLabelResourceKind}
+	deleteLabels := []string{deletedLabelPolicy, deletedLabelRule}
 	labels := request.GetLabels()
 
 	for _, l := range deleteLabels {
@@ -236,5 +236,14 @@ func isDeleteRequest(request *unstructured.Unstructured) bool {
 			return true
 		}
 	}
+
+	deleteAnnotations := []string{deletedAnnotationResourceName, deletedAnnotationResourceKind}
+	annotations := request.GetAnnotations()
+	for _, ann := range deleteAnnotations {
+		if _, ok := annotations[ann]; ok {
+			return true
+		}
+	}
+
 	return false
 }

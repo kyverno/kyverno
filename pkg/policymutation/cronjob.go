@@ -26,7 +26,13 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 	}
 
 	cronJobRule := &jobRule
-	cronJobRule.Name = fmt.Sprintf("autogen-cronjob-%s", rule.Name)
+
+	name := fmt.Sprintf("autogen-cronjob-%s", rule.Name)
+	if len(name) > 63 {
+		name = name[:63]
+	}
+	cronJobRule.Name = name
+
 	cronJobRule.MatchResources.Kinds = []string{engine.PodControllerCronJob}
 	if (jobRule.ExcludeResources) != nil && (len(jobRule.ExcludeResources.Kinds) > 0) {
 		cronJobRule.ExcludeResources.Kinds = []string{engine.PodControllerCronJob}
@@ -72,9 +78,9 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 
 	if (jobRule.Validation != nil) && (jobRule.Validation.AnyPattern != nil) {
 		var patterns []interface{}
-		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
+		anyPatterns, err := jobRule.Validation.DeserializeAnyPattern()
 		if err != nil {
-			logger.Error(err, "failed to deserialze anyPattern, expect tyepe array")
+			logger.Error(err, "failed to deserialize anyPattern, expect type array")
 		}
 
 		for _, pattern := range anyPatterns {
