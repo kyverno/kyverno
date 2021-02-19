@@ -6,11 +6,17 @@ LABEL maintainer="Kyverno"
 
 # LD_FLAGS is passed as argument from Makefile. It will be empty, if no argument passed
 ARG LD_FLAGS
+ARG TARGETPLATFORM
 
 ADD . /kyverno
 WORKDIR /kyverno
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /output/kyverno -ldflags="${LD_FLAGS}" -v ./cmd/kyverno/
+RUN export GOOS=$(echo ${TARGETPLATFORM} | cut -d / -f1) && \
+    export GOARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2)
+
+RUN go env
+
+RUN CGO_ENABLED=0 go build -o /output/kyverno -ldflags="${LD_FLAGS}" -v ./cmd/kyverno/
 
 RUN useradd -u 10001 kyverno
 

@@ -53,9 +53,9 @@ jobs:
       - name: golangci-lint
         uses: reviewdog/action-golangci-lint@v1
 
-      - name: docker images build
+      - name: docker images build (AMD64)
         run: |
-          make docker-build-all
+          make docker-build-all-amd64
 
       - name :  Create Kind Cluster and setup kustomize
         run: |
