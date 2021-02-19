@@ -7,6 +7,7 @@ GIT_VERSION := $(shell git describe --always --tags)
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
+CONTROLLER_GEN_REQ_VERSION := v0.4.0
 
 REGISTRY?=ghcr.io
 REPO=$(REGISTRY)/kyverno
@@ -187,19 +188,33 @@ kyverno-crd: controller-gen
 report-crd: controller-gen
 	$(CONTROLLER_GEN) crd paths=./pkg/api/policyreport/v1alpha1 output:dir=./definitions/crds
 
-# find or download controller-gen
-# download controller-gen if necessary
-controller-gen:
-ifeq (, $(shell which controller-gen))
+# install the right version of controller-gen 
+install-controller-gen:
 	@{ \
 	set -e ;\
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.0 ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_REQ_VERSION) ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
-CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
+	CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
+
+# setup controller-gen with the right version, if necessary
+controller-gen:
+ifeq (, $(shell which controller-gen))
+	@{ \
+	echo "controller-gen not found!";\
+	echo "installing controller-gen $(CONTROLLER_GEN_REQ_VERSION)...";\
+	make install-controller-gen;\
+	}
+else ifneq (Version: $(CONTROLLER_GEN_REQ_VERSION), $(shell controller-gen --version))
+	@{ \
+		echo "controller-gen $(shell controller-gen --version) found!";\
+		echo "required controller-gen $(CONTROLLER_GEN_REQ_VERSION)";\
+		echo "installing controller-gen $(CONTROLLER_GEN_REQ_VERSION)...";\
+		make install-controller-gen;\
+	}
 else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
