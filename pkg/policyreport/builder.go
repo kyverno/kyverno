@@ -20,11 +20,15 @@ import (
 )
 
 const (
-	resourceLabelNamespace   string = "kyverno.io/resource.namespace"
-	deletedLabelResource     string = "kyverno.io/delete.resource.name"
-	deletedLabelResourceKind string = "kyverno.io/delete.resource.kind"
-	deletedLabelPolicy       string = "kyverno.io/delete.policy"
-	deletedLabelRule         string = "kyverno.io/delete.rule"
+	// the following labels are used to list rcr / crcr
+	resourceLabelNamespace string = "kyverno.io/resource.namespace"
+	deletedLabelPolicy     string = "kyverno.io/delete.policy"
+	deletedLabelRule       string = "kyverno.io/delete.rule"
+
+	// the following annotations are used to remove entries from polr / cpolr
+	// there would be a problem if use labels as the value could exceed 63 chars
+	deletedAnnotationResourceName string = "kyverno.io/delete.resource.name"
+	deletedAnnotationResourceKind string = "kyverno.io/delete.resource.kind"
 )
 
 func generatePolicyReportName(ns string) string {
@@ -169,10 +173,13 @@ func set(obj *unstructured.Unstructured, info Info) {
 func setRequestLabels(req *unstructured.Unstructured, info Info) bool {
 	switch {
 	case isResourceDeletion(info):
+		req.SetAnnotations(map[string]string{
+			deletedAnnotationResourceName: info.Results[0].Resource.Name,
+			deletedAnnotationResourceKind: info.Results[0].Resource.Kind,
+		})
+
 		req.SetLabels(map[string]string{
-			resourceLabelNamespace:   info.Results[0].Resource.Namespace,
-			deletedLabelResource:     info.Results[0].Resource.Name,
-			deletedLabelResourceKind: info.Results[0].Resource.Kind,
+			resourceLabelNamespace: info.Results[0].Resource.Namespace,
 		})
 		return true
 

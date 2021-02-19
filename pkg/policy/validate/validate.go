@@ -39,7 +39,7 @@ func (v *Validate) Validate() (string, error) {
 	if rule.AnyPattern != nil {
 		anyPattern, err := rule.DeserializeAnyPattern()
 		if err != nil {
-			return "anyPattern", fmt.Errorf("failed to deserialze anyPattern, expect array: %v", err)
+			return "anyPattern", fmt.Errorf("failed to deserialize anyPattern, expect array: %v", err)
 		}
 		for i, pattern := range anyPattern {
 			if path, err := common.ValidatePattern(pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor}); err != nil {

@@ -30,6 +30,11 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		return fmt.Errorf("policy contains invalid variables")
 	}
 
+	// policy name is stored in the label of the report change request
+	if len(p.Name) > 63 {
+		return fmt.Errorf("invalid policy name %s: must be no more than 63 characters", p.Name)
+	}
+
 	if path, err := validateUniqueRuleName(p); err != nil {
 		return fmt.Errorf("path: spec.%s: %v", path, err)
 	}

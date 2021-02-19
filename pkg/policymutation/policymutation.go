@@ -10,11 +10,10 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/utils"
-
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 )
 
 // GenerateJSONPatchesForDefaults generates default JSON patches for
@@ -349,7 +348,7 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log l
 
 // the kyvernoRule holds the temporary kyverno rule struct
 // each field is a pointer to the the actual object
-// when serilizing data, we would expect to drop the omitempty key
+// when serializing data, we would expect to drop the omitempty key
 // otherwise (without the pointer), it will be set to empty value
 // - an empty struct in this case, some may fail the schema validation
 // may related to:
@@ -405,7 +404,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	if skipAutoGeneration {
 		if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil ||
 			exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil {
-			logger.Info("skip generating rule on pod controllers: Name / Selector in resource decription may not be applicable.", "rule", rule.Name)
+			logger.Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
 			return kyvernoRule{}
 		}
 		if controllers == "all" {
@@ -415,8 +414,12 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		}
 	}
 
+	name := fmt.Sprintf("autogen-%s", rule.Name)
+	if len(name) > 63 {
+		name = name[:63]
+	}
 	controllerRule := &kyvernoRule{
-		Name:           fmt.Sprintf("autogen-%s", rule.Name),
+		Name:           name,
 		MatchResources: match.DeepCopy(),
 	}
 
@@ -473,7 +476,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		var patterns []interface{}
 		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 		if err != nil {
-			logger.Error(err, "failed to deserialze anyPattern, expect type array")
+			logger.Error(err, "failed to deserialize anyPattern, expect type array")
 		}
 
 		for _, pattern := range anyPatterns {

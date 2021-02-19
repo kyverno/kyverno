@@ -147,18 +147,12 @@ spec:
                                 supports wildcard characters "*" (matches zero or
                                 many characters) and "?" (at least one character).
                               type: string
-                            namespaces:
-                              description: Namespaces is a list of namespaces names.
-                                Each name supports wildcard characters "*" (matches
-                                zero or many characters) and "?" (at least one character).
-                              items:
-                                type: string
-                              type: array
-                            selector:
-                              description: 'Selector is a label selector. Label keys
-                                and values in `matchLabels` support the wildcard characters
-                                `*` (matches zero or many characters) and `?` (matches
-                                one character). Wildcards allows writing label selectors
+                            namespaceSelector:
+                              description: 'NamespaceSelector is a label selector
+                                for the resource namespace. Label keys and values
+                                in `matchLabels` support the wildcard characters `*`
+                                (matches zero or many characters) and `?` (matches
+                                one character).Wildcards allows writing label selectors
                                 like ["storage.k8s.io/*": "*"]. Note that using ["*"
                                 : "*"] matches any key and value but does not match
                                 an empty label set.'
@@ -206,13 +200,20 @@ spec:
                                     requirements are ANDed.
                                   type: object
                               type: object
-                            namespaceSelector:
-                              description: 'NamespaceSelector is a label selector for namespace.
-                                Label keys and values in `matchLabels` support the wildcard 
-                                characters `*` (matches zero or many characters) and `?` 
-                                (matches one character). Wildcards allows writing label 
-                                selectors like ["storage.k8s.io/*": "*"]. Note that using 
-                                ["*" : "*"] matches any key and value but does not match
+                            namespaces:
+                              description: Namespaces is a list of namespaces names.
+                                Each name supports wildcard characters "*" (matches
+                                zero or many characters) and "?" (at least one character).
+                              items:
+                                type: string
+                              type: array
+                            selector:
+                              description: 'Selector is a label selector. Label keys
+                                and values in `matchLabels` support the wildcard characters
+                                `*` (matches zero or many characters) and `?` (matches
+                                one character). Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
                                 an empty label set.'
                               properties:
                                 matchExpressions:
@@ -381,18 +382,12 @@ spec:
                                 supports wildcard characters "*" (matches zero or
                                 many characters) and "?" (at least one character).
                               type: string
-                            namespaces:
-                              description: Namespaces is a list of namespaces names.
-                                Each name supports wildcard characters "*" (matches
-                                zero or many characters) and "?" (at least one character).
-                              items:
-                                type: string
-                              type: array
-                            selector:
-                              description: 'Selector is a label selector. Label keys
-                                and values in `matchLabels` support the wildcard characters
-                                `*` (matches zero or many characters) and `?` (matches
-                                one character). Wildcards allows writing label selectors
+                            namespaceSelector:
+                              description: 'NamespaceSelector is a label selector
+                                for the resource namespace. Label keys and values
+                                in `matchLabels` support the wildcard characters `*`
+                                (matches zero or many characters) and `?` (matches
+                                one character).Wildcards allows writing label selectors
                                 like ["storage.k8s.io/*": "*"]. Note that using ["*"
                                 : "*"] matches any key and value but does not match
                                 an empty label set.'
@@ -440,13 +435,20 @@ spec:
                                     requirements are ANDed.
                                   type: object
                               type: object
-                            namespaceSelector:
-                              description: 'NamespaceSelector is a label selector for namespace.
-                                Label keys and values in `matchLabels` support the wildcard 
-                                characters `*` (matches zero or many characters) and `?` 
-                                (matches one character). Wildcards allows writing label 
-                                selectors like ["storage.k8s.io/*": "*"]. Note that using 
-                                ["*" : "*"] matches any key and value but does not match
+                            namespaces:
+                              description: Namespaces is a list of namespaces names.
+                                Each name supports wildcard characters "*" (matches
+                                zero or many characters) and "?" (at least one character).
+                              items:
+                                type: string
+                              type: array
+                            selector:
+                              description: 'Selector is a label selector. Label keys
+                                and values in `matchLabels` support the wildcard characters
+                                `*` (matches zero or many characters) and `?` (matches
+                                one character). Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
                                 an empty label set.'
                               properties:
                                 matchExpressions:
@@ -579,6 +581,7 @@ spec:
                     name:
                       description: Name is a label to identify the rule, It must be
                         unique within the policy.
+                      maxLength: 63
                       type: string
                     preconditions:
                       description: Conditions enable variable-based conditional rule

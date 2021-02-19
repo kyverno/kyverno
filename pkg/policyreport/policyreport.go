@@ -15,12 +15,12 @@ type deletedResource struct {
 	kind, ns, name string
 }
 
-func buildLabelForDeletedResource(labels map[string]string) *deletedResource {
+func buildLabelForDeletedResource(labels, annotations map[string]string) *deletedResource {
 	ok := true
-	kind, kindOk := labels[deletedLabelResourceKind]
+	kind, kindOk := annotations[deletedAnnotationResourceKind]
 	ok = ok && kindOk
 
-	name, nameOk := labels[deletedLabelResource]
+	name, nameOk := annotations[deletedAnnotationResourceName]
 	ok = ok && nameOk
 
 	if !ok {
@@ -37,14 +37,14 @@ func buildLabelForDeletedResource(labels map[string]string) *deletedResource {
 func getDeletedResources(aggregatedRequests interface{}) (resources []deletedResource) {
 	if requests, ok := aggregatedRequests.([]*changerequest.ClusterReportChangeRequest); ok {
 		for _, request := range requests {
-			dr := buildLabelForDeletedResource(request.GetLabels())
+			dr := buildLabelForDeletedResource(request.GetLabels(), request.GetAnnotations())
 			if dr != nil {
 				resources = append(resources, *dr)
 			}
 		}
 	} else if requests, ok := aggregatedRequests.([]*changerequest.ReportChangeRequest); ok {
 		for _, request := range requests {
-			dr := buildLabelForDeletedResource(request.GetLabels())
+			dr := buildLabelForDeletedResource(request.GetLabels(), request.GetAnnotations())
 			if dr != nil {
 				resources = append(resources, *dr)
 			}
