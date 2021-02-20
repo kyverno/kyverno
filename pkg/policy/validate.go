@@ -24,7 +24,7 @@ import (
 // Validate does some initial check to verify some conditions
 // - One operation per rule
 // - ResourceDescription mandatory checks
-func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
+func Validate(policy *kyverno.ClusterPolicy, raw []byte, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
 	p := *policy
 	if len(common.PolicyHasVariables(p)) > 0 && common.PolicyHasNonAllowedVariables(p) {
 		return fmt.Errorf("policy contains invalid variables")
@@ -40,7 +40,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 	}
 	if p.Spec.Background == nil || *p.Spec.Background == true {
 		if err := ContainsVariablesOtherThanObject(p); err != nil {
-			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule. %s ", err)
+			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule: %s ", err)
 		}
 	}
 

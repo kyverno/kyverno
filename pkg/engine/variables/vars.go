@@ -96,7 +96,12 @@ func subValR(log logr.Logger, ctx context.EvalInterface, valuePattern string, pa
 			variable = strings.TrimSpace(variable)
 			substitutedVar, err := ctx.Query(variable)
 			if err != nil {
-				return nil, fmt.Errorf("failed to resolve %v at path %s", variable, path)
+				switch err.(type) {
+				case context.InvalidVariableErr:
+					return nil, err
+				default:
+					return nil, fmt.Errorf("failed to resolve %v at path %s", variable, path)
+				}
 			}
 
 			log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", path)

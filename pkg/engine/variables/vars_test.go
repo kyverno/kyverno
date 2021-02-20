@@ -202,3 +202,27 @@ func Test_SubstituteRecursive(t *testing.T) {
 		t.Errorf("expected %s received %v", "temp", results)
 	}
 }
+
+func Test_policyContextValidation(t *testing.T) {
+	policyContext := []byte(`
+	{
+		"context": [
+			{
+				"name": "myconfigmap",
+				"apiCall": {
+					"urlPath": "/api/v1/namespaces/{{ request.namespace }}/configmaps/generate-pod"
+				}
+			}
+		]
+	}
+	`)
+
+	var contextMap interface{}
+	err := json.Unmarshal(policyContext, &contextMap)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext("request.object")
+
+	_, err = SubstituteVars(log.Log, ctx, contextMap)
+	assert.Assert(t, err != nil, err)
+}

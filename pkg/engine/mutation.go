@@ -71,7 +71,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 		policyContext.JSONContext.Restore()
 		if err := LoadContext(logger, rule.Context, resCache, policyContext); err != nil {
-			logger.V(2).Info("failed to load context", "reason", err.Error())
+			logger.Error(err, "failed to load context")
 			continue
 		}
 
