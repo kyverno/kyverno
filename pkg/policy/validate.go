@@ -24,7 +24,7 @@ import (
 // Validate does some initial check to verify some conditions
 // - One operation per rule
 // - ResourceDescription mandatory checks
-func Validate(policy *kyverno.ClusterPolicy, raw []byte, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
+func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
 	p := *policy
 	if len(common.PolicyHasVariables(p)) > 0 && common.PolicyHasNonAllowedVariables(p) {
 		return fmt.Errorf("policy contains invalid variables")
