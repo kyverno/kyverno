@@ -12,36 +12,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-          uses: actions/checkout@v2
+        uses: actions/checkout@v2
 
-            - name: Unshallow
-              run: git fetch --prune --unshallow
+      - name: Unshallow
+        run: git fetch --prune --unshallow
 
-            - name: Set up Go
-              uses: actions/setup-go@v2
-              with:
-                go-version: 1.14
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
 
-            - name: Cache Go modules
-              uses: actions/cache@v1
-              with:
-                path: ~/go/pkg/mod
-                key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-                restore-keys: |
-                  ${{ runner.os }}-go-
+      - name: Cache Go modules
+        uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
-            - name: gofmt check
-              run: |
-                if [ "$(gofmt -s -l . | wc -l)" -ne 0 ]
-                then
-                 echo "The following files were found to be not go formatted:"
-                 gofmt -s -l .
-                 echo "Please run 'make fmt' to go format the above files."
-                 exit 1
-                fi
+      - name: gofmt check
+        run: |
+          if [ "$(gofmt -s -l . | wc -l)" -ne 0 ]
+          then
+           echo "The following files were found to be not go formatted:"
+           gofmt -s -l .
+           echo "Please run 'make fmt' to go format the above files."
+           exit 1
+          fi
 
-            - name: golangci-lint
-              uses: reviewdog/action-golangci-lint@v1
+      - name: golangci-lint
+        uses: reviewdog/action-golangci-lint@v1
 
   build-init-kyverno:
     runs-on: ubuntu-latest
