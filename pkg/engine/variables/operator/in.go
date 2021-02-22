@@ -43,8 +43,12 @@ func (in InHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
 		return in.validateValueWithStringPattern(typedKey, value)
-	case []string:
-		return in.validateValueWithStringSetPattern(typedKey, value)
+	case []interface{}:
+		var stringSlice []string
+		for _, v := range typedKey {
+			stringSlice = append(stringSlice, v.(string))
+		}
+		return in.validateValueWithStringSetPattern(stringSlice, value)
 	default:
 		in.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false

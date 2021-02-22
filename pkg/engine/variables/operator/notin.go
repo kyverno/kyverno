@@ -41,8 +41,12 @@ func (nin NotInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
 		return nin.validateValueWithStringPattern(typedKey, value)
-	case []string:
-		return nin.validateValueWithStringSetPattern(typedKey, value)
+	case []interface{}:
+		var stringSlice []string
+		for _, v := range typedKey {
+			stringSlice = append(stringSlice, v.(string))
+		}
+		return nin.validateValueWithStringSetPattern(stringSlice, value)
 	default:
 		nin.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
@@ -65,7 +69,6 @@ func (nin NotInHandler) validateValueWithStringSetPattern(key []string, value in
 		nin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
-
 	return !keyExists
 }
 
@@ -77,13 +80,16 @@ func checkInSubsetForNotIn(key []string, value []string) bool {
 		set[val]++
 	}
 
+	fmt.Println(set)
+
 	for _, val := range key {
+		fmt.Println(val)
 		_, found := set[val]
+
 		if found {
 			return true
 		}
 	}
-
 	return false
 }
 
