@@ -45,6 +45,7 @@ func (ws *WebhookServer) HandleMutation(
 		ExcludeResourceFunc: ws.configHandler.ToFilter,
 		ResourceCache:       ws.resCache,
 		JSONContext:         ctx,
+		Client:              ws.client,
 	}
 
 	if request.Operation == v1beta1.Update {

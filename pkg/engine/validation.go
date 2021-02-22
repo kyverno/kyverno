@@ -106,7 +106,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 
 		ctx.JSONContext.Restore()
 		if err := LoadContext(log, rule.Context, ctx.ResourceCache, ctx); err != nil {
-			log.V(2).Info("failed to load context", "reason", err.Error())
+			log.Error(err, "failed to load context")
 			continue
 		}
 

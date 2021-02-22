@@ -417,14 +417,14 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 
 	logger.V(6).Info("received an admission request in validating webhook")
 
-	// push admission request to audit handler, this won't block the admission request
-	ws.auditHandler.Add(request.DeepCopy())
-
 	policies := ws.pCache.Get(policycache.ValidateEnforce, nil)
 	// Get namespace policies from the cache for the requested resource namespace
 	nsPolicies := ws.pCache.Get(policycache.ValidateEnforce, &request.Namespace)
 	policies = append(policies, nsPolicies...)
 	if len(policies) == 0 {
+		// push admission request to audit handler, this won't block the admission request
+		ws.auditHandler.Add(request.DeepCopy())
+
 		logger.V(4).Info("no enforce validation policies; returning AdmissionResponse.Allowed: true")
 		return &v1beta1.AdmissionResponse{Allowed: true}
 	}
