@@ -26,11 +26,12 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 			continue
 		}
 
-		for _, k := range rule.MatchResources.Kinds {
+		for _, kind := range rule.MatchResources.Kinds {
+			apiVersion, k := common.GetKindFromGVK(kind)
 			logger = logger.WithValues("rule", rule.Name, "kind", k)
 			namespaced, err := pc.rm.GetScope(k)
 			if err != nil {
-				if err := pc.registerResource(k); err != nil {
+				if err := pc.registerResource(apiVersion, k); err != nil {
 					logger.Error(err, "failed to find resource", "kind", k)
 					continue
 				}
@@ -51,11 +52,17 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 	}
 }
 
-func (pc *PolicyController) registerResource(kind string) (err error) {
+func (pc *PolicyController) registerResource(apiVersion, kind string) (err error) {
 	genericCache, ok := pc.resCache.GetGVRCache(kind)
 	if !ok {
-		if genericCache, err = pc.resCache.CreateResourceInformer(kind); err != nil {
-			return fmt.Errorf("failed to create informer for %s: %v", kind, err)
+		if apiVersion != "" {
+			if genericCache, err = pc.resCache.CreateResourceInformerByGVK(apiVersion, kind); err != nil {
+				return fmt.Errorf("failed to create informer for %s: %v", kind, err)
+			}
+		} else {
+			if genericCache, err = pc.resCache.CreateResourceInformer(kind); err != nil {
+				return fmt.Errorf("failed to create informer for %s: %v", kind, err)
+			}
 		}
 	}
 

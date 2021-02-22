@@ -61,3 +61,29 @@ func (resc *resourceCache) GetGVRCache(resource string) (GenericCache, bool) {
 
 	return nil, false
 }
+
+// CreateResourceInformerByGVK creates informer for the given gvk
+func (resc *resourceCache) CreateResourceInformerByGVK(apiVersion string, kind string) (GenericCache, error) {
+	gc, ok := resc.GetGVRCache(kind)
+	if ok {
+		return gc, nil
+	}
+
+	apiResource, gvr, err := resc.dclient.DiscoveryClient.FindResource(apiVersion, kind)
+	if err != nil {
+		return nil, fmt.Errorf("cannot find API resource %s", kind)
+	}
+
+	stopCh := make(chan struct{})
+	genInformer := resc.dinformer.ForResource(gvr)
+	gvrIface := NewGVRCache(gvr, apiResource.Namespaced, stopCh, genInformer)
+
+	resc.gvrCache.Set(kind, gvrIface)
+	resc.dinformer.Start(stopCh)
+
+	if synced := resc.dinformer.WaitForCacheSync(stopCh); !synced[gvr] {
+		return nil, fmt.Errorf("informer for %s hasn't synced", gvr)
+	}
+
+	return gvrIface, nil
+}

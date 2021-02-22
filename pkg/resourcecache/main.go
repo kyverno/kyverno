@@ -15,6 +15,7 @@ type ResourceCache interface {
 	CreateResourceInformer(resource string) (GenericCache, error)
 	StopResourceInformer(resource string)
 	GetGVRCache(resource string) (GenericCache, bool)
+	CreateResourceInformerByGVK(apiVersion string, kind string) (GenericCache, error)
 }
 
 type resourceCache struct {
