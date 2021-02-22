@@ -983,11 +983,7 @@ func Test_BackGroundUserInfo_validate_pattern(t *testing.T) {
 	assert.NilError(t, err)
 
 	err = ContainsVariablesOtherThanObject(*policy)
-
-	if err.Error() != "invalid variable used at spec/rules[0]/validate/pattern" {
-		t.Log(err)
-		t.Error("Incorrect Path")
-	}
+	assert.Assert(t, err != nil, err)
 }
 
 func Test_BackGroundUserInfo_validate_anyPattern(t *testing.T) {

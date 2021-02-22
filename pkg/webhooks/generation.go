@@ -51,6 +51,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 			ExcludeResourceFunc: ws.configHandler.ToFilter,
 			ResourceCache:       ws.resCache,
 			JSONContext:         ctx,
+			Client:              ws.client,
 		}
 
 		for _, policy := range policies {

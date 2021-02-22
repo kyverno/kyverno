@@ -65,7 +65,7 @@ func (g *Generate) Validate() (string, error) {
 
 	// Kyverno generate-controller create/update/deletes the resources specified in generate rule of policy
 	// kyverno uses SA 'kyverno-service-account' and has default ClusterRoles and ClusterRoleBindings
-	// instuctions to modify the RBAC for kyverno are mentioned at https://github.com/kyverno/kyverno/blob/master/documentation/installation.md
+	// instructions to modify the RBAC for kyverno are mentioned at https://github.com/kyverno/kyverno/blob/master/documentation/installation.md
 	// - operations required: create/update/delete/get
 	// If kind and namespace contain variables, then we cannot resolve then so we skip the processing
 	if err := g.canIGenerate(kind, namespace); err != nil {
@@ -96,7 +96,7 @@ func (g *Generate) validateClone(c kyverno.CloneFrom, kind string) (string, erro
 	return "", nil
 }
 
-//canIGenerate returns a error if kyverno cannot perform oprations
+//canIGenerate returns a error if kyverno cannot perform operations
 func (g *Generate) canIGenerate(kind, namespace string) error {
 	// Skip if there is variable defined
 	authCheck := g.authCheck

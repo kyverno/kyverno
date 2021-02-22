@@ -18,7 +18,10 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 	var emptyResult interface{}
 	// check for white-listed variables
 	if !ctx.isBuiltInVariable(query) {
-		return emptyResult, fmt.Errorf("variable %s cannot be used", query)
+		return emptyResult, InvalidVariableErr{
+			variable:  query,
+			whiteList: ctx.getBuiltInVars(),
+		}
 	}
 
 	// compile the query
@@ -34,7 +37,7 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 	var data interface{}
 	if err := json.Unmarshal(ctx.jsonRaw, &data); err != nil {
 		ctx.log.Error(err, "failed to unmarshal context")
-		return emptyResult, fmt.Errorf("failed to unmarshall context: %v", err)
+		return emptyResult, fmt.Errorf("failed to unmarshal context: %v", err)
 	}
 
 	result, err := queryPath.Search(data)
@@ -46,10 +49,10 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 }
 
 func (ctx *Context) isBuiltInVariable(variable string) bool {
-	if len(ctx.builtInVars) == 0 {
+	if len(ctx.getBuiltInVars()) == 0 {
 		return true
 	}
-	for _, wVar := range ctx.builtInVars {
+	for _, wVar := range ctx.getBuiltInVars() {
 		if strings.HasPrefix(variable, wVar) {
 			return true
 		}

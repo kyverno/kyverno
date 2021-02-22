@@ -58,7 +58,7 @@ func TestTypeConversion(t *testing.T) {
 		[]byte(`{"path":"/spec/template/spec/containers/0/name","op":"replace","value":"my-nginx"}`),
 	}
 
-	// serilize resource
+	// serialize resource
 	inputJSONgo, err := yaml.YAMLToJSON(inputBytes)
 	assert.Nil(t, err)
 

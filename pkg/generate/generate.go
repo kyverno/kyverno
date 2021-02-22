@@ -132,6 +132,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		ResourceCache:       c.resCache,
 		JSONContext:         ctx,
 		NamespaceLabels:     namespaceLabels,
+		Client:              c.client,
 	}
 
 	// check if the policy still applies to the resource

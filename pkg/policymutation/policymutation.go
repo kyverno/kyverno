@@ -359,6 +359,8 @@ type kyvernoRule struct {
 	Name             string                    `json:"name"`
 	MatchResources   *kyverno.MatchResources   `json:"match"`
 	ExcludeResources *kyverno.ExcludeResources `json:"exclude,omitempty"`
+	Context          *[]kyverno.ContextEntry   `json:"context,omitempty"`
+	Conditions       *[]kyverno.Condition      `json:"preconditions,omitempty"`
 	Mutation         *kyverno.Mutation         `json:"mutate,omitempty"`
 	Validation       *kyverno.Validation       `json:"validate,omitempty"`
 }
@@ -421,6 +423,14 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	controllerRule := &kyvernoRule{
 		Name:           name,
 		MatchResources: match.DeepCopy(),
+	}
+
+	if len(rule.Context) > 0 {
+		controllerRule.Context = &rule.DeepCopy().Context
+	}
+
+	if len(rule.Conditions) > 0 {
+		controllerRule.Conditions = &rule.DeepCopy().Conditions
 	}
 
 	if !reflect.DeepEqual(exclude, kyverno.ExcludeResources{}) {
