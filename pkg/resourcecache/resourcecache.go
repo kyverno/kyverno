@@ -2,43 +2,19 @@ package resourcecache
 
 import (
 	"fmt"
+
+	"github.com/kyverno/kyverno/pkg/common"
 )
 
 // CreateInformers ...
 func (resc *resourceCache) CreateInformers(resources ...string) []error {
 	var errs []error
 	for _, resource := range resources {
-		if _, err := resc.CreateResourceInformer(resource); err != nil {
+		if _, err := resc.CreateResourceInformerByGVK(resource); err != nil {
 			errs = append(errs, fmt.Errorf("failed to create informer for %s: %v", resource, err))
 		}
 	}
 	return errs
-}
-
-// CreateResourceInformer creates informer for the given resource
-func (resc *resourceCache) CreateResourceInformer(resource string) (GenericCache, error) {
-	gc, ok := resc.GetGVRCache(resource)
-	if ok {
-		return gc, nil
-	}
-
-	apiResource, gvr, err := resc.dclient.DiscoveryClient.FindResource("", resource)
-	if err != nil {
-		return nil, fmt.Errorf("cannot find API resource %s", resource)
-	}
-
-	stopCh := make(chan struct{})
-	genInformer := resc.dinformer.ForResource(gvr)
-	gvrIface := NewGVRCache(gvr, apiResource.Namespaced, stopCh, genInformer)
-
-	resc.gvrCache.Set(resource, gvrIface)
-	resc.dinformer.Start(stopCh)
-
-	if synced := resc.dinformer.WaitForCacheSync(stopCh); !synced[gvr] {
-		return nil, fmt.Errorf("informer for %s hasn't synced", gvr)
-	}
-
-	return gvrIface, nil
 }
 
 // StopResourceInformer - delete the given resource information from ResourceCache and stop watching for the given resource
@@ -63,22 +39,22 @@ func (resc *resourceCache) GetGVRCache(resource string) (GenericCache, bool) {
 }
 
 // CreateResourceInformerByGVK creates informer for the given gvk
-func (resc *resourceCache) CreateResourceInformerByGVK(apiVersion string, kind string) (GenericCache, error) {
-	gc, ok := resc.GetGVRCache(kind)
+func (resc *resourceCache) CreateResourceInformerByGVK(gvk string) (GenericCache, error) {
+	gc, ok := resc.GetGVRCache(gvk)
 	if ok {
 		return gc, nil
 	}
-
-	apiResource, gvr, err := resc.dclient.DiscoveryClient.FindResource(apiVersion, kind)
+	apiVersion, k := common.GetKindFromGVK(gvk)
+	apiResource, gvr, err := resc.dclient.DiscoveryClient.FindResource(apiVersion, k)
 	if err != nil {
-		return nil, fmt.Errorf("cannot find API resource %s", kind)
+		return nil, fmt.Errorf("cannot find API resource %s", gvk)
 	}
 
 	stopCh := make(chan struct{})
 	genInformer := resc.dinformer.ForResource(gvr)
 	gvrIface := NewGVRCache(gvr, apiResource.Namespaced, stopCh, genInformer)
 
-	resc.gvrCache.Set(kind, gvrIface)
+	resc.gvrCache.Set(gvk, gvrIface)
 	resc.dinformer.Start(stopCh)
 
 	if synced := resc.dinformer.WaitForCacheSync(stopCh); !synced[gvr] {
