@@ -66,17 +66,12 @@ func GetNamespaceLabels(namespaceObj *v1.Namespace, logger logr.Logger) map[stri
 	return namespaceUnstructured.GetLabels()
 }
 
-// SplitGVK - from GVK
-func SplitGVK(str, sep string) []string {
-	return strings.Split(str, sep)
-}
-
-// GetKindFromGVK - get kind from GVK
-func GetKindFromGVK(str string) (string, string) {
+// GetKindFromGVK - get kind and APIVersion from GVK
+func GetKindFromGVK(str string) (apiVersion string, kind string) {
 	if strings.Count(str, "/") == 0 {
 		return "", str
 	}
-	splitString := SplitGVK(str, "/")
+	splitString := strings.Split(str, "/")
 	if strings.Count(str, "/") == 1 {
 		return splitString[0], splitString[1]
 	}

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/minio/pkg/wildcard"
@@ -30,7 +29,7 @@ type EngineStats struct {
 
 func checkKind(kinds []string, resource unstructured.Unstructured) bool {
 	for _, kind := range kinds {
-		SplitGVK := pkgcommon.SplitGVK(kind, "/")
+		SplitGVK := strings.Split(kind, "/")
 		if len(SplitGVK) == 1 {
 			if resource.GetKind() == kind {
 				return true
