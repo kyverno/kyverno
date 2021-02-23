@@ -105,6 +105,11 @@ type Values struct {
 	Policies []Policy `json:"policies"`
 }
 
+type resultCounts struct {
+	pass int
+	fail int
+}
+
 func testCommandExecute(dirPath []string, valuesFile string, fileName string) (err error) {
 	var errors []error
 	fs := memfs.New()
@@ -332,16 +337,21 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		}
 	}
 	resultsMap := buildPolicyResults(validateEngineResponses)
-	resultErr := printTestResult(resultsMap, values.Results)
+	resultCounts, resultErr := printTestResult(resultsMap, values.Results)
 	if resultErr != nil {
 		return sanitizederror.NewWithError("Unable to genrate result. Error:", resultErr)
+	}
+	fmt.Printf("\npass: %d, fail: %d \n", resultCounts.pass, resultCounts.fail)
+	if resultCounts.fail > 0 {
+		os.Exit(1)
 	}
 	return
 }
 
-func printTestResult(resps map[string][]interface{}, testResults []TestResults) error {
+func printTestResult(resps map[string][]interface{}, testResults []TestResults) (rc *resultCounts, err error) {
 	printer := tableprinter.New(os.Stdout)
 	table := []*Table{}
+	rc = &resultCounts{}
 	boldRed := color.New(color.FgRed).Add(color.Bold)
 	boldFgCyan := color.New(color.FgCyan).Add(color.Bold)
 	for i, v := range testResults {
@@ -352,7 +362,7 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults) 
 		data, _ := json.Marshal(n)
 		valuesBytes, err := yaml.ToJSON(data)
 		if err != nil {
-			return sanitizederror.NewWithError("failed to convert json", err)
+			return rc, sanitizederror.NewWithError("failed to convert json", err)
 		}
 		var r []ReportResult
 		json.Unmarshal(valuesBytes, &r)
@@ -367,6 +377,9 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults) 
 					resource.Resource = testRes.Resources[0].Name
 					if v == resource {
 						res.Result = "Pass"
+						rc.pass++
+					} else {
+						rc.fail++
 					}
 				}
 			}
@@ -384,5 +397,5 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults) 
 	printer.HeaderBgColor = tablewriter.BgBlackColor
 	printer.HeaderFgColor = tablewriter.FgGreenColor
 	printer.Print(table)
-	return nil
+	return rc, nil
 }
