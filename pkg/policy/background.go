@@ -21,7 +21,7 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 			return fmt.Errorf("invalid variable used at path: spec/rules[%d]/exclude/%s", idx, path)
 		}
 
-		filterVars := []string{"request.object"}
+		filterVars := []string{"request.object", "request.namespace"}
 		ctx := context.NewContext(filterVars...)
 
 		for contextIdx, contextEntry := range rule.Context {
