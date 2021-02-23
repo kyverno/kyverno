@@ -41,56 +41,56 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 				ctx.AddBuiltInVars(contextEntry.Name)
 
 				if _, err = variables.SubstituteVars(log.Log, ctx, contextEntry.ConfigMap.Name); !checkNotFoundErr(err) {
-					return fmt.Errorf("invalid variable used at spec/rules[%d]/context[%d]/configMap/name", idx, contextIdx)
+					return fmt.Errorf("invalid variable used at spec/rules[%d]/context[%d]/configMap/name: %s", idx, contextIdx, err.Error())
 				}
 
 				if _, err = variables.SubstituteVars(log.Log, ctx, contextEntry.ConfigMap.Namespace); !checkNotFoundErr(err) {
-					return fmt.Errorf("invalid variable used at spec/rules[%d]/context[%d]/configMap/namespace", idx, contextIdx)
+					return fmt.Errorf("invalid variable used at spec/rules[%d]/context[%d]/configMap/namespace: %s", idx, contextIdx, err.Error())
 				}
 			}
 		}
 
 		for condIdx, condition := range rule.Conditions {
 			if condition.Key, err = variables.SubstituteVars(log.Log, ctx, condition.Key); !checkNotFoundErr(err) {
-				return fmt.Errorf("invalid variable %v used at spec/rules[%d]/condition[%d]/key", condition.Key, idx, condIdx)
+				return fmt.Errorf("invalid variable %v used at spec/rules[%d]/condition[%d]/key: %s", condition.Key, idx, condIdx, err.Error())
 			}
 
 			if condition.Value, err = variables.SubstituteVars(log.Log, ctx, condition.Value); !checkNotFoundErr(err) {
-				return fmt.Errorf("invalid %v variable used at spec/rules[%d]/condition[%d]/value: %v", condition.Value, idx, condIdx, err)
+				return fmt.Errorf("invalid %v variable used at spec/rules[%d]/condition[%d]/value: %s", condition.Value, idx, condIdx, err.Error())
 			}
 		}
 
 		if rule.Mutation.Overlay != nil {
 			if rule.Mutation.Overlay, err = variables.SubstituteVars(log.Log, ctx, rule.Mutation.Overlay); !checkNotFoundErr(err) {
-				return fmt.Errorf("invalid variable used at spec/rules[%d]/mutate/overlay", idx)
+				return fmt.Errorf("invalid variable used at spec/rules[%d]/mutate/overlay: %s", idx, err.Error())
 			}
 		}
 
 		if rule.Mutation.PatchStrategicMerge != nil {
 			if rule.Mutation.Overlay, err = variables.SubstituteVars(log.Log, ctx, rule.Mutation.PatchStrategicMerge); !checkNotFoundErr(err) {
-				return fmt.Errorf("invalid variable used at spec/rules[%d]/mutate/patchStrategicMerge", idx)
+				return fmt.Errorf("invalid variable used at spec/rules[%d]/mutate/patchStrategicMerge: %s", idx, err.Error())
 			}
 		}
 
 		if rule.Validation.Pattern != nil {
 			if rule.Validation.Pattern, err = variables.SubstituteVars(log.Log, ctx, rule.Validation.Pattern); !checkNotFoundErr(err) {
-				return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/pattern: %v", idx, err)
+				return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/pattern: %s", idx, err.Error())
 			}
 		}
 
 		anyPattern, err := rule.Validation.DeserializeAnyPattern()
 		if err != nil {
-			return fmt.Errorf("failed to deserialize anyPattern, expect array: %v", err)
+			return fmt.Errorf("failed to deserialize anyPattern, expect array: %s", err.Error())
 		}
 
 		for idx2, pattern := range anyPattern {
 			if anyPattern[idx2], err = variables.SubstituteVars(log.Log, ctx, pattern); !checkNotFoundErr(err) {
-				return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/anyPattern[%d]", idx, idx2)
+				return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/anyPattern[%d]: %s", idx, idx2, err.Error())
 			}
 		}
 
 		if _, err = variables.SubstituteVars(log.Log, ctx, rule.Validation.Message); !checkNotFoundErr(err) {
-			return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/message", idx)
+			return fmt.Errorf("invalid variable used at spec/rules[%d]/validate/message: %s", idx, err.Error())
 		}
 
 		if rule.Validation.Deny != nil {

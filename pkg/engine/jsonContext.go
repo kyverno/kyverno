@@ -32,7 +32,7 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resC
 
 	for _, entry := range contextEntries {
 		if entry.ConfigMap != nil {
-			if err := loadConfigMap(entry, lister, ctx.JSONContext); err != nil {
+			if err := loadConfigMap(logger, entry, lister, ctx.JSONContext); err != nil {
 				return err
 			}
 		} else if entry.APICall != nil {
@@ -90,7 +90,7 @@ func applyJMESPath(jmesPath string, jsonData []byte) (interface{}, error) {
 	var data interface{}
 	err = json.Unmarshal(jsonData, &data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshall JSON: %s, error: %v", string(jsonData), err)
+		return nil, fmt.Errorf("failed to unmarshal JSON: %s, error: %v", string(jsonData), err)
 	}
 
 	return jp.Search(data)
@@ -151,24 +151,33 @@ func loadResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 	return r.MarshalJSON()
 }
 
-func loadConfigMap(entry kyverno.ContextEntry, lister dynamiclister.Lister, ctx *context.Context) error {
-	data, err := fetchConfigMap(entry, lister)
+func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynamiclister.Lister, ctx *context.Context) error {
+	data, err := fetchConfigMap(logger, entry, lister, ctx)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve config map for context entry %v: %v", entry, err)
+		return fmt.Errorf("failed to retrieve config map for context entry %s: %v", entry.Name, err)
 	}
 
 	err = ctx.AddJSON(data)
 	if err != nil {
-		return fmt.Errorf("failed to add config map for context entry %v: %v", entry, err)
+		return fmt.Errorf("failed to add config map for context entry %s: %v", entry.Name, err)
 	}
 
 	return nil
 }
 
-func fetchConfigMap(entry kyverno.ContextEntry, lister dynamiclister.Lister) ([]byte, error) {
+func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynamiclister.Lister, jsonContext *context.Context) ([]byte, error) {
 	contextData := make(map[string]interface{})
-	name := entry.ConfigMap.Name
-	namespace := entry.ConfigMap.Namespace
+
+	name, err := variables.SubstituteVars(logger, jsonContext, entry.ConfigMap.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.name %s: %v", entry.Name, entry.ConfigMap.Name, err)
+	}
+
+	namespace, err := variables.SubstituteVars(logger, jsonContext, entry.ConfigMap.Namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.namespace %s: %v", entry.Name, entry.ConfigMap.Namespace, err)
+	}
+
 	if namespace == "" {
 		namespace = "default"
 	}
