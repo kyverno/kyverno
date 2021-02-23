@@ -36,7 +36,7 @@ func checkKind(kinds []string, resource unstructured.Unstructured) bool {
 				return true
 			}
 		} else if len(SplitGVK) == 2 {
-			if resource.GroupVersionKind().Kind == SplitGVK[1] && resource.GroupVersionKind().Version == SplitGVK[1] {
+			if resource.GroupVersionKind().Kind == SplitGVK[1] && resource.GroupVersionKind().Version == SplitGVK[0] {
 				return true
 			}
 		} else {
