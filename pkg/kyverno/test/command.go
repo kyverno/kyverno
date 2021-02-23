@@ -342,9 +342,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		return sanitizederror.NewWithError("Unable to genrate result. Error:", resultErr)
 	}
 	fmt.Printf("\npass: %d, fail: %d \n", resultCounts.pass, resultCounts.fail)
-	if resultCounts.fail > 0 {
-		os.Exit(1)
-	}
+
 	return
 }
 
