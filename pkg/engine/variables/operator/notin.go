@@ -69,6 +69,7 @@ func (nin NotInHandler) validateValueWithStringSetPattern(key []string, value in
 		nin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
+
 	return !keyExists
 }
 
@@ -79,8 +80,6 @@ func checkInSubsetForNotIn(key []string, value []string) bool {
 	for _, val := range value {
 		set[val]++
 	}
-
-	fmt.Println(set)
 
 	for _, val := range key {
 		fmt.Println(val)
