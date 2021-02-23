@@ -82,13 +82,12 @@ func checkInSubsetForNotIn(key []string, value []string) bool {
 	}
 
 	for _, val := range key {
-		fmt.Println(val)
 		_, found := set[val]
-
 		if found {
 			return true
 		}
 	}
+
 	return false
 }
 
