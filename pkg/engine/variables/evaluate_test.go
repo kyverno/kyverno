@@ -1015,6 +1015,8 @@ func Test_Eval_Equal_Var_Fail(t *testing.T) {
 }
 
 // subset test
+
+// test passes if all values in "key" are in "value"
 func Test_Eval_In_String_Set_Pass(t *testing.T) {
 	ctx := context.NewContext()
 	key := [2]string{"1.1.1.1", "2.2.2.2"}
@@ -1039,6 +1041,7 @@ func Test_Eval_In_String_Set_Pass(t *testing.T) {
 	}
 }
 
+// test passes if NOT all values in "key" are in "value"
 func Test_Eval_In_String_Set_Fail(t *testing.T) {
 	ctx := context.NewContext()
 	key := [2]string{"1.1.1.1", "4.4.4.4"}
@@ -1063,6 +1066,7 @@ func Test_Eval_In_String_Set_Fail(t *testing.T) {
 	}
 }
 
+// test passes if none of the values in "key" are in "value"
 func Test_Eval_NotIn_String_Set_Pass(t *testing.T) {
 	ctx := context.NewContext()
 	key := [2]string{"4.4.4.4", "5.5.5.5"}
@@ -1087,6 +1091,7 @@ func Test_Eval_NotIn_String_Set_Pass(t *testing.T) {
 	}
 }
 
+// test passes if ANY of the values in "key" are in "value"
 func Test_Eval_NotIn_String_Set_Fail(t *testing.T) {
 	ctx := context.NewContext()
 	key := [2]string{"1.1.1.1", "4.4.4.4"}
