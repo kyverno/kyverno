@@ -596,13 +596,15 @@ spec:
                               for conditional rule evaluation.
                             x-kubernetes-preserve-unknown-fields: true
                           operator:
-                            description: Operator is the operation to perform.
+                            description: Operator is the operation to perform. Valid
+                              operators are Equals, NotEquals, In and NotIn.
                             enum:
                             - Equals
                             - NotEquals
                             - In
                             - NotIn
                             type: string
+                            x-kubernetes-preserve-unknown-fields: true
                           value:
                             description: Value is the conditional value, or set of
                               values. The values can be fixed set or can be variables
@@ -634,12 +636,15 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                   operator:
                                     description: Operator is the operation to perform.
+                                      Valid operators are Equals, NotEquals, In and
+                                      NotIn.
                                     enum:
                                     - Equals
                                     - NotEquals
                                     - In
                                     - NotIn
                                     type: string
+                                    x-kubernetes-preserve-unknown-fields: true
                                   value:
                                     description: Value is the conditional value, or
                                       set of values. The values can be fixed set or
