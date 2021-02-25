@@ -57,6 +57,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		ResourceCache:    resCache,
 		JSONContext:      ctx,
 		Client:           client,
+		NamespaceLabels:  namespaceLabels,
 	}
 
 	engineResponseValidation = engine.Validate(policyCtx)
