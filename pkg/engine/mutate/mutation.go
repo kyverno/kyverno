@@ -113,7 +113,15 @@ func (h patchesJSON6902Handler) Handle() (resp response.RuleResponse, patchedRes
 	resp.Name = h.ruleName
 	resp.Type = utils.Mutation.String()
 
-	skip, err := preProcessJSONPatches(*h.mutation, h.patchedResource, h.logger)
+	patchesJSON6902, err := convertPatchesToJSON(h.mutation.PatchesJSON6902)
+	if err != nil {
+		resp.Success = false
+		h.logger.Error(err, "error in type conversion")
+		resp.Message = err.Error()
+		return resp, h.patchedResource
+	}
+
+	skip, err := preProcessJSONPatches(patchesJSON6902, h.patchedResource, h.logger)
 	if err != nil {
 		h.logger.Error(err, "failed to preProcessJSONPatches")
 	}
@@ -123,7 +131,7 @@ func (h patchesJSON6902Handler) Handle() (resp response.RuleResponse, patchedRes
 		return resp, h.patchedResource
 	}
 
-	return ProcessPatchJSON6902(h.ruleName, *h.mutation, h.patchedResource, h.logger)
+	return ProcessPatchJSON6902(h.ruleName, patchesJSON6902, h.patchedResource, h.logger)
 }
 
 func (h overlayHandler) Handle() (response.RuleResponse, unstructured.Unstructured) {
@@ -133,7 +141,7 @@ func (h overlayHandler) Handle() (response.RuleResponse, unstructured.Unstructur
 	// substitute the variables
 	var err error
 	if overlay, err = variables.SubstituteVars(h.logger, h.evalCtx, overlay); err != nil {
-		// variable subsitution failed
+		// variable substitution failed
 		ruleResponse.Success = false
 		ruleResponse.Message = err.Error()
 		return ruleResponse, h.patchedResource
@@ -165,7 +173,16 @@ func (h patchesHandler) Handle() (resp response.RuleResponse, patchedResource un
 	resp.Name = h.ruleName
 	resp.Type = utils.Mutation.String()
 
-	skip, err := preProcessJSONPatches(*h.mutation, h.patchedResource, h.logger)
+	// patches is already converted to patchesJSON6902
+	patchesJSON6902, err := convertPatchesToJSON(h.mutation.PatchesJSON6902)
+	if err != nil {
+		resp.Success = false
+		h.logger.Error(err, "error in type conversion")
+		resp.Message = err.Error()
+		return resp, h.patchedResource
+	}
+
+	skip, err := preProcessJSONPatches(patchesJSON6902, h.patchedResource, h.logger)
 	if err != nil {
 		h.logger.Error(err, "failed to preProcessJSONPatches")
 	}

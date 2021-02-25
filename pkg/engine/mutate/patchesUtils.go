@@ -10,7 +10,6 @@ import (
 
 	evanjsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/mattbaird/jsonpatch"
 	"github.com/minio/minio/pkg/wildcard"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -156,16 +155,14 @@ func ignorePatch(path string) bool {
 // This duplicate error only occurs on type array, if it's adding to a map
 // the value will be added to the map if nil, otherwise it overwrites the old value
 // return skip == true to skip the json patch application
-func preProcessJSONPatches(mutation kyverno.Mutation, resource unstructured.Unstructured,
+func preProcessJSONPatches(patchesJSON6902 []byte, resource unstructured.Unstructured,
 	log logr.Logger) (skip bool, err error) {
 	var patches evanjsonpatch.Patch
 	log = log.WithName("preProcessJSONPatches")
 
-	if len(mutation.PatchesJSON6902) > 0 {
-		patches, err = decodePatch(mutation.PatchesJSON6902)
-		if err != nil {
-			return false, fmt.Errorf("failed to process JSON patches: %v", err)
-		}
+	patches, err = evanjsonpatch.DecodePatch(patchesJSON6902)
+	if err != nil {
+		return false, fmt.Errorf("cannot decode patches as an RFC 6902 patch: %v", err)
 	}
 
 	for _, patch := range patches {
