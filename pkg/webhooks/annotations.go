@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	yamlv2 "gopkg.in/yaml.v2"

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	evanjsonpatch "github.com/evanphx/json-patch"
+	evanjsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
 	"github.com/mattbaird/jsonpatch"
 	"github.com/minio/minio/pkg/wildcard"
@@ -18,8 +18,11 @@ import (
 func generatePatches(src, dst []byte) ([][]byte, error) {
 	var patchesBytes [][]byte
 	pp, err := jsonpatch.CreatePatch(src, dst)
-	sortedPatches := filterAndSortPatches(pp)
+	if err != nil {
+		return nil, err
+	}
 
+	sortedPatches := filterAndSortPatches(pp)
 	for _, p := range sortedPatches {
 		pbytes, err := p.MarshalJSON()
 		if err != nil {
@@ -186,13 +189,13 @@ func preProcessJSONPatches(patchesJSON6902 []byte, resource unstructured.Unstruc
 
 		resourceObj, err := getObject(path, resource.UnstructuredContent())
 		if err != nil {
-			log.V(4).Info("failed to get object by the given path", "path", path, "error", err.Error())
+			log.V(4).Info("unable to get object by the given path, proceed patchesJson6902 without preprocessing", "path", path, "error", err.Error())
 			continue
 		}
 
 		val, err := patch.ValueInterface()
 		if err != nil {
-			log.V(4).Info("failed to get value by the given path", "path", path, "error", err.Error())
+			log.V(4).Info("unable to get value by the given path, proceed patchesJson6902 without preprocessing", "path", path, "error", err.Error())
 			continue
 		}
 

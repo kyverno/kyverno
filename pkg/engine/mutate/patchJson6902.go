@@ -1,12 +1,11 @@
 package mutate
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -33,13 +32,24 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 		return resp, resource
 	}
 
-	patchedResourceRaw, err := utils.ApplyPatchNew(resourceRaw, patchesJSON6902)
-	// patchedResourceRaw, err := patchJSON6902(string(resourceRaw), mutation.PatchesJSON6902)
+	patchedResourceRaw, err := applyPatchesWithOptions(resourceRaw, patchesJSON6902)
 	if err != nil {
 		resp.Success = false
-		logger.Error(err, "failed to process JSON6902 patches")
-		resp.Message = fmt.Sprintf("failed to process JSON6902 patches: %v", err)
+		logger.Error(err, "unable to apply RFC 6902 patches")
+		resp.Message = fmt.Sprintf("unable to apply RFC 6902 patches: %v", err)
 		return resp, resource
+	}
+
+	patchesBytes, err := generatePatches(resourceRaw, patchedResourceRaw)
+	if err != nil {
+		resp.Success = false
+		logger.Error(err, "unable generate patch bytes from base and patched document, apply patchesJSON6902 directly")
+		resp.Message = fmt.Sprintf("unable generate patch bytes from base and patched document, apply patchesJSON6902 directly: %v", err)
+		return resp, resource
+	}
+
+	for _, p := range patchesBytes {
+		log.V(4).Info("generated RFC 6902 patches", "patch", string(p))
 	}
 
 	err = patchedResource.UnmarshalJSON(patchedResourceRaw)
@@ -50,34 +60,32 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 		return resp, resource
 	}
 
-	var decodedPatch []kyverno.Patch
-	err = json.Unmarshal(patchesJSON6902, &decodedPatch)
-	if err != nil {
-		resp.Success = false
-		resp.Message = err.Error()
-		return resp, resource
-	}
-
-	patchesBytes, err := utils.TransformPatches(decodedPatch)
-	if err != nil {
-		logger.Error(err, "failed to marshal patches to bytes array")
-		resp.Success = false
-		resp.Message = fmt.Sprintf("failed to marshal patches to bytes array: %v", err)
-		return resp, resource
-	}
-
-	for _, p := range patchesBytes {
-		log.V(6).Info("", "patches", string(p))
-	}
-
-	// JSON patches processed successfully
 	resp.Success = true
 	resp.Message = fmt.Sprintf("successfully process JSON6902 patches")
 	resp.Patches = patchesBytes
 	return resp, patchedResource
 }
 
+func applyPatchesWithOptions(resource, patch []byte) ([]byte, error) {
+	patches, err := jsonpatch.DecodePatch(patch)
+	if err != nil {
+		return resource, fmt.Errorf("failed to decode patches: %v", err)
+	}
+
+	options := &jsonpatch.ApplyOptions{AllowMissingPathOnRemove: true, EnsurePathExistsOnAdd: true}
+	patchedResource, err := patches.ApplyWithOptions(resource, options)
+	if err != nil {
+		return resource, err
+	}
+
+	return patchedResource, nil
+}
+
 func convertPatchesToJSON(patchesJSON6902 string) ([]byte, error) {
+	if len(patchesJSON6902) == 0 {
+		return []byte(patchesJSON6902), nil
+	}
+
 	if patchesJSON6902[0] != '[' {
 		// If the patch doesn't look like a JSON6902 patch, we
 		// try to parse it to json.
