@@ -3,8 +3,9 @@ package utils
 import (
 	"fmt"
 	"regexp"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strconv"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-logr/logr"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -122,6 +123,11 @@ func ConvertResource(raw []byte, group, version, kind, namespace string) (unstru
 	}
 
 	obj.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
+
+	if namespace != "" {
+		obj.SetNamespace(namespace)
+	}
+
 	return *obj, nil
 }
 

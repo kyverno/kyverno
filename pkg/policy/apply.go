@@ -42,7 +42,12 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	ctx := context.NewContext()
 	err = ctx.AddResource(transformResource(resource))
 	if err != nil {
-		logger.Error(err, "enable to add transform resource to ctx")
+		logger.Error(err, "failed to add transform resource to ctx")
+	}
+
+	err = ctx.AddNamespace(resource.GetNamespace())
+	if err != nil {
+		logger.Error(err, "failed to add namespace to ctx")
 	}
 
 	engineResponseMutation, err = mutation(policy, resource, logger, resCache, ctx, namespaceLabels)
