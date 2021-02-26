@@ -72,7 +72,7 @@ func applyPatchesWithOptions(resource, patch []byte) ([]byte, error) {
 		return resource, fmt.Errorf("failed to decode patches: %v", err)
 	}
 
-	options := &jsonpatch.ApplyOptions{AllowMissingPathOnRemove: true, EnsurePathExistsOnAdd: true}
+	options := &jsonpatch.ApplyOptions{SupportNegativeIndices: true, AllowMissingPathOnRemove: true, EnsurePathExistsOnAdd: true}
 	patchedResource, err := patches.ApplyWithOptions(resource, options)
 	if err != nil {
 		return resource, err

@@ -18,17 +18,17 @@ func Test_GeneratePatches(t *testing.T) {
 	out, err := strategicMergePatch(string(baseBytes), string(overlayBytes))
 	assert.NilError(t, err)
 
-	expectedPatches := [][]byte{
-		[]byte(`{"op":"remove","path":"/spec/template/spec/containers/0"}`),
-		[]byte(`{"op":"add","path":"/spec/template/spec/containers/0","value":{"image":"nginx","name":"nginx"}}`),
-		[]byte(`{"op":"add","path":"/spec/template/spec/containers/1","value":{"env":[{"name":"WORDPRESS_DB_HOST","value":"$(MYSQL_SERVICE)"},{"name":"WORDPRESS_DB_PASSWORD","valueFrom":{"secretKeyRef":{"key":"password","name":"mysql-pass"}}}],"image":"wordpress:4.8-apache","name":"wordpress","ports":[{"containerPort":80,"name":"wordpress"}],"volumeMounts":[{"mountPath":"/var/www/html","name":"wordpress-persistent-storage"}]}}`),
-		[]byte(`{"op":"add","path":"/spec/template/spec/initContainers","value":[{"command":["echo $(WORDPRESS_SERVICE)","echo $(MYSQL_SERVICE)"],"image":"debian","name":"init-command"}]}`),
+	expectedPatches := map[string]bool{
+		`{"op":"remove","path":"/spec/template/spec/containers/0"}`:                                       true,
+		`{"op":"add","path":"/spec/template/spec/containers/0","value":{"image":"nginx","name":"nginx"}}`: true,
+		`{"op":"add","path":"/spec/template/spec/containers/1","value":{"env":[{"name":"WORDPRESS_DB_HOST","value":"$(MYSQL_SERVICE)"},{"name":"WORDPRESS_DB_PASSWORD","valueFrom":{"secretKeyRef":{"key":"password","name":"mysql-pass"}}}],"image":"wordpress:4.8-apache","name":"wordpress","ports":[{"containerPort":80,"name":"wordpress"}],"volumeMounts":[{"mountPath":"/var/www/html","name":"wordpress-persistent-storage"}]}}`: true,
+		`{"op":"add","path":"/spec/template/spec/initContainers","value":[{"command":["echo $(WORDPRESS_SERVICE)","echo $(MYSQL_SERVICE)"],"image":"debian","name":"init-command"}]}`:                                                                                                                                                                                                                                                    true,
 	}
 	patches, err := generatePatches(baseBytes, out)
 	assert.NilError(t, err)
 
-	for i, expect := range expectedPatches {
-		assertnew.Equal(t, string(expect), string(patches[i]))
+	for _, p := range patches {
+		assertnew.Equal(t, expectedPatches[string(p)], true)
 	}
 }
 
