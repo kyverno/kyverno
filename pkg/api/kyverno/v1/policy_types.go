@@ -152,7 +152,6 @@ type Condition struct {
 
 	// Operator is the operation to perform. Valid operators
 	// are Equals, NotEquals, In and NotIn.
-	// +kubebuilder:validation:XPreserveUnknownFields
 	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
 
 	// Value is the conditional value, or set of values. The values can be fixed set
