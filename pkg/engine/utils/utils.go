@@ -1,10 +1,7 @@
 package utils
 
 import (
-	"encoding/json"
-
-	jsonpatch "github.com/evanphx/json-patch"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -57,12 +54,12 @@ func ApplyPatches(resource []byte, patches [][]byte) ([]byte, error) {
 func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 	jsonpatch, err := jsonpatch.DecodePatch(patch)
 	if err != nil {
-		return nil, err
+		return resource, err
 	}
 
 	patchedResource, err := jsonpatch.Apply(resource)
 	if err != nil {
-		return nil, err
+		return resource, err
 	}
 
 	return patchedResource, err
@@ -85,19 +82,6 @@ func JoinPatches(patches [][]byte) []byte {
 	}
 	result = append(result, []byte("\n]")...)
 	return result
-}
-
-// TransformPatches converts mutation.Patches to bytes array
-func TransformPatches(patches []kyverno.Patch) (patchesBytes [][]byte, err error) {
-	for _, patch := range patches {
-		patchRaw, err := json.Marshal(patch)
-		if err != nil {
-			return nil, err
-		}
-		patchesBytes = append(patchesBytes, patchRaw)
-	}
-
-	return patchesBytes, nil
 }
 
 //ConvertToUnstructured converts the resource to unstructured format

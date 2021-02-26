@@ -26,6 +26,10 @@ func checkConditions(log logr.Logger, resource, overlay interface{}, path string
 	// return false if anchor exists in overlay
 	// condition never be true in this case
 	if reflect.TypeOf(resource) != reflect.TypeOf(overlay) {
+		if resource == nil {
+			return "", overlayError{}
+		}
+
 		if hasNestedAnchors(overlay) {
 			log.V(4).Info(fmt.Sprintf("element type mismatch at path %s: overlay %T, resource %T", path, overlay, resource))
 			return path, newOverlayError(conditionFailure,

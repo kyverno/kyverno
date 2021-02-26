@@ -5,7 +5,7 @@ go 1.14
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cornelk/hashmap v1.0.1
-	github.com/evanphx/json-patch v4.9.0+incompatible
+	github.com/evanphx/json-patch/v5 v5.2.0
 	github.com/fatih/color v1.9.0
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/gardener/controller-manager-library v0.2.0

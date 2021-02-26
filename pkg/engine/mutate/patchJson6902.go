@@ -1,25 +1,19 @@
 package mutate
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	patchjson6902 "sigs.k8s.io/kustomize/api/filters/patchjson6902"
-	filtersutil "sigs.k8s.io/kustomize/kyaml/filtersutil"
 	"sigs.k8s.io/yaml"
 )
 
 // ProcessPatchJSON6902 ...
-func ProcessPatchJSON6902(ruleName string, mutation kyverno.Mutation, resource unstructured.Unstructured, log logr.Logger) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
+func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unstructured.Unstructured, log logr.Logger) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	logger := log.WithValues("rule", ruleName)
 	startTime := time.Now()
 	logger.V(4).Info("started JSON6902 patch", "startTime", startTime)
@@ -38,88 +32,69 @@ func ProcessPatchJSON6902(ruleName string, mutation kyverno.Mutation, resource u
 		return resp, resource
 	}
 
-	patchedResourceRaw, err := patchJSON6902(string(resourceRaw), mutation.PatchesJSON6902)
+	patchedResourceRaw, err := applyPatchesWithOptions(resourceRaw, patchesJSON6902)
 	if err != nil {
 		resp.Success = false
-		logger.Error(err, "failed to process JSON6902 patches")
-		resp.Message = fmt.Sprintf("failed to process JSON6902 patches: %v", err)
+		logger.Error(err, "unable to apply RFC 6902 patches")
+		resp.Message = fmt.Sprintf("unable to apply RFC 6902 patches: %v", err)
 		return resp, resource
 	}
 
-	err = patchedResource.UnmarshalJSON(patchedResourceRaw)
-	if err != nil {
-		logger.Error(err, "failed to unmmarshal resource")
-		resp.Success = false
-		resp.Message = fmt.Sprintf("failed to unmmarshal resource: %v", err)
-		return resp, resource
-	}
-
-	var op []byte
-	if mutation.PatchesJSON6902[0] != '[' {
-		// if it doesn't seem to be JSON, imagine
-		// it is YAML, and convert to JSON.
-		op, err = yaml.YAMLToJSON([]byte(mutation.PatchesJSON6902))
-		if err != nil {
-			resp.Success = false
-			resp.Message = fmt.Sprintf("failed to unmmarshal resource: %v", err)
-			return resp, resource
-		}
-		mutation.PatchesJSON6902 = string(op)
-	}
-
-	var decodedPatch []kyverno.Patch
-	err = json.Unmarshal(op, &decodedPatch)
+	patchesBytes, err := generatePatches(resourceRaw, patchedResourceRaw)
 	if err != nil {
 		resp.Success = false
-		resp.Message = err.Error()
-		return resp, resource
-	}
-
-	patchesBytes, err := utils.TransformPatches(decodedPatch)
-	if err != nil {
-		logger.Error(err, "failed to marshal patches to bytes array")
-		resp.Success = false
-		resp.Message = fmt.Sprintf("failed to marshal patches to bytes array: %v", err)
+		logger.Error(err, "unable generate patch bytes from base and patched document, apply patchesJSON6902 directly")
+		resp.Message = fmt.Sprintf("unable generate patch bytes from base and patched document, apply patchesJSON6902 directly: %v", err)
 		return resp, resource
 	}
 
 	for _, p := range patchesBytes {
-		log.V(6).Info("", "patches", string(p))
+		log.V(4).Info("generated RFC 6902 patches", "patch", string(p))
 	}
 
-	// JSON patches processed successfully
+	err = patchedResource.UnmarshalJSON(patchedResourceRaw)
+	if err != nil {
+		logger.Error(err, "failed to unmarshal resource")
+		resp.Success = false
+		resp.Message = fmt.Sprintf("failed to unmarshal resource: %v", err)
+		return resp, resource
+	}
+
 	resp.Success = true
 	resp.Message = fmt.Sprintf("successfully process JSON6902 patches")
 	resp.Patches = patchesBytes
 	return resp, patchedResource
 }
 
-func patchJSON6902(base, patches string) ([]byte, error) {
-	f := patchjson6902.Filter{
-		Patch: patches,
+func applyPatchesWithOptions(resource, patch []byte) ([]byte, error) {
+	patches, err := jsonpatch.DecodePatch(patch)
+	if err != nil {
+		return resource, fmt.Errorf("failed to decode patches: %v", err)
 	}
 
-	baseObj := buffer{Buffer: bytes.NewBufferString(base)}
-	err := filtersutil.ApplyToJSON(f, baseObj)
+	options := &jsonpatch.ApplyOptions{SupportNegativeIndices: true, AllowMissingPathOnRemove: true, EnsurePathExistsOnAdd: true}
+	patchedResource, err := patches.ApplyWithOptions(resource, options)
+	if err != nil {
+		return resource, err
+	}
 
-	return baseObj.Bytes(), err
+	return patchedResource, nil
 }
 
-func decodePatch(patch string) (jsonpatch.Patch, error) {
-	// If the patch doesn't look like a JSON6902 patch, we
-	// try to parse it to json.
-	if !strings.HasPrefix(patch, "[") {
-		p, err := yaml.YAMLToJSON([]byte(patch))
+func convertPatchesToJSON(patchesJSON6902 string) ([]byte, error) {
+	if len(patchesJSON6902) == 0 {
+		return []byte(patchesJSON6902), nil
+	}
+
+	if patchesJSON6902[0] != '[' {
+		// If the patch doesn't look like a JSON6902 patch, we
+		// try to parse it to json.
+		op, err := yaml.YAMLToJSON([]byte(patchesJSON6902))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to convert patchesJSON6902 to JSON: %v", err)
 		}
-		patch = string(p)
+		return op, nil
 	}
 
-	decodedPatch, err := jsonpatch.DecodePatch([]byte(patch))
-	if err != nil {
-		return nil, err
-	}
-
-	return decodedPatch, nil
+	return []byte(patchesJSON6902), nil
 }
