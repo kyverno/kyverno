@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/openapi"
-
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/openapi"
 	"gotest.tools/assert"
 )
 
@@ -913,11 +912,7 @@ func Test_BackGroundUserInfo_mutate_overlay1(t *testing.T) {
 	assert.NilError(t, err)
 
 	err = ContainsVariablesOtherThanObject(*policy)
-
-	if err.Error() != "invalid variable used at spec/rules[0]/mutate/overlay" {
-		t.Log(err)
-		t.Error("Incorrect Path")
-	}
+	assert.Assert(t, err != nil)
 }
 
 func Test_BackGroundUserInfo_mutate_overlay2(t *testing.T) {
@@ -948,11 +943,7 @@ func Test_BackGroundUserInfo_mutate_overlay2(t *testing.T) {
 	assert.NilError(t, err)
 
 	err = ContainsVariablesOtherThanObject(*policy)
-
-	if err.Error() != "invalid variable used at spec/rules[0]/mutate/overlay" {
-		t.Log(err)
-		t.Error("Incorrect Path")
-	}
+	assert.Assert(t, err != nil)
 }
 
 func Test_BackGroundUserInfo_validate_pattern(t *testing.T) {
@@ -1018,11 +1009,7 @@ func Test_BackGroundUserInfo_validate_anyPattern(t *testing.T) {
 	assert.NilError(t, err)
 
 	err = ContainsVariablesOtherThanObject(*policy)
-
-	if err.Error() != "invalid variable used at spec/rules[0]/validate/anyPattern[1]" {
-		t.Log(err)
-		t.Error("Incorrect Path")
-	}
+	assert.Assert(t, err != nil)
 }
 
 func Test_BackGroundUserInfo_validate_anyPattern_multiple_var(t *testing.T) {
@@ -1057,11 +1044,7 @@ func Test_BackGroundUserInfo_validate_anyPattern_multiple_var(t *testing.T) {
 	assert.NilError(t, err)
 
 	err = ContainsVariablesOtherThanObject(*policy)
-
-	if err.Error() != "invalid variable used at spec/rules[0]/validate/anyPattern[1]" {
-		t.Log(err)
-		t.Error("Incorrect Path")
-	}
+	assert.Assert(t, err != nil)
 }
 
 func Test_BackGroundUserInfo_validate_anyPattern_serviceAccount(t *testing.T) {
@@ -1096,11 +1079,7 @@ func Test_BackGroundUserInfo_validate_anyPattern_serviceAccount(t *testing.T) {
 	assert.NilError(t, err)
 
 	err = ContainsVariablesOtherThanObject(*policy)
-
-	if err.Error() != "invalid variable used at spec/rules[0]/validate/anyPattern[1]" {
-		t.Log(err)
-		t.Error("Incorrect Path")
-	}
+	assert.Assert(t, err != nil)
 }
 
 func Test_ruleOnlyDealsWithResourceMetaData(t *testing.T) {

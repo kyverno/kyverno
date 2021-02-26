@@ -8,9 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	evanjsonpatch "github.com/evanphx/json-patch"
+	evanjsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/mattbaird/jsonpatch"
 	"github.com/minio/minio/pkg/wildcard"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,8 +18,11 @@ import (
 func generatePatches(src, dst []byte) ([][]byte, error) {
 	var patchesBytes [][]byte
 	pp, err := jsonpatch.CreatePatch(src, dst)
-	sortedPatches := filterAndSortPatches(pp)
+	if err != nil {
+		return nil, err
+	}
 
+	sortedPatches := filterAndSortPatches(pp)
 	for _, p := range sortedPatches {
 		pbytes, err := p.MarshalJSON()
 		if err != nil {
@@ -156,16 +158,14 @@ func ignorePatch(path string) bool {
 // This duplicate error only occurs on type array, if it's adding to a map
 // the value will be added to the map if nil, otherwise it overwrites the old value
 // return skip == true to skip the json patch application
-func preProcessJSONPatches(mutation kyverno.Mutation, resource unstructured.Unstructured,
+func preProcessJSONPatches(patchesJSON6902 []byte, resource unstructured.Unstructured,
 	log logr.Logger) (skip bool, err error) {
 	var patches evanjsonpatch.Patch
 	log = log.WithName("preProcessJSONPatches")
 
-	if len(mutation.PatchesJSON6902) > 0 {
-		patches, err = decodePatch(mutation.PatchesJSON6902)
-		if err != nil {
-			return false, fmt.Errorf("failed to process JSON patches: %v", err)
-		}
+	patches, err = evanjsonpatch.DecodePatch(patchesJSON6902)
+	if err != nil {
+		return false, fmt.Errorf("cannot decode patches as an RFC 6902 patch: %v", err)
 	}
 
 	for _, patch := range patches {
@@ -189,13 +189,13 @@ func preProcessJSONPatches(mutation kyverno.Mutation, resource unstructured.Unst
 
 		resourceObj, err := getObject(path, resource.UnstructuredContent())
 		if err != nil {
-			log.V(4).Info("failed to get object by the given path", "path", path, "error", err.Error())
+			log.V(4).Info("unable to get object by the given path, proceed patchesJson6902 without preprocessing", "path", path, "error", err.Error())
 			continue
 		}
 
 		val, err := patch.ValueInterface()
 		if err != nil {
-			log.V(4).Info("failed to get value by the given path", "path", path, "error", err.Error())
+			log.V(4).Info("unable to get value by the given path, proceed patchesJson6902 without preprocessing", "path", path, "error", err.Error())
 			continue
 		}
 
@@ -242,6 +242,9 @@ func getObject(path string, resource map[string]interface{}) (interface{}, error
 				idx, err = strconv.Atoi(key)
 				if err != nil {
 					return nil, fmt.Errorf("cannot parse index in JSON Patch at %s: %v", strings.Join(paths[:i+1], "/"), err)
+				}
+				if idx < 0 {
+					idx = len(strippedResource.([]interface{})) - 1
 				}
 			}
 

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"k8s.io/api/admission/v1beta1"
@@ -27,6 +27,9 @@ type Interface interface {
 
 	// AddServiceAccount merges ServiceAccount types
 	AddServiceAccount(userName string) error
+
+	// AddNamespace merges resource json under request.namespace
+	AddNamespace(namespace string) error
 
 	EvalInterface
 }
@@ -188,6 +191,27 @@ func (ctx *Context) AddServiceAccount(userName string) error {
 	}
 
 	return nil
+}
+
+// AddNamespace merges resource json under request.namespace
+func (ctx *Context) AddNamespace(namespace string) error {
+	modifiedResource := struct {
+		Request interface{} `json:"request"`
+	}{
+		Request: struct {
+			Namespace string `json:"namespace"`
+		}{
+			Namespace: namespace,
+		},
+	}
+
+	objRaw, err := json.Marshal(modifiedResource)
+	if err != nil {
+		ctx.log.Error(err, "failed to marshal the resource")
+		return err
+	}
+
+	return ctx.AddJSON(objRaw)
 }
 
 // Checkpoint creates a copy of the internal state.

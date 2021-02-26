@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/mattbaird/jsonpatch"
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
@@ -20,28 +18,17 @@ func Test_GeneratePatches(t *testing.T) {
 	out, err := strategicMergePatch(string(baseBytes), string(overlayBytes))
 	assert.NilError(t, err)
 
+	expectedPatches := map[string]bool{
+		`{"op":"remove","path":"/spec/template/spec/containers/0"}`:                                       true,
+		`{"op":"add","path":"/spec/template/spec/containers/0","value":{"image":"nginx","name":"nginx"}}`: true,
+		`{"op":"add","path":"/spec/template/spec/containers/1","value":{"env":[{"name":"WORDPRESS_DB_HOST","value":"$(MYSQL_SERVICE)"},{"name":"WORDPRESS_DB_PASSWORD","valueFrom":{"secretKeyRef":{"key":"password","name":"mysql-pass"}}}],"image":"wordpress:4.8-apache","name":"wordpress","ports":[{"containerPort":80,"name":"wordpress"}],"volumeMounts":[{"mountPath":"/var/www/html","name":"wordpress-persistent-storage"}]}}`: true,
+		`{"op":"add","path":"/spec/template/spec/initContainers","value":[{"command":["echo $(WORDPRESS_SERVICE)","echo $(MYSQL_SERVICE)"],"image":"debian","name":"init-command"}]}`:                                                                                                                                                                                                                                                    true,
+	}
 	patches, err := generatePatches(baseBytes, out)
 	assert.NilError(t, err)
 
-	var overlay unstructured.Unstructured
-	err = json.Unmarshal(baseBytes, &overlay)
-	assert.NilError(t, err)
-
-	bb, err := json.Marshal(overlay.Object)
-	assert.NilError(t, err)
-
-	res, err := utils.ApplyPatches(bb, patches)
-	assert.NilError(t, err)
-
-	var ep unstructured.Unstructured
-	err = json.Unmarshal(expectBytes, &ep)
-	assert.NilError(t, err)
-
-	eb, err := json.Marshal(ep.Object)
-	assert.NilError(t, err)
-
-	if !assertnew.Equal(t, string(eb), string(res)) {
-		t.FailNow()
+	for _, p := range patches {
+		assertnew.Equal(t, expectedPatches[string(p)], true)
 	}
 }
 
@@ -175,79 +162,36 @@ var podBytes = []byte(`
 `)
 
 func Test_preProcessJSONPatches_skip(t *testing.T) {
-	var policyBytes = []byte(`
-{
-  "apiVersion": "kyverno.io/v1",
-  "kind": "ClusterPolicy",
-  "metadata": {
-      "name": "insert-container"
-  },
-  "spec": {
-      "rules": [
-          {
-              "name": "insert-container",
-              "match": {
-                  "resources": {
-                      "kinds": [
-                          "Pod"
-                      ]
-                  }
-              },
-              "mutate": {
-                  "patchesJson6902": "- op: add\n  path: /spec/containers/1\n  value: {\"name\":\"nginx-new\",\"image\":\"nginx:latest\"}"
-              }
-          }
-      ]
-  }
-}
+	patchesJSON6902 := []byte(`
+- op: add
+  path: /spec/containers/1
+  value: {"name":"nginx-new","image":"nginx:latest"}
 `)
-
 	var pod unstructured.Unstructured
-	var policy v1.ClusterPolicy
-
 	assertnew.Nil(t, json.Unmarshal(podBytes, &pod))
-	assertnew.Nil(t, yaml.Unmarshal(policyBytes, &policy))
 
-	skip, err := preProcessJSONPatches(policy.Spec.Rules[0].Mutation, pod, log.Log)
+	patches, err := yaml.YAMLToJSON(patchesJSON6902)
+	assertnew.Nil(t, err)
+
+	skip, err := preProcessJSONPatches(patches, pod, log.Log)
 	assertnew.Nil(t, err)
 	assertnew.Equal(t, true, skip)
 }
 
 func Test_preProcessJSONPatches_not_skip(t *testing.T) {
-	var policyBytes = []byte(`
-{
-  "apiVersion": "kyverno.io/v1",
-  "kind": "ClusterPolicy",
-  "metadata": {
-      "name": "insert-container"
-  },
-  "spec": {
-      "rules": [
-          {
-              "name": "insert-container",
-              "match": {
-                  "resources": {
-                      "kinds": [
-                          "Pod"
-                      ]
-                  }
-              },
-              "mutate": {
-                  "patchesJson6902": "- op: add\n  path: /spec/containers/1\n  value: {\"name\":\"my-new-container\",\"image\":\"nginx:latest\"}"
-              }
-          }
-      ]
-  }
-}
+	patchesJSON6902 := []byte(`
+- op: add
+  path: /spec/containers/1
+  value: {"name":"my-new-container","image":"nginx:latest"}
 `)
 
+	patches, err := yaml.YAMLToJSON(patchesJSON6902)
+	assertnew.Nil(t, err)
+
 	var pod unstructured.Unstructured
-	var policy v1.ClusterPolicy
-
 	assertnew.Nil(t, json.Unmarshal(podBytes, &pod))
-	assertnew.Nil(t, yaml.Unmarshal(policyBytes, &policy))
 
-	skip, err := preProcessJSONPatches(policy.Spec.Rules[0].Mutation, pod, log.Log)
+	skip, err := preProcessJSONPatches(patches, pod, log.Log)
 	assertnew.Nil(t, err)
 	assertnew.Equal(t, false, skip)
 }

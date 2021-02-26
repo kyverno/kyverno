@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -42,7 +42,12 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	ctx := context.NewContext()
 	err = ctx.AddResource(transformResource(resource))
 	if err != nil {
-		logger.Error(err, "enable to add transform resource to ctx")
+		logger.Error(err, "failed to add transform resource to ctx")
+	}
+
+	err = ctx.AddNamespace(resource.GetNamespace())
+	if err != nil {
+		logger.Error(err, "failed to add namespace to ctx")
 	}
 
 	engineResponseMutation, err = mutation(policy, resource, logger, resCache, ctx, namespaceLabels)
@@ -57,6 +62,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		ResourceCache:    resCache,
 		JSONContext:      ctx,
 		Client:           client,
+		NamespaceLabels:  namespaceLabels,
 	}
 
 	engineResponseValidation = engine.Validate(policyCtx)
