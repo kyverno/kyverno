@@ -43,6 +43,12 @@ func (in InHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
 		return in.validateValueWithStringPattern(typedKey, value)
+	case []interface{}:
+		var stringSlice []string
+		for _, v := range typedKey {
+			stringSlice = append(stringSlice, v.(string))
+		}
+		return in.validateValueWithStringSetPattern(stringSlice, value)
 	default:
 		in.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
@@ -104,7 +110,7 @@ func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidTy
 }
 
 func (in InHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
-	invalidType, keyExists := setExistsInArray(key, value, in.log, false)
+	invalidType, keyExists := setExistsInArray(key, value, in.log)
 	if invalidType {
 		in.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
@@ -116,8 +122,7 @@ func (in InHandler) validateValueWithStringSetPattern(key []string, value interf
 // setExistsInArray checks if the key is a subset of value
 // The value can be a string, an array of strings, or a JSON format
 // array of strings (e.g. ["val1", "val2", "val3"].
-// notIn argument is set to true when we want to check if key is NOT a subset of value
-func setExistsInArray(key []string, value interface{}, log logr.Logger, notIn bool) (invalidType bool, keyExists bool) {
+func setExistsInArray(key []string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
 
 	case []interface{}:
@@ -129,10 +134,8 @@ func setExistsInArray(key []string, value interface{}, log logr.Logger, notIn bo
 			}
 			valueSlice = append(valueSlice, v)
 		}
-		if notIn {
-			return false, checkInSubsetForNotIn(key, valueSlice)
-		}
-		return false, checkInSubset(key, valueSlice)
+
+		return false, isSubset(key, valueSlice)
 
 	case string:
 
@@ -145,18 +148,16 @@ func setExistsInArray(key []string, value interface{}, log logr.Logger, notIn bo
 			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
 			return true, false
 		}
-		if notIn {
-			return false, checkInSubsetForNotIn(key, arr)
-		}
-		return false, checkInSubset(key, arr)
+
+		return false, isSubset(key, arr)
 
 	default:
 		return true, false
 	}
 }
 
-// checkInSubset checks if ALL values of S1 are in S2
-func checkInSubset(key []string, value []string) bool {
+// isSubset checks if S1 is a subset of S2 i.e. ALL values of S1 are in S2
+func isSubset(key []string, value []string) bool {
 	set := make(map[string]int)
 
 	for _, val := range value {
