@@ -405,7 +405,6 @@ spec:
                             - In
                             - NotIn
                             type: string
-                            x-kubernetes-preserve-unknown-fields: true
                           value:
                             description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
                             x-kubernetes-preserve-unknown-fields: true
@@ -436,7 +435,6 @@ spec:
                                     - In
                                     - NotIn
                                     type: string
-                                    x-kubernetes-preserve-unknown-fields: true
                                   value:
                                     description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
                                     x-kubernetes-preserve-unknown-fields: true
@@ -1587,7 +1585,6 @@ spec:
                             - In
                             - NotIn
                             type: string
-                            x-kubernetes-preserve-unknown-fields: true
                           value:
                             description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
                             x-kubernetes-preserve-unknown-fields: true
@@ -1618,7 +1615,6 @@ spec:
                                     - In
                                     - NotIn
                                     type: string
-                                    x-kubernetes-preserve-unknown-fields: true
                                   value:
                                     description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
                                     x-kubernetes-preserve-unknown-fields: true
