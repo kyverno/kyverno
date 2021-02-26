@@ -48,11 +48,7 @@ type Context struct {
 	log               logr.Logger
 }
 
-type imgInfo struct {
-	imgRegistryURL string `json:"registryURL"`
-	imgName        string `json:"name"`
-	imgTag         string `json:"tag"`
-}
+type imgInfo map[string]string
 
 //NewContext returns a new context
 // builtInVars is the list of known variables (e.g. serviceAccountName)
@@ -152,8 +148,8 @@ func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 
 //AddImageDetails checks if kind is pod or pod controller, then loads details about the image
 func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface interface{}) error {
-	var images []string
-	var imgs []imgInfo
+	images := make(map[string]string)
+	imgs := make(map[string]imgInfo)
 
 	kind := kindInterface.(string)
 	spec := specInterface.(map[string]interface{})
@@ -163,7 +159,8 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 		for _, v := range containersMap { //containers is a slice of maps where each map represents an image
 			v2 := v.(map[string]interface{})
 			imageString := v2["image"].(string)
-			images = append(images, imageString)
+			imageNameString := v2["name"].(string)
+			images[imageNameString] = imageString
 		}
 	}
 
@@ -174,38 +171,53 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 		for _, v := range containersMap { //containers is a slice of maps where each map represents an image
 			v2 := v.(map[string]interface{})
 			imageString := v2["image"].(string)
-			images = append(images, imageString)
+			imageNameString := v2["name"].(string)
+			images[imageNameString] = imageString
 		}
 	}
 
-	for _, image := range images {
+	fmt.Println(images)
+
+	for imageName, image := range images {
 		var img imgInfo
 		if strings.Contains(image, "/") {
 			res := strings.Split(image, "/")
-			img.imgRegistryURL = res[0]
+			img["registryURL"] = res[0]
 			image = res[1]
 		}
 		if strings.Contains(image, ":") {
 			res := strings.Split(image, ":")
-			img.imgName = res[0]
-			img.imgTag = res[1]
+			img["name"] = res[0]
+			img["tag"] = res[1]
 		} else {
-			img.imgName = image
-			img.imgTag = "latest"
+			img["name"] = image
+			img["tag"] = "latest"
 		}
-		imgs = append(imgs, img)
+		imgs[imageName] = img
 	}
 
+	fmt.Println(imgs)
+
 	imgsObj := struct {
-		IMGS []imgInfo `json:"images"`
+		IMGS map[string]imgInfo `json:"images"`
 	}{
 		IMGS: imgs,
 	}
+	fmt.Println("$$$$$")
+	fmt.Println(imgsObj)
+	fmt.Println("$$$$$")
+
 	imgsRaw, err := json.Marshal(imgsObj)
 	if err != nil {
 		ctx.log.Error(err, "failed to marshal the IMG")
 		return err
 	}
+	fmt.Println("#####")
+	fmt.Println(imgsRaw)
+	fmt.Println("#####")
+	fmt.Println("&&&&&")
+	fmt.Println(string(imgsRaw))
+	fmt.Println("&&&&&")
 	if err := ctx.AddJSON(imgsRaw); err != nil {
 		return err
 	}
