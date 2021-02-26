@@ -243,6 +243,9 @@ func getObject(path string, resource map[string]interface{}) (interface{}, error
 				if err != nil {
 					return nil, fmt.Errorf("cannot parse index in JSON Patch at %s: %v", strings.Join(paths[:i+1], "/"), err)
 				}
+				if idx < 0 {
+					idx = len(strippedResource.([]interface{})) - 1
+				}
 			}
 
 			if len(strippedResource.([]interface{})) <= idx {
