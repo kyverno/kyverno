@@ -50,6 +50,12 @@ type Context struct {
 
 type imgInfo map[string]string
 
+// type imgInfo struct {
+// 	imgRegistryURL string `json:"registryURL"`
+// 	imgName        string `json:"name"`
+// 	imgTag         string `json:"tag"`
+// }
+
 //NewContext returns a new context
 // builtInVars is the list of known variables (e.g. serviceAccountName)
 func NewContext(builtInVars ...string) *Context {
@@ -179,11 +185,13 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 	fmt.Println(images)
 
 	for imageName, image := range images {
-		var img imgInfo
+		img := make(imgInfo)
 		if strings.Contains(image, "/") {
 			res := strings.Split(image, "/")
 			img["registryURL"] = res[0]
 			image = res[1]
+		} else {
+			img["registryURL"] = ""
 		}
 		if strings.Contains(image, ":") {
 			res := strings.Split(image, ":")
@@ -195,7 +203,6 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 		}
 		imgs[imageName] = img
 	}
-
 	fmt.Println(imgs)
 
 	imgsObj := struct {
@@ -206,7 +213,6 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 	fmt.Println("$$$$$")
 	fmt.Println(imgsObj)
 	fmt.Println("$$$$$")
-
 	imgsRaw, err := json.Marshal(imgsObj)
 	if err != nil {
 		ctx.log.Error(err, "failed to marshal the IMG")
