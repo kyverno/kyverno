@@ -129,19 +129,22 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 }
 
 func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, originPattern interface{}, path string, ac *common.AnchorKey) (string, error) {
-
 	if 0 == len(patternArray) {
 		return path, fmt.Errorf("Pattern Array empty")
 	}
 
-	switch typedPatternElement := patternArray[0].(type) {
+	switch patternArray[0].(type) {
 	case map[string]interface{}:
-		// This is special case, because maps in arrays can have anchors that must be
-		// processed with the special way affecting the entire array
-		elemPath, err := validateArrayOfMaps(log, resourceArray, typedPatternElement, originPattern, path, ac)
-		if err != nil {
-			return elemPath, err
+		for i, patternElement := range patternArray {
+			// This is special case, because maps in arrays can have anchors that must be
+			// processed with the special way affecting the entire array
+			currentPath := path + strconv.Itoa(i) + "/"
+			elemPath, err := validateArrayOfMaps(log, resourceArray, patternElement.(map[string]interface{}), originPattern, currentPath, ac)
+			if err != nil {
+				return elemPath, err
+			}
 		}
+
 	default:
 		// In all other cases - detect type and handle each array element with validateResourceElement
 		if len(resourceArray) >= len(patternArray) {
@@ -279,6 +282,7 @@ func getValueFromPattern(log logr.Logger, patternMap map[string]interface{}, key
 // validateArrayOfMaps gets anchors from pattern array map element, applies anchors logic
 // and then validates each map due to the pattern
 func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string, ac *common.AnchorKey) (string, error) {
+	lengthOflenResourceMapArray := len(resourceMapArray) - 1
 	for i, resourceElement := range resourceMapArray {
 		// check the types of resource element
 		// expect it to be map, but can be anything ?:(
@@ -287,8 +291,12 @@ func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patter
 		if err != nil {
 			if common.IsConditionalAnchorError(err.Error()) {
 				continue
+			} else if i < lengthOflenResourceMapArray {
+				continue
 			}
 			return returnpath, err
+		} else {
+			break
 		}
 	}
 	return "", nil
