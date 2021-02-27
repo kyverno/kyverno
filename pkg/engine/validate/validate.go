@@ -135,11 +135,10 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 
 	switch patternArray[0].(type) {
 	case map[string]interface{}:
-		for i, patternElement := range patternArray {
+		for _, patternElement := range patternArray {
 			// This is special case, because maps in arrays can have anchors that must be
 			// processed with the special way affecting the entire array
-			currentPath := path + strconv.Itoa(i) + "/"
-			elemPath, err := validateArrayOfMaps(log, resourceArray, patternElement.(map[string]interface{}), originPattern, currentPath, ac)
+			elemPath, err := validateArrayOfMaps(log, resourceArray, patternElement.(map[string]interface{}), originPattern, path, ac)
 			if err != nil {
 				return elemPath, err
 			}
