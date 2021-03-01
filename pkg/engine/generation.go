@@ -21,14 +21,15 @@ func filterRules(policyContext *PolicyContext) *response.EngineResponse {
 	kind := policyContext.NewResource.GetKind()
 	name := policyContext.NewResource.GetName()
 	namespace := policyContext.NewResource.GetNamespace()
-
+	apiVersion := policyContext.NewResource.GetAPIVersion()
 	resp := &response.EngineResponse{
 		PolicyResponse: response.PolicyResponse{
 			Policy: policyContext.Policy.Name,
 			Resource: response.ResourceSpec{
-				Kind:      kind,
-				Name:      name,
-				Namespace: namespace,
+				Kind:       kind,
+				Name:       name,
+				Namespace:  namespace,
+				APIVersion: apiVersion,
 			},
 		},
 	}

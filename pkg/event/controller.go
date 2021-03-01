@@ -218,7 +218,7 @@ func (gen *Generator) syncHandler(key Info) error {
 func (gen *Generator) getResource(key Info) (obj *unstructured.Unstructured, err error) {
 	lister, ok := gen.resCache.GetGVRCache(key.Kind)
 	if !ok {
-		if lister, err = gen.resCache.CreateResourceInformer(key.Kind); err != nil {
+		if lister, err = gen.resCache.CreateGVKInformer(key.Kind); err != nil {
 			return nil, err
 		}
 	}
