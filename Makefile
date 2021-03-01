@@ -220,6 +220,10 @@ else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
+# Bootstrap auto-generable code associated with deepcopy
+deepcopy-autogen: controller-gen
+	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..."
+
 # Run go fmt against code
 fmt:
 	gofmt -s -w .
