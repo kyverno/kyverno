@@ -105,6 +105,11 @@ type Values struct {
 	Policies []Policy `json:"policies"`
 }
 
+type resultCounts struct {
+	pass int
+	fail int
+}
+
 func testCommandExecute(dirPath []string, valuesFile string, fileName string) (err error) {
 	var errors []error
 	fs := memfs.New()
@@ -113,20 +118,22 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (e
 		return sanitizederror.NewWithError(fmt.Sprintf("a directory is required"), err)
 	}
 	if strings.Contains(string(dirPath[0]), "https://") {
-		gitUrl, err := url.Parse(dirPath[0])
+		gitURL, err := url.Parse(dirPath[0])
 		if err != nil {
 			return sanitizederror.NewWithError("failed to parse URL", err)
 		}
-		pathElems := strings.Split(gitUrl.Path[1:], "/")
+		pathElems := strings.Split(gitURL.Path[1:], "/")
 		if len(pathElems) != 3 {
-			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch", gitUrl.Path)
-			return sanitizederror.NewWithError("failed to parse URL", err)
+			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch", gitURL.Path)
+			fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
+			os.Exit(1)
 		}
-		gitUrl.Path = strings.Join([]string{"/", pathElems[0], pathElems[1]}, "/")
-		repoURL := gitUrl.String()
+		gitURL.Path = strings.Join([]string{"/", pathElems[0], pathElems[1]}, "/")
+		repoURL := gitURL.String()
 		cloneRepo, err := clone(repoURL, fs)
 		if err != nil {
-			return sanitizederror.NewWithError("failed to clone repository ", err)
+			fmt.Printf("Error: failed to clone repository \nCause: %s\n", err)
+			os.Exit(1)
 		}
 		log.Log.V(3).Info(" clone repository", cloneRepo)
 		policyYamls, err := listYAMLs(fs, "/")
@@ -332,18 +339,20 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		}
 	}
 	resultsMap := buildPolicyResults(validateEngineResponses)
-	resultErr := printTestResult(resultsMap, values.Results)
+	resultCounts, resultErr := printTestResult(resultsMap, values.Results)
 	if resultErr != nil {
 		return sanitizederror.NewWithError("Unable to genrate result. Error:", resultErr)
 	}
+	fmt.Printf("\npass: %d, fail: %d \n", resultCounts.pass, resultCounts.fail)
 	return
 }
 
-func printTestResult(resps map[string][]interface{}, testResults []TestResults) error {
+func printTestResult(resps map[string][]interface{}, testResults []TestResults) (rc *resultCounts, err error) {
 	printer := tableprinter.New(os.Stdout)
 	table := []*Table{}
 	boldRed := color.New(color.FgRed).Add(color.Bold)
 	boldFgCyan := color.New(color.FgCyan).Add(color.Bold)
+	rc = &resultCounts{}
 	for i, v := range testResults {
 		res := new(Table)
 		res.ID = i + 1
@@ -352,7 +361,7 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults) 
 		data, _ := json.Marshal(n)
 		valuesBytes, err := yaml.ToJSON(data)
 		if err != nil {
-			return sanitizederror.NewWithError("failed to convert json", err)
+			return rc, sanitizederror.NewWithError("failed to convert json", err)
 		}
 		var r []ReportResult
 		json.Unmarshal(valuesBytes, &r)
@@ -367,6 +376,9 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults) 
 					resource.Resource = testRes.Resources[0].Name
 					if v == resource {
 						res.Result = "Pass"
+						rc.pass++
+					} else {
+						rc.fail++
 					}
 				}
 			}
@@ -384,5 +396,5 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults) 
 	printer.HeaderBgColor = tablewriter.BgBlackColor
 	printer.HeaderFgColor = tablewriter.FgGreenColor
 	printer.Print(table)
-	return nil
+	return rc, nil
 }
