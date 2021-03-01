@@ -1013,3 +1013,105 @@ func Test_Eval_Equal_Var_Fail(t *testing.T) {
 		t.Error("expected to fail")
 	}
 }
+
+// subset test
+
+// test passes if ALL values in "key" are in "value" ("key" is a subset of "value")
+func Test_Eval_In_String_Set_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	key := [2]string{"1.1.1.1", "2.2.2.2"}
+	keyInterface := make([]interface{}, len(key), len(key))
+	for i := range key {
+		keyInterface[i] = key[i]
+	}
+	value := [3]string{"1.1.1.1", "2.2.2.2", "3.3.3.3"}
+	valueInterface := make([]interface{}, len(value), len(value))
+	for i := range value {
+		valueInterface[i] = value[i]
+	}
+
+	condition := kyverno.Condition{
+		Key:      keyInterface,
+		Operator: kyverno.In,
+		Value:    valueInterface,
+	}
+
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+// test passes if NOT ALL values in "key" are in "value" ("key" is not a subset of "value")
+func Test_Eval_In_String_Set_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	key := [2]string{"1.1.1.1", "4.4.4.4"}
+	keyInterface := make([]interface{}, len(key), len(key))
+	for i := range key {
+		keyInterface[i] = key[i]
+	}
+	value := [3]string{"1.1.1.1", "2.2.2.2", "3.3.3.3"}
+	valueInterface := make([]interface{}, len(value), len(value))
+	for i := range value {
+		valueInterface[i] = value[i]
+	}
+
+	condition := kyverno.Condition{
+		Key:      keyInterface,
+		Operator: kyverno.In,
+		Value:    valueInterface,
+	}
+
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+// test passes if ALL of the values in "key" are NOT in "value" ("key" is not a subset of "value")
+func Test_Eval_NotIn_String_Set_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	key := [2]string{"1.1.1.1", "4.4.4.4"}
+	keyInterface := make([]interface{}, len(key), len(key))
+	for i := range key {
+		keyInterface[i] = key[i]
+	}
+	value := [3]string{"1.1.1.1", "2.2.2.2", "3.3.3.3"}
+	valueInterface := make([]interface{}, len(value), len(value))
+	for i := range value {
+		valueInterface[i] = value[i]
+	}
+
+	condition := kyverno.Condition{
+		Key:      keyInterface,
+		Operator: kyverno.NotIn,
+		Value:    valueInterface,
+	}
+
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+// test passes if ALL of the values in "key" are in "value" ("key" is a subset of "value")
+func Test_Eval_NotIn_String_Set_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	key := [2]string{"1.1.1.1", "2.2.2.2"}
+	keyInterface := make([]interface{}, len(key), len(key))
+	for i := range key {
+		keyInterface[i] = key[i]
+	}
+	value := [3]string{"1.1.1.1", "2.2.2.2", "3.3.3.3"}
+	valueInterface := make([]interface{}, len(value), len(value))
+	for i := range value {
+		valueInterface[i] = value[i]
+	}
+
+	condition := kyverno.Condition{
+		Key:      keyInterface,
+		Operator: kyverno.NotIn,
+		Value:    valueInterface,
+	}
+
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
