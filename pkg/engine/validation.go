@@ -113,8 +113,11 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		log.V(3).Info("matched validate rule")
 
 		// operate on the copy of the conditions, as we perform variable substitution
-		preconditionsCopy := copyConditions(rule.Conditions)
-
+		preconditionsCopy, err := copyConditions(rule.AnyAllConditions)
+		if err != nil {
+			log.V(2).Info("wrongfully configured data", "reason", err.Error())
+			continue
+		}
 		// evaluate pre-conditions
 		// - handle variable substitutions
 		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditionsCopy) {
@@ -131,7 +134,11 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 				}
 			}
 		} else if rule.Validation.Deny != nil {
-			denyConditionsCopy := copyConditions(rule.Validation.Deny.Conditions)
+			denyConditionsCopy, err := copyConditions(rule.Validation.Deny.AnyAllConditions)
+			if err != nil {
+				log.V(2).Info("wrongfully configured data", "reason", err.Error())
+				continue
+			}
 			deny := variables.EvaluateConditions(log, ctx.JSONContext, denyConditionsCopy)
 			ruleResp := response.RuleResponse{
 				Name:    rule.Name,

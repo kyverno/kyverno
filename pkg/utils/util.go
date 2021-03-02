@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -8,10 +9,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-logr/logr"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/minio/minio/pkg/wildcard"
 	"k8s.io/api/admission/v1beta1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -192,4 +195,24 @@ func SliceContains(slice []string, values ...string) bool {
 	}
 
 	return false
+}
+
+// ApiextensionsJsonTOKyvernoConditions takes in user-provided conditions in abstract apiextensions.JSON form
+// and converts it into []kyverno.Condition or kyverno.AnyAllConditions according to its content.
+// it also helps in validating the condtions as it returns an error when the conditions are provided wrongfully by the user.
+func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interface{}, error) {
+	// marshalling the abstract apiextensions.JSON back to JSON form
+	jsonByte, err := json.Marshal(original)
+
+	var kyvernoOldConditions []kyverno.Condition
+	if err = json.Unmarshal(jsonByte, &kyvernoOldConditions); err == nil {
+		return kyvernoOldConditions, nil
+	}
+
+	var kyvernoAnyAllConditions kyverno.AnyAllConditions
+	if err = json.Unmarshal(jsonByte, &kyvernoAnyAllConditions); err == nil {
+		return kyvernoAnyAllConditions, nil
+	}
+
+	return nil, fmt.Errorf("conditions filled wrongfully")
 }
