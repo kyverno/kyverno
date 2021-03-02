@@ -198,7 +198,7 @@ type MatchResources struct {
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
-	// Requires at least one resource to be specified when under MatchResources, if not,
+	// Requires at least one tag to be specified when under MatchResources, if not,
 	// then ExcludeResources should be present instead.
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
@@ -211,8 +211,6 @@ type ExcludeResources struct {
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
-	// Requires at least one resource to be specified when under MatchResources, if not,
-	// then ExcludeResources should be present instead.
 	// +optional
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
