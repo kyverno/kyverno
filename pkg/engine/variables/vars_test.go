@@ -2,6 +2,7 @@ package variables
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -129,6 +130,50 @@ func Test_subVars_failed(t *testing.T) {
 	if _, err := SubstituteVars(log.Log, ctx, pattern); err == nil {
 		t.Error("error is expected")
 	}
+}
+
+func Test_ReplacingPathWhenDeleting(t *testing.T) {
+	patternRaw := []byte(`"{{request.object.metadata.annotations.target}}"`)
+
+	var resourceRaw = []byte(`
+	{
+		"request": {
+			"operation": "DELETE",
+			"object": {
+				"metadata": {
+					"name": "curr",
+					"namespace": "ns",
+					"annotations": {
+					  "target": "foo"
+					}
+				}
+			},
+			"oldObject": {
+				"metadata": {
+					"name": "old",
+					"annotations": {
+					  "target": "bar"
+					}
+				}
+			}
+		}
+	}
+`)
+
+	var pattern interface{}
+	var err error
+	err = json.Unmarshal(patternRaw, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+	ctx := context.NewContext()
+	err = ctx.AddJSON(resourceRaw)
+	assert.NilError(t, err)
+
+	pattern, err = SubstituteVars(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+
+	assert.Equal(t, fmt.Sprintf("%v", pattern), "bar")
 }
 
 var resourceRaw = []byte(`

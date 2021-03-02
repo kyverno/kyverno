@@ -94,6 +94,16 @@ func subValR(log logr.Logger, ctx context.EvalInterface, valuePattern string, pa
 			variable := strings.ReplaceAll(v, "{{", "")
 			variable = strings.ReplaceAll(variable, "}}", "")
 			variable = strings.TrimSpace(variable)
+
+			var substitutedVar interface{}
+			if operation, err := ctx.Query("request.operation"); err != nil {
+				return nil, fmt.Errorf("failed to resolve %v at path %s", variable, path)
+			} else {
+				if operation == "DELETE" {
+					variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
+				}
+			}
+
 			substitutedVar, err := ctx.Query(variable)
 			if err != nil {
 				switch err.(type) {
