@@ -48,7 +48,7 @@ func Command() *cobra.Command {
 					}
 				}
 			}()
-			err = testCommandExecute(dirPath, valuesFile, fileName)
+			_, err = testCommandExecute(dirPath, valuesFile, fileName)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
 				return err
@@ -110,17 +110,17 @@ type resultCounts struct {
 	fail int
 }
 
-func testCommandExecute(dirPath []string, valuesFile string, fileName string) (err error) {
+func testCommandExecute(dirPath []string, valuesFile string, fileName string) (rc *resultCounts, err error) {
 	var errors []error
 	fs := memfs.New()
-
+	rc = &resultCounts{}
 	if len(dirPath) == 0 {
-		return sanitizederror.NewWithError(fmt.Sprintf("a directory is required"), err)
+		return rc, sanitizederror.NewWithError(fmt.Sprintf("a directory is required"), err)
 	}
 	if strings.Contains(string(dirPath[0]), "https://") {
 		gitURL, err := url.Parse(dirPath[0])
 		if err != nil {
-			return sanitizederror.NewWithError("failed to parse URL", err)
+			return rc, sanitizederror.NewWithError("failed to parse URL", err)
 		}
 		pathElems := strings.Split(gitURL.Path[1:], "/")
 		if len(pathElems) != 3 {
@@ -138,7 +138,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (e
 		log.Log.V(3).Info(" clone repository", cloneRepo)
 		policyYamls, err := listYAMLs(fs, "/")
 		if err != nil {
-			return sanitizederror.NewWithError("failed to list YAMLs in repository", err)
+			return rc, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
 		}
 		sort.Strings(policyYamls)
 		for _, yamlFilePath := range policyYamls {
@@ -155,8 +155,8 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (e
 					sanitizederror.NewWithError("failed to convert to JSON", err)
 					continue
 				}
-				if err := applyPoliciesFromPath(fs, policyBytes, valuesFile, true, policyresoucePath); err != nil {
-					return sanitizederror.NewWithError("failed to apply test command", err)
+				if err := applyPoliciesFromPath(fs, policyBytes, valuesFile, true, policyresoucePath, rc); err != nil {
+					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
 			}
 			if err != nil {
@@ -169,7 +169,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (e
 		if err != nil {
 			errors = append(errors, err)
 		}
-		err := getLocalDirTestFiles(fs, path, fileName, valuesFile)
+		err := getLocalDirTestFiles(fs, path, fileName, valuesFile, rc)
 		if err != nil {
 			errors = append(errors, err)
 		}
@@ -180,17 +180,21 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (e
 			}
 		}
 	}
-	return nil
+	if rc.fail > 0 {
+		os.Exit(1)
+	}
+	os.Exit(0)
+	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string) error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts) error {
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
 		return fmt.Errorf("failed to read %v: %v", path, err.Error())
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc)
 			continue
 		}
 		if strings.Contains(file.Name(), fileName) {
@@ -204,7 +208,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 				sanitizederror.NewWithError("failed to convert json", err)
 				continue
 			}
-			if err := applyPoliciesFromPath(fs, valuesBytes, valuesFile, false, path); err != nil {
+			if err := applyPoliciesFromPath(fs, valuesBytes, valuesFile, false, path, rc); err != nil {
 				sanitizederror.NewWithError("failed to apply test command", err)
 				continue
 			}
@@ -250,7 +254,7 @@ func getPolicyResouceFullPath(path []string, policyresoucePath string, isGit boo
 	return path
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyresoucePath string) (err error) {
+func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyresoucePath string, rc *resultCounts) (err error) {
 	openAPIController, err := openapi.NewOpenAPIController()
 	engineResponses := make([]*response.EngineResponse, 0)
 	validateEngineResponses := make([]*response.EngineResponse, 0)
@@ -339,20 +343,18 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		}
 	}
 	resultsMap := buildPolicyResults(validateEngineResponses)
-	resultCounts, resultErr := printTestResult(resultsMap, values.Results)
+	resultErr := printTestResult(resultsMap, values.Results, rc)
 	if resultErr != nil {
 		return sanitizederror.NewWithError("Unable to genrate result. Error:", resultErr)
 	}
-	fmt.Printf("\npass: %d, fail: %d \n", resultCounts.pass, resultCounts.fail)
 	return
 }
 
-func printTestResult(resps map[string][]interface{}, testResults []TestResults) (rc *resultCounts, err error) {
+func printTestResult(resps map[string][]interface{}, testResults []TestResults, rc *resultCounts) error {
 	printer := tableprinter.New(os.Stdout)
 	table := []*Table{}
 	boldRed := color.New(color.FgRed).Add(color.Bold)
 	boldFgCyan := color.New(color.FgCyan).Add(color.Bold)
-	rc = &resultCounts{}
 	for i, v := range testResults {
 		res := new(Table)
 		res.ID = i + 1
@@ -361,7 +363,7 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults) 
 		data, _ := json.Marshal(n)
 		valuesBytes, err := yaml.ToJSON(data)
 		if err != nil {
-			return rc, sanitizederror.NewWithError("failed to convert json", err)
+			return sanitizederror.NewWithError("failed to convert json", err)
 		}
 		var r []ReportResult
 		json.Unmarshal(valuesBytes, &r)
@@ -396,5 +398,5 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults) 
 	printer.HeaderBgColor = tablewriter.BgBlackColor
 	printer.HeaderFgColor = tablewriter.FgGreenColor
 	printer.Print(table)
-	return rc, nil
+	return nil
 }
