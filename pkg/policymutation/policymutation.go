@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/utils"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 )
 
 // GenerateJSONPatchesForDefaults generates default JSON patches for
@@ -360,7 +361,7 @@ type kyvernoRule struct {
 	MatchResources   *kyverno.MatchResources   `json:"match"`
 	ExcludeResources *kyverno.ExcludeResources `json:"exclude,omitempty"`
 	Context          *[]kyverno.ContextEntry   `json:"context,omitempty"`
-	Conditions       *[]kyverno.Condition      `json:"preconditions,omitempty"`
+	AnyAllConditions *apiextensions.JSON       `json:"preconditions,omitempty"`
 	Mutation         *kyverno.Mutation         `json:"mutate,omitempty"`
 	Validation       *kyverno.Validation       `json:"validate,omitempty"`
 }
@@ -429,8 +430,16 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		controllerRule.Context = &rule.DeepCopy().Context
 	}
 
-	if len(rule.Conditions) > 0 {
-		controllerRule.Conditions = &rule.DeepCopy().Conditions
+	kyvernoAnyAllConditions, _ := utils.ApiextensionsJsonToKyvernoConditions(rule.AnyAllConditions)
+	switch typedAnyAllConditions := kyvernoAnyAllConditions.(type) {
+	case kyverno.AnyAllConditions:
+		if !reflect.DeepEqual(typedAnyAllConditions, kyverno.AnyAllConditions{}) {
+			controllerRule.AnyAllConditions = &rule.DeepCopy().AnyAllConditions
+		}
+	case []kyverno.Condition:
+		if len(typedAnyAllConditions) > 0 {
+			controllerRule.AnyAllConditions = &rule.DeepCopy().AnyAllConditions
+		}
 	}
 
 	if !reflect.DeepEqual(exclude, kyverno.ExcludeResources{}) {

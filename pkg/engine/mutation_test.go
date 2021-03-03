@@ -2,13 +2,13 @@ package engine
 
 import (
 	"encoding/json"
-	"reflect"
-	"testing"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
+	"reflect"
+	"testing"
 )
 
 func Test_VariableSubstitutionOverlay(t *testing.T) {

@@ -583,34 +583,15 @@ spec:
                       maxLength: 63
                       type: string
                     preconditions:
-                      description: Conditions enable variable-based conditional rule
-                        execution. This is useful for finer control of when an rule
-                        is applied. A condition can reference object data using JMESPath
-                        notation.
-                      items:
-                        description: Condition defines variable-based conditional
-                          criteria for rule execution.
-                        properties:
-                          key:
-                            description: Key is the context entry (using JMESPath)
-                              for conditional rule evaluation.
-                            x-kubernetes-preserve-unknown-fields: true
-                          operator:
-                            description: Operator is the operation to perform. Valid
-                              operators are Equals, NotEquals, In and NotIn.
-                            enum:
-                            - Equals
-                            - NotEquals
-                            - In
-                            - NotIn
-                            type: string
-                          value:
-                            description: Value is the conditional value, or set of
-                              values. The values can be fixed set or can be variables
-                              declared using using JMESPath.
-                            x-kubernetes-preserve-unknown-fields: true
-                        type: object
-                      type: array
+                      description: AnyAllConditions enable variable-based conditional
+                        rule execution. This is useful for finer control of when an
+                        rule is applied. A condition can reference object data using
+                        JMESPath notation. This too can be made to happen in a logical-manner
+                        where in some situation all the conditions need to pass and
+                        in some other situation, atleast one condition is enough to
+                        pass. For the sake of backwards compatibility, it can be populated
+                        with []kyverno.Condition.
+                      x-kubernetes-preserve-unknown-fields: true
                     validate:
                       description: Validation is used to validate matching resources.
                       properties:
@@ -624,32 +605,10 @@ spec:
                             rule.
                           properties:
                             conditions:
-                              description: Specifies set of condition to deny.
-                              items:
-                                description: Condition defines variable-based conditional
-                                  criteria for rule execution.
-                                properties:
-                                  key:
-                                    description: Key is the context entry (using JMESPath)
-                                      for conditional rule evaluation.
-                                    x-kubernetes-preserve-unknown-fields: true
-                                  operator:
-                                    description: Operator is the operation to perform.
-                                      Valid operators are Equals, NotEquals, In and
-                                      NotIn.
-                                    enum:
-                                    - Equals
-                                    - NotEquals
-                                    - In
-                                    - NotIn
-                                    type: string
-                                  value:
-                                    description: Value is the conditional value, or
-                                      set of values. The values can be fixed set or
-                                      can be variables declared using using JMESPath.
-                                    x-kubernetes-preserve-unknown-fields: true
-                                type: object
-                              type: array
+                              description: specifies the set of conditions to deny
+                                in a logical manner For the sake of backwards compatibility,
+                                it can be populated with []kyverno.Condition.
+                              x-kubernetes-preserve-unknown-fields: true
                           type: object
                         message:
                           description: Message specifies a custom message to be displayed

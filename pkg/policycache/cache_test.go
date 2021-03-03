@@ -121,13 +121,15 @@ func newPolicy(t *testing.T) *kyverno.ClusterPolicy {
 			  },
 			  "validate": {
 				"deny": {
-				  "conditions": [
-					{
-					  "key": "a",
-					  "operator": "Equals",
-					  "value": "a"
-					}
-				  ]
+				  "conditions": {
+					  "all": [
+						{
+							"key": "a",
+							"operator": "Equals",
+							"value": "a"
+						}
+					]
+				  }
 				}
 			  }
 			},
@@ -226,13 +228,15 @@ func newNsPolicy(t *testing.T) *kyverno.ClusterPolicy {
 			  },
 			  "validate": {
 				"deny": {
-				  "conditions": [
-					{
-					  "key": "a",
-					  "operator": "Equals",
-					  "value": "a"
-					}
-				  ]
+				  "conditions": {
+					"all": [
+						{
+							"key": "a",
+							"operator": "Equals",
+							"value": "a"
+						}
+					]
+				  } 
 				}
 			  }
 			},

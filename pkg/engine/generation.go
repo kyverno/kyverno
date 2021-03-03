@@ -92,7 +92,11 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	}
 
 	// operate on the copy of the conditions, as we perform variable substitution
-	copyConditions := copyConditions(rule.Conditions)
+	copyConditions, err := copyConditions(rule.AnyAllConditions)
+	if err != nil {
+		logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
+		return nil
+	}
 
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {

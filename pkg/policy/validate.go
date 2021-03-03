@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/minio/pkg/wildcard"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -482,32 +483,63 @@ func validateResources(rule kyverno.Rule) (string, error) {
 		return fmt.Sprintf("exclude.resources.%s", path), err
 	}
 
-	//validating the values present under validation.preconditions, if they exist
-	if rule.Conditions != nil {
-		if path, err := validateConditions(rule.Conditions, "preconditions"); err != nil {
+	//validating the values present under validate.preconditions, if they exist
+	if rule.AnyAllConditions != nil {
+		if path, err := validateConditions(rule.AnyAllConditions, "preconditions"); err != nil {
 			return fmt.Sprintf("validate.%s", path), err
 		}
 	}
-	// validating the values present under validation.deny.conditions, if they exist
-	if rule.Validation.Deny != nil {
-		if path, err := validateConditions(rule.Validation.Deny.Conditions, "conditions"); err != nil {
+	//validating the values present under validate.conditions, if they exist
+	if rule.Validation.Deny != nil && rule.Validation.Deny.AnyAllConditions != nil {
+		if path, err := validateConditions(rule.Validation.Deny.AnyAllConditions, "conditions"); err != nil {
 			return fmt.Sprintf("validate.deny.%s", path), err
 		}
 	}
-
 	return "", nil
 }
 
 // validateConditions validates all the 'conditions' or 'preconditions' of a rule depending on the corresponding 'condition.key'.
 // As of now, it is validating the 'value' field whether it contains the only allowed set of values or not when 'condition.key' is {{request.operation}}
-func validateConditions(conditions []kyverno.Condition, schemaKey string) (string, error) {
-	// []kyverno.Condition can only exist under either 'conditions' or 'preconditions' key of the policy schema
-	if schemaKey != "conditions" && schemaKey != "preconditions" {
-		return fmt.Sprintf(schemaKey), fmt.Errorf("wrong schema key found for validating the conditions. Conditions can only occur under 'preconditions' or 'conditions' key in the policy schema")
+// this is backwards compatible i.e. conditions can be provided in the old manner as well i.e. without 'any' or 'all'
+func validateConditions(conditions apiextensions.JSON, schemaKey string) (string, error) {
+	// Conditions can only exist under some specific keys of the policy schema
+	allowedSchemaKeys := map[string]bool{
+		"preconditions": true,
+		"conditions":    true,
 	}
-	for i, condition := range conditions {
-		if path, err := validateConditionValues(condition); err != nil {
-			return fmt.Sprintf("%s[%d].%s", schemaKey, i, path), err
+	if !allowedSchemaKeys[schemaKey] {
+		return fmt.Sprintf(schemaKey), fmt.Errorf("wrong schema key found for validating the conditions. Conditions can only occur under one of ['preconditions', 'conditions'] keys in the policy schema")
+	}
+
+	// conditions are currently in the form of []interface{}
+	kyvernoConditions, err := utils.ApiextensionsJsonToKyvernoConditions(conditions)
+	if err != nil {
+		return fmt.Sprintf("%s", schemaKey), err
+	}
+	switch typedConditions := kyvernoConditions.(type) {
+	case kyverno.AnyAllConditions:
+		// validating the conditions under 'any', if there are any
+		if !reflect.DeepEqual(typedConditions, kyverno.AnyAllConditions{}) && typedConditions.AnyConditions != nil {
+			for i, condition := range typedConditions.AnyConditions {
+				if path, err := validateConditionValues(condition); err != nil {
+					return fmt.Sprintf("%s.any[%d].%s", schemaKey, i, path), err
+				}
+			}
+		}
+		// validating the conditions under 'all', if there are any
+		if !reflect.DeepEqual(typedConditions, kyverno.AnyAllConditions{}) && typedConditions.AllConditions != nil {
+			for i, condition := range typedConditions.AllConditions {
+				if path, err := validateConditionValues(condition); err != nil {
+					return fmt.Sprintf("%s.all[%d].%s", schemaKey, i, path), err
+				}
+			}
+		}
+
+	case []kyverno.Condition: // backwards compatibility
+		for i, condition := range typedConditions {
+			if path, err := validateConditionValues(condition); err != nil {
+				return fmt.Sprintf("%s[%d].%s", schemaKey, i, path), err
+			}
 		}
 	}
 	return "", nil
