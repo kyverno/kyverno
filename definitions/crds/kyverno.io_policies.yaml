@@ -361,7 +361,8 @@ spec:
                           type: array
                         resources:
                           description: ResourceDescription contains information about
-                            the resource being created or modified.
+                            the resource being created or modified. Requires at least
+                            one tag to be specified when under MatchResources.
                           properties:
                             annotations:
                               additionalProperties:
