@@ -24,7 +24,6 @@ spec:
           image: ghcr.io/kyverno/kyvernopre:latest
           imagePullPolicy: IfNotPresent
           securityContext:
-            runAsUser: 1000
             runAsNonRoot: true
             privileged: false
             allowPrivilegeEscalation: false
@@ -57,7 +56,6 @@ spec:
             - name: KYVERNO_SVC
               value: kyverno-svc
           securityContext:
-            runAsUser: 1000
             runAsNonRoot: true
             privileged: false
             allowPrivilegeEscalation: false

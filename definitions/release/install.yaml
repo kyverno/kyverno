@@ -2478,7 +2478,6 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
-          runAsUser: 1000
       initContainers:
       - image: ghcr.io/kyverno/kyvernopre:v1.3.3
         imagePullPolicy: IfNotPresent
@@ -2491,7 +2490,6 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
-          runAsUser: 1000
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kyverno-service-account
