@@ -245,7 +245,7 @@ spec:
                             type: string
                           type: array
                         resources:
-                          description: ResourceDescription contains information about the resource being created or modified.
+                          description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources.
                           properties:
                             annotations:
                               additionalProperties:
@@ -387,6 +387,7 @@ spec:
                       type: object
                     name:
                       description: Name is a label to identify the rule, It must be unique within the policy.
+                      maxLength: 63
                       type: string
                     preconditions:
                       description: AnyAllConditions enable variable-based conditional rule execution. This is useful for finer control of when an rule is applied. A condition can reference object data using JMESPath notation. This too can be made to happen in a logical-manner where in some situation all the conditions need to pass and in some other situation, atleast one condition is enough to pass. For the sake of backwards compatibility, it can be populated with []kyverno.Condition.
@@ -1388,7 +1389,7 @@ spec:
                             type: string
                           type: array
                         resources:
-                          description: ResourceDescription contains information about the resource being created or modified.
+                          description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources.
                           properties:
                             annotations:
                               additionalProperties:
@@ -1530,6 +1531,7 @@ spec:
                       type: object
                     name:
                       description: Name is a label to identify the rule, It must be unique within the policy.
+                      maxLength: 63
                       type: string
                     preconditions:
                       description: AnyAllConditions enable variable-based conditional rule execution. This is useful for finer control of when an rule is applied. A condition can reference object data using JMESPath notation. This too can be made to happen in a logical-manner where in some situation all the conditions need to pass and in some other situation, atleast one condition is enough to pass. For the sake of backwards compatibility, it can be populated with []kyverno.Condition.
@@ -2437,7 +2439,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: ghcr.io/kyverno/kyverno:v1.3.3
+        image: ghcr.io/kyverno/kyverno:v1.3.4-rc1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 4
@@ -2480,7 +2482,7 @@ spec:
           runAsNonRoot: true
           runAsUser: 1000
       initContainers:
-      - image: ghcr.io/kyverno/kyvernopre:v1.3.3
+      - image: ghcr.io/kyverno/kyvernopre:v1.3.4-rc1
         imagePullPolicy: IfNotPresent
         name: kyverno-pre
         securityContext:
