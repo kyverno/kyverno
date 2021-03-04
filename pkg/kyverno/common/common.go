@@ -355,8 +355,6 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		for _, n := range values.NamespaceSelectors {
 			namespaceSelectorMap[n.Name] = n.Labels
 		}
-		fmt.Println("valuesMap: ", valuesMap)
-		fmt.Println("namespaceSelectorMap: ", namespaceSelectorMap)
 	}
 
 	return variables, valuesMap, namespaceSelectorMap, nil
@@ -387,12 +385,13 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	responseError := false
 	rcError := false
 	engineResponses := make([]*response.EngineResponse, 0)
-
 	namespaceLabels := make(map[string]string)
+	resourceNamespace := resource.GetNamespace()
 	namespaceLabels = namespaceSelectorMap[resource.GetNamespace()]
-	fmt.Println("namespaceLabels: ", namespaceLabels)
-	// namespaceLabels["foo.com/managed-state"] = "managed"
 
+	if resourceNamespace != "default" && len(namespaceLabels) < 1 {
+		return engineResponses, &response.EngineResponse{}, responseError, rcError, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
+	}
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	log.Log.V(3).Info("applying policy on resource", "policy", policy.Name, "resource", resPath)
 

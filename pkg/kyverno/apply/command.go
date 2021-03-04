@@ -93,6 +93,13 @@ To apply policy with variables:
 					values:
 					<variable1 in policy2>: <value>
 					<variable2 in policy2>: <value>
+		namespaceSelector:
+			- name: <namespace1 name>
+			labels:
+				<label key>: <label value>
+			- name: <namespace2 name>
+			labels:
+				<label key>: <label value>
 
 More info: https://kyverno.io/docs/kyverno-cli/
 `
