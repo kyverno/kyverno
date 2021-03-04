@@ -17,10 +17,17 @@ import (
 // Created pair is stored in cluster's secret.
 // Returns struct with key/certificate pair.
 func (c *Client) InitTLSPemPair(configuration *rest.Config, serverIP string) (*tls.PemPair, error) {
-	logger := c.log
+	logger := c.log.WithName("InitTLSPemPair")
 	certProps, err := c.GetTLSCertProps(configuration)
 	if err != nil {
 		return nil, err
+	}
+
+	if tlsPair, err := c.ReadTLSPair(certProps); err == nil {
+		logger.Info("Using existing TLS key/certificate pair")
+		return tlsPair, nil
+	} else {
+		logger.V(3).Info("unable to find TLS pair", "reason", err.Error())
 	}
 
 	logger.Info("Building key/certificate pair for TLS")
@@ -82,43 +89,41 @@ const selfSignedAnnotation string = "self-signed-cert"
 const rootCAKey string = "rootCA.crt"
 
 // ReadTLSPair Reads the pair of TLS certificate and key from the specified secret.
-func (c *Client) ReadTLSPair(props tls.CertificateProps) *tls.PemPair {
-	logger := c.log.WithName("ReadTLSPair")
+func (c *Client) ReadTLSPair(props tls.CertificateProps) (*tls.PemPair, error) {
 	sname := generateTLSPairSecretName(props)
 	unstrSecret, err := c.GetResource("", Secrets, props.Namespace, sname)
 	if err != nil {
-		logger.Error(err, "Failed to get secret", "name", sname, "namespace", props.Namespace)
-		return nil
+		return nil, fmt.Errorf("failed to get secret %s/%s: %v", props.Namespace, sname, err)
 	}
 
 	// If secret contains annotation 'self-signed-cert', then it's created using helper scripts to setup self-signed certificates.
-	// As the root CA used to sign the certificate is required for webhook cnofiguration, check if the corresponding secret is created
+	// As the root CA used to sign the certificate is required for webhook configuration, check if the corresponding secret is created
 	annotations := unstrSecret.GetAnnotations()
 	if _, ok := annotations[selfSignedAnnotation]; ok {
 		sname := generateRootCASecretName(props)
 		_, err := c.GetResource("", Secrets, props.Namespace, sname)
 		if err != nil {
-			logger.Error(err, "Root CA secret is required while using self-signed certificates TLS pair, defaulting to generating new TLS pair", "name", sname, "namespace", props.Namespace)
-			return nil
+			return nil, fmt.Errorf("root CA secret is required while using self-signed certificates TLS pair, defaulting to generating new TLS pair  %s/%s", props.Namespace, sname)
 		}
 	}
 	secret, err := convertToSecret(unstrSecret)
 	if err != nil {
-		return nil
+		return nil, err
 	}
+
 	pemPair := tls.PemPair{
 		Certificate: secret.Data[v1.TLSCertKey],
 		PrivateKey:  secret.Data[v1.TLSPrivateKeyKey],
 	}
+
 	if len(pemPair.Certificate) == 0 {
-		logger.Info("TLS Certificate not found in secret", "name", sname, "namespace", props.Namespace)
-		return nil
+		return nil, fmt.Errorf("TLS Certificate not found in secret %s/%s", props.Namespace, sname)
 	}
 	if len(pemPair.PrivateKey) == 0 {
-		logger.Info("TLS PrivateKey not found in secret", "name", sname, "namespace", props.Namespace)
-		return nil
+		return nil, fmt.Errorf("TLS PrivateKey not found in secret %s/%s", props.Namespace, sname)
 	}
-	return &pemPair
+
+	return &pemPair, nil
 }
 
 // WriteCACertToSecret stores the CA cert in secret
