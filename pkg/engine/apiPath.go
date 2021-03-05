@@ -127,9 +127,9 @@ func (a *APIPath) String() string {
 	var paths []string
 	if a.Namespace != "" {
 		if a.Name == "" {
-			paths = []string{a.Root, a.Group, a.Version, a.ResourceType, "namespaces", a.Namespace}
+			paths = []string{a.Root, a.Group, a.Version, "namespaces", a.Namespace, a.ResourceType}
 		} else {
-			paths = []string{a.Root, a.Group, a.Version, a.ResourceType, "namespaces", a.Namespace, a.Name}
+			paths = []string{a.Root, a.Group, a.Version, "namespaces", a.Namespace, a.ResourceType, a.Name}
 		}
 	} else {
 		if a.Name != "" {
