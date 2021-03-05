@@ -123,6 +123,7 @@ func (wrc *Register) Check() error {
 // Remove removes all webhook configurations
 func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 	wrc.removeWebhookConfigurations()
+	wrc.removeSecrets()
 	close(cleanUp)
 }
 
@@ -434,4 +435,25 @@ func (wrc *Register) getVerifyWebhookMutatingWebhookName() string {
 // GetWebhookTimeOut returns the value of webhook timeout
 func (wrc *Register) GetWebhookTimeOut() time.Duration {
 	return time.Duration(wrc.timeoutSeconds)
+}
+
+// removeSecrets removes Kyverno managed secrets
+func (wrc *Register) removeSecrets() {
+	selector := &v1.LabelSelector{
+		MatchLabels: map[string]string{
+			client.ManagedByLabel: "kyverno",
+		},
+	}
+
+	secretList, err := wrc.client.ListResource("", "Secret", config.KyvernoNamespace, selector)
+	if err != nil && errorsapi.IsNotFound(err) {
+		wrc.log.Error(err, "failed to clean up Kyverno managed secrets")
+		return
+	}
+
+	for _, secret := range secretList.Items {
+		if err := wrc.client.DeleteResource("", "Secret", secret.GetNamespace(), secret.GetName(), false); err != nil {
+			wrc.log.Error(err, "failed to delete secret", "ns", secret.GetNamespace(), "name", secret.GetName())
+		}
+	}
 }

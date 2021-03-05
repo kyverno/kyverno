@@ -23,20 +23,20 @@ func (c *Client) InitTLSPemPair(configuration *rest.Config, serverIP string) (*t
 		return nil, err
 	}
 
-	if tlsPair, err := c.ReadTLSPair(certProps); err == nil {
-		logger.Info("Using existing TLS key/certificate pair")
+	tlsPair, err := c.ReadTLSPair(certProps)
+	if err == nil {
+		logger.Info("using existing TLS key/certificate pair")
 		return tlsPair, nil
-	} else {
-		logger.V(3).Info("unable to find TLS pair", "reason", err.Error())
 	}
+	logger.V(3).Info("unable to find TLS pair", "reason", err.Error())
 
-	logger.Info("Building key/certificate pair for TLS")
-	tlsPair, err := c.buildTLSPemPair(certProps, serverIP)
+	logger.Info("building key/certificate pair for TLS")
+	tlsPair, err = c.buildTLSPemPair(certProps, serverIP)
 	if err != nil {
 		return nil, err
 	}
 	if err = c.WriteTLSPairToSecret(certProps, tlsPair); err != nil {
-		return nil, fmt.Errorf("Unable to save TLS pair to the cluster: %v", err)
+		return nil, fmt.Errorf("unable to save TLS pair to the cluster: %v", err)
 	}
 
 	return tlsPair, nil
@@ -85,8 +85,13 @@ func (c *Client) ReadRootCASecret() (result []byte) {
 	return result
 }
 
-const selfSignedAnnotation string = "self-signed-cert"
-const rootCAKey string = "rootCA.crt"
+const (
+	// ManagedByLabel is added to Kyverno managed secrets
+	ManagedByLabel string = "cert.kyverno.io/managed-by"
+
+	selfSignedAnnotation string = "self-signed-cert"
+	rootCAKey            string = "rootCA.crt"
+)
 
 // ReadTLSPair Reads the pair of TLS certificate and key from the specified secret.
 func (c *Client) ReadTLSPair(props tls.CertificateProps) (*tls.PemPair, error) {
@@ -144,6 +149,9 @@ func (c *Client) WriteCACertToSecret(caPEM *tls.PemPair, props tls.CertificatePr
 				Annotations: map[string]string{
 					selfSignedAnnotation: "true",
 				},
+				Labels: map[string]string{
+					ManagedByLabel: "kyverno",
+				},
 			},
 			Data: map[string][]byte{
 				rootCAKey: caPEM.Certificate,
@@ -192,6 +200,9 @@ func (c *Client) WriteTLSPairToSecret(props tls.CertificateProps, pemPair *tls.P
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: props.Namespace,
+				Labels: map[string]string{
+					ManagedByLabel: "kyverno",
+				},
 			},
 			Data: map[string][]byte{
 				v1.TLSCertKey:       pemPair.Certificate,
