@@ -21,4 +21,8 @@ func Test_Paths(t *testing.T) {
 	f("/api/v1/namespace/{{ request.namespace }}/", "/api/v1/namespace/{{ request.namespace }}")
 	f("/api/v1/namespace/{{ request.namespace }}/  ", "/api/v1/namespace/{{ request.namespace }}")
 	f("  /api/v1/namespace/{{ request.namespace }}", "/api/v1/namespace/{{ request.namespace }}")
+	f("/apis/gloo.solo.io/v1/namespaces/gloo-system/upstreams", "/apis/gloo.solo.io/v1/namespaces/gloo-system/upstreams")
+	f("/apis/gloo.solo.io/v1/namespaces/gloo-system/upstreams/", "/apis/gloo.solo.io/v1/namespaces/gloo-system/upstreams")
+	f("/apis/gloo.solo.io/v1/namespaces/gloo-system/upstreams/  ", "/apis/gloo.solo.io/v1/namespaces/gloo-system/upstreams")
+	f("  /apis/gloo.solo.io/v1/namespaces/gloo-system/upstreams", "/apis/gloo.solo.io/v1/namespaces/gloo-system/upstreams")
 }
