@@ -31,3 +31,24 @@ Checkout out the Kyverno <a href="https://kyverno.io/community">Community</a> pa
 - For discussions or questions, join the **#kyverno** channel on the [Kubernetes Slack](https://kubernetes.slack.com/) or the [mailing list](https://groups.google.com/g/kyverno).
 
 
+## pre-commit
+pre-commit hook which runs kyverno docker image. This container can use github as a remote ref because it has been added to known hosts at build. For other git providers please raise an issue
+
+## Example of .pre-commit-config.yaml that verifies that policies in the current repo 
+```yaml
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.4.0
+    hooks:
+    -   id: check-yaml
+        args: [--allow-multiple-documents]
+    -   id: check-added-large-files
+-   repo: https://github.com/kyverno/kyverno
+    rev: 1.3.4
+    hooks:
+    -   id: kyverno
+        name: kyverno-validate
+        args: [./]
+        verbose: false
