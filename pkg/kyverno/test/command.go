@@ -48,7 +48,7 @@ func Command() *cobra.Command {
 					}
 				}
 			}()
-			err = testCommandExecute(dirPath, valuesFile, fileName)
+			_, err = testCommandExecute(dirPath, valuesFile, fileName)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
 				return err
@@ -105,33 +105,40 @@ type Values struct {
 	Policies []Policy `json:"policies"`
 }
 
-func testCommandExecute(dirPath []string, valuesFile string, fileName string) (err error) {
+type resultCounts struct {
+	pass int
+	fail int
+}
+
+func testCommandExecute(dirPath []string, valuesFile string, fileName string) (rc *resultCounts, err error) {
 	var errors []error
 	fs := memfs.New()
-
+	rc = &resultCounts{}
 	if len(dirPath) == 0 {
-		return sanitizederror.NewWithError(fmt.Sprintf("a directory is required"), err)
+		return rc, sanitizederror.NewWithError(fmt.Sprintf("a directory is required"), err)
 	}
 	if strings.Contains(string(dirPath[0]), "https://") {
-		gitUrl, err := url.Parse(dirPath[0])
+		gitURL, err := url.Parse(dirPath[0])
 		if err != nil {
-			return sanitizederror.NewWithError("failed to parse URL", err)
+			return rc, sanitizederror.NewWithError("failed to parse URL", err)
 		}
-		pathElems := strings.Split(gitUrl.Path[1:], "/")
+		pathElems := strings.Split(gitURL.Path[1:], "/")
 		if len(pathElems) != 3 {
-			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch", gitUrl.Path)
-			return sanitizederror.NewWithError("failed to parse URL", err)
+			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch", gitURL.Path)
+			fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
+			os.Exit(1)
 		}
-		gitUrl.Path = strings.Join([]string{"/", pathElems[0], pathElems[1]}, "/")
-		repoURL := gitUrl.String()
+		gitURL.Path = strings.Join([]string{"/", pathElems[0], pathElems[1]}, "/")
+		repoURL := gitURL.String()
 		cloneRepo, err := clone(repoURL, fs)
 		if err != nil {
-			return sanitizederror.NewWithError("failed to clone repository ", err)
+			fmt.Printf("Error: failed to clone repository \nCause: %s\n", err)
+			os.Exit(1)
 		}
 		log.Log.V(3).Info(" clone repository", cloneRepo)
 		policyYamls, err := listYAMLs(fs, "/")
 		if err != nil {
-			return sanitizederror.NewWithError("failed to list YAMLs in repository", err)
+			return rc, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
 		}
 		sort.Strings(policyYamls)
 		for _, yamlFilePath := range policyYamls {
@@ -148,8 +155,8 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (e
 					sanitizederror.NewWithError("failed to convert to JSON", err)
 					continue
 				}
-				if err := applyPoliciesFromPath(fs, policyBytes, valuesFile, true, policyresoucePath); err != nil {
-					return sanitizederror.NewWithError("failed to apply test command", err)
+				if err := applyPoliciesFromPath(fs, policyBytes, valuesFile, true, policyresoucePath, rc); err != nil {
+					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
 			}
 			if err != nil {
@@ -162,7 +169,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (e
 		if err != nil {
 			errors = append(errors, err)
 		}
-		err := getLocalDirTestFiles(fs, path, fileName, valuesFile)
+		err := getLocalDirTestFiles(fs, path, fileName, valuesFile, rc)
 		if err != nil {
 			errors = append(errors, err)
 		}
@@ -173,17 +180,21 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (e
 			}
 		}
 	}
-	return nil
+	if rc.fail > 0 {
+		os.Exit(1)
+	}
+	os.Exit(0)
+	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string) error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts) error {
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
 		return fmt.Errorf("failed to read %v: %v", path, err.Error())
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc)
 			continue
 		}
 		if strings.Contains(file.Name(), fileName) {
@@ -197,7 +208,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 				sanitizederror.NewWithError("failed to convert json", err)
 				continue
 			}
-			if err := applyPoliciesFromPath(fs, valuesBytes, valuesFile, false, path); err != nil {
+			if err := applyPoliciesFromPath(fs, valuesBytes, valuesFile, false, path, rc); err != nil {
 				sanitizederror.NewWithError("failed to apply test command", err)
 				continue
 			}
@@ -243,7 +254,7 @@ func getPolicyResouceFullPath(path []string, policyresoucePath string, isGit boo
 	return path
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyresoucePath string) (err error) {
+func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyresoucePath string, rc *resultCounts) (err error) {
 	openAPIController, err := openapi.NewOpenAPIController()
 	engineResponses := make([]*response.EngineResponse, 0)
 	validateEngineResponses := make([]*response.EngineResponse, 0)
@@ -332,14 +343,14 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		}
 	}
 	resultsMap := buildPolicyResults(validateEngineResponses)
-	resultErr := printTestResult(resultsMap, values.Results)
+	resultErr := printTestResult(resultsMap, values.Results, rc)
 	if resultErr != nil {
 		return sanitizederror.NewWithError("Unable to genrate result. Error:", resultErr)
 	}
 	return
 }
 
-func printTestResult(resps map[string][]interface{}, testResults []TestResults) error {
+func printTestResult(resps map[string][]interface{}, testResults []TestResults, rc *resultCounts) error {
 	printer := tableprinter.New(os.Stdout)
 	table := []*Table{}
 	boldRed := color.New(color.FgRed).Add(color.Bold)
@@ -367,6 +378,9 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults) 
 					resource.Resource = testRes.Resources[0].Name
 					if v == resource {
 						res.Result = "Pass"
+						rc.pass++
+					} else {
+						rc.fail++
 					}
 				}
 			}

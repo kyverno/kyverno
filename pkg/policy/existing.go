@@ -51,15 +51,14 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 	}
 }
 
-func (pc *PolicyController) registerResource(kind string) (err error) {
-	genericCache, ok := pc.resCache.GetGVRCache(kind)
+func (pc *PolicyController) registerResource(gvk string) (err error) {
+	genericCache, ok := pc.resCache.GetGVRCache(gvk)
 	if !ok {
-		if genericCache, err = pc.resCache.CreateResourceInformer(kind); err != nil {
-			return fmt.Errorf("failed to create informer for %s: %v", kind, err)
+		if genericCache, err = pc.resCache.CreateGVKInformer(gvk); err != nil {
+			return fmt.Errorf("failed to create informer for %s: %v", gvk, err)
 		}
 	}
-
-	pc.rm.RegisterScope(kind, genericCache.IsNamespaced())
+	pc.rm.RegisterScope(gvk, genericCache.IsNamespaced())
 	return nil
 }
 
