@@ -12,7 +12,7 @@ import (
 // ResourceCache - allows the creation, deletion and saving the resource informers as a cache
 type ResourceCache interface {
 	CreateInformers(resources ...string) []error
-	CreateResourceInformer(resource string) (GenericCache, error)
+	CreateGVKInformer(kind string) (GenericCache, error)
 	StopResourceInformer(resource string)
 	GetGVRCache(resource string) (GenericCache, bool)
 }

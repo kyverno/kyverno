@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/go-logr/logr"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -63,4 +64,16 @@ func GetNamespaceLabels(namespaceObj *v1.Namespace, logger logr.Logger) map[stri
 		logger.Error(err, "failed to convert object resource to unstructured format")
 	}
 	return namespaceUnstructured.GetLabels()
+}
+
+// GetKindFromGVK - get kind and APIVersion from GVK
+func GetKindFromGVK(str string) (apiVersion string, kind string) {
+	if strings.Count(str, "/") == 0 {
+		return "", str
+	}
+	splitString := strings.Split(str, "/")
+	if strings.Count(str, "/") == 1 {
+		return splitString[0], splitString[1]
+	}
+	return splitString[0] + "/" + splitString[1], splitString[2]
 }
