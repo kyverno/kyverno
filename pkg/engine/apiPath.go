@@ -81,7 +81,7 @@ func NewAPIPath(path string) (*APIPath, error) {
 		return &APIPath{
 			Root:         paths[0],
 			Group:        paths[1],
-			Version:      paths[2],
+			Version:      paths[1] + "/" + paths[2],
 			ResourceType: paths[3],
 		}, nil
 	}
@@ -91,7 +91,7 @@ func NewAPIPath(path string) (*APIPath, error) {
 		return &APIPath{
 			Root:         paths[0],
 			Group:        paths[1],
-			Version:      paths[2],
+			Version:      paths[1] + "/" + paths[2],
 			ResourceType: paths[3],
 			Name:         paths[4],
 		}, nil
@@ -102,7 +102,7 @@ func NewAPIPath(path string) (*APIPath, error) {
 		return &APIPath{
 			Root:         paths[0],
 			Group:        paths[1],
-			Version:      paths[2],
+			Version:      paths[1] + "/" + paths[2],
 			Namespace:    paths[4],
 			ResourceType: paths[5],
 		}, nil
@@ -113,7 +113,7 @@ func NewAPIPath(path string) (*APIPath, error) {
 		return &APIPath{
 			Root:         paths[0],
 			Group:        paths[1],
-			Version:      paths[2],
+			Version:      paths[1] + "/" + paths[2],
 			Namespace:    paths[4],
 			ResourceType: paths[5],
 			Name:         paths[6],
@@ -125,17 +125,33 @@ func NewAPIPath(path string) (*APIPath, error) {
 
 func (a *APIPath) String() string {
 	var paths []string
-	if a.Namespace != "" {
-		if a.Name == "" {
-			paths = []string{a.Root, a.Group, a.Version, "namespaces", a.Namespace, a.ResourceType}
+	if a.Root == "apis" {
+		if a.Namespace != "" {
+			if a.Name == "" {
+				paths = []string{a.Root, a.Version, "namespaces", a.Namespace, a.ResourceType}
+			} else {
+				paths = []string{a.Root, a.Version, "namespaces", a.Namespace, a.ResourceType, a.Name}
+			}
 		} else {
-			paths = []string{a.Root, a.Group, a.Version, "namespaces", a.Namespace, a.ResourceType, a.Name}
+			if a.Name != "" {
+				paths = []string{a.Root, a.Version, a.ResourceType, a.Name}
+			} else {
+				paths = []string{a.Root, a.Version, a.ResourceType}
+			}
 		}
 	} else {
-		if a.Name != "" {
-			paths = []string{a.Root, a.Group, a.Version, a.ResourceType, a.Name}
+		if a.Namespace != "" {
+			if a.Name == "" {
+				paths = []string{a.Root, a.Group, "namespaces", a.Namespace, a.ResourceType}
+			} else {
+				paths = []string{a.Root, a.Group, "namespaces", a.Namespace, a.ResourceType, a.Name}
+			}
 		} else {
-			paths = []string{a.Root, a.Group, a.Version, a.ResourceType}
+			if a.Name != "" {
+				paths = []string{a.Root, a.Group, a.ResourceType, a.Name}
+			} else {
+				paths = []string{a.Root, a.Group, a.ResourceType}
+			}
 		}
 	}
 
