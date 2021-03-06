@@ -95,6 +95,10 @@ func subValR(log logr.Logger, ctx context.EvalInterface, valuePattern string, pa
 			variable = strings.ReplaceAll(variable, "}}", "")
 			variable = strings.TrimSpace(variable)
 			substitutedVar, err := ctx.Query(variable)
+			fmt.Println("-----------------")
+			fmt.Println(substitutedVar)
+			fmt.Println(variable)
+			fmt.Println("-----------------")
 			if err != nil {
 				switch err.(type) {
 				case context.InvalidVariableErr:

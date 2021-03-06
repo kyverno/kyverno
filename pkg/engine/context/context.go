@@ -48,13 +48,13 @@ type Context struct {
 	log               logr.Logger
 }
 
-type imgInfo map[string]string
+// type imgInfo map[string]string
 
-// type imgInfo struct {
-// 	imgRegistryURL string `json:"registryURL"`
-// 	imgName        string `json:"name"`
-// 	imgTag         string `json:"tag"`
-// }
+type imgInfo struct {
+	registryURL string `json:"registryURL"`
+	name        string `json:"name"`
+	tag         string `json:"tag"`
+}
 
 //NewContext returns a new context
 // builtInVars is the list of known variables (e.g. serviceAccountName)
@@ -154,11 +154,11 @@ func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 
 //AddImageDetails checks if kind is pod or pod controller, then loads details about the image
 func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface interface{}) error {
-	containerImages := make(map[string]string)
-	containerImgs := make(map[string]imgInfo)
+	var containerImages []string
+	var containerImgs []imgInfo
 
-	initContainerImages := make(map[string]string)
-	initContainerImgs := make(map[string]imgInfo)
+	var initContainerImages []string
+	var initContainerImgs []imgInfo
 
 	kind := kindInterface.(string)
 	spec := specInterface.(map[string]interface{})
@@ -168,15 +168,15 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 		for _, v := range containersMap { //containers is a slice of maps where each map represents an image
 			v2 := v.(map[string]interface{})
 			imageString := v2["image"].(string)
-			imageNameString := v2["name"].(string)
-			containerImages[imageNameString] = imageString
+			//imageNameString := v2["name"].(string)
+			containerImages = append(containerImages, imageString)
 		}
 		initContainersMap := spec["initContainers"].([]interface{})
 		for _, v := range initContainersMap { //containers is a slice of maps where each map represents an image
 			v2 := v.(map[string]interface{})
 			imageString := v2["image"].(string)
-			imageNameString := v2["name"].(string)
-			initContainerImages[imageNameString] = imageString
+			//imageNameString := v2["name"].(string)
+			initContainerImages = append(initContainerImages, imageString)
 		}
 	}
 
@@ -187,73 +187,97 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 		for _, v := range containersMap { //containers is a slice of maps where each map represents an image
 			v2 := v.(map[string]interface{})
 			imageString := v2["image"].(string)
-			imageNameString := v2["name"].(string)
-			containerImages[imageNameString] = imageString
+			//imageNameString := v2["name"].(string)
+			containerImages = append(containerImages, imageString)
 		}
 		initContainersMap := templateSpec["initContainers"].([]interface{})
 		for _, v := range initContainersMap { //containers is a slice of maps where each map represents an image
 			v2 := v.(map[string]interface{})
 			imageString := v2["image"].(string)
-			imageNameString := v2["name"].(string)
-			initContainerImages[imageNameString] = imageString
+			//imageNameString := v2["name"].(string)
+			initContainerImages = append(initContainerImages, imageString)
 		}
 	}
 
 	fmt.Println(containerImages)
 
-	for imageName, image := range containerImages {
-		img := make(imgInfo)
+	for _, image := range containerImages {
+		var img imgInfo
 		if strings.Contains(image, "/") {
 			res := strings.Split(image, "/")
-			img["registryURL"] = res[0]
+			img.registryURL = res[0]
 			image = res[1]
 		} else {
-			img["registryURL"] = ""
+			img.registryURL = ""
 		}
 		if strings.Contains(image, ":") {
 			res := strings.Split(image, ":")
-			img["name"] = res[0]
-			img["tag"] = res[1]
+			img.name = res[0]
+			img.tag = res[1]
 		} else {
-			img["name"] = image
-			img["tag"] = "latest"
+			img.name = image
+			img.tag = "latest"
 		}
-		containerImgs[imageName] = img
+		containerImgs = append(containerImgs, img)
 	}
 	fmt.Println(containerImgs)
 
 	fmt.Println(initContainerImages)
 
-	for imageName, image := range initContainerImages {
-		img := make(imgInfo)
+	for _, image := range initContainerImages {
+		var img imgInfo
 		if strings.Contains(image, "/") {
 			res := strings.Split(image, "/")
-			img["registryURL"] = res[0]
+			img.registryURL = res[0]
 			image = res[1]
 		} else {
-			img["registryURL"] = ""
+			img.registryURL = ""
 		}
 		if strings.Contains(image, ":") {
 			res := strings.Split(image, ":")
-			img["name"] = res[0]
-			img["tag"] = res[1]
+			img.name = res[0]
+			img.tag = res[1]
 		} else {
-			img["name"] = image
-			img["tag"] = "latest"
+			img.name = image
+			img.tag = "latest"
 		}
-		initContainerImgs[imageName] = img
+		initContainerImgs = append(initContainerImgs, img)
 	}
 	fmt.Println(initContainerImgs)
 
-	imgs := make(map[string]map[string]imgInfo)
-	imgs["containers"] = containerImgs
-	imgs["initContainers"] = initContainerImgs
+	// imgs := make(map[string]map[string]imgInfo)
+	// imgs["containers"] = containerImgs
+	// imgs["initContainers"] = initContainerImgs
 
+	// imgsObj := struct {
+	// 	IMGS map[string]map[string]imgInfo `json:"images"`
+	// }{
+	// 	IMGS: imgs,
+	// }
+
+	// imgsObj := struct {
+	// 	Images interface{} `json:"images"`
+	// }{
+	// 	Images: struct {
+	// 		Containers     interface{} `json:"containers"`
+	// 		InitContainers interface{} `json:"initContainers"`
+	// 	}{
+	// 		Containers:     containerImgs,
+	// 		InitContainers: initContainerImgs,
+	// 	},
+	// }
 	imgsObj := struct {
-		IMGS map[string]map[string]imgInfo `json:"images"`
+		Images interface{} `json:"images"`
 	}{
-		IMGS: imgs,
+		Images: struct {
+			Containers     interface{} `json:"containers"`
+			InitContainers interface{} `json:"initContainers"`
+		}{
+			Containers:     containerImgs,
+			InitContainers: initContainerImgs,
+		},
 	}
+
 	fmt.Println("$$$$$")
 	fmt.Println(imgsObj)
 	fmt.Println("$$$$$")
