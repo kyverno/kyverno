@@ -6,11 +6,16 @@ spec:
   background: true
   validationFailureAction: enforce  
   rules:
-    match:
+  - match:
       resources:
         kinds:
         - Pod
-    name: capabilities
+        - Cronjobs
+        - Deployments
+        - StatefulSet
+        - DaemonSet
+        - Job
+    name: linkerd-proxy-capabilities
     validate:
       message: Adding of additional capabilities beyond the default set is not allowed.
         The fields spec.containers[*].securityContext.capabilities.add and  spec.initContainers[*].securityContext.capabilities.add
@@ -24,48 +29,3 @@ spec:
           - =(securityContext):
               =(capabilities): {}
             name: "!linkerd-proxy"
-    match:
-      resources:
-        kinds:
-        - DaemonSet
-        - Deployment
-        - Job
-        - StatefulSet
-    name: autogen-capabilities
-    validate:
-      message: Adding of additional capabilities beyond the default set is not allowed.
-        The fields spec.containers[*].securityContext.capabilities.add and  spec.initContainers[*].securityContext.capabilities.add
-        must be empty.
-      pattern:
-        spec:
-          template:
-            spec:
-              =(initContainers):
-              - =(securityContext):
-                  =(capabilities): {}
-              containers:
-              - =(securityContext):
-                  =(capabilities): {}
-                name: "!linkerd-proxy"
-    match:
-      resources:
-        kinds:
-        - CronJob
-    name: autogen-cronjob-capabilities
-    validate:
-      message: Adding of additional capabilities beyond the default set is not allowed.
-        The fields spec.containers[*].securityContext.capabilities.add and  spec.initContainers[*].securityContext.capabilities.add
-        must be empty.
-      pattern:
-        spec:
-          jobTemplate:
-            spec:
-              template:
-                spec:
-                  =(initContainers):
-                  - =(securityContext):
-                      =(capabilities): {}
-                  containers:
-                  - =(securityContext):
-                      =(capabilities): {}
-                    name: "!linkerd-proxy"
