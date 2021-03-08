@@ -10,7 +10,6 @@ func Test_Mutate_Validate_qos(t *testing.T) {
 	testScenario(t, "/test/scenarios/other/scenario_mutate_validate_qos.yaml")
 }
 
-
 func Test_disallow_priviledged(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/disallow_priviledged.yaml")
 }
@@ -26,7 +25,6 @@ func Test_validate_host_network_port(t *testing.T) {
 func Test_validate_host_PID_IPC(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/disallow_host_pid_ipc.yaml")
 }
-
 
 //TODO: support generate
 // func Test_add_ns_quota(t *testing.T) {
