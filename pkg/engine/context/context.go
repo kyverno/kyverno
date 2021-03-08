@@ -51,9 +51,9 @@ type Context struct {
 // type imgInfo map[string]string
 
 type imgInfo struct {
-	registryURL string `json:"registryURL"`
-	name        string `json:"name"`
-	tag         string `json:"tag"`
+	RegistryURL string `json:"registryURL"`
+	Name        string `json:"name"`
+	Tag         string `json:"tag"`
 }
 
 //NewContext returns a new context
@@ -205,18 +205,18 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 		var img imgInfo
 		if strings.Contains(image, "/") {
 			res := strings.Split(image, "/")
-			img.registryURL = res[0]
+			img.RegistryURL = res[0]
 			image = res[1]
 		} else {
-			img.registryURL = ""
+			img.RegistryURL = ""
 		}
 		if strings.Contains(image, ":") {
 			res := strings.Split(image, ":")
-			img.name = res[0]
-			img.tag = res[1]
+			img.Name = res[0]
+			img.Tag = res[1]
 		} else {
-			img.name = image
-			img.tag = "latest"
+			img.Name = image
+			img.Tag = "latest"
 		}
 		containerImgs = append(containerImgs, img)
 	}
@@ -228,18 +228,18 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 		var img imgInfo
 		if strings.Contains(image, "/") {
 			res := strings.Split(image, "/")
-			img.registryURL = res[0]
+			img.RegistryURL = res[0]
 			image = res[1]
 		} else {
-			img.registryURL = ""
+			img.RegistryURL = ""
 		}
 		if strings.Contains(image, ":") {
 			res := strings.Split(image, ":")
-			img.name = res[0]
-			img.tag = res[1]
+			img.Name = res[0]
+			img.Tag = res[1]
 		} else {
-			img.name = image
-			img.tag = "latest"
+			img.Name = image
+			img.Tag = "latest"
 		}
 		initContainerImgs = append(initContainerImgs, img)
 	}
@@ -270,8 +270,8 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 		Images interface{} `json:"images"`
 	}{
 		Images: struct {
-			Containers     interface{} `json:"containers"`
-			InitContainers interface{} `json:"initContainers"`
+			Containers     []imgInfo `json:"containers"`
+			InitContainers []imgInfo `json:"initContainers"`
 		}{
 			Containers:     containerImgs,
 			InitContainers: initContainerImgs,
