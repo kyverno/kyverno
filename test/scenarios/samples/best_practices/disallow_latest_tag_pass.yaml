@@ -1,6 +1,6 @@
 # file path relative to project root
 input:
-  policy: samples/best_practices/disallow_latest_tag.yaml
+  policy: test/best_practices/disallow_latest_tag.yaml
   resource: test/resources/pod_with_version_tag.yaml
 expected:
   validation:

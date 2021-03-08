@@ -1,6 +1,6 @@
 # file paths are relative to project root
 input:
-  policy: samples/best_practices/disallow_helm_tiller.yaml
+  policy: test/best_practices/disallow_helm_tiller.yaml
   resource: test/resources/disallow_helm_tiller.yaml
 expected:
   validation:

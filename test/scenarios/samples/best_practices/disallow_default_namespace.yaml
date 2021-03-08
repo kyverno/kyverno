@@ -1,6 +1,6 @@
 # file path relative to project root
 input:
-  policy: samples/best_practices/disallow_default_namespace.yaml
+  policy: test/best_practices/disallow_default_namespace.yaml
   resource: test/resources/disallow_default_namespace.yaml
 expected:
   validation:

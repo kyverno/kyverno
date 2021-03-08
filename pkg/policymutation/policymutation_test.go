@@ -26,7 +26,7 @@ func Test_Exclude(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/samples/best_practices/disallow_bind_mounts.yaml")
+	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}
@@ -57,7 +57,7 @@ func Test_CronJobOnly(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/samples/best_practices/disallow_bind_mounts.yaml")
+	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}
@@ -90,7 +90,7 @@ func Test_CronJob_hasExclude(t *testing.T) {
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
 
-	file, err := ioutil.ReadFile(baseDir + "/samples/best_practices/disallow_bind_mounts.yaml")
+	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}
@@ -126,7 +126,7 @@ func Test_CronJobAndDeployment(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/samples/best_practices/disallow_bind_mounts.yaml")
+	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}

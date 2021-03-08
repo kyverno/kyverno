@@ -1,6 +1,6 @@
 # file path relative to project root
 input:  
-  policy: samples/best_practices/disallow_new_capabilities.yaml
+  policy: test/best_practices/disallow_new_capabilities.yaml
   resource: test/resources/disallow_new_capabilities.yaml
 expected:
   validation:

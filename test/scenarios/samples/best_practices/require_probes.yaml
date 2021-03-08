@@ -1,6 +1,6 @@
 # file path relative to project root
 input:
-  policy: samples/best_practices/require_probes.yaml
+  policy: test/best_practices/require_probes.yaml
   resource: test/resources/require_probes.yaml
 expected:
   validation:

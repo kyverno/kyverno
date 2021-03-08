@@ -1,7 +1,7 @@
 
 # file path relative to project root
 input:
-  policy: samples/best_practices/disallow_sysctls.yaml
+  policy: test/best_practices/disallow_sysctls.yaml
   resource: test/resources/resource_validate_sysctl_configs.yaml
 expected:
   validation:
