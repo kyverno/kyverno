@@ -380,11 +380,27 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 
 	ctx := context.NewContext()
 	for key, value := range variables {
+		var subString string
+		splitBySlash := strings.Split(key, "\"")
+		if len(splitBySlash) > 1 {
+			subString = splitBySlash[1]
+		}
+
 		startString := ""
 		endString := ""
-		for _, k := range strings.Split(key, ".") {
-			startString += fmt.Sprintf(`{"%s":`, k)
-			endString += `}`
+		lenOfVariableString := 0
+		addedSlashString := false
+		for _, k := range strings.Split(splitBySlash[0], ".") {
+			if k != "" {
+				startString += fmt.Sprintf(`{"%s":`, k)
+				endString += `}`
+				lenOfVariableString = lenOfVariableString + len(k) + 1
+				if lenOfVariableString >= len(splitBySlash[0]) && len(splitBySlash) > 1 && addedSlashString == false {
+					startString += fmt.Sprintf(`{"%s":`, subString)
+					endString += `}`
+					addedSlashString = true
+				}
+			}
 		}
 
 		midString := fmt.Sprintf(`"%s"`, value)
