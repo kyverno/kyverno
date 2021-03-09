@@ -168,10 +168,6 @@ func isSubset(key []string, value []string) bool {
 		count, found := set[val]
 		if !found {
 			return false
-		} else if count < 1 {
-			return false
-		} else {
-			set[val] = count - 1
 		}
 	}
 
