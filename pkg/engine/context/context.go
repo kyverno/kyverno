@@ -56,6 +56,11 @@ type imgInfo struct {
 	Tag         string `json:"tag"`
 }
 
+type mapImgInfo struct {
+	Name string `json:"{.Name}"`
+}
+
+//formtat libraries to cheage json tag and embed it
 //NewContext returns a new context
 // builtInVars is the list of known variables (e.g. serviceAccountName)
 func NewContext(builtInVars ...string) *Context {
