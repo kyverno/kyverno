@@ -64,7 +64,7 @@ func Test_NamespaceSelector(t *testing.T) {
 			policy:   policyNamespaceSeelector,
 			resource: []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"nginx","namespace":"test1"},"spec":{"containers":[{"image":"nginx:latest","name":"test-fail"}]}}`),
 			namespaceSelectorMap: map[string]map[string]string{
-				"test1": map[string]string{
+				"test1": {
 					"foo.com/managed-state": "managed",
 				},
 			},
@@ -74,7 +74,7 @@ func Test_NamespaceSelector(t *testing.T) {
 			policy:   policyNamespaceSeelector,
 			resource: []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test-nginx","namespace":"test1"},"spec":{"containers":[{"image":"nginx:latest","name":"test-pass"}]}}`),
 			namespaceSelectorMap: map[string]map[string]string{
-				"test1": map[string]string{
+				"test1": {
 					"foo.com/managed-state": "managed",
 				},
 			},
