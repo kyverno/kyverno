@@ -165,7 +165,7 @@ func isSubset(key []string, value []string) bool {
 	}
 
 	for _, val := range key {
-		count, found := set[val]
+		_, found := set[val]
 		if !found {
 			return false
 		}
