@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
@@ -25,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	ut "github.com/kyverno/kyverno/pkg/utils"
 	yamlv2 "gopkg.in/yaml.v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -382,16 +384,29 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
 	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string) ([]*response.EngineResponse, *response.EngineResponse, bool, bool, error) {
 
+	var emptyNamespaceSelector *metav1.LabelSelector
 	responseError := false
 	rcError := false
 	engineResponses := make([]*response.EngineResponse, 0)
 	namespaceLabels := make(map[string]string)
-	resourceNamespace := resource.GetNamespace()
-	namespaceLabels = namespaceSelectorMap[resource.GetNamespace()]
 
-	if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-		return engineResponses, &response.EngineResponse{}, responseError, rcError, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
+	policyWithNamespaceSelector := false
+	for _, p := range policy.Spec.Rules {
+		if !reflect.DeepEqual(p.MatchResources.ResourceDescription.NamespaceSelector, emptyNamespaceSelector) ||
+			!reflect.DeepEqual(p.ExcludeResources.ResourceDescription.NamespaceSelector, emptyNamespaceSelector) {
+			policyWithNamespaceSelector = true
+			break
+		}
 	}
+
+	if policyWithNamespaceSelector {
+		resourceNamespace := resource.GetNamespace()
+		namespaceLabels = namespaceSelectorMap[resource.GetNamespace()]
+		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
+			return engineResponses, &response.EngineResponse{}, responseError, rcError, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
+		}
+	}
+
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	log.Log.V(3).Info("applying policy on resource", "policy", policy.Name, "resource", resPath)
 
