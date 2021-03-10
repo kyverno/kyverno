@@ -44,7 +44,13 @@ type Policy struct {
 }
 
 type Values struct {
-	Policies []Policy `json:"policies"`
+	Policies           []Policy            `json:"policies"`
+	NamespaceSelectors []NamespaceSelector `json:"namespaceSelector"`
+}
+
+type NamespaceSelector struct {
+	Name   string            `json:"name"`
+	Labels map[string]string `json:"labels"`
 }
 
 func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) {
@@ -300,8 +306,9 @@ func RemoveDuplicateVariables(matches [][]string) string {
 }
 
 // GetVariable - get the variables from console/file
-func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyresoucePath string) (map[string]string, map[string]map[string]Resource, error) {
+func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyresoucePath string) (map[string]string, map[string]map[string]Resource, map[string]map[string]string, error) {
 	valuesMap := make(map[string]map[string]Resource)
+	namespaceSelectorMap := make(map[string]map[string]string)
 	variables := make(map[string]string)
 	var yamlFile []byte
 	var err error
@@ -324,17 +331,17 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		}
 
 		if err != nil {
-			return variables, valuesMap, sanitizederror.NewWithError("unable to read yaml", err)
+			return variables, valuesMap, namespaceSelectorMap, sanitizederror.NewWithError("unable to read yaml", err)
 		}
 
 		valuesBytes, err := yaml.ToJSON(yamlFile)
 		if err != nil {
-			return variables, valuesMap, sanitizederror.NewWithError("failed to convert json", err)
+			return variables, valuesMap, namespaceSelectorMap, sanitizederror.NewWithError("failed to convert json", err)
 		}
 
 		values := &Values{}
 		if err := json.Unmarshal(valuesBytes, values); err != nil {
-			return variables, valuesMap, sanitizederror.NewWithError("failed to decode yaml", err)
+			return variables, valuesMap, namespaceSelectorMap, sanitizederror.NewWithError("failed to decode yaml", err)
 		}
 
 		for _, p := range values.Policies {
@@ -344,9 +351,13 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 			}
 			valuesMap[p.Name] = pmap
 		}
+
+		for _, n := range values.NamespaceSelectors {
+			namespaceSelectorMap[n.Name] = n.Labels
+		}
 	}
 
-	return variables, valuesMap, nil
+	return variables, valuesMap, namespaceSelectorMap, nil
 }
 
 // MutatePolices - function to apply mutation on policies
@@ -369,22 +380,44 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool) ([]*response.EngineResponse, *response.EngineResponse, bool, bool, error) {
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string) ([]*response.EngineResponse, *response.EngineResponse, bool, bool, error) {
 
 	responseError := false
 	rcError := false
 	engineResponses := make([]*response.EngineResponse, 0)
+	namespaceLabels := make(map[string]string)
+	resourceNamespace := resource.GetNamespace()
+	namespaceLabels = namespaceSelectorMap[resource.GetNamespace()]
 
+	if resourceNamespace != "default" && len(namespaceLabels) < 1 {
+		return engineResponses, &response.EngineResponse{}, responseError, rcError, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
+	}
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	log.Log.V(3).Info("applying policy on resource", "policy", policy.Name, "resource", resPath)
 
 	ctx := context.NewContext()
 	for key, value := range variables {
+		var subString string
+		splitBySlash := strings.Split(key, "\"")
+		if len(splitBySlash) > 1 {
+			subString = splitBySlash[1]
+		}
+
 		startString := ""
 		endString := ""
-		for _, k := range strings.Split(key, ".") {
-			startString += fmt.Sprintf(`{"%s":`, k)
-			endString += `}`
+		lenOfVariableString := 0
+		addedSlashString := false
+		for _, k := range strings.Split(splitBySlash[0], ".") {
+			if k != "" {
+				startString += fmt.Sprintf(`{"%s":`, k)
+				endString += `}`
+				lenOfVariableString = lenOfVariableString + len(k) + 1
+				if lenOfVariableString >= len(splitBySlash[0]) && len(splitBySlash) > 1 && addedSlashString == false {
+					startString += fmt.Sprintf(`{"%s":`, subString)
+					endString += `}`
+					addedSlashString = true
+				}
+			}
 		}
 
 		midString := fmt.Sprintf(`"%s"`, value)
@@ -393,7 +426,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		ctx.AddJSON(jsonData)
 	}
 
-	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, JSONContext: ctx})
+	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
 	engineResponses = append(engineResponses, mutateResponse)
 
 	if !mutateResponse.IsSuccessful() {
@@ -435,7 +468,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		}
 	}
 
-	policyCtx := &engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx}
+	policyCtx := &engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels}
 	validateResponse := engine.Validate(policyCtx)
 	if !policyReport {
 		if !validateResponse.IsSuccessful() {
@@ -465,7 +498,8 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			ExcludeResourceFunc: func(s1, s2, s3 string) bool {
 				return false
 			},
-			JSONContext: context.NewContext(),
+			JSONContext:     context.NewContext(),
+			NamespaceLabels: namespaceLabels,
 		}
 		generateResponse := engine.Generate(policyContext)
 		engineResponses = append(engineResponses, generateResponse)

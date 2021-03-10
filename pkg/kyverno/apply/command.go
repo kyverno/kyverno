@@ -93,6 +93,13 @@ To apply policy with variables:
 					values:
 					<variable1 in policy2>: <value>
 					<variable2 in policy2>: <value>
+		namespaceSelector:
+			- name: <namespace1 name>
+			labels:
+				<label key>: <label value>
+			- name: <namespace2 name>
+			labels:
+				<label key>: <label value>
 
 More info: https://kyverno.io/docs/kyverno-cli/
 `
@@ -147,7 +154,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("pass the values either using set flag or values_file flag", err)
 	}
 
-	variables, valuesMap, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
+	variables, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -268,7 +275,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 			}
 
-			ers, validateErs, responseError, rcErs, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport)
+			ers, validateErs, responseError, rcErs, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap)
 			if err != nil {
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}
