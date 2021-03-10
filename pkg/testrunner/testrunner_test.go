@@ -55,10 +55,6 @@ func Test_validate_disallow_bind_mounts_pass(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/disallow_bind_mounts_pass.yaml")
 }
 
-func Test_validate_disallow_new_capabilities(t *testing.T) {
-	testScenario(t, "/test/scenarios/samples/best_practices/disallow_new_capabilities.yaml")
-}
-
 func Test_disallow_sysctls(t *testing.T) {
 	testScenario(t, "/test/scenarios/samples/best_practices/disallow_sysctls.yaml")
 }
