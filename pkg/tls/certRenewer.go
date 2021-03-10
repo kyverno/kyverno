@@ -85,7 +85,7 @@ func (c *CertRenewer) buildTLSPemPairAndWriteToSecrets(props CertificateProps, s
 		return nil, fmt.Errorf("failed to write CA cert to secret: %v", err)
 	}
 
-	tlsPair, err := GenerateCertPem(caCert, props, serverIP)
+	tlsPair, err := GenerateCertPem(caCert, props, serverIP, c.certValidityDuration)
 	if err != nil {
 		return nil, err
 	}
