@@ -56,11 +56,11 @@ type imgInfo struct {
 	Tag         string `json:"tag"`
 }
 
-type mapImgInfo struct {
-	Name string `json:"{.Name}"`
+type containerImage struct {
+	Name      string
+	Container imgInfo `json:"needtoreplace"`
 }
 
-//formtat libraries to cheage json tag and embed it
 //NewContext returns a new context
 // builtInVars is the list of known variables (e.g. serviceAccountName)
 func NewContext(builtInVars ...string) *Context {
@@ -159,8 +159,8 @@ func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 
 //AddImageDetails checks if kind is pod or pod controller, then loads details about the image
 func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface interface{}) error {
-	var containerImages []string
-	var containerImgs []imgInfo
+	containerImages := make(map[string]string)
+	containerImgs := make(map[string]imgInfo)
 
 	var initContainerImages []string
 	var initContainerImgs []imgInfo
@@ -173,8 +173,8 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 		for _, v := range containersMap { //containers is a slice of maps where each map represents an image
 			v2 := v.(map[string]interface{})
 			imageString := v2["image"].(string)
-			//imageNameString := v2["name"].(string)
-			containerImages = append(containerImages, imageString)
+			imageNameString := v2["name"].(string)
+			containerImages[imageNameString] = imageString
 		}
 		initContainersMap := spec["initContainers"].([]interface{})
 		for _, v := range initContainersMap { //containers is a slice of maps where each map represents an image
@@ -192,8 +192,8 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 		for _, v := range containersMap { //containers is a slice of maps where each map represents an image
 			v2 := v.(map[string]interface{})
 			imageString := v2["image"].(string)
-			//imageNameString := v2["name"].(string)
-			containerImages = append(containerImages, imageString)
+			imageNameString := v2["name"].(string)
+			containerImages[imageNameString] = imageString
 		}
 		initContainersMap := templateSpec["initContainers"].([]interface{})
 		for _, v := range initContainersMap { //containers is a slice of maps where each map represents an image
@@ -206,7 +206,7 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 
 	fmt.Println(containerImages)
 
-	for _, image := range containerImages {
+	for imageName, image := range containerImages {
 		var img imgInfo
 		if strings.Contains(image, "/") {
 			res := strings.Split(image, "/")
@@ -223,7 +223,7 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 			img.Name = image
 			img.Tag = "latest"
 		}
-		containerImgs = append(containerImgs, img)
+		containerImgs[imageName] = img
 	}
 	fmt.Println(containerImgs)
 
@@ -250,58 +250,89 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 	}
 	fmt.Println(initContainerImgs)
 
-	// imgs := make(map[string]map[string]imgInfo)
-	// imgs["containers"] = containerImgs
-	// imgs["initContainers"] = initContainerImgs
-
-	// imgsObj := struct {
-	// 	IMGS map[string]map[string]imgInfo `json:"images"`
-	// }{
-	// 	IMGS: imgs,
-	// }
+	for k, v := range containerImgs {
+		err := ctx.AddImageInfo(k, v)
+		if err != nil {
+			fmt.Println("===unexpected error ", err)
+		}
+	}
 
 	// imgsObj := struct {
 	// 	Images interface{} `json:"images"`
 	// }{
 	// 	Images: struct {
-	// 		Containers     interface{} `json:"containers"`
-	// 		InitContainers interface{} `json:"initContainers"`
+	// 		Containers     []imgInfo `json:"containers"`
+	// 		InitContainers []imgInfo `json:"initContainers"`
 	// 	}{
 	// 		Containers:     containerImgs,
 	// 		InitContainers: initContainerImgs,
 	// 	},
 	// }
-	imgsObj := struct {
+
+	// fmt.Println("$$$$$")
+	// fmt.Println(imgsObj)
+	// fmt.Println("$$$$$")
+	// imgsRaw, err := json.Marshal(imgsObj)
+	// if err != nil {
+	// 	ctx.log.Error(err, "failed to marshal the IMG")
+	// 	return err
+	// }
+	// fmt.Println("#####")
+	// fmt.Println(imgsRaw)
+	// fmt.Println("#####")
+	// fmt.Println("&&&&&")
+	// fmt.Println(string(imgsRaw))
+	// fmt.Println("&&&&&")
+	// if err := ctx.AddJSON(imgsRaw); err != nil {
+	// 	return err
+	// }
+
+	return nil
+}
+
+func newContainerImage(containerName string, imgInfo imgInfo) containerImage {
+	return containerImage{
+		Name:      containerName,
+		Container: imgInfo,
+	}
+}
+func (c containerImage) ReplaceJSONTag() map[string]interface{} {
+	m, _ := json.Marshal(c.Container)
+
+	var a interface{}
+	json.Unmarshal(m, &a)
+	b := a.(map[string]interface{})
+	fmt.Println("===b", b)
+	b[c.Name] = c.Container
+	delete(b, "needtoreplace")
+
+	return b
+}
+
+// AddImageInfo no lint
+func (ctx *Context) AddImageInfo(k string, v imgInfo) error {
+
+	containerImg := newContainerImage(k, v)
+
+	replacedContainerImg := containerImg.ReplaceJSONTag()
+
+	images := struct {
 		Images interface{} `json:"images"`
 	}{
 		Images: struct {
-			Containers     []imgInfo `json:"containers"`
-			InitContainers []imgInfo `json:"initContainers"`
+			Container map[string]interface{} `json:"container"`
 		}{
-			Containers:     containerImgs,
-			InitContainers: initContainerImgs,
+			Container: replacedContainerImg,
 		},
 	}
 
-	fmt.Println("$$$$$")
-	fmt.Println(imgsObj)
-	fmt.Println("$$$$$")
-	imgsRaw, err := json.Marshal(imgsObj)
+	objRaw, err := json.Marshal(images)
 	if err != nil {
-		ctx.log.Error(err, "failed to marshal the IMG")
-		return err
-	}
-	fmt.Println("#####")
-	fmt.Println(imgsRaw)
-	fmt.Println("#####")
-	fmt.Println("&&&&&")
-	fmt.Println(string(imgsRaw))
-	fmt.Println("&&&&&")
-	if err := ctx.AddJSON(imgsRaw); err != nil {
-		return err
+		fmt.Println("===failed to marshal images", err)
 	}
 
-	return nil
+	fmt.Println("===objRaw", string(objRaw))
+	return ctx.AddJSON(objRaw)
 }
 
 //AddServiceAccount removes prefix 'system:serviceaccount:' and namespace, then loads only SA name and SA namespace
