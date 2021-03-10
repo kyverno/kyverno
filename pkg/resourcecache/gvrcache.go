@@ -4,6 +4,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic/dynamiclister"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/tools/cache"
 )
 
 // GenericCache - allows operation on a single resource
@@ -13,6 +14,7 @@ type GenericCache interface {
 	Lister() dynamiclister.Lister
 	NamespacedLister(namespace string) dynamiclister.NamespaceLister
 	GVR() schema.GroupVersionResource
+	GetInformer() cache.SharedIndexInformer
 }
 
 type genericCache struct {
@@ -55,4 +57,9 @@ func (gc *genericCache) Lister() dynamiclister.Lister {
 // NamespacedLister - get access to namespaced Lister() instance of a resource in GVRCache
 func (gc *genericCache) NamespacedLister(namespace string) dynamiclister.NamespaceLister {
 	return dynamiclister.New(gc.genericInformer.Informer().GetIndexer(), gc.GVR()).Namespace(namespace)
+}
+
+// GetInformer gets SharedIndexInformer
+func (gc *genericCache) GetInformer() cache.SharedIndexInformer {
+	return gc.genericInformer.Informer()
 }

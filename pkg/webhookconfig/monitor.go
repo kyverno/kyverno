@@ -2,12 +2,18 @@ package webhookconfig
 
 import (
 	"fmt"
+	"os"
+	"reflect"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/resourcecache"
+	"github.com/kyverno/kyverno/pkg/tls"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/tools/cache"
 )
 
 //maxRetryCount defines the max deadline count
@@ -28,17 +34,34 @@ const (
 // like the webhook settings.
 //
 type Monitor struct {
-	t   time.Time
-	mu  sync.RWMutex
-	log logr.Logger
+	t           time.Time
+	mu          sync.RWMutex
+	secretQueue chan bool
+	log         logr.Logger
 }
 
-//NewMonitor returns a new instance of LastRequestTime store
-func NewMonitor(log logr.Logger) *Monitor {
-	return &Monitor{
-		t:   time.Now(),
-		log: log,
+//NewMonitor returns a new instance of webhook monitor
+func NewMonitor(resCache resourcecache.ResourceCache, log logr.Logger) *Monitor {
+	monitor := &Monitor{
+		t:           time.Now(),
+		secretQueue: make(chan bool, 1),
+		log:         log,
 	}
+
+	var err error
+	secretCache, ok := resCache.GetGVRCache("Secret")
+	if !ok {
+		if secretCache, err = resCache.CreateGVKInformer("Secret"); err != nil {
+			log.Error(err, "unable to start Secret's informer")
+		}
+	}
+
+	secretCache.GetInformer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    monitor.addSecretFunc,
+		UpdateFunc: monitor.updateSecretFunc,
+	})
+
+	return monitor
 }
 
 //Time returns the last request time
@@ -56,14 +79,51 @@ func (t *Monitor) SetTime(tm time.Time) {
 	t.t = tm
 }
 
+func (t *Monitor) addSecretFunc(obj interface{}) {
+	secret := obj.(*unstructured.Unstructured)
+	if secret.GetNamespace() != config.KyvernoNamespace {
+		return
+	}
+
+	val, ok := secret.GetAnnotations()[tls.SelfSignedAnnotation]
+	if !ok || val != "true" {
+		return
+	}
+
+	t.secretQueue <- true
+}
+
+func (t *Monitor) updateSecretFunc(oldObj interface{}, newObj interface{}) {
+	old := oldObj.(*unstructured.Unstructured)
+	new := newObj.(*unstructured.Unstructured)
+	if new.GetNamespace() != config.KyvernoNamespace {
+		return
+	}
+
+	val, ok := new.GetAnnotations()[tls.SelfSignedAnnotation]
+	if !ok || val != "true" {
+		return
+	}
+
+	if reflect.DeepEqual(old.UnstructuredContent()["data"], new.UnstructuredContent()["data"]) {
+		return
+	}
+
+	t.secretQueue <- true
+	t.log.V(4).Info("secret updated, reconciling webhook configurations")
+}
+
 //Run runs the checker and verify the resource update
-func (t *Monitor) Run(register *Register, eventGen event.Interface, client *dclient.Client, stopCh <-chan struct{}) {
+func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen event.Interface, stopCh <-chan struct{}) {
 	logger := t.log
 	logger.V(4).Info("starting webhook monitor", "interval", idleCheckInterval)
-	status := newStatusControl(client, eventGen, logger.WithName("WebhookStatusControl"))
+	status := newStatusControl(register.client, eventGen, logger.WithName("WebhookStatusControl"))
 
 	ticker := time.NewTicker(tickerInterval)
 	defer ticker.Stop()
+
+	certsRenewalTicker := time.NewTicker(tls.CertRenewalInterval)
+	defer certsRenewalTicker.Stop()
 
 	for {
 		select {
@@ -108,6 +168,40 @@ func (t *Monitor) Run(register *Register, eventGen event.Interface, client *dcli
 			// send request to update the Kyverno deployment
 			if err := status.success(); err != nil {
 				logger.Error(err, "failed to annotate deployment webhook status to success")
+			}
+
+		case <-certsRenewalTicker.C:
+			valid, err := certRenewer.ValidCert()
+			if err != nil {
+				logger.Error(err, "failed to validate cert")
+				continue
+			}
+
+			if valid {
+				continue
+			}
+
+			logger.Info("rootCA is about to expire, trigger a rolling update to renew the cert")
+			if err := certRenewer.RollingUpdate(); err != nil {
+				logger.Error(err, "unable to trigger a rolling update to renew rootCA, force restarting")
+				os.Exit(1)
+			}
+
+		case <-t.secretQueue:
+			valid, err := certRenewer.ValidCert()
+			if err != nil {
+				logger.Error(err, "failed to validate cert")
+				continue
+			}
+
+			if valid {
+				continue
+			}
+
+			logger.Info("rootCA has changed, updating webhook configurations")
+			if err := certRenewer.RollingUpdate(); err != nil {
+				logger.Error(err, "unable to trigger a rolling update to re-register webhook server, force restarting")
+				os.Exit(1)
 			}
 
 		case <-stopCh:

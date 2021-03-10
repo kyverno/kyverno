@@ -11,9 +11,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
+	"github.com/kyverno/kyverno/pkg/tls"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -122,9 +124,41 @@ func (wrc *Register) Check() error {
 
 // Remove removes all webhook configurations
 func (wrc *Register) Remove(cleanUp chan<- struct{}) {
+	defer close(cleanUp)
+	if !wrc.cleanupKyvernoResource() {
+		return
+	}
+
 	wrc.removeWebhookConfigurations()
 	wrc.removeSecrets()
-	close(cleanUp)
+}
+
+// cleanupKyvernoResource returns true if Kyverno deployment is terminating
+func (wrc *Register) cleanupKyvernoResource() bool {
+	logger := wrc.log.WithName("cleanupKyvernoResource")
+	deploy, err := wrc.client.GetResource("", "Deployment", deployNamespace, deployName)
+	if err != nil {
+		logger.Error(err, "failed to get deployment")
+		return false
+	}
+
+	if deploy.GetDeletionTimestamp() != nil {
+		logger.Info("Kyverno is terminating, clean up Kyverno resources")
+		return true
+	}
+
+	replicas, _, err := unstructured.NestedInt64(deploy.UnstructuredContent(), "spec", "replicas")
+	if err != nil {
+		logger.Error(err, "unable to fetch spec.replicas of Kyverno deployment")
+	}
+
+	if replicas == 0 {
+		logger.Info("Kyverno is scaled to zero, clean up Kyverno resources")
+		return true
+	}
+
+	logger.Info("updating Kyverno Pod, won't clean up Kyverno resources")
+	return false
 }
 
 func (wrc *Register) createResourceMutatingWebhookConfiguration() error {
@@ -441,7 +475,7 @@ func (wrc *Register) GetWebhookTimeOut() time.Duration {
 func (wrc *Register) removeSecrets() {
 	selector := &v1.LabelSelector{
 		MatchLabels: map[string]string{
-			client.ManagedByLabel: "kyverno",
+			tls.ManagedByLabel: "kyverno",
 		},
 	}
 
