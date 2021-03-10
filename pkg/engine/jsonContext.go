@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic/dynamiclister"
+	"strings"
 )
 
 // LoadContext - Fetches and adds external data to the Context.
@@ -193,6 +194,9 @@ func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynam
 		return nil, fmt.Errorf("failed to convert configmap %s/%s: %v", namespace, name, err)
 	}
 
+	// update the unstructuredObj["data"] to delimit and split the string value (containing "\n") with "\n"
+	unstructuredObj["data"] = parseMultilineBlockBody(unstructuredObj["data"].(map[string]interface{}))
+
 	// extract configmap data
 	contextData["data"] = unstructuredObj["data"]
 	contextData["metadata"] = unstructuredObj["metadata"]
@@ -204,4 +208,26 @@ func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynam
 	}
 
 	return data, nil
+}
+
+// parseMultilineBlockBody recursively iterates through a map and updates its values in the following way
+// whenever it encounters a string value containing "\n",
+// it converts it into a []string by splitting it by "\n"
+func parseMultilineBlockBody(m map[string]interface{}) map[string]interface{} {
+	for k, v := range m {
+		switch typedValue := v.(type) {
+		case string:
+			trimmedTypedValue := strings.Trim(typedValue, "\n")
+			if strings.Contains(trimmedTypedValue, "\n") {
+				m[k] = strings.Split(trimmedTypedValue, "\n")
+			} else {
+				m[k] = trimmedTypedValue // trimming a str if it has trailing newline characters
+			}
+		case map[string]interface{}:
+			m[k] = parseMultilineBlockBody(typedValue)
+		default:
+			continue
+		}
+	}
+	return m
 }
