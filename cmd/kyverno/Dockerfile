@@ -18,7 +18,6 @@ RUN go env
 
 RUN CGO_ENABLED=0 go build -o /output/kyverno -ldflags="${LD_FLAGS}" -v ./cmd/kyverno/
 
-
 # Packaging stage
 FROM scratch
 
@@ -27,7 +26,6 @@ LABEL maintainer="Kyverno"
 COPY --from=builder /output/kyverno /
 COPY --from=builder /etc/passwd /etc/passwd
 
-RUN addgroup -S kyverno && adduser -S -G kyverno 10001
 USER 10001
 
 ENTRYPOINT ["./kyverno"]
