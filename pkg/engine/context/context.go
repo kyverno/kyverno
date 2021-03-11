@@ -48,8 +48,6 @@ type Context struct {
 	log               logr.Logger
 }
 
-// type imgInfo map[string]string
-
 type imgInfo struct {
 	RegistryURL string `json:"registryURL"`
 	Name        string `json:"name"`
@@ -186,7 +184,7 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 		}
 	}
 
-	if kind == "Deployment" || kind == "Job" || kind == "CronJob" || kind == "ReplicaSet" {
+	if kind == "Deployment" || kind == "Job" || kind == "CronJob" || kind == "ReplicaSet" || kind == "StatefulSet" || kind == "DaemonSet" {
 		template := spec["template"].(map[string]interface{})
 		templateSpec := template["spec"].(map[string]interface{})
 		containersMap := templateSpec["containers"].([]interface{})
