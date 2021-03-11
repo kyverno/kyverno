@@ -33,9 +33,8 @@ import (
 
 // GetPolicies - Extracting the policies from multiple YAML
 
-
 type Values struct {
-	Values map[string]string `json:"values"`
+	Values             map[string]string   `json:"values"`
 	NamespaceSelectors []NamespaceSelector `json:"namespaceSelector"`
 }
 
