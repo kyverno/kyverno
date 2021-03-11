@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -28,8 +27,6 @@ var (
 )
 
 const (
-	mutatingWebhookConfigKind      string = "MutatingWebhookConfiguration"
-	validatingWebhookConfigKind    string = "ValidatingWebhookConfiguration"
 	policyReportKind               string = "PolicyReport"
 	clusterPolicyReportKind        string = "ClusterPolicyReport"
 	reportChangeRequestKind        string = "ReportChangeRequest"
@@ -72,16 +69,6 @@ func main() {
 	}
 
 	requests := []request{
-		{validatingWebhookConfigKind, config.ValidatingWebhookConfigurationName},
-		{validatingWebhookConfigKind, config.ValidatingWebhookConfigurationDebugName},
-		{mutatingWebhookConfigKind, config.MutatingWebhookConfigurationName},
-		{mutatingWebhookConfigKind, config.MutatingWebhookConfigurationDebugName},
-
-		{validatingWebhookConfigKind, config.PolicyValidatingWebhookConfigurationName},
-		{validatingWebhookConfigKind, config.PolicyValidatingWebhookConfigurationDebugName},
-		{mutatingWebhookConfigKind, config.PolicyMutatingWebhookConfigurationName},
-		{mutatingWebhookConfigKind, config.PolicyMutatingWebhookConfigurationDebugName},
-
 		{policyReportKind, ""},
 		{clusterPolicyReportKind, ""},
 
@@ -120,8 +107,6 @@ func main() {
 
 func executeRequest(client *client.Client, req request) error {
 	switch req.kind {
-	case mutatingWebhookConfigKind, validatingWebhookConfigKind:
-		return removeWebhookIfExists(client, req.kind, req.name)
 	case policyReportKind:
 		return removePolicyReport(client, req.kind)
 	case clusterPolicyReportKind:
@@ -234,29 +219,6 @@ func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan err
 		close(out)
 	}()
 	return out
-}
-
-func removeWebhookIfExists(client *client.Client, kind string, name string) error {
-	logger := log.Log.WithName("removeExistingWebhook").WithValues("kind", kind, "name", name)
-	var err error
-	// Get resource
-	_, err = client.GetResource("", kind, "", name)
-	if errors.IsNotFound(err) {
-		logger.V(4).Info("resource not found")
-		return nil
-	}
-	if err != nil {
-		logger.Error(err, "failed to get resource")
-		return err
-	}
-	// Delete resource
-	err = client.DeleteResource("", kind, "", name, false)
-	if err != nil {
-		logger.Error(err, "failed to delete resource")
-		return err
-	}
-	logger.Info("removed the resource")
-	return nil
 }
 
 func removeClusterPolicyReport(client *client.Client, kind string) error {
