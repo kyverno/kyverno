@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
@@ -26,7 +25,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	ut "github.com/kyverno/kyverno/pkg/utils"
 	yamlv2 "gopkg.in/yaml.v2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -384,7 +382,6 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
 	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string) ([]*response.EngineResponse, *response.EngineResponse, bool, bool, error) {
 
-	var emptyNamespaceSelector *metav1.LabelSelector
 	responseError := false
 	rcError := false
 	engineResponses := make([]*response.EngineResponse, 0)
@@ -392,8 +389,8 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 
 	policyWithNamespaceSelector := false
 	for _, p := range policy.Spec.Rules {
-		if !reflect.DeepEqual(p.MatchResources.ResourceDescription.NamespaceSelector, emptyNamespaceSelector) ||
-			!reflect.DeepEqual(p.ExcludeResources.ResourceDescription.NamespaceSelector, emptyNamespaceSelector) {
+		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
+			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
 			policyWithNamespaceSelector = true
 			break
 		}
