@@ -66,24 +66,29 @@ func (wrc *Register) Register() error {
 
 	wrc.removeWebhookConfigurations()
 
+	caData := wrc.readCaData()
+	if caData == nil {
+		return errors.New("Unable to extract CA data from configuration")
+	}
+
 	errors := make([]string, 0)
-	if err := wrc.createVerifyMutatingWebhookConfiguration(); err != nil {
+	if err := wrc.createVerifyMutatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
 
-	if err := wrc.createPolicyValidatingWebhookConfiguration(); err != nil {
+	if err := wrc.createPolicyValidatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
 
-	if err := wrc.createPolicyMutatingWebhookConfiguration(); err != nil {
+	if err := wrc.createPolicyMutatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
 
-	if err := wrc.createResourceValidatingWebhookConfiguration(); err != nil {
+	if err := wrc.createResourceValidatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
 
-	if err := wrc.createResourceMutatingWebhookConfiguration(); err != nil {
+	if err := wrc.createResourceMutatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
 
@@ -161,14 +166,8 @@ func (wrc *Register) cleanupKyvernoResource() bool {
 	return false
 }
 
-func (wrc *Register) createResourceMutatingWebhookConfiguration() error {
-
-	var caData []byte
+func (wrc *Register) createResourceMutatingWebhookConfiguration(caData []byte) error {
 	var config *admregapi.MutatingWebhookConfiguration
-
-	if caData = wrc.readCaData(); caData == nil {
-		return errors.New("Unable to extract CA data from configuration")
-	}
 
 	if wrc.serverIP != "" {
 		config = wrc.constructDebugMutatingWebhookConfig(caData)
@@ -193,13 +192,9 @@ func (wrc *Register) createResourceMutatingWebhookConfiguration() error {
 	return nil
 }
 
-func (wrc *Register) createResourceValidatingWebhookConfiguration() error {
-	var caData []byte
+func (wrc *Register) createResourceValidatingWebhookConfiguration(caData []byte) error {
 	var config *admregapi.ValidatingWebhookConfiguration
 
-	if caData = wrc.readCaData(); caData == nil {
-		return errors.New("Unable to extract CA data from configuration")
-	}
 	if wrc.serverIP != "" {
 		config = wrc.constructDebugValidatingWebhookConfig(caData)
 	} else {
@@ -224,14 +219,8 @@ func (wrc *Register) createResourceValidatingWebhookConfiguration() error {
 }
 
 //registerPolicyValidatingWebhookConfiguration create a Validating webhook configuration for Policy CRD
-func (wrc *Register) createPolicyValidatingWebhookConfiguration() error {
-	var caData []byte
+func (wrc *Register) createPolicyValidatingWebhookConfiguration(caData []byte) error {
 	var config *admregapi.ValidatingWebhookConfiguration
-
-	// read certificate data
-	if caData = wrc.readCaData(); caData == nil {
-		return errors.New("Unable to extract CA data from configuration")
-	}
 
 	if wrc.serverIP != "" {
 		config = wrc.contructDebugPolicyValidatingWebhookConfig(caData)
@@ -252,13 +241,8 @@ func (wrc *Register) createPolicyValidatingWebhookConfiguration() error {
 	return nil
 }
 
-func (wrc *Register) createPolicyMutatingWebhookConfiguration() error {
-	var caData []byte
+func (wrc *Register) createPolicyMutatingWebhookConfiguration(caData []byte) error {
 	var config *admregapi.MutatingWebhookConfiguration
-
-	if caData = wrc.readCaData(); caData == nil {
-		return errors.New("Unable to extract CA data from configuration")
-	}
 
 	if wrc.serverIP != "" {
 		config = wrc.contructDebugPolicyMutatingWebhookConfig(caData)
@@ -280,13 +264,8 @@ func (wrc *Register) createPolicyMutatingWebhookConfiguration() error {
 	return nil
 }
 
-func (wrc *Register) createVerifyMutatingWebhookConfiguration() error {
-	var caData []byte
+func (wrc *Register) createVerifyMutatingWebhookConfiguration(caData []byte) error {
 	var config *admregapi.MutatingWebhookConfiguration
-
-	if caData = wrc.readCaData(); caData == nil {
-		return errors.New("Unable to extract CA data from configuration")
-	}
 
 	if wrc.serverIP != "" {
 		config = wrc.constructDebugVerifyMutatingWebhookConfig(caData)
