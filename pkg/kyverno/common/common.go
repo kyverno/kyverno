@@ -386,12 +386,24 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	rcError := false
 	engineResponses := make([]*response.EngineResponse, 0)
 	namespaceLabels := make(map[string]string)
-	resourceNamespace := resource.GetNamespace()
-	namespaceLabels = namespaceSelectorMap[resource.GetNamespace()]
 
-	if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-		return engineResponses, &response.EngineResponse{}, responseError, rcError, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
+	policyWithNamespaceSelector := false
+	for _, p := range policy.Spec.Rules {
+		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
+			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
+			policyWithNamespaceSelector = true
+			break
+		}
 	}
+
+	if policyWithNamespaceSelector {
+		resourceNamespace := resource.GetNamespace()
+		namespaceLabels = namespaceSelectorMap[resource.GetNamespace()]
+		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
+			return engineResponses, &response.EngineResponse{}, responseError, rcError, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
+		}
+	}
+
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	log.Log.V(3).Info("applying policy on resource", "policy", policy.Name, "resource", resPath)
 
