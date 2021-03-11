@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -788,6 +789,9 @@ func TestValidateMap_CorrectRelativePathInConfig(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
+	pattern, err := variables.SubstituteAll(log.Log, nil, pattern)
+	assert.NilError(t, err)
+
 	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
@@ -1004,6 +1008,9 @@ func TestValidateMap_RelativePathWithParentheses(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
+	pattern, err := variables.SubstituteAll(log.Log, nil, pattern)
+	assert.NilError(t, err)
+
 	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
@@ -1112,6 +1119,9 @@ func TestValidateMap_AbosolutePathExists(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
+	pattern, err := variables.SubstituteAll(log.Log, nil, pattern)
+	assert.NilError(t, err)
+
 	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
 	assert.Equal(t, path, "")
 	assert.Assert(t, err == nil)
@@ -1195,6 +1205,9 @@ func TestValidateMap_AbsolutePathToMetadata_fail(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
+	pattern, err := variables.SubstituteAll(log.Log, nil, pattern)
+	assert.NilError(t, err)
+
 	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
 	assert.Equal(t, path, "/spec/containers/0/image/")
 	assert.Assert(t, err != nil)
@@ -1252,75 +1265,6 @@ func TestValidateMap_AbosolutePathDoesNotExists(t *testing.T) {
 	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
-}
-
-func TestActualizePattern_GivenRelativePathThatExists(t *testing.T) {
-	absolutePath := "/spec/containers/0/resources/requests/memory"
-	referencePath := "$(<=./../../limits/memory)"
-
-	rawPattern := []byte(`{
-		"spec":{
-			"containers":[
-				{
-					"name":"*",
-					"resources":{
-						"requests":{
-							"memory":"$(<=./../../limits/memory)"
-						},
-						"limits":{
-							"memory":"2048Mi"
-						}
-					}
-				}
-			]
-		}
-	}`)
-
-	var pattern interface{}
-
-	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
-
-	pattern, err := actualizePattern(log.Log, pattern, referencePath, absolutePath)
-
-	assert.Assert(t, err == nil)
-}
-
-func TestFormAbsolutePath_RelativePathExists(t *testing.T) {
-	absolutePath := "/spec/containers/0/resources/requests/memory"
-	referencePath := "./../../limits/memory"
-	expectedString := "/spec/containers/0/resources/limits/memory"
-
-	result := formAbsolutePath(referencePath, absolutePath)
-
-	assert.Assert(t, result == expectedString)
-}
-
-func TestFormAbsolutePath_RelativePathWithBackToTopInTheBegining(t *testing.T) {
-	absolutePath := "/spec/containers/0/resources/requests/memory"
-	referencePath := "../../limits/memory"
-	expectedString := "/spec/containers/0/resources/limits/memory"
-
-	result := formAbsolutePath(referencePath, absolutePath)
-
-	assert.Assert(t, result == expectedString)
-}
-
-func TestFormAbsolutePath_AbsolutePathExists(t *testing.T) {
-	absolutePath := "/spec/containers/0/resources/requests/memory"
-	referencePath := "/spec/containers/0/resources/limits/memory"
-
-	result := formAbsolutePath(referencePath, absolutePath)
-
-	assert.Assert(t, result == referencePath)
-}
-
-func TestFormAbsolutePath_EmptyPath(t *testing.T) {
-	absolutePath := "/spec/containers/0/resources/requests/memory"
-	referencePath := ""
-
-	result := formAbsolutePath(referencePath, absolutePath)
-
-	assert.Assert(t, result == absolutePath)
 }
 
 func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {

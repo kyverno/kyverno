@@ -1322,10 +1322,10 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 	er := Validate(policyContext)
 	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
-		"variable substitution failed for rule test-path-not-exist: variable request.object.metadata.name1 not resolved at path /spec/containers/0/name")
+		"variable substitution failed for rule test-path-not-exist: variable request.object.metadata.name1 not resolved at path /validate/pattern/spec/containers/0/name")
 }
 
-func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfies(t *testing.T) {
+func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSubstitutionFails(t *testing.T) {
 	resourceRaw := []byte(`{
 		"apiVersion": "v1",
 		"kind": "Deployment",
@@ -1412,8 +1412,8 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfies(t *t
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
-	assert.Assert(t, er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "validation rule 'test-path-not-exist' anyPattern[1] passed.")
+	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: variable request.object.metadata.name1 not resolved at path /validate/anyPattern/0/spec/template/spec/containers/0/name")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *testing.T) {
@@ -1504,7 +1504,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
 	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "failed to substitute variables: [variable request.object.metadata.name1 not resolved at path /spec/template/spec/containers/0/name variable request.object.metadata.name2 not resolved at path /spec/template/spec/containers/0/name]")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: variable request.object.metadata.name1 not resolved at path /validate/anyPattern/0/spec/template/spec/containers/0/name")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatternSatisfy(t *testing.T) {

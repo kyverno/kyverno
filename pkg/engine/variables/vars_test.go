@@ -2,9 +2,11 @@ package variables
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	ju "github.com/kyverno/kyverno/pkg/engine/json-utils"
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -65,7 +67,7 @@ func Test_subVars_success(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteVars(log.Log, ctx, pattern); err != nil {
+	if _, err := SubstituteAll(log.Log, ctx, pattern); err != nil {
 		t.Error(err)
 	}
 }
@@ -126,7 +128,7 @@ func Test_subVars_failed(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteVars(log.Log, ctx, pattern); err == nil {
+	if _, err := SubstituteAll(log.Log, ctx, pattern); err == nil {
 		t.Error("error is expected")
 	}
 }
@@ -154,7 +156,13 @@ func Test_SubstituteSuccess(t *testing.T) {
 	var pattern interface{}
 	patternRaw := []byte(`"{{request.object.metadata.annotations.test}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
-	results, err := subValR(log.Log, ctx, string(patternRaw), "/")
+
+	action := substituteVariablesIfAny(log.Log, ctx)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  string(patternRaw),
+		Path:     "/"})
+
 	if err != nil {
 		t.Errorf("substitution failed: %v", err.Error())
 		return
@@ -172,14 +180,26 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 	var pattern interface{}
 	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.annotations.test2}}}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
-	results, err := subValR(log.Log, ctx, string(patternRaw), "/")
+
+	action := substituteVariablesIfAny(log.Log, ctx)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  string(patternRaw),
+		Path:     "/"})
+
 	if err == nil {
 		t.Errorf("expected error but received: %v", results)
 	}
 
 	patternRaw = []byte(`"{{request.object.metadata2.{{request.object.metadata.annotations.test}}}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
-	results, err = subValR(log.Log, ctx, string(patternRaw), "/")
+
+	action = substituteVariablesIfAny(log.Log, ctx)
+	results, err = action(&ju.ActionData{
+		Document: nil,
+		Element:  string(patternRaw),
+		Path:     "/"})
+
 	if err == nil {
 		t.Errorf("expected error but received: %v", results)
 	}
@@ -192,7 +212,13 @@ func Test_SubstituteRecursive(t *testing.T) {
 	var pattern interface{}
 	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.annotations.test}}}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
-	results, err := subValR(log.Log, ctx, string(patternRaw), "/")
+
+	action := substituteVariablesIfAny(log.Log, ctx)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  string(patternRaw),
+		Path:     "/"})
+
 	if err != nil {
 		t.Errorf("substitution failed: %v", err.Error())
 		return
@@ -223,6 +249,144 @@ func Test_policyContextValidation(t *testing.T) {
 
 	ctx := context.NewContext("request.object")
 
-	_, err = SubstituteVars(log.Log, ctx, contextMap)
+	_, err = SubstituteAll(log.Log, ctx, contextMap)
 	assert.Assert(t, err != nil, err)
+}
+
+func Test_ReferenceSubstitution(t *testing.T) {
+	jsonRaw := []byte(`
+	{
+		"metadata": {
+			"name": "temp",
+			"namespace": "n1",
+			"annotations": {
+			  "test": "$(../../../../spec/namespace)"
+            }
+		},
+		"(spec)": {
+			"namespace": "n1",
+			"name": "temp1"
+		}
+	}`)
+
+	expectedJSON := []byte(`
+	{
+		"metadata": {
+			"name": "temp",
+			"namespace": "n1",
+			"annotations": {
+			  "test": "n1"
+            }
+		},
+		"(spec)": {
+			"namespace": "n1",
+			"name": "temp1"
+		}
+	}`)
+
+	var document interface{}
+	err := json.Unmarshal(jsonRaw, &document)
+	assert.NilError(t, err)
+
+	var expectedDocument interface{}
+	err = json.Unmarshal(expectedJSON, &expectedDocument)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResource(jsonRaw)
+	assert.NilError(t, err)
+
+	actualDocument, err := SubstituteAll(log.Log, ctx, document)
+	assert.NilError(t, err)
+
+	assert.DeepEqual(t, expectedDocument, actualDocument)
+}
+
+func TestFormAbsolutePath_RelativePathExists(t *testing.T) {
+	absolutePath := "/spec/containers/0/resources/requests/memory"
+	referencePath := "./../../limits/memory"
+	expectedString := "/spec/containers/0/resources/limits/memory"
+
+	result := formAbsolutePath(referencePath, absolutePath)
+
+	assert.Assert(t, result == expectedString)
+}
+
+func TestFormAbsolutePath_RelativePathWithBackToTopInTheBegining(t *testing.T) {
+	absolutePath := "/spec/containers/0/resources/requests/memory"
+	referencePath := "../../limits/memory"
+	expectedString := "/spec/containers/0/resources/limits/memory"
+
+	result := formAbsolutePath(referencePath, absolutePath)
+
+	assert.Assert(t, result == expectedString)
+}
+
+func TestFormAbsolutePath_AbsolutePathExists(t *testing.T) {
+	absolutePath := "/spec/containers/0/resources/requests/memory"
+	referencePath := "/spec/containers/0/resources/limits/memory"
+
+	result := formAbsolutePath(referencePath, absolutePath)
+
+	assert.Assert(t, result == referencePath)
+}
+
+func TestFormAbsolutePath_EmptyPath(t *testing.T) {
+	absolutePath := "/spec/containers/0/resources/requests/memory"
+	referencePath := ""
+
+	result := formAbsolutePath(referencePath, absolutePath)
+
+	assert.Assert(t, result == absolutePath)
+}
+
+func TestActualizePattern_GivenRelativePathThatExists(t *testing.T) {
+	absolutePath := "/spec/containers/0/resources/requests/memory"
+	referencePath := "$(<=./../../limits/memory)"
+
+	rawPattern := []byte(`{
+		"spec":{
+			"containers":[
+				{
+					"name":"*",
+					"resources":{
+						"requests":{
+							"memory":"$(<=./../../limits/memory)"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	resolvedReference := "<=2048Mi"
+
+	var pattern interface{}
+	assert.NilError(t, json.Unmarshal(rawPattern, &pattern))
+
+	// pattern, err := actualizePattern(log.Log, pattern, referencePath, absolutePath)
+
+	pattern, err := resolveReference(log.Log, pattern, referencePath, absolutePath)
+
+	assert.NilError(t, err)
+	assert.DeepEqual(t, resolvedReference, pattern)
+}
+
+func TestFindAndShiftReferences_PositiveCase(t *testing.T) {
+	message := "Message with $(./../../pattern/spec/containers/0/image) reference inside. Or maybe even two $(./../../pattern/spec/containers/0/image), but they are same."
+	expectedMessage := strings.Replace(message, "$(./../../pattern/spec/containers/0/image)", "$(./../../pattern/spec/jobTemplate/spec/containers/0/image)", -1)
+	actualMessage := FindAndShiftReferences(log.Log, message, "spec/jobTemplate", "pattern")
+
+	assert.Equal(t, expectedMessage, actualMessage)
+}
+
+func TestFindAndShiftReferences_AnyPatternPositiveCase(t *testing.T) {
+	message := "Message with $(./../../anyPattern/0/spec/containers/0/image)."
+	expectedMessage := strings.Replace(message, "$(./../../anyPattern/0/spec/containers/0/image)", "$(./../../anyPattern/0/spec/jobTemplate/spec/containers/0/image)", -1)
+	actualMessage := FindAndShiftReferences(log.Log, message, "spec/jobTemplate", "anyPattern")
+
+	assert.Equal(t, expectedMessage, actualMessage)
 }

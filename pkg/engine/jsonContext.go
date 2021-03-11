@@ -101,7 +101,7 @@ func fetchAPIData(log logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContex
 		return nil, fmt.Errorf("missing APICall in context entry %s %v", entry.Name, entry.APICall)
 	}
 
-	path, err := variables.SubstituteVars(log, ctx.JSONContext, entry.APICall.URLPath)
+	path, err := variables.SubstituteAll(log, ctx.JSONContext, entry.APICall.URLPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.APICall.URLPath, err)
 	}
@@ -168,12 +168,12 @@ func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynami
 func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynamiclister.Lister, jsonContext *context.Context) ([]byte, error) {
 	contextData := make(map[string]interface{})
 
-	name, err := variables.SubstituteVars(logger, jsonContext, entry.ConfigMap.Name)
+	name, err := variables.SubstituteAll(logger, jsonContext, entry.ConfigMap.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.name %s: %v", entry.Name, entry.ConfigMap.Name, err)
 	}
 
-	namespace, err := variables.SubstituteVars(logger, jsonContext, entry.ConfigMap.Namespace)
+	namespace, err := variables.SubstituteAll(logger, jsonContext, entry.ConfigMap.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.namespace %s: %v", entry.Name, entry.ConfigMap.Namespace, err)
 	}

@@ -1,5 +1,10 @@
 package common
 
+import (
+	"path"
+	"strings"
+)
+
 // IsAnchor is a function handler
 type IsAnchor func(str string) bool
 
@@ -70,6 +75,24 @@ func RemoveAnchor(key string) (string, string) {
 	}
 
 	return key, ""
+}
+
+// RemoveAnchorsFromPath removes all anchor from path string
+func RemoveAnchorsFromPath(str string) string {
+	components := strings.Split(str, "/")
+	if components[0] == "" {
+		components = components[1:]
+	}
+
+	for i, component := range components {
+		components[i], _ = RemoveAnchor(component)
+	}
+
+	newPath := path.Join(components...)
+	if path.IsAbs(str) {
+		newPath = "/" + newPath
+	}
+	return newPath
 }
 
 // AddAnchor adds an anchor with the supplied prefix.

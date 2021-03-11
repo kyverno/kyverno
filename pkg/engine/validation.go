@@ -61,7 +61,7 @@ func buildResponse(logger logr.Logger, ctx *PolicyContext, resp *response.Engine
 	}
 
 	for i := range resp.PolicyResponse.Rules {
-		messageInterface, err := variables.SubstituteVars(logger, ctx.JSONContext, resp.PolicyResponse.Rules[i].Message)
+		messageInterface, err := variables.SubstituteAll(logger, ctx.JSONContext, resp.PolicyResponse.Rules[i].Message)
 		if err != nil {
 			logger.V(4).Info("failed to substitute variables", "error", err.Error())
 			continue
@@ -119,7 +119,6 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 			continue
 		}
 		// evaluate pre-conditions
-		// - handle variable substitutions
 		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditionsCopy) {
 			log.V(4).Info("resource fails the preconditions")
 			continue
@@ -226,15 +225,16 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 		logger.V(4).Info("finished processing rule", "processingTime", resp.RuleStats.ProcessingTime.String())
 	}()
 
+	var err error
+	if rule, err = variables.SubstituteAllInRule(logger, ctx, rule); err != nil {
+		resp.Success = false
+		resp.Message = fmt.Sprintf("variable substitution failed for rule %s: %s", rule.Name, err.Error())
+		return resp
+	}
+
 	validationRule := rule.Validation.DeepCopy()
 	if validationRule.Pattern != nil {
 		pattern := validationRule.Pattern
-		var err error
-		if pattern, err = variables.SubstituteVars(logger, ctx, pattern); err != nil {
-			resp.Success = false
-			resp.Message = fmt.Sprintf("variable substitution failed for rule %s: %s", rule.Name, err.Error())
-			return resp
-		}
 
 		if path, err := validate.ValidateResourceWithPattern(logger, resource.Object, pattern); err != nil {
 			logger.V(3).Info("validation failed", "path", path, "error", err.Error())
@@ -250,7 +250,6 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 	}
 
 	if validationRule.AnyPattern != nil {
-		var failedSubstitutionsErrors []error
 		var failedAnyPatternsErrors []error
 		var err error
 
@@ -262,11 +261,6 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 		}
 
 		for idx, pattern := range anyPatterns {
-			if pattern, err = variables.SubstituteVars(logger, ctx, pattern); err != nil {
-				failedSubstitutionsErrors = append(failedSubstitutionsErrors, err)
-				continue
-			}
-
 			path, err := validate.ValidateResourceWithPattern(logger, resource.Object, pattern)
 			if err == nil {
 				resp.Success = true
@@ -277,13 +271,6 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 			logger.V(4).Info("validation rule failed", "anyPattern[%d]", idx, "path", path)
 			patternErr := fmt.Errorf("Rule %s[%d] failed at path %s.", rule.Name, idx, path)
 			failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
-		}
-
-		// Substitution failures
-		if len(failedSubstitutionsErrors) > 0 {
-			resp.Success = false
-			resp.Message = fmt.Sprintf("failed to substitute variables: %v", failedSubstitutionsErrors)
-			return resp
 		}
 
 		// Any Pattern validation errors
