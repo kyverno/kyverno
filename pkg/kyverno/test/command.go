@@ -114,6 +114,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 	var errors []error
 	fs := memfs.New()
 	rc = &resultCounts{}
+	var testYamlCount int
 	if len(dirPath) == 0 {
 		return rc, sanitizederror.NewWithError(fmt.Sprintf("a directory is required"), err)
 	}
@@ -123,19 +124,20 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 			return rc, sanitizederror.NewWithError("failed to parse URL", err)
 		}
 		pathElems := strings.Split(gitURL.Path[1:], "/")
-		if len(pathElems) != 3 {
+		if len(pathElems) <= 2 {
 			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch", gitURL.Path)
 			fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
 			os.Exit(1)
 		}
-		gitURL.Path = strings.Join([]string{"/", pathElems[0], pathElems[1]}, "/")
+		gitURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 		repoURL := gitURL.String()
-		cloneRepo, err := clone(repoURL, fs)
-		if err != nil {
-			fmt.Printf("Error: failed to clone repository \nCause: %s\n", err)
+		branch := strings.ReplaceAll(dirPath[0], repoURL+"/", "")
+		_, cloneErr := clone(repoURL, fs, branch)
+		if cloneErr != nil {
+			fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
+			log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
 			os.Exit(1)
 		}
-		log.Log.V(3).Info(" clone repository", cloneRepo)
 		policyYamls, err := listYAMLs(fs, "/")
 		if err != nil {
 			return rc, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
@@ -144,6 +146,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 		for _, yamlFilePath := range policyYamls {
 			file, err := fs.Open(yamlFilePath)
 			if strings.Contains(file.Name(), fileName) {
+				testYamlCount++
 				policyresoucePath := strings.Trim(yamlFilePath, fileName)
 				bytes, err := ioutil.ReadAll(file)
 				if err != nil {
@@ -169,7 +172,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 		if err != nil {
 			errors = append(errors, err)
 		}
-		err := getLocalDirTestFiles(fs, path, fileName, valuesFile, rc)
+		err := getLocalDirTestFiles(fs, path, fileName, valuesFile, rc, testYamlCount)
 		if err != nil {
 			errors = append(errors, err)
 		}
@@ -183,21 +186,25 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 	if rc.fail > 0 {
 		os.Exit(1)
 	}
+	if testYamlCount == 0 {
+		fmt.Printf("\n No test yamls available \n")
+	}
 	os.Exit(0)
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts) error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts, testYamlCount int) error {
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
 		return fmt.Errorf("failed to read %v: %v", path, err.Error())
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc, testYamlCount)
 			continue
 		}
 		if strings.Contains(file.Name(), fileName) {
+			testYamlCount++
 			yamlFile, err := ioutil.ReadFile(filepath.Join(path, file.Name()))
 			if err != nil {
 				sanitizederror.NewWithError("unable to read yaml", err)
