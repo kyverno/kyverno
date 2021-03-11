@@ -1,18 +1,22 @@
 package test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/storage/memory"
 )
 
-func clone(path string, fs billy.Filesystem) (*git.Repository, error) {
+func clone(path string, fs billy.Filesystem, branch string) (*git.Repository, error) {
 	return git.Clone(memory.NewStorage(), fs, &git.CloneOptions{
-		URL:      path,
-		Progress: os.Stdout,
+		URL:           path,
+		ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branch)),
+		Progress:      os.Stdout,
+		SingleBranch:  true,
 	})
 }
 
