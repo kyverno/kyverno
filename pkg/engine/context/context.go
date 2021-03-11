@@ -162,26 +162,27 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 	containerImages := make(map[string]string)
 	containerImgs := make(map[string]imgInfo)
 
-	var initContainerImages []string
-	var initContainerImgs []imgInfo
+	initContainerImages := make(map[string]string)
+	initContainerImgs := make(map[string]imgInfo)
 
 	kind := kindInterface.(string)
 	spec := specInterface.(map[string]interface{})
 
 	if kind == "Pod" {
 		containersMap := spec["containers"].([]interface{})
-		for _, v := range containersMap { //containers is a slice of maps where each map represents an image
+		//containers is a slice of maps where each map represents an image
+		for _, v := range containersMap {
 			v2 := v.(map[string]interface{})
 			imageString := v2["image"].(string)
 			imageNameString := v2["name"].(string)
 			containerImages[imageNameString] = imageString
 		}
 		initContainersMap := spec["initContainers"].([]interface{})
-		for _, v := range initContainersMap { //containers is a slice of maps where each map represents an image
+		for _, v := range initContainersMap {
 			v2 := v.(map[string]interface{})
 			imageString := v2["image"].(string)
-			//imageNameString := v2["name"].(string)
-			initContainerImages = append(initContainerImages, imageString)
+			imageNameString := v2["name"].(string)
+			initContainerImages[imageNameString] = imageString
 		}
 	}
 
@@ -189,22 +190,21 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 		template := spec["template"].(map[string]interface{})
 		templateSpec := template["spec"].(map[string]interface{})
 		containersMap := templateSpec["containers"].([]interface{})
-		for _, v := range containersMap { //containers is a slice of maps where each map represents an image
+		//containers is a slice of maps where each map represents an image
+		for _, v := range containersMap {
 			v2 := v.(map[string]interface{})
 			imageString := v2["image"].(string)
 			imageNameString := v2["name"].(string)
 			containerImages[imageNameString] = imageString
 		}
 		initContainersMap := templateSpec["initContainers"].([]interface{})
-		for _, v := range initContainersMap { //containers is a slice of maps where each map represents an image
+		for _, v := range initContainersMap {
 			v2 := v.(map[string]interface{})
 			imageString := v2["image"].(string)
-			//imageNameString := v2["name"].(string)
-			initContainerImages = append(initContainerImages, imageString)
+			imageNameString := v2["name"].(string)
+			initContainerImages[imageNameString] = imageString
 		}
 	}
-
-	fmt.Println(containerImages)
 
 	for imageName, image := range containerImages {
 		var img imgInfo
@@ -225,11 +225,8 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 		}
 		containerImgs[imageName] = img
 	}
-	fmt.Println(containerImgs)
 
-	fmt.Println(initContainerImages)
-
-	for _, image := range initContainerImages {
+	for imageName, image := range initContainerImages {
 		var img imgInfo
 		if strings.Contains(image, "/") {
 			res := strings.Split(image, "/")
@@ -246,71 +243,50 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 			img.Name = image
 			img.Tag = "latest"
 		}
-		initContainerImgs = append(initContainerImgs, img)
+		initContainerImgs[imageName] = img
 	}
-	fmt.Println(initContainerImgs)
 
 	for k, v := range containerImgs {
-		err := ctx.AddImageInfo(k, v)
+		err := ctx.AddImageInfoContainers(k, v)
 		if err != nil {
-			fmt.Println("===unexpected error ", err)
+			return err
 		}
 	}
 
-	// imgsObj := struct {
-	// 	Images interface{} `json:"images"`
-	// }{
-	// 	Images: struct {
-	// 		Containers     []imgInfo `json:"containers"`
-	// 		InitContainers []imgInfo `json:"initContainers"`
-	// 	}{
-	// 		Containers:     containerImgs,
-	// 		InitContainers: initContainerImgs,
-	// 	},
-	// }
-
-	// fmt.Println("$$$$$")
-	// fmt.Println(imgsObj)
-	// fmt.Println("$$$$$")
-	// imgsRaw, err := json.Marshal(imgsObj)
-	// if err != nil {
-	// 	ctx.log.Error(err, "failed to marshal the IMG")
-	// 	return err
-	// }
-	// fmt.Println("#####")
-	// fmt.Println(imgsRaw)
-	// fmt.Println("#####")
-	// fmt.Println("&&&&&")
-	// fmt.Println(string(imgsRaw))
-	// fmt.Println("&&&&&")
-	// if err := ctx.AddJSON(imgsRaw); err != nil {
-	// 	return err
-	// }
-
+	for k, v := range initContainerImgs {
+		err := ctx.AddImageInfoInitContainers(k, v)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
+// newContainerImage returns a new containerImage object based on imgInfo object
+// and the container name
 func newContainerImage(containerName string, imgInfo imgInfo) containerImage {
 	return containerImage{
 		Name:      containerName,
 		Container: imgInfo,
 	}
 }
+
+// ReplaceJSONTage replaces the JSON tag with container name
 func (c containerImage) ReplaceJSONTag() map[string]interface{} {
 	m, _ := json.Marshal(c.Container)
 
 	var a interface{}
 	json.Unmarshal(m, &a)
 	b := a.(map[string]interface{})
-	fmt.Println("===b", b)
 	b[c.Name] = c.Container
 	delete(b, "needtoreplace")
 
 	return b
 }
 
-// AddImageInfo no lint
-func (ctx *Context) AddImageInfo(k string, v imgInfo) error {
+// AddImageInfoContainers adds the details of a particular image
+// of a container to the context
+func (ctx *Context) AddImageInfoContainers(k string, v imgInfo) error {
 
 	containerImg := newContainerImage(k, v)
 
@@ -320,7 +296,7 @@ func (ctx *Context) AddImageInfo(k string, v imgInfo) error {
 		Images interface{} `json:"images"`
 	}{
 		Images: struct {
-			Container map[string]interface{} `json:"container"`
+			Container map[string]interface{} `json:"containers"`
 		}{
 			Container: replacedContainerImg,
 		},
@@ -328,10 +304,35 @@ func (ctx *Context) AddImageInfo(k string, v imgInfo) error {
 
 	objRaw, err := json.Marshal(images)
 	if err != nil {
-		fmt.Println("===failed to marshal images", err)
+		return err
 	}
 
-	fmt.Println("===objRaw", string(objRaw))
+	return ctx.AddJSON(objRaw)
+}
+
+// AddImageInfoInitContainers adds the details of a particular image
+// of an init container to the context
+func (ctx *Context) AddImageInfoInitContainers(k string, v imgInfo) error {
+
+	containerImg := newContainerImage(k, v)
+
+	replacedContainerImg := containerImg.ReplaceJSONTag()
+
+	images := struct {
+		Images interface{} `json:"images"`
+	}{
+		Images: struct {
+			Container map[string]interface{} `json:"initContainers"`
+		}{
+			Container: replacedContainerImg,
+		},
+	}
+
+	objRaw, err := json.Marshal(images)
+	if err != nil {
+		return err
+	}
+
 	return ctx.AddJSON(objRaw)
 }
 
