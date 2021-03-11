@@ -8,6 +8,7 @@ import (
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	rest "k8s.io/client-go/rest"
 )
@@ -54,8 +55,8 @@ func extractCA(config *rest.Config) (result []byte) {
 
 func (wrc *Register) constructOwner() v1.OwnerReference {
 	logger := wrc.log
-	kubePolicyDeployment, err := wrc.getKubePolicyDeployment()
 
+	kubePolicyDeployment, _, err := wrc.GetKubePolicyDeployment()
 	if err != nil {
 		logger.Error(err, "failed to construct OwnerReference")
 		return v1.OwnerReference{}
@@ -69,17 +70,18 @@ func (wrc *Register) constructOwner() v1.OwnerReference {
 	}
 }
 
-func (wrc *Register) getKubePolicyDeployment() (*apps.Deployment, error) {
+// GetKubePolicyDeployment gets Kyverno deployment
+func (wrc *Register) GetKubePolicyDeployment() (*apps.Deployment, *unstructured.Unstructured, error) {
 	lister, _ := wrc.resCache.GetGVRCache("Deployment")
 	kubePolicyDeployment, err := lister.NamespacedLister(config.KyvernoNamespace).Get(config.KyvernoDeploymentName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	deploy := apps.Deployment{}
 	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(kubePolicyDeployment.UnstructuredContent(), &deploy); err != nil {
-		return nil, err
+		return nil, kubePolicyDeployment, err
 	}
-	return &deploy, nil
+	return &deploy, kubePolicyDeployment, nil
 }
 
 // debug mutating webhook

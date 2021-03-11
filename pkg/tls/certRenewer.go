@@ -218,7 +218,7 @@ func (c *CertRenewer) RollingUpdate() error {
 			return errors.Wrap(err, "failed to find Kyverno")
 		}
 
-		if checkIfKyvernoIsInRollingUpdate(deploy.UnstructuredContent(), c.log) {
+		if IsKyvernoIsInRollingUpdate(deploy.UnstructuredContent(), c.log) {
 			return nil
 		}
 
@@ -319,7 +319,8 @@ func (c *CertRenewer) ValidCert() (bool, error) {
 	return true, nil
 }
 
-func checkIfKyvernoIsInRollingUpdate(deploy map[string]interface{}, logger logr.Logger) bool {
+// IsKyvernoIsInRollingUpdate returns true if Kyverno is in rolling update
+func IsKyvernoIsInRollingUpdate(deploy map[string]interface{}, logger logr.Logger) bool {
 	replicas, _, err := unstructured.NestedInt64(deploy, "spec", "replicas")
 	if err != nil {
 		logger.Error(err, "unable to fetch spec.replicas")

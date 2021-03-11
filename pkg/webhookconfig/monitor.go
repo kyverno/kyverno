@@ -128,6 +128,10 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 	for {
 		select {
 		case <-ticker.C:
+			if skipWebhookCheck(register, logger.WithName("statusCheck/skipWebhookCheck")) {
+				logger.Info("skip validating webhook status, Kyverno is in rolling update")
+				continue
+			}
 
 			if err := register.Check(); err != nil {
 				t.log.Error(err, "missing webhooks")
@@ -155,6 +159,10 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 
 			if timeDiff > idleCheckInterval {
 				logger.V(1).Info("webhook idle time exceeded", "deadline", idleCheckInterval)
+				if skipWebhookCheck(register, logger.WithName("skipWebhookCheck")) {
+					logger.Info("skip validating webhook status, Kyverno is in rolling update")
+					continue
+				}
 
 				// send request to update the Kyverno deployment
 				if err := status.IncrementAnnotation(); err != nil {
@@ -210,4 +218,15 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			return
 		}
 	}
+}
+
+// skipWebhookCheck returns true if Kyverno is in rolling update
+func skipWebhookCheck(register *Register, logger logr.Logger) bool {
+	_, deploy, err := register.GetKubePolicyDeployment()
+	if err != nil {
+		logger.Info("unable to get Kyverno deployment", "reason", err.Error())
+		return false
+	}
+
+	return tls.IsKyvernoIsInRollingUpdate(deploy.UnstructuredContent(), logger)
 }
