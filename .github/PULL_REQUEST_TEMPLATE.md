@@ -41,7 +41,7 @@ them, don't hesitate to ask. We're here to help! This is simply a reminder of wh
 - [] I have read the [contributing guidelines](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md).
 - [] I have added tests that prove my fix is effective or that my feature works.
 - [] I have added or changed [the documentation](https://github.com/kyverno/website).
-  - If not, I have raised an issue in [kyverno/policies](https://github.com/kyverno/website) to track the doc update:
+  - If not, I have raised an issue in [kyverno/website](https://github.com/kyverno/website) to track the doc update:
   <!-- Uncomment to link to the issue -->
   <!-- https://github.com/kyverno/website/issues/1 -->
 
