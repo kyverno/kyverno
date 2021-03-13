@@ -224,14 +224,14 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 	extractImageDetails(initContainerImages, initContainerImgs)
 
 	for k, v := range containerImgs {
-		err := ctx.AddImageInfoContainers(k, v)
+		err := ctx.addImageInfoContainers(k, v)
 		if err != nil {
 			return err
 		}
 	}
 
 	for k, v := range initContainerImgs {
-		err := ctx.AddImageInfoInitContainers(k, v)
+		err := ctx.addImageInfoInitContainers(k, v)
 		if err != nil {
 			return err
 		}
@@ -261,9 +261,9 @@ func (c containerImage) ReplaceJSONTag() map[string]interface{} {
 	return b
 }
 
-// AddImageInfoContainers adds the details of a particular image
+// addImageInfoContainers adds the details of a particular image
 // of a container to the context
-func (ctx *Context) AddImageInfoContainers(k string, v imgInfo) error {
+func (ctx *Context) addImageInfoContainers(k string, v imgInfo) error {
 
 	containerImg := newContainerImage(k, v)
 
@@ -287,9 +287,9 @@ func (ctx *Context) AddImageInfoContainers(k string, v imgInfo) error {
 	return ctx.AddJSON(objRaw)
 }
 
-// AddImageInfoInitContainers adds the details of a particular image
+// addImageInfoInitContainers adds the details of a particular image
 // of an init container to the context
-func (ctx *Context) AddImageInfoInitContainers(k string, v imgInfo) error {
+func (ctx *Context) addImageInfoInitContainers(k string, v imgInfo) error {
 
 	containerImg := newContainerImage(k, v)
 
