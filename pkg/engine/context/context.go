@@ -155,6 +155,44 @@ func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 	return ctx.AddJSON(objRaw)
 }
 
+// extracts the image names present in the request
+func extractImages(containersMap []interface{}, containerImages map[string]string, initContainersMap []interface{}, initContainerImages map[string]string) {
+	for _, v := range containersMap {
+		v2 := v.(map[string]interface{})
+		imageString := v2["image"].(string)
+		imageNameString := v2["name"].(string)
+		containerImages[imageNameString] = imageString
+	}
+	for _, v := range initContainersMap {
+		v2 := v.(map[string]interface{})
+		imageString := v2["image"].(string)
+		imageNameString := v2["name"].(string)
+		initContainerImages[imageNameString] = imageString
+	}
+}
+
+func extractImageDetails(imageStrings map[string]string, imageDetails map[string]imgInfo) {
+	for imageName, image := range imageStrings {
+		var img imgInfo
+		if strings.Contains(image, "/") {
+			res := strings.Split(image, "/")
+			img.RegistryURL = res[0]
+			image = res[1]
+		} else {
+			img.RegistryURL = ""
+		}
+		if strings.Contains(image, ":") {
+			res := strings.Split(image, ":")
+			img.Name = res[0]
+			img.Tag = res[1]
+		} else {
+			img.Name = image
+			img.Tag = "latest"
+		}
+		imageDetails[imageName] = img
+	}
+}
+
 //AddImageDetails checks if kind is pod or pod controller, then loads details about the image
 func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface interface{}) error {
 	containerImages := make(map[string]string)
@@ -169,19 +207,8 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 	if kind == "Pod" {
 		containersMap := spec["containers"].([]interface{})
 		//containers is a slice of maps where each map represents an image
-		for _, v := range containersMap {
-			v2 := v.(map[string]interface{})
-			imageString := v2["image"].(string)
-			imageNameString := v2["name"].(string)
-			containerImages[imageNameString] = imageString
-		}
 		initContainersMap := spec["initContainers"].([]interface{})
-		for _, v := range initContainersMap {
-			v2 := v.(map[string]interface{})
-			imageString := v2["image"].(string)
-			imageNameString := v2["name"].(string)
-			initContainerImages[imageNameString] = imageString
-		}
+		extractImages(containersMap, containerImages, initContainersMap, initContainerImages)
 	}
 
 	if kind == "Deployment" || kind == "Job" || kind == "CronJob" || kind == "ReplicaSet" || kind == "StatefulSet" || kind == "DaemonSet" {
@@ -189,60 +216,12 @@ func (ctx *Context) AddImageDetails(kindInterface interface{}, specInterface int
 		templateSpec := template["spec"].(map[string]interface{})
 		containersMap := templateSpec["containers"].([]interface{})
 		//containers is a slice of maps where each map represents an image
-		for _, v := range containersMap {
-			v2 := v.(map[string]interface{})
-			imageString := v2["image"].(string)
-			imageNameString := v2["name"].(string)
-			containerImages[imageNameString] = imageString
-		}
 		initContainersMap := templateSpec["initContainers"].([]interface{})
-		for _, v := range initContainersMap {
-			v2 := v.(map[string]interface{})
-			imageString := v2["image"].(string)
-			imageNameString := v2["name"].(string)
-			initContainerImages[imageNameString] = imageString
-		}
+		extractImages(containersMap, containerImages, initContainersMap, initContainerImages)
 	}
 
-	for imageName, image := range containerImages {
-		var img imgInfo
-		if strings.Contains(image, "/") {
-			res := strings.Split(image, "/")
-			img.RegistryURL = res[0]
-			image = res[1]
-		} else {
-			img.RegistryURL = ""
-		}
-		if strings.Contains(image, ":") {
-			res := strings.Split(image, ":")
-			img.Name = res[0]
-			img.Tag = res[1]
-		} else {
-			img.Name = image
-			img.Tag = "latest"
-		}
-		containerImgs[imageName] = img
-	}
-
-	for imageName, image := range initContainerImages {
-		var img imgInfo
-		if strings.Contains(image, "/") {
-			res := strings.Split(image, "/")
-			img.RegistryURL = res[0]
-			image = res[1]
-		} else {
-			img.RegistryURL = ""
-		}
-		if strings.Contains(image, ":") {
-			res := strings.Split(image, ":")
-			img.Name = res[0]
-			img.Tag = res[1]
-		} else {
-			img.Name = image
-			img.Tag = "latest"
-		}
-		initContainerImgs[imageName] = img
-	}
+	extractImageDetails(containerImages, containerImgs)
+	extractImageDetails(initContainerImages, initContainerImgs)
 
 	for k, v := range containerImgs {
 		err := ctx.AddImageInfoContainers(k, v)
