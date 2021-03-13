@@ -64,13 +64,13 @@ func (nin NotInHandler) validateValueWithStringPattern(key string, value interfa
 }
 
 func (nin NotInHandler) validateValueWithStringSetPattern(key []string, value interface{}) bool {
-	invalidType, keyExists := setExistsInArray(key, value, nin.log)
+	invalidType, isNotIn := setExistsInArray(key, value, nin.log, true)
 	if invalidType {
 		nin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
-	return !keyExists
+	return isNotIn
 }
 
 func (nin NotInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {
