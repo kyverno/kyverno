@@ -121,16 +121,6 @@ func (h patchesJSON6902Handler) Handle() (resp response.RuleResponse, patchedRes
 		return resp, h.patchedResource
 	}
 
-	skip, err := preProcessJSONPatches(patchesJSON6902, h.patchedResource, h.logger)
-	if err != nil {
-		h.logger.Error(err, "failed to preProcessJSONPatches")
-	}
-
-	if skip {
-		resp.Success = true
-		return resp, h.patchedResource
-	}
-
 	return ProcessPatchJSON6902(h.ruleName, patchesJSON6902, h.patchedResource, h.logger)
 }
 
@@ -172,25 +162,6 @@ func newpatchesHandler(ruleName string, mutate *kyverno.Mutation, patchedResourc
 func (h patchesHandler) Handle() (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	resp.Name = h.ruleName
 	resp.Type = utils.Mutation.String()
-
-	// patches is already converted to patchesJSON6902
-	patchesJSON6902, err := convertPatchesToJSON(h.mutation.PatchesJSON6902)
-	if err != nil {
-		resp.Success = false
-		h.logger.Error(err, "error in type conversion")
-		resp.Message = err.Error()
-		return resp, h.patchedResource
-	}
-
-	skip, err := preProcessJSONPatches(patchesJSON6902, h.patchedResource, h.logger)
-	if err != nil {
-		h.logger.Error(err, "failed to preProcessJSONPatches")
-	}
-
-	if skip {
-		resp.Success = true
-		return resp, h.patchedResource
-	}
 
 	return ProcessPatches(h.logger, h.ruleName, *h.mutation, h.patchedResource)
 }
