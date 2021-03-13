@@ -49,6 +49,12 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		if jsonPatchOnPod(rule) {
 			log.Log.V(1).Info("warning: pods managed by workload controllers cannot be mutated using policies. Use the auto-gen feature or write policies that match pod controllers.")
 		}
+
+		// validate rule name number of characters
+		if len(rule.Name) > 63 {
+			return fmt.Errorf("invalid rule name \"%s\": must be no more than 63 characters", rule.Name)
+		}
+
 		// validate resource description
 		if path, err := validateResources(rule); err != nil {
 			return fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
