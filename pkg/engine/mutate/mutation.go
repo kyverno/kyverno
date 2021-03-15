@@ -64,6 +64,7 @@ func (h patchStrategicMergeHandler) Handle() (response.RuleResponse, unstructure
 	var err error
 	if PatchStrategicMerge, err = variables.SubstituteVars(log, h.evalCtx, PatchStrategicMerge); err != nil {
 		// variable subsitution failed
+		ruleResponse.Name = h.ruleName
 		ruleResponse.Success = false
 		ruleResponse.Message = err.Error()
 		return ruleResponse, h.patchedResource
