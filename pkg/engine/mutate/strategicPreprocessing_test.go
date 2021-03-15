@@ -27,6 +27,57 @@ func Test_preProcessStrategicMergePatch(t *testing.T) {
 	}
 }
 
+func Test_preProcessStrategicMergePatch_Equality(t *testing.T) {
+	rawPolicy := []byte(`{
+		"spec": {
+			"volumes": {
+				"=(emptyDir)": {
+					"+(medium)": "Memory"
+				}
+			}
+		}
+	}`)
+
+	rawResource := []byte(`{
+		"spec": {
+			"containers": [
+				"image": "foo"
+			],
+			"volumes": [
+				{
+					"name": "cache-volume",
+					"emptyDir": {}
+				},
+				{
+					"name": "cache-volume2",
+					"emptyDir": {"foo1":"abcd"}
+				},
+				{
+					"name": "bar1",
+					"emptyDir": {
+						"medium": "Memory2"
+					}
+				},
+				{
+					"name": "foo"
+				}
+			]
+		}
+	}`)
+
+	expected := `{"spec": {"volumes": {"emptyDir": {"medium": "Memory"}, "name": "cache-volume", "emptyDir": {"medium": "Memory"}, "name": "cache-volume2", "emptyDir": {}, "name": "bar1"}}}`
+
+	preProcessedPolicy, err := preProcessStrategicMergePatch(string(rawPolicy), string(rawResource))
+	assert.NilError(t, err)
+	output, err := preProcessedPolicy.String()
+	assert.NilError(t, err)
+
+	re := regexp.MustCompile(`\\n`)
+	if !assertnew.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(re.ReplaceAllString(output, ""))) {
+		t.FailNow()
+	}
+}
+
 func Test_preProcessStrategicMergePatch_Deployment(t *testing.T) {
 	rawPolicy := []byte(`"spec": {
 						  "template": {
