@@ -207,7 +207,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 
 	// empty the previous contents of the file just in case if the file already existed before with some content(so as to perform overwrites)
 	// the truncation of files for the case when mutateLogPath is dir, is handled under pkg/kyverno/apply/common.go
-	if !mutateLogPathIsDir {
+	if !mutateLogPathIsDir && mutateLogPath != "" {
 		_, err := os.OpenFile(mutateLogPath, os.O_TRUNC|os.O_WRONLY, 0644)
 		if err != nil {
 			if !sanitizederror.IsErrorSanitized(err) {
