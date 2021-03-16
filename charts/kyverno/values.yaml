@@ -57,6 +57,8 @@ hostNetwork: false
 # for further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
 dnsPolicy: "ClusterFirst"
 
+envVars: {}
+
 extraArgs: []
 # - --webhooktimeout=4
 
