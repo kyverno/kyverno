@@ -61,6 +61,10 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          {{- with .Values.envVars }}
+          env:
+            {{- toYaml . | nindent 14 }}
+          {{- end }}
       containers:
         - name: kyverno
           image: {{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}
