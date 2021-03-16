@@ -180,7 +180,7 @@ func isIn(key []string, value []string) bool {
 	return true
 }
 
-// isNotIn checks if none of the values in S1 is in S2
+// isNotIn checks if any of the values in S1 is not in S2
 func isNotIn(key []string, value []string) bool {
 	set := make(map[string]bool)
 
@@ -190,12 +190,12 @@ func isNotIn(key []string, value []string) bool {
 
 	for _, val := range key {
 		_, found := set[val]
-		if found {
-			return false
+		if !found {
+			return true
 		}
 	}
 
-	return true
+	return false
 }
 
 func (in InHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {
