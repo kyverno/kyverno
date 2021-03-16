@@ -9,7 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
 	certificates "k8s.io/api/certificates/v1beta1"
-	v1 "k8s.io/api/core/v1"
 	helperv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -196,15 +195,6 @@ func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
 		return nil
 	}
 	return &unstructured.Unstructured{Object: unstructuredObj}
-}
-
-//To-Do remove this to use unstructured type
-func convertToSecret(obj *unstructured.Unstructured) (v1.Secret, error) {
-	secret := v1.Secret{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &secret); err != nil {
-		return secret, err
-	}
-	return secret, nil
 }
 
 //To-Do remove this to use unstructured type

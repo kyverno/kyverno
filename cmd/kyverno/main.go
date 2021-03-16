@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/signal"
+	ktls "github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
@@ -144,7 +145,7 @@ func main() {
 		log.Log)
 
 	// Resource Mutating Webhook Watcher
-	webhookMonitor := webhookconfig.NewMonitor(log.Log.WithName("WebhookMonitor"))
+	webhookMonitor := webhookconfig.NewMonitor(rCache, log.Log.WithName("WebhookMonitor"))
 
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
@@ -283,8 +284,9 @@ func main() {
 		client,
 	)
 
+	certRenewer := ktls.NewCertRenewer(client, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, log.Log.WithName("CertRenewer"))
 	// Configure certificates
-	tlsPair, err := client.InitTLSPemPair(clientConfig, serverIP)
+	tlsPair, err := certRenewer.InitTLSPemPair(serverIP)
 	if err != nil {
 		setupLog.Error(err, "Failed to initialize TLS key/certificate pair")
 		os.Exit(1)
@@ -329,6 +331,7 @@ func main() {
 		pCacheController.Cache,
 		webhookCfg,
 		webhookMonitor,
+		certRenewer,
 		statusSync.Listener,
 		configData,
 		reportReqGen,
