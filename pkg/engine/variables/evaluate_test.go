@@ -1066,10 +1066,10 @@ func Test_Eval_In_String_Set_Fail(t *testing.T) {
 	}
 }
 
-// test passes if ALL of the values in "key" are NOT in "value" ("key" is not a subset of "value")
+// test passes if ONE of the values in "key" is NOT in "value" ("key" is not a subset of "value")
 func Test_Eval_NotIn_String_Set_Pass(t *testing.T) {
 	ctx := context.NewContext()
-	key := [2]string{"4.4.4.4", "5.5.5.5"}
+	key := [3]string{"1.1.1.1", "4.4.4.4", "5.5.5.5"}
 	keyInterface := make([]interface{}, len(key), len(key))
 	for i := range key {
 		keyInterface[i] = key[i]
@@ -1094,7 +1094,7 @@ func Test_Eval_NotIn_String_Set_Pass(t *testing.T) {
 // test passes if ALL of the values in "key" are in "value" ("key" is a subset of "value")
 func Test_Eval_NotIn_String_Set_Fail(t *testing.T) {
 	ctx := context.NewContext()
-	key := [2]string{"1.1.1.1", "4.4.4.4"}
+	key := [2]string{"1.1.1.1", "2.2.2.2"}
 	keyInterface := make([]interface{}, len(key), len(key))
 	for i := range key {
 		keyInterface[i] = key[i]
