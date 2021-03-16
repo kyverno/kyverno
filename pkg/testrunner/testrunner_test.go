@@ -10,10 +10,6 @@ func Test_Mutate_Validate_qos(t *testing.T) {
 	testScenario(t, "/test/scenarios/other/scenario_mutate_validate_qos.yaml")
 }
 
-func Test_disallow_root_user(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/disallow_root_user.yaml")
-}
-
 func Test_disallow_priviledged(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/disallow_priviledged.yaml")
 }
@@ -22,28 +18,12 @@ func Test_validate_healthChecks(t *testing.T) {
 	testScenario(t, "/test/scenarios/other/scenario_validate_healthChecks.yaml")
 }
 
-func Test_validate_disallow_latest_tag(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/disallow_latest_tag.yaml")
-}
-
-func Test_validate_require_image_tag_not_latest_pass(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/disallow_latest_tag_pass.yaml")
-}
-
-func Test_validate_disallow_default_namespace(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/disallow_default_namespace.yaml")
-}
-
 func Test_validate_host_network_port(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/disallow_host_network_port.yaml")
 }
 
 func Test_validate_host_PID_IPC(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/disallow_host_pid_ipc.yaml")
-}
-
-func Test_validate_ro_rootfs(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/require_ro_rootfs.yaml")
 }
 
 //TODO: support generate
@@ -67,14 +47,6 @@ func Test_validate_volume_whitelist(t *testing.T) {
 	testScenario(t, "test/scenarios/other/scenario_validate_volume_whiltelist.yaml")
 }
 
-func Test_require_pod_requests_limits(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/require_pod_requests_limits.yaml")
-}
-
-func Test_require_probes(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/require_probes.yaml")
-}
-
 func Test_validate_disallow_bind_mounts_fail(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/disallow_bind_mounts_fail.yaml")
 }
@@ -83,20 +55,8 @@ func Test_validate_disallow_bind_mounts_pass(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/disallow_bind_mounts_pass.yaml")
 }
 
-func Test_validate_disallow_new_capabilities(t *testing.T) {
-	testScenario(t, "/test/scenarios/samples/best_practices/disallow_new_capabilities.yaml")
-}
-
 func Test_disallow_sysctls(t *testing.T) {
 	testScenario(t, "/test/scenarios/samples/best_practices/disallow_sysctls.yaml")
-}
-
-func Test_disallow_docker_sock_mount(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/disallow_docker_sock_mount.yaml")
-}
-
-func Test_validate_disallow_helm_tiller(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/best_practices/scenario_validate_disallow_helm_tiller.yaml")
 }
 
 func Test_add_safe_to_evict(t *testing.T) {
@@ -113,14 +73,6 @@ func Test_add_safe_to_evict_annotation3(t *testing.T) {
 
 func Test_validate_restrict_automount_sa_token_pass(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/more/restrict_automount_sa_token.yaml")
-}
-
-func Test_restrict_node_port(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/more/restrict_node_port.yaml")
-}
-
-func Test_validate_restrict_image_registries(t *testing.T) {
-	testScenario(t, "test/scenarios/samples/more/restrict_image_registries.yaml")
 }
 
 func Test_known_ingress(t *testing.T) {

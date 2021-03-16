@@ -1,6 +1,6 @@
 # file path relative to project root
 input:
-  policy: samples/best_practices/add_ns_quota.yaml
+  policy: test/best_practices/add_ns_quota.yaml
   resource: test/resources/require_namespace_quota.yaml
 expected:
   generation:
