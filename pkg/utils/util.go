@@ -127,7 +127,7 @@ func ConvertResource(raw []byte, group, version, kind, namespace string) (unstru
 
 	obj.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
 
-	if namespace != "" {
+	if namespace != "" && kind != "Namespace" {
 		obj.SetNamespace(namespace)
 	}
 
