@@ -189,13 +189,20 @@ func (eh ExistenceHandler) Handle(handler resourceElementHandler, resourceMap ma
 			if !ok {
 				return currentPath, fmt.Errorf("Invalid pattern type %T: Pattern has to be of list to compare against resource", eh.pattern)
 			}
-			// get the first item in the pattern array
-			patternMap := typedPattern[0]
-			typedPatternMap, ok := patternMap.(map[string]interface{})
-			if !ok {
-				return currentPath, fmt.Errorf("Invalid pattern type %T: Pattern has to be of type map to compare against items in resource", eh.pattern)
+			// loop all item in the pattern array
+			errorPath := ""
+			var err error
+			for _, patternMap := range typedPattern {
+				typedPatternMap, ok := patternMap.(map[string]interface{})
+				if !ok {
+					return currentPath, fmt.Errorf("Invalid pattern type %T: Pattern has to be of type map to compare against items in resource", eh.pattern)
+				}
+				errorPath, err = validateExistenceListResource(handler, typedResource, typedPatternMap, originPattern, currentPath, ac)
+				if err != nil {
+					return errorPath, err
+				}
 			}
-			return validateExistenceListResource(handler, typedResource, typedPatternMap, originPattern, currentPath, ac)
+			return errorPath, err
 		default:
 			return currentPath, fmt.Errorf("Invalid resource type %T: Existence ^ () anchor can be used only on list/array type resource", value)
 		}
