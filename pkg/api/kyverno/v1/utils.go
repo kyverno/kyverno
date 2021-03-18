@@ -3,13 +3,18 @@ package v1
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 )
 
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
 func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
 	annotations := p.GetAnnotations()
-	_, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
-	return ok
+	val, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
+	if ok && strings.ToLower(val) != "none" {
+		return true
+	}
+
+	return false
 }
 
 //HasMutateOrValidateOrGenerate checks for rule types
