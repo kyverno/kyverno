@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -173,6 +174,10 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 		if rule.HasGenerate() {
 			policyHasGenerate = true
 		}
+	}
+
+	if reflect.DeepEqual(curP.Spec, oldP.Spec) {
+		policyHasGenerate = false
 	}
 
 	if !policyHasGenerate {
