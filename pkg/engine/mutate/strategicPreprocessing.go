@@ -227,10 +227,7 @@ func preProcessArrayPattern(pattern, resource *yaml.RNode) error {
 	if err != nil {
 		return err
 	}
-	resourceElements, err := resource.Elements()
-	if err != nil {
-		return err
-	}
+
 	for _, patternElement := range patternElements {
 		patternNameField := patternElement.Field("name")
 		if patternNameField != nil {
@@ -238,20 +235,37 @@ func preProcessArrayPattern(pattern, resource *yaml.RNode) error {
 			if err != nil {
 				return err
 			}
-			for _, resourceElement := range resourceElements {
-				resourceNameField := resourceElement.Field("name")
-				if resourceNameField != nil {
-					resourceNameValue, err := resourceNameField.Value.String()
-					if err != nil {
-						return err
-					}
-					if patternNameValue == resourceNameValue {
-						err := preProcessPattern(patternElement, resourceElement)
-						if err != nil {
-							return err
-						}
-					}
+			// Processing takes place relative to the type of the resource,
+			// if the type is a MapNode, then processing is performed as a <keyNode>:<valueNode>
+			// if the type is a SequenceNode, the processing is performed as a <keyNode>:<valueNode1> , <keyNode>:<valueNode2> ...
+			switch resource.YNode().Kind {
+			case yaml.MappingNode:
+				processArrayValue(patternNameValue, resource, patternElement)
+			case yaml.SequenceNode:
+				resourceElements, err := resource.Elements()
+				if err != nil {
+					return err
 				}
+				for _, resourceElement := range resourceElements {
+					processArrayValue(patternNameValue, resourceElement, patternElement)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func processArrayValue(patternNameValue string, resourceElement, patternElement *yaml.RNode) error {
+	resourceNameField := resourceElement.Field("name")
+	if resourceNameField != nil {
+		resourceNameValue, err := resourceNameField.Value.String()
+		if err != nil {
+			return err
+		}
+		if patternNameValue == resourceNameValue {
+			err := preProcessPattern(patternElement, resourceElement)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -299,16 +313,27 @@ func removeAnchorElements(pattern *yaml.RNode) error {
 }
 
 func processAnchorSequence(pattern, resource, arrayPattern *yaml.RNode) error {
-	resourceElements, err := resource.Elements()
-	if err != nil {
-		return err
-	}
 	switch pattern.YNode().Kind {
 	case yaml.MappingNode:
-		for _, resourceElement := range resourceElements {
-			err := processAnchorMap(pattern, resourceElement, arrayPattern)
+		// Processing takes place relative to the type of the resource,
+		// if the type is a map, then processing is performed as a <keyNode>:<valueNode>
+		// if the type is a Sequence, the processing is performed as a <keyNode>:<valueNode1> , <keyNode>:<valueNode2> ...
+		switch resource.YNode().Kind {
+		case yaml.MappingNode:
+			err := processAnchorMap(pattern, resource, arrayPattern)
 			if err != nil {
 				return err
+			}
+		case yaml.SequenceNode:
+			resourceElements, err := resource.Elements()
+			if err != nil {
+				return err
+			}
+			for _, resourceElement := range resourceElements {
+				err := processAnchorMap(pattern, resourceElement, arrayPattern)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -425,35 +450,55 @@ func processAnchorMap(pattern, resource, arrayPattern *yaml.RNode) error {
 	return nil
 }
 
+// processNonAssocSequence process array of basic types. Ex:- {command: ["ls", "ls -l"]}
 func processNonAssocSequence(pattern, resource *yaml.RNode) error {
 	pafs, err := pattern.Elements()
 	if err != nil {
 		return err
 	}
-	rafs, err := resource.Elements()
-	if err != nil {
-		return err
-	}
-	for _, sa := range rafs {
-		des, err := sa.String()
+	// Processing takes place relative to the type of the resource,
+	// if the type is a map, then processing is performed as a <keyNode>:<valueNode>
+	// if the type is a Sequence, the processing is performed as a <keyNode>:<valueNode1> , <keyNode>:<valueNode2> ...
+	switch resource.YNode().Kind {
+	case yaml.MappingNode:
+		err := processBasicTypes(pafs, pattern, resource)
 		if err != nil {
 			return err
 		}
-		ok := false
-		for _, ra := range pafs {
-			src, err := ra.String()
+	case yaml.SequenceNode:
+		rafs, err := resource.Elements()
+		if err != nil {
+			return err
+		}
+		for _, sa := range rafs {
+			err := processBasicTypes(pafs, pattern, sa)
 			if err != nil {
 				return err
 			}
-			if des == src {
-				ok = true
-				break
-			}
 		}
-		if !ok {
-			pattern.YNode().Content = append(pattern.YNode().Content, sa.YNode())
-		}
+	}
+	return nil
+}
 
+// process array of basic types. Ex:- {command: ["ls", "ls -l"]}
+func processBasicTypes(pafs []*yaml.RNode, pattern, resource *yaml.RNode) error {
+	des, err := resource.String()
+	if err != nil {
+		return err
+	}
+	ok := false
+	for _, ra := range pafs {
+		src, err := ra.String()
+		if err != nil {
+			return err
+		}
+		if des == src {
+			ok = true
+			break
+		}
+	}
+	if !ok {
+		pattern.YNode().Content = append(pattern.YNode().Content, resource.YNode())
 	}
 	return nil
 }

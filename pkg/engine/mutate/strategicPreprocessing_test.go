@@ -125,6 +125,47 @@ func Test_preProcessStrategicMergePatch_AnnotationMap(t *testing.T) {
 	}
 }
 
+func Test_preProcessStrategicMergePatch_DifferentKinds(t *testing.T) {
+	rawPolicy := []byte(`{
+		"spec": {
+		  "imagePullSecrets": [
+			{
+			  "name": "regcred"
+			}
+		  ],
+		  "initContainers": [
+			{
+			  "(image)": "index.docker.io/*"
+			}
+		  ]
+		}
+	  }`)
+
+	rawResource := []byte(`{
+		"spec": [
+			"containers": {
+				"{\"name\":\"nginx\"}": {
+				  "image": {},
+				  "imagePullPolicy": {},
+				  "name": {},
+				  "resources": {}
+				}
+			}
+		]
+	}`)
+
+	expected := `{"spec": {"imagePullSecrets": [{"name": "regcred"}], "initContainers": [{}]}}`
+
+	preProcessedPolicy, err := preProcessStrategicMergePatch(string(rawPolicy), string(rawResource))
+	assert.NilError(t, err)
+	output, err := preProcessedPolicy.String()
+	assert.NilError(t, err)
+	re := regexp.MustCompile(`\n`)
+	if !assertnew.Equal(t, strings.ReplaceAll(expected, " ", ""), strings.ReplaceAll(re.ReplaceAllString(output, ""), " ", "")) {
+		t.FailNow()
+	}
+}
+
 func Test_preProcessStrategicMergePatch_Annotation(t *testing.T) {
 	rawPolicy := []byte(`{"metadata":{"annotations":{"+(cluster-autoscaler.kubernetes.io/safe-to-evict)":true}},"spec":{"volumes":[{"(hostPath)":{"path":"*"}}]}}`)
 
