@@ -176,6 +176,42 @@ func Test_ReplacingPathWhenDeleting(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("%v", pattern), "bar")
 }
 
+func Test_ReplacingNestedVariableWhenDeleting(t *testing.T) {
+	patternRaw := []byte(`"{{request.object.metadata.annotations.{{request.object.metadata.annotations.targetnew}}}}"`)
+
+	var resourceRaw = []byte(`
+	{
+		"request":{
+		   "operation":"DELETE",
+		   "oldObject":{
+			  "metadata":{
+				 "name":"current",
+				 "namespace":"ns",
+				 "annotations":{
+					"target":"nested_target",
+					"targetnew":"target"
+				 }
+			  }
+		   }
+		}
+	}`)
+
+	var pattern interface{}
+	var err error
+	err = json.Unmarshal(patternRaw, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+	ctx := context.NewContext()
+	err = ctx.AddJSON(resourceRaw)
+	assert.NilError(t, err)
+
+	pattern, err = SubstituteVars(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+
+	assert.Equal(t, fmt.Sprintf("%v", pattern), "nested_target")
+}
+
 var resourceRaw = []byte(`
 	{
 		"metadata": {
