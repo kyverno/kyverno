@@ -9,6 +9,7 @@ import (
 
 	"github.com/jmespath/go-jmespath"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -681,7 +682,10 @@ func validateAPICall(entry kyverno.ContextEntry) error {
 		return fmt.Errorf("both configMap and apiCall are not allowed in a context entry")
 	}
 
-	if _, err := engine.NewAPIPath(entry.APICall.URLPath); err != nil {
+	// Replace all variables to prevent validation failing on variable keys.
+	urlPath := variables.ReplaceAllVars(entry.APICall.URLPath, func(s string) string { return "variable" })
+
+	if _, err := engine.NewAPIPath(urlPath); err != nil {
 		return err
 	}
 
