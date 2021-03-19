@@ -50,9 +50,9 @@ func validateMap(patternMap map[string]interface{}, path string, supportedAnchor
 				if !ok {
 					return path + "/" + key, fmt.Errorf("Existence anchor should have value of type list")
 				}
-				// validate there is only one entry in the list
+				// validate that there is atleast one entry in the list
 				if len(typedValue) == 0 {
-					return path + "/" + key, fmt.Errorf("Existence anchor: single value expected, multiple specified")
+					return path + "/" + key, fmt.Errorf("Existence anchor: should have atleast one value")
 				}
 			}
 		}
