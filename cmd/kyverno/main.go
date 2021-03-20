@@ -307,8 +307,6 @@ func main() {
 	// Sync openAPI definitions of resources
 	openAPISync := openapi.NewCRDSync(client, openAPIController)
 
-	supportMutateValidate := utils.HigherThanKubernetesVersion(client, log.Log, 1, 14, 0)
-
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
 	// - reports the results based on the response from the policy engine:
@@ -337,7 +335,6 @@ func main() {
 		reportReqGen,
 		grgen,
 		auditHandler,
-		supportMutateValidate,
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
 		openAPIController,

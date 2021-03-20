@@ -10,7 +10,6 @@ import (
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -18,7 +17,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/minio/minio/cmd/logger"
-	"github.com/pkg/errors"
 	"k8s.io/api/admission/v1beta1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -168,20 +166,9 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		ClusterRoles:      clusterRoles,
 		AdmissionUserInfo: request.UserInfo}
 
-	// build context
-	ctx := enginectx.NewContext()
-	err = ctx.AddRequest(request)
+	ctx, err := newVariablesContext(request, &userRequestInfo)
 	if err != nil {
-		return errors.Wrap(err, "failed to load incoming request in context")
-	}
-
-	err = ctx.AddUserInfo(userRequestInfo)
-	if err != nil {
-		return errors.Wrap(err, "failed to load userInfo in context")
-	}
-	err = ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username)
-	if err != nil {
-		return errors.Wrap(err, "failed to load service account in context")
+		logger.Error(err, "unable to build variable context")
 	}
 
 	namespaceLabels := make(map[string]string)
