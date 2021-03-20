@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"k8s.io/api/admission/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -208,6 +209,28 @@ func (ctx *Context) AddNamespace(namespace string) error {
 	objRaw, err := json.Marshal(modifiedResource)
 	if err != nil {
 		ctx.log.Error(err, "failed to marshal the resource")
+		return err
+	}
+
+	return ctx.AddJSON(objRaw)
+}
+
+func (ctx *Context) AddImageInfo(resource *unstructured.Unstructured) error {
+	initContainersImgs, containersImgs := extractImageInfo(resource, ctx.log)
+	if len(initContainersImgs) == 0 && len(containersImgs) == 0 {
+		return nil
+	}
+
+	resourceImg := newResourceImage(initContainersImgs, containersImgs)
+
+	images := struct {
+		Images interface{} `json:"images"`
+	}{
+		Images: resourceImg,
+	}
+
+	objRaw, err := json.Marshal(images)
+	if err != nil {
 		return err
 	}
 

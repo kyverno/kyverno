@@ -5,6 +5,8 @@ go 1.14
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cornelk/hashmap v1.0.1
+	github.com/distribution/distribution v2.7.1+incompatible
+	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.2.0
 	github.com/fatih/color v1.9.0
 	github.com/gardener/controller-manager-library v0.2.0
@@ -22,6 +24,8 @@ require (
 	github.com/minio/minio v0.0.0-20200114012931-30922148fbb5
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
+	github.com/opencontainers/go-digest v1.0.0 // indirect
+	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1

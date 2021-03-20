@@ -72,6 +72,10 @@ func HandleValidation(
 		return true, ""
 	}
 
+	if err := ctx.AddImageInfo(&newR); err != nil {
+		logger.Error(err, "unable to add image info to variables context")
+	}
+
 	policyContext := &engine.PolicyContext{
 		NewResource:         newR,
 		OldResource:         oldR,

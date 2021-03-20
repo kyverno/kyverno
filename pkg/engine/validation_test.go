@@ -4,13 +4,12 @@ import (
 	"encoding/json"
 	"testing"
 
-	"k8s.io/api/admission/v1beta1"
-
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	utils2 "github.com/kyverno/kyverno/pkg/utils"
 	"gotest.tools/assert"
+	"k8s.io/api/admission/v1beta1"
 )
 
 func TestGetAnchorsFromMap_ThereAreAnchors(t *testing.T) {
