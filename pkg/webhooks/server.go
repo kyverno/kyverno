@@ -336,7 +336,7 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 	userRequestInfo := v1.RequestInfo{
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
-		AdmissionUserInfo: request.UserInfo,
+		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}
 
 	ctx, err := newVariablesContext(request, &userRequestInfo)
@@ -423,7 +423,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	userRequestInfo := v1.RequestInfo{
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
-		AdmissionUserInfo: request.UserInfo,
+		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}
 
 	ctx, err := newVariablesContext(request, &userRequestInfo)
