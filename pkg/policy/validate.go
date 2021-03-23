@@ -683,7 +683,7 @@ func validateAPICall(entry kyverno.ContextEntry) error {
 	}
 
 	// Replace all variables to prevent validation failing on variable keys.
-	urlPath := variables.ReplaceAllVars(entry.APICall.URLPath, func(s string) string { return "variable" })
+	urlPath := variables.ReplaceAllVars(entry.APICall.URLPath, func(s string) string { return "kyvernoapicallvariable" })
 
 	if _, err := engine.NewAPIPath(urlPath); err != nil {
 		return err
