@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"strings"
+
 	"github.com/go-logr/logr"
 	"github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -13,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic/dynamiclister"
-	"strings"
 )
 
 // LoadContext - Fetches and adds external data to the Context.
@@ -61,7 +62,12 @@ func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCont
 		return nil
 	}
 
-	results, err := applyJMESPath(entry.APICall.JMESPath, jsonData)
+	path, err := variables.SubstituteVars(logger, ctx.JSONContext, entry.APICall.JMESPath)
+	if err != nil {
+		return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.APICall.JMESPath, err)
+	}
+
+	results, err := applyJMESPath(path.(string), jsonData)
 	if err != nil {
 		return fmt.Errorf("failed to apply JMESPath for context entry %v: %v", entry, err)
 	}
