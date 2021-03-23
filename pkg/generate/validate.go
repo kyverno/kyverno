@@ -23,14 +23,10 @@ type resourceElementHandler = func(log logr.Logger, resourceElement, patternElem
 // It assumes that validation is started from root, so "/" is passed
 // Anchors are not expected in the pattern
 func ValidateResourceWithPattern(log logr.Logger, resource, pattern interface{}) (string, error) {
-	fmt.Println("resource: ", resource)
-	fmt.Println("pattern: ", pattern)
 	elemPath, err := validateResourceElement(log, resource, pattern, pattern, "/")
 	if err != nil {
-		fmt.Println("elemPath: ", elemPath, "\nerr: ", err)
 		return elemPath, err
 	}
-	fmt.Println("-----nil")
 	return "", nil
 }
 
