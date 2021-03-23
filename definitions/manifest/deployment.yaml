@@ -41,6 +41,8 @@ spec:
           #- "--webhooktimeout=4"
           # enable profiling
           # - "--profile"
+          # configure the workers for generate controller
+          # - --gen-workers=20
           - "-v=2"
           ports:
             - containerPort: 9443

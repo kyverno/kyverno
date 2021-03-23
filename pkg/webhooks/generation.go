@@ -112,7 +112,7 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 	}
 }
 
-//handleUpdateCloneSourceResource - handles updation of clone source for generate policy
+//handleUpdateCloneSourceResource - handles update of clone source for generate policy
 func (ws *WebhookServer) handleUpdateCloneSourceResource(resLabels map[string]string, logger logr.Logger) {
 	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
 	for _, policyName := range policyNames {
@@ -131,7 +131,7 @@ func (ws *WebhookServer) handleUpdateCloneSourceResource(resLabels map[string]st
 	}
 }
 
-//handleUpdateTargetResource - handles updation of target resource for generate policy
+//handleUpdateTargetResource - handles update of target resource for generate policy
 func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRequest, policies []*v1.ClusterPolicy, resLabels map[string]string, logger logr.Logger) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)

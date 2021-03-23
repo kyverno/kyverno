@@ -50,6 +50,7 @@ var (
 	profilePort                    string
 
 	webhookTimeout int
+	genWorkers     int
 
 	profile      bool
 	policyReport bool
@@ -63,6 +64,7 @@ func main() {
 	flag.StringVar(&excludeGroupRole, "excludeGroupRole", "", "")
 	flag.StringVar(&excludeUsername, "excludeUsername", "", "")
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
+	flag.IntVar(&genWorkers, "gen-workers", 20, "workers for generate controller")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
@@ -358,11 +360,11 @@ func main() {
 
 	go reportReqGen.Run(2, stopCh)
 	go prgen.Run(1, stopCh)
-	go grgen.Run(1, stopCh)
 	go configData.Run(stopCh)
 	go policyCtrl.Run(2, stopCh)
 	go eventGenerator.Run(3, stopCh)
-	go grc.Run(1, stopCh)
+	go grgen.Run(10, stopCh)
+	go grc.Run(genWorkers, stopCh)
 	go grcc.Run(1, stopCh)
 	go statusSync.Run(1, stopCh)
 	go pCacheController.Run(1, stopCh)

@@ -261,7 +261,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger.Info("starting")
+	logger.Info("starting", "workers", workers)
 	defer logger.Info("shutting down")
 
 	if !cache.WaitForCacheSync(stopCh, c.policySynced, c.grSynced) {
@@ -279,7 +279,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
 func (c *Controller) worker() {
-	c.log.Info("starting new worker...")
+	c.log.V(3).Info("starting new worker...")
 
 	for c.processNextWorkItem() {
 	}
@@ -347,7 +347,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	return c.processGR(gr)
 }
 
-// EnqueueGenerateRequestFromWebhook - enqueing generate requests from webhook
+// EnqueueGenerateRequestFromWebhook - enqueueing generate requests from webhook
 func (c *Controller) EnqueueGenerateRequestFromWebhook(gr *kyverno.GenerateRequest) {
 	c.enqueueGenerateRequest(gr)
 }
