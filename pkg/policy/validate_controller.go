@@ -341,6 +341,10 @@ func (pc *PolicyController) enqueuePolicy(policy *kyverno.ClusterPolicy) {
 // Run begins watching and syncing.
 func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-chan struct{}) {
 	logger := pc.log
+	if pc.reconcilePeriod.String() == "0s" {
+		logger.Info("background scan is disabled")
+		return
+	}
 
 	defer utilruntime.HandleCrash()
 	defer pc.queue.ShutDown()

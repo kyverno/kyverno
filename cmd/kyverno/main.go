@@ -36,10 +36,7 @@ import (
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const (
-	resyncPeriod                 = 15 * time.Minute
-	policyControllerResyncPeriod = time.Hour
-)
+const resyncPeriod = 15 * time.Minute
 
 var (
 	//TODO: this has been added to backward support command line arguments
@@ -56,21 +53,24 @@ var (
 
 	profile      bool
 	policyReport bool
-	setupLog     = log.Log.WithName("setup")
+
+	policyControllerResyncPeriod time.Duration
+	setupLog                     = log.Log.WithName("setup")
 )
 
 func main() {
 	klog.InitFlags(nil)
 	log.SetLogger(klogr.New())
-	flag.StringVar(&filterK8sResources, "filterK8sResources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
+	flag.StringVar(&filterK8sResources, "filterK8sResources", "", "Resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. For example, --filterK8sResources \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
 	flag.StringVar(&excludeGroupRole, "excludeGroupRole", "", "")
 	flag.StringVar(&excludeUsername, "excludeUsername", "", "")
-	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
-	flag.IntVar(&genWorkers, "gen-workers", 10, "workers for generate controller")
+	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "Timeout for webhook configurations")
+	flag.IntVar(&genWorkers, "gen-workers", 10, "Workers for generate controller")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
 	flag.StringVar(&profilePort, "profile-port", "6060", "Enable profiling at given port, default to 6060.")
+	flag.DurationVar(&policyControllerResyncPeriod, "background-scan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h. If set to 0, the background scan is disabled.")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
