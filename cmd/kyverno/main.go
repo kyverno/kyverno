@@ -36,18 +36,20 @@ import (
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const resyncPeriod = 15 * time.Minute
+const (
+	resyncPeriod                 = 15 * time.Minute
+	policyControllerResyncPeriod = time.Hour
+)
 
 var (
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
-	filterK8sResources             string
-	kubeconfig                     string
-	serverIP                       string
-	runValidationInMutatingWebhook string
-	excludeGroupRole               string
-	excludeUsername                string
-	profilePort                    string
+	filterK8sResources string
+	kubeconfig         string
+	serverIP           string
+	excludeGroupRole   string
+	excludeUsername    string
+	profilePort        string
 
 	webhookTimeout int
 	genWorkers     int
@@ -64,10 +66,9 @@ func main() {
 	flag.StringVar(&excludeGroupRole, "excludeGroupRole", "", "")
 	flag.StringVar(&excludeUsername, "excludeUsername", "", "")
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
-	flag.IntVar(&genWorkers, "gen-workers", 20, "workers for generate controller")
+	flag.IntVar(&genWorkers, "gen-workers", 10, "workers for generate controller")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
-	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
 	flag.StringVar(&profilePort, "profile-port", "6060", "Enable profiling at given port, default to 6060.")
 	if err := flag.Set("v", "2"); err != nil {
@@ -155,7 +156,7 @@ func main() {
 	//		- ClusterPolicyReport, PolicyReport
 	//		- GenerateRequest
 	//		- ClusterReportChangeRequest, ReportChangeRequest
-	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, resyncPeriod)
+	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, policyControllerResyncPeriod)
 
 	// Configuration Data
 	// dynamically load the configuration from configMap
@@ -185,10 +186,7 @@ func main() {
 		pInformer.Kyverno().V1().Policies().Lister())
 
 	// POLICY Report GENERATOR
-	// -- generate policy report
-	var reportReqGen *policyreport.Generator
-	var prgen *policyreport.ReportGenerator
-	reportReqGen = policyreport.NewReportChangeRequestGenerator(pclient,
+	reportReqGen := policyreport.NewReportChangeRequestGenerator(pclient,
 		client,
 		pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
 		pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
@@ -198,7 +196,7 @@ func main() {
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
 
-	prgen = policyreport.NewReportGenerator(client,
+	prgen := policyreport.NewReportGenerator(client,
 		pInformer.Wgpolicyk8s().V1alpha1().ClusterPolicyReports(),
 		pInformer.Wgpolicyk8s().V1alpha1().PolicyReports(),
 		pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
@@ -222,6 +220,7 @@ func main() {
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
 		rCache,
+		policyControllerResyncPeriod,
 	)
 
 	if err != nil {
@@ -358,7 +357,7 @@ func main() {
 	go reportReqGen.Run(2, stopCh)
 	go prgen.Run(1, stopCh)
 	go configData.Run(stopCh)
-	go policyCtrl.Run(2, stopCh)
+	go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
 	go eventGenerator.Run(3, stopCh)
 	go grgen.Run(10, stopCh)
 	go grc.Run(genWorkers, stopCh)

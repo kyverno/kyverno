@@ -2,11 +2,13 @@ package policy
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 func (pc *PolicyController) report(policy string, engineResponses []*response.EngineResponse, logger logr.Logger) {
@@ -20,6 +22,63 @@ func (pc *PolicyController) report(policy string, engineResponses []*response.En
 	info := mergePvInfos(pvInfos)
 	pc.prGenerator.Add(info)
 	logger.V(4).Info("added a request to RCR generator", "key", info.ToKey())
+}
+
+// forceReconciliation forces a background scan by adding all policies to the workqueue
+func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, stopCh <-chan struct{}) {
+	logger := pc.log.WithName("forceReconciliation")
+	ticker := time.NewTicker(pc.reconcilePeriod)
+
+	for {
+		select {
+		case <-ticker.C:
+			logger.Info("performing the background scan", "scan interval", pc.reconcilePeriod.String())
+			pc.requeuePolicies()
+
+		case <-reconcileCh:
+			logger.Info("received the reconcile signal, re-creating policy report")
+			pc.requeuePolicies()
+
+		case <-stopCh:
+			return
+		}
+	}
+}
+
+func (pc *PolicyController) requeuePolicies() {
+	logger := pc.log.WithName("requeuePolicies")
+	if cpols, err := pc.pLister.List(labels.Everything()); err == nil {
+		for _, cpol := range cpols {
+			if !pc.canBackgroundProcess(cpol) {
+				continue
+			}
+			pc.enqueuePolicy(cpol)
+		}
+	} else {
+		logger.Error(err, "unable to list ClusterPolicies")
+	}
+
+	namespaces, err := pc.nsLister.List(labels.Everything())
+	if err != nil {
+		logger.Error(err, "unable to list namespaces")
+		return
+	}
+
+	for _, ns := range namespaces {
+		pols, err := pc.npLister.Policies(ns.GetName()).List(labels.Everything())
+		if err != nil {
+			logger.Error(err, "unable to list Policies", "namespace", ns.GetName())
+			continue
+		}
+
+		for _, p := range pols {
+			pol := ConvertPolicyToClusterPolicy(p)
+			if !pc.canBackgroundProcess(pol) {
+				continue
+			}
+			pc.enqueuePolicy(pol)
+		}
+	}
 }
 
 func generateEvents(log logr.Logger, ers []*response.EngineResponse) []event.Info {

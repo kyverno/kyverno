@@ -95,6 +95,8 @@ type PolicyController struct {
 	// resCache - controls creation and fetching of resource informer cache
 	resCache resourcecache.ResourceCache
 
+	reconcilePeriod time.Duration
+
 	log logr.Logger
 }
 
@@ -109,7 +111,8 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	prGenerator policyreport.GeneratorInterface,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
-	resCache resourcecache.ResourceCache) (*PolicyController, error) {
+	resCache resourcecache.ResourceCache,
+	reconcilePeriod time.Duration) (*PolicyController, error) {
 
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
@@ -121,15 +124,16 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		eventGen:      eventGen,
-		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
-		configHandler: configHandler,
-		prGenerator:   prGenerator,
-		log:           log,
-		resCache:      resCache,
+		client:          client,
+		kyvernoClient:   kyvernoClient,
+		eventGen:        eventGen,
+		eventRecorder:   eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
+		configHandler:   configHandler,
+		prGenerator:     prGenerator,
+		log:             log,
+		resCache:        resCache,
+		reconcilePeriod: reconcilePeriod,
 	}
 
 	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -182,7 +186,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	logger := pc.log
 	p := obj.(*kyverno.ClusterPolicy)
 
-	logger.Info("policy created event", "uid", p.UID, "kind", "ClusterPolicy", "policy_name", p.Name)
+	logger.Info("policy created", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
 
 	if !pc.canBackgroundProcess(p) {
 		return
@@ -205,7 +209,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 		return
 	}
 
-	logger.V(4).Info("updating policy", "name", oldP.Name)
+	logger.V(2).Info("updating policy", "name", oldP.Name)
 
 	pc.enqueueRCRDeletedRule(oldP, curP)
 	pc.enqueuePolicy(curP)
@@ -228,7 +232,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 		}
 	}
 
-	logger.Info("policy deleted event", "uid", p.UID, "kind", "ClusterPolicy", "policy_name", p.Name)
+	logger.Info("policy deleted", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
 
 	// we process policies that are not set of background processing
 	// as we need to clean up GRs when a policy is deleted
@@ -240,7 +244,7 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	logger := pc.log
 	p := obj.(*kyverno.Policy)
 
-	logger.Info("policy created event", "uid", p.UID, "kind", "Policy", "policy_name", p.Name, "namespaces", p.Namespace)
+	logger.Info("policy created", "uid", p.UID, "kind", "Policy", "name", p.Name, "namespaces", p.Namespace)
 
 	pol := ConvertPolicyToClusterPolicy(p)
 	if !pc.canBackgroundProcess(pol) {
@@ -335,7 +339,7 @@ func (pc *PolicyController) enqueuePolicy(policy *kyverno.ClusterPolicy) {
 }
 
 // Run begins watching and syncing.
-func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
+func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-chan struct{}) {
 	logger := pc.log
 
 	defer utilruntime.HandleCrash()
@@ -352,6 +356,9 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, time.Second, stopCh)
 	}
+
+	go pc.forceReconciliation(reconcileCh, stopCh)
+
 	<-stopCh
 }
 

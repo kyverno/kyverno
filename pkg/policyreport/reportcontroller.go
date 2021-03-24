@@ -56,6 +56,9 @@ type ReportGenerator struct {
 
 	queue workqueue.RateLimitingInterface
 
+	// ReconcileCh sends a signal to policy controller to force the reconciliation of policy report
+	ReconcileCh chan bool
+
 	log logr.Logger
 }
 
@@ -70,9 +73,10 @@ func NewReportGenerator(
 	log logr.Logger) *ReportGenerator {
 
 	gen := &ReportGenerator{
-		dclient: dclient,
-		queue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), prWorkQueueName),
-		log:     log,
+		dclient:     dclient,
+		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), prWorkQueueName),
+		ReconcileCh: make(chan bool, 1),
+		log:         log,
 	}
 
 	reportReqInformer.Informer().AddEventHandler(
@@ -85,6 +89,16 @@ func NewReportGenerator(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    gen.addClusterReportChangeRequest,
 			UpdateFunc: gen.updateClusterReportChangeRequest,
+		})
+
+	reportInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			DeleteFunc: gen.deletePolicyReport,
+		})
+
+	clusterReportInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			DeleteFunc: gen.deleteClusterPolicyReport,
 		})
 
 	gen.clusterReportLister = clusterReportInformer.Lister()
@@ -164,6 +178,17 @@ func (g *ReportGenerator) updateClusterReportChangeRequest(old interface{}, cur 
 	}
 
 	g.queue.Add("")
+}
+
+func (g *ReportGenerator) deletePolicyReport(obj interface{}) {
+	report := obj.(*report.PolicyReport)
+	g.log.V(2).Info("PolicyReport deleted", "name", report.GetName())
+	g.ReconcileCh <- true
+}
+
+func (g *ReportGenerator) deleteClusterPolicyReport(obj interface{}) {
+	g.log.V(2).Info("ClusterPolicyReport deleted")
+	g.ReconcileCh <- true
 }
 
 // Run starts the workers
