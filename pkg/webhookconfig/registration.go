@@ -143,12 +143,12 @@ func (wrc *Register) cleanupKyvernoResource() bool {
 	logger := wrc.log.WithName("cleanupKyvernoResource")
 	deploy, err := wrc.client.GetResource("", "Deployment", deployNamespace, deployName)
 	if err != nil {
-		logger.Error(err, "failed to get deployment")
-		return false
+		logger.Error(err, "failed to get deployment, cleanup kyverno resources anyway")
+		return true
 	}
 
 	if deploy.GetDeletionTimestamp() != nil {
-		logger.Info("Kyverno is terminating, clean up Kyverno resources")
+		logger.Info("Kyverno is terminating, cleanup Kyverno resources")
 		return true
 	}
 
@@ -158,7 +158,7 @@ func (wrc *Register) cleanupKyvernoResource() bool {
 	}
 
 	if replicas == 0 {
-		logger.Info("Kyverno is scaled to zero, clean up Kyverno resources")
+		logger.Info("Kyverno is scaled to zero, cleanup Kyverno resources")
 		return true
 	}
 
