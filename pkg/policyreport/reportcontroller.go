@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	requestinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
 	policyreportinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
 	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
@@ -37,6 +38,7 @@ const (
 
 // ReportGenerator creates policy report
 type ReportGenerator struct {
+	pclient *kyvernoclient.Clientset
 	dclient *dclient.Client
 
 	reportLister policyreport.PolicyReportLister
@@ -56,11 +58,16 @@ type ReportGenerator struct {
 
 	queue workqueue.RateLimitingInterface
 
+	// ReconcileCh sends a signal to policy controller to force the reconciliation of policy report
+	// if send true, the reports' results will be erased, this is used to recover from the invalid records
+	ReconcileCh chan bool
+
 	log logr.Logger
 }
 
 // NewReportGenerator returns a new instance of policy report generator
 func NewReportGenerator(
+	pclient *kyvernoclient.Clientset,
 	dclient *dclient.Client,
 	clusterReportInformer policyreportinformer.ClusterPolicyReportInformer,
 	reportInformer policyreportinformer.PolicyReportInformer,
@@ -70,9 +77,11 @@ func NewReportGenerator(
 	log logr.Logger) *ReportGenerator {
 
 	gen := &ReportGenerator{
-		dclient: dclient,
-		queue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), prWorkQueueName),
-		log:     log,
+		pclient:     pclient,
+		dclient:     dclient,
+		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), prWorkQueueName),
+		ReconcileCh: make(chan bool, 10),
+		log:         log,
 	}
 
 	reportReqInformer.Informer().AddEventHandler(
@@ -85,6 +94,16 @@ func NewReportGenerator(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    gen.addClusterReportChangeRequest,
 			UpdateFunc: gen.updateClusterReportChangeRequest,
+		})
+
+	reportInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			DeleteFunc: gen.deletePolicyReport,
+		})
+
+	clusterReportInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			DeleteFunc: gen.deleteClusterPolicyReport,
 		})
 
 	gen.clusterReportLister = clusterReportInformer.Lister()
@@ -164,6 +183,17 @@ func (g *ReportGenerator) updateClusterReportChangeRequest(old interface{}, cur 
 	}
 
 	g.queue.Add("")
+}
+
+func (g *ReportGenerator) deletePolicyReport(obj interface{}) {
+	report := obj.(*report.PolicyReport)
+	g.log.V(2).Info("PolicyReport deleted", "name", report.GetName())
+	g.ReconcileCh <- false
+}
+
+func (g *ReportGenerator) deleteClusterPolicyReport(obj interface{}) {
+	g.log.V(2).Info("ClusterPolicyReport deleted")
+	g.ReconcileCh <- false
 }
 
 // Run starts the workers
