@@ -18,6 +18,11 @@ func IsVariable(element string) bool {
 	return len(groups) != 0
 }
 
+//ReplaceAllVars replaces all variables with the value defined in the replacement function
+func ReplaceAllVars(src string, repl func(string) string) string {
+	return regexVariables.ReplaceAllStringFunc(src, repl)
+}
+
 //SubstituteVars replaces the variables with the values defined in the context
 // - if any variable is invalid or has nil value, it is considered as a failed variable substitution
 func SubstituteVars(log logr.Logger, ctx context.EvalInterface, pattern interface{}) (interface{}, error) {
