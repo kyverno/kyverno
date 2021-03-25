@@ -18,8 +18,6 @@ RUN go env
 
 RUN CGO_ENABLED=0 go build -o /output/kyvernopre -ldflags="${LD_FLAGS}" -v ./cmd/initContainer/
 
-RUN useradd -u 10001 kyverno
-
 # Packaging stage
 FROM scratch
 
@@ -28,6 +26,6 @@ LABEL maintainer="Kyverno"
 COPY --from=builder /output/kyvernopre /
 COPY --from=builder /etc/passwd /etc/passwd
 
-USER kyverno
+USER 10001
 
 ENTRYPOINT ["./kyvernopre"]

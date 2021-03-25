@@ -5,7 +5,6 @@ on:
       - 'main'
     paths-ignore:
       - 'README.md'
-      - 'samples/**'
       - 'charts/**'
       - 'docs/**'
   pull_request:
@@ -13,7 +12,6 @@ on:
       - 'main'
     paths-ignore:
       - 'README.md'
-      - 'samples/**'
       - 'charts/**'
       - 'docs/**'
 
@@ -27,7 +25,7 @@ jobs:
       - name: Unshallow
         run: git fetch --prune --unshallow
 
-      - name: Set up Go
+      - name: Set up Go 
         uses: actions/setup-go@v2
         with:
           go-version: 1.14
@@ -39,6 +37,10 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+
+      - name: Test Policy
+        run: |
+          make run_testcmd_policy
       
       - name: gofmt check
         run: |

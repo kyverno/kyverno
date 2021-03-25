@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"errors"
 	"reflect"
 	"sort"
 	"time"
@@ -68,7 +69,7 @@ func (ws *WebhookServer) HandleMutation(
 		}
 
 		if !engineResponse.IsSuccessful() && len(engineResponse.GetFailedRules()) > 0 {
-			logger.Info("failed to apply policy", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
+			logger.Error(errors.New("some rules failed"), "failed to apply policy", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
 			continue
 		}
 
@@ -112,7 +113,7 @@ func (ws *WebhookServer) HandleMutation(
 
 		// if any of the policies fails, print out the error
 		if !isResponseSuccessful(engineResponses) {
-			logger.Info("failed to apply mutation rules on the resource, reporting policy violation", "errors", getErrorMsg(engineResponses))
+			logger.Error(errors.New(getErrorMsg(engineResponses)), "failed to apply mutation rules on the resource, reporting policy violation")
 		}
 	}()
 

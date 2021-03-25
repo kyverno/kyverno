@@ -45,12 +45,13 @@ func compareByCondition(key float64, value float64, op kyverno.ConditionOperator
 }
 
 func (noh NumericOperatorHandler) Evaluate(key, value interface{}) bool {
-	if key, err := noh.subHandler(noh.log, noh.ctx, key); err != nil {
+	var err error
+	if key, err = noh.subHandler(noh.log, noh.ctx, key); err != nil {
 		// Failed to resolve the variable
 		noh.log.Error(err, "Failed to resolve variable", "variable", key)
 		return false
 	}
-	if value, err := noh.subHandler(noh.log, noh.ctx, value); err != nil {
+	if value, err = noh.subHandler(noh.log, noh.ctx, value); err != nil {
 		// Failed to resolve the variable
 		noh.log.Error(err, "Failed to resolve variable", "variable", value)
 		return false
@@ -133,7 +134,7 @@ func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, val
 	if err == nil {
 		return noh.validateValueWithIntPattern(int64key, value)
 	}
-	noh.log.Error(fmt.Errorf("Parse Error: "), "Failed to parse both float64 and int64 from the string keyt")
+	noh.log.Error(err, "Failed to parse both float64 and int64 from the string keyt")
 	return false
 }
 

@@ -1,6 +1,6 @@
 # file path is relative to project root
 input:
-  policy: samples/best_practices/add_safe_to_evict.yaml
+  policy: test/best_practices/add_safe_to_evict.yaml
   resource: test/resources/pod-with-default-volume.yaml
 expected:
   mutation:

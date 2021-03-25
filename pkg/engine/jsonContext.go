@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"strings"
+
 	"github.com/go-logr/logr"
 	"github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -60,7 +62,12 @@ func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCont
 		return nil
 	}
 
-	results, err := applyJMESPath(entry.APICall.JMESPath, jsonData)
+	path, err := variables.SubstituteAll(logger, ctx.JSONContext, entry.APICall.JMESPath)
+	if err != nil {
+		return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.APICall.JMESPath, err)
+	}
+
+	results, err := applyJMESPath(path.(string), jsonData)
 	if err != nil {
 		return fmt.Errorf("failed to apply JMESPath for context entry %v: %v", entry, err)
 	}
@@ -193,6 +200,9 @@ func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynam
 		return nil, fmt.Errorf("failed to convert configmap %s/%s: %v", namespace, name, err)
 	}
 
+	// update the unstructuredObj["data"] to delimit and split the string value (containing "\n") with "\n"
+	unstructuredObj["data"] = parseMultilineBlockBody(unstructuredObj["data"].(map[string]interface{}))
+
 	// extract configmap data
 	contextData["data"] = unstructuredObj["data"]
 	contextData["metadata"] = unstructuredObj["metadata"]
@@ -204,4 +214,26 @@ func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynam
 	}
 
 	return data, nil
+}
+
+// parseMultilineBlockBody recursively iterates through a map and updates its values in the following way
+// whenever it encounters a string value containing "\n",
+// it converts it into a []string by splitting it by "\n"
+func parseMultilineBlockBody(m map[string]interface{}) map[string]interface{} {
+	for k, v := range m {
+		switch typedValue := v.(type) {
+		case string:
+			trimmedTypedValue := strings.Trim(typedValue, "\n")
+			if strings.Contains(trimmedTypedValue, "\n") {
+				m[k] = strings.Split(trimmedTypedValue, "\n")
+			} else {
+				m[k] = trimmedTypedValue // trimming a str if it has trailing newline characters
+			}
+		case map[string]interface{}:
+			m[k] = parseMultilineBlockBody(typedValue)
+		default:
+			continue
+		}
+	}
+	return m
 }

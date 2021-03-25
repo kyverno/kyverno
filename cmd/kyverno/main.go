@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/signal"
+	ktls "github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
@@ -49,6 +50,7 @@ var (
 	profilePort                    string
 
 	webhookTimeout int
+	genWorkers     int
 
 	profile      bool
 	policyReport bool
@@ -62,6 +64,7 @@ func main() {
 	flag.StringVar(&excludeGroupRole, "excludeGroupRole", "", "")
 	flag.StringVar(&excludeUsername, "excludeUsername", "", "")
 	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
+	flag.IntVar(&genWorkers, "gen-workers", 20, "workers for generate controller")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
@@ -144,7 +147,7 @@ func main() {
 		log.Log)
 
 	// Resource Mutating Webhook Watcher
-	webhookMonitor := webhookconfig.NewMonitor(log.Log.WithName("WebhookMonitor"))
+	webhookMonitor := webhookconfig.NewMonitor(rCache, log.Log.WithName("WebhookMonitor"))
 
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
@@ -283,8 +286,9 @@ func main() {
 		client,
 	)
 
+	certRenewer := ktls.NewCertRenewer(client, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, log.Log.WithName("CertRenewer"))
 	// Configure certificates
-	tlsPair, err := client.InitTLSPemPair(clientConfig, serverIP)
+	tlsPair, err := certRenewer.InitTLSPemPair(serverIP)
 	if err != nil {
 		setupLog.Error(err, "Failed to initialize TLS key/certificate pair")
 		os.Exit(1)
@@ -304,8 +308,6 @@ func main() {
 
 	// Sync openAPI definitions of resources
 	openAPISync := openapi.NewCRDSync(client, openAPIController)
-
-	supportMutateValidate := utils.HigherThanKubernetesVersion(client, log.Log, 1, 14, 0)
 
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
@@ -329,12 +331,12 @@ func main() {
 		pCacheController.Cache,
 		webhookCfg,
 		webhookMonitor,
+		certRenewer,
 		statusSync.Listener,
 		configData,
 		reportReqGen,
 		grgen,
 		auditHandler,
-		supportMutateValidate,
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
@@ -355,11 +357,11 @@ func main() {
 
 	go reportReqGen.Run(2, stopCh)
 	go prgen.Run(1, stopCh)
-	go grgen.Run(1, stopCh)
 	go configData.Run(stopCh)
 	go policyCtrl.Run(2, stopCh)
 	go eventGenerator.Run(3, stopCh)
-	go grc.Run(1, stopCh)
+	go grgen.Run(10, stopCh)
+	go grc.Run(genWorkers, stopCh)
 	go grcc.Run(1, stopCh)
 	go statusSync.Run(1, stopCh)
 	go pCacheController.Run(1, stopCh)

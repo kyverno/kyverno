@@ -24,7 +24,6 @@ spec:
           image: ghcr.io/kyverno/kyvernopre:latest
           imagePullPolicy: IfNotPresent
           securityContext:
-            runAsUser: 1000
             runAsNonRoot: true
             privileged: false
             allowPrivilegeEscalation: false
@@ -42,6 +41,8 @@ spec:
           #- "--webhooktimeout=4"
           # enable profiling
           # - "--profile"
+          # configure the workers for generate controller
+          # - --gen-workers=20
           - "-v=2"
           ports:
             - containerPort: 9443
@@ -57,7 +58,6 @@ spec:
             - name: KYVERNO_SVC
               value: kyverno-svc
           securityContext:
-            runAsUser: 1000
             runAsNonRoot: true
             privileged: false
             allowPrivilegeEscalation: false

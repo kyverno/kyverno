@@ -30,4 +30,13 @@ Checkout out the Kyverno <a href="https://kyverno.io/community">Community</a> pa
 - For feature requests and bugs, file an [issue](https://github.com/kyverno/kyverno/issues).
 - For discussions or questions, join the **#kyverno** channel on the [Kubernetes Slack](https://kubernetes.slack.com/) or the [mailing list](https://groups.google.com/g/kyverno).
 
+## Spread The Love
+
+We built Kyverno to make it easy to secure and manage Kubernetes configurations. If you like the project, [let us know](https://github.com/kyverno/kyverno/stargazers)!
+
+[![Stargazers over time](https://starchart.cc/kyverno/kyverno.svg)](https://starchart.cc/kyverno/kyverno)
+
+
+
+
 

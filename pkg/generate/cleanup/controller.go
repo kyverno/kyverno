@@ -202,6 +202,11 @@ func (c *Controller) deleteGR(obj interface{}) {
 }
 
 func (c *Controller) enqueue(gr *kyverno.GenerateRequest) {
+	// skip enqueueing Pending requests
+	if gr.Status.State == kyverno.Pending {
+		return
+	}
+
 	logger := c.log
 	key, err := cache.MetaNamespaceKeyFunc(gr)
 	if err != nil {

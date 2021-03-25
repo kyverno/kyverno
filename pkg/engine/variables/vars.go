@@ -12,7 +12,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	ju "github.com/kyverno/kyverno/pkg/engine/json-utils"
+	jsonUtils "github.com/kyverno/kyverno/pkg/engine/json-utils"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 )
 
@@ -31,14 +31,53 @@ func IsReference(value string) bool {
 	return len(groups) != 0
 }
 
+//ReplaceAllVars replaces all variables with the value defined in the replacement function
+func ReplaceAllVars(src string, repl func(string) string) string {
+	return regexVariables.ReplaceAllStringFunc(src, repl)
+}
+
+func SubstituteAll(log logr.Logger, ctx context.EvalInterface, document interface{}) (_ interface{}, err error) {
+	document, err = substituteReferences(log, document)
+	if err != nil {
+		return kyverno.Rule{}, err
+	}
+
+	return substituteVars(log, ctx, document)
+}
+
+func SubstituteAllForceMutate(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
+	var rule interface{}
+
+	rule, err = RuleToUntyped(typedRule)
+	if err != nil {
+		return kyverno.Rule{}, err
+	}
+
+	rule, err = substituteReferences(log, rule)
+	if err != nil {
+		return kyverno.Rule{}, err
+	}
+
+	if ctx == nil {
+		rule = replaceSubstituteVariables(rule)
+	} else {
+		rule, err = substituteVars(log, ctx, rule)
+		if err != nil {
+			return kyverno.Rule{}, err
+		}
+	}
+
+	return UntypedToRule(rule)
+}
+
 //SubstituteVars replaces the variables with the values defined in the context
 // - if any variable is invalid or has nil value, it is considered as a failed variable substitution
 func substituteVars(log logr.Logger, ctx context.EvalInterface, rule interface{}) (interface{}, error) {
-	return ju.NewTraversal(rule, substituteVariablesIfAny(log, ctx)).TraverseJSON()
+	return jsonUtils.NewTraversal(rule, substituteVariablesIfAny(log, ctx)).TraverseJSON()
 }
 
 func substituteReferences(log logr.Logger, rule interface{}) (interface{}, error) {
-	return ju.NewTraversal(rule, substituteReferencesIfAny(log)).TraverseJSON()
+	return jsonUtils.NewTraversal(rule, substituteReferencesIfAny(log)).TraverseJSON()
 }
 
 // NotFoundVariableErr is returned when it is impossible to resolve the variable
@@ -61,8 +100,8 @@ func (n NotResolvedReferenceErr) Error() string {
 	return fmt.Sprintf("reference %s not resolved at path %s", n.reference, n.path)
 }
 
-func substituteReferencesIfAny(log logr.Logger) ju.Action {
-	return ju.OnlyForLeafs(func(data *ju.ActionData) (interface{}, error) {
+func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
+	return jsonUtils.OnlyForLeafs(func(data *jsonUtils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
 		if !ok {
 			return data.Element, nil
@@ -73,9 +112,9 @@ func substituteReferencesIfAny(log logr.Logger) ju.Action {
 			if err != nil {
 				switch err.(type) {
 				case context.InvalidVariableErr:
-					return data.Element, err
+					return nil, err
 				default:
-					return data.Element, fmt.Errorf("failed to resolve %v at path %s", v, data.Path)
+					return nil, fmt.Errorf("failed to resolve %v at path %s", v, data.Path)
 				}
 			}
 
@@ -100,8 +139,8 @@ func substituteReferencesIfAny(log logr.Logger) ju.Action {
 	})
 }
 
-func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) ju.Action {
-	return ju.OnlyForLeafs(func(data *ju.ActionData) (interface{}, error) {
+func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUtils.Action {
+	return jsonUtils.OnlyForLeafs(func(data *jsonUtils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
 		if !ok {
 			return data.Element, nil
@@ -114,6 +153,16 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) ju.Act
 				variable := strings.ReplaceAll(v, "{{", "")
 				variable = strings.ReplaceAll(variable, "}}", "")
 				variable = strings.TrimSpace(variable)
+
+				operation, err := ctx.Query("request.operation")
+				if err != nil {
+					return nil, fmt.Errorf("failed to check request.operation")
+				}
+
+				if operation == "DELETE" {
+					variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
+				}
+
 				substitutedVar, err := ctx.Query(variable)
 				if err != nil {
 					switch err.(type) {
@@ -230,16 +279,41 @@ func formAbsolutePath(referencePath, absolutePath string) string {
 func getValueFromReference(fullDocument interface{}, path string) (interface{}, error) {
 	var element interface{}
 
-	ju.NewTraversal(fullDocument, ju.OnlyForLeafs(
-		func(data *ju.ActionData) (interface{}, error) {
+	if _, err := jsonUtils.NewTraversal(fullDocument, jsonUtils.OnlyForLeafs(
+		func(data *jsonUtils.ActionData) (interface{}, error) {
 			if common.RemoveAnchorsFromPath(data.Path) == path {
 				element = data.Element
 			}
 
 			return data.Element, nil
-		})).TraverseJSON()
+		})).TraverseJSON(); err != nil {
+		return nil, err
+	}
 
 	return element, nil
+}
+
+
+
+func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
+	var rule interface{}
+
+	rule, err = RuleToUntyped(typedRule)
+	if err != nil {
+		return typedRule, err
+	}
+
+	rule, err = substituteReferences(log, rule)
+	if err != nil {
+		return typedRule, err
+	}
+
+	rule, err = substituteVars(log, ctx, rule)
+	if err != nil {
+		return typedRule, err
+	}
+
+	return UntypedToRule(rule)
 }
 
 func RuleToUntyped(rule kyverno.Rule) (interface{}, error) {
@@ -270,61 +344,6 @@ func UntypedToRule(untyped interface{}) (kyverno.Rule, error) {
 	}
 
 	return rule, nil
-}
-
-func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
-	var rule interface{}
-
-	rule, err = RuleToUntyped(typedRule)
-	if err != nil {
-		return typedRule, err
-	}
-
-	rule, err = substituteReferences(log, rule)
-	if err != nil {
-		return typedRule, err
-	}
-
-	rule, err = substituteVars(log, ctx, rule)
-	if err != nil {
-		return typedRule, err
-	}
-
-	return UntypedToRule(rule)
-}
-
-func SubstituteAll(log logr.Logger, ctx context.EvalInterface, document interface{}) (_ interface{}, err error) {
-	document, err = substituteReferences(log, document)
-	if err != nil {
-		return kyverno.Rule{}, err
-	}
-
-	return substituteVars(log, ctx, document)
-}
-
-func SubstituteAllForceMutate(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
-	var rule interface{}
-
-	rule, err = RuleToUntyped(typedRule)
-	if err != nil {
-		return kyverno.Rule{}, err
-	}
-
-	rule, err = substituteReferences(log, rule)
-	if err != nil {
-		return kyverno.Rule{}, err
-	}
-
-	if ctx == nil {
-		rule = replaceSubstituteVariables(rule)
-	} else {
-		rule, err = substituteVars(log, ctx, rule)
-		if err != nil {
-			return kyverno.Rule{}, err
-		}
-	}
-
-	return UntypedToRule(rule)
 }
 
 func replaceSubstituteVariables(document interface{}) interface{} {

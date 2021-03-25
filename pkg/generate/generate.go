@@ -123,6 +123,10 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		return nil, err
 	}
 
+	if err := ctx.AddImageInfo(&resource); err != nil {
+		logger.Error(err, "unable to add image info to variables context")
+	}
+
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
 		Policy:              *policyObj,
