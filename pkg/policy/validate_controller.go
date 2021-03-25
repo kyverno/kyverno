@@ -92,6 +92,8 @@ type PolicyController struct {
 	// policy report generator
 	prGenerator policyreport.GeneratorInterface
 
+	policyReportEraser policyreport.PolicyReportEraser
+
 	// resCache - controls creation and fetching of resource informer cache
 	resCache resourcecache.ResourceCache
 
@@ -109,6 +111,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	configHandler config.Interface,
 	eventGen event.Interface,
 	prGenerator policyreport.GeneratorInterface,
+	policyReportEraser policyreport.PolicyReportEraser,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
 	resCache resourcecache.ResourceCache,
@@ -124,16 +127,17 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
-		client:          client,
-		kyvernoClient:   kyvernoClient,
-		eventGen:        eventGen,
-		eventRecorder:   eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
-		configHandler:   configHandler,
-		prGenerator:     prGenerator,
-		log:             log,
-		resCache:        resCache,
-		reconcilePeriod: reconcilePeriod,
+		client:             client,
+		kyvernoClient:      kyvernoClient,
+		eventGen:           eventGen,
+		eventRecorder:      eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
+		queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
+		configHandler:      configHandler,
+		prGenerator:        prGenerator,
+		policyReportEraser: policyReportEraser,
+		log:                log,
+		resCache:           resCache,
+		reconcilePeriod:    reconcilePeriod,
 	}
 
 	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -341,10 +345,6 @@ func (pc *PolicyController) enqueuePolicy(policy *kyverno.ClusterPolicy) {
 // Run begins watching and syncing.
 func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-chan struct{}) {
 	logger := pc.log
-	if pc.reconcilePeriod.String() == "0s" {
-		logger.Info("background scan is disabled")
-		return
-	}
 
 	defer utilruntime.HandleCrash()
 	defer pc.queue.ShutDown()

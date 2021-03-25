@@ -70,7 +70,7 @@ func main() {
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
 	flag.StringVar(&profilePort, "profile-port", "6060", "Enable profiling at given port, default to 6060.")
-	flag.DurationVar(&policyControllerResyncPeriod, "background-scan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h. If set to 0, the background scan is disabled.")
+	flag.DurationVar(&policyControllerResyncPeriod, "background-scan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h.")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -158,19 +158,6 @@ func main() {
 	//		- ClusterReportChangeRequest, ReportChangeRequest
 	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, policyControllerResyncPeriod)
 
-	// Configuration Data
-	// dynamically load the configuration from configMap
-	// - resource filters
-	// if the configMap is update, the configuration will be updated :D
-	configData := config.NewConfigData(
-		kubeClient,
-		kubeInformer.Core().V1().ConfigMaps(),
-		filterK8sResources,
-		excludeGroupRole,
-		excludeUsername,
-		log.Log.WithName("ConfigData"),
-	)
-
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
 	eventGenerator := event.NewEventGenerator(
@@ -196,13 +183,28 @@ func main() {
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
 
-	prgen := policyreport.NewReportGenerator(client,
+	prgen := policyreport.NewReportGenerator(pclient,
+		client,
 		pInformer.Wgpolicyk8s().V1alpha1().ClusterPolicyReports(),
 		pInformer.Wgpolicyk8s().V1alpha1().PolicyReports(),
 		pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
 		pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyReportGenerator"),
+	)
+
+	// Configuration Data
+	// dynamically load the configuration from configMap
+	// - resource filters
+	// if the configMap is update, the configuration will be updated :D
+	configData := config.NewConfigData(
+		kubeClient,
+		kubeInformer.Core().V1().ConfigMaps(),
+		filterK8sResources,
+		excludeGroupRole,
+		excludeUsername,
+		prgen.ReconcileCh,
+		log.Log.WithName("ConfigData"),
 	)
 
 	// POLICY CONTROLLER
@@ -217,6 +219,7 @@ func main() {
 		configData,
 		eventGenerator,
 		reportReqGen,
+		prgen,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
 		rCache,
