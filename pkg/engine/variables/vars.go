@@ -91,7 +91,7 @@ func (n NotFoundVariableErr) Error() string {
 	return fmt.Sprintf("variable %s not resolved at path %s", n.variable, n.path)
 }
 
-// NotFoundVariableErr is returned when it is impossible to resolve the variable
+// NotResolvedReferenceErr is returned when it is impossible to resolve the variable
 type NotResolvedReferenceErr struct {
 	reference string
 	path      string
@@ -221,7 +221,7 @@ func resolveReference(log logr.Logger, fullDocument interface{}, reference, abso
 	if err != nil {
 		return err, nil
 	}
-	//TODO validate this
+
 	if operation == operator.Equal { //if operator does not exist return raw value
 		return valFromReference, nil
 	}
@@ -230,6 +230,7 @@ func resolveReference(log logr.Logger, fullDocument interface{}, reference, abso
 	if err != nil {
 		return "", err
 	}
+
 	return string(operation) + foundValue.(string), nil
 }
 
