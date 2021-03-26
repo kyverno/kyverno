@@ -20,6 +20,7 @@ import (
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/event"
+	gen "github.com/kyverno/kyverno/pkg/generate"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -149,7 +150,7 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 				if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
 					data := rule.Generation.DeepCopy().Data
 					if data != nil {
-						if _, err := validate.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
+						if _, err := gen.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
 							enqueueBool = true
 							break
 						}
