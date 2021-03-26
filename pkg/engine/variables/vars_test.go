@@ -2,8 +2,8 @@ package variables
 
 import (
 	"encoding/json"
-	"strings"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -172,7 +172,7 @@ func Test_ReplacingPathWhenDeleting(t *testing.T) {
 	err = ctx.AddJSON(resourceRaw)
 	assert.NilError(t, err)
 
-	pattern, err = SubstituteVars(log.Log, ctx, pattern)
+	pattern, err = SubstituteAll(log.Log, ctx, pattern)
 	assert.NilError(t, err)
 
 	assert.Equal(t, fmt.Sprintf("%v", pattern), "bar")
@@ -208,7 +208,7 @@ func Test_ReplacingNestedVariableWhenDeleting(t *testing.T) {
 	err = ctx.AddJSON(resourceRaw)
 	assert.NilError(t, err)
 
-	pattern, err = SubstituteVars(log.Log, ctx, pattern)
+	pattern, err = SubstituteAll(log.Log, ctx, pattern)
 	assert.NilError(t, err)
 
 	assert.Equal(t, fmt.Sprintf("%v", pattern), "nested_target")
