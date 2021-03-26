@@ -3,10 +3,7 @@ package validate
 import (
 	"errors"
 	"fmt"
-	"path"
-	"reflect"
 	"strconv"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
@@ -39,7 +36,6 @@ func ValidateResourceWithPattern(log logr.Logger, resource, pattern interface{})
 // and calls corresponding handler
 // Pattern tree and resource tree can have different structure. In this case validation fails
 func validateResourceElement(log logr.Logger, resourceElement, patternElement, originPattern interface{}, path string, ac *common.AnchorKey) (string, error) {
-	var err error
 	switch typedPatternElement := patternElement.(type) {
 	// map
 	case map[string]interface{}:
@@ -62,14 +58,6 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 	// elementary values
 	case string, float64, int, int64, bool, nil:
 		/*Analyze pattern */
-		if checkedPattern := reflect.ValueOf(patternElement); checkedPattern.Kind() == reflect.String {
-			if isStringIsReference(checkedPattern.String()) { //check for $ anchor
-				patternElement, err = actualizePattern(log, originPattern, checkedPattern.String(), path)
-				if err != nil {
-					return path, err
-				}
-			}
-		}
 
 		if !ValidateValueWithPattern(log, resourceElement, patternElement) {
 			return path, fmt.Errorf("Validation rule failed at '%s' to validate value '%v' with pattern '%v'", path, resourceElement, patternElement)
@@ -160,73 +148,6 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 		}
 	}
 	return "", nil
-}
-
-func actualizePattern(log logr.Logger, origPattern interface{}, referencePattern, absolutePath string) (interface{}, error) {
-	var foundValue interface{}
-
-	referencePattern = strings.Trim(referencePattern, "$()")
-
-	operatorVariable := operator.GetOperatorFromStringPattern(referencePattern)
-	referencePattern = referencePattern[len(operatorVariable):]
-
-	if len(referencePattern) == 0 {
-		return nil, errors.New("Expected path. Found empty reference")
-	}
-	// Check for variables
-	// substitute it from Context
-	// remove absolute path
-	// {{ }}
-	// value :=
-	actualPath := formAbsolutePath(referencePattern, absolutePath)
-
-	valFromReference, err := getValueFromReference(log, origPattern, actualPath)
-	if err != nil {
-		return err, nil
-	}
-	//TODO validate this
-	if operatorVariable == operator.Equal { //if operator does not exist return raw value
-		return valFromReference, nil
-	}
-
-	foundValue, err = valFromReferenceToString(valFromReference, string(operatorVariable))
-	if err != nil {
-		return "", err
-	}
-	return string(operatorVariable) + foundValue.(string), nil
-}
-
-//Parse value to string
-func valFromReferenceToString(value interface{}, operator string) (string, error) {
-
-	switch typed := value.(type) {
-	case string:
-		return typed, nil
-	case int, int64:
-		return fmt.Sprintf("%d", value), nil
-	case float64:
-		return fmt.Sprintf("%f", value), nil
-	default:
-		return "", fmt.Errorf("Incorrect expression. Operator %s does not match with value: %v", operator, value)
-	}
-}
-
-// returns absolute path
-func formAbsolutePath(referencePath, absolutePath string) string {
-	if path.IsAbs(referencePath) {
-		return referencePath
-	}
-
-	return path.Join(absolutePath, referencePath)
-}
-
-//Prepares original pattern, path to value, and call traverse function
-func getValueFromReference(log logr.Logger, origPattern interface{}, reference string) (interface{}, error) {
-	originalPatternMap := origPattern.(map[string]interface{})
-	reference = reference[1:]
-	statements := strings.Split(reference, "/")
-
-	return getValueFromPattern(log, originalPatternMap, statements, 0)
 }
 
 func getValueFromPattern(log logr.Logger, patternMap map[string]interface{}, keys []string, currentKeyIndex int) (interface{}, error) {

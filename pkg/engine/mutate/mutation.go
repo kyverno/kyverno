@@ -62,7 +62,7 @@ func (h patchStrategicMergeHandler) Handle() (response.RuleResponse, unstructure
 
 	// substitute the variables
 	var err error
-	if PatchStrategicMerge, err = variables.SubstituteVars(log, h.evalCtx, PatchStrategicMerge); err != nil {
+	if PatchStrategicMerge, err = variables.SubstituteAll(log, h.evalCtx, PatchStrategicMerge); err != nil {
 		// variable subsitution failed
 		ruleResponse.Name = h.ruleName
 		ruleResponse.Success = false
@@ -131,7 +131,7 @@ func (h overlayHandler) Handle() (response.RuleResponse, unstructured.Unstructur
 
 	// substitute the variables
 	var err error
-	if overlay, err = variables.SubstituteVars(h.logger, h.evalCtx, overlay); err != nil {
+	if overlay, err = variables.SubstituteAll(h.logger, h.evalCtx, overlay); err != nil {
 		// variable substitution failed
 		ruleResponse.Success = false
 		ruleResponse.Message = err.Error()

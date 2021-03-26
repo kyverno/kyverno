@@ -13,6 +13,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 )
@@ -494,7 +495,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 
 	if rule.Validation.Pattern != nil {
 		newValidate := &kyverno.Validation{
-			Message: rule.Validation.Message,
+			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
 			Pattern: map[string]interface{}{
 				"spec": map[string]interface{}{
 					"template": rule.Validation.Pattern,
@@ -523,7 +524,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		}
 
 		controllerRule.Validation = &kyverno.Validation{
-			Message:    rule.Validation.Message,
+			Message:    variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "anyPattern"),
 			AnyPattern: patterns,
 		}
 		return *controllerRule

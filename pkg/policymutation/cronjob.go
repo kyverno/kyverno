@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 )
 
 func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger) kyvernoRule {
@@ -65,7 +66,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 
 	if (jobRule.Validation != nil) && (jobRule.Validation.Pattern != nil) {
 		newValidate := &kyverno.Validation{
-			Message: rule.Validation.Message,
+			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "pattern"),
 			Pattern: map[string]interface{}{
 				"spec": map[string]interface{}{
 					"jobTemplate": jobRule.Validation.Pattern,
@@ -94,7 +95,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		}
 
 		cronJobRule.Validation = &kyverno.Validation{
-			Message:    rule.Validation.Message,
+			Message:    variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "anyPattern"),
 			AnyPattern: patterns,
 		}
 		return *cronJobRule
