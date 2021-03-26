@@ -449,7 +449,6 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		responseError = true
 	} else {
 		if len(mutateResponse.PolicyResponse.Rules) > 0 {
-			//fmt.Printf("=========>mutateResponse.PatchedResource.Object %v", mutateResponse.PatchedResource.Object)
 			yamlEncodedResource, err := yamlv2.Marshal(mutateResponse.PatchedResource.Object)
 			if err != nil {
 				rcError = true
