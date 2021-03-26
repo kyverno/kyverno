@@ -2,12 +2,16 @@ package engine
 
 import (
 	"encoding/json"
+	"regexp"
+	"strings"
+
 	"reflect"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
 )
 
@@ -163,4 +167,157 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	expectedErrorStr := "variable request.object.metadata.name1 not resolved at path /spec/name"
 	t.Log(er.PolicyResponse.Rules[0].Message)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, expectedErrorStr)
+}
+
+func Test_patchJson6902WithJMESPath(t *testing.T) {
+
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "mutate-ingress-host"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "mutate-ingress-host",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Ingress"
+				  ]
+				}
+			  },
+			  "exclude": {
+				"resources": {
+				  "namespaces": [
+					"kube-system",
+					"kube-public",
+					"kyverno"
+				  ]
+				}
+			  },
+			  "mutate": {
+				"patchesJson6902": "- op: replace\n  path: \"/spec/rules/0/host\"\n  value: \"{{request.object.spec.rules[0].host}}.mycompany.com\"\n- op: replace\n  path: \"/spec/tls/0/hosts/0\"\n  value: \"{{request.object.spec.tls[0].hosts[0]}}.mycompany.com\""
+			  }
+			}
+		  ]
+		}
+	  }
+	`)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "networking.k8s.io/v1",
+		"kind": "Ingress",
+		"metadata": {
+		  "name": "kuard",
+		  "labels": {
+			"app": "kuard"
+		  }
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "host": "kuard",
+			  "http": {
+				"paths": [
+				  {
+					"backend": {
+					  "service": {
+						"name": "kuard",
+						"port": {
+						  "number": 8080
+						}
+					  }
+					},
+					"path": "/",
+					"pathType": "ImplementationSpecific"
+				  }
+				]
+			  }
+			}
+		  ],
+		  "tls": [
+			{
+			  "hosts": [
+				"kuard"
+			  ]
+			}
+		  ]
+		}
+	  }
+	`)
+
+	expected := []byte(`
+		{
+			"apiVersion": "networking.k8s.io/v1",
+			"kind": "Ingress",
+			"metadata": {
+			  "labels": {
+				"app": "kuard"
+			  },
+			  "name": "kuard"
+			},
+			"spec": {
+			  "rules": [
+				{
+				  "host": "kuard.mycompany.com",
+				  "http": {
+					"paths": [
+					  {
+						"backend": {
+						  "service": {
+							"name": "kuard",
+							"port": {
+							  "number": 8080
+							}
+						  }
+						},
+						"path": "/",
+						"pathType": "ImplementationSpecific"
+					  }
+					]
+				  }
+				}
+			  ],
+			  "tls": [
+				{
+				  "hosts": [
+					"kuard.mycompany.com"
+				  ]
+				}
+			  ]
+			}
+		  }
+		`)
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	if err != nil {
+		t.Error(err)
+	}
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResource(rawResource)
+	if err != nil {
+		t.Error(err)
+	}
+
+	policyContext := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		NewResource: *resourceUnstructured}
+	resp := Mutate(policyContext)
+	result, _ := resp.PatchedResource.DeepCopy().MarshalJSON()
+
+	re := regexp.MustCompile(`[[:space:]]`)
+	exp := strings.TrimSpace(re.ReplaceAllString(string(expected), ""))
+	res := strings.TrimSpace(string(result))
+
+	if !assertnew.Equal(t, string(res), exp) {
+		t.FailNow()
+	}
 }

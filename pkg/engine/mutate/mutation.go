@@ -1,6 +1,8 @@
 package mutate
 
 import (
+	"encoding/json"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -22,7 +24,7 @@ func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResou
 	case isPatchStrategicMerge(mutate):
 		return newpatchStrategicMergeHandler(ruleName, mutate, patchedResource, context, logger)
 	case isPatchesJSON6902(mutate):
-		return newPatchesJSON6902Handler(ruleName, mutate, patchedResource, logger)
+		return newPatchesJSON6902Handler(ruleName, mutate, patchedResource, context, logger)
 	case isOverlay(mutate):
 		// return newOverlayHandler(ruleName, mutate, patchedResource, context, logger)
 		mutate.PatchStrategicMerge = mutate.Overlay
@@ -69,7 +71,6 @@ func (h patchStrategicMergeHandler) Handle() (response.RuleResponse, unstructure
 		ruleResponse.Message = err.Error()
 		return ruleResponse, h.patchedResource
 	}
-
 	return ProcessStrategicMergePatch(h.ruleName, PatchStrategicMerge, h.patchedResource, log)
 }
 
@@ -101,28 +102,50 @@ type patchesJSON6902Handler struct {
 	logger          logr.Logger
 }
 
-func newPatchesJSON6902Handler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, logger logr.Logger) Handler {
+func newPatchesJSON6902Handler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
 	return patchesJSON6902Handler{
 		ruleName:        ruleName,
 		mutation:        mutate,
 		patchedResource: patchedResource,
+		evalCtx:         context,
 		logger:          logger,
 	}
 }
 
 func (h patchesJSON6902Handler) Handle() (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
-	resp.Name = h.ruleName
-	resp.Type = utils.Mutation.String()
+	ruleResponse := response.RuleResponse{
+		Name:    h.ruleName,
+		Success: false,
+		Type:    utils.Mutation.String(),
+	}
 
 	patchesJSON6902, err := convertPatchesToJSON(h.mutation.PatchesJSON6902)
 	if err != nil {
-		resp.Success = false
 		h.logger.Error(err, "error in type conversion")
-		resp.Message = err.Error()
-		return resp, h.patchedResource
+		ruleResponse.Message = err.Error()
+		return ruleResponse, h.patchedResource
 	}
 
-	return ProcessPatchJSON6902(h.ruleName, patchesJSON6902, h.patchedResource, h.logger)
+	var patch interface{}
+	err = json.Unmarshal(patchesJSON6902, &patch)
+	if err != nil {
+		ruleResponse.Message = err.Error()
+		return ruleResponse, h.patchedResource
+	}
+
+	patchedPatch, err := variables.SubstituteAll(h.logger, h.evalCtx, patch)
+	if err != nil {
+		ruleResponse.Message = err.Error()
+		return ruleResponse, h.patchedResource
+	}
+
+	patches, err := json.Marshal(patchedPatch)
+	if err != nil {
+		ruleResponse.Message = err.Error()
+		return ruleResponse, h.patchedResource
+	}
+
+	return ProcessPatchJSON6902(h.ruleName, patches, h.patchedResource, h.logger)
 }
 
 func (h overlayHandler) Handle() (response.RuleResponse, unstructured.Unstructured) {
