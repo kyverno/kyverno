@@ -51,6 +51,7 @@ func mutateResourceWithOverlay(resource unstructured.Unstructured, overlay inter
 }
 
 // ForceMutate does not check any conditions, it simply mutates the given resource
+// It is used to validate mutation logic, and for tests.
 func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (unstructured.Unstructured, error) {
 	var err error
 	logger := log.Log.WithName("EngineForceMutate").WithValues("policy", policy.Name, "kind", resource.GetKind(),
