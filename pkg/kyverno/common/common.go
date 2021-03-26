@@ -380,7 +380,7 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string) ([]*response.EngineResponse, *response.EngineResponse, bool, bool, error) {
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool) ([]*response.EngineResponse, *response.EngineResponse, bool, bool, error) {
 
 	responseError := false
 	rcError := false
@@ -455,9 +455,11 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			}
 
 			if mutateLogPath == "" {
-				mutatedResource := string(yamlEncodedResource)
+				mutatedResource := string(yamlEncodedResource) + string("\n---")
 				if len(strings.TrimSpace(mutatedResource)) > 0 {
-					fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
+					if !stdin {
+						fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
+					}
 					fmt.Printf("\n" + mutatedResource)
 					fmt.Printf("\n")
 				}
