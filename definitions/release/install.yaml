@@ -2481,7 +2481,7 @@ spec:
           readOnlyRootFilesystem: true
           runAsNonRoot: true
       initContainers:
-      - image: ghcr.io/kyverno/kyvernopre:v1.3.4-rc1
+      - image: ghcr.io/kyverno/kyvernopre:v1.3.5-rc1
         imagePullPolicy: IfNotPresent
         name: kyverno-pre
         securityContext:

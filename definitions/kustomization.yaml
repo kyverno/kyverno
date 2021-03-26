@@ -11,4 +11,4 @@ images:
   newTag: v1.3.5-rc1
 - name: ghcr.io/kyverno/kyvernopre
   newName: ghcr.io/kyverno/kyvernopre
-  newTag: v1.3.4-rc1
+  newTag: v1.3.5-rc1
