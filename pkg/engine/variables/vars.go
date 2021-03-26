@@ -31,7 +31,8 @@ func IsReference(value string) bool {
 	return len(groups) != 0
 }
 
-//ReplaceAllVars replaces all variables with the value defined in the replacement function
+// ReplaceAllVars replaces all variables with the value defined in the replacement function
+// This is used to avoid validation errors
 func ReplaceAllVars(src string, repl func(string) string) string {
 	return regexVariables.ReplaceAllStringFunc(src, repl)
 }
@@ -292,8 +293,6 @@ func getValueFromReference(fullDocument interface{}, path string) (interface{}, 
 
 	return element, nil
 }
-
-
 
 func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
 	var rule interface{}

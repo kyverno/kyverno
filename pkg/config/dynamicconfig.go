@@ -31,6 +31,7 @@ type ConfigData struct {
 	excludeUsername             []string
 	restrictDevelopmentUsername []string
 	cmSycned                    cache.InformerSynced
+	reconcilePolicyReport       chan<- bool
 	log                         logr.Logger
 }
 
@@ -96,17 +97,18 @@ type Interface interface {
 }
 
 // NewConfigData ...
-func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8sResources, excludeGroupRole, excludeUsername string, log logr.Logger) *ConfigData {
+func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8sResources, excludeGroupRole, excludeUsername string, reconcilePolicyReport chan<- bool, log logr.Logger) *ConfigData {
 	// environment var is read at start only
 	if cmNameEnv == "" {
 		log.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
 	}
 
 	cd := ConfigData{
-		client:   rclient,
-		cmName:   os.Getenv(cmNameEnv),
-		cmSycned: cmInformer.Informer().HasSynced,
-		log:      log,
+		client:                rclient,
+		cmName:                os.Getenv(cmNameEnv),
+		cmSycned:              cmInformer.Informer().HasSynced,
+		reconcilePolicyReport: reconcilePolicyReport,
+		log:                   log,
 	}
 
 	cd.restrictDevelopmentUsername = []string{"minikube-user", "kubernetes-admin"}
@@ -163,7 +165,11 @@ func (cd *ConfigData) updateCM(old, cur interface{}) {
 		return
 	}
 	// if data has not changed then dont load configmap
-	cd.load(*cm)
+	changed := cd.load(*cm)
+	if changed {
+		cd.log.Info("resource filters changed, sending reconcile signal to the policy controller")
+		cd.reconcilePolicyReport <- true
+	}
 }
 
 func (cd *ConfigData) deleteCM(obj interface{}) {
@@ -189,16 +195,16 @@ func (cd *ConfigData) deleteCM(obj interface{}) {
 	cd.unload(*cm)
 }
 
-func (cd *ConfigData) load(cm v1.ConfigMap) {
+func (cd *ConfigData) load(cm v1.ConfigMap) (changed bool) {
 	logger := cd.log.WithValues("name", cm.Name, "namespace", cm.Namespace)
 	if cm.Data == nil {
 		logger.V(4).Info("configuration: No data defined in ConfigMap")
 		return
 	}
-	// parse and load the configuration
+
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
-	// get resource filters
+
 	filters, ok := cm.Data["resourceFilters"]
 	if !ok {
 		logger.V(4).Info("configuration: No resourceFilters defined in ConfigMap")
@@ -208,12 +214,11 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 			logger.V(4).Info("resourceFilters did not change")
 		} else {
 			logger.V(2).Info("Updated resource filters", "oldFilters", cd.filters, "newFilters", newFilters)
-			// update filters
 			cd.filters = newFilters
+			changed = true
 		}
 	}
 
-	// get resource filters
 	excludeGroupRole, ok := cm.Data["excludeGroupRole"]
 	if !ok {
 		logger.V(4).Info("configuration: No excludeGroupRole defined in ConfigMap")
@@ -224,11 +229,10 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 		logger.V(4).Info("excludeGroupRole did not change")
 	} else {
 		logger.V(2).Info("Updated resource excludeGroupRoles", "oldExcludeGroupRole", cd.excludeGroupRole, "newExcludeGroupRole", newExcludeGroupRoles)
-		// update filters
 		cd.excludeGroupRole = newExcludeGroupRoles
+		changed = true
 	}
 
-	// get resource filters
 	excludeUsername, ok := cm.Data["excludeUsername"]
 	if !ok {
 		logger.V(4).Info("configuration: No excludeUsername defined in ConfigMap")
@@ -238,11 +242,12 @@ func (cd *ConfigData) load(cm v1.ConfigMap) {
 			logger.V(4).Info("excludeGroupRole did not change")
 		} else {
 			logger.V(2).Info("Updated resource excludeUsernames", "oldExcludeUsername", cd.excludeUsername, "newExcludeUsername", excludeUsernames)
-			// update filters
 			cd.excludeUsername = excludeUsernames
+			changed = true
 		}
 	}
 
+	return changed
 }
 
 //TODO: this has been added to backward support command line arguments
