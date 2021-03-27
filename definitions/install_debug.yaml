@@ -2228,6 +2228,7 @@ rules:
   - configmaps
   - resourcequotas
   - limitranges
+  - roles
   - clusterroles
   - rolebindings
   - clusterrolebindings

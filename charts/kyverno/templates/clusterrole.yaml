@@ -133,6 +133,7 @@ rules:
   - resourcequotas
   - limitranges
   - clusterroles
+  - roles
   - rolebindings
   - namespaces
   - clusterrolebindings
