@@ -13,9 +13,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/tls"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -62,6 +64,10 @@ func (wrc *Register) Register() error {
 	logger := wrc.log
 	if wrc.serverIP != "" {
 		logger.Info("Registering webhook", "url", fmt.Sprintf("https://%s", wrc.serverIP))
+	}
+	if err := wrc.checkEndpoint(); err != nil {
+		logger.Info("Endpoint not ready, skipping registration of webhook", "err", err)
+		return nil
 	}
 
 	wrc.removeWebhookConfigurations()
@@ -469,4 +475,30 @@ func (wrc *Register) removeSecrets() {
 			wrc.log.Error(err, "failed to delete secret", "ns", secret.GetNamespace(), "name", secret.GetName())
 		}
 	}
+}
+
+func (wrc *Register) checkEndpoint() error {
+	obj, err := wrc.client.GetResource("", "Endpoints", config.KyvernoNamespace, config.KyvernoServiceName)
+	if err != nil {
+		wrc.log.Error(err, "failed to get endpoint", "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
+		return err
+	}
+	var endpoint corev1.Endpoints
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &endpoint)
+	if err != nil {
+		wrc.log.Error(err, "failed to convert endpoint from unstructured", "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
+		return err
+	}
+	for _, subset := range endpoint.Subsets {
+		if len(subset.Addresses) == 0 {
+			continue
+		}
+		if subset.Addresses[0].IP != "" {
+			wrc.log.Info("Endpoint ready", "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
+			return nil
+		}
+	}
+	err = fmt.Errorf("Endpoint not ready")
+	wrc.log.Error(err, "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
+	return err
 }
