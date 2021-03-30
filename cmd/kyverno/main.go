@@ -297,10 +297,28 @@ func main() {
 	}
 
 	// Register webhookCfg
-	if err = webhookCfg.Register(); err != nil {
-		setupLog.Error(err, "Failed to register admission control webhooks")
-		os.Exit(1)
-	}
+	go func() {
+		registerTimeout := time.After(30 * time.Second)
+		registerTicker := time.NewTicker(time.Second)
+		defer registerTicker.Stop()
+		var err error
+	loop:
+		for {
+			select {
+			case <-registerTicker.C:
+				err = webhookCfg.Register()
+				if err != nil {
+					setupLog.Error(err, "Failed to register admission control webhooks")
+				} else {
+					break loop
+				}
+			case <-registerTimeout:
+				setupLog.Error(err, "Timeout registering admission control webhooks")
+				os.Exit(1)
+			}
+		}
+		return
+	}()
 
 	openAPIController, err := openapi.NewOpenAPIController()
 	if err != nil {
