@@ -308,7 +308,7 @@ func main() {
 			case <-registerTicker.C:
 				err = webhookCfg.Register()
 				if err != nil {
-					setupLog.Error(err, "Failed to register admission control webhooks")
+					setupLog.Info("Failed to register admission control webhooks")
 				} else {
 					break loop
 				}
@@ -317,7 +317,6 @@ func main() {
 				os.Exit(1)
 			}
 		}
-		return
 	}()
 
 	openAPIController, err := openapi.NewOpenAPIController()
