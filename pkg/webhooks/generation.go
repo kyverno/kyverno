@@ -18,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/event"
 	gen "github.com/kyverno/kyverno/pkg/generate"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
@@ -166,7 +165,7 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 
 						sourceObj, newResObj := stripNonPolicyFields(obj.Object, newRes.Object, logger)
 
-						if _, err := validate.ValidateResourceWithPattern(logger, newResObj, sourceObj); err != nil {
+						if _, err := gen.ValidateResourceWithPattern(logger, newResObj, sourceObj); err != nil {
 							enqueueBool = true
 							break
 						}
