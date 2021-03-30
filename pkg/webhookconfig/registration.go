@@ -66,8 +66,7 @@ func (wrc *Register) Register() error {
 		logger.Info("Registering webhook", "url", fmt.Sprintf("https://%s", wrc.serverIP))
 	}
 	if err := wrc.checkEndpoint(); err != nil {
-		logger.Info("Endpoint not ready, skipping registration of webhook", "err", err)
-		return nil
+		return err
 	}
 
 	wrc.removeWebhookConfigurations()
@@ -499,6 +498,6 @@ func (wrc *Register) checkEndpoint() error {
 		}
 	}
 	err = fmt.Errorf("Endpoint not ready")
-	wrc.log.Error(err, "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
+	wrc.log.Error(err, "Endpoint not ready", "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
 	return err
 }
