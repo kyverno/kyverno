@@ -78,7 +78,7 @@ livenessProbe:
     port: 9443
     scheme: HTTPS
   initialDelaySeconds: 10
-  periodSeconds: 10
+  periodSeconds: 30
   timeoutSeconds: 5
   failureThreshold: 2
   successThreshold: 1
