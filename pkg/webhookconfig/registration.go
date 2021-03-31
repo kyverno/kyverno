@@ -498,6 +498,6 @@ func (wrc *Register) checkEndpoint() error {
 		}
 	}
 	err = fmt.Errorf("Endpoint not ready")
-	wrc.log.Error(err, "Endpoint not ready", "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
+	wrc.log.V(3).Info(err.Error(), "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
 	return err
 }

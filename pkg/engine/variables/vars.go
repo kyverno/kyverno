@@ -156,11 +156,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 				variable = strings.TrimSpace(variable)
 
 				operation, err := ctx.Query("request.operation")
-				if err != nil {
-					return nil, fmt.Errorf("failed to check request.operation")
-				}
-
-				if operation == "DELETE" {
+				if err == nil && operation == "DELETE" {
 					variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
 				}
 

@@ -308,7 +308,7 @@ func main() {
 			case <-registerTicker.C:
 				err = webhookCfg.Register()
 				if err != nil {
-					setupLog.Info("Failed to register admission control webhooks")
+					setupLog.V(3).Info("Failed to register admission control webhooks", "reason", err.Error())
 				} else {
 					break loop
 				}
