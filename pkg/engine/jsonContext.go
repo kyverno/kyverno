@@ -13,7 +13,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic/dynamiclister"
 )
 
@@ -195,10 +194,7 @@ func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynam
 		return nil, fmt.Errorf("failed to read configmap %s/%s from cache: %v", namespace, name, err)
 	}
 
-	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert configmap %s/%s: %v", namespace, name, err)
-	}
+	unstructuredObj := obj.DeepCopy().Object
 
 	// update the unstructuredObj["data"] to delimit and split the string value (containing "\n") with "\n"
 	unstructuredObj["data"] = parseMultilineBlockBody(unstructuredObj["data"].(map[string]interface{}))
@@ -229,8 +225,6 @@ func parseMultilineBlockBody(m map[string]interface{}) map[string]interface{} {
 			} else {
 				m[k] = trimmedTypedValue // trimming a str if it has trailing newline characters
 			}
-		case map[string]interface{}:
-			m[k] = parseMultilineBlockBody(typedValue)
 		default:
 			continue
 		}
