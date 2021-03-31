@@ -2443,13 +2443,13 @@ spec:
         image: ghcr.io/kyverno/kyverno:v1.3.5-rc1
         imagePullPolicy: IfNotPresent
         livenessProbe:
-          failureThreshold: 4
+          failureThreshold: 2
           httpGet:
             path: /health/liveness
             port: 9443
             scheme: HTTPS
-          initialDelaySeconds: 5
-          periodSeconds: 10
+          initialDelaySeconds: 10
+          periodSeconds: 30
           successThreshold: 1
           timeoutSeconds: 5
         name: kyverno
