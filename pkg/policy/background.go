@@ -27,10 +27,6 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 		filterVars := []string{"request.object", "request.namespace"}
 		ctx := context.NewContext(filterVars...)
 
-		if rule, err = variables.SubstituteAllInRule(log.Log, ctx, rule); !checkNotFoundErr(err) {
-			return fmt.Errorf("variable substitution failed for rule %s: %s", rule.Name, err.Error())
-		}
-
 		for _, contextEntry := range rule.Context {
 			if contextEntry.APICall != nil {
 				ctx.AddBuiltInVars(contextEntry.Name)
@@ -39,6 +35,10 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 			if contextEntry.ConfigMap != nil {
 				ctx.AddBuiltInVars(contextEntry.Name)
 			}
+		}
+
+		if rule, err = variables.SubstituteAllInRule(log.Log, ctx, rule); !checkNotFoundErr(err) {
+			return fmt.Errorf("variable substitution failed for rule %s: %s", rule.Name, err.Error())
 		}
 
 		if rule.AnyAllConditions != nil {
