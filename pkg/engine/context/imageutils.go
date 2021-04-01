@@ -127,6 +127,15 @@ func convertToImageInfo(containers []interface{}) (images []*containerImage, err
 				digest = digested.Digest().String()
 			}
 
+			// set default registry and tag
+			if registry == "" {
+				registry = "docker.io"
+			}
+
+			if tag == "" {
+				tag = "latest"
+			}
+
 			images = append(images, &containerImage{
 				Name: container["name"].(string),
 				Image: imageInfo{
