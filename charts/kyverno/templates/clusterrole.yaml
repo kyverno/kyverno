@@ -132,11 +132,7 @@ rules:
   - configmaps
   - resourcequotas
   - limitranges
-  - clusterroles
-  - roles
-  - rolebindings
   - namespaces
-  - clusterrolebindings
   {{- range .Values.generatecontrollerExtraResources }}
   - {{ . }}
   {{- end }}
