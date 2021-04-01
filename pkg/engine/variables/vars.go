@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -154,6 +155,16 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 				variable := strings.ReplaceAll(v, "{{", "")
 				variable = strings.ReplaceAll(variable, "}}", "")
 				variable = strings.TrimSpace(variable)
+				if variable == "@" {
+					currentPath := getJMESPath(data.Path)
+					value = strings.Replace(value, "{{@}}", fmt.Sprintf("request.object%s", currentPath), -1)
+					continue
+				}
+
+				if variable == "$" {
+					currentPath := getJMESPath(data.Path)
+					variable = strings.Replace(variable, "$", fmt.Sprintf("request.object%s", currentPath), -1)
+				}
 
 				operation, err := ctx.Query("request.operation")
 				if err == nil && operation == "DELETE" {
@@ -172,8 +183,16 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 
 				log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", data.Path)
 
-				if val, ok := substitutedVar.(string); ok {
-					value = strings.Replace(value, v, val, -1)
+				switch substitutedVar.(type) {
+				case []byte:
+					val := substitutedVar.([]byte)
+					value = strings.Replace(value, v, string(val), -1)
+					continue
+				case string:
+					value = strings.Replace(value, v, substitutedVar.(string), -1)
+					continue
+				case bool:
+					value = strings.Replace(value, v, strconv.FormatBool(substitutedVar.(bool)), -1)
 					continue
 				}
 
@@ -197,6 +216,13 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 
 		return value, nil
 	})
+}
+
+// getJMESPath converts path to JMES format
+func getJMESPath(rawPath string) string {
+	path := strings.ReplaceAll(rawPath, "/", ".")
+	regex := regexp.MustCompile(`\.([\d])\.`)
+	return string(regex.ReplaceAll([]byte(path), []byte("[$1].")))
 }
 
 func resolveReference(log logr.Logger, fullDocument interface{}, reference, absolutePath string) (interface{}, error) {

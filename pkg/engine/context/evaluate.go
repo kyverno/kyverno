@@ -40,6 +40,10 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 		return emptyResult, fmt.Errorf("failed to unmarshal context: %v", err)
 	}
 
+	for _, fnc := range GetRegexFunctions() {
+		queryPath.Register(fnc)
+	}
+
 	result, err := queryPath.Search(data)
 	if err != nil {
 		ctx.log.Error(err, "failed to search query", "query", query)
