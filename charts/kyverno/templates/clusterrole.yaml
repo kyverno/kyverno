@@ -132,7 +132,6 @@ rules:
   - configmaps
   - resourcequotas
   - limitranges
-  - namespaces
   {{- range .Values.generatecontrollerExtraResources }}
   - {{ . }}
   {{- end }}
