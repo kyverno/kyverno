@@ -104,9 +104,6 @@ func ExtractResources(newRaw []byte, request *v1beta1.AdmissionRequest) (unstruc
 		if err != nil {
 			return emptyResource, emptyResource, fmt.Errorf("failed to convert new raw to unstructured: %v", err)
 		}
-		if newResource.GetKind() == "Namespace" {
-			newResource.SetNamespace("")
-		}
 	}
 
 	// Old Resource
@@ -115,9 +112,6 @@ func ExtractResources(newRaw []byte, request *v1beta1.AdmissionRequest) (unstruc
 		oldResource, err = ConvertResource(oldRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 		if err != nil {
 			return emptyResource, emptyResource, fmt.Errorf("failed to convert old raw to unstructured: %v", err)
-		}
-		if oldResource.GetKind() == "Namespace" {
-			oldResource.SetNamespace("")
 		}
 	}
 
@@ -135,6 +129,10 @@ func ConvertResource(raw []byte, group, version, kind, namespace string) (unstru
 
 	if namespace != "" && kind != "Namespace" {
 		obj.SetNamespace(namespace)
+	}
+
+	if obj.GetKind() == "Namespace" && obj.GetNamespace() != "" {
+		obj.SetNamespace("")
 	}
 
 	return *obj, nil
