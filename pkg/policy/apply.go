@@ -65,7 +65,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		NamespaceLabels:  namespaceLabels,
 	}
 
-	engineResponseValidation = engine.Validate(policyCtx)
+	engineResponseValidation = engine.Validate(policyCtx, false)
 	engineResponses = append(engineResponses, mergeRuleRespose(engineResponseMutation, engineResponseValidation))
 
 	return engineResponses
@@ -81,7 +81,7 @@ func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, 
 		NamespaceLabels: namespaceLabels,
 	}
 
-	engineResponse := engine.Mutate(policyContext)
+	engineResponse := engine.Mutate(policyContext, false)
 	if !engineResponse.IsSuccessful() {
 		log.V(4).Info("failed to apply mutation rules; reporting them")
 		return engineResponse, nil

@@ -338,17 +338,17 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		}
 
 		if err != nil {
-			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("unable to read yaml", err)
+			return variables, valuesMapResource, valuesMapRule, namespaceSelectorMap, sanitizederror.NewWithError("unable to read yaml", err)
 		}
 
 		valuesBytes, err := yaml.ToJSON(yamlFile)
 		if err != nil {
-			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to convert json", err)
+			return variables, valuesMapResource, valuesMapRule, namespaceSelectorMap, sanitizederror.NewWithError("failed to convert json", err)
 		}
 
 		values := &Values{}
 		if err := json.Unmarshal(valuesBytes, values); err != nil {
-			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to decode yaml", err)
+			return variables, valuesMapResource, valuesMapRule, namespaceSelectorMap, sanitizederror.NewWithError("failed to decode yaml", err)
 		}
 
 		for _, p := range values.Policies {
@@ -452,7 +452,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		ctx.AddJSON(jsonData)
 	}
 
-	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
+	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, JSONContext: ctx, NamespaceLabels: namespaceLabels}, true)
 	engineResponses = append(engineResponses, mutateResponse)
 
 	if !mutateResponse.IsSuccessful() {
@@ -497,7 +497,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	}
 
 	policyCtx := &engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels}
-	validateResponse := engine.Validate(policyCtx)
+	validateResponse := engine.Validate(policyCtx, true)
 	if !policyReport {
 		if !validateResponse.IsSuccessful() {
 			fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.Name, resPath)
@@ -529,7 +529,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			JSONContext:     context.NewContext(),
 			NamespaceLabels: namespaceLabels,
 		}
-		generateResponse := engine.Generate(policyContext)
+		generateResponse := engine.Generate(policyContext, true)
 		engineResponses = append(engineResponses, generateResponse)
 		if len(generateResponse.PolicyResponse.Rules) > 0 {
 			log.Log.V(3).Info("generate resource is valid", "policy", policy.Name, "resource", resPath)

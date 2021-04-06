@@ -19,7 +19,7 @@ import (
 )
 
 //Validate applies validation rules from policy on the resource
-func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
+func Validate(policyContext *PolicyContext, mock bool) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	startTime := time.Now()
 
@@ -30,7 +30,7 @@ func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
-	resp = validateResource(logger, policyContext)
+	resp = validateResource(logger, policyContext, mock)
 	return
 }
 
@@ -83,7 +83,7 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }
 
-func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineResponse {
+func validateResource(log logr.Logger, ctx *PolicyContext, mock bool) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 	if ManagedPodResource(ctx.Policy, ctx.NewResource) {
 		log.V(5).Info("skip policy as direct changes to pods managed by workload controllers are not allowed", "policy", ctx.Policy.GetName())
@@ -104,10 +104,12 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 			continue
 		}
 
-		ctx.JSONContext.Restore()
-		if err := LoadContext(log, rule.Context, ctx.ResourceCache, ctx); err != nil {
-			log.Error(err, "failed to load context")
-			continue
+		if !mock {
+			ctx.JSONContext.Restore()
+			if err := LoadContext(log, rule.Context, ctx.ResourceCache, ctx); err != nil {
+				log.Error(err, "failed to load context")
+				continue
+			}
 		}
 
 		log.V(3).Info("matched validate rule")

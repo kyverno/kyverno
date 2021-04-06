@@ -22,7 +22,7 @@ const (
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
+func Mutate(policyContext *PolicyContext, mock bool) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	startTime := time.Now()
 	policy := policyContext.Policy
@@ -69,10 +69,12 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 		logger.V(3).Info("matched mutate rule")
 
-		policyContext.JSONContext.Restore()
-		if err := LoadContext(logger, rule.Context, resCache, policyContext); err != nil {
-			logger.Error(err, "failed to load context")
-			continue
+		if !mock {
+			policyContext.JSONContext.Restore()
+			if err := LoadContext(logger, rule.Context, resCache, policyContext); err != nil {
+				logger.Error(err, "failed to load context")
+				continue
+			}
 		}
 
 		// operate on the copy of the conditions, as we perform variable substitution

@@ -156,6 +156,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	}
 
 	variables, valuesMap, contextVarMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
+
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -286,7 +287,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				thisPolicyResourceValues[k] = v
 			}
 
-			if len(common.PolicyHasVariables(*policy)) > 0 && len(thisPolicyResourceValues) == 0 {
+			if len(common.PolicyHasVariables(*policy)) > 0 && len(thisPolicyResourceValues) == 0 && len(contextVarMap) == 0 {
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 			}
 
