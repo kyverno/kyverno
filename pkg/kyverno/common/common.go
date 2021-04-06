@@ -41,6 +41,12 @@ type Resource struct {
 type Policy struct {
 	Name      string     `json:"name"`
 	Resources []Resource `json:"resources"`
+	Rules     []Rule     `json:"rules"`
+}
+
+type Rule struct {
+	Name   string            `json:"name"`
+	Values map[string]string `json:"values"`
 }
 
 type Values struct {
@@ -306,8 +312,9 @@ func RemoveDuplicateVariables(matches [][]string) string {
 }
 
 // GetVariable - get the variables from console/file
-func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyresoucePath string) (map[string]string, map[string]map[string]Resource, map[string]map[string]string, error) {
-	valuesMap := make(map[string]map[string]Resource)
+func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyresoucePath string) (map[string]string, map[string]map[string]Resource, map[string]map[string]Rule, map[string]map[string]string, error) {
+	valuesMapResource := make(map[string]map[string]Resource)
+	valuesMapRule := make(map[string]map[string]Rule)
 	namespaceSelectorMap := make(map[string]map[string]string)
 	variables := make(map[string]string)
 	var yamlFile []byte
@@ -331,33 +338,40 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		}
 
 		if err != nil {
-			return variables, valuesMap, namespaceSelectorMap, sanitizederror.NewWithError("unable to read yaml", err)
+			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("unable to read yaml", err)
 		}
 
 		valuesBytes, err := yaml.ToJSON(yamlFile)
 		if err != nil {
-			return variables, valuesMap, namespaceSelectorMap, sanitizederror.NewWithError("failed to convert json", err)
+			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to convert json", err)
 		}
 
 		values := &Values{}
 		if err := json.Unmarshal(valuesBytes, values); err != nil {
-			return variables, valuesMap, namespaceSelectorMap, sanitizederror.NewWithError("failed to decode yaml", err)
+			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to decode yaml", err)
 		}
 
 		for _, p := range values.Policies {
-			pmap := make(map[string]Resource)
+			resourceMap := make(map[string]Resource)
 			for _, r := range p.Resources {
-				pmap[r.Name] = r
+				resourceMap[r.Name] = r
 			}
-			valuesMap[p.Name] = pmap
+			valuesMapResource[p.Name] = resourceMap
+
+			if p.Rules != nil {
+				ruleMap := make(map[string]Rule)
+				for _, r := range p.Rules {
+					ruleMap[r.Name] = r
+				}
+				valuesMapRule[p.Name] = ruleMap
+			}
 		}
 
 		for _, n := range values.NamespaceSelectors {
 			namespaceSelectorMap[n.Name] = n.Labels
 		}
 	}
-
-	return variables, valuesMap, namespaceSelectorMap, nil
+	return variables, valuesMapResource, valuesMapRule, namespaceSelectorMap, nil
 }
 
 // MutatePolices - function to apply mutation on policies
