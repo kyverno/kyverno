@@ -8,7 +8,7 @@ resources:
 images:
 - name: ghcr.io/kyverno/kyverno
   newName: ghcr.io/kyverno/kyverno
-  newTag: v1.3.5-rc2
+  newTag: v1.3.5-rc3
 - name: ghcr.io/kyverno/kyvernopre
   newName: ghcr.io/kyverno/kyvernopre
-  newTag: v1.3.5-rc2
+  newTag: v1.3.5-rc3
