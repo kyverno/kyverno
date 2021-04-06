@@ -171,6 +171,10 @@ func (s *Sync) updateClusterPolicy(policyName, key string, status v1.PolicyStatu
 	if reflect.DeepEqual(status, policy.Status) {
 		return
 	}
+	if policy.Spec.Background == nil || policy.Spec.ValidationFailureAction == "" || policy.Spec.Rules == nil {
+		policy.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": "true"})
+		s.client.KyvernoV1().ClusterPolicies().Update(context.TODO(), policy, metav1.UpdateOptions{})
+	}
 
 	policy.Status = status
 	_, err = s.client.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), policy, metav1.UpdateOptions{})
