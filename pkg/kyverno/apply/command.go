@@ -156,7 +156,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	}
 
 	variables, valuesMap, contextVarMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
-
+	fmt.Println(contextVarMap)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("failed to decode yaml", err)

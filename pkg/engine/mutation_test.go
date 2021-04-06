@@ -88,7 +88,7 @@ func Test_VariableSubstitutionOverlay(t *testing.T) {
 		Policy:      policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
-	er := Mutate(policyContext)
+	er := Mutate(policyContext, false)
 	t.Log(string(expectedPatch))
 	t.Log(string(er.PolicyResponse.Rules[0].Patches[0]))
 	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches[0]) {
@@ -159,7 +159,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 		Policy:      policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
-	er := Mutate(policyContext)
+	er := Mutate(policyContext, false)
 	expectedErrorStr := "variable request.object.metadata.name1 not resolved at path /spec/name"
 	t.Log(er.PolicyResponse.Rules[0].Message)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, expectedErrorStr)
