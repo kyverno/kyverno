@@ -133,7 +133,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		JSONContext:      context.NewContext(),
 	}
 
-	er := engine.Mutate(ctx)
+	er := engine.Mutate(ctx, false)
 	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
 	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
@@ -150,7 +150,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 		JSONContext:      context.NewContext(),
 	}
 
-	er = engine.Validate(ctx)
+	er = engine.Validate(ctx, false)
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 
@@ -175,7 +175,7 @@ func runTestCase(t *testing.T, tc scaseT) bool {
 				JSONContext: context.NewContext(),
 			}
 
-			er = engine.Generate(policyContext)
+			er = engine.Generate(policyContext, false)
 			t.Log(("---Generation---"))
 			validateResponse(t, er.PolicyResponse, tc.Expected.Generation.PolicyResponse)
 			// Expected generate resource will be in same namespaces as resource
