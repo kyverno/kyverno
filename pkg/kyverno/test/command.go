@@ -277,6 +277,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	fmt.Printf("\nExecuting %s...", values.Name)
 
 	_, valuesMap, contextVarMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyresoucePath)
+	fmt.Println("contextVarMap: ", contextVarMap)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to decode yaml", err)
