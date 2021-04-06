@@ -131,6 +131,10 @@ func ConvertResource(raw []byte, group, version, kind, namespace string) (unstru
 		obj.SetNamespace(namespace)
 	}
 
+	if obj.GetKind() == "Namespace" && obj.GetNamespace() != "" {
+		obj.SetNamespace("")
+	}
+
 	return *obj, nil
 }
 
