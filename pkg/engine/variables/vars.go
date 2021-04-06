@@ -81,6 +81,37 @@ func substituteReferences(log logr.Logger, rule interface{}) (interface{}, error
 	return jsonUtils.NewTraversal(rule, substituteReferencesIfAny(log)).TraverseJSON()
 }
 
+// ValidateBackgroundModeVars validates variables against the specified context,
+// which contains a list of allowed JMESPath queries in background processing,
+// and throws an error if the variable is not allowed.
+func ValidateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface, rule interface{}) (interface{}, error) {
+	return jsonUtils.NewTraversal(rule, validateBackgroundModeVars(log, ctx)).TraverseJSON()
+}
+
+func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) jsonUtils.Action {
+	return jsonUtils.OnlyForLeafs(func(data *jsonUtils.ActionData) (interface{}, error) {
+		value, ok := data.Element.(string)
+		if !ok {
+			return data.Element, nil
+		}
+		vars := regexVariables.FindAllString(value, -1)
+		for _, v := range vars {
+			variable := replaceBracesAndTrimSpaces(v)
+
+			_, err := ctx.Query(variable)
+			if err != nil {
+				switch err.(type) {
+				case context.InvalidVariableErr:
+					return nil, err
+				default:
+					return nil, fmt.Errorf("failed to resolve %v at path %s", variable, data.Path)
+				}
+			}
+		}
+		return nil, nil
+	})
+}
+
 // NotFoundVariableErr is returned when it is impossible to resolve the variable
 type NotFoundVariableErr struct {
 	variable string
@@ -151,9 +182,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 		vars := regexVariables.FindAllString(value, -1)
 		for len(vars) > 0 {
 			for _, v := range vars {
-				variable := strings.ReplaceAll(v, "{{", "")
-				variable = strings.ReplaceAll(variable, "}}", "")
-				variable = strings.TrimSpace(variable)
+				variable := replaceBracesAndTrimSpaces(v)
 
 				operation, err := ctx.Query("request.operation")
 				if err == nil && operation == "DELETE" {
@@ -197,6 +226,13 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 
 		return value, nil
 	})
+}
+
+func replaceBracesAndTrimSpaces(v string) string {
+	variable := strings.ReplaceAll(v, "{{", "")
+	variable = strings.ReplaceAll(variable, "}}", "")
+	variable = strings.TrimSpace(variable)
+	return variable
 }
 
 func resolveReference(log logr.Logger, fullDocument interface{}, reference, absolutePath string) (interface{}, error) {
