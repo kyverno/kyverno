@@ -30,6 +30,13 @@ const (
 	StatusSkip  = "skip"
 )
 
+// Severity specifies priority of a policy result
+const (
+	SeverityHigh   = "high"
+	SeverityMedium = "medium"
+	SeverityLow    = "low"
+)
+
 // PolicyReportSummary provides a status count summary
 type PolicyReportSummary struct {
 
