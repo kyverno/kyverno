@@ -538,6 +538,7 @@ func checkAutoGenRules(policy *kyverno.ClusterPolicy) bool {
 			return false
 		}
 		res := strings.Split(val, ",")
+
 		if len(res) == 1 {
 			ruleCount = 2
 		}
@@ -548,6 +549,7 @@ func checkAutoGenRules(policy *kyverno.ClusterPolicy) bool {
 				ruleCount = 2
 			}
 		}
+
 		if len(policy.Spec.Rules) != (ruleCount * len(podRuleName)) {
 			return true
 		}
