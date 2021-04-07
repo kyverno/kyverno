@@ -277,9 +277,9 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	if pol.Spec.Background == nil || pol.Spec.ValidationFailureAction == "" || checkAutoGenRules(pol) {
 		pol.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": strconv.Itoa(random.Intn(100))})
 		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
-		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", p.Namespace, pol, false)
+		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", p.Namespace, pol, false)
 		if err != nil {
-			logger.Error(err, "failed to add namespace policy ")
+			logger.Error(err, "failed to add namespace policy")
 		}
 	}
 	if !pc.canBackgroundProcess(pol) {
@@ -298,7 +298,7 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	if ncurP.Spec.Background == nil || ncurP.Spec.ValidationFailureAction == "" || checkAutoGenRules(ncurP) {
 		ncurP.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": strconv.Itoa(random.Intn(100))})
 		ncurP.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
-		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", ncurP.GetNamespace(), ncurP, false)
+		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", ncurP.GetNamespace(), ncurP, false)
 		if err != nil {
 			logger.Error(err, "failed to update namespace policy ")
 		}
