@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/ghodss/yaml"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -86,7 +87,30 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 				return unstructured.Unstructured{}, fmt.Errorf(resp.Message)
 			}
 		}
+		
+		if rule.Mutation.PatchStrategicMerge != nil {
+			var resp response.RuleResponse
+			resp, resource = mutate.ProcessStrategicMergePatch(rule.Name, rule.Mutation.PatchStrategicMerge, resource, logger.WithValues("rule", rule.Name))
+			if !resp.Success {
+				return unstructured.Unstructured{}, fmt.Errorf(resp.Message)
+			}
+		}
+
+		if rule.Mutation.PatchesJSON6902 != "" {
+			var resp response.RuleResponse
+			jsonPatches, err := yaml.YAMLToJSON([]byte(rule.Mutation.PatchesJSON6902))
+			if err != nil {
+				return unstructured.Unstructured{}, err
+			}
+
+			resp, resource = mutate.ProcessPatchJSON6902(rule.Name, jsonPatches, resource, logger.WithValues("rule", rule.Name))
+			if !resp.Success {
+				return unstructured.Unstructured{}, fmt.Errorf(resp.Message)
+			}
+		}
+
 	}
 
 	return resource, nil
 }
+
