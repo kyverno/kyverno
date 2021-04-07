@@ -13,6 +13,7 @@ import (
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	utils "github.com/kyverno/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
@@ -171,9 +172,12 @@ func (s *Sync) updateClusterPolicy(policyName, key string, status v1.PolicyStatu
 	if reflect.DeepEqual(status, policy.Status) {
 		return
 	}
-	if policy.Spec.Background == nil || policy.Spec.ValidationFailureAction == "" || policy.Spec.Rules == nil {
+	if policy.Spec.Background == nil || policy.Spec.ValidationFailureAction == "" || checkAutoGenRules(policy.Spec.Rules) {
 		policy.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": "true"})
-		s.client.KyvernoV1().ClusterPolicies().Update(context.TODO(), policy, metav1.UpdateOptions{})
+		_, err = s.client.KyvernoV1().ClusterPolicies().Update(context.TODO(), policy, metav1.UpdateOptions{})
+		if err != nil {
+			s.log.Error(err, "failed to update policy status", "policy", policyName)
+		}
 	}
 
 	policy.Status = status
@@ -196,6 +200,13 @@ func (s *Sync) updateNamespacedPolicyStatus(policyName, namespace, key string, s
 		return
 	}
 
+	if policy.Spec.Background == nil || policy.Spec.ValidationFailureAction == "" || checkAutoGenRules(policy.Spec.Rules) {
+		policy.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": "true"})
+		_, err = s.client.KyvernoV1().Policies(namespace).UpdateStatus(context.TODO(), policy, metav1.UpdateOptions{})
+		if err != nil {
+			s.log.Error(err, "failed to update namespaced policy status", "policy", policyName)
+		}
+	}
 	policy.Status = status
 	_, err = s.client.KyvernoV1().Policies(namespace).UpdateStatus(context.TODO(), policy, metav1.UpdateOptions{})
 	if err != nil {
@@ -220,4 +231,19 @@ func (s *Sync) getCachedStatus() map[string]v1.PolicyStatus {
 	}
 
 	return nameToStatus
+}
+
+func checkAutoGenRules(rule []v1.Rule) bool {
+	if len(rule) != 0 && utils.ContainsString(rule[0].MatchResources.ResourceDescription.Kinds, "Pod") {
+		if len(rule) <= 1 {
+			return true
+		} else {
+			for i := 1; i < len(rule); i++ {
+				if !strings.HasPrefix(rule[i].Name, "autogen-") {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
