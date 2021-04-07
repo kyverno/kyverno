@@ -194,48 +194,6 @@ func Test_subVars_with_JMESPath_At(t *testing.T) {
 	assert.Equal(t, string(out), string(expected))
 }
 
-func Test_subVars_withRegexMatch_and_dollarSing(t *testing.T) {
-	patternMap := []byte(`
-	{
-		"port": "{{ regexMatch('(443)', '{{$}}') }}",
-		"name": "ns-owner-{{request.object.metadata.name}}"
-	}
-	`)
-
-	resourceRaw := []byte(`
-	{
-		"port": "443",
-		"metadata": {
-			"name": "temp",
-			"namespace": "n1"
-		},
-		"spec": {
-			"namespace": "n1",
-			"name": "temp1"
-		}
-	}
-		`)
-	expected := []byte(`{"name":"ns-owner-temp","port":"true"}`)
-
-	var pattern, resource interface{}
-	var err error
-	err = json.Unmarshal(patternMap, &pattern)
-	assert.NilError(t, err)
-	err = json.Unmarshal(resourceRaw, &resource)
-	assert.NilError(t, err)
-	// context
-	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
-	assert.NilError(t, err)
-
-	output, err := SubstituteAll(log.Log, ctx, pattern)
-	assert.NilError(t, err)
-	out, err := json.Marshal(output)
-	assert.NilError(t, err)
-	fmt.Print(string(out))
-	assert.Equal(t, string(out), string(expected))
-}
-
 func Test_subVars_withRegexMatch(t *testing.T) {
 	patternMap := []byte(`
 	{

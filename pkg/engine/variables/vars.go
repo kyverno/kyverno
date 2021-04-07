@@ -161,11 +161,6 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 					continue
 				}
 
-				if variable == "$" {
-					currentPath := getJMESPath(data.Path)
-					variable = strings.Replace(variable, "$", fmt.Sprintf("request.object%s", currentPath), -1)
-				}
-
 				operation, err := ctx.Query("request.operation")
 				if err == nil && operation == "DELETE" {
 					variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
