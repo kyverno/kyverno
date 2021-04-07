@@ -5,7 +5,10 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	random "math/rand"
 	"reflect"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -19,10 +22,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
+	utils "github.com/kyverno/kyverno/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers/core/v1"
@@ -205,6 +210,15 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
 
+	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || checkAutoGenRules(curP) {
+		curP.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": strconv.Itoa(random.Intn(100))})
+		curP.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
+		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", curP, false)
+		if err != nil {
+			logger.Error(err, "failed to update policy ")
+		}
+	}
+
 	if !pc.canBackgroundProcess(curP) {
 		return
 	}
@@ -263,6 +277,16 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	oldP := old.(*kyverno.Policy)
 	curP := cur.(*kyverno.Policy)
 	ncurP := ConvertPolicyToClusterPolicy(curP)
+
+	if ncurP.Spec.Background == nil || ncurP.Spec.ValidationFailureAction == "" || checkAutoGenRules(ncurP) {
+		ncurP.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": strconv.Itoa(random.Intn(100))})
+		ncurP.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
+		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", ncurP.GetNamespace(), ncurP, false)
+		if err != nil {
+			logger.Error(err, "failed to update namespace policy ")
+		}
+	}
+
 	if !pc.canBackgroundProcess(ncurP) {
 		return
 	}
@@ -477,4 +501,39 @@ func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 			}
 		}
 	}
+}
+
+func checkAutoGenRules(policy *kyverno.ClusterPolicy) bool {
+	var podRuleName []string
+	ruleCount := 1
+	for _, rule := range policy.Spec.Rules {
+		if utils.ContainsString(rule.MatchResources.ResourceDescription.Kinds, "Pod") {
+			podRuleName = append(podRuleName, rule.Name)
+		}
+	}
+	if len(podRuleName) > 0 {
+		annotations := policy.GetAnnotations()
+		val, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
+		if !ok {
+			return true
+		}
+		if val == "none" {
+			return false
+		}
+		res := strings.Split(val, ",")
+		if len(res) == 1 {
+			ruleCount = 2
+		}
+		if len(res) > 1 {
+			if utils.ContainsString(res, "CronJob") {
+				ruleCount = 3
+			} else {
+				ruleCount = 2
+			}
+		}
+		if len(policy.Spec.Rules) != (ruleCount * len(podRuleName)) {
+			return true
+		}
+	}
+	return false
 }
