@@ -1170,7 +1170,7 @@ spec:
       name: Background
       type: string
     - jsonPath: .spec.validationFailureAction
-      name: Validation Failure Action
+      name: Action
       type: string
     name: v1
     schema:
