@@ -479,24 +479,45 @@ func (wrc *Register) removeSecrets() {
 func (wrc *Register) checkEndpoint() error {
 	obj, err := wrc.client.GetResource("", "Endpoints", config.KyvernoNamespace, config.KyvernoServiceName)
 	if err != nil {
-		wrc.log.Error(err, "failed to get endpoint", "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
-		return err
+		return fmt.Errorf("failed to get endpoint %s/%s: %v", config.KyvernoNamespace, config.KyvernoServiceName, err)
 	}
 	var endpoint corev1.Endpoints
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &endpoint)
 	if err != nil {
-		wrc.log.Error(err, "failed to convert endpoint from unstructured", "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
-		return err
+		return fmt.Errorf("failed to convert endpoint %s/%s from unstructured: %v", config.KyvernoNamespace, config.KyvernoServiceName, err)
 	}
+
+	pods, err := wrc.client.ListResource("", "Pod", config.KyvernoNamespace, &v1.LabelSelector{MatchLabels: map[string]string{"app": "kyverno"}})
+	if err != nil {
+		return fmt.Errorf("failed to list Kyverno Pod: %v", err)
+	}
+
+	kyverno := pods.Items[0]
+	podIp, _, err := unstructured.NestedString(kyverno.UnstructuredContent(), "status", "podIP")
+	if err != nil {
+		return fmt.Errorf("failed to extract pod IP: %v", err)
+	}
+
+	if podIp == "" {
+		return fmt.Errorf("Pod is not assigned to any node yet")
+	}
+
 	for _, subset := range endpoint.Subsets {
 		if len(subset.Addresses) == 0 {
 			continue
 		}
-		if subset.Addresses[0].IP != "" {
-			wrc.log.Info("Endpoint ready", "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
-			return nil
+
+		for _, addr := range subset.Addresses {
+			if addr.IP == podIp {
+				wrc.log.Info("Endpoint ready", "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
+				return nil
+			}
 		}
 	}
+
+	// clean up old webhook configurations, if any
+	wrc.removeWebhookConfigurations()
+
 	err = fmt.Errorf("Endpoint not ready")
 	wrc.log.V(3).Info(err.Error(), "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
 	return err
