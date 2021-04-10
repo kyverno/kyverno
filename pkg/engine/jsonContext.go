@@ -12,37 +12,78 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"k8s.io/client-go/dynamic/dynamiclister"
 )
 
 // LoadContext - Fetches and adds external data to the Context.
-func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCache, ctx *PolicyContext) error {
+func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCache, ctx *PolicyContext, ruleName string) error {
 	if len(contextEntries) == 0 {
 		return nil
 	}
 
-	// get GVR Cache for "configmaps"
-	// can get cache for other resources if the informers are enabled in resource cache
-	gvrC, ok := resCache.GetGVRCache("ConfigMap")
-	if !ok {
-		return errors.New("configmaps GVR Cache not found")
-	}
+	policyName := ctx.Policy.Name
+	fmt.Println("get context variables: ", store.GetContext())
 
-	lister := gvrC.Lister()
+	if store.GetMock() {
+		// ruleName & policyName
+		rule := store.GetPolicyRuleFromContext(policyName, ruleName)
 
-	for _, entry := range contextEntries {
-		if entry.ConfigMap != nil {
-			if err := loadConfigMap(logger, entry, lister, ctx.JSONContext); err != nil {
-				return err
+		variables := rule.Values
+
+		for key, value := range variables {
+			var subString string
+			splitBySlash := strings.Split(key, "\"")
+			if len(splitBySlash) > 1 {
+				subString = splitBySlash[1]
 			}
-		} else if entry.APICall != nil {
-			if err := loadAPIData(logger, entry, ctx); err != nil {
-				return err
+
+			startString := ""
+			endString := ""
+			lenOfVariableString := 0
+			addedSlashString := false
+			for _, k := range strings.Split(splitBySlash[0], ".") {
+				if k != "" {
+					startString += fmt.Sprintf(`{"%s":`, k)
+					endString += `}`
+					lenOfVariableString = lenOfVariableString + len(k) + 1
+					if lenOfVariableString >= len(splitBySlash[0]) && len(splitBySlash) > 1 && addedSlashString == false {
+						startString += fmt.Sprintf(`{"%s":`, subString)
+						endString += `}`
+						addedSlashString = true
+					}
+				}
+			}
+
+			midString := fmt.Sprintf(`"%s"`, value)
+			finalString := startString + midString + endString
+			var jsonData = []byte(finalString)
+			ctx.JSONContext.AddJSON(jsonData)
+		}
+
+	} else {
+		// get GVR Cache for "configmaps"
+		// can get cache for other resources if the informers are enabled in resource cache
+		gvrC, ok := resCache.GetGVRCache("ConfigMap")
+		if !ok {
+			return errors.New("configmaps GVR Cache not found")
+		}
+
+		lister := gvrC.Lister()
+
+		for _, entry := range contextEntries {
+			if entry.ConfigMap != nil {
+				if err := loadConfigMap(logger, entry, lister, ctx.JSONContext); err != nil {
+					return err
+				}
+			} else if entry.APICall != nil {
+				if err := loadAPIData(logger, entry, ctx); err != nil {
+					return err
+				}
 			}
 		}
 	}
-
 	return nil
 }
 

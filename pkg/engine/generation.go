@@ -87,7 +87,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	policyContext.JSONContext.Checkpoint()
 	defer policyContext.JSONContext.Restore()
 
-	if err := LoadContext(logger, rule.Context, resCache, policyContext); err != nil {
+	if err := LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}

@@ -21,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/utils"
 	ut "github.com/kyverno/kyverno/pkg/utils"
@@ -32,20 +33,25 @@ import (
 )
 
 // GetPolicies - Extracting the policies from multiple YAML
-
-type Resource struct {
-	Name   string            `json:"name"`
-	Values map[string]string `json:"values"`
-}
-
 type Policy struct {
 	Name      string     `json:"name"`
 	Resources []Resource `json:"resources"`
+	Rules     []Rule     `json:"rules"`
+}
+
+type Rule struct {
+	Name   string            `json:"name"`
+	Values map[string]string `json:"values"`
 }
 
 type Values struct {
 	Policies           []Policy            `json:"policies"`
 	NamespaceSelectors []NamespaceSelector `json:"namespaceSelector"`
+}
+
+type Resource struct {
+	Name   string            `json:"name"`
+	Values map[string]string `json:"values"`
 }
 
 type NamespaceSelector struct {
@@ -305,9 +311,9 @@ func RemoveDuplicateVariables(matches [][]string) string {
 	return variableStr
 }
 
-// GetVariable - get the variables from console/file
 func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyresoucePath string) (map[string]string, map[string]map[string]Resource, map[string]map[string]string, error) {
-	valuesMap := make(map[string]map[string]Resource)
+	valuesMapResource := make(map[string]map[string]Resource)
+	valuesMapRule := make(map[string]map[string]Rule)
 	namespaceSelectorMap := make(map[string]map[string]string)
 	variables := make(map[string]string)
 	var yamlFile []byte
@@ -331,25 +337,33 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		}
 
 		if err != nil {
-			return variables, valuesMap, namespaceSelectorMap, sanitizederror.NewWithError("unable to read yaml", err)
+			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("unable to read yaml", err)
 		}
 
 		valuesBytes, err := yaml.ToJSON(yamlFile)
 		if err != nil {
-			return variables, valuesMap, namespaceSelectorMap, sanitizederror.NewWithError("failed to convert json", err)
+			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to convert json", err)
 		}
 
 		values := &Values{}
 		if err := json.Unmarshal(valuesBytes, values); err != nil {
-			return variables, valuesMap, namespaceSelectorMap, sanitizederror.NewWithError("failed to decode yaml", err)
+			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to decode yaml", err)
 		}
 
 		for _, p := range values.Policies {
-			pmap := make(map[string]Resource)
+			resourceMap := make(map[string]Resource)
 			for _, r := range p.Resources {
-				pmap[r.Name] = r
+				resourceMap[r.Name] = r
 			}
-			valuesMap[p.Name] = pmap
+			valuesMapResource[p.Name] = resourceMap
+
+			if p.Rules != nil {
+				ruleMap := make(map[string]Rule)
+				for _, r := range p.Rules {
+					ruleMap[r.Name] = r
+				}
+				valuesMapRule[p.Name] = ruleMap
+			}
 		}
 
 		for _, n := range values.NamespaceSelectors {
@@ -357,7 +371,26 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		}
 	}
 
-	return variables, valuesMap, namespaceSelectorMap, nil
+	storePolices := make([]store.Policy, 0)
+	for policyName, ruleMap := range valuesMapRule {
+		storeRules := make([]store.Rule, 0)
+		for _, rule := range ruleMap {
+			storeRules = append(storeRules, store.Rule{
+				Name:   rule.Name,
+				Values: rule.Values,
+			})
+		}
+		storePolices = append(storePolices, store.Policy{
+			Name:  policyName,
+			Rules: storeRules,
+		})
+	}
+
+	store.SetContext(store.Context{
+		Policies: storePolices,
+	})
+
+	return variables, valuesMapResource, namespaceSelectorMap, nil
 }
 
 // MutatePolices - function to apply mutation on policies
