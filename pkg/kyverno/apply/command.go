@@ -145,6 +145,8 @@ func Command() *cobra.Command {
 	return cmd
 }
 
+var MV map[string]map[string]string
+
 func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool, mutateLogPath string,
 	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool) (validateEngineResponses []*response.EngineResponse, rc *resultCounts, resources []*unstructured.Unstructured, skippedPolicies []SkippedPolicy, err error) {
 
@@ -156,7 +158,19 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	}
 
 	variables, valuesMap, contextVarMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
+	fmt.Println("********************************")
 	fmt.Println(contextVarMap)
+	fmt.Println("********************************")
+	for policy, rules := range contextVarMap {
+		fmt.Println("\npolicy: ", policy)
+		// m := make(map[string]string)
+		for rule, variables := range rules {
+			for k, v := range variables {
+				fmt.Println("k: ", k, "\nv: ", v)
+			}
+		}
+	}
+
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("failed to decode yaml", err)

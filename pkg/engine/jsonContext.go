@@ -17,7 +17,7 @@ import (
 )
 
 // LoadContext - Fetches and adds external data to the Context.
-func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCache, ctx *PolicyContext) error {
+func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCache, ctx *PolicyContext, mockVariables map[string]map[string]string) error {
 	if len(contextEntries) == 0 {
 		return nil
 	}
@@ -33,7 +33,10 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resC
 
 	for _, entry := range contextEntries {
 		if entry.ConfigMap != nil {
-			if err := loadConfigMap(logger, entry, lister, ctx.JSONContext); err != nil {
+			if len(mockVariables) == 0 {
+				mockVariables = make(map[string]map[string]string)
+			}
+			if err := loadConfigMap(logger, entry, lister, ctx.JSONContext, mockVariables); err != nil {
 				return err
 			}
 		} else if entry.APICall != nil {
@@ -157,15 +160,56 @@ func loadResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 	return r.MarshalJSON()
 }
 
-func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynamiclister.Lister, ctx *context.Context) error {
-	data, err := fetchConfigMap(logger, entry, lister, ctx)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve config map for context entry %s: %v", entry.Name, err)
-	}
+func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynamiclister.Lister, ctx *context.Context, mockVariables map[string]map[string]string) error {
+	if len(mockVariables) > 0 {
+		for rule, variables := range mockVariables {
+			if rule == "rule name" {
+				// put these variables in the context
+				for key, value := range variables {
+					var subString string
+					splitBySlash := strings.Split(key, "\"")
+					if len(splitBySlash) > 1 {
+						subString = splitBySlash[1]
+					}
 
-	err = ctx.AddJSON(data)
-	if err != nil {
-		return fmt.Errorf("failed to add config map for context entry %s: %v", entry.Name, err)
+					startString := ""
+					endString := ""
+					lenOfVariableString := 0
+					addedSlashString := false
+					for _, k := range strings.Split(splitBySlash[0], ".") {
+						if k != "" {
+							startString += fmt.Sprintf(`{"%s":`, k)
+							endString += `}`
+							lenOfVariableString = lenOfVariableString + len(k) + 1
+							if lenOfVariableString >= len(splitBySlash[0]) && len(splitBySlash) > 1 && addedSlashString == false {
+								startString += fmt.Sprintf(`{"%s":`, subString)
+								endString += `}`
+								addedSlashString = true
+							}
+						}
+					}
+
+					midString := fmt.Sprintf(`"%s"`, value)
+					finalString := startString + midString + endString
+					var jsonData = []byte(finalString)
+					ctx.AddJSON(jsonData)
+				}
+			}
+		}
+
+	} else {
+		data, err := fetchConfigMap(logger, entry, lister, ctx)
+		fmt.Println("\n**************************************")
+		fmt.Println(string(data))
+		fmt.Println("**************************************")
+		if err != nil {
+			return fmt.Errorf("failed to retrieve config map for context entry %s: %v", entry.Name, err)
+		}
+
+		err = ctx.AddJSON(data)
+		if err != nil {
+			return fmt.Errorf("failed to add config map for context entry %s: %v", entry.Name, err)
+		}
 	}
 
 	return nil

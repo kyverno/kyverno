@@ -68,7 +68,6 @@ func Mutate(policyContext *PolicyContext, mock bool) (resp *response.EngineRespo
 		}
 
 		logger.V(3).Info("matched mutate rule")
-
 		if !mock {
 			policyContext.JSONContext.Restore()
 			if err := LoadContext(logger, rule.Context, resCache, policyContext); err != nil {

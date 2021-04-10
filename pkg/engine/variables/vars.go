@@ -141,14 +141,17 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 }
 
 func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUtils.Action {
+	fmt.Println("\n------------------substituteVariablesIfAny--------------------")
 	return jsonUtils.OnlyForLeafs(func(data *jsonUtils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
+		fmt.Println("value: ", value)
 		if !ok {
 			return data.Element, nil
 		}
 
 		originalPattern := value
 		vars := regexVariables.FindAllString(value, -1)
+		fmt.Println("vars: ", vars)
 		for len(vars) > 0 {
 			for _, v := range vars {
 				variable := strings.ReplaceAll(v, "{{", "")
@@ -160,7 +163,9 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 					variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
 				}
 
+				fmt.Println("variable: ", variable)
 				substitutedVar, err := ctx.Query(variable)
+				fmt.Println("substitutedVar: ", substitutedVar, "\nerror: ", err)
 				if err != nil {
 					switch err.(type) {
 					case context.InvalidVariableErr:
@@ -172,13 +177,17 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 
 				log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", data.Path)
 
+				// inter := substitutedVar.(string)
+				// fmt.Println("inter: ", inter)
 				if val, ok := substitutedVar.(string); ok {
 					value = strings.Replace(value, v, val, -1)
+					fmt.Println("value: ", value)
 					continue
 				}
 
 				if substitutedVar != nil {
 					if originalPattern == v {
+						fmt.Println("1--------here")
 						return substitutedVar, nil
 					}
 
@@ -193,7 +202,9 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 
 			// check for nested variables in strings
 			vars = regexVariables.FindAllString(value, -1)
+			fmt.Println("---- vars: ", vars)
 		}
+		fmt.Println("--- value: ", value)
 
 		return value, nil
 	})

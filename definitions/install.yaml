@@ -2436,7 +2436,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: ghcr.io/kyverno/kyverno:v1.3.5-rc2
+        image: ajoop/kyverno:v1.3.5-rc1-24-g3058fc801
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 2
