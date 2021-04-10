@@ -1,4 +1,4 @@
-package generate
+package e2e
 
 import (
 	"context"
