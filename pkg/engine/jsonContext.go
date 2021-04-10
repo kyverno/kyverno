@@ -24,12 +24,8 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resC
 	}
 
 	policyName := ctx.Policy.Name
-	fmt.Println("get context variables: ", store.GetContext())
-
 	if store.GetMock() {
-		// ruleName & policyName
 		rule := store.GetPolicyRuleFromContext(policyName, ruleName)
-
 		variables := rule.Values
 
 		for key, value := range variables {
@@ -43,6 +39,7 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resC
 			endString := ""
 			lenOfVariableString := 0
 			addedSlashString := false
+
 			for _, k := range strings.Split(splitBySlash[0], ".") {
 				if k != "" {
 					startString += fmt.Sprintf(`{"%s":`, k)
