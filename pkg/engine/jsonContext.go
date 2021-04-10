@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
@@ -29,33 +30,7 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resC
 		variables := rule.Values
 
 		for key, value := range variables {
-			var subString string
-			splitBySlash := strings.Split(key, "\"")
-			if len(splitBySlash) > 1 {
-				subString = splitBySlash[1]
-			}
-
-			startString := ""
-			endString := ""
-			lenOfVariableString := 0
-			addedSlashString := false
-
-			for _, k := range strings.Split(splitBySlash[0], ".") {
-				if k != "" {
-					startString += fmt.Sprintf(`{"%s":`, k)
-					endString += `}`
-					lenOfVariableString = lenOfVariableString + len(k) + 1
-					if lenOfVariableString >= len(splitBySlash[0]) && len(splitBySlash) > 1 && addedSlashString == false {
-						startString += fmt.Sprintf(`{"%s":`, subString)
-						endString += `}`
-						addedSlashString = true
-					}
-				}
-			}
-
-			midString := fmt.Sprintf(`"%s"`, value)
-			finalString := startString + midString + endString
-			var jsonData = []byte(finalString)
+			jsonData := pkgcommon.VariableToJSON(key, value)
 			ctx.JSONContext.AddJSON(jsonData)
 		}
 

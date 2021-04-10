@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -76,4 +77,34 @@ func GetKindFromGVK(str string) (apiVersion string, kind string) {
 		return splitString[0], splitString[1]
 	}
 	return splitString[0] + "/" + splitString[1], splitString[2]
+}
+
+func VariableToJSON(key, value string) []byte {
+	var subString string
+	splitBySlash := strings.Split(key, "\"")
+	if len(splitBySlash) > 1 {
+		subString = splitBySlash[1]
+	}
+
+	startString := ""
+	endString := ""
+	lenOfVariableString := 0
+	addedSlashString := false
+	for _, k := range strings.Split(splitBySlash[0], ".") {
+		if k != "" {
+			startString += fmt.Sprintf(`{"%s":`, k)
+			endString += `}`
+			lenOfVariableString = lenOfVariableString + len(k) + 1
+			if lenOfVariableString >= len(splitBySlash[0]) && len(splitBySlash) > 1 && addedSlashString == false {
+				startString += fmt.Sprintf(`{"%s":`, subString)
+				endString += `}`
+				addedSlashString = true
+			}
+		}
+	}
+
+	midString := fmt.Sprintf(`"%s"`, value)
+	finalString := startString + midString + endString
+	var jsonData = []byte(finalString)
+	return jsonData
 }

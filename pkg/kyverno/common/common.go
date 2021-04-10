@@ -16,6 +16,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -442,32 +443,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 
 	ctx := context.NewContext()
 	for key, value := range variables {
-		var subString string
-		splitBySlash := strings.Split(key, "\"")
-		if len(splitBySlash) > 1 {
-			subString = splitBySlash[1]
-		}
-
-		startString := ""
-		endString := ""
-		lenOfVariableString := 0
-		addedSlashString := false
-		for _, k := range strings.Split(splitBySlash[0], ".") {
-			if k != "" {
-				startString += fmt.Sprintf(`{"%s":`, k)
-				endString += `}`
-				lenOfVariableString = lenOfVariableString + len(k) + 1
-				if lenOfVariableString >= len(splitBySlash[0]) && len(splitBySlash) > 1 && addedSlashString == false {
-					startString += fmt.Sprintf(`{"%s":`, subString)
-					endString += `}`
-					addedSlashString = true
-				}
-			}
-		}
-
-		midString := fmt.Sprintf(`"%s"`, value)
-		finalString := startString + midString + endString
-		var jsonData = []byte(finalString)
+		jsonData := pkgcommon.VariableToJSON(key, value)
 		ctx.AddJSON(jsonData)
 	}
 
