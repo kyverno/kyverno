@@ -14,7 +14,7 @@ You can discuss changes with maintainers in the [Kyverno Slack Channel](https://
 
 <!--
 
-> Uncomment only one ` /kind <>` line, hit enter to put that in a new line, and remove leading whitespaces from that line:
+> Uncomment only one ` /kind <>` line, hit enter to put that in a new line, and remove leading white spaces from that line:
 >
 > /kind api-change
 > /kind bug
@@ -25,10 +25,28 @@ You can discuss changes with maintainers in the [Kyverno Slack Channel](https://
 > /kind feature
 -->
 
-## Proposed changes
+## Proposed Changes
 
 <!--
-Describe the big picture of your changes here to communicate to the maintainers why we should accept this pull request.
+Describe the big picture of your changes here to communicate to the maintainers why we should accept this pull request. 
+
+***NOTE***: If this PR results in new or altered behavior which is user facing, you **MUST** read and follow the steps outlined in the [PR documentation guide](pr_documentation.md) and add Proof Manifests as defined below.
+-->
+
+### Proof Manifests
+
+<!--
+Read and follow the [PR documentation guide](pr_documentation.md) for more details first. This section is for pasting your YAML manifests (Kubernetes resources and Kyverno policies) which allow maintainers to prove the intended functionality is achieved by your PR. Please use proper fenced code block formatting, for example:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: roles-dictionary
+  namespace: default
+data:
+  allowed-roles: "[\"cluster-admin\", \"cluster-operator\", \"tenant-admin\"]"
+```
 -->
 
 ## Checklist
@@ -40,12 +58,16 @@ them, don't hesitate to ask. We're here to help! This is simply a reminder of wh
 
 - [] I have read the [contributing guidelines](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md).
 - [] I have added tests that prove my fix is effective or that my feature works.
-- [] I have added or changed [the documentation](https://github.com/kyverno/website).
-  - If not, I have raised an issue in [kyverno/website](https://github.com/kyverno/website) to track the doc update:
+- [] My PR contains new or altered behavior to Kyverno and
+  - [] I have added or changed [the documentation](https://github.com/kyverno/website) myself in an existing PR and the link is:
+  <!-- Uncomment to link to the PR -->
+  <!-- https://github.com/kyverno/website/pull/123 -->
+  - [] I have raised an issue in [kyverno/website](https://github.com/kyverno/website) to track the doc update and the link is:
   <!-- Uncomment to link to the issue -->
   <!-- https://github.com/kyverno/website/issues/1 -->
+  - [] I have read the [PR documentation guide](pr_documentation.md) and followed the process including adding proof manifests to this PR.
 
-## Further comments
+## Further Comments
 
 <!--
 If this is a relatively large or complex change, kick off the discussion by explaining why you chose the solution
