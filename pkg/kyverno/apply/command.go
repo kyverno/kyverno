@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/spf13/cobra"
@@ -148,6 +149,7 @@ func Command() *cobra.Command {
 func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool, mutateLogPath string,
 	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool) (validateEngineResponses []*response.EngineResponse, rc *resultCounts, resources []*unstructured.Unstructured, skippedPolicies []SkippedPolicy, err error) {
 
+	store.SetMock(true)
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
 	fs := memfs.New()
 
