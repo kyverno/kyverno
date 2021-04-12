@@ -116,6 +116,7 @@ config:
   - "[APIService,*,*]"
   - "[TokenReview,*,*]"
   - "[SubjectAccessReview,*,*]"
+  - "[SelfSubjectAccessReview,*,*]"
   - "[*,kyverno,*]"
   - "[Binding,*,*]"
   - "[ReplicaSet,*,*]"
