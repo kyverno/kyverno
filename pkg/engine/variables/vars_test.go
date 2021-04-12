@@ -174,7 +174,7 @@ func Test_subVars_with_JMESPath_At(t *testing.T) {
 	}
 		`)
 
-	expected := []byte(`{"data":{"rules":[{"apiGroups":["temp"],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"kind":"request.object.kind"}`)
+	expected := []byte(`{"data":{"rules":[{"apiGroups":["temp"],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"kind":"foo"}`)
 
 	var pattern, resource interface{}
 	var err error
@@ -197,7 +197,7 @@ func Test_subVars_with_JMESPath_At(t *testing.T) {
 func Test_subVars_withRegexMatch(t *testing.T) {
 	patternMap := []byte(`
 	{
-		"port": "{{ regexMatch('(443)', {{@}}) }}",
+		"port": "{{ regex_match('(443)', '{{@}}') }}",
 		"name": "ns-owner-{{request.object.metadata.name}}"
 	}
 	`)
@@ -239,7 +239,7 @@ func Test_subVars_withRegexMatch(t *testing.T) {
 func Test_subVars_withRegexReplaceAll(t *testing.T) {
 	patternMap := []byte(`
 	{
-		"port": "{{ regexReplaceAllLiteral('.*', {{@}}, '1313') }}",
+		"port": "{{ regex_replace_all_literal('.*', '{{@}}', '1313') }}",
 		"name": "ns-owner-{{request.object.metadata.name}}"
 	}
 	`)

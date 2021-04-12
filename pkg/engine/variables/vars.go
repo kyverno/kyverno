@@ -157,8 +157,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 				variable = strings.TrimSpace(variable)
 				if variable == "@" {
 					currentPath := getJMESPath(data.Path)
-					value = strings.Replace(value, "{{@}}", fmt.Sprintf("request.object%s", currentPath), -1)
-					continue
+					variable = strings.Replace(variable, "@", fmt.Sprintf("request.object%s", currentPath), -1)
 				}
 
 				operation, err := ctx.Query("request.operation")

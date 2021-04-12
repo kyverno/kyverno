@@ -134,18 +134,6 @@ func TestJMESPathFunctions_Split(t *testing.T) {
 	assert.Equal(t, split[1], "Gophers")
 }
 
-func TestJMESPathFunctions_Equals(t *testing.T) {
-	jp, err := New("equals('Hello', 'Hello')")
-	assert.NilError(t, err)
-
-	result, err := jp.Search("")
-	assert.NilError(t, err)
-
-	split, ok := result.(bool)
-	assert.Assert(t, ok)
-	assert.Equal(t, split, true)
-}
-
 func TestJMESPathFunctions_HasPrefix(t *testing.T) {
 	jp, err := New("starts_with('Gophers', 'Go')")
 	assert.NilError(t, err)
@@ -174,7 +162,7 @@ func Test_regexMatch(t *testing.T) {
 	data := make(map[string]interface{})
 	data["foo"] = "hgf'b1a2r'b12g"
 
-	query, err := New("regexMatch('12.*', foo)")
+	query, err := New("regex_match('12.*', foo)")
 	assert.NilError(t, err)
 
 	result, err := query.Search(data)
@@ -186,7 +174,7 @@ func Test_regexMatchWithNumber(t *testing.T) {
 	data := make(map[string]interface{})
 	data["foo"] = -12.0
 
-	query, err := New("regexMatch('12.*', abs(foo))")
+	query, err := New("regex_match('12.*', abs(foo))")
 	assert.NilError(t, err)
 
 	result, err := query.Search(data)
@@ -213,7 +201,7 @@ func Test_regexReplaceAll(t *testing.T) {
 	var resource interface{}
 	err := json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
-	query, err := New(`regexReplaceAll('([Hh]e|G)l', spec.field, '${2}G')`)
+	query, err := New(`regex_replace_all('([Hh]e|G)l', spec.field, '${2}G')`)
 	assert.NilError(t, err)
 
 	res, err := query.Search(resource)
@@ -243,7 +231,7 @@ func Test_regexReplaceAllLiteral(t *testing.T) {
 	err := json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 
-	query, err := New(`regexReplaceAllLiteral('[Hh]el?', spec.field, 'G')`)
+	query, err := New(`regex_replace_all_literal('[Hh]el?', spec.field, 'G')`)
 	assert.NilError(t, err)
 
 	res, err := query.Search(resource)
