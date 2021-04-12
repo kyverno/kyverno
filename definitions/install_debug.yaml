@@ -2397,6 +2397,7 @@ kind: Service
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/name: kyverno
   name: kyverno-svc
   namespace: kyverno
 spec:
@@ -2405,3 +2406,4 @@ spec:
     targetPort: https
   selector:
     app: kyverno
+    app.kubernetes.io/name: kyverno

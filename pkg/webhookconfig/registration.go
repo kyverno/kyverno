@@ -316,6 +316,14 @@ func (wrc *Register) removePolicyMutatingWebhookConfiguration(wg *sync.WaitGroup
 	mutatingConfig := wrc.getPolicyMutatingWebhookConfigurationName()
 
 	logger := wrc.log.WithValues("kind", kindMutating, "name", mutatingConfig)
+
+	if mutateCache, ok := wrc.resCache.GetGVRCache("MutatingWebhookConfiguration"); ok {
+		if _, err := mutateCache.Lister().Get(mutatingConfig); err != nil && errorsapi.IsNotFound(err) {
+			logger.V(4).Info("webhook not found")
+			return
+		}
+	}
+
 	err := wrc.client.DeleteResource("", kindMutating, "", mutatingConfig, false)
 	if errorsapi.IsNotFound(err) {
 		logger.V(5).Info("policy mutating webhook configuration not found")
@@ -346,6 +354,13 @@ func (wrc *Register) removePolicyValidatingWebhookConfiguration(wg *sync.WaitGro
 	validatingConfig := wrc.getPolicyValidatingWebhookConfigurationName()
 
 	logger := wrc.log.WithValues("kind", kindValidating, "name", validatingConfig)
+	if mutateCache, ok := wrc.resCache.GetGVRCache("ValidatingWebhookConfiguration"); ok {
+		if _, err := mutateCache.Lister().Get(validatingConfig); err != nil && errorsapi.IsNotFound(err) {
+			logger.V(4).Info("webhook not found")
+			return
+		}
+	}
+
 	logger.V(4).Info("removing validating webhook configuration")
 	err := wrc.client.DeleteResource("", kindValidating, "", validatingConfig, false)
 	if errorsapi.IsNotFound(err) {
@@ -424,8 +439,15 @@ func (wrc *Register) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup
 
 	var err error
 	mutatingConfig := wrc.getVerifyWebhookMutatingWebhookName()
-
 	logger := wrc.log.WithValues("kind", kindMutating, "name", mutatingConfig)
+
+	if mutateCache, ok := wrc.resCache.GetGVRCache("MutatingWebhookConfiguration"); ok {
+		if _, err := mutateCache.Lister().Get(mutatingConfig); err != nil && errorsapi.IsNotFound(err) {
+			logger.V(4).Info("webhook not found")
+			return
+		}
+	}
+
 	err = wrc.client.DeleteResource("", kindMutating, "", mutatingConfig, false)
 	if errorsapi.IsNotFound(err) {
 		logger.V(5).Info("verify webhook configuration not found")
@@ -464,7 +486,7 @@ func (wrc *Register) removeSecrets() {
 	}
 
 	secretList, err := wrc.client.ListResource("", "Secret", config.KyvernoNamespace, selector)
-	if err != nil && errorsapi.IsNotFound(err) {
+	if err != nil {
 		wrc.log.Error(err, "failed to clean up Kyverno managed secrets")
 		return
 	}
@@ -487,7 +509,7 @@ func (wrc *Register) checkEndpoint() error {
 		return fmt.Errorf("failed to convert endpoint %s/%s from unstructured: %v", config.KyvernoNamespace, config.KyvernoServiceName, err)
 	}
 
-	pods, err := wrc.client.ListResource("", "Pod", config.KyvernoNamespace, &v1.LabelSelector{MatchLabels: map[string]string{"app": "kyverno"}})
+	pods, err := wrc.client.ListResource("", "Pod", config.KyvernoNamespace, &v1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": "kyverno"}})
 	if err != nil {
 		return fmt.Errorf("failed to list Kyverno Pod: %v", err)
 	}

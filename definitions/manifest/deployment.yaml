@@ -6,15 +6,18 @@ metadata:
   name: kyverno
   labels:
     app: kyverno
+    app.kubernetes.io/name: kyverno
 spec:
   selector:
     matchLabels:
       app: kyverno
+      app.kubernetes.io/name: kyverno
   replicas: 1
   template:
     metadata:
       labels:
         app: kyverno
+        app.kubernetes.io/name: kyverno
     spec:
       serviceAccountName: kyverno-service-account
       securityContext:
