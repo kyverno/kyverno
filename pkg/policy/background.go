@@ -44,10 +44,6 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 			return fmt.Errorf("variable substitution failed for rule %s: %s", rule.Name, err.Error())
 		}
 
-		if rule, err = variables.SubstituteAllInRule(log.Log, ctx, rule); !checkNotFoundErr(err) {
-			return fmt.Errorf("variable substitution failed for rule %s: %s", rule.Name, err.Error())
-		}
-
 		if rule.AnyAllConditions != nil {
 			if err = validatePreConditions(idx, ctx, rule.AnyAllConditions); !checkNotFoundErr(err) {
 				return err

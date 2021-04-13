@@ -160,7 +160,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Mutate(policyContext)
-	expectedErrorStr := "variable request.object.metadata.name1 not resolved at path /spec/name"
+	expectedErrorStr := "variable substitution failed for rule test-path-not-exist: variable request.object.metadata.name1 not resolved at path /mutate/overlay/spec/name"
 	t.Log(er.PolicyResponse.Rules[0].Message)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, expectedErrorStr)
 }

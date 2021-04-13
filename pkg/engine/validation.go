@@ -60,16 +60,6 @@ func buildResponse(logger logr.Logger, ctx *PolicyContext, resp *response.Engine
 		resp.PatchedResource = resource
 	}
 
-	for i := range resp.PolicyResponse.Rules {
-		messageInterface, err := variables.SubstituteAll(logger, ctx.JSONContext, resp.PolicyResponse.Rules[i].Message)
-		if err != nil {
-			logger.V(4).Info("failed to substitute variables", "error", err.Error())
-			continue
-		}
-
-		resp.PolicyResponse.Rules[i].Message, _ = messageInterface.(string)
-	}
-
 	resp.PolicyResponse.Policy = ctx.Policy.Name
 	resp.PolicyResponse.Resource.Name = resp.PatchedResource.GetName()
 	resp.PolicyResponse.Resource.Namespace = resp.PatchedResource.GetNamespace()
@@ -94,6 +84,8 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	defer ctx.JSONContext.Restore()
 
 	for _, rule := range ctx.Policy.Spec.Rules {
+		var err error
+
 		if !rule.HasValidate() {
 			continue
 		}
@@ -121,6 +113,20 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		// evaluate pre-conditions
 		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditionsCopy) {
 			log.V(4).Info("resource fails the preconditions")
+			continue
+		}
+
+		if rule, err = variables.SubstituteAllInRule(log, ctx.JSONContext, rule); err != nil {
+			ruleResp := response.RuleResponse{
+				Name:    rule.Name,
+				Type:    utils.Validation.String(),
+				Message: fmt.Sprintf("variable substitution failed for rule %s: %s", rule.Name, err.Error()),
+				Success: false,
+			}
+
+			incrementAppliedCount(resp)
+			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
+
 			continue
 		}
 
@@ -224,13 +230,6 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
 		logger.V(4).Info("finished processing rule", "processingTime", resp.RuleStats.ProcessingTime.String())
 	}()
-
-	var err error
-	if rule, err = variables.SubstituteAllInRule(logger, ctx, rule); err != nil {
-		resp.Success = false
-		resp.Message = fmt.Sprintf("variable substitution failed for rule %s: %s", rule.Name, err.Error())
-		return resp
-	}
 
 	validationRule := rule.Validation.DeepCopy()
 	if validationRule.Pattern != nil {
