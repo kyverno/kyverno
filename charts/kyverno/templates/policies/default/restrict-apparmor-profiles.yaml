@@ -7,6 +7,9 @@ metadata:
   annotations:
     policies.kyverno.io/title: Restrict AppArmor
     policies.kyverno.io/category: Pod Security Standards (Default)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- end -}}
     policies.kyverno.io/description: >-
       On supported hosts, the 'runtime/default' AppArmor profile is applied by default. 
       The default policy should prevent overriding or disabling the policy, or restrict 
