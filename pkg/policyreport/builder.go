@@ -132,7 +132,7 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 }
 
 func (builder *requestBuilder) buildRCRResult(policy string, resource response.ResourceSpec, rule kyverno.ViolatedRule) *report.PolicyReportResult {
-	av := builder.fetchAnnoationValues(policy, resource.Namespace)
+	av := builder.fetchAnnotationValues(policy, resource.Namespace)
 
 	result := &report.PolicyReportResult{
 		Policy: policy,
@@ -275,9 +275,9 @@ func (av *annotationValues) setSeverityFromString(severity string) {
 	}
 }
 
-func (builder *requestBuilder) fetchAnnoationValues(policy, ns string) annotationValues {
+func (builder *requestBuilder) fetchAnnotationValues(policy, ns string) annotationValues {
 	av := annotationValues{}
-	ann := builder.fetchAnnoations(policy, ns)
+	ann := builder.fetchAnnotations(policy, ns)
 
 	if category, ok := ann[categoryLabel]; ok {
 		av.category = category
@@ -289,7 +289,7 @@ func (builder *requestBuilder) fetchAnnoationValues(policy, ns string) annotatio
 	return av
 }
 
-func (builder *requestBuilder) fetchAnnoations(policy, ns string) map[string]string {
+func (builder *requestBuilder) fetchAnnotations(policy, ns string) map[string]string {
 	cpol, err := builder.cpolLister.Get(policy)
 	if err == nil {
 		if ann := cpol.GetAnnotations(); ann != nil {
