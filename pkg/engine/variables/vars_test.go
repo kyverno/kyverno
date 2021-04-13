@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	ju "github.com/kyverno/kyverno/pkg/engine/json-utils"
 	"gotest.tools/assert"
@@ -332,6 +333,87 @@ func Test_policyContextValidation(t *testing.T) {
 
 	_, err = SubstituteAll(log.Log, ctx, contextMap)
 	assert.Assert(t, err != nil, err)
+}
+
+func Test_variableSubstitution_array(t *testing.T) {
+	configmapRaw := []byte(`
+{
+    "animals": {
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "metadata": {
+            "name": "animals",
+            "namespace": "default"
+        },
+        "data": {
+            "animals": "snake\nbear\ncat\ndog"
+        }
+    }
+}`)
+
+	ruleRaw := []byte(`
+{
+    "name": "validate-role-annotation",
+    "context": [
+        {
+            "name": "animals",
+            "configMap": {
+                "name": "animals",
+                "namespace": "default"
+            }
+        }
+    ],
+    "match": {
+        "resources": {
+            "kinds": [
+                "Deployment"
+            ]
+        }
+    },
+    "validate": {
+        "message": "The animal {{ request.object.metadata.labels.animal }} is not in the allowed list of animals: {{ animals.data.animals }}.",
+        "deny": {
+            "conditions": [
+                {
+                    "key": "{{ request.object.metadata.labels.animal }}",
+                    "operator": "NotIn",
+                    "value": "{{ animals.data.animals }}"
+                }
+            ]
+        }
+    }
+}`)
+
+	resourceRaw := []byte(`
+{
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+        "name": "busybox",
+        "labels": {
+            "app": "busybox",
+            "color": "red",
+            "animal": "cow",
+            "food": "pizza",
+            "car": "jeep",
+            "env": "qa"
+        }
+    }
+}
+`)
+
+	var rule v1.Rule
+	err := json.Unmarshal(ruleRaw, &rule)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext("request.object", "animals")
+	ctx.AddJSON(configmapRaw)
+	ctx.AddResource(resourceRaw)
+
+	vars, err := SubstituteAllInRule(log.Log, ctx, rule)
+	assert.NilError(t, err)
+
+	assert.DeepEqual(t, vars.Validation.Message, "The animal cow is not in the allowed list of animals: snake\nbear\ncat\ndog.")
 }
 
 func Test_ReferenceSubstitution(t *testing.T) {

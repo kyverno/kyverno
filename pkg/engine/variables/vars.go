@@ -104,7 +104,7 @@ func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) json
 				case context.InvalidVariableErr:
 					return nil, err
 				default:
-					return nil, fmt.Errorf("failed to resolve %v at path %s", variable, data.Path)
+					return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
 				}
 			}
 		}
@@ -146,12 +146,12 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 				case context.InvalidVariableErr:
 					return nil, err
 				default:
-					return nil, fmt.Errorf("failed to resolve %v at path %s", v, data.Path)
+					return nil, fmt.Errorf("failed to resolve %v at path %s: %v", v, data.Path, err)
 				}
 			}
 
 			if resolvedReference == nil {
-				return data.Element, fmt.Errorf("failed to resolve %v at path %s", v, data.Path)
+				return data.Element, fmt.Errorf("failed to resolve %v at path %s: %v", v, data.Path, err)
 			}
 
 			log.V(3).Info("reference resolved", "reference", v, "value", resolvedReference, "path", data.Path)
@@ -195,7 +195,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 					case context.InvalidVariableErr:
 						return nil, err
 					default:
-						return nil, fmt.Errorf("failed to resolve %v at path %s", variable, data.Path)
+						return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
 					}
 				}
 
@@ -207,8 +207,14 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 				}
 
 				if substitutedVar != nil {
-					if originalPattern == v {
-						return substitutedVar, nil
+					if strings.Contains(originalPattern, v) {
+						subtitutedString, err := json.Marshal(substitutedVar)
+						if err != nil {
+							return nil, fmt.Errorf("failed to marshal %T: %v", substitutedVar, substitutedVar)
+						}
+
+						value = strings.Replace(value, v, string(subtitutedString), -1)
+						continue
 					}
 
 					return nil, fmt.Errorf("failed to resolve %v at path %s", variable, data.Path)

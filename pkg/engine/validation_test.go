@@ -1669,7 +1669,12 @@ func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.
 					{
 					  "key": "{{ request.object.metadata.labels.animal }}",
 					  "operator": "NotIn",
-					  "value": "abcde"
+					  "value": [
+						"snake",
+						"bear",
+						"cat",
+						"dog"
+					]
 					}
 				  ]
 				}
@@ -1693,7 +1698,7 @@ func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
-	assert.Assert(t, er.PolicyResponse.Rules[0].Success)
+	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "The animal cow is not in the allowed list of animals.")
 }
 
