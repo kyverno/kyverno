@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	errorsapi "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -70,6 +71,14 @@ func (wrc *Register) removeResourceMutatingWebhookConfiguration(wg *sync.WaitGro
 
 	configName := wrc.getResourceMutatingWebhookConfigName()
 	logger := wrc.log.WithValues("kind", kindMutating, "name", configName)
+
+	if mutateCache, ok := wrc.resCache.GetGVRCache("MutatingWebhookConfiguration"); ok {
+		if _, err := mutateCache.Lister().Get(configName); err != nil && errorsapi.IsNotFound(err) {
+			logger.V(4).Info("webhook not found")
+			return
+		}
+	}
+
 	// delete webhook configuration
 	err := wrc.client.DeleteResource("", kindMutating, "", configName, false)
 	if errors.IsNotFound(err) {
@@ -146,6 +155,14 @@ func (wrc *Register) removeResourceValidatingWebhookConfiguration(wg *sync.WaitG
 
 	configName := wrc.getResourceValidatingWebhookConfigName()
 	logger := wrc.log.WithValues("kind", kindValidating, "name", configName)
+
+	if mutateCache, ok := wrc.resCache.GetGVRCache("ValidatingWebhookConfiguration"); ok {
+		if _, err := mutateCache.Lister().Get(configName); err != nil && errorsapi.IsNotFound(err) {
+			logger.V(4).Info("webhook not found")
+			return
+		}
+	}
+
 	err := wrc.client.DeleteResource("", kindValidating, "", configName, false)
 	if errors.IsNotFound(err) {
 		logger.V(5).Info("webhook configuration not found")
