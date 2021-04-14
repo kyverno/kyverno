@@ -104,7 +104,7 @@ func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) json
 				case context.InvalidVariableErr:
 					return nil, err
 				default:
-					return nil, fmt.Errorf("failed to resolve %v at path %s", variable, data.Path)
+					return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
 				}
 			}
 		}
@@ -146,12 +146,12 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 				case context.InvalidVariableErr:
 					return nil, err
 				default:
-					return nil, fmt.Errorf("failed to resolve %v at path %s", v, data.Path)
+					return nil, fmt.Errorf("failed to resolve %v at path %s: %v", v, data.Path, err)
 				}
 			}
 
 			if resolvedReference == nil {
-				return data.Element, fmt.Errorf("failed to resolve %v at path %s", v, data.Path)
+				return data.Element, fmt.Errorf("failed to resolve %v at path %s: %v", v, data.Path, err)
 			}
 
 			log.V(3).Info("reference resolved", "reference", v, "value", resolvedReference, "path", data.Path)
@@ -178,9 +178,10 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 			return data.Element, nil
 		}
 
-		originalPattern := value
 		vars := regexVariables.FindAllString(value, -1)
 		for len(vars) > 0 {
+			originalPattern := value
+
 			for _, v := range vars {
 				variable := replaceBracesAndTrimSpaces(v)
 
@@ -195,23 +196,22 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 					case context.InvalidVariableErr:
 						return nil, err
 					default:
-						return nil, fmt.Errorf("failed to resolve %v at path %s", variable, data.Path)
+						return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
 					}
 				}
 
 				log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", data.Path)
-
-				if val, ok := substitutedVar.(string); ok {
-					value = strings.Replace(value, v, val, -1)
-					continue
-				}
 
 				if substitutedVar != nil {
 					if originalPattern == v {
 						return substitutedVar, nil
 					}
 
-					return nil, fmt.Errorf("failed to resolve %v at path %s", variable, data.Path)
+					if value, err = substituteVarInPattern(originalPattern, v, substitutedVar); err != nil {
+						return nil, fmt.Errorf("failed to resolve %v at path %s: %s", variable, data.Path, err.Error())
+					}
+
+					continue
 				}
 
 				return nil, NotFoundVariableErr{
@@ -226,6 +226,22 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 
 		return value, nil
 	})
+}
+
+func substituteVarInPattern(pattern, variable string, value interface{}) (string, error) {
+	var stringToSubstitute string
+
+	if s, ok := value.(string); ok {
+		stringToSubstitute = s
+	} else {
+		buffer, err := json.Marshal(value)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal %T: %v", value, value)
+		}
+		stringToSubstitute = string(buffer)
+	}
+
+	return strings.Replace(pattern, variable, stringToSubstitute, -1), nil
 }
 
 func replaceBracesAndTrimSpaces(v string) string {

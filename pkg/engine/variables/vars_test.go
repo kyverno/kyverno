@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	ju "github.com/kyverno/kyverno/pkg/engine/json-utils"
 	"gotest.tools/assert"
@@ -332,6 +333,341 @@ func Test_policyContextValidation(t *testing.T) {
 
 	_, err = SubstituteAll(log.Log, ctx, contextMap)
 	assert.Assert(t, err != nil, err)
+}
+
+func Test_variableSubstitution_array(t *testing.T) {
+	configmapRaw := []byte(`
+{
+    "animals": {
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "metadata": {
+            "name": "animals",
+            "namespace": "default"
+        },
+        "data": {
+            "animals": "snake\nbear\ncat\ndog"
+        }
+    }
+}`)
+
+	ruleRaw := []byte(`
+{
+    "name": "validate-role-annotation",
+    "context": [
+        {
+            "name": "animals",
+            "configMap": {
+                "name": "animals",
+                "namespace": "default"
+            }
+        }
+    ],
+    "match": {
+        "resources": {
+            "kinds": [
+                "Deployment"
+            ]
+        }
+    },
+    "validate": {
+        "message": "The animal {{ request.object.metadata.labels.animal }} is not in the allowed list of animals: {{ animals.data.animals }}.",
+        "deny": {
+            "conditions": [
+                {
+                    "key": "{{ request.object.metadata.labels.animal }}",
+                    "operator": "NotIn",
+                    "value": "{{ animals.data.animals }}"
+                }
+            ]
+        }
+    }
+}`)
+
+	resourceRaw := []byte(`
+{
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+        "name": "busybox",
+        "labels": {
+            "app": "busybox",
+            "color": "red",
+            "animal": "cow",
+            "food": "pizza",
+            "car": "jeep",
+            "env": "qa"
+        }
+    }
+}
+`)
+
+	var rule v1.Rule
+	err := json.Unmarshal(ruleRaw, &rule)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext("request.object", "animals")
+	ctx.AddJSON(configmapRaw)
+	ctx.AddResource(resourceRaw)
+
+	vars, err := SubstituteAllInRule(log.Log, ctx, rule)
+	assert.NilError(t, err)
+
+	assert.DeepEqual(t, vars.Validation.Message, "The animal cow is not in the allowed list of animals: snake\nbear\ncat\ndog.")
+}
+
+var variableObject = []byte(`
+{
+	"complex_object_array": [
+		"value1",
+		"value2",
+		"value3"
+	],
+	"complex_object_map": {
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3"
+	},
+	"simple_object_bool": false,
+	"simple_object_int": 5,
+	"simple_object_float": -5.5,
+	"simple_object_string": "example",
+	"simple_object_null": null
+}
+`)
+
+func Test_SubstituteArray(t *testing.T) {
+	patternRaw := []byte(`
+	{
+		"spec": {
+			"content": "{{ request.object.complex_object_array }}"
+		}
+	}
+	`)
+
+	var err error
+	var pattern, resource map[string]interface{}
+	err = json.Unmarshal(patternRaw, &pattern)
+	assert.NilError(t, err)
+
+	err = json.Unmarshal(variableObject, &resource)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(variableObject)
+
+	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+
+	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
+	expected := resource["complex_object_array"]
+
+	assert.DeepEqual(t, expected, content)
+}
+
+func Test_SubstituteArrayInString(t *testing.T) {
+	patternRaw := []byte(`
+	{
+		"spec": {
+			"content": "content is {{ request.object.complex_object_map }}"
+		}
+	}
+	`)
+
+	var err error
+	var pattern, resource map[string]interface{}
+	err = json.Unmarshal(patternRaw, &pattern)
+	assert.NilError(t, err)
+
+	err = json.Unmarshal(variableObject, &resource)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(variableObject)
+
+	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+
+	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
+	expected := `content is {"key1":"value1","key2":"value2","key3":"value3"}`
+
+	assert.DeepEqual(t, expected, content)
+}
+
+func Test_SubstituteInt(t *testing.T) {
+	patternRaw := []byte(`
+	{
+		"spec": {
+			"content": "{{ request.object.simple_object_int }}"
+		}
+	}
+	`)
+
+	var err error
+	var pattern, resource map[string]interface{}
+	err = json.Unmarshal(patternRaw, &pattern)
+	assert.NilError(t, err)
+
+	err = json.Unmarshal(variableObject, &resource)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(variableObject)
+
+	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+
+	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
+	expected := resource["simple_object_int"]
+
+	assert.DeepEqual(t, expected, content)
+}
+
+func Test_SubstituteIntInString(t *testing.T) {
+	patternRaw := []byte(`
+	{
+		"spec": {
+			"content": "content = {{ request.object.simple_object_int }}"
+		}
+	}
+	`)
+
+	var err error
+	var pattern, resource map[string]interface{}
+	err = json.Unmarshal(patternRaw, &pattern)
+	assert.NilError(t, err)
+
+	err = json.Unmarshal(variableObject, &resource)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(variableObject)
+
+	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+
+	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
+	expected := "content = 5"
+
+	assert.DeepEqual(t, expected, content)
+}
+
+func Test_SubstituteBool(t *testing.T) {
+	patternRaw := []byte(`
+	{
+		"spec": {
+			"content": "{{ request.object.simple_object_bool }}"
+		}
+	}
+	`)
+
+	var err error
+	var pattern, resource map[string]interface{}
+	err = json.Unmarshal(patternRaw, &pattern)
+	assert.NilError(t, err)
+
+	err = json.Unmarshal(variableObject, &resource)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(variableObject)
+
+	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+
+	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
+	expected := false
+
+	assert.DeepEqual(t, expected, content)
+}
+
+func Test_SubstituteBoolInString(t *testing.T) {
+	patternRaw := []byte(`
+	{
+		"spec": {
+			"content": "content = {{ request.object.simple_object_bool }}"
+		}
+	}
+	`)
+
+	var err error
+	var pattern, resource map[string]interface{}
+	err = json.Unmarshal(patternRaw, &pattern)
+	assert.NilError(t, err)
+
+	err = json.Unmarshal(variableObject, &resource)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(variableObject)
+
+	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+
+	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
+	expected := "content = false"
+
+	assert.DeepEqual(t, expected, content)
+}
+
+func Test_SubstituteString(t *testing.T) {
+	patternRaw := []byte(`
+	{
+		"spec": {
+			"content": "{{ request.object.simple_object_string }}"
+		}
+	}
+	`)
+
+	var err error
+	var pattern, resource map[string]interface{}
+	err = json.Unmarshal(patternRaw, &pattern)
+	assert.NilError(t, err)
+
+	err = json.Unmarshal(variableObject, &resource)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(variableObject)
+
+	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+
+	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
+	var expected interface{}
+	expected = "example"
+
+	assert.DeepEqual(t, expected, content)
+}
+
+func Test_SubstituteStringInString(t *testing.T) {
+	patternRaw := []byte(`
+	{
+		"spec": {
+			"content": "content = {{ request.object.simple_object_string }}"
+		}
+	}
+	`)
+
+	var err error
+	var pattern, resource map[string]interface{}
+	err = json.Unmarshal(patternRaw, &pattern)
+	assert.NilError(t, err)
+
+	err = json.Unmarshal(variableObject, &resource)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(variableObject)
+
+	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+
+	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
+	var expected interface{}
+	expected = "content = example"
+
+	assert.DeepEqual(t, expected, content)
 }
 
 func Test_ReferenceSubstitution(t *testing.T) {
