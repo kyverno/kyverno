@@ -337,7 +337,6 @@ func main() {
 	// -- annotations on resources with update details on mutation JSON patches
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
-	//fmt.Print("==========================================================>serverIP =================>", serverIP)
 
 	server, err := webhooks.NewWebhookServer(
 		pclient,
