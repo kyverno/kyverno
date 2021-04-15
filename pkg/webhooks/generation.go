@@ -151,8 +151,8 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 		if policy.GetName() == policyName {
 			for _, rule := range policy.Spec.Rules {
 				if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
-					getGeneratedByResource(newRes, resLabels, ws.client, rule, logger)
-					data := rule.Generation.DeepCopy().Data
+					updatedRule := getGeneratedByResource(newRes, resLabels, ws.client, rule, logger)
+					data := updatedRule.Generation.DeepCopy().Data
 					if data != nil {
 						if _, err := gen.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
 							enqueueBool = true
@@ -160,7 +160,7 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 						}
 					}
 
-					cloneName := rule.Generation.Clone.Name
+					cloneName := updatedRule.Generation.Clone.Name
 					if cloneName != "" {
 						obj, err := ws.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 						if err != nil {
@@ -191,8 +191,10 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 	}
 }
 
-func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client *client.Client, rule v1.Rule, logger logr.Logger) {
+func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client *client.Client, rule v1.Rule, logger logr.Logger) v1.Rule {
 	var apiVersion, kind, name, namespace string
+	sourceRequest := &v1beta1.AdmissionRequest{}
+
 	kind = resLabels["kyverno.io/generated-by-kind"]
 	name = resLabels["kyverno.io/generated-by-name"]
 	if kind != "Namespace" {
@@ -203,21 +205,13 @@ func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[str
 	if err != nil {
 		fmt.Println("source resource not found. err: ", err)
 	}
-	fmt.Println("\n-------source resource: ", obj)
 
-	sourceRequest := &v1beta1.AdmissionRequest{}
-
-	o, err := json.Marshal(obj)
+	rawObj, err := json.Marshal(obj)
 	if err != nil {
 		fmt.Println("json marshal error. err: ", err)
 	}
-	sourceRequest.Object.Raw = o
-	sourceRequest.OldObject.Raw = o
-	sourceRequest.Name = obj.GetName()
-	sourceRequest.Namespace = obj.GetNamespace()
-	// json.Unmarshal(o, &rawObj)
-
-	fmt.Println("\nsourceRequest: ", sourceRequest)
+	sourceRequest.Object.Raw = rawObj
+	sourceRequest.Operation = "CREATE"
 
 	ctx := enginectx.NewContext()
 	if err := ctx.AddRequest(sourceRequest); err != nil {
@@ -228,7 +222,7 @@ func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[str
 		fmt.Println("variable substitution failed for rule ", rule.Name, "    err: ", err)
 	}
 
-	fmt.Println("\nupdated rule: ", rule)
+	return rule
 }
 
 //stripNonPolicyFields - remove feilds which get updated with each request by kyverno and are non policy fields
