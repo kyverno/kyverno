@@ -197,7 +197,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 
 	logger.Info("policy created", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
 
-	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || checkAutoGenRules(p) {
+	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || checkKind(p) || checkAutoGenRules(p) {
 		p.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": strconv.Itoa(random.Intn(100))})
 		p.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", p, false)
@@ -551,6 +551,15 @@ func checkAutoGenRules(policy *kyverno.ClusterPolicy) bool {
 		}
 
 		if len(policy.Spec.Rules) != (ruleCount * len(podRuleName)) {
+			return true
+		}
+	}
+	return false
+}
+
+func checkKind(policy *kyverno.ClusterPolicy) bool {
+	for _, rule := range policy.Spec.Rules {
+		if len(rule.MatchResources.Kinds) == 0 {
 			return true
 		}
 	}
