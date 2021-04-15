@@ -297,6 +297,11 @@ func writeResponse(rw http.ResponseWriter, admissionReview *v1beta1.AdmissionRev
 // ResourceMutation mutates resource
 func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 
+	b, _ := json.Marshal(request)
+	fmt.Println("-------------------Mutation Webhook Start-------------------------------------------")
+	fmt.Println(string(b))
+	fmt.Println("---------------x----Mutation Webhook End-------------------------------------------")
+
 	logger := ws.log.WithName("ResourceMutation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 
 	if excludeKyvernoResources(request.Kind.Kind) {
