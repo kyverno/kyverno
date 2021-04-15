@@ -36,7 +36,7 @@ Describe the big picture of your changes here to communicate to the maintainers 
 ### Proof Manifests
 
 <!--
-Read and follow the [PR documentation guide](pr_documentation.md) for more details first. This section is for pasting your YAML manifests (Kubernetes resources and Kyverno policies) which allow maintainers to prove the intended functionality is achieved by your PR. Please use proper fenced code block formatting, for example:
+Read and follow the [PR documentation guide](https://github.com/kyverno/kyverno/blob/main/.github/pr_documentation.md) for more details first. This section is for pasting your YAML manifests (Kubernetes resources and Kyverno policies) which allow maintainers to prove the intended functionality is achieved by your PR. Please use proper fenced code block formatting, for example:
 
 ```yaml
 apiVersion: v1
