@@ -151,28 +151,32 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 		if policy.GetName() == policyName {
 			for _, rule := range policy.Spec.Rules {
 				if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
-					updatedRule := getGeneratedByResource(newRes, resLabels, ws.client, rule, logger)
-					data := updatedRule.Generation.DeepCopy().Data
-					if data != nil {
-						if _, err := gen.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
-							enqueueBool = true
-							break
-						}
-					}
-
-					cloneName := updatedRule.Generation.Clone.Name
-					if cloneName != "" {
-						obj, err := ws.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
-						if err != nil {
-							logger.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
-							continue
+					updatedRule, err := getGeneratedByResource(newRes, resLabels, ws.client, rule, logger)
+					if err != nil {
+						logger.V(4).Info("skipping generate policy and resource pattern validaton", "error", err)
+					} else {
+						data := updatedRule.Generation.DeepCopy().Data
+						if data != nil {
+							if _, err := gen.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
+								enqueueBool = true
+								break
+							}
 						}
 
-						sourceObj, newResObj := stripNonPolicyFields(obj.Object, newRes.Object, logger)
+						cloneName := updatedRule.Generation.Clone.Name
+						if cloneName != "" {
+							obj, err := ws.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+							if err != nil {
+								logger.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
+								continue
+							}
 
-						if _, err := gen.ValidateResourceWithPattern(logger, newResObj, sourceObj); err != nil {
-							enqueueBool = true
-							break
+							sourceObj, newResObj := stripNonPolicyFields(obj.Object, newRes.Object, logger)
+
+							if _, err := gen.ValidateResourceWithPattern(logger, newResObj, sourceObj); err != nil {
+								enqueueBool = true
+								break
+							}
 						}
 					}
 				}
@@ -191,7 +195,7 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 	}
 }
 
-func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client *client.Client, rule v1.Rule, logger logr.Logger) v1.Rule {
+func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client *client.Client, rule v1.Rule, logger logr.Logger) (v1.Rule, error) {
 	var apiVersion, kind, name, namespace string
 	sourceRequest := &v1beta1.AdmissionRequest{}
 
@@ -203,26 +207,30 @@ func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[str
 
 	obj, err := client.GetResource(apiVersion, kind, namespace, name)
 	if err != nil {
-		fmt.Println("source resource not found. err: ", err)
+		logger.Error(err, "source resource not found.")
+		return rule, err
 	}
 
 	rawObj, err := json.Marshal(obj)
 	if err != nil {
-		fmt.Println("json marshal error. err: ", err)
+		logger.Error(err, "failed to marshal resource")
+		return rule, err
 	}
+
 	sourceRequest.Object.Raw = rawObj
 	sourceRequest.Operation = "CREATE"
-
 	ctx := enginectx.NewContext()
 	if err := ctx.AddRequest(sourceRequest); err != nil {
-		fmt.Println("failed to load incoming request in context. err: ", err)
+		logger.Error(err, "failed to load incoming request in context")
+		return rule, err
 	}
 
 	if rule, err = variables.SubstituteAllInRule(logger, ctx, rule); err != nil {
-		fmt.Println("variable substitution failed for rule ", rule.Name, "    err: ", err)
+		logger.Error(err, "variable substitution failed for rule %s", rule.Name)
+		return rule, err
 	}
 
-	return rule
+	return rule, nil
 }
 
 //stripNonPolicyFields - remove feilds which get updated with each request by kyverno and are non policy fields
