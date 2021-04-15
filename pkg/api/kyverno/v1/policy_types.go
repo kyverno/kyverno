@@ -21,7 +21,7 @@ type PolicyList struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Background",type="string",JSONPath=".spec.background"
-// +kubebuilder:printcolumn:name="Validation Failure Action",type="string",JSONPath=".spec.validationFailureAction"
+// +kubebuilder:printcolumn:name="Action",type="string",JSONPath=".spec.validationFailureAction"
 // +kubebuilder:resource:shortName=pol
 type Policy struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`

@@ -311,7 +311,7 @@ func jpRegexReplaceAll(arguments []interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf(genericError, regexReplaceAll, err.Error())
 	}
-	return reg.ReplaceAll([]byte(src), []byte(repl)), nil
+	return string(reg.ReplaceAll([]byte(src), []byte(repl))), nil
 }
 
 func jpRegexReplaceAllLiteral(arguments []interface{}) (interface{}, error) {
@@ -335,7 +335,7 @@ func jpRegexReplaceAllLiteral(arguments []interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf(genericError, regexReplaceAllLiteral, err.Error())
 	}
-	return reg.ReplaceAllLiteral([]byte(src), []byte(repl)), nil
+	return string(reg.ReplaceAllLiteral([]byte(src), []byte(repl))), nil
 }
 
 func jpRegexMatch(arguments []interface{}) (interface{}, error) {

@@ -3,26 +3,29 @@ package generate
 import (
 	"errors"
 	"fmt"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/kyverno/kyverno/test/e2e"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var (
 	// Cluster Polict GVR
-	clPolGVR = GetGVR("kyverno.io", "v1", "clusterpolicies")
+	clPolGVR = e2e.GetGVR("kyverno.io", "v1", "clusterpolicies")
 	// Namespace GVR
-	nsGVR = GetGVR("", "v1", "namespaces")
+	nsGVR = e2e.GetGVR("", "v1", "namespaces")
 	// ClusterRole GVR
-	crGVR = GetGVR("rbac.authorization.k8s.io", "v1", "clusterroles")
+	crGVR = e2e.GetGVR("rbac.authorization.k8s.io", "v1", "clusterroles")
 	// ClusterRoleBinding GVR
-	crbGVR = GetGVR("rbac.authorization.k8s.io", "v1", "clusterrolebindings")
+	crbGVR = e2e.GetGVR("rbac.authorization.k8s.io", "v1", "clusterrolebindings")
 	// Role GVR
-	rGVR = GetGVR("rbac.authorization.k8s.io", "v1", "roles")
+	rGVR = e2e.GetGVR("rbac.authorization.k8s.io", "v1", "roles")
 	// RoleBinding GVR
-	rbGVR = GetGVR("rbac.authorization.k8s.io", "v1", "rolebindings")
+	rbGVR = e2e.GetGVR("rbac.authorization.k8s.io", "v1", "rolebindings")
 
 	// ClusterPolicy Namespace
 	clPolNS = ""
@@ -37,7 +40,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		t.Skip("Skipping E2E Test")
 	}
 	// Generate E2E Client ==================
-	e2eClient, err := NewE2EClient()
+	e2eClient, err := e2e.NewE2EClient()
 	Expect(err).To(BeNil())
 	// ======================================
 
@@ -65,7 +68,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
 
 		// Wait Till Deletion of Namespace
-		GetWithRetry(time.Duration(1), 15, func() error {
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
 			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
 			if err != nil {
 				return nil
@@ -100,7 +103,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Wait Till Creation of Namespace
-		GetWithRetry(time.Duration(1), 15, func() error {
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
 			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
 			if err != nil {
 				return err
@@ -112,7 +115,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		// ======== Verify ClusterRole Creation =====
 		By("Verifying ClusterRole")
 		// Wait Till Creation of ClusterRole
-		GetWithRetry(time.Duration(1), 15, func() error {
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
 			_, err := e2eClient.GetClusteredResource(crGVR, tests.ClusterRoleName)
 			if err != nil {
 				return err
@@ -136,7 +139,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		// Clear Namespace
 		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
 		// Wait Till Deletion of Namespace
-		GetWithRetry(time.Duration(1), 15, func() error {
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
 			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
 			if err != nil {
 				return nil
@@ -154,7 +157,7 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		t.Skip("Skipping E2E Test")
 	}
 	// Generate E2E Client ==================
-	e2eClient, err := NewE2EClient()
+	e2eClient, err := e2e.NewE2EClient()
 	Expect(err).To(BeNil())
 	// ======================================
 
@@ -179,7 +182,7 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		}
 
 		// Wait Till Deletion of Namespace
-		GetWithRetry(time.Duration(1), 15, func() error {
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
 			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
 			if err != nil {
 				return nil
@@ -210,7 +213,7 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Wait Till Creation of Namespace
-		GetWithRetry(time.Duration(1), 15, func() error {
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
 			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
 			if err != nil {
 				return err
@@ -222,7 +225,7 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		// ======== Verify Role Creation =====
 		By(fmt.Sprintf("Verifying Role in the Namespace : %s", tests.ResourceNamespace))
 		// Wait Till Creation of Role
-		GetWithRetry(time.Duration(1), 15, func() error {
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
 			_, err := e2eClient.GetNamespacedResource(rGVR, tests.ResourceNamespace, tests.RoleName)
 			if err != nil {
 				return err
@@ -255,7 +258,7 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		// Clear Namespace
 		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
 		// Wait Till Deletion of Namespace
-		GetWithRetry(time.Duration(1), 15, func() error {
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
 			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
 			if err != nil {
 				return nil

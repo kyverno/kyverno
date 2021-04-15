@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"path"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -82,6 +81,37 @@ func substituteReferences(log logr.Logger, rule interface{}) (interface{}, error
 	return jsonUtils.NewTraversal(rule, substituteReferencesIfAny(log)).TraverseJSON()
 }
 
+// ValidateBackgroundModeVars validates variables against the specified context,
+// which contains a list of allowed JMESPath queries in background processing,
+// and throws an error if the variable is not allowed.
+func ValidateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface, rule interface{}) (interface{}, error) {
+	return jsonUtils.NewTraversal(rule, validateBackgroundModeVars(log, ctx)).TraverseJSON()
+}
+
+func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) jsonUtils.Action {
+	return jsonUtils.OnlyForLeafs(func(data *jsonUtils.ActionData) (interface{}, error) {
+		value, ok := data.Element.(string)
+		if !ok {
+			return data.Element, nil
+		}
+		vars := regexVariables.FindAllString(value, -1)
+		for _, v := range vars {
+			variable := replaceBracesAndTrimSpaces(v)
+
+			_, err := ctx.Query(variable)
+			if err != nil {
+				switch err.(type) {
+				case context.InvalidVariableErr:
+					return nil, err
+				default:
+					return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
+				}
+			}
+		}
+		return nil, nil
+	})
+}
+
 // NotFoundVariableErr is returned when it is impossible to resolve the variable
 type NotFoundVariableErr struct {
 	variable string
@@ -116,12 +146,12 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 				case context.InvalidVariableErr:
 					return nil, err
 				default:
-					return nil, fmt.Errorf("failed to resolve %v at path %s", v, data.Path)
+					return nil, fmt.Errorf("failed to resolve %v at path %s: %v", v, data.Path, err)
 				}
 			}
 
 			if resolvedReference == nil {
-				return data.Element, fmt.Errorf("failed to resolve %v at path %s", v, data.Path)
+				return data.Element, fmt.Errorf("failed to resolve %v at path %s: %v", v, data.Path, err)
 			}
 
 			log.V(3).Info("reference resolved", "reference", v, "value", resolvedReference, "path", data.Path)
@@ -148,13 +178,13 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 			return data.Element, nil
 		}
 
-		originalPattern := value
 		vars := regexVariables.FindAllString(value, -1)
 		for len(vars) > 0 {
+			originalPattern := value
+
 			for _, v := range vars {
-				variable := strings.ReplaceAll(v, "{{", "")
-				variable = strings.ReplaceAll(variable, "}}", "")
-				variable = strings.TrimSpace(variable)
+				variable := replaceBracesAndTrimSpaces(v)
+
 				if variable == "@" {
 					currentPath := getJMESPath(data.Path)
 					variable = strings.Replace(variable, "@", fmt.Sprintf("request.object%s", currentPath), -1)
@@ -171,31 +201,22 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 					case context.InvalidVariableErr:
 						return nil, err
 					default:
-						return nil, fmt.Errorf("failed to resolve %v at path %s", variable, data.Path)
+						return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
 					}
 				}
 
 				log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", data.Path)
-
-				switch substitutedVar.(type) {
-				case []byte:
-					val := substitutedVar.([]byte)
-					value = strings.Replace(value, v, string(val), -1)
-					continue
-				case string:
-					value = strings.Replace(value, v, substitutedVar.(string), -1)
-					continue
-				case bool:
-					value = strings.Replace(value, v, strconv.FormatBool(substitutedVar.(bool)), -1)
-					continue
-				}
 
 				if substitutedVar != nil {
 					if originalPattern == v {
 						return substitutedVar, nil
 					}
 
-					return nil, fmt.Errorf("failed to resolve %v at path %s", variable, data.Path)
+					if value, err = substituteVarInPattern(originalPattern, v, substitutedVar); err != nil {
+						return nil, fmt.Errorf("failed to resolve %v at path %s: %s", variable, data.Path, err.Error())
+					}
+
+					continue
 				}
 
 				return nil, NotFoundVariableErr{
@@ -217,6 +238,29 @@ func getJMESPath(rawPath string) string {
 	path := strings.ReplaceAll(rawPath, "/", ".")
 	regex := regexp.MustCompile(`\.([\d])\.`)
 	return string(regex.ReplaceAll([]byte(path), []byte("[$1].")))
+}
+
+func substituteVarInPattern(pattern, variable string, value interface{}) (string, error) {
+	var stringToSubstitute string
+
+	if s, ok := value.(string); ok {
+		stringToSubstitute = s
+	} else {
+		buffer, err := json.Marshal(value)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal %T: %v", value, value)
+		}
+		stringToSubstitute = string(buffer)
+	}
+
+	return strings.Replace(pattern, variable, stringToSubstitute, -1), nil
+}
+
+func replaceBracesAndTrimSpaces(v string) string {
+	variable := strings.ReplaceAll(v, "{{", "")
+	variable = strings.ReplaceAll(variable, "}}", "")
+	variable = strings.TrimSpace(variable)
+	return variable
 }
 
 func resolveReference(log logr.Logger, fullDocument interface{}, reference, absolutePath string) (interface{}, error) {

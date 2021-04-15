@@ -196,7 +196,7 @@ func Test_regexReplaceAll(t *testing.T) {
 		}
 	}
 	`)
-	expected := []byte(`Glo world, Gworldlo`)
+	expected := "Glo world, Gworldlo"
 
 	var resource interface{}
 	err := json.Unmarshal(resourceRaw, &resource)
@@ -207,8 +207,9 @@ func Test_regexReplaceAll(t *testing.T) {
 	res, err := query.Search(resource)
 	assert.NilError(t, err)
 
-	result := res.([]byte)
-	assert.Equal(t, string(result), (string(expected)))
+	result, ok := res.(string)
+	assert.Assert(t, ok)
+	assert.Equal(t, string(result), expected)
 }
 
 func Test_regexReplaceAllLiteral(t *testing.T) {
@@ -225,7 +226,7 @@ func Test_regexReplaceAllLiteral(t *testing.T) {
 		}
 	}
 	`)
-	expected := []byte(`Glo world, Gworldlo`)
+	expected := "Glo world, Gworldlo"
 
 	var resource interface{}
 	err := json.Unmarshal(resourceRaw, &resource)
@@ -236,6 +237,9 @@ func Test_regexReplaceAllLiteral(t *testing.T) {
 
 	res, err := query.Search(resource)
 	assert.NilError(t, err)
-	result := res.([]byte)
-	assert.Equal(t, string(result), (string(expected)))
+
+	result, ok := res.(string)
+	assert.Assert(t, ok)
+
+	assert.Equal(t, string(result), expected)
 }
