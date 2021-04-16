@@ -1,12 +1,14 @@
 package engine
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -56,7 +58,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 		// check if the resource satisfies the filter conditions defined in the rule
 		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
-		// dont satisfy a policy rule resource description
+		// don't satisfy a policy rule resource description
 		excludeResource := []string{}
 		if len(policyContext.ExcludeGroupRole) > 0 {
 			excludeResource = policyContext.ExcludeGroupRole
@@ -85,6 +87,21 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		// - handle variable substitutions
 		if !variables.EvaluateConditions(logger, ctx, copyConditions) {
 			logger.V(3).Info("resource fails the preconditions")
+			continue
+		}
+
+		if rule, err = variables.SubstituteAllInRule(logger, policyContext.JSONContext, rule); err != nil {
+			ruleResp := response.RuleResponse{
+				Name:    rule.Name,
+				Type:    utils.Validation.String(),
+				Message: fmt.Sprintf("variable substitution failed for rule %s: %s", rule.Name, err.Error()),
+				Success: true,
+			}
+
+			incrementAppliedCount(resp)
+			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
+
+			logger.Error(err, "failed to substitute variables, skip current rule", "rule name", rule.Name)
 			continue
 		}
 

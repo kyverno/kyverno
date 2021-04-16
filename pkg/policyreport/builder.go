@@ -132,6 +132,8 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 }
 
 func (builder *requestBuilder) buildRCRResult(policy string, resource response.ResourceSpec, rule kyverno.ViolatedRule) *report.PolicyReportResult {
+	av := builder.fetchAnnotationValues(policy, resource.Namespace)
+
 	result := &report.PolicyReportResult{
 		Policy: policy,
 		Resources: []*v1.ObjectReference{
@@ -144,7 +146,8 @@ func (builder *requestBuilder) buildRCRResult(policy string, resource response.R
 			},
 		},
 		Scored:   true,
-		Category: builder.fetchCategory(policy, resource.Namespace),
+		Category: av.category,
+		Severity: av.severity,
 	}
 
 	result.Rule = rule.Name
@@ -254,23 +257,54 @@ func buildViolatedRules(er *response.EngineResponse) []kyverno.ViolatedRule {
 }
 
 const categoryLabel string = "policies.kyverno.io/category"
+const severityLabel string = "policies.kyverno.io/severity"
 
-func (builder *requestBuilder) fetchCategory(policy, ns string) string {
+type annotationValues struct {
+	category string
+	severity report.PolicySeverity
+}
+
+func (av *annotationValues) setSeverityFromString(severity string) {
+	switch severity {
+	case report.SeverityHigh:
+		av.severity = report.SeverityHigh
+	case report.SeverityMedium:
+		av.severity = report.SeverityMedium
+	case report.SeverityLow:
+		av.severity = report.SeverityLow
+	}
+}
+
+func (builder *requestBuilder) fetchAnnotationValues(policy, ns string) annotationValues {
+	av := annotationValues{}
+	ann := builder.fetchAnnotations(policy, ns)
+
+	if category, ok := ann[categoryLabel]; ok {
+		av.category = category
+	}
+	if severity, ok := ann[severityLabel]; ok {
+		av.setSeverityFromString(severity)
+	}
+
+	return av
+}
+
+func (builder *requestBuilder) fetchAnnotations(policy, ns string) map[string]string {
 	cpol, err := builder.cpolLister.Get(policy)
 	if err == nil {
 		if ann := cpol.GetAnnotations(); ann != nil {
-			return ann[categoryLabel]
+			return ann
 		}
 	}
 
 	pol, err := builder.polLister.Policies(ns).Get(policy)
 	if err == nil {
 		if ann := pol.GetAnnotations(); ann != nil {
-			return ann[categoryLabel]
+			return ann
 		}
 	}
 
-	return ""
+	return make(map[string]string, 0)
 }
 
 func isResourceDeletion(info Info) bool {

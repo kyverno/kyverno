@@ -1170,7 +1170,7 @@ spec:
       name: Background
       type: string
     - jsonPath: .spec.validationFailureAction
-      name: Validation Failure Action
+      name: Action
       type: string
     name: v1
     schema:
@@ -2386,7 +2386,7 @@ subjects:
 apiVersion: v1
 data:
   excludeGroupRole: system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler
-  resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]'
+  resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]'
 kind: ConfigMap
 metadata:
   name: init-config
@@ -2397,6 +2397,7 @@ kind: Service
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/name: kyverno
   name: kyverno-svc
   namespace: kyverno
 spec:
@@ -2405,3 +2406,4 @@ spec:
     targetPort: https
   selector:
     app: kyverno
+    app.kubernetes.io/name: kyverno

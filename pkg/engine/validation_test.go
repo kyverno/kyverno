@@ -1320,9 +1320,9 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
-	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
+	assert.Assert(t, er.PolicyResponse.Rules[0].Success)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
-		"variable substitution failed for rule test-path-not-exist: variable request.object.metadata.name1 not resolved at path /validate/pattern/spec/containers/0/name")
+		"variable substitution failed for rule test-path-not-exist: NotFoundVariableErr, variable request.object.metadata.name1 not resolved at path /validate/pattern/spec/containers/0/name")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSubstitutionFails(t *testing.T) {
@@ -1412,8 +1412,67 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSu
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
+	assert.Assert(t, er.PolicyResponse.Rules[0].Success)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: NotFoundVariableErr, variable request.object.metadata.name1 not resolved at path /validate/anyPattern/0/spec/template/spec/containers/0/name")
+}
+
+func Test_VariableSubstitution_NotOperatorWithStringVariable(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {
+		  "name": "test"
+		},
+		"spec": {
+		  "content": "sample text"
+		}
+	  }`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "substitute-variable"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "not-operator-with-variable-should-alway-fail-validation",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
+				}
+			  },
+			  "validate": {
+				"pattern": {
+			      "spec": {
+				    "content": "!{{ request.object.spec.content }}"
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	var policy kyverno.ClusterPolicy
+	assert.NilError(t, json.Unmarshal(policyraw, &policy))
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResource(resourceRaw)
+	assert.NilError(t, err)
+
+	policyContext := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		NewResource: *resourceUnstructured}
+	er := Validate(policyContext)
 	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: variable request.object.metadata.name1 not resolved at path /validate/anyPattern/0/spec/template/spec/containers/0/name")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "validation error: rule not-operator-with-variable-should-alway-fail-validation failed at path /spec/content/")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *testing.T) {
@@ -1503,8 +1562,8 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
-	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: variable request.object.metadata.name1 not resolved at path /validate/anyPattern/0/spec/template/spec/containers/0/name")
+	assert.Assert(t, er.PolicyResponse.Rules[0].Success)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: NotFoundVariableErr, variable request.object.metadata.name1 not resolved at path /validate/anyPattern/0/spec/template/spec/containers/0/name")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatternSatisfy(t *testing.T) {
@@ -1598,6 +1657,168 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
 		"validation error: Rule test-path-not-exist[0] failed at path /spec/template/spec/containers/0/name/. Rule test-path-not-exist[1] failed at path /spec/template/spec/containers/0/name/.")
+}
+
+func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+		  "name": "busybox",
+		  "labels": {
+			"app": "busybox",
+			"color": "red",
+			"animal": "cow",
+			"food": "pizza",
+			"car": "jeep",
+			"env": "qa"
+		  }
+		},
+		"spec": {
+		  "replicas": 1,
+		  "selector": {
+			"matchLabels": {
+			  "app": "busybox"
+			}
+		  },
+		  "template": {
+			"metadata": {
+			  "labels": {
+				"app": "busybox"
+			  }
+			},
+			"spec": {
+			  "containers": [
+				{
+				  "image": "busybox:1.28",
+				  "name": "busybox",
+				  "command": [
+					"sleep",
+					"9999"
+				  ]
+				}
+			  ]
+			}
+		  }
+		}
+	  }`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "cm-array-example"
+		},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "validate-role-annotation",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "The animal {{ request.object.metadata.labels.animal }} is not in the allowed list of animals.",
+				"deny": {
+				  "conditions": [
+					{
+					  "key": "{{ request.object.metadata.labels.animal }}",
+					  "operator": "NotIn",
+					  "value": [
+						"snake",
+						"bear",
+						"cat",
+						"dog"
+					]
+					}
+				  ]
+				}
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	var policy kyverno.ClusterPolicy
+	assert.NilError(t, json.Unmarshal(policyraw, &policy))
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResource(resourceRaw)
+	assert.NilError(t, err)
+
+	policyContext := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		NewResource: *resourceUnstructured}
+	er := Validate(policyContext)
+	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "The animal cow is not in the allowed list of animals.")
+}
+
+func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
+	tests := []struct {
+		name            string
+		policyRaw       []byte
+		resourceRaw     []byte
+		expectedResult  bool
+		expectedMessage string
+	}{
+		{
+			name:      "path-not-present",
+			policyRaw: []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"flux-multi-tenancy"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"serviceAccountName","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":".spec.serviceAccountName is required","pattern":{"spec":{"serviceAccountName":"?*"}}}},{"name":"sourceRefNamespace","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":"spec.sourceRef.namespace must be the same as metadata.namespace","deny":{"conditions":[{"key":"{{request.object.spec.sourceRef.namespace}}","operator":"NotEquals","value":"{{request.object.metadata.namespace}}"}]}}}]}}`),
+			// referred variable path not present
+			resourceRaw:     []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team"},"prune":true,"validation":"client"}}`),
+			expectedResult:  true,
+			expectedMessage: "variable substitution failed for rule sourceRefNamespace: NotFoundVariableErr, variable request.object.spec.sourceRef.namespace not resolved at path /validate/deny/conditions/0/key",
+		},
+		{
+			name:      "resource-with-violation",
+			policyRaw: []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"flux-multi-tenancy"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"serviceAccountName","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":".spec.serviceAccountName is required","pattern":{"spec":{"serviceAccountName":"?*"}}}},{"name":"sourceRefNamespace","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":"spec.sourceRef.namespace {{request.object.spec.sourceRef.namespace}} must be the same as metadata.namespace {{request.object.metadata.namespace}}","deny":{"conditions":[{"key":"{{request.object.spec.sourceRef.namespace}}","operator":"NotEquals","value":"{{request.object.metadata.namespace}}"}]}}}]}}`),
+			// referred variable path present with different value
+			resourceRaw:     []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team","namespace":"default"},"prune":true,"validation":"client"}}`),
+			expectedResult:  false,
+			expectedMessage: "spec.sourceRef.namespace default must be the same as metadata.namespace apps",
+		},
+		{
+			name:      "resource-comply",
+			policyRaw: []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"flux-multi-tenancy"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"serviceAccountName","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":".spec.serviceAccountName is required","pattern":{"spec":{"serviceAccountName":"?*"}}}},{"name":"sourceRefNamespace","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":"spec.sourceRef.namespace must be the same as metadata.namespace","deny":{"conditions":[{"key":"{{request.object.spec.sourceRef.namespace}}","operator":"NotEquals","value":"{{request.object.metadata.namespace}}"}]}}}]}}`),
+			// referred variable path present with same value - validate passes
+			resourceRaw:     []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team","namespace":"apps"},"prune":true,"validation":"client"}}`),
+			expectedResult:  true,
+			expectedMessage: "spec.sourceRef.namespace must be the same as metadata.namespace",
+		},
+	}
+
+	for _, test := range tests {
+		var policy kyverno.ClusterPolicy
+		assert.NilError(t, json.Unmarshal(test.policyRaw, &policy))
+		resourceUnstructured, err := utils.ConvertToUnstructured(test.resourceRaw)
+		assert.NilError(t, err)
+
+		ctx := context.NewContext()
+		err = ctx.AddResource(test.resourceRaw)
+		assert.NilError(t, err)
+
+		policyContext := &PolicyContext{
+			Policy:      policy,
+			JSONContext: ctx,
+			NewResource: *resourceUnstructured}
+		er := Validate(policyContext)
+
+		for i, rule := range er.PolicyResponse.Rules {
+			if rule.Name == "sourceRefNamespace" {
+				assert.Equal(t, er.PolicyResponse.Rules[i].Success, test.expectedResult)
+				assert.Equal(t, er.PolicyResponse.Rules[i].Message, test.expectedMessage, "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedMessage, rule.Message)
+			}
+		}
+	}
 }
 
 type testCase struct {

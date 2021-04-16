@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"gotest.tools/assert"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -562,10 +563,26 @@ func Test_variableSubstitutionObjectOperatorNotEqualFail(t *testing.T) {
 		t.Error(err)
 	}
 
-	if patternCopy, err = SubstituteAll(log.Log, ctx, patternCopy); err == nil {
-		t.Error(err)
-	}
+	patternCopy, err = SubstituteAll(log.Log, ctx, patternCopy)
+	assert.NilError(t, err)
 
+	patternMapCopy, ok := patternCopy.(map[string]interface{})
+	assert.Assert(t, ok)
+
+	specInterface, ok := patternMapCopy["spec"]
+	assert.Assert(t, ok)
+
+	specMap, ok := specInterface.(map[string]interface{})
+	assert.Assert(t, ok)
+
+	variableInterface, ok := specMap["variable"]
+	assert.Assert(t, ok)
+
+	variableString, ok := variableInterface.(string)
+	assert.Assert(t, ok)
+
+	expected := `!{"var1":"temp1","var2":"temp2","varNested":{"var1":"temp1"}}`
+	assert.Equal(t, expected, variableString)
 }
 
 func Test_variableSubstitutionMultipleObject(t *testing.T) {
