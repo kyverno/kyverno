@@ -121,12 +121,13 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 				Name:    rule.Name,
 				Type:    utils.Validation.String(),
 				Message: fmt.Sprintf("variable substitution failed for rule %s: %s", rule.Name, err.Error()),
-				Success: false,
+				Success: true,
 			}
 
 			incrementAppliedCount(resp)
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
 
+			log.Error(err, "failed to substitute variables, skip current rule", "rule name", rule.Name)
 			continue
 		}
 
