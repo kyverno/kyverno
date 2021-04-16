@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"k8s.io/client-go/dynamic/dynamiclister"
@@ -88,7 +88,7 @@ func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCont
 }
 
 func applyJMESPath(jmesPath string, jsonData []byte) (interface{}, error) {
-	jp, err := jmespath.Compile(jmesPath)
+	jp, err := jmespath.New(jmesPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", jmesPath, err)
 	}

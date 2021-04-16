@@ -25,7 +25,6 @@ require (
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
@@ -51,6 +50,7 @@ require (
 // Added for go1.13 migration https://github.com/golang/go/issues/32805
 replace (
 	github.com/gorilla/rpc v1.2.0+incompatible => github.com/gorilla/rpc v1.2.0
+	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20210302163943-f30eab0a3ed6
 	k8s.io/code-generator => k8s.io/code-generator v0.0.0-20200306081859-6a048a382944
 	k8s.io/component-base => k8s.io/component-base v0.0.0-20190612130303-4062e14deebe
 )
