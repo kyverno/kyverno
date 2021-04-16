@@ -119,7 +119,7 @@ type NotFoundVariableErr struct {
 }
 
 func (n NotFoundVariableErr) Error() string {
-	return fmt.Sprintf("variable %s not resolved at path %s", n.variable, n.path)
+	return fmt.Sprintf("NotFoundVariableErr, variable %s not resolved at path %s", n.variable, n.path)
 }
 
 // NotResolvedReferenceErr is returned when it is impossible to resolve the variable
@@ -129,7 +129,7 @@ type NotResolvedReferenceErr struct {
 }
 
 func (n NotResolvedReferenceErr) Error() string {
-	return fmt.Sprintf("reference %s not resolved at path %s", n.reference, n.path)
+	return fmt.Sprintf("NotResolvedReferenceErr,reference %s not resolved at path %s", n.reference, n.path)
 }
 
 func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
