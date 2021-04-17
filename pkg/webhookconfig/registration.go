@@ -39,6 +39,7 @@ type Register struct {
 	serverIP       string // when running outside a cluster
 	timeoutSeconds int32
 	log            logr.Logger
+	debug          bool
 }
 
 // NewRegister creates new Register instance
@@ -48,6 +49,7 @@ func NewRegister(
 	resCache resourcecache.ResourceCache,
 	serverIP string,
 	webhookTimeout int32,
+	debug bool,
 	log logr.Logger) *Register {
 	return &Register{
 		clientConfig:   clientConfig,
@@ -56,6 +58,7 @@ func NewRegister(
 		serverIP:       serverIP,
 		timeoutSeconds: webhookTimeout,
 		log:            log.WithName("Register"),
+		debug:          debug,
 	}
 }
 
@@ -65,10 +68,11 @@ func (wrc *Register) Register() error {
 	if wrc.serverIP != "" {
 		logger.Info("Registering webhook", "url", fmt.Sprintf("https://%s", wrc.serverIP))
 	}
-	if err := wrc.checkEndpoint(); err != nil {
-		return err
+	if !wrc.debug {
+		if err := wrc.checkEndpoint(); err != nil {
+			return err
+		}
 	}
-
 	wrc.removeWebhookConfigurations()
 
 	caData := wrc.readCaData()

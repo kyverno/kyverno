@@ -138,13 +138,14 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "ConfigMap lookup disabled: failed to create resource cache")
 	}
-
+	debug := serverIP != ""
 	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,
 		client,
 		rCache,
 		serverIP,
 		int32(webhookTimeout),
+		debug,
 		log.Log)
 
 	// Resource Mutating Webhook Watcher
@@ -334,7 +335,6 @@ func main() {
 	// -- annotations on resources with update details on mutation JSON patches
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
-	debug := serverIP != ""
 	server, err := webhooks.NewWebhookServer(
 		pclient,
 		client,
