@@ -4,6 +4,8 @@ namespace:
 # Supported- default/restricted/privileged/custom
 # For more info- https://kyverno.io/policies/pod-security
 podSecurityStandard: default
+# Supported- low/medium/high
+podSecuritySeverity: medium
 # Policies to include when podSecurityStandard is custom
 podSecurityPolicies: []
 # Supported values- `audit`, `enforce`
