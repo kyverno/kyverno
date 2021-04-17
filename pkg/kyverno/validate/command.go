@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -14,6 +15,10 @@ import (
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiservervalidation "k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	yaml1 "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
 )
@@ -81,6 +86,13 @@ func Command() *cobra.Command {
 				return sanitizederror.NewWithError("failed to initialize openAPIController", err)
 			}
 
+			crdPath := "../crds/policy.yaml"
+			var v1crd apiextensions.CustomResourceDefinitionSpec
+			crdBytes := convertToJSONbytes(crdPath)
+			if err := json.Unmarshal(crdBytes, &v1crd); err != nil {
+				fmt.Println("failed to decode crd: ", err)
+			}
+
 			// if CRD's are passed, add these to OpenAPIController
 			if len(crdPaths) > 0 {
 				crds, err := common.GetCRDs(crdPaths)
@@ -96,6 +108,7 @@ func Command() *cobra.Command {
 			invalidPolicyFound := false
 			for _, policy := range policies {
 				fmt.Println("----------------------------------------------------------------------")
+				validatePolicyAccordingToPolicyCRD(policy, v1crd)
 				err := policy2.Validate(policy, nil, true, openAPIController)
 				if err != nil {
 					fmt.Printf("Policy %s is invalid.\n", policy.Name)
@@ -132,4 +145,42 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&outputType, "output", "o", "", "Prints the mutated policy in yaml or json format")
 	cmd.Flags().StringArrayVarP(&crdPaths, "crd", "c", []string{}, "Path to CRD files")
 	return cmd
+}
+
+func convertToJSONbytes(path string) []byte {
+	pathBytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		println("error in extracting in bytes: ", err)
+	}
+	jsonBytes, err := yaml1.ToJSON(pathBytes)
+	if err != nil {
+		fmt.Printf("failed to convert to JSON: %v\n", err)
+	}
+	return jsonBytes
+}
+
+func validatePolicyAccordingToPolicyCRD(policy *v1.ClusterPolicy, v1crd apiextensions.CustomResourceDefinitionSpec) {
+	policyBytes, err := json.Marshal(policy)
+	if err != nil {
+		fmt.Println("failed to marshal policy. error: ", err)
+	}
+
+	u := &unstructured.Unstructured{}
+	err = u.UnmarshalJSON(policyBytes)
+	if err != nil {
+		fmt.Println("failed to decode policy", err)
+	}
+
+	versions := v1crd.Versions
+	for _, version := range versions {
+		validator, _, err := apiservervalidation.NewSchemaValidator(&apiextensions.CustomResourceValidation{OpenAPIV3Schema: version.Schema.OpenAPIV3Schema})
+		if err != nil {
+			fmt.Println("failed to create schema validator", err)
+		}
+
+		errList := apiservervalidation.ValidateCustomResource(nil, u.UnstructuredContent(), validator)
+		if errList != nil {
+			fmt.Println(errList)
+		}
+	}
 }
