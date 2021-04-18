@@ -10,6 +10,7 @@ import (
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
+	"github.com/kyverno/kyverno/pkg/kyverno/crds"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
@@ -86,10 +87,8 @@ func Command() *cobra.Command {
 				return sanitizederror.NewWithError("failed to initialize openAPIController", err)
 			}
 
-			crdPath := "../crds/policy.yaml"
 			var v1crd apiextensions.CustomResourceDefinitionSpec
-			crdBytes := convertToJSONbytes(crdPath)
-			if err := json.Unmarshal(crdBytes, &v1crd); err != nil {
+			if err := json.Unmarshal([]byte(crds.PolicyCRD), &v1crd); err != nil {
 				fmt.Println("failed to decode crd: ", err)
 			}
 
