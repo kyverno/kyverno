@@ -19,6 +19,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiservervalidation "k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	yaml1 "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
@@ -106,12 +107,23 @@ func Command() *cobra.Command {
 
 			invalidPolicyFound := false
 			for _, policy := range policies {
-				fmt.Println("----------------------------------------------------------------------")
-				validatePolicyAccordingToPolicyCRD(policy, v1crd)
-				err := policy2.Validate(policy, nil, true, openAPIController)
+				err, errorList := validatePolicyAccordingToPolicyCRD(policy, v1crd)
 				if err != nil {
+					return sanitizederror.NewWithError("failed to validate policy.", err)
+				}
+
+				if errorList == nil {
+					err = policy2.Validate(policy, nil, true, openAPIController)
+				}
+
+				fmt.Println("----------------------------------------------------------------------")
+				if errorList != nil || err != nil {
 					fmt.Printf("Policy %s is invalid.\n", policy.Name)
-					fmt.Printf("Error: invalid policy.\nCause: %s\n\n", err)
+					if errorList != nil {
+						fmt.Printf("Error: invalid policy.\nCause: %s\n\n", errorList)
+					} else {
+						fmt.Printf("Error: invalid policy.\nCause: %s\n\n", err)
+					}
 					invalidPolicyFound = true
 				} else {
 					fmt.Printf("Policy %s is valid.\n\n", policy.Name)
@@ -158,28 +170,26 @@ func convertToJSONbytes(path string) []byte {
 	return jsonBytes
 }
 
-func validatePolicyAccordingToPolicyCRD(policy *v1.ClusterPolicy, v1crd apiextensions.CustomResourceDefinitionSpec) {
+func validatePolicyAccordingToPolicyCRD(policy *v1.ClusterPolicy, v1crd apiextensions.CustomResourceDefinitionSpec) (err error, errList field.ErrorList) {
 	policyBytes, err := json.Marshal(policy)
 	if err != nil {
-		fmt.Println("failed to marshal policy. error: ", err)
+		return sanitizederror.NewWithError("failed to marshal policy", err), nil
 	}
 
 	u := &unstructured.Unstructured{}
 	err = u.UnmarshalJSON(policyBytes)
 	if err != nil {
-		fmt.Println("failed to decode policy", err)
+		return sanitizederror.NewWithError("failed to decode policy", err), nil
 	}
 
 	versions := v1crd.Versions
 	for _, version := range versions {
 		validator, _, err := apiservervalidation.NewSchemaValidator(&apiextensions.CustomResourceValidation{OpenAPIV3Schema: version.Schema.OpenAPIV3Schema})
 		if err != nil {
-			fmt.Println("failed to create schema validator", err)
+			return sanitizederror.NewWithError("failed to create schema validator", err), nil
 		}
 
-		errList := apiservervalidation.ValidateCustomResource(nil, u.UnstructuredContent(), validator)
-		if errList != nil {
-			fmt.Println(errList)
-		}
+		errList = apiservervalidation.ValidateCustomResource(nil, u.UnstructuredContent(), validator)
 	}
+	return
 }
