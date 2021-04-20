@@ -8,7 +8,7 @@ metadata:
     policies.kyverno.io/category: Pod Security Standards (Default)
     {{- if .Values.podSecuritySeverity }}
     policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
-    {{- end -}}
+    {{- end }}
     policies.kyverno.io/description: >-
       Access to host ports allows potential snooping of network traffic and should not be
       allowed, or at minimum restricted to a known list.

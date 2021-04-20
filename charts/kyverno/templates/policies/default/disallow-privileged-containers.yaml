@@ -8,7 +8,7 @@ metadata:
     policies.kyverno.io/category: Pod Security Standards (Default)
     {{- if .Values.podSecuritySeverity }}
     policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
-    {{- end -}}
+    {{- end }}
     policies.kyverno.io/description: >-
       Privileged mode disables most security mechanisms and must not be allowed.
 spec:
