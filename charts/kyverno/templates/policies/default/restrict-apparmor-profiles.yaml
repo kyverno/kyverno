@@ -1,4 +1,4 @@
-{{ $name := "restrict-apparmor-profiles" -}}
+{{- $name := "restrict-apparmor-profiles" }}
 {{- if eq (include "kyverno.podSecurityDefault" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -9,7 +9,7 @@ metadata:
     policies.kyverno.io/category: Pod Security Standards (Default)
     {{- if .Values.podSecuritySeverity }}
     policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
-    {{- end -}}
+    {{- end }}
     policies.kyverno.io/description: >-
       On supported hosts, the 'runtime/default' AppArmor profile is applied by default. 
       The default policy should prevent overriding or disabling the policy, or restrict 
