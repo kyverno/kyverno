@@ -1,4 +1,4 @@
-{{ $name := "require-non-root-groups" -}}
+{{- $name := "require-non-root-groups" }}
 {{- if eq (include "kyverno.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy

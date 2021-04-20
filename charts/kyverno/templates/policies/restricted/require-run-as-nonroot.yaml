@@ -1,4 +1,4 @@
-{{ $name := "require-run-as-non-root" -}}
+{{- $name := "require-run-as-non-root" }}
 {{- if eq (include "kyverno.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy

@@ -1,4 +1,4 @@
-{{ $name := "restrict-apparmor-profiles" -}}
+{{- $name := "restrict-apparmor-profiles" }}
 {{- if eq (include "kyverno.podSecurityDefault" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy

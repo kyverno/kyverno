@@ -1,4 +1,4 @@
-{{ $name := "disallow-host-namespaces" -}}
+{{- $name := "disallow-host-namespaces" }}
 {{- if eq (include "kyverno.podSecurityDefault" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy

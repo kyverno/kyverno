@@ -1,4 +1,4 @@
-{{ $name := "disallow-add-capabilities" -}}
+{{- $name := "disallow-add-capabilities" }}
 {{- if eq (include "kyverno.podSecurityDefault" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy

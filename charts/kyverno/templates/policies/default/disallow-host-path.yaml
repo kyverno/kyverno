@@ -1,4 +1,4 @@
-{{ $name := "disallow-host-path" -}}
+{{- $name := "disallow-host-path" }}
 {{- if eq (include "kyverno.podSecurityDefault" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy

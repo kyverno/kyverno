@@ -1,4 +1,4 @@
-{{ $name := "deny-privilege-escalation" -}}
+{{- $name := "deny-privilege-escalation" }}
 {{- if eq (include "kyverno.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
