@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -20,7 +19,6 @@ import (
 	apiservervalidation "k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	yaml1 "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
 )
@@ -53,44 +51,19 @@ func Command() *cobra.Command {
 				return sanitizederror.NewWithError(fmt.Sprintf("policy file(s) required"), err)
 			}
 
-			var policies []*v1.ClusterPolicy
-			var errs []error
-			if policyPaths[0] == "-" {
-				if common.IsInputFromPipe() {
-					policyStr := ""
-					scanner := bufio.NewScanner(os.Stdin)
-					for scanner.Scan() {
-						policyStr = policyStr + scanner.Text() + "\n"
-					}
+			policies, err := getPolicyFromGivenPath(policyPaths)
+			if err != nil {
+				return sanitizederror.NewWithError("failed to parse policy", err)
+			}
 
-					yamlBytes := []byte(policyStr)
-					policies, err = utils.GetPolicy(yamlBytes)
-					if err != nil {
-						return sanitizederror.NewWithError("failed to parse policy", err)
-					}
-				}
-			} else {
-				policies, errs = common.GetPolicies(policyPaths)
-				if len(errs) > 0 && len(policies) == 0 {
-					return sanitizederror.NewWithErrors("failed to read policies", errs)
-				}
-
-				if len(errs) > 0 && log.Log.V(1).Enabled() {
-					fmt.Printf("ignoring errors: \n")
-					for _, e := range errs {
-						fmt.Printf("    %v \n", e.Error())
-					}
-				}
+			v1crd, err := getPolicyCRD()
+			if err != nil {
+				return sanitizederror.NewWithError("failed to decode crd: ", err)
 			}
 
 			openAPIController, err := openapi.NewOpenAPIController()
 			if err != nil {
 				return sanitizederror.NewWithError("failed to initialize openAPIController", err)
-			}
-
-			var v1crd apiextensions.CustomResourceDefinitionSpec
-			if err := json.Unmarshal([]byte(crds.PolicyCRD), &v1crd); err != nil {
-				fmt.Println("failed to decode crd: ", err)
 			}
 
 			// if CRD's are passed, add these to OpenAPIController
@@ -105,50 +78,9 @@ func Command() *cobra.Command {
 				}
 			}
 
-			invalidPolicyFound := false
-			for _, policy := range policies {
-				err, errorList := validatePolicyAccordingToPolicyCRD(policy, v1crd)
-				if err != nil {
-					return sanitizederror.NewWithError("failed to validate policy.", err)
-				}
-
-				if errorList == nil {
-					err = policy2.Validate(policy, nil, true, openAPIController)
-				}
-
-				fmt.Println("----------------------------------------------------------------------")
-				if errorList != nil || err != nil {
-					fmt.Printf("Policy %s is invalid.\n", policy.Name)
-					if errorList != nil {
-						fmt.Printf("Error: invalid policy.\nCause: %s\n\n", errorList)
-					} else {
-						fmt.Printf("Error: invalid policy.\nCause: %s\n\n", err)
-					}
-					invalidPolicyFound = true
-				} else {
-					fmt.Printf("Policy %s is valid.\n\n", policy.Name)
-					if outputType != "" {
-						logger := log.Log.WithName("validate")
-						p, err := common.MutatePolicy(policy, logger)
-						if err != nil {
-							if !sanitizederror.IsErrorSanitized(err) {
-								return sanitizederror.NewWithError("failed to mutate policy.", err)
-							}
-							return err
-						}
-						if outputType == "yaml" {
-							yamlPolicy, _ := yaml.Marshal(p)
-							fmt.Println(string(yamlPolicy))
-						} else {
-							jsonPolicy, _ := json.MarshalIndent(p, "", "  ")
-							fmt.Println(string(jsonPolicy))
-						}
-					}
-				}
-			}
-
-			if invalidPolicyFound == true {
-				os.Exit(1)
+			err = validatePolicies(policies, v1crd, openAPIController, outputType)
+			if err != nil {
+				return sanitizederror.NewWithError("failed to validate policies", err)
 			}
 			return nil
 		},
@@ -158,16 +90,43 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func convertToJSONbytes(path string) []byte {
-	pathBytes, err := ioutil.ReadFile(path)
-	if err != nil {
-		println("error in extracting in bytes: ", err)
+func getPolicyFromGivenPath(policyPaths []string) (policies []*v1.ClusterPolicy, err error) {
+	var errs []error
+	if policyPaths[0] == "-" {
+		if common.IsInputFromPipe() {
+			policyStr := ""
+			scanner := bufio.NewScanner(os.Stdin)
+			for scanner.Scan() {
+				policyStr = policyStr + scanner.Text() + "\n"
+			}
+
+			yamlBytes := []byte(policyStr)
+			policies, err = utils.GetPolicy(yamlBytes)
+			if err != nil {
+				return policies, sanitizederror.NewWithError("failed to parse policy", err)
+			}
+		}
+	} else {
+		policies, errs = common.GetPolicies(policyPaths)
+		if len(errs) > 0 && len(policies) == 0 {
+			return policies, sanitizederror.NewWithErrors("failed to parse policies", errs)
+		}
+
+		if len(errs) > 0 && log.Log.V(1).Enabled() {
+			fmt.Printf("ignoring errors: \n")
+			for _, e := range errs {
+				fmt.Printf("    %v \n", e.Error())
+			}
+		}
 	}
-	jsonBytes, err := yaml1.ToJSON(pathBytes)
-	if err != nil {
-		fmt.Printf("failed to convert to JSON: %v\n", err)
+	return policies, nil
+}
+
+func getPolicyCRD() (v1crd apiextensions.CustomResourceDefinitionSpec, err error) {
+	if err = json.Unmarshal([]byte(crds.PolicyCRD), &v1crd); err != nil {
+		return
 	}
-	return jsonBytes
+	return
 }
 
 func validatePolicyAccordingToPolicyCRD(policy *v1.ClusterPolicy, v1crd apiextensions.CustomResourceDefinitionSpec) (err error, errList field.ErrorList) {
@@ -192,4 +151,53 @@ func validatePolicyAccordingToPolicyCRD(policy *v1.ClusterPolicy, v1crd apiexten
 		errList = apiservervalidation.ValidateCustomResource(nil, u.UnstructuredContent(), validator)
 	}
 	return
+}
+
+func validatePolicies(policies []*v1.ClusterPolicy, v1crd apiextensions.CustomResourceDefinitionSpec, openAPIController *openapi.Controller, outputType string) error {
+	invalidPolicyFound := false
+	for _, policy := range policies {
+		err, errorList := validatePolicyAccordingToPolicyCRD(policy, v1crd)
+		if err != nil {
+			return sanitizederror.NewWithError("failed to validate policy.", err)
+		}
+
+		if errorList == nil {
+			err = policy2.Validate(policy, nil, true, openAPIController)
+		}
+
+		fmt.Println("----------------------------------------------------------------------")
+		if errorList != nil || err != nil {
+			fmt.Printf("Policy %s is invalid.\n", policy.Name)
+			if errorList != nil {
+				fmt.Printf("Error: invalid policy.\nCause: %s\n\n", errorList)
+			} else {
+				fmt.Printf("Error: invalid policy.\nCause: %s\n\n", err)
+			}
+			invalidPolicyFound = true
+		} else {
+			fmt.Printf("Policy %s is valid.\n\n", policy.Name)
+			if outputType != "" {
+				logger := log.Log.WithName("validate")
+				p, err := common.MutatePolicy(policy, logger)
+				if err != nil {
+					if !sanitizederror.IsErrorSanitized(err) {
+						return sanitizederror.NewWithError("failed to mutate policy.", err)
+					}
+					return err
+				}
+				if outputType == "yaml" {
+					yamlPolicy, _ := yaml.Marshal(p)
+					fmt.Println(string(yamlPolicy))
+				} else {
+					jsonPolicy, _ := json.MarshalIndent(p, "", "  ")
+					fmt.Println(string(jsonPolicy))
+				}
+			}
+		}
+	}
+
+	if invalidPolicyFound == true {
+		os.Exit(1)
+	}
+	return nil
 }
