@@ -713,6 +713,160 @@ func TestValidate_anchor_map_found_valid(t *testing.T) {
 	assert.Assert(t, er.IsSuccessful())
 }
 
+func TestValidate_inequality_List_Processing(t *testing.T) {
+	// anchor not present in resource
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "policy-secaas-k8s"
+		},
+		"spec": {
+		   "rules": [
+			  {
+				 "name": "pod rule 2",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+					   ]
+					}
+				 },
+				 "validate": {
+					"message": "pod: validate run as non root user",
+					"pattern": {
+					   "spec": {
+						  "=(supplementalGroups)": ">0"
+					   }
+					}
+				 }
+			  }
+		   ]
+		}
+	 }	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "myapp-pod",
+		   "labels": {
+			  "app": "v1"
+		   }
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "name": "nginx",
+				 "image": "nginx"
+			  }
+		   ],
+		   "supplementalGroups": [
+			  "2",
+			  "5",
+			  "10"
+		   ]
+		}
+	 }
+`)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	msgs := []string{"validation rule 'pod rule 2' passed."}
+
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+
+	assert.Assert(t, er.IsSuccessful())
+}
+
+func TestValidate_inequality_List_ProcessingBrackets(t *testing.T) {
+	// anchor not present in resource
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "policy-secaas-k8s"
+		},
+		"spec": {
+		   "rules": [
+			  {
+				 "name": "pod rule 2",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+					   ]
+					}
+				 },
+				 "validate": {
+					"message": "pod: validate run as non root user",
+					"pattern": {
+					   "spec": {
+						"=(supplementalGroups)": [
+							">0 & <100001"
+						  ]
+					   }
+					}
+				 }
+			  }
+		   ]
+		}
+	 }	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "myapp-pod",
+		   "labels": {
+			  "app": "v1"
+		   }
+		},
+		"spec": {
+		   "containers": [
+			  {
+				 "name": "nginx",
+				 "image": "nginx"
+			  }
+		   ],
+		   "supplementalGroups": [
+			  "2",
+			  "5",
+			  "10",
+			  "100",
+			  "10000",
+			  "1000",
+			  "543"
+		   ]
+		}
+	 }
+`)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	msgs := []string{"validation rule 'pod rule 2' passed."}
+
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+
+	assert.Assert(t, er.IsSuccessful())
+}
+
 func TestValidate_anchor_map_found_invalid(t *testing.T) {
 	// anchor not present in resource
 	rawPolicy := []byte(`{
