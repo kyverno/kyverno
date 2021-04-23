@@ -10,13 +10,14 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/kataras/tablewriter"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
@@ -28,6 +29,7 @@ import (
 	"github.com/lensesio/tableprinter"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -227,6 +229,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 func buildPolicyResults(resps []*response.EngineResponse) map[string][]interface{} {
 	results := make(map[string][]interface{})
 	infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
+	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 	for _, info := range infos {
 		for _, infoResult := range info.Results {
 			for _, rule := range infoResult.Rules {
@@ -242,7 +245,9 @@ func buildPolicyResults(resps []*response.EngineResponse) map[string][]interface
 					},
 				}
 				result.Rule = rule.Name
-				result.Status = report.PolicyStatus(rule.Check)
+				result.Result = report.PolicyResult(rule.Check)
+				result.Source = policyreport.SourceValue
+				result.Timestamp = now
 				results[rule.Name] = append(results[rule.Name], result)
 			}
 		}

@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/cornelk/hashmap"
-	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha2"
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	policyreportlister "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
+	policyreportlister "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 

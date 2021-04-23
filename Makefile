@@ -199,11 +199,11 @@ release:
 	kustomize build ./definitions > ./definitions/release/install.yaml
 
 kyverno-crd: controller-gen
-	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1alpha1 output:dir=./definitions/crds
+	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1alpha2 output:dir=./definitions/crds
 	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1 output:dir=./definitions/crds
 
 report-crd: controller-gen
-	$(CONTROLLER_GEN) crd paths=./pkg/api/policyreport/v1alpha1 output:dir=./definitions/crds
+	$(CONTROLLER_GEN) crd paths=./pkg/api/policyreport/v1alpha2 output:dir=./definitions/crds
 
 # install the right version of controller-gen
 install-controller-gen:
