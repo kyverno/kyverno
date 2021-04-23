@@ -3,7 +3,6 @@ package webhooks
 import (
 	contextdefault "context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -25,7 +24,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	gen "github.com/kyverno/kyverno/pkg/generate"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -153,7 +151,7 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 		if policy.GetName() == policyName {
 			for _, rule := range policy.Spec.Rules {
 				if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
-					updatedRule, err := getGeneratedByResource(newRes, resLabels, ws.client, rule, logger, ws.resCache)
+					updatedRule, err := getGeneratedByResource(newRes, resLabels, ws.client, rule, logger)
 					if err != nil {
 						logger.V(4).Info("skipping generate policy and resource pattern validaton", "error", err)
 					} else {
@@ -197,35 +195,24 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 	}
 }
 
-func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client *client.Client, rule v1.Rule, logger logr.Logger, resCache resourcecache.ResourceCache) (v1.Rule, error) {
-	var kind, name, namespace string
+func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client *client.Client, rule v1.Rule, logger logr.Logger) (v1.Rule, error) {
+	var apiVersion, kind, name, namespace string
 	sourceRequest := &v1beta1.AdmissionRequest{}
-
 	kind = resLabels["kyverno.io/generated-by-kind"]
 	name = resLabels["kyverno.io/generated-by-name"]
-	key := name
 	if kind != "Namespace" {
-		key = fmt.Sprintf("%s/%s", namespace, name)
 		namespace = resLabels["kyverno.io/generated-by-namespace"]
 	}
-
-	gvrC, ok := resCache.GetGVRCache(kind)
-	if !ok {
-		return rule, errors.New(fmt.Sprintf("%s GVR Cache not found", kind))
-	}
-
-	lister := gvrC.Lister()
-	obj, err := lister.Get(key)
+	obj, err := client.GetResource(apiVersion, kind, namespace, name)
 	if err != nil {
-		return rule, fmt.Errorf("failed to read %s %s from cache: %v", kind, key, err)
+		logger.Error(err, "source resource not found.")
+		return rule, err
 	}
-
 	rawObj, err := json.Marshal(obj)
 	if err != nil {
 		logger.Error(err, "failed to marshal resource")
 		return rule, err
 	}
-
 	sourceRequest.Object.Raw = rawObj
 	sourceRequest.Operation = "CREATE"
 	ctx := enginectx.NewContext()
@@ -233,12 +220,10 @@ func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[str
 		logger.Error(err, "failed to load incoming request in context")
 		return rule, err
 	}
-
 	if rule, err = variables.SubstituteAllInRule(logger, ctx, rule); err != nil {
 		logger.Error(err, "variable substitution failed for rule %s", rule.Name)
 		return rule, err
 	}
-
 	return rule, nil
 }
 
