@@ -196,7 +196,7 @@ func validatePolicies(policies []*v1.ClusterPolicy, v1crd apiextensions.CustomRe
 		}
 	}
 
-	if invalidPolicyFound == true {
+	if invalidPolicyFound {
 		os.Exit(1)
 	}
 	return nil
