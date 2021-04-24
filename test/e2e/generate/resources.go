@@ -6,6 +6,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: test
+  labels:
+    security: standard
 `)
 
 // Cluster Policy to generate Role and RoleBinding with synchronize=true
@@ -244,4 +246,43 @@ subjects:
 - kind: ServiceAccount
   name: kyverno-service-account
   namespace: kyverno
+`)
+
+var genNetworkPolicyYaml = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-networkpolicy-5
+spec:
+  background: true
+  rules:
+    - name: allow-dns
+      match:
+        resources:
+          kinds:
+            - Namespace
+          selector:
+            matchLabels:
+              security: standard
+      exclude:
+        resources:
+          namespaces:
+            - "kube-system"
+            - "default"
+            - "kube-public"
+            - "nova-kyverno"
+      generate:
+        synchronize: true
+        kind: NetworkPolicy
+        name: allow-dns
+        namespace: "{{request.object.metadata.name}}"
+        data:
+          spec:
+            egress:
+              - ports:
+                  - protocol: UDP
+                    port: 5353
+            podSelector: {}
+            policyTypes:
+              - Egress
 `)
