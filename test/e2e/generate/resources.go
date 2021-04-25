@@ -6,6 +6,14 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: test
+`)
+
+// Namespace With Label Description
+var namespaceWithLabelYaml = []byte(`
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test1
   labels:
     security: standard
 `)

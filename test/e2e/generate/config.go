@@ -142,22 +142,21 @@ var NetworkPolicyGenerateTests = []struct {
 	Data []byte
 }{
 	{
-		TestName:          "test-clusterrole-clusterrolebinding-without-clone",
+		TestName:          "test-generate-policy-for-namesoace-with-label",
 		NetworkPolicyName: "allow-dns",
-		ResourceNamespace: "test",
+		ResourceNamespace: "test1",
 		Clone:             false,
 		Sync:              true,
 		Data:              genNetworkPolicyYaml,
 	},
-	//{
-	//	TestName:               "test-clusterrole-clusterrolebinding-with-sync-without-clone",
-	//	// TODO: fix NetworkPolicyName
-	//	NetworkPolicyName:      "should-be-something",
-	//	ResourceNamespace:      "test",
-	//	Clone:                  false,
-	//	Sync:                   true,
-	//	Data:                   genNetworkPolicyYaml,
-	//},
+	// {
+	// 	TestName:          "test-generate-policy-for-namesoace-without-label",
+	// 	NetworkPolicyName: "allow-dns",
+	// 	ResourceNamespace: "test",
+	// 	Clone:             false,
+	// 	Sync:              true,
+	// 	Data:              genNetworkPolicyYaml,
+	// },
 	//{
 	//	TestName:                          "test-clusterrole-clusterrolebinding-with-sync-with-clone",
 	//	// TODO: fix NetworkPolicyName
@@ -171,4 +170,39 @@ var NetworkPolicyGenerateTests = []struct {
 	//	Sync:                              false,
 	//	Data:                              genNetworkPolicyYaml,
 	//},
+}
+
+// NetworkPolicyGenerateTests - E2E Test Config for NetworkPolicyGenerateTests
+var GenerateNetworkPolicyOnNamespaceWithoutLabelTests = []struct {
+	//TestName - Name of the Test
+	TestName string
+	// NetworkPolicyName - Name of the NetworkPolicy to be Created
+	NetworkPolicyName string
+	// ResourceNamespace - Namespace for which Resources are Created
+	ResourceNamespace string
+	// Clone - Set Clone Value
+	Clone bool
+	// CloneClusterRoleName
+	ClonerClusterRoleName string
+	// CloneClusterRoleBindingName
+	ClonerClusterRoleBindingName string
+	// CloneSourceRoleData - Source ClusterRole Name from which ClusterRole is Cloned
+	CloneSourceClusterRoleData []byte
+	// CloneSourceRoleBindingData - Source ClusterRoleBinding Name from which ClusterRoleBinding is Cloned
+	CloneSourceClusterRoleBindingData []byte
+	// CloneNamespace - Namespace where Roles are Cloned
+	CloneNamespace string
+	// Sync - Set Synchronize
+	Sync bool
+	// Data - The Yaml file of the ClusterPolicy of the ClusterRole and ClusterRoleBinding - ([]byte{})
+	Data []byte
+}{
+	{
+		TestName:          "test-generate-policy-for-namesoace-with-label",
+		ResourceNamespace: "test",
+		NetworkPolicyName: "allow-dns",
+		Clone:             false,
+		Sync:              true,
+		Data:              genNetworkPolicyYaml,
+	},
 }
