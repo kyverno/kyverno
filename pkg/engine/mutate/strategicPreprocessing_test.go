@@ -166,6 +166,86 @@ func Test_preProcessStrategicMergePatch_DifferentKinds(t *testing.T) {
 	}
 }
 
+func Test_preProcessStrategicMergePatch_InitContainersMatchesTheImage(t *testing.T) {
+	rawPolicy := []byte(`{
+		"spec": {
+		  "imagePullSecrets": [
+			{
+			  "name": "regcred"
+			}
+		  ],
+		  "initContainers": [
+			{
+			  "(image)": "index.docker.io/*",
+			  "name": "name"
+			}
+		  ]
+		}
+	  }`)
+
+	rawResource := []byte(`{
+		"spec": {
+			"initContainers": [
+				{
+					"image": "index.docker.io/someimage",
+					"name": "nginx"
+				}
+			]
+		}
+	}`)
+
+	expected := `{"spec": {"imagePullSecrets": [{"name": "regcred"}], "initContainers": [{"name":"name"}]}}`
+
+	preProcessedPolicy, err := preProcessStrategicMergePatch(string(rawPolicy), string(rawResource))
+	assert.NilError(t, err)
+	output, err := preProcessedPolicy.String()
+	assert.NilError(t, err)
+	re := regexp.MustCompile(`\n`)
+	if !assertnew.Equal(t, strings.ReplaceAll(expected, " ", ""), strings.ReplaceAll(re.ReplaceAllString(output, ""), " ", "")) {
+		t.FailNow()
+	}
+}
+
+func Test_preProcessStrategicMergePatch_InitContainersDoesNotMatchTheImage(t *testing.T) {
+	rawPolicy := []byte(`{
+		"spec": {
+		  "imagePullSecrets": [
+			{
+			  "name": "regcred"
+			}
+		  ],
+		  "initContainers": [
+			{
+			  "(image)": "index.docker.io/*",
+			  "name": "name"
+			}
+		  ]
+		}
+	  }`)
+
+	rawResource := []byte(`{
+		"spec": {
+			"initContainers": [
+				{
+					"image": "someimage",
+					"name": "nginx"
+				}
+			]
+		}
+	}`)
+
+	expected := `{"spec": {"imagePullSecrets": [{"name": "regcred"}], "initContainers": [{"name":"nginx"}]}}`
+
+	preProcessedPolicy, err := preProcessStrategicMergePatch(string(rawPolicy), string(rawResource))
+	assert.NilError(t, err)
+	output, err := preProcessedPolicy.String()
+	assert.NilError(t, err)
+	re := regexp.MustCompile(`\n`)
+	if !assertnew.Equal(t, strings.ReplaceAll(expected, " ", ""), strings.ReplaceAll(re.ReplaceAllString(output, ""), " ", "")) {
+		t.FailNow()
+	}
+}
+
 func Test_preProcessStrategicMergePatch_Annotation(t *testing.T) {
 	rawPolicy := []byte(`{"metadata":{"annotations":{"+(cluster-autoscaler.kubernetes.io/safe-to-evict)":true}},"spec":{"volumes":[{"(hostPath)":{"path":"*"}}]}}`)
 
