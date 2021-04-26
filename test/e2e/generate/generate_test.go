@@ -403,9 +403,9 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 
 func Test_Generate_Namespace_Without_Label(t *testing.T) {
 	RegisterTestingT(t)
-	// if os.Getenv("E2E") == "" {
-	// 	t.Skip("Skipping E2E Test")
-	// }
+	if os.Getenv("E2E") == "" {
+		t.Skip("Skipping E2E Test")
+	}
 	// Generate E2E Client ==================
 	e2eClient, err := e2e.NewE2EClient()
 	Expect(err).To(BeNil())
@@ -422,13 +422,6 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 		// Clear Namespace
 		By(fmt.Sprintf("Deleting Namespace : %s", test.ResourceNamespace))
 		e2eClient.DeleteClusteredResource(nsGVR, test.ResourceNamespace)
-		// // If Clone is true Clear Source Resource and Recreate
-		// if test.Clone {
-		// 	By(fmt.Sprintf("Clone = true, Deleting NetworkPolicy from Clone Namespace : %s", test.CloneNamespace))
-		// 	// Delete NetworkPolicy to be cloned
-		// 	e2eClient.DeleteNamespacedResource(npGVR, test.CloneNamespace, test.NetworkPolicyName)
-
-		// }
 
 		// Wait Till Deletion of Namespace
 		e2e.GetWithRetry(time.Duration(1), 15, func() error {
@@ -439,21 +432,12 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 			return errors.New("deleting Namespace")
 		})
 		// ====================================
+
 		// ======== Create Generate NetworkPolicy Policy =============
 		By(fmt.Sprintf("Creating Generate NetworkPolicy Policy"))
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
-
-		// === If Clone is true Create Source Resources ==
-		//if test.Clone {
-		//	By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", test.CloneNamespace))
-		//	_, err := e2eClient.CreateNamespacedResourceYaml(rGVR, test.CloneNamespace, test.CloneSourceRoleData)
-		//	Expect(err).NotTo(HaveOccurred())
-		//	_, err = e2eClient.CreateNamespacedResourceYaml(rbGVR, test.CloneNamespace, test.CloneSourceRoleBindingData)
-		//	Expect(err).NotTo(HaveOccurred())
-		//}
-		// ================================================
 
 		// Test: when creating the new namespace without the label, there should not have any generated resource
 		// ======= Create Namespace ==================
@@ -507,14 +491,6 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 
 		// ======= CleanUp Resources =====
 		e2eClient.CleanClusterPolicies(clPolGVR)
-
-		// === If Clone is true Delete Source Resources ==
-		// TODO: check this later
-		//if test.Clone {
-		//	By(fmt.Sprintf("Clone = true, Deleting Cloner Resources in Namespace : %s", test.CloneNamespace))
-		//	e2eClient.DeleteNamespacedResource(rGVR, test.CloneNamespace, test.RoleName)
-		//	e2eClient.DeleteNamespacedResource(rbGVR, test.CloneNamespace, test.RoleBindingName)
-		//}
 		// ================================================
 
 		// Clear Namespace
