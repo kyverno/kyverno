@@ -124,3 +124,19 @@ func (e2e *E2EClient) CreateClusteredResourceYaml(gvr schema.GroupVersionResourc
 	result, err := e2e.CreateClusteredResource(gvr, &resource)
 	return result, err
 }
+
+// UpdateClusteredResource ...
+func (e2e *E2EClient) UpdateClusteredResource(gvr schema.GroupVersionResource, resourceData *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	return e2e.Client.Resource(gvr).Update(context.TODO(), resourceData, metav1.UpdateOptions{})
+}
+
+// UpdateClusteredResourceYaml creates cluster resources from YAML like Namespace, ClusterRole, ClusterRoleBinding etc ...
+func (e2e *E2EClient) UpdateClusteredResourceYaml(gvr schema.GroupVersionResource, resourceData []byte) (*unstructured.Unstructured, error) {
+	resource := unstructured.Unstructured{}
+	err := yaml.Unmarshal(resourceData, &resource)
+	if err != nil {
+		return nil, err
+	}
+	result, err := e2e.UpdateClusteredResource(gvr, &resource)
+	return result, err
+}

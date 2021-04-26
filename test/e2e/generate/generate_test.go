@@ -315,7 +315,7 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 		})
 		// ====================================
 		// ======== Create Generate NetworkPolicy Policy =============
-		By(fmt.Sprintf("\nCreating Generate NetworkPolicy Policy"))
+		By(fmt.Sprintf("Creating Generate NetworkPolicy Policy"))
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
@@ -403,9 +403,9 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 
 func Test_Generate_Namespace_Without_Label(t *testing.T) {
 	RegisterTestingT(t)
-	if os.Getenv("E2E") == "" {
-		t.Skip("Skipping E2E Test")
-	}
+	// if os.Getenv("E2E") == "" {
+	// 	t.Skip("Skipping E2E Test")
+	// }
 	// Generate E2E Client ==================
 	e2eClient, err := e2e.NewE2EClient()
 	Expect(err).To(BeNil())
@@ -440,7 +440,7 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 		})
 		// ====================================
 		// ======== Create Generate NetworkPolicy Policy =============
-		By(fmt.Sprintf("\nCreating Generate NetworkPolicy Policy"))
+		By(fmt.Sprintf("Creating Generate NetworkPolicy Policy"))
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
@@ -455,8 +455,9 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 		//}
 		// ================================================
 
+		// Test: when creating the new namespace without the label, there should not have any generated resource
 		// ======= Create Namespace ==================
-		By(fmt.Sprintf("Creating Namespace which triggers generate %s", npPolNS))
+		By(fmt.Sprintf("Creating Namespace which should not triggers generate %s", npPolNS))
 		_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, namespaceYaml)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -484,6 +485,25 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 		_, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
 		Expect(err).To(HaveOccurred())
 		// ============================================
+
+		// Test: when adding the matched label to the namespace, the target resource should be generated
+		By(fmt.Sprintf("Updating Namespace which triggers generate %s", npPolNS))
+		// add label to the namespace
+		_, err = e2eClient.UpdateClusteredResourceYaml(nsGVR, namespaceWithLabelYaml)
+		Expect(err).NotTo(HaveOccurred())
+
+		// ======== NetworkPolicy Creation =====
+		By(fmt.Sprintf("Verifying NetworkPolicy in the updated Namespace : %s", test.ResourceNamespace))
+		// Wait Till Creation of NetworkPolicy
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+			_, err = e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+		// =================================================
 
 		// ======= CleanUp Resources =====
 		e2eClient.CleanClusterPolicies(clPolGVR)

@@ -142,9 +142,9 @@ var NetworkPolicyGenerateTests = []struct {
 	Data []byte
 }{
 	{
-		TestName:          "test-generate-policy-for-namesoace-with-label",
+		TestName:          "test-generate-policy-for-namespace-with-label",
 		NetworkPolicyName: "allow-dns",
-		ResourceNamespace: "test1",
+		ResourceNamespace: "test",
 		Clone:             false,
 		Sync:              true,
 		Data:              genNetworkPolicyYaml,
@@ -198,7 +198,7 @@ var GenerateNetworkPolicyOnNamespaceWithoutLabelTests = []struct {
 	Data []byte
 }{
 	{
-		TestName:          "test-generate-policy-for-namesoace-with-label",
+		TestName:          "test-generate-policy-for-namespace-without-label",
 		ResourceNamespace: "test",
 		NetworkPolicyName: "allow-dns",
 		Clone:             false,

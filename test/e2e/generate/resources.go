@@ -13,7 +13,7 @@ var namespaceWithLabelYaml = []byte(`
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: test1
+  name: test
   labels:
     security: standard
 `)
