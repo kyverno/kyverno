@@ -377,7 +377,9 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	newResource.SetAPIVersion(genAPIVersion)
 	// manage labels
 	// - app.kubernetes.io/managed-by: kyverno
-	// - kyverno.io/generated-by: kind/namespace/name (trigger resource)
+	// "kyverno.io/generated-by-kind": kind (trigger resource)
+	// "kyverno.io/generated-by-namespace": namespace (trigger resource)
+	// "kyverno.io/generated-by-name": name (trigger resource)
 	manageLabels(newResource, resource)
 	// Add Synchronize label
 	label := newResource.GetLabels()
