@@ -15,4 +15,8 @@ var MutateTests = []struct {
 		TestName: "test-mutate-with-logic-in-context",
 		Data:     configMapMutationWithContextLogicYaml,
 	},
+	{
+		TestName: "test-mutate-with-context-label-selection",
+		Data:     configMapMutationWithContextLabelSelectionYaml,
+	},
 }
