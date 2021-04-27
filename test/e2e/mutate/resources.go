@@ -57,6 +57,30 @@ spec:
             +(kyverno.key/copy-me): "{{ labelValue }}"
 `)
 
+var configMapMutationWithContextLabelSelectionYaml = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: "mutate-policy"
+spec:
+  rules:
+  - name: "gen-role"
+    match:
+      resources:
+        kinds:
+          - ConfigMap
+    context:
+    - name: labelValue
+      apiCall:
+        urlPath: "/api/v1/namespaces/{{ request.object.metadata.namespace }}/configmaps"
+        jmesPath: "items[?metadata.name == '{{ request.object.metadata.labels.\"kyverno.key/copy-from\" }}'].metadata.labels.\"kyverno.key/copy-me\" | [0]"
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            +(kyverno.key/copy-me): "{{ labelValue }}"
+`)
+
 // Source ConfigMap from which data is taken to copy
 var sourceConfigMapYaml = []byte(`
 apiVersion: v1
@@ -78,6 +102,8 @@ kind: ConfigMap
 metadata:
   name: target
   namespace: test-mutate
+  labels:
+    kyverno.key/copy-from: source
 data:
   data.yaml: |
     some: data
