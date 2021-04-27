@@ -3,8 +3,8 @@ package engine
 import (
 	"fmt"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/ghodss/yaml"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -87,7 +87,7 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 				return unstructured.Unstructured{}, fmt.Errorf(resp.Message)
 			}
 		}
-		
+
 		if rule.Mutation.PatchStrategicMerge != nil {
 			var resp response.RuleResponse
 			resp, resource = mutate.ProcessStrategicMergePatch(rule.Name, rule.Mutation.PatchStrategicMerge, resource, logger.WithValues("rule", rule.Name))
@@ -113,4 +113,3 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 
 	return resource, nil
 }
-

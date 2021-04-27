@@ -339,4 +339,3 @@ func Test_ForceMutateSubstituteVarsWithPatchesJson6902(t *testing.T) {
 
 	assert.DeepEqual(t, expectedResource.UnstructuredContent(), mutatedResource.UnstructuredContent())
 }
-
