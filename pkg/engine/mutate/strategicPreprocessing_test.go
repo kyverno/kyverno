@@ -217,7 +217,10 @@ func Test_preProcessStrategicMergePatch_InitContainersDoesNotMatchTheImage(t *te
 		  "initContainers": [
 			{
 			  "(image)": "index.docker.io/*",
-			  "name": "name"
+			  "port": "1313",
+			  "foo": "bar",
+			  "bar": "mar",
+			  "dir": "dr"
 			}
 		  ]
 		}
@@ -234,7 +237,7 @@ func Test_preProcessStrategicMergePatch_InitContainersDoesNotMatchTheImage(t *te
 		}
 	}`)
 
-	expected := `{"spec": {"imagePullSecrets": [{"name": "regcred"}], "initContainers": [{"name":"nginx"}]}}`
+	expected := `{"spec": {"imagePullSecrets": [{"name": "regcred"}], "initContainers": []}}`
 
 	preProcessedPolicy, err := preProcessStrategicMergePatch(string(rawPolicy), string(rawResource))
 	assert.NilError(t, err)
