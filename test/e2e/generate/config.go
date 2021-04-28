@@ -219,6 +219,8 @@ var GenerateSynchronizeFlagTests = []struct {
 	TestName string
 	// NetworkPolicyName - Name of the NetworkPolicy to be Created
 	NetworkPolicyName string
+	// GeneratePolicyName - Name of the Policy to be Created/Updated
+	GeneratePolicyName string
 	// ResourceNamespace - Namespace for which Resources are Created
 	ResourceNamespace string
 	// Clone - Set Clone Value
@@ -237,13 +239,17 @@ var GenerateSynchronizeFlagTests = []struct {
 	Sync bool
 	// Data - The Yaml file of the ClusterPolicy of the ClusterRole and ClusterRoleBinding - ([]byte{})
 	Data []byte
+	// Data - The Yaml file of the ClusterPolicy of the ClusterRole and ClusterRoleBinding - ([]byte{})
+	UpdateData []byte
 }{
 	{
-		TestName:          "test-generate-policy-for-namespace-with-label",
-		NetworkPolicyName: "allow-dns",
-		ResourceNamespace: "test",
-		Clone:             false,
-		Sync:              true,
-		Data:              genNetworkPolicyYaml,
+		TestName:           "test-generate-policy-for-namespace-with-label",
+		NetworkPolicyName:  "allow-dns",
+		GeneratePolicyName: "add-networkpolicy",
+		ResourceNamespace:  "test",
+		Clone:              false,
+		Sync:               true,
+		Data:               genNetworkPolicyYaml,
+		UpdateData:         updateSynchronizeInGeneratePolicyYaml,
 	},
 }

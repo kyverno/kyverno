@@ -1,10 +1,10 @@
 package generate
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
@@ -301,12 +301,12 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 		By(fmt.Sprintf("Deleting Namespace : %s", test.ResourceNamespace))
 		e2eClient.DeleteClusteredResource(nsGVR, test.ResourceNamespace)
 		// If Clone is true Clear Source Resource and Recreate
-		if test.Clone {
-			By(fmt.Sprintf("Clone = true, Deleting NetworkPolicy from Clone Namespace : %s", test.CloneNamespace))
-			// Delete NetworkPolicy to be cloned
-			e2eClient.DeleteNamespacedResource(npGVR, test.CloneNamespace, test.NetworkPolicyName)
+		// if test.Clone {
+		// 	By(fmt.Sprintf("Clone = true, Deleting NetworkPolicy from Clone Namespace : %s", test.CloneNamespace))
+		// 	// Delete NetworkPolicy to be cloned
+		// 	e2eClient.DeleteNamespacedResource(npGVR, test.CloneNamespace, test.NetworkPolicyName)
 
-		}
+		// }
 
 		// Wait Till Deletion of Namespace
 		e2e.GetWithRetry(time.Duration(1), 15, func() error {
@@ -503,8 +503,8 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 		unstructGenPol.SetResourceVersion(resVer)
 
-		// ======== Update Generate NetworkPolicy Policy =============
-		By(fmt.Sprintf("Updating Generate NetworkPolicy Policy"))
+		// ======== Update Generate NetworkPolicy =============
+		By(fmt.Sprintf("Updating Generate NetworkPolicy"))
 		_, err = e2eClient.UpdateNamespacedResource(clPolGVR, npPolNS, &unstructGenPol)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
@@ -515,28 +515,28 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 		fmt.Println("updatedNetPol: ", updatedNetPol)
 		Expect(err).NotTo(HaveOccurred())
 		// compare updated network policy and updated generate policy. how????
-		a, b, c := unstructured.NestedSlice(updatedNetPol.UnstructuredContent(), "spec", "egress")
+		a, b, c := unstructured.NestedMap(updatedNetPol.UnstructuredContent(), "spec", "egress", "ports")
 		fmt.Println("\n\nunstructured.NestedStringSlice  \na: ", a, "\nb: ", b, "\nc", c)
-		d := a[0]
-		fmt.Println("d: ", d)
-		typedd, ok := d.(map[string]interface{})
-		if ok {
-			e := typedd["ports"]
-			fmt.Println("e: ", e)
-			typede, ok := e.([]interface{})
-			if ok {
-				f := typede[0]
-				fmt.Println("f: ", f)
-				if f == "TCP" {
-					fmt.Println("------TCP--------")
-				}
-			}
-			switch typede := e.(type) {
-			// map
-			default:
-				fmt.Println("typede: ", reflect.TypeOf(typede))
-			}
-		}
+		// d := a[0]
+		// fmt.Println("d: ", d)
+		// typedd, ok := d.(map[string]interface{})
+		// if ok {
+		// 	e := typedd["ports"]
+		// 	fmt.Println("e: ", e)
+		// 	typede, ok := e.([]interface{})
+		// 	if ok {
+		// 		f := typede[0]
+		// 		fmt.Println("f: ", f)
+		// 		if f == "TCP" {
+		// 			fmt.Println("------TCP--------")
+		// 		}
+		// 	}
+		// 	switch typede := e.(type) {
+		// 	// map
+		// 	default:
+		// 		fmt.Println("typede: ", reflect.TypeOf(typede))
+		// 	}
+		// }
 
 		// ============================================
 		// ======= CleanUp Resources =====
@@ -559,7 +559,6 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 	}
 }
 
-// Test: when synchronize flag is set to true in the policy, one cannot delete the generated resource
 func Test_Generate_synchronize_flag(t *testing.T) {
 	RegisterTestingT(t)
 	// if os.Getenv("E2E") == "" {
@@ -628,6 +627,7 @@ func Test_Generate_synchronize_flag(t *testing.T) {
 		Expect(npRes.GetName()).To(Equal(test.NetworkPolicyName))
 		// ============================================
 
+		// Test: when synchronize flag is set to true in the policy, one cannot delete the generated resource
 		// ======= Delete Networkpolicy =====
 		By(fmt.Sprintf("Deleting NetworkPolicy %s in the Namespace : %s", test.NetworkPolicyName, test.ResourceNamespace))
 		err = e2eClient.DeleteNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
@@ -645,6 +645,47 @@ func Test_Generate_synchronize_flag(t *testing.T) {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
+
+		// check for metadata.resourceVersion in policy
+		genPolicy, err := e2eClient.GetNamespacedResource(clPolGVR, "", test.GeneratePolicyName)
+		Expect(err).NotTo(HaveOccurred())
+
+		resVer := genPolicy.GetResourceVersion()
+		unstructGenPol := unstructured.Unstructured{}
+		err = yaml.Unmarshal(test.UpdateData, &unstructGenPol)
+		Expect(err).NotTo(HaveOccurred())
+		unstructGenPol.SetResourceVersion(resVer)
+
+		// ======== Update Generate NetworkPolicy =============
+		By(fmt.Sprintf("Updating Generate NetworkPolicy"))
+		updatedGenPol, err := e2eClient.UpdateNamespacedResource(clPolGVR, npPolNS, &unstructGenPol)
+		Expect(err).NotTo(HaveOccurred())
+		// ============================================
+		j, _ := json.Marshal(updatedGenPol)
+		fmt.Println("updatedGenPol: ", string(j))
+
+		a, b, c := unstructured.NestedBool(updatedGenPol.UnstructuredContent(), "spec", "rules", "generate", "synchronize")
+		fmt.Println("\n\na: ", a, "\nb: ", b, "\nc", c)
+		// ============================================
+
+		// Test: with synchronize is false, one should be able to delete the generated resource
+		// ======= Delete Networkpolicy =====
+		By(fmt.Sprintf("Deleting NetworkPolicy %s in the Namespace : %s", test.NetworkPolicyName, test.ResourceNamespace))
+		err = e2eClient.DeleteNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
+		Expect(err).NotTo(HaveOccurred())
+		// ============================================
+
+		time.Sleep(10 * time.Second)
+		// ======= Check Networkpolicy =====
+		By(fmt.Sprintf("Checking NetworkPolicy %s in the Namespace : %s", test.NetworkPolicyName, test.ResourceNamespace))
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+			_, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+		Expect(err).To(HaveOccurred())
 
 		// ======= CleanUp Resources =====
 		e2eClient.CleanClusterPolicies(clPolGVR)

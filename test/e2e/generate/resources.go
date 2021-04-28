@@ -334,31 +334,41 @@ spec:
               - Egress
 `)
 
-// var genPolUPdatedDataForMatchPattern = map[string]interface{}{
-// 	"data": map[string]interface{}{
-// 		"spec": map[string]interface{}{
-// 			"egress": []map[string]interface{}{
-// 				{
-// 					"ports": []map[string]interface{}{
-// 						{
-// 							"protocol": "TCP",
-// 							"port":     5353,
-// 						},
-// 					},
-// 				},
-// 			},
-// 			"podSelector": map[string]interface{}{},
-// 			"policyTypes": []string{"Egress"},
-// 		},
-// 	},
-// }
-
-// data:
-//   spec:
-//     egress:
-//       - ports:
-//           - protocol: TCP
-//             port: 5353
-//     podSelector: {}
-//     policyTypes:
-//       - Egress
+var updateSynchronizeInGeneratePolicyYaml = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-networkpolicy
+spec:
+  background: true
+  rules:
+    - name: allow-dns
+      match:
+        resources:
+          kinds:
+            - Namespace
+          selector:
+            matchLabels:
+              security: standard
+      exclude:
+        resources:
+          namespaces:
+            - "kube-system"
+            - "default"
+            - "kube-public"
+            - "nova-kyverno"
+      generate:
+        synchronize: false
+        kind: NetworkPolicy
+        name: allow-dns
+        namespace: "{{request.object.metadata.name}}"
+        data:
+          spec:
+            egress:
+              - ports:
+                  - protocol: TCP
+                    port: 5353
+            podSelector: {}
+            policyTypes:
+              - Egress
+`)
