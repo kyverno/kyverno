@@ -140,3 +140,19 @@ func (e2e *E2EClient) UpdateClusteredResourceYaml(gvr schema.GroupVersionResourc
 	result, err := e2e.UpdateClusteredResource(gvr, &resource)
 	return result, err
 }
+
+// UpdateNamespacedResourceYaml creates namespaced resources like Pods, Services, Deployments etc
+func (e2e *E2EClient) UpdateNamespacedResourceYaml(gvr schema.GroupVersionResource, namespace string, resourceData []byte) (*unstructured.Unstructured, error) {
+	resource := unstructured.Unstructured{}
+	err := yaml.Unmarshal(resourceData, &resource)
+	if err != nil {
+		return nil, err
+	}
+	result, err := e2e.Client.Resource(gvr).Namespace(namespace).Update(context.TODO(), &resource, metav1.UpdateOptions{})
+	return result, err
+}
+
+// CreateNamespacedResource ...
+func (e2e *E2EClient) UpdateNamespacedResource(gvr schema.GroupVersionResource, namespace string, resourceData *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	return e2e.Client.Resource(gvr).Namespace(namespace).Update(context.TODO(), resourceData, metav1.UpdateOptions{})
+}

@@ -4,10 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/kyverno/kyverno/test/e2e"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -403,9 +406,9 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 
 func Test_Generate_Namespace_Without_Label(t *testing.T) {
 	RegisterTestingT(t)
-	if os.Getenv("E2E") == "" {
-		t.Skip("Skipping E2E Test")
-	}
+	// if os.Getenv("E2E") == "" {
+	// 	t.Skip("Skipping E2E Test")
+	// }
 	// Generate E2E Client ==================
 	e2eClient, err := e2e.NewE2EClient()
 	Expect(err).To(BeNil())
@@ -489,6 +492,52 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 		// =================================================
 
+		// Test: when changing the content in generate.data, the change should be synced to the generated resource
+		// check for metadata.resourceVersion in policy
+		genPolicy, err := e2eClient.GetNamespacedResource(clPolGVR, "", test.GeneratePolicyName)
+		Expect(err).NotTo(HaveOccurred())
+
+		resVer := genPolicy.GetResourceVersion()
+		unstructGenPol := unstructured.Unstructured{}
+		err = yaml.Unmarshal(test.UpdateData, &unstructGenPol)
+		Expect(err).NotTo(HaveOccurred())
+		unstructGenPol.SetResourceVersion(resVer)
+
+		// ======== Update Generate NetworkPolicy Policy =============
+		By(fmt.Sprintf("Updating Generate NetworkPolicy Policy"))
+		_, err = e2eClient.UpdateNamespacedResource(clPolGVR, npPolNS, &unstructGenPol)
+		Expect(err).NotTo(HaveOccurred())
+		// ============================================
+
+		// ======== Check Updated NetworkPolicy =============
+		// get updated network policy
+		updatedNetPol, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
+		fmt.Println("updatedNetPol: ", updatedNetPol)
+		Expect(err).NotTo(HaveOccurred())
+		// compare updated network policy and updated generate policy. how????
+		a, b, c := unstructured.NestedSlice(updatedNetPol.UnstructuredContent(), "spec", "egress")
+		fmt.Println("\n\nunstructured.NestedStringSlice  \na: ", a, "\nb: ", b, "\nc", c)
+		d := a[0]
+		fmt.Println("d: ", d)
+		typedd, ok := d.(map[string]interface{})
+		if ok {
+			e := typedd["ports"]
+			fmt.Println("e: ", e)
+			typede, ok := e.([]interface{})
+			if ok {
+				f := typede[0]
+				fmt.Println("f: ", f)
+				if f == "TCP" {
+					fmt.Println("------TCP--------")
+				}
+			}
+			switch typede := e.(type) {
+			// map
+			default:
+				fmt.Println("typede: ", reflect.TypeOf(typede))
+			}
+		}
+		// ============================================
 		// ======= CleanUp Resources =====
 		e2eClient.CleanClusterPolicies(clPolGVR)
 		// ================================================
