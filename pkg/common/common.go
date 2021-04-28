@@ -95,7 +95,7 @@ func VariableToJSON(key, value string) []byte {
 			startString += fmt.Sprintf(`{"%s":`, k)
 			endString += `}`
 			lenOfVariableString = lenOfVariableString + len(k) + 1
-			if lenOfVariableString >= len(splitBySlash[0]) && len(splitBySlash) > 1 && addedSlashString == false {
+			if lenOfVariableString >= len(splitBySlash[0]) && len(splitBySlash) > 1 && !addedSlashString {
 				startString += fmt.Sprintf(`{"%s":`, subString)
 				endString += `}`
 				addedSlashString = true
