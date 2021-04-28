@@ -256,7 +256,7 @@ func Test_ForceMutateSubstituteVarsWithPatchesJson6902(t *testing.T) {
 				}
 			  },
 			  "mutate": {
-				"patchesJson6902": "- op: add\n  path: \"/spec/template/spec/containers/0/command\"\n  value: ls"
+				"patchesJson6902": "- op: add\n  path: \"/spec/template/spec/containers/0/command/0\"\n  value: ls"
 			  }
 			}
 		  ]
@@ -282,6 +282,7 @@ func Test_ForceMutateSubstituteVarsWithPatchesJson6902(t *testing.T) {
 				"spec": {
 					"containers": [
 					{
+						"command": ["ll", "rm"],
 						"image": "nginx",
 						"name": "nginx"
 					}
@@ -310,7 +311,7 @@ func Test_ForceMutateSubstituteVarsWithPatchesJson6902(t *testing.T) {
 			"spec": {
 			  "containers": [
 				{
-				  "command": "ls",
+					"command": ["ls", "ll", "rm"],
 				  "image": "nginx",
 				  "name": "nginx"
 				}
