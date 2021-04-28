@@ -1,16 +1,12 @@
 package mutate
 
 import (
-	"encoding/json"
 	"fmt"
 	"testing"
 
 	"github.com/mattbaird/jsonpatch"
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	yaml "sigs.k8s.io/yaml"
 )
 
 func Test_GeneratePatches(t *testing.T) {
@@ -138,120 +134,6 @@ var overlayBytes = []byte(`
 `)
 
 var expectBytes = []byte(`{"apiVersion": "apps/v1","kind": "Deployment","metadata": {"name": "wordpress","labels": {"app": "wordpress"}},"spec": {"selector": {"matchLabels": {"app": "wordpress"}},"strategy": {"type": "Recreate"},"template": {"metadata": {"labels": {"app": "wordpress"}},"spec": {"containers": [{"name": "nginx","image": "nginx"},{"image": "wordpress:4.8-apache","name": "wordpress","ports": [{"containerPort": 80,"name": "wordpress"}],"volumeMounts": [{"name": "wordpress-persistent-storage","mountPath": "/var/www/html"}],"env": [{"name": "WORDPRESS_DB_HOST","value": "$(MYSQL_SERVICE)"},{"name": "WORDPRESS_DB_PASSWORD","valueFrom": {"secretKeyRef": {"name": "mysql-pass","key": "password"}}}]}],"volumes": [{"name": "wordpress-persistent-storage"}],"initContainers": [{"name": "init-command","image": "debian","command": ["echo $(WORDPRESS_SERVICE)","echo $(MYSQL_SERVICE)"]}]}}}}`)
-
-var podBytes = []byte(`
-{
-  "kind": "Pod",
-  "apiVersion": "v1",
-  "metadata": {
-      "name": "nginx"
-  },
-  "spec": {
-      "containers": [
-          {
-              "name": "nginx",
-              "image": "nginx:latest"
-          },
-          {
-            "name": "nginx-new",
-            "image": "nginx:latest"
-          }
-      ]
-  }
-}
-`)
-
-func Test_preProcessJSONPatches_skip(t *testing.T) {
-	patchesJSON6902 := []byte(`
-- op: add
-  path: /spec/containers/1
-  value: {"name":"nginx-new","image":"nginx:latest"}
-`)
-	var pod unstructured.Unstructured
-	assertnew.Nil(t, json.Unmarshal(podBytes, &pod))
-
-	patches, err := yaml.YAMLToJSON(patchesJSON6902)
-	assertnew.Nil(t, err)
-
-	skip, err := preProcessJSONPatches(patches, pod, log.Log)
-	assertnew.Nil(t, err)
-	assertnew.Equal(t, true, skip)
-}
-
-func Test_preProcessJSONPatches_not_skip(t *testing.T) {
-	patchesJSON6902 := []byte(`
-- op: add
-  path: /spec/containers/1
-  value: {"name":"my-new-container","image":"nginx:latest"}
-`)
-
-	patches, err := yaml.YAMLToJSON(patchesJSON6902)
-	assertnew.Nil(t, err)
-
-	var pod unstructured.Unstructured
-	assertnew.Nil(t, json.Unmarshal(podBytes, &pod))
-
-	skip, err := preProcessJSONPatches(patches, pod, log.Log)
-	assertnew.Nil(t, err)
-	assertnew.Equal(t, false, skip)
-}
-
-func Test_isSubsetObject_true(t *testing.T) {
-	var object, resource interface{}
-
-	objectRaw := []byte(`{"image": "nginx:latest","name": "nginx-new"}`)
-	resourceRaw := []byte(`{"image": "nginx:latest","name": "random-name"}`)
-	assertnew.Nil(t, json.Unmarshal(objectRaw, &object))
-	assertnew.Nil(t, json.Unmarshal(resourceRaw, &resource))
-	assertnew.Equal(t, false, isSubsetObject(object, resource))
-
-	resourceRawNew := []byte(`{"image": "nginx:latest","name": "nginx-new"}`)
-	assertnew.Nil(t, json.Unmarshal(resourceRawNew, &resource))
-	assertnew.Equal(t, true, isSubsetObject(object, resource))
-}
-
-func Test_getObject_notPresent(t *testing.T) {
-	path := "/spec/random/1"
-	var pod unstructured.Unstructured
-
-	assertnew.Nil(t, json.Unmarshal(podBytes, &pod))
-	_, err := getObject(path, pod.UnstructuredContent())
-	expectedErr := "referenced value does not exist at spec/random"
-	assertnew.Equal(t, err.Error(), expectedErr)
-}
-
-func Test_getObject_outOfIndex(t *testing.T) {
-	path := "/spec/containers/2"
-	var pod unstructured.Unstructured
-
-	assertnew.Nil(t, json.Unmarshal(podBytes, &pod))
-	object, err := getObject(path, pod.UnstructuredContent())
-	assertnew.Nil(t, err)
-	assertnew.Nil(t, object)
-
-}
-
-func Test_getObject_success(t *testing.T) {
-	path := "/spec/containers/1"
-	var pod unstructured.Unstructured
-	expectedObject := map[string]interface{}{"image": "nginx:latest", "name": "nginx-new"}
-
-	assertnew.Nil(t, json.Unmarshal(podBytes, &pod))
-	object, err := getObject(path, pod.UnstructuredContent())
-	assertnew.Nil(t, err)
-	assertnew.Equal(t, expectedObject, object)
-}
-
-func Test_getObject_get_last_element(t *testing.T) {
-	path := "/spec/containers/-"
-	var pod unstructured.Unstructured
-	expectedObject := map[string]interface{}{"image": "nginx:latest", "name": "nginx-new"}
-
-	assertnew.Nil(t, json.Unmarshal(podBytes, &pod))
-	object, err := getObject(path, pod.UnstructuredContent())
-	assertnew.Nil(t, err)
-	assertnew.Equal(t, expectedObject, object)
-}
 
 func Test_ignorePath(t *testing.T) {
 	tests := []struct {

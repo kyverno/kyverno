@@ -1,6 +1,6 @@
 # file path relative to project root
 input:
-  policy: samples/best_practices/disallow_privileged.yaml
+  policy: test/best_practices/disallow_privileged.yaml
   resource: test/resources/disallow_privileged.yaml
 expected:
   validation:

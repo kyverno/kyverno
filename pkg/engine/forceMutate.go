@@ -1,9 +1,7 @@
 package engine
 
 import (
-	"encoding/json"
 	"fmt"
-	"regexp"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -53,6 +51,7 @@ func mutateResourceWithOverlay(resource unstructured.Unstructured, overlay inter
 }
 
 // ForceMutate does not check any conditions, it simply mutates the given resource
+// It is used to validate mutation logic, and for tests.
 func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (unstructured.Unstructured, error) {
 	var err error
 	logger := log.Log.WithName("EngineForceMutate").WithValues("policy", policy.Name, "kind", resource.GetKind(),
@@ -63,17 +62,15 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 			continue
 		}
 
+		rule, err = variables.SubstituteAllForceMutate(log.Log, ctx, rule)
+		if err != nil {
+			return unstructured.Unstructured{}, err
+		}
+
 		mutation := rule.Mutation.DeepCopy()
 
 		if mutation.Overlay != nil {
 			overlay := mutation.Overlay
-			if ctx != nil {
-				if overlay, err = variables.SubstituteVars(log.Log, ctx, overlay); err != nil {
-					return unstructured.Unstructured{}, err
-				}
-			} else {
-				overlay = replaceSubstituteVariables(overlay)
-			}
 
 			resource, err = mutateResourceWithOverlay(resource, overlay)
 			if err != nil {
@@ -92,28 +89,4 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 	}
 
 	return resource, nil
-}
-
-func replaceSubstituteVariables(overlay interface{}) interface{} {
-	overlayRaw, err := json.Marshal(overlay)
-	if err != nil {
-		return overlay
-	}
-
-	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
-	for {
-		if len(regex.FindAllStringSubmatch(string(overlayRaw), -1)) > 0 {
-			overlayRaw = regex.ReplaceAll(overlayRaw, []byte(`placeholderValue`))
-		} else {
-			break
-		}
-	}
-
-	var output interface{}
-	err = json.Unmarshal(overlayRaw, &output)
-	if err != nil {
-		return overlay
-	}
-
-	return output
 }

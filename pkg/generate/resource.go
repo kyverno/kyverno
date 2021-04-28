@@ -7,6 +7,9 @@ import (
 )
 
 func getResource(client *dclient.Client, resourceSpec kyverno.ResourceSpec) (*unstructured.Unstructured, error) {
+	if resourceSpec.Kind == "Namespace" {
+		resourceSpec.Namespace = ""
+	}
 	resource, err := client.GetResource(resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
 	if err != nil {
 		return nil, err

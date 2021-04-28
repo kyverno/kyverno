@@ -11,9 +11,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
+	"github.com/kyverno/kyverno/pkg/tls"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -35,6 +39,7 @@ type Register struct {
 	serverIP       string // when running outside a cluster
 	timeoutSeconds int32
 	log            logr.Logger
+	debug          bool
 }
 
 // NewRegister creates new Register instance
@@ -44,6 +49,7 @@ func NewRegister(
 	resCache resourcecache.ResourceCache,
 	serverIP string,
 	webhookTimeout int32,
+	debug bool,
 	log logr.Logger) *Register {
 	return &Register{
 		clientConfig:   clientConfig,
@@ -52,6 +58,7 @@ func NewRegister(
 		serverIP:       serverIP,
 		timeoutSeconds: webhookTimeout,
 		log:            log.WithName("Register"),
+		debug:          debug,
 	}
 }
 
@@ -61,27 +68,36 @@ func (wrc *Register) Register() error {
 	if wrc.serverIP != "" {
 		logger.Info("Registering webhook", "url", fmt.Sprintf("https://%s", wrc.serverIP))
 	}
-
+	if !wrc.debug {
+		if err := wrc.checkEndpoint(); err != nil {
+			return err
+		}
+	}
 	wrc.removeWebhookConfigurations()
 
+	caData := wrc.readCaData()
+	if caData == nil {
+		return errors.New("Unable to extract CA data from configuration")
+	}
+
 	errors := make([]string, 0)
-	if err := wrc.createVerifyMutatingWebhookConfiguration(); err != nil {
+	if err := wrc.createVerifyMutatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
 
-	if err := wrc.createPolicyValidatingWebhookConfiguration(); err != nil {
+	if err := wrc.createPolicyValidatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
 
-	if err := wrc.createPolicyMutatingWebhookConfiguration(); err != nil {
+	if err := wrc.createPolicyMutatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
 
-	if err := wrc.createResourceValidatingWebhookConfiguration(); err != nil {
+	if err := wrc.createResourceValidatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
 
-	if err := wrc.createResourceMutatingWebhookConfiguration(); err != nil {
+	if err := wrc.createResourceMutatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
 
@@ -122,18 +138,45 @@ func (wrc *Register) Check() error {
 
 // Remove removes all webhook configurations
 func (wrc *Register) Remove(cleanUp chan<- struct{}) {
+	defer close(cleanUp)
+	if !wrc.cleanupKyvernoResource() {
+		return
+	}
+
 	wrc.removeWebhookConfigurations()
-	close(cleanUp)
+	wrc.removeSecrets()
 }
 
-func (wrc *Register) createResourceMutatingWebhookConfiguration() error {
-
-	var caData []byte
-	var config *admregapi.MutatingWebhookConfiguration
-
-	if caData = wrc.readCaData(); caData == nil {
-		return errors.New("Unable to extract CA data from configuration")
+// cleanupKyvernoResource returns true if Kyverno deployment is terminating
+func (wrc *Register) cleanupKyvernoResource() bool {
+	logger := wrc.log.WithName("cleanupKyvernoResource")
+	deploy, err := wrc.client.GetResource("", "Deployment", deployNamespace, deployName)
+	if err != nil {
+		logger.Error(err, "failed to get deployment, cleanup kyverno resources anyway")
+		return true
 	}
+
+	if deploy.GetDeletionTimestamp() != nil {
+		logger.Info("Kyverno is terminating, cleanup Kyverno resources")
+		return true
+	}
+
+	replicas, _, err := unstructured.NestedInt64(deploy.UnstructuredContent(), "spec", "replicas")
+	if err != nil {
+		logger.Error(err, "unable to fetch spec.replicas of Kyverno deployment")
+	}
+
+	if replicas == 0 {
+		logger.Info("Kyverno is scaled to zero, cleanup Kyverno resources")
+		return true
+	}
+
+	logger.Info("updating Kyverno Pod, won't clean up Kyverno resources")
+	return false
+}
+
+func (wrc *Register) createResourceMutatingWebhookConfiguration(caData []byte) error {
+	var config *admregapi.MutatingWebhookConfiguration
 
 	if wrc.serverIP != "" {
 		config = wrc.constructDebugMutatingWebhookConfig(caData)
@@ -158,13 +201,9 @@ func (wrc *Register) createResourceMutatingWebhookConfiguration() error {
 	return nil
 }
 
-func (wrc *Register) createResourceValidatingWebhookConfiguration() error {
-	var caData []byte
+func (wrc *Register) createResourceValidatingWebhookConfiguration(caData []byte) error {
 	var config *admregapi.ValidatingWebhookConfiguration
 
-	if caData = wrc.readCaData(); caData == nil {
-		return errors.New("Unable to extract CA data from configuration")
-	}
 	if wrc.serverIP != "" {
 		config = wrc.constructDebugValidatingWebhookConfig(caData)
 	} else {
@@ -189,14 +228,8 @@ func (wrc *Register) createResourceValidatingWebhookConfiguration() error {
 }
 
 //registerPolicyValidatingWebhookConfiguration create a Validating webhook configuration for Policy CRD
-func (wrc *Register) createPolicyValidatingWebhookConfiguration() error {
-	var caData []byte
+func (wrc *Register) createPolicyValidatingWebhookConfiguration(caData []byte) error {
 	var config *admregapi.ValidatingWebhookConfiguration
-
-	// read certificate data
-	if caData = wrc.readCaData(); caData == nil {
-		return errors.New("Unable to extract CA data from configuration")
-	}
 
 	if wrc.serverIP != "" {
 		config = wrc.contructDebugPolicyValidatingWebhookConfig(caData)
@@ -217,13 +250,8 @@ func (wrc *Register) createPolicyValidatingWebhookConfiguration() error {
 	return nil
 }
 
-func (wrc *Register) createPolicyMutatingWebhookConfiguration() error {
-	var caData []byte
+func (wrc *Register) createPolicyMutatingWebhookConfiguration(caData []byte) error {
 	var config *admregapi.MutatingWebhookConfiguration
-
-	if caData = wrc.readCaData(); caData == nil {
-		return errors.New("Unable to extract CA data from configuration")
-	}
 
 	if wrc.serverIP != "" {
 		config = wrc.contructDebugPolicyMutatingWebhookConfig(caData)
@@ -245,13 +273,8 @@ func (wrc *Register) createPolicyMutatingWebhookConfiguration() error {
 	return nil
 }
 
-func (wrc *Register) createVerifyMutatingWebhookConfiguration() error {
-	var caData []byte
+func (wrc *Register) createVerifyMutatingWebhookConfiguration(caData []byte) error {
 	var config *admregapi.MutatingWebhookConfiguration
-
-	if caData = wrc.readCaData(); caData == nil {
-		return errors.New("Unable to extract CA data from configuration")
-	}
 
 	if wrc.serverIP != "" {
 		config = wrc.constructDebugVerifyMutatingWebhookConfig(caData)
@@ -297,6 +320,14 @@ func (wrc *Register) removePolicyMutatingWebhookConfiguration(wg *sync.WaitGroup
 	mutatingConfig := wrc.getPolicyMutatingWebhookConfigurationName()
 
 	logger := wrc.log.WithValues("kind", kindMutating, "name", mutatingConfig)
+
+	if mutateCache, ok := wrc.resCache.GetGVRCache("MutatingWebhookConfiguration"); ok {
+		if _, err := mutateCache.Lister().Get(mutatingConfig); err != nil && errorsapi.IsNotFound(err) {
+			logger.V(4).Info("webhook not found")
+			return
+		}
+	}
+
 	err := wrc.client.DeleteResource("", kindMutating, "", mutatingConfig, false)
 	if errorsapi.IsNotFound(err) {
 		logger.V(5).Info("policy mutating webhook configuration not found")
@@ -327,6 +358,13 @@ func (wrc *Register) removePolicyValidatingWebhookConfiguration(wg *sync.WaitGro
 	validatingConfig := wrc.getPolicyValidatingWebhookConfigurationName()
 
 	logger := wrc.log.WithValues("kind", kindValidating, "name", validatingConfig)
+	if mutateCache, ok := wrc.resCache.GetGVRCache("ValidatingWebhookConfiguration"); ok {
+		if _, err := mutateCache.Lister().Get(validatingConfig); err != nil && errorsapi.IsNotFound(err) {
+			logger.V(4).Info("webhook not found")
+			return
+		}
+	}
+
 	logger.V(4).Info("removing validating webhook configuration")
 	err := wrc.client.DeleteResource("", kindValidating, "", validatingConfig, false)
 	if errorsapi.IsNotFound(err) {
@@ -405,8 +443,15 @@ func (wrc *Register) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup
 
 	var err error
 	mutatingConfig := wrc.getVerifyWebhookMutatingWebhookName()
-
 	logger := wrc.log.WithValues("kind", kindMutating, "name", mutatingConfig)
+
+	if mutateCache, ok := wrc.resCache.GetGVRCache("MutatingWebhookConfiguration"); ok {
+		if _, err := mutateCache.Lister().Get(mutatingConfig); err != nil && errorsapi.IsNotFound(err) {
+			logger.V(4).Info("webhook not found")
+			return
+		}
+	}
+
 	err = wrc.client.DeleteResource("", kindMutating, "", mutatingConfig, false)
 	if errorsapi.IsNotFound(err) {
 		logger.V(5).Info("verify webhook configuration not found")
@@ -434,4 +479,72 @@ func (wrc *Register) getVerifyWebhookMutatingWebhookName() string {
 // GetWebhookTimeOut returns the value of webhook timeout
 func (wrc *Register) GetWebhookTimeOut() time.Duration {
 	return time.Duration(wrc.timeoutSeconds)
+}
+
+// removeSecrets removes Kyverno managed secrets
+func (wrc *Register) removeSecrets() {
+	selector := &v1.LabelSelector{
+		MatchLabels: map[string]string{
+			tls.ManagedByLabel: "kyverno",
+		},
+	}
+
+	secretList, err := wrc.client.ListResource("", "Secret", config.KyvernoNamespace, selector)
+	if err != nil {
+		wrc.log.Error(err, "failed to clean up Kyverno managed secrets")
+		return
+	}
+
+	for _, secret := range secretList.Items {
+		if err := wrc.client.DeleteResource("", "Secret", secret.GetNamespace(), secret.GetName(), false); err != nil {
+			wrc.log.Error(err, "failed to delete secret", "ns", secret.GetNamespace(), "name", secret.GetName())
+		}
+	}
+}
+
+func (wrc *Register) checkEndpoint() error {
+	obj, err := wrc.client.GetResource("", "Endpoints", config.KyvernoNamespace, config.KyvernoServiceName)
+	if err != nil {
+		return fmt.Errorf("failed to get endpoint %s/%s: %v", config.KyvernoNamespace, config.KyvernoServiceName, err)
+	}
+	var endpoint corev1.Endpoints
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &endpoint)
+	if err != nil {
+		return fmt.Errorf("failed to convert endpoint %s/%s from unstructured: %v", config.KyvernoNamespace, config.KyvernoServiceName, err)
+	}
+
+	pods, err := wrc.client.ListResource("", "Pod", config.KyvernoNamespace, &v1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": "kyverno"}})
+	if err != nil {
+		return fmt.Errorf("failed to list Kyverno Pod: %v", err)
+	}
+
+	kyverno := pods.Items[0]
+	podIp, _, err := unstructured.NestedString(kyverno.UnstructuredContent(), "status", "podIP")
+	if err != nil {
+		return fmt.Errorf("failed to extract pod IP: %v", err)
+	}
+
+	if podIp == "" {
+		return fmt.Errorf("Pod is not assigned to any node yet")
+	}
+
+	for _, subset := range endpoint.Subsets {
+		if len(subset.Addresses) == 0 {
+			continue
+		}
+
+		for _, addr := range subset.Addresses {
+			if addr.IP == podIp {
+				wrc.log.Info("Endpoint ready", "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
+				return nil
+			}
+		}
+	}
+
+	// clean up old webhook configurations, if any
+	wrc.removeWebhookConfigurations()
+
+	err = fmt.Errorf("Endpoint not ready")
+	wrc.log.V(3).Info(err.Error(), "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
+	return err
 }

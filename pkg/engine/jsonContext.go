@@ -5,13 +5,14 @@ import (
 	"errors"
 	"fmt"
 
+	"strings"
+
 	"github.com/go-logr/logr"
-	"github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic/dynamiclister"
 )
 
@@ -60,7 +61,12 @@ func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCont
 		return nil
 	}
 
-	results, err := applyJMESPath(entry.APICall.JMESPath, jsonData)
+	path, err := variables.SubstituteAll(logger, ctx.JSONContext, entry.APICall.JMESPath)
+	if err != nil {
+		return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.APICall.JMESPath, err)
+	}
+
+	results, err := applyJMESPath(path.(string), jsonData)
 	if err != nil {
 		return fmt.Errorf("failed to apply JMESPath for context entry %v: %v", entry, err)
 	}
@@ -82,7 +88,7 @@ func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCont
 }
 
 func applyJMESPath(jmesPath string, jsonData []byte) (interface{}, error) {
-	jp, err := jmespath.Compile(jmesPath)
+	jp, err := jmespath.New(jmesPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", jmesPath, err)
 	}
@@ -101,7 +107,7 @@ func fetchAPIData(log logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContex
 		return nil, fmt.Errorf("missing APICall in context entry %s %v", entry.Name, entry.APICall)
 	}
 
-	path, err := variables.SubstituteVars(log, ctx.JSONContext, entry.APICall.URLPath)
+	path, err := variables.SubstituteAll(log, ctx.JSONContext, entry.APICall.URLPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.APICall.URLPath, err)
 	}
@@ -168,12 +174,12 @@ func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynami
 func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynamiclister.Lister, jsonContext *context.Context) ([]byte, error) {
 	contextData := make(map[string]interface{})
 
-	name, err := variables.SubstituteVars(logger, jsonContext, entry.ConfigMap.Name)
+	name, err := variables.SubstituteAll(logger, jsonContext, entry.ConfigMap.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.name %s: %v", entry.Name, entry.ConfigMap.Name, err)
 	}
 
-	namespace, err := variables.SubstituteVars(logger, jsonContext, entry.ConfigMap.Namespace)
+	namespace, err := variables.SubstituteAll(logger, jsonContext, entry.ConfigMap.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.namespace %s: %v", entry.Name, entry.ConfigMap.Namespace, err)
 	}
@@ -188,10 +194,10 @@ func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynam
 		return nil, fmt.Errorf("failed to read configmap %s/%s from cache: %v", namespace, name, err)
 	}
 
-	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert configmap %s/%s: %v", namespace, name, err)
-	}
+	unstructuredObj := obj.DeepCopy().Object
+
+	// update the unstructuredObj["data"] to delimit and split the string value (containing "\n") with "\n"
+	unstructuredObj["data"] = parseMultilineBlockBody(unstructuredObj["data"].(map[string]interface{}))
 
 	// extract configmap data
 	contextData["data"] = unstructuredObj["data"]
@@ -204,4 +210,24 @@ func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynam
 	}
 
 	return data, nil
+}
+
+// parseMultilineBlockBody recursively iterates through a map and updates its values in the following way
+// whenever it encounters a string value containing "\n",
+// it converts it into a []string by splitting it by "\n"
+func parseMultilineBlockBody(m map[string]interface{}) map[string]interface{} {
+	for k, v := range m {
+		switch typedValue := v.(type) {
+		case string:
+			trimmedTypedValue := strings.Trim(typedValue, "\n")
+			if strings.Contains(trimmedTypedValue, "\n") {
+				m[k] = strings.Split(trimmedTypedValue, "\n")
+			} else {
+				m[k] = trimmedTypedValue // trimming a str if it has trailing newline characters
+			}
+		default:
+			continue
+		}
+	}
+	return m
 }

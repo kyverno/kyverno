@@ -20,12 +20,22 @@ LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKA
 # KYVERNO
 ##################################
 
+.PHONY: unused-package-check
+unused-package-check:
+	@echo "------------------"
+	@echo "--> Check unused packages for the all kyverno components"
+	@echo "------------------"
+	@tidy=$$(go mod tidy); \
+	if [ -n "$${tidy}" ]; then \
+		echo "go mod tidy checking failed!"; echo "$${tidy}"; echo; \
+	fi
+
 KYVERNO_PATH:= cmd/kyverno
 build: kyverno
 PWD := $(CURDIR)
 
 ##################################
-# INIT CONTAINER 
+# INIT CONTAINER
 ##################################
 INITC_PATH := cmd/initContainer
 INITC_IMAGE := kyvernopre
@@ -43,8 +53,8 @@ docker-build-initContainer-amd64:
 	@docker build -f $(PWD)/$(INITC_PATH)/Dockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64"
 
 docker-push-initContainer:
-	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) .
-	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(INITC_IMAGE):latest .
+	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(INITC_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 ##################################
 # KYVERNO CONTAINER
@@ -74,8 +84,8 @@ docker-build-kyverno-amd64:
 	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64"
 
 docker-push-kyverno:
-	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) .
-	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):latest .
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 ##################################
 
@@ -105,8 +115,8 @@ docker-build-cli-amd64:
 	@docker build -f $(PWD)/$(CLI_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64"
 
 docker-push-cli:
-	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) .
-	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_CLI_IMAGE):latest .
+	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_CLI_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 ##################################
 docker-publish-all: docker-publish-initContainer docker-publish-kyverno docker-publish-cli
@@ -127,7 +137,7 @@ create-e2e-infrastruture:
 ##################################
 
 ##################################
-# Testing & Code-Coverage 
+# Testing & Code-Coverage
 ##################################
 
 ## variables
@@ -143,7 +153,7 @@ $(GO_ACC):
 	go get -v github.com/ory/go-acc
 	$(eval export PATH=$(GO_ACC):$(PATH))
 # go test provides code coverage per packages only.
-# go-acc merges the result for pks so that it be used by	
+# go-acc merges the result for pks so that it be used by
 # go tool cover for reporting
 
 # go get downloads and installs the binary
@@ -161,16 +171,22 @@ code-cov-report: $(CODE_COVERAGE_FILE_TXT)
 # Test E2E
 test-e2e:
 	$(eval export E2E="ok")
-	go test ./test/e2e/... -v
+	go test ./test/e2e/mutate -v
+	go test ./test/e2e/generate -v
 	$(eval export E2E="")
+
+#Test TestCmd Policy
+run_testcmd_policy:
+	go build -o  kyvernoctl cmd/cli/kubectl-kyverno/main.go
+	./kyvernoctl test https://github.com/kyverno/policies/main
 
 # godownloader create downloading script for kyverno-cli
 godownloader:
 	godownloader .goreleaser.yml --repo kyverno/kyverno -o ./scripts/install-cli.sh  --source="raw"
 
-# kustomize-crd will create install.yaml 
+# kustomize-crd will create install.yaml
 kustomize-crd:
-	# Create CRD for helm deployment Helm 
+	# Create CRD for helm deployment Helm
 	kustomize build ./definitions/crds > ./charts/kyverno/crds/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
 	kustomize build ./definitions > ./definitions/install.yaml
@@ -189,7 +205,7 @@ kyverno-crd: controller-gen
 report-crd: controller-gen
 	$(CONTROLLER_GEN) crd paths=./pkg/api/policyreport/v1alpha1 output:dir=./definitions/crds
 
-# install the right version of controller-gen 
+# install the right version of controller-gen
 install-controller-gen:
 	@{ \
 	set -e ;\

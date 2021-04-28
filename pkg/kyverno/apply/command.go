@@ -93,6 +93,13 @@ To apply policy with variables:
 					values:
 					<variable1 in policy2>: <value>
 					<variable2 in policy2>: <value>
+		namespaceSelector:
+			- name: <namespace1 name>
+			labels:
+				<label key>: <label value>
+			- name: <namespace2 name>
+			labels:
+				<label key>: <label value>
 
 More info: https://kyverno.io/docs/kyverno-cli/
 `
@@ -100,7 +107,7 @@ More info: https://kyverno.io/docs/kyverno-cli/
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
-	var cluster, policyReport bool
+	var cluster, policyReport, stdin bool
 	var mutateLogPath, variablesString, valuesFile, namespace string
 
 	cmd = &cobra.Command{
@@ -117,12 +124,12 @@ func Command() *cobra.Command {
 				}
 			}()
 
-			validateEngineResponses, rc, resources, skippedPolicies, err := applyCommandHelper(resourcePaths, cluster, policyReport, mutateLogPath, variablesString, valuesFile, namespace, policyPaths)
+			validateEngineResponses, rc, resources, skippedPolicies, err := applyCommandHelper(resourcePaths, cluster, policyReport, mutateLogPath, variablesString, valuesFile, namespace, policyPaths, stdin)
 			if err != nil {
 				return err
 			}
 
-			printReportOrViolation(policyReport, validateEngineResponses, rc, resourcePaths, len(resources), skippedPolicies)
+			printReportOrViolation(policyReport, validateEngineResponses, rc, resourcePaths, len(resources), skippedPolicies, stdin)
 			return nil
 		},
 	}
@@ -134,11 +141,12 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&valuesFile, "values-file", "f", "", "File containing values for policy variables")
 	cmd.Flags().BoolVarP(&policyReport, "policy-report", "", false, "Generates policy report when passed (default policyviolation r")
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
+	cmd.Flags().BoolVarP(&stdin, "stdin", "i", false, "Optional mutate policy parameter to pipe directly through to kubectl")
 	return cmd
 }
 
 func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool, mutateLogPath string,
-	variablesString string, valuesFile string, namespace string, policyPaths []string) (validateEngineResponses []*response.EngineResponse, rc *resultCounts, resources []*unstructured.Unstructured, skippedPolicies []SkippedPolicy, err error) {
+	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool) (validateEngineResponses []*response.EngineResponse, rc *resultCounts, resources []*unstructured.Unstructured, skippedPolicies []SkippedPolicy, err error) {
 
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
 	fs := memfs.New()
@@ -147,7 +155,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("pass the values either using set flag or values_file flag", err)
 	}
 
-	variables, valuesMap, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
+	variables, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -198,6 +206,18 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		return validateEngineResponses, rc, resources, skippedPolicies, err
 	}
 
+	// empty the previous contents of the file just in case if the file already existed before with some content(so as to perform overwrites)
+	// the truncation of files for the case when mutateLogPath is dir, is handled under pkg/kyverno/apply/common.go
+	if !mutateLogPathIsDir && mutateLogPath != "" {
+		_, err := os.OpenFile(mutateLogPath, os.O_TRUNC|os.O_WRONLY, 0644)
+		if err != nil {
+			if !sanitizederror.IsErrorSanitized(err) {
+				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("failed to truncate the existing file at "+mutateLogPath, err)
+			}
+			return validateEngineResponses, rc, resources, skippedPolicies, err
+		}
+	}
+
 	mutatedPolicies, err := common.MutatePolices(policies)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
@@ -222,7 +242,9 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	}
 
 	if len(mutatedPolicies) > 0 && len(resources) > 0 {
-		fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
+		if !stdin {
+			fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
+		}
 	}
 
 	rc = &resultCounts{}
@@ -268,7 +290,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 			}
 
-			ers, validateErs, responseError, rcErs, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport)
+			ers, validateErs, responseError, rcErs, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin)
 			if err != nil {
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}
@@ -311,7 +333,7 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 }
 
 // printReportOrViolation - printing policy report/violations
-func printReportOrViolation(policyReport bool, validateEngineResponses []*response.EngineResponse, rc *resultCounts, resourcePaths []string, resourcesLen int, skippedPolicies []SkippedPolicy) {
+func printReportOrViolation(policyReport bool, validateEngineResponses []*response.EngineResponse, rc *resultCounts, resourcePaths []string, resourcesLen int, skippedPolicies []SkippedPolicy, stdin bool) {
 	if policyReport {
 		os.Setenv("POLICY-TYPE", pkgCommon.PolicyReport)
 		resps := buildPolicyReports(validateEngineResponses, skippedPolicies)
@@ -328,9 +350,10 @@ func printReportOrViolation(policyReport bool, validateEngineResponses []*respon
 		if rcCount < len(resourcePaths) {
 			rc.skip += len(resourcePaths) - rcCount
 		}
-
-		fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n",
-			rc.pass, rc.fail, rc.warn, rc.error, rc.skip)
+		if !stdin {
+			fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n",
+				rc.pass, rc.fail, rc.warn, rc.error, rc.skip)
+		}
 
 		if rc.fail > 0 || rc.error > 0 {
 			os.Exit(1)

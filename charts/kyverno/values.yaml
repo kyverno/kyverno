@@ -4,6 +4,8 @@ namespace:
 # Supported- default/restricted/privileged/custom
 # For more info- https://kyverno.io/policies/pod-security
 podSecurityStandard: default
+# Supported- low/medium/high
+podSecuritySeverity: medium
 # Policies to include when podSecurityStandard is custom
 podSecurityPolicies: []
 # Supported values- `audit`, `enforce`
@@ -57,6 +59,8 @@ hostNetwork: false
 # for further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
 dnsPolicy: "ClusterFirst"
 
+envVars: {}
+
 extraArgs: []
 # - --webhooktimeout=4
 
@@ -76,7 +80,7 @@ livenessProbe:
     port: 9443
     scheme: HTTPS
   initialDelaySeconds: 10
-  periodSeconds: 10
+  periodSeconds: 30
   timeoutSeconds: 5
   failureThreshold: 2
   successThreshold: 1
@@ -114,6 +118,7 @@ config:
   - "[APIService,*,*]"
   - "[TokenReview,*,*]"
   - "[SubjectAccessReview,*,*]"
+  - "[SelfSubjectAccessReview,*,*]"
   - "[*,kyverno,*]"
   - "[Binding,*,*]"
   - "[ReplicaSet,*,*]"
@@ -149,4 +154,3 @@ service:
 # 3) Let Helm generate a self signed cert, by setting createSelfSignedCert true
 # If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false
 createSelfSignedCert: false
-

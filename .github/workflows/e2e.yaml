@@ -5,7 +5,6 @@ on:
       - 'main'
     paths-ignore:
       - 'README.md'
-      - 'samples/**'
       - 'charts/**'
       - 'docs/**'
   pull_request:
@@ -13,7 +12,6 @@ on:
       - 'main'
     paths-ignore:
       - 'README.md'
-      - 'samples/**'
       - 'charts/**'
       - 'docs/**'
 
@@ -27,10 +25,18 @@ jobs:
       - name: Unshallow
         run: git fetch --prune --unshallow
 
-      - name: Set up Go
+      - name: Set up Go 
         uses: actions/setup-go@v2
         with:
           go-version: 1.14
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v1
+        with:
+          version: v3.5.0
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.0.1
 
       - name: Cache Go modules
         uses: actions/cache@v1
@@ -39,6 +45,10 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+
+      - name: Test Policy
+        run: |
+          make run_testcmd_policy
       
       - name: gofmt check
         run: |
@@ -71,6 +81,19 @@ jobs:
           echo ">>> Check kyverno"
           kubectl get pods -n kyverno
           ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh -n kyverno  kyverno
+          sleep 20
           echo ">>> Run Kyverno e2e test"
           make test-e2e
+          kubectl delete -f ${GITHUB_WORKSPACE}/definitions/install.yaml
 
+      - name: Update chart values
+        run: |
+          sed -i -e "s|nameOverride:.*|nameOverride: kyverno|g" charts/kyverno/values.yaml
+          sed -i -e "s|fullnameOverride:.*|fullnameOverride: kyverno|g" charts/kyverno/values.yaml
+          sed -i -e "s|namespace:.*|namespace: kyverno|g" charts/kyverno/values.yaml
+          sed -i -e "s|tag:.*|tag: $(git describe --always --tags)|g" charts/kyverno/values.yaml
+
+      - name: Run chart-testing (install)
+        run: |
+          kubectl create namespace kyverno
+          ct install --target-branch=main --namespace=kyverno

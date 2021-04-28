@@ -232,9 +232,12 @@ func getFileBytes(path string) ([]byte, error) {
 
 func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error) {
 	decode := scheme.Codecs.UniversalDeserializer().Decode
-	_, metaData, err := decode(resourceYaml, nil, nil)
-	if err != nil {
-		return nil, err
+	_, metaData, decodeErr := decode(resourceYaml, nil, nil)
+
+	if decodeErr != nil {
+		if !strings.Contains(decodeErr.Error(), "no kind") {
+			return nil, decodeErr
+		}
 	}
 
 	resourceJSON, err := yaml.YAMLToJSON(resourceYaml)
@@ -247,7 +250,9 @@ func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructu
 		return nil, err
 	}
 
-	resource.SetGroupVersionKind(*metaData)
+	if decodeErr == nil {
+		resource.SetGroupVersionKind(*metaData)
+	}
 
 	if resource.GetNamespace() == "" {
 		resource.SetNamespace("default")

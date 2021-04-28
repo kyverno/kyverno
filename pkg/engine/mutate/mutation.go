@@ -6,7 +6,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -56,20 +55,7 @@ func newpatchStrategicMergeHandler(ruleName string, mutate *kyverno.Mutation, pa
 }
 
 func (h patchStrategicMergeHandler) Handle() (response.RuleResponse, unstructured.Unstructured) {
-	var ruleResponse response.RuleResponse
-	PatchStrategicMerge := h.mutation.PatchStrategicMerge
-	log := h.logger
-
-	// substitute the variables
-	var err error
-	if PatchStrategicMerge, err = variables.SubstituteVars(log, h.evalCtx, PatchStrategicMerge); err != nil {
-		// variable subsitution failed
-		ruleResponse.Success = false
-		ruleResponse.Message = err.Error()
-		return ruleResponse, h.patchedResource
-	}
-
-	return ProcessStrategicMergePatch(h.ruleName, PatchStrategicMerge, h.patchedResource, log)
+	return ProcessStrategicMergePatch(h.ruleName, h.mutation.PatchStrategicMerge, h.patchedResource, h.logger)
 }
 
 // overlayHandler
@@ -121,33 +107,11 @@ func (h patchesJSON6902Handler) Handle() (resp response.RuleResponse, patchedRes
 		return resp, h.patchedResource
 	}
 
-	skip, err := preProcessJSONPatches(patchesJSON6902, h.patchedResource, h.logger)
-	if err != nil {
-		h.logger.Error(err, "failed to preProcessJSONPatches")
-	}
-
-	if skip {
-		resp.Success = true
-		return resp, h.patchedResource
-	}
-
 	return ProcessPatchJSON6902(h.ruleName, patchesJSON6902, h.patchedResource, h.logger)
 }
 
 func (h overlayHandler) Handle() (response.RuleResponse, unstructured.Unstructured) {
-	var ruleResponse response.RuleResponse
-	overlay := h.mutation.Overlay
-
-	// substitute the variables
-	var err error
-	if overlay, err = variables.SubstituteVars(h.logger, h.evalCtx, overlay); err != nil {
-		// variable substitution failed
-		ruleResponse.Success = false
-		ruleResponse.Message = err.Error()
-		return ruleResponse, h.patchedResource
-	}
-
-	return ProcessOverlay(h.logger, h.ruleName, overlay, h.patchedResource)
+	return ProcessOverlay(h.logger, h.ruleName, h.mutation.Overlay, h.patchedResource)
 }
 
 // patchesHandler
@@ -172,25 +136,6 @@ func newpatchesHandler(ruleName string, mutate *kyverno.Mutation, patchedResourc
 func (h patchesHandler) Handle() (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	resp.Name = h.ruleName
 	resp.Type = utils.Mutation.String()
-
-	// patches is already converted to patchesJSON6902
-	patchesJSON6902, err := convertPatchesToJSON(h.mutation.PatchesJSON6902)
-	if err != nil {
-		resp.Success = false
-		h.logger.Error(err, "error in type conversion")
-		resp.Message = err.Error()
-		return resp, h.patchedResource
-	}
-
-	skip, err := preProcessJSONPatches(patchesJSON6902, h.patchedResource, h.logger)
-	if err != nil {
-		h.logger.Error(err, "failed to preProcessJSONPatches")
-	}
-
-	if skip {
-		resp.Success = true
-		return resp, h.patchedResource
-	}
 
 	return ProcessPatches(h.logger, h.ruleName, *h.mutation, h.patchedResource)
 }

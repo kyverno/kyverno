@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -27,11 +26,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
+	ktls "github.com/kyverno/kyverno/pkg/tls"
 	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	userinfo "github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/generate"
+	"github.com/pkg/errors"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	informers "k8s.io/client-go/informers/core/v1"
@@ -104,6 +105,8 @@ type WebhookServer struct {
 	// last request time
 	webhookMonitor *webhookconfig.Monitor
 
+	certRenewer *ktls.CertRenewer
+
 	// policy report generator
 	prGenerator policyreport.GeneratorInterface
 
@@ -120,8 +123,6 @@ type WebhookServer struct {
 	log logr.Logger
 
 	openAPIController *openapi.Controller
-
-	supportMutateValidate bool
 
 	// resCache - controls creation and fetching of resource informer cache
 	resCache resourcecache.ResourceCache
@@ -148,12 +149,12 @@ func NewWebhookServer(
 	pCache policycache.Interface,
 	webhookRegistrationClient *webhookconfig.Register,
 	webhookMonitor *webhookconfig.Monitor,
+	certRenewer *ktls.CertRenewer,
 	statusSync policystatus.Listener,
 	configHandler config.Interface,
 	prGenerator policyreport.GeneratorInterface,
 	grGenerator *webhookgenerate.Generator,
 	auditHandler AuditHandler,
-	supportMutateValidate bool,
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
@@ -187,26 +188,26 @@ func NewWebhookServer(
 		nsLister:       namespace.Lister(),
 		nsListerSynced: namespace.Informer().HasSynced,
 
-		crbLister:             crbInformer.Lister(),
-		crLister:              crInformer.Lister(),
-		crbSynced:             crbInformer.Informer().HasSynced,
-		crSynced:              crInformer.Informer().HasSynced,
-		eventGen:              eventGen,
-		pCache:                pCache,
-		webhookRegister:       webhookRegistrationClient,
-		statusListener:        statusSync,
-		configHandler:         configHandler,
-		cleanUp:               cleanUp,
-		webhookMonitor:        webhookMonitor,
-		prGenerator:           prGenerator,
-		grGenerator:           grGenerator,
-		grController:          grc,
-		auditHandler:          auditHandler,
-		log:                   log,
-		openAPIController:     openAPIController,
-		supportMutateValidate: supportMutateValidate,
-		resCache:              resCache,
-		debug:                 debug,
+		crbLister:         crbInformer.Lister(),
+		crLister:          crInformer.Lister(),
+		crbSynced:         crbInformer.Informer().HasSynced,
+		crSynced:          crInformer.Informer().HasSynced,
+		eventGen:          eventGen,
+		pCache:            pCache,
+		webhookRegister:   webhookRegistrationClient,
+		statusListener:    statusSync,
+		configHandler:     configHandler,
+		cleanUp:           cleanUp,
+		webhookMonitor:    webhookMonitor,
+		certRenewer:       certRenewer,
+		prGenerator:       prGenerator,
+		grGenerator:       grGenerator,
+		grController:      grc,
+		auditHandler:      auditHandler,
+		log:               log,
+		openAPIController: openAPIController,
+		resCache:          resCache,
+		debug:             debug,
 	}
 
 	mux := httprouter.New()
@@ -220,7 +221,11 @@ func NewWebhookServer(
 	// Fail this request if Kubernetes should restart this instance
 	mux.HandlerFunc("GET", config.LivenessServicePath, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-		w.WriteHeader(http.StatusOK)
+		if err := ws.webhookRegister.Check(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
 	})
 
 	// Handle Readiness responds to a Kubernetes Readiness probe
@@ -291,7 +296,6 @@ func writeResponse(rw http.ResponseWriter, admissionReview *v1beta1.AdmissionRev
 
 // ResourceMutation mutates resource
 func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-
 	logger := ws.log.WithName("ResourceMutation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 
 	if excludeKyvernoResources(request.Kind.Kind) {
@@ -302,24 +306,14 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 			},
 		}
 	}
+
 	logger.V(6).Info("received an admission request in mutating webhook")
 	mutatePolicies := ws.pCache.Get(policycache.Mutate, nil)
-	validatePolicies := ws.pCache.Get(policycache.ValidateEnforce, nil)
 	generatePolicies := ws.pCache.Get(policycache.Generate, nil)
 
 	// Get namespace policies from the cache for the requested resource namespace
 	nsMutatePolicies := ws.pCache.Get(policycache.Mutate, &request.Namespace)
 	mutatePolicies = append(mutatePolicies, nsMutatePolicies...)
-
-	// getRoleRef only if policy has roles/clusterroles defined
-	var roles, clusterRoles []string
-	var err error
-	if containRBACInfo(mutatePolicies, validatePolicies, generatePolicies) {
-		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
-		if err != nil {
-			logger.Error(err, "failed to get RBAC information for request")
-		}
-	}
 
 	// convert RAW to unstructured
 	resource, err := utils.ConvertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
@@ -334,50 +328,44 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 		}
 	}
 
+	var roles, clusterRoles []string
+	// getRoleRef only if policy has roles/clusterroles defined
+	if containRBACInfo(mutatePolicies, generatePolicies) {
+		if roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler); err != nil {
+			logger.Error(err, "failed to get RBAC information for request")
+		}
+	}
+
 	userRequestInfo := v1.RequestInfo{
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
-		AdmissionUserInfo: *request.UserInfo.DeepCopy()}
-
-	// build context
-	ctx := enginectx.NewContext()
-	err = ctx.AddRequest(request)
-	if err != nil {
-		logger.Error(err, "failed to load incoming request in context")
+		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}
 
-	err = ctx.AddUserInfo(userRequestInfo)
+	ctx, err := newVariablesContext(request, &userRequestInfo)
 	if err != nil {
-		logger.Error(err, "failed to load userInfo in context")
+		logger.Error(err, "unable to build variable context")
 	}
-	err = ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username)
-	if err != nil {
-		logger.Error(err, "failed to load service account in context")
+
+	if err := ctx.AddImageInfo(&resource); err != nil {
+		logger.Error(err, "unable to add image info to variables context")
 	}
 
 	var patches []byte
 	patchedResource := request.Object.Raw
 
 	// MUTATION
-	if ws.supportMutateValidate {
-		if resource.GetDeletionTimestamp() == nil {
-			patches = ws.HandleMutation(request, resource, mutatePolicies, ctx, userRequestInfo)
-			logger.V(6).Info("", "generated patches", string(patches))
+	patches = ws.HandleMutation(request, resource, mutatePolicies, ctx, userRequestInfo)
+	logger.V(6).Info("", "generated patches", string(patches))
 
-			// patch the resource with patches before handling validation rules
-			patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
-			logger.V(6).Info("", "patchedResource", string(patchedResource))
-		}
-	} else {
-		logger.Info("mutate rules are not supported prior to Kubernetes 1.14.0")
-	}
+	// patch the resource with patches before handling validation rules
+	patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
+	logger.V(6).Info("", "patchedResource", string(patchedResource))
 
 	// GENERATE
-	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
-		newRequest := request.DeepCopy()
-		newRequest.Object.Raw = patchedResource
-		go ws.HandleGenerate(newRequest, generatePolicies, ctx, userRequestInfo, ws.configHandler)
-	}
+	newRequest := request.DeepCopy()
+	newRequest.Object.Raw = patchedResource
+	go ws.HandleGenerate(newRequest, generatePolicies, ctx, userRequestInfo, ws.configHandler)
 
 	patchType := v1beta1.PatchTypeJSONPatch
 	return &v1beta1.AdmissionResponse{
@@ -394,16 +382,6 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	logger := ws.log.WithName("Validate").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	if request.Operation == v1beta1.Delete {
 		ws.handleDelete(request)
-	}
-
-	if !ws.supportMutateValidate {
-		logger.Info("mutate and validate rules are not supported prior to Kubernetes 1.14.0")
-		return &v1beta1.AdmissionResponse{
-			Allowed: true,
-			Result: &metav1.Status{
-				Status: "Success",
-			},
-		}
 	}
 
 	if excludeKyvernoResources(request.Kind.Kind) {
@@ -435,7 +413,6 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	if containRBACInfo(policies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
 		if err != nil {
-			logger.Error(err, "failed to get RBAC information for request")
 			return &v1beta1.AdmissionResponse{
 				Allowed: false,
 				Result: &metav1.Status{
@@ -444,30 +421,23 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 				},
 			}
 		}
-		logger = logger.WithValues("username", request.UserInfo.Username,
-			"groups", request.UserInfo.Groups, "roles", roles, "clusterRoles", clusterRoles)
 	}
 
 	userRequestInfo := v1.RequestInfo{
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
-		AdmissionUserInfo: request.UserInfo}
-
-	// build context
-	ctx := enginectx.NewContext()
-	err = ctx.AddRequest(request)
-	if err != nil {
-		logger.Error(err, "failed to load incoming request in context")
+		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}
 
-	err = ctx.AddUserInfo(userRequestInfo)
+	ctx, err := newVariablesContext(request, &userRequestInfo)
 	if err != nil {
-		logger.Error(err, "failed to load userInfo in context")
-	}
-
-	err = ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username)
-	if err != nil {
-		logger.Error(err, "failed to load service account in context")
+		return &v1beta1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Status:  "Failure",
+				Message: err.Error(),
+			},
+		}
 	}
 
 	namespaceLabels := make(map[string]string)
@@ -512,7 +482,7 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 	logger.Info("starting service")
 
 	if !ws.debug {
-		go ws.webhookMonitor.Run(ws.webhookRegister, ws.eventGen, ws.client, stopCh)
+		go ws.webhookMonitor.Run(ws.webhookRegister, ws.certRenewer, ws.eventGen, stopCh)
 	}
 }
 
@@ -564,4 +534,21 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 	}
 
 	return admissionReview
+}
+
+func newVariablesContext(request *v1beta1.AdmissionRequest, userRequestInfo *v1.RequestInfo) (*enginectx.Context, error) {
+	ctx := enginectx.NewContext()
+	if err := ctx.AddRequest(request); err != nil {
+		return nil, errors.Wrap(err, "failed to load incoming request in context")
+	}
+
+	if err := ctx.AddUserInfo(*userRequestInfo); err != nil {
+		return nil, errors.Wrap(err, "failed to load userInfo in context")
+	}
+
+	if err := ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username); err != nil {
+		return nil, errors.Wrap(err, "failed to load service account in context")
+	}
+
+	return ctx, nil
 }

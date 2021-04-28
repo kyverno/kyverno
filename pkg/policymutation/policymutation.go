@@ -13,6 +13,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 )
@@ -272,6 +273,18 @@ func createRuleMap(rules []kyverno.Rule) map[string]kyvernoRule {
 	}
 	return ruleMap
 }
+func updateGenRuleByte(pbyte []byte, kind string, genRule kyvernoRule) (obj []byte) {
+	if err := json.Unmarshal(pbyte, &genRule); err != nil {
+		return obj
+	}
+	if kind == "Pod" {
+		return []byte(strings.Replace(string(pbyte), "request.object.spec", "request.object.spec.template.spec", -1))
+	}
+	if kind == "Cronjob" {
+		return []byte(strings.Replace(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec", -1))
+	}
+	return obj
+}
 
 // generateRulePatches generates rule for podControllers based on scenario A and C
 func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log logr.Logger) (rulePatches [][]byte, errs []error) {
@@ -327,6 +340,7 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log l
 		genRule := generateRuleForControllers(rule, stripCronJob(controllers), log)
 		if !reflect.DeepEqual(genRule, kyvernoRule{}) {
 			pbytes := convertToPatches(genRule, patchPostion)
+			pbytes = updateGenRuleByte(pbytes, "Pod", genRule)
 			if pbytes != nil {
 				rulePatches = append(rulePatches, pbytes)
 			}
@@ -338,6 +352,7 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log l
 		genRule = generateCronJobRule(rule, controllers, log)
 		if !reflect.DeepEqual(genRule, kyvernoRule{}) {
 			pbytes := convertToPatches(genRule, patchPostion)
+			pbytes = updateGenRuleByte(pbytes, "Cronjob", genRule)
 			if pbytes != nil {
 				rulePatches = append(rulePatches, pbytes)
 			}
@@ -480,7 +495,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 
 	if rule.Validation.Pattern != nil {
 		newValidate := &kyverno.Validation{
-			Message: rule.Validation.Message,
+			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
 			Pattern: map[string]interface{}{
 				"spec": map[string]interface{}{
 					"template": rule.Validation.Pattern,
@@ -509,7 +524,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		}
 
 		controllerRule.Validation = &kyverno.Validation{
-			Message:    rule.Validation.Message,
+			Message:    variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "anyPattern"),
 			AnyPattern: patterns,
 		}
 		return *controllerRule

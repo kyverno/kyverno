@@ -9,6 +9,7 @@ import (
 
 	"github.com/jmespath/go-jmespath"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -152,10 +153,10 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 				obj.SetLabels(label)
 				_, err = client.UpdateResource(obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
 				if err != nil {
-					log.Log.Error(err, "failed to update source  name:%v namespace:%v kind:%v", obj.GetName(), obj.GetNamespace(), obj.GetKind())
+					log.Log.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
 					continue
 				}
-				log.Log.V(4).Info("updated source  name:%v namespace:%v kind:%v", obj.GetName(), obj.GetNamespace(), obj.GetKind())
+				log.Log.V(4).Info("updated source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
 			}
 		}
 	}
@@ -681,7 +682,10 @@ func validateAPICall(entry kyverno.ContextEntry) error {
 		return fmt.Errorf("both configMap and apiCall are not allowed in a context entry")
 	}
 
-	if _, err := engine.NewAPIPath(entry.APICall.URLPath); err != nil {
+	// Replace all variables to prevent validation failing on variable keys.
+	urlPath := variables.ReplaceAllVars(entry.APICall.URLPath, func(s string) string { return "kyvernoapicallvariable" })
+
+	if _, err := engine.NewAPIPath(urlPath); err != nil {
 		return err
 	}
 

@@ -14,7 +14,11 @@ import (
 	"time"
 )
 
-const certValidityDuration = 10 * 365 * 24 * time.Hour
+// CertRenewalInterval is the renewal interval for rootCA
+const CertRenewalInterval time.Duration = 12 * time.Hour
+
+// CertValidityDuration is the valid duration for a new cert
+const CertValidityDuration time.Duration = 365 * 24 * time.Hour
 
 // CertificateProps Properties of TLS certificate which should be issued for webhook server
 type CertificateProps struct {
@@ -63,7 +67,7 @@ func CertificateToPem(certificateDER []byte) []byte {
 
 // GenerateCACert creates the self-signed CA cert and private key
 // it will be used to sign the webhook server certificate
-func GenerateCACert() (*KeyPair, *PemPair, error) {
+func GenerateCACert(certValidityDuration time.Duration) (*KeyPair, *PemPair, error) {
 	now := time.Now()
 	begin := now.Add(-1 * time.Hour)
 	end := now.Add(certValidityDuration)
@@ -110,7 +114,7 @@ func GenerateCACert() (*KeyPair, *PemPair, error) {
 
 // GenerateCertPem takes the results of GenerateCACert and uses it to create the
 // PEM-encoded public certificate and private key, respectively
-func GenerateCertPem(caCert *KeyPair, props CertificateProps, serverIP string) (*PemPair, error) {
+func GenerateCertPem(caCert *KeyPair, props CertificateProps, serverIP string, certValidityDuration time.Duration) (*PemPair, error) {
 	now := time.Now()
 	begin := now.Add(-1 * time.Hour)
 	end := now.Add(certValidityDuration)
@@ -121,7 +125,7 @@ func GenerateCertPem(caCert *KeyPair, props CertificateProps, serverIP string) (
 
 	dnsNames[1] = fmt.Sprintf("%s.%s", props.Service, props.Namespace)
 	// The full service name is the CommonName for the certificate
-	commonName := GenerateInClusterServiceName(props)
+	commonName := generateInClusterServiceName(props)
 	dnsNames[2] = fmt.Sprintf("%s", commonName)
 
 	var ips []net.IP
@@ -174,7 +178,7 @@ func GenerateCertPem(caCert *KeyPair, props CertificateProps, serverIP string) (
 }
 
 //GenerateInClusterServiceName The generated service name should be the common name for TLS certificate
-func GenerateInClusterServiceName(props CertificateProps) string {
+func generateInClusterServiceName(props CertificateProps) string {
 	return props.Service + "." + props.Namespace + ".svc"
 }
 

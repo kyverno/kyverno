@@ -72,6 +72,10 @@ func HandleValidation(
 		return true, ""
 	}
 
+	if err := ctx.AddImageInfo(&newR); err != nil {
+		logger.Error(err, "unable to add image info to variables context")
+	}
+
 	policyContext := &engine.PolicyContext{
 		NewResource:         newR,
 		OldResource:         oldR,
@@ -132,12 +136,13 @@ func HandleValidation(
 		return false, getEnforceFailureErrorMsg(engineResponses)
 	}
 
-	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
-	prGenerator.Add(prInfos...)
-
 	if request.Operation == v1beta1.Delete {
 		prGenerator.Add(buildDeletionPrInfo(oldR))
+		return true, ""
 	}
+
+	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
+	prGenerator.Add(prInfos...)
 
 	return true, ""
 }

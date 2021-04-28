@@ -5,7 +5,10 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	random "math/rand"
 	"reflect"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -19,10 +22,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
+	utils "github.com/kyverno/kyverno/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers/core/v1"
@@ -92,8 +97,12 @@ type PolicyController struct {
 	// policy report generator
 	prGenerator policyreport.GeneratorInterface
 
+	policyReportEraser policyreport.PolicyReportEraser
+
 	// resCache - controls creation and fetching of resource informer cache
 	resCache resourcecache.ResourceCache
+
+	reconcilePeriod time.Duration
 
 	log logr.Logger
 }
@@ -107,9 +116,11 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	configHandler config.Interface,
 	eventGen event.Interface,
 	prGenerator policyreport.GeneratorInterface,
+	policyReportEraser policyreport.PolicyReportEraser,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
-	resCache resourcecache.ResourceCache) (*PolicyController, error) {
+	resCache resourcecache.ResourceCache,
+	reconcilePeriod time.Duration) (*PolicyController, error) {
 
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
@@ -121,15 +132,17 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		eventGen:      eventGen,
-		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
-		configHandler: configHandler,
-		prGenerator:   prGenerator,
-		log:           log,
-		resCache:      resCache,
+		client:             client,
+		kyvernoClient:      kyvernoClient,
+		eventGen:           eventGen,
+		eventRecorder:      eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
+		queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
+		configHandler:      configHandler,
+		prGenerator:        prGenerator,
+		policyReportEraser: policyReportEraser,
+		log:                log,
+		resCache:           resCache,
+		reconcilePeriod:    reconcilePeriod,
 	}
 
 	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -182,7 +195,16 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	logger := pc.log
 	p := obj.(*kyverno.ClusterPolicy)
 
-	logger.Info("policy created event", "uid", p.UID, "kind", "ClusterPolicy", "policy_name", p.Name)
+	logger.Info("policy created", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
+
+	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || checkAutoGenRules(p) {
+		p.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": strconv.Itoa(random.Intn(100))})
+		p.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
+		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", p, false)
+		if err != nil {
+			logger.Error(err, "failed to add policy ")
+		}
+	}
 
 	if !pc.canBackgroundProcess(p) {
 		return
@@ -197,6 +219,15 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
 
+	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || checkAutoGenRules(curP) {
+		curP.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": strconv.Itoa(random.Intn(100))})
+		curP.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
+		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", curP, false)
+		if err != nil {
+			logger.Error(err, "failed to update policy ")
+		}
+	}
+
 	if !pc.canBackgroundProcess(curP) {
 		return
 	}
@@ -205,7 +236,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 		return
 	}
 
-	logger.V(4).Info("updating policy", "name", oldP.Name)
+	logger.V(2).Info("updating policy", "name", oldP.Name)
 
 	pc.enqueueRCRDeletedRule(oldP, curP)
 	pc.enqueuePolicy(curP)
@@ -228,7 +259,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 		}
 	}
 
-	logger.Info("policy deleted event", "uid", p.UID, "kind", "ClusterPolicy", "policy_name", p.Name)
+	logger.Info("policy deleted", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
 
 	// we process policies that are not set of background processing
 	// as we need to clean up GRs when a policy is deleted
@@ -240,9 +271,17 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	logger := pc.log
 	p := obj.(*kyverno.Policy)
 
-	logger.Info("policy created event", "uid", p.UID, "kind", "Policy", "policy_name", p.Name, "namespaces", p.Namespace)
+	logger.Info("policy created", "uid", p.UID, "kind", "Policy", "name", p.Name, "namespaces", p.Namespace)
 
 	pol := ConvertPolicyToClusterPolicy(p)
+	if pol.Spec.Background == nil || pol.Spec.ValidationFailureAction == "" || checkAutoGenRules(pol) {
+		pol.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": strconv.Itoa(random.Intn(100))})
+		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
+		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", p.Namespace, pol, false)
+		if err != nil {
+			logger.Error(err, "failed to add namespace policy")
+		}
+	}
 	if !pc.canBackgroundProcess(pol) {
 		return
 	}
@@ -255,6 +294,16 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	oldP := old.(*kyverno.Policy)
 	curP := cur.(*kyverno.Policy)
 	ncurP := ConvertPolicyToClusterPolicy(curP)
+
+	if ncurP.Spec.Background == nil || ncurP.Spec.ValidationFailureAction == "" || checkAutoGenRules(ncurP) {
+		ncurP.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": strconv.Itoa(random.Intn(100))})
+		ncurP.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
+		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", ncurP.GetNamespace(), ncurP, false)
+		if err != nil {
+			logger.Error(err, "failed to update namespace policy ")
+		}
+	}
+
 	if !pc.canBackgroundProcess(ncurP) {
 		return
 	}
@@ -335,7 +384,7 @@ func (pc *PolicyController) enqueuePolicy(policy *kyverno.ClusterPolicy) {
 }
 
 // Run begins watching and syncing.
-func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
+func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-chan struct{}) {
 	logger := pc.log
 
 	defer utilruntime.HandleCrash()
@@ -352,6 +401,9 @@ func (pc *PolicyController) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, time.Second, stopCh)
 	}
+
+	go pc.forceReconciliation(reconcileCh, stopCh)
+
 	<-stopCh
 }
 
@@ -466,4 +518,41 @@ func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 			}
 		}
 	}
+}
+
+func checkAutoGenRules(policy *kyverno.ClusterPolicy) bool {
+	var podRuleName []string
+	ruleCount := 1
+	for _, rule := range policy.Spec.Rules {
+		if utils.ContainsString(rule.MatchResources.ResourceDescription.Kinds, "Pod") {
+			podRuleName = append(podRuleName, rule.Name)
+		}
+	}
+	if len(podRuleName) > 0 {
+		annotations := policy.GetAnnotations()
+		val, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
+		if !ok {
+			return true
+		}
+		if val == "none" {
+			return false
+		}
+		res := strings.Split(val, ",")
+
+		if len(res) == 1 {
+			ruleCount = 2
+		}
+		if len(res) > 1 {
+			if utils.ContainsString(res, "CronJob") {
+				ruleCount = 3
+			} else {
+				ruleCount = 2
+			}
+		}
+
+		if len(policy.Spec.Rules) != (ruleCount * len(podRuleName)) {
+			return true
+		}
+	}
+	return false
 }

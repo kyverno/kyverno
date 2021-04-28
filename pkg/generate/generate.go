@@ -123,6 +123,10 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		return nil, err
 	}
 
+	if err := ctx.AddImageInfo(&resource); err != nil {
+		logger.Error(err, "unable to add image info to variables context")
+	}
+
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
 		Policy:              *policyObj,
@@ -195,6 +199,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 
 	ruleNameToProcessingTime := make(map[string]time.Duration)
 	for _, rule := range policy.Spec.Rules {
+		var err error
 		if !rule.HasGenerate() {
 			continue
 		}
@@ -217,7 +222,12 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 
 		// add configmap json data to context
 		if err := engine.LoadContext(log, rule.Context, resCache, policyContext); err != nil {
-			log.Info("cannot add configmaps to context", "reason", err.Error())
+			log.Error(err, "cannot add configmaps to context")
+			return nil, err
+		}
+
+		if rule, err = variables.SubstituteAllInRule(log, policyContext.JSONContext, rule); err != nil {
+			log.Error(err, "variable substitution failed for rule %s", rule.Name)
 			return nil, err
 		}
 
@@ -312,16 +322,6 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		return noGenResource, err
 	}
 
-	// Variable substitutions
-	// format : {{<variable_name}}
-	// - if there is variables that are not defined the context -> results in error and rule is not applied
-	// - valid variables are replaced with the values
-	object, err := variables.SubstituteVars(log, ctx, genUnst.Object)
-	if err != nil {
-		return noGenResource, err
-	}
-
-	genUnst.Object, _ = object.(map[string]interface{})
 	genKind, genName, genNamespace, genAPIVersion, err := getResourceInfo(genUnst.Object)
 	if err != nil {
 		return noGenResource, err
@@ -377,7 +377,9 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	newResource.SetAPIVersion(genAPIVersion)
 	// manage labels
 	// - app.kubernetes.io/managed-by: kyverno
-	// - kyverno.io/generated-by: kind/namespace/name (trigger resource)
+	// "kyverno.io/generated-by-kind": kind (trigger resource)
+	// "kyverno.io/generated-by-namespace": namespace (trigger resource)
+	// "kyverno.io/generated-by-name": name (trigger resource)
 	manageLabels(newResource, resource)
 	// Add Synchronize label
 	label := newResource.GetLabels()

@@ -23,7 +23,7 @@ spec:
       name: Background
       type: string
     - jsonPath: .spec.validationFailureAction
-      name: Validation Failure Action
+      name: Action
       type: string
     name: v1
     schema:
@@ -361,7 +361,8 @@ spec:
                           type: array
                         resources:
                           description: ResourceDescription contains information about
-                            the resource being created or modified.
+                            the resource being created or modified. Requires at least
+                            one tag to be specified when under MatchResources.
                           properties:
                             annotations:
                               additionalProperties:

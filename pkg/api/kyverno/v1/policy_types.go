@@ -21,7 +21,7 @@ type PolicyList struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Background",type="string",JSONPath=".spec.background"
-// +kubebuilder:printcolumn:name="Validation Failure Action",type="string",JSONPath=".spec.validationFailureAction"
+// +kubebuilder:printcolumn:name="Action",type="string",JSONPath=".spec.validationFailureAction"
 // +kubebuilder:resource:shortName=pol
 type Policy struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
@@ -221,6 +221,7 @@ type MatchResources struct {
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
+	// Requires at least one tag to be specified when under MatchResources.
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 

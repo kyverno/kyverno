@@ -10,11 +10,15 @@ import (
 )
 
 // ResourceCache - allows the creation, deletion and saving the resource informers as a cache
+// the resource cache can be registered by gvks as follows:
+// - group/version/kind
+// - group/kind
+// - kind
 type ResourceCache interface {
-	CreateInformers(resources ...string) []error
-	CreateResourceInformer(resource string) (GenericCache, error)
-	StopResourceInformer(resource string)
-	GetGVRCache(resource string) (GenericCache, bool)
+	CreateInformers(gvks ...string) []error
+	CreateGVKInformer(gvk string) (GenericCache, error)
+	StopResourceInformer(gvk string)
+	GetGVRCache(gvk string) (GenericCache, bool)
 }
 
 type resourceCache struct {

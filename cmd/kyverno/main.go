@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/signal"
+	ktls "github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
@@ -40,33 +41,36 @@ const resyncPeriod = 15 * time.Minute
 var (
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
-	filterK8sResources             string
-	kubeconfig                     string
-	serverIP                       string
-	runValidationInMutatingWebhook string
-	excludeGroupRole               string
-	excludeUsername                string
-	profilePort                    string
+	filterK8sResources string
+	kubeconfig         string
+	serverIP           string
+	excludeGroupRole   string
+	excludeUsername    string
+	profilePort        string
 
 	webhookTimeout int
+	genWorkers     int
 
 	profile      bool
 	policyReport bool
-	setupLog     = log.Log.WithName("setup")
+
+	policyControllerResyncPeriod time.Duration
+	setupLog                     = log.Log.WithName("setup")
 )
 
 func main() {
 	klog.InitFlags(nil)
 	log.SetLogger(klogr.New())
-	flag.StringVar(&filterK8sResources, "filterK8sResources", "", "k8 resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. example --filterKind \"[Deployment, kyverno, kyverno]\" --filterKind \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
+	flag.StringVar(&filterK8sResources, "filterK8sResources", "", "Resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. For example, --filterK8sResources \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
 	flag.StringVar(&excludeGroupRole, "excludeGroupRole", "", "")
 	flag.StringVar(&excludeUsername, "excludeUsername", "", "")
-	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "timeout for webhook configurations")
+	flag.IntVar(&webhookTimeout, "webhooktimeout", 3, "Timeout for webhook configurations")
+	flag.IntVar(&genWorkers, "gen-workers", 10, "Workers for generate controller")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
-	flag.StringVar(&runValidationInMutatingWebhook, "runValidationInMutatingWebhook", "", "Validation will also be done using the mutation webhook, set to 'true' to enable. Older kubernetes versions do not work properly when a validation webhook is registered.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
 	flag.StringVar(&profilePort, "profile-port", "6060", "Enable profiling at given port, default to 6060.")
+	flag.DurationVar(&policyControllerResyncPeriod, "background-scan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h.")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -134,17 +138,18 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "ConfigMap lookup disabled: failed to create resource cache")
 	}
-
+	debug := serverIP != ""
 	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,
 		client,
 		rCache,
 		serverIP,
 		int32(webhookTimeout),
+		debug,
 		log.Log)
 
 	// Resource Mutating Webhook Watcher
-	webhookMonitor := webhookconfig.NewMonitor(log.Log.WithName("WebhookMonitor"))
+	webhookMonitor := webhookconfig.NewMonitor(rCache, log.Log.WithName("WebhookMonitor"))
 
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
@@ -152,20 +157,7 @@ func main() {
 	//		- ClusterPolicyReport, PolicyReport
 	//		- GenerateRequest
 	//		- ClusterReportChangeRequest, ReportChangeRequest
-	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, resyncPeriod)
-
-	// Configuration Data
-	// dynamically load the configuration from configMap
-	// - resource filters
-	// if the configMap is update, the configuration will be updated :D
-	configData := config.NewConfigData(
-		kubeClient,
-		kubeInformer.Core().V1().ConfigMaps(),
-		filterK8sResources,
-		excludeGroupRole,
-		excludeUsername,
-		log.Log.WithName("ConfigData"),
-	)
+	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, policyControllerResyncPeriod)
 
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
@@ -182,10 +174,7 @@ func main() {
 		pInformer.Kyverno().V1().Policies().Lister())
 
 	// POLICY Report GENERATOR
-	// -- generate policy report
-	var reportReqGen *policyreport.Generator
-	var prgen *policyreport.ReportGenerator
-	reportReqGen = policyreport.NewReportChangeRequestGenerator(pclient,
+	reportReqGen := policyreport.NewReportChangeRequestGenerator(pclient,
 		client,
 		pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
 		pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
@@ -195,13 +184,28 @@ func main() {
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
 
-	prgen = policyreport.NewReportGenerator(client,
+	prgen := policyreport.NewReportGenerator(pclient,
+		client,
 		pInformer.Wgpolicyk8s().V1alpha1().ClusterPolicyReports(),
 		pInformer.Wgpolicyk8s().V1alpha1().PolicyReports(),
 		pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
 		pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyReportGenerator"),
+	)
+
+	// Configuration Data
+	// dynamically load the configuration from configMap
+	// - resource filters
+	// if the configMap is update, the configuration will be updated :D
+	configData := config.NewConfigData(
+		kubeClient,
+		kubeInformer.Core().V1().ConfigMaps(),
+		filterK8sResources,
+		excludeGroupRole,
+		excludeUsername,
+		prgen.ReconcileCh,
+		log.Log.WithName("ConfigData"),
 	)
 
 	// POLICY CONTROLLER
@@ -216,9 +220,11 @@ func main() {
 		configData,
 		eventGenerator,
 		reportReqGen,
+		prgen,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
 		rCache,
+		policyControllerResyncPeriod,
 	)
 
 	if err != nil {
@@ -283,18 +289,36 @@ func main() {
 		client,
 	)
 
+	certRenewer := ktls.NewCertRenewer(client, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, log.Log.WithName("CertRenewer"))
 	// Configure certificates
-	tlsPair, err := client.InitTLSPemPair(clientConfig, serverIP)
+	tlsPair, err := certRenewer.InitTLSPemPair(serverIP)
 	if err != nil {
 		setupLog.Error(err, "Failed to initialize TLS key/certificate pair")
 		os.Exit(1)
 	}
 
 	// Register webhookCfg
-	if err = webhookCfg.Register(); err != nil {
-		setupLog.Error(err, "Failed to register admission control webhooks")
-		os.Exit(1)
-	}
+	go func() {
+		registerTimeout := time.After(30 * time.Second)
+		registerTicker := time.NewTicker(time.Second)
+		defer registerTicker.Stop()
+		var err error
+	loop:
+		for {
+			select {
+			case <-registerTicker.C:
+				err = webhookCfg.Register()
+				if err != nil {
+					setupLog.V(3).Info("Failed to register admission control webhooks", "reason", err.Error())
+				} else {
+					break loop
+				}
+			case <-registerTimeout:
+				setupLog.Error(err, "Timeout registering admission control webhooks")
+				os.Exit(1)
+			}
+		}
+	}()
 
 	openAPIController, err := openapi.NewOpenAPIController()
 	if err != nil {
@@ -305,15 +329,12 @@ func main() {
 	// Sync openAPI definitions of resources
 	openAPISync := openapi.NewCRDSync(client, openAPIController)
 
-	supportMutateValidate := utils.HigherThanKubernetesVersion(client, log.Log, 1, 14, 0)
-
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
 	// - reports the results based on the response from the policy engine:
 	// -- annotations on resources with update details on mutation JSON patches
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
-	debug := serverIP != ""
 	server, err := webhooks.NewWebhookServer(
 		pclient,
 		client,
@@ -329,12 +350,12 @@ func main() {
 		pCacheController.Cache,
 		webhookCfg,
 		webhookMonitor,
+		certRenewer,
 		statusSync.Listener,
 		configData,
 		reportReqGen,
 		grgen,
 		auditHandler,
-		supportMutateValidate,
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
@@ -355,11 +376,11 @@ func main() {
 
 	go reportReqGen.Run(2, stopCh)
 	go prgen.Run(1, stopCh)
-	go grgen.Run(1, stopCh)
 	go configData.Run(stopCh)
-	go policyCtrl.Run(2, stopCh)
+	go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
 	go eventGenerator.Run(3, stopCh)
-	go grc.Run(1, stopCh)
+	go grgen.Run(10, stopCh)
+	go grc.Run(genWorkers, stopCh)
 	go grcc.Run(1, stopCh)
 	go statusSync.Run(1, stopCh)
 	go pCacheController.Run(1, stopCh)

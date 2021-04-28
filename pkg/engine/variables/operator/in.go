@@ -110,19 +110,20 @@ func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidTy
 }
 
 func (in InHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
-	invalidType, keyExists := setExistsInArray(key, value, in.log)
+	invalidType, isIn := setExistsInArray(key, value, in.log, false)
 	if invalidType {
 		in.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
-	return keyExists
+	return isIn
 }
 
 // setExistsInArray checks if the key is a subset of value
 // The value can be a string, an array of strings, or a JSON format
 // array of strings (e.g. ["val1", "val2", "val3"].
-func setExistsInArray(key []string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
+// notIn argument if set to true will check for NotIn
+func setExistsInArray(key []string, value interface{}, log logr.Logger, notIn bool) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
 
 	case []interface{}:
@@ -134,8 +135,10 @@ func setExistsInArray(key []string, value interface{}, log logr.Logger) (invalid
 			}
 			valueSlice = append(valueSlice, v)
 		}
-
-		return false, isSubset(key, valueSlice)
+		if notIn {
+			return false, isNotIn(key, valueSlice)
+		}
+		return false, isIn(key, valueSlice)
 
 	case string:
 
@@ -148,34 +151,51 @@ func setExistsInArray(key []string, value interface{}, log logr.Logger) (invalid
 			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
 			return true, false
 		}
+		if notIn {
+			return false, isNotIn(key, arr)
+		}
 
-		return false, isSubset(key, arr)
+		return false, isIn(key, arr)
 
 	default:
 		return true, false
 	}
 }
 
-// isSubset checks if S1 is a subset of S2 i.e. ALL values of S1 are in S2
-func isSubset(key []string, value []string) bool {
-	set := make(map[string]int)
+// isIn checks if all values in S1 are in S2
+func isIn(key []string, value []string) bool {
+	set := make(map[string]bool)
 
 	for _, val := range value {
-		set[val]++
+		set[val] = true
 	}
 
 	for _, val := range key {
-		count, found := set[val]
+		_, found := set[val]
 		if !found {
 			return false
-		} else if count < 1 {
-			return false
-		} else {
-			set[val] = count - 1
 		}
 	}
 
 	return true
+}
+
+// isNotIn checks if any of the values in S1 is not in S2
+func isNotIn(key []string, value []string) bool {
+	set := make(map[string]bool)
+
+	for _, val := range value {
+		set[val] = true
+	}
+
+	for _, val := range key {
+		_, found := set[val]
+		if !found {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (in InHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {

@@ -1,6 +1,6 @@
 # file path relative to project root
 input:
-  policy: samples/more/restrict_ingress_classes.yaml
+  policy: test/more/restrict_ingress_classes.yaml
   resource: test/resources/ingress-nginx.yaml
 expected:
   validation:

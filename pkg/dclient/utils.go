@@ -15,17 +15,6 @@ import (
 	kubernetesfake "k8s.io/client-go/kubernetes/fake"
 )
 
-const (
-	// CSRs CertificateSigningRequest
-	CSRs string = "CertificateSigningRequest"
-	// Secrets Secret
-	Secrets string = "Secret"
-	// ConfigMaps ConfigMap
-	ConfigMaps string = "ConfigMap"
-	// Namespaces Namespace
-	Namespaces string = "Namespace"
-)
-
 //NewMockClient ---testing utilities
 func NewMockClient(scheme *runtime.Scheme, gvrToListKind map[schema.GroupVersionResource]string, objects ...runtime.Object) (*Client, error) {
 	client := fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, objects...)

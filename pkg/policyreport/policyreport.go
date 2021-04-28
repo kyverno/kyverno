@@ -8,8 +8,20 @@ import (
 	"github.com/cornelk/hashmap"
 	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	policyreportlister "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+type PolicyReportEraser interface {
+	EraseResultsEntries(erase EraseResultsEntries) error
+}
+
+type EraseResultsEntries = func(pclient *kyvernoclient.Clientset, reportLister policyreportlister.PolicyReportLister, clusterReportLister policyreportlister.ClusterPolicyReportLister) error
+
+func (g *ReportGenerator) EraseResultsEntries(erase EraseResultsEntries) error {
+	return erase(g.pclient, g.reportLister, g.clusterReportLister)
+}
 
 type deletedResource struct {
 	kind, ns, name string

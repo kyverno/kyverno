@@ -11,12 +11,14 @@ metadata:
   name: kyverno-svc
   labels:
     app: kyverno
+    app.kubernetes.io/name: kyverno
 spec:
   ports:
   - port: 443
     targetPort: https
   selector:
     app: kyverno
+    app.kubernetes.io/name: kyverno
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -157,9 +159,6 @@ rules:
   - configmaps
   - resourcequotas
   - limitranges
-  - clusterroles
-  - rolebindings
-  - clusterrolebindings
   verbs:
   - create
   - update

@@ -336,16 +336,15 @@ func excludeResources(included map[string]unstructured.Unstructured, exclude kyv
 			continue
 		}
 
-		func() bool {
+		func() {
 			for _, ret := range excludeEval {
 				if ret == Process {
 					// Process the resources
 					continue
 				}
+				// Skip the resource from processing
+				delete(included, uid)
 			}
-			// Skip the resource from processing
-			delete(included, uid)
-			return false
 		}()
 	}
 }

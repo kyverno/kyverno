@@ -127,8 +127,12 @@ func ConvertResource(raw []byte, group, version, kind, namespace string) (unstru
 
 	obj.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
 
-	if namespace != "" {
+	if namespace != "" && kind != "Namespace" {
 		obj.SetNamespace(namespace)
+	}
+
+	if obj.GetKind() == "Namespace" && obj.GetNamespace() != "" {
+		obj.SetNamespace("")
 	}
 
 	return *obj, nil
@@ -201,6 +205,26 @@ func SliceContains(slice []string, values ...string) bool {
 // and converts it into []kyverno.Condition or kyverno.AnyAllConditions according to its content.
 // it also helps in validating the condtions as it returns an error when the conditions are provided wrongfully by the user.
 func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interface{}, error) {
+	path := "preconditions/validate.deny.conditions"
+
+	// checks for the existence any other field apart from 'any'/'all' under preconditions/validate.deny.conditions
+	unknownFieldChecker := func(jsonByteArr []byte, path string) error {
+		allowedKeys := map[string]bool{
+			"any": true,
+			"all": true,
+		}
+		var jsonDecoded map[string]interface{}
+		if err := json.Unmarshal(jsonByteArr, &jsonDecoded); err != nil {
+			return fmt.Errorf("error occurred while checking for unknown fields under %s: %+v", path, err)
+		}
+		for k := range jsonDecoded {
+			if !allowedKeys[k] {
+				return fmt.Errorf("unknown field '%s' found under %s", k, path)
+			}
+		}
+		return nil
+	}
+
 	// marshalling the abstract apiextensions.JSON back to JSON form
 	jsonByte, err := json.Marshal(original)
 
@@ -211,8 +235,12 @@ func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interfac
 
 	var kyvernoAnyAllConditions kyverno.AnyAllConditions
 	if err = json.Unmarshal(jsonByte, &kyvernoAnyAllConditions); err == nil {
+		// checking if unknown fields exist or not
+		err = unknownFieldChecker(jsonByte, path)
+		if err != nil {
+			return nil, fmt.Errorf("error occurred while parsing %s: %+v", path, err)
+		}
 		return kyvernoAnyAllConditions, nil
 	}
-
-	return nil, fmt.Errorf("conditions filled wrongfully")
+	return nil, fmt.Errorf("error occurred while parsing %s: %+v", path, err)
 }

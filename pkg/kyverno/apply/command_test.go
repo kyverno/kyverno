@@ -16,7 +16,7 @@ func Test_Apply(t *testing.T) {
 
 	testcases := []TestCase{
 		{
-			PolicyPaths:   []string{"../../../samples/best_practices/disallow_latest_tag.yaml"},
+			PolicyPaths:   []string{"../../../test/best_practices/disallow_latest_tag.yaml"},
 			ResourcePaths: []string{"../../../test/resources/pod_with_version_tag.yaml"},
 			expectedPolicyReports: []preport.PolicyReport{
 				{
@@ -31,7 +31,7 @@ func Test_Apply(t *testing.T) {
 			},
 		},
 		{
-			PolicyPaths:   []string{"../../../samples/best_practices/require_pod_requests_limits.yaml"},
+			PolicyPaths:   []string{"../../../test/best_practices/require_pod_requests_limits.yaml"},
 			ResourcePaths: []string{"../../../test/resources/pod_with_latest_tag.yaml"},
 			expectedPolicyReports: []preport.PolicyReport{
 				{
@@ -56,7 +56,7 @@ func Test_Apply(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		validateEngineResponses, _, _, skippedPolicies, _ := applyCommandHelper(tc.ResourcePaths, false, true, "", "", "", "", tc.PolicyPaths)
+		validateEngineResponses, _, _, skippedPolicies, _ := applyCommandHelper(tc.ResourcePaths, false, true, "", "", "", "", tc.PolicyPaths, false)
 		resps := buildPolicyReports(validateEngineResponses, skippedPolicies)
 		for i, resp := range resps {
 			compareSummary(tc.expectedPolicyReports[i].Summary, resp.UnstructuredContent()["summary"].(map[string]interface{}))
