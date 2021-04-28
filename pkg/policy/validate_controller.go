@@ -524,7 +524,8 @@ func checkAutoGenRules(policy *kyverno.ClusterPolicy) bool {
 	ruleCount := 1
 	for _, rule := range policy.Spec.Rules {
 		if utils.ContainsString(rule.MatchResources.ResourceDescription.Kinds, "Pod") {
-			if rule.MatchResources.ResourceDescription.Selector == nil || rule.MatchResources.ResourceDescription.Name == "" {
+			if rule.MatchResources.ResourceDescription.Selector == nil || rule.MatchResources.ResourceDescription.Name == "" ||
+				rule.ExcludeResources.ResourceDescription.Selector == nil || rule.ExcludeResources.ResourceDescription.Name == "" {
 				podRuleName = append(podRuleName, rule.Name)
 			}
 		}
