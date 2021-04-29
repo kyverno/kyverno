@@ -12,12 +12,11 @@ import (
 type pMap struct {
 	sync.RWMutex
 
+	kindDataMap map[string]map[PolicyType][]string
+
 	// nameCacheMap stores the names of all existing policies in dataMap
 	// Policy names are stored as <namespace>/<name>
 	nameCacheMap map[PolicyType]map[string]bool
-
-	kindDataMap map[string]map[PolicyType][]string
-	nsDataMap   map[string]map[PolicyType][]*kyverno.ClusterPolicy
 
 	pLister kyvernolister.ClusterPolicyLister
 
@@ -93,7 +92,6 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 		isNamespacedPolicy = true
 		// Initialize Namespace Cache Map
 	}
-
 	for _, rule := range policy.Spec.Rules {
 
 		for _, kind := range rule.MatchResources.Kinds {
@@ -197,23 +195,13 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 	}
 	for _, rule := range policy.Spec.Rules {
 		for _, kind := range rule.MatchResources.Kinds {
-			dataMap := m.kindDataMap[kind]
-			for k, policies := range dataMap {
 
-				var newPolicies []string
-				for _, p := range policies {
-					if p == pName {
-						continue
-					}
-					newPolicies = append(newPolicies, pName)
+			for _, nameCache := range m.nameCacheMap {
+				if _, ok := nameCache[kind+"/"+pName]; ok {
+					delete(nameCache, kind+"/"+pName)
 				}
-				m.kindDataMap[kind][k] = newPolicies
 			}
-		}
-	}
-	for _, nameCache := range m.nameCacheMap {
-		if _, ok := nameCache[pName]; ok {
-			delete(nameCache, pName)
+
 		}
 	}
 }
