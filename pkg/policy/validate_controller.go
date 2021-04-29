@@ -19,6 +19,7 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
+	pm "github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	utils "github.com/kyverno/kyverno/pkg/utils"
@@ -196,7 +197,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 
 	logger.Info("policy created", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
 
-	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || checkAutoGenRules(p) {
+	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || checkAutoGenRules(p, logger) {
 		pol, _ := common.MutatePolicy(p, logger)
 		p.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
@@ -218,7 +219,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
 
-	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || checkAutoGenRules(curP) {
+	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || checkAutoGenRules(curP, logger) {
 		pol, _ := common.MutatePolicy(curP, logger)
 		curP.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
@@ -273,7 +274,7 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	logger.Info("policy created", "uid", p.UID, "kind", "Policy", "name", p.Name, "namespaces", p.Namespace)
 
 	pol := ConvertPolicyToClusterPolicy(p)
-	if pol.Spec.Background == nil || pol.Spec.ValidationFailureAction == "" || checkAutoGenRules(pol) {
+	if pol.Spec.Background == nil || pol.Spec.ValidationFailureAction == "" || checkAutoGenRules(pol, logger) {
 		nsPol, _ := common.MutatePolicy(pol, logger)
 		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", p.Namespace, nsPol, false)
@@ -294,7 +295,7 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	curP := cur.(*kyverno.Policy)
 	ncurP := ConvertPolicyToClusterPolicy(curP)
 
-	if ncurP.Spec.Background == nil || ncurP.Spec.ValidationFailureAction == "" || checkAutoGenRules(ncurP) {
+	if ncurP.Spec.Background == nil || ncurP.Spec.ValidationFailureAction == "" || checkAutoGenRules(ncurP, logger) {
 		nsPol, _ := common.MutatePolicy(ncurP, logger)
 		ncurP.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", ncurP.GetNamespace(), nsPol, false)
@@ -519,18 +520,12 @@ func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 	}
 }
 
-func checkAutoGenRules(policy *kyverno.ClusterPolicy) bool {
+func checkAutoGenRules(policy *kyverno.ClusterPolicy, log logr.Logger) bool {
 	var podRuleName []string
 	ruleCount := 1
-	for _, rule := range policy.Spec.Rules {
-		match := rule.MatchResources
-		exclude := rule.ExcludeResources
-		if utils.ContainsString(rule.MatchResources.ResourceDescription.Kinds, "Pod") {
-			if match.Selector == nil && match.ResourceDescription.Name == "" &&
-				exclude.ResourceDescription.Selector == nil && exclude.ResourceDescription.Name == "" && 
-				rule.Validation.Deny == nil   {
-				podRuleName = append(podRuleName, rule.Name)
-			}
+	if pm.GetControllers(policy, log) != "none" {
+		for _, rule := range policy.Spec.Rules {
+			podRuleName = append(podRuleName, rule.Name)
 		}
 	}
 	if len(podRuleName) > 0 {

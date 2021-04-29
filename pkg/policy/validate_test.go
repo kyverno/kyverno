@@ -7,6 +7,7 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"gotest.tools/assert"
@@ -1287,7 +1288,7 @@ func Test_checkAutoGenRules(t *testing.T) {
 		err := json.Unmarshal(test.policy, &policy)
 		assert.NilError(t, err)
 
-		res := checkAutoGenRules(&policy)
+		res := checkAutoGenRules(&policy, log.Log)
 		assert.Equal(t, test.expectedResult, res, fmt.Sprintf("test %s failed", test.name))
 	}
 }
