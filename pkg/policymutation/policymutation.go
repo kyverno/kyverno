@@ -246,6 +246,37 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 	return
 }
 
+// getControllers gets applicable pod controllers, it returns
+// - "none" if:
+//          - name or selector is defined
+//          - mixed kinds (Pod + pod controller) is defined
+//          - mutate.Patches/mutate.PatchesJSON6902/validate.deny/generate rule is defined
+// - otherwise it returns all pod controllers
+func GetControllers(policy *kyverno.ClusterPolicy, log logr.Logger) string {
+	for _, rule := range policy.Spec.Rules {
+		match := rule.MatchResources
+		exclude := rule.ExcludeResources
+
+		if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil ||
+			exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil {
+			log.Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
+			return "none"
+		}
+
+		if (len(match.Kinds) > 1 && utils.ContainsString(match.Kinds, "Pod")) ||
+			(len(exclude.Kinds) > 1 && utils.ContainsString(exclude.Kinds, "Pod")) {
+			return "none"
+		}
+
+		if rule.Mutation.Patches != nil || rule.Mutation.PatchesJSON6902 != "" ||
+			rule.Validation.Deny != nil || rule.HasGenerate() {
+			return "none"
+		}
+	}
+
+	return engine.PodControllers
+}
+
 func createRuleMap(rules []kyverno.Rule) map[string]kyvernoRule {
 	var ruleMap = make(map[string]kyvernoRule)
 	for _, rule := range rules {
