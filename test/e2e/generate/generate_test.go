@@ -1,7 +1,6 @@
 package generate
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -658,14 +657,15 @@ func Test_Generate_synchronize_flag(t *testing.T) {
 
 		// ======== Update Generate NetworkPolicy =============
 		By(fmt.Sprintf("Updating Generate NetworkPolicy"))
-		updatedGenPol, err := e2eClient.UpdateNamespacedResource(clPolGVR, npPolNS, &unstructGenPol)
+		_, err = e2eClient.UpdateNamespacedResource(clPolGVR, npPolNS, &unstructGenPol)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
-		j, _ := json.Marshal(updatedGenPol)
-		fmt.Println("updatedGenPol: ", string(j))
 
-		a, b, c := unstructured.NestedBool(updatedGenPol.UnstructuredContent(), "spec", "rules", "generate", "synchronize")
-		fmt.Println("\n\na: ", a, "\nb: ", b, "\nc", c)
+		netpol, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
+		Expect(err).NotTo(HaveOccurred())
+
+		netPolLabels := netpol.GetLabels()
+		Expect(netPolLabels["policy.kyverno.io/synchronize"]).To(Equal("disable"))
 		// ============================================
 
 		// Test: with synchronize is false, one should be able to delete the generated resource
