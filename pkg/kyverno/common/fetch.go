@@ -160,6 +160,10 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	for _, resourceYaml := range files {
 		resource, err := convertResourceToUnstructured(resourceYaml)
 		if err != nil {
+			if strings.Contains(err.Error(), "Object 'Kind' is missing") {
+				log.Log.V(3).Info("skipping resource as kind not found")
+				continue
+			}
 			getErrString = getErrString + err.Error() + "\n"
 		}
 		resources = append(resources, resource)
