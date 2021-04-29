@@ -218,6 +218,16 @@ func Test_getControllers(t *testing.T) {
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"add-networkpolicy"},"spec":{"rules":[{"name":"default-deny-ingress","match":{"resources":{"kinds":["Namespace"],"name":"*"}},"exclude":{"resources":{"namespaces":["kube-system","default","kube-public","kyverno"]}},"generate":{"kind":"NetworkPolicy","name":"default-deny-ingress","namespace":"{{request.object.metadata.name}}","synchronize":true,"data":{"spec":{"podSelector":{},"policyTypes":["Ingress"]}}}}]}}`),
 			expectedControllers: "none",
 		},
+		{
+			name:                "rule-with-predefined-invalid-controllers",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"set-service-labels-env"},"annotations":null,"pod-policies.kyverno.io/autogen-controllers":"DaemonSet,Deployment,StatefulSet","spec":{"background":false,"rules":[{"name":"set-service-label","match":{"resources":{"kinds":["Pod","Deployment"]}},"mutate":{"patchStrategicMerge":{"metadata":{"labels":{"+(service)":"{{request.object.spec.template.metadata.labels.app}}"}}}}}]}}`),
+			expectedControllers: "none",
+		},
+		{
+			name:                "rule-with-predefined-valid-controllers",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"set-service-labels-env"},"annotations":null,"pod-policies.kyverno.io/autogen-controllers":"none","spec":{"background":false,"rules":[{"name":"set-service-label","match":{"resources":{"kinds":["Pod","Deployment"]}},"mutate":{"patchStrategicMerge":{"metadata":{"labels":{"+(service)":"{{request.object.spec.template.metadata.labels.app}}"}}}}}]}}`),
+			expectedControllers: "none",
+		},
 	}
 
 	for _, test := range testCases {
@@ -225,7 +235,7 @@ func Test_getControllers(t *testing.T) {
 		err := json.Unmarshal(test.policy, &policy)
 		assert.NilError(t, err)
 
-		controllers := GetControllers(&policy, log.Log)
+		_, controllers := CanAutoGen(&policy, log.Log)
 		assert.Equal(t, test.expectedControllers, controllers, fmt.Sprintf("test %s failed", test.name))
 	}
 }
