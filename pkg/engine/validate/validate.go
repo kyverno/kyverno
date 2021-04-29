@@ -59,8 +59,18 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 	case string, float64, int, int64, bool, nil:
 		/*Analyze pattern */
 
-		if !ValidateValueWithPattern(log, resourceElement, patternElement) {
-			return path, fmt.Errorf("Validation rule failed at '%s' to validate value '%v' with pattern '%v'", path, resourceElement, patternElement)
+		switch resource := resourceElement.(type) {
+		case []interface{}:
+			for _, res := range resource {
+				if !ValidateValueWithPattern(log, res, patternElement) {
+					return path, fmt.Errorf("Validation rule failed at '%s' to validate value '%v' with pattern '%v'", path, resourceElement, patternElement)
+				}
+			}
+			return "", nil
+		default:
+			if !ValidateValueWithPattern(log, resourceElement, patternElement) {
+				return path, fmt.Errorf("Validation rule failed at '%s' to validate value '%v' with pattern '%v'", path, resourceElement, patternElement)
+			}
 		}
 
 	default:
@@ -117,7 +127,6 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 }
 
 func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, originPattern interface{}, path string, ac *common.AnchorKey) (string, error) {
-
 	if 0 == len(patternArray) {
 		return path, fmt.Errorf("Pattern Array empty")
 	}
@@ -127,6 +136,11 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 		// This is special case, because maps in arrays can have anchors that must be
 		// processed with the special way affecting the entire array
 		elemPath, err := validateArrayOfMaps(log, resourceArray, typedPatternElement, originPattern, path, ac)
+		if err != nil {
+			return elemPath, err
+		}
+	case string, float64, int, int64, bool, nil:
+		elemPath, err := validateResourceElement(log, resourceArray, typedPatternElement, originPattern, path, ac)
 		if err != nil {
 			return elemPath, err
 		}
