@@ -113,6 +113,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 				return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 					" the rule does not match an kind")
 			}
+			return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
 		}
 
 		// Validate string values in labels
