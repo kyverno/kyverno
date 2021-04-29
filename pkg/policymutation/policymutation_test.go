@@ -225,7 +225,7 @@ func Test_getControllers(t *testing.T) {
 		err := json.Unmarshal(test.policy, &policy)
 		assert.NilError(t, err)
 
-		controllers := getControllers(&policy, log.Log)
+		controllers := GetControllers(&policy, log.Log)
 		assert.Equal(t, test.expectedControllers, controllers, fmt.Sprintf("test %s failed", test.name))
 	}
 }

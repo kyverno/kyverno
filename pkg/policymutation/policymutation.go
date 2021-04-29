@@ -224,7 +224,7 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 
 	// scenario A
 	if !ok {
-		controllers = getControllers(&policy, log)
+		controllers = GetControllers(&policy, log)
 		annPatch, err := defaultPodControllerAnnotation(ann, controllers)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to generate pod controller annotation for policy '%s': %v", policy.Name, err))
@@ -252,7 +252,7 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 //          - mixed kinds (Pod + pod controller) is defined
 //          - mutate.Patches/mutate.PatchesJSON6902/validate.deny/generate rule is defined
 // - otherwise it returns all pod controllers
-func getControllers(policy *kyverno.ClusterPolicy, log logr.Logger) string {
+func GetControllers(policy *kyverno.ClusterPolicy, log logr.Logger) string {
 	for _, rule := range policy.Spec.Rules {
 		match := rule.MatchResources
 		exclude := rule.ExcludeResources
