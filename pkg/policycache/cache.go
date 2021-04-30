@@ -148,6 +148,8 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 }
 
 func (m *policyCache) get(key PolicyType, kind *string, nspace *string) (policyObject []*kyverno.ClusterPolicy) {
+	m.RLock()
+	defer m.RUnlock()
 	policyNames := m.pMap.getPolicyNames(key, kind, nspace)
 	for _, policyName := range policyNames {
 		var policy *kyverno.ClusterPolicy
@@ -198,8 +200,6 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 }
 
 func (pc *pMap) getPolicyNames(key PolicyType, kind, namespace *string) (names []string) {
-	pc.RLock()
-	defer pc.Unlock()
 	for _, policyName := range pc.kindDataMap[*kind][key] {
 		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
 		if !isNamespacedPolicy {
