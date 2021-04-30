@@ -235,10 +235,8 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 			patches = append(patches, annPatch)
 		}
 	} else {
-		fmt.Println("===applyAutoGen", applyAutoGen)
 		if !applyAutoGen {
 			actualControllers = desiredControllers
-			fmt.Println("===expected ", actualControllers)
 		}
 	}
 
