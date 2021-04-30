@@ -54,16 +54,16 @@ func Test_All(t *testing.T) {
 		for _, kind := range rule.MatchResources.Kinds {
 
 			// get
-			mutate, _ := pCache.Get(Mutate, &kind, nil)
+			mutate := pCache.GetPolicyNames(Mutate, &kind, nil)
 			if len(mutate) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 			}
 
-			validateEnforce, _ := pCache.Get(ValidateEnforce, &kind, nil)
+			validateEnforce := pCache.GetPolicyNames(ValidateEnforce, &kind, nil)
 			if len(validateEnforce) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(validateEnforce))
 			}
-			generate, _ := pCache.Get(Generate, &kind, nil)
+			generate := pCache.GetPolicyNames(Generate, &kind, nil)
 			if len(generate) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(generate))
 			}
@@ -73,7 +73,7 @@ func Test_All(t *testing.T) {
 	// remove
 	pCache.Remove(policy)
 	kind := "pod"
-	validateEnforce, _ := pCache.Get(ValidateEnforce, &kind, nil)
+	validateEnforce := pCache.GetPolicyNames(ValidateEnforce, &kind, nil)
 	assert.Assert(t, len(validateEnforce) == 0)
 }
 
@@ -86,16 +86,16 @@ func Test_Add_Duplicate_Policy(t *testing.T) {
 	for _, rule := range policy.Spec.Rules {
 		for _, kind := range rule.MatchResources.Kinds {
 
-			mutate, _ := pCache.Get(Mutate, &kind, nil)
+			mutate := pCache.GetPolicyNames(Mutate, &kind, nil)
 			if len(mutate) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 			}
 
-			validateEnforce, _ := pCache.Get(ValidateEnforce, &kind, nil)
+			validateEnforce := pCache.GetPolicyNames(ValidateEnforce, &kind, nil)
 			if len(validateEnforce) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(validateEnforce))
 			}
-			generate, _ := pCache.Get(Generate, &kind, nil)
+			generate := pCache.GetPolicyNames(Generate, &kind, nil)
 			if len(generate) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(generate))
 			}
@@ -115,12 +115,12 @@ func Test_Add_Validate_Audit(t *testing.T) {
 	for _, rule := range policy.Spec.Rules {
 		for _, kind := range rule.MatchResources.Kinds {
 
-			validateEnforce, _ := pCache.Get(ValidateEnforce, &kind, nil)
+			validateEnforce := pCache.GetPolicyNames(ValidateEnforce, &kind, nil)
 			if len(validateEnforce) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(validateEnforce))
 			}
 
-			validateAudit, _ := pCache.Get(ValidateAudit, &kind, nil)
+			validateAudit := pCache.GetPolicyNames(ValidateAudit, &kind, nil)
 			if len(validateEnforce) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(validateAudit))
 			}
@@ -133,13 +133,13 @@ func Test_Add_Remove(t *testing.T) {
 	policy := newPolicy(t)
 	kind := "Pod"
 	pCache.Add(policy)
-	validateEnforce, _ := pCache.Get(ValidateEnforce, &kind, nil)
+	validateEnforce := pCache.GetPolicyNames(ValidateEnforce, &kind, nil)
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
 
 	pCache.Remove(policy)
-	deletedValidateEnforce, _ := pCache.Get(ValidateEnforce, &kind, nil)
+	deletedValidateEnforce := pCache.GetPolicyNames(ValidateEnforce, &kind, nil)
 	if len(deletedValidateEnforce) != 0 {
 		t.Errorf("expected 0 validate enforce policy, found %v", len(deletedValidateEnforce))
 	}
@@ -264,7 +264,7 @@ func newPolicy(t *testing.T) *kyverno.ClusterPolicy {
 func newNsPolicy(t *testing.T) *kyverno.ClusterPolicy {
 	rawPolicy := []byte(`{
 		"metadata": {
-		  "name": "test-policy"
+		  "name": "test-policy",
 		  "namespace": "test"
 		},
 		"spec": {
@@ -275,8 +275,7 @@ func newNsPolicy(t *testing.T) *kyverno.ClusterPolicy {
 			  "match": {
 				"resources": {
 				  "kinds": [
-					"Pod",
-					"Namespace"
+					"Pod"
 				  ]
 				}
 			  },
@@ -284,13 +283,13 @@ func newNsPolicy(t *testing.T) *kyverno.ClusterPolicy {
 				"deny": {
 				  "conditions": {
 					"all": [
-					  {
-						"key": "a",
-						"operator": "Equals",
-						"value": "a"
-					  }
+						{
+							"key": "a",
+							"operator": "Equals",
+							"value": "a"
+						}
 					]
-				  }
+				  } 
 				}
 			  }
 			},
@@ -320,8 +319,7 @@ func newNsPolicy(t *testing.T) *kyverno.ClusterPolicy {
 			  "match": {
 				"resources": {
 				  "kinds": [
-					"Pod",
-					"Namespace"
+					"Pod"
 				  ]
 				}
 			  },
@@ -340,7 +338,6 @@ func newNsPolicy(t *testing.T) *kyverno.ClusterPolicy {
 			  "match": {
 				"resources": {
 				  "kinds": [
-					"Namespace",
 					"Pod"
 				  ]
 				}
@@ -373,7 +370,7 @@ func newNsPolicy(t *testing.T) *kyverno.ClusterPolicy {
 
 func Test_Ns_All(t *testing.T) {
 	pCache := newPolicyCache(log.Log, dummyLister{}, dummyNsLister{})
-	policy := newPolicy(t)
+	policy := newNsPolicy(t)
 	//add
 	pCache.Add(policy)
 	nspace := policy.GetNamespace()
@@ -381,16 +378,16 @@ func Test_Ns_All(t *testing.T) {
 		for _, kind := range rule.MatchResources.Kinds {
 
 			// get
-			mutate, _ := pCache.Get(Mutate, &kind, &nspace)
+			mutate := pCache.GetPolicyNames(Mutate, &kind, &nspace)
 			if len(mutate) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 			}
 
-			validateEnforce, _ := pCache.Get(ValidateEnforce, &kind, &nspace)
+			validateEnforce := pCache.GetPolicyNames(ValidateEnforce, &kind, &nspace)
 			if len(validateEnforce) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(validateEnforce))
 			}
-			generate, _ := pCache.Get(Generate, &kind, &nspace)
+			generate := pCache.GetPolicyNames(Generate, &kind, &nspace)
 			if len(generate) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(generate))
 			}
@@ -399,7 +396,7 @@ func Test_Ns_All(t *testing.T) {
 	// remove
 	pCache.Remove(policy)
 	kind := "pod"
-	validateEnforce, _ := pCache.Get(ValidateEnforce, &kind, &nspace)
+	validateEnforce := pCache.GetPolicyNames(ValidateEnforce, &kind, &nspace)
 	assert.Assert(t, len(validateEnforce) == 0)
 }
 
@@ -413,16 +410,16 @@ func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
 	for _, rule := range policy.Spec.Rules {
 		for _, kind := range rule.MatchResources.Kinds {
 
-			mutate, _ := pCache.Get(Mutate, &kind, &nspace)
+			mutate := pCache.GetPolicyNames(Mutate, &kind, &nspace)
 			if len(mutate) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 			}
 
-			validateEnforce, _ := pCache.Get(ValidateEnforce, &kind, &nspace)
+			validateEnforce := pCache.GetPolicyNames(ValidateEnforce, &kind, &nspace)
 			if len(validateEnforce) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(validateEnforce))
 			}
-			generate, _ := pCache.Get(Generate, &kind, &nspace)
+			generate := pCache.GetPolicyNames(Generate, &kind, &nspace)
 			if len(generate) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(generate))
 			}
@@ -442,12 +439,12 @@ func Test_Ns_Add_Validate_Audit(t *testing.T) {
 	for _, rule := range policy.Spec.Rules {
 		for _, kind := range rule.MatchResources.Kinds {
 
-			validateEnforce, _ := pCache.Get(ValidateEnforce, &kind, &nspace)
+			validateEnforce := pCache.GetPolicyNames(ValidateEnforce, &kind, &nspace)
 			if len(validateEnforce) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(validateEnforce))
 			}
 
-			validateAudit, _ := pCache.Get(ValidateAudit, &kind, &nspace)
+			validateAudit := pCache.GetPolicyNames(ValidateAudit, &kind, &nspace)
 			if len(validateEnforce) != 1 {
 				t.Errorf("expected 1 mutate policy, found %v", len(validateAudit))
 			}
@@ -461,13 +458,13 @@ func Test_Ns_Add_Remove(t *testing.T) {
 	nspace := policy.GetNamespace()
 	kind := "Pod"
 	pCache.Add(policy)
-	validateEnforce, _ := pCache.Get(ValidateEnforce, &kind, &nspace)
+	validateEnforce := pCache.GetPolicyNames(ValidateEnforce, &kind, &nspace)
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
 
 	pCache.Remove(policy)
-	deletedValidateEnforce, _ := pCache.Get(ValidateEnforce, &kind, &nspace)
+	deletedValidateEnforce := pCache.GetPolicyNames(ValidateEnforce, &kind, &nspace)
 	if len(deletedValidateEnforce) != 0 {
 		t.Errorf("expected 0 validate enforce policy, found %v", len(deletedValidateEnforce))
 	}

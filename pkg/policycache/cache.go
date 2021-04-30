@@ -21,7 +21,12 @@ type pMap struct {
 	// nameCacheMap stores the names of all existing policies in dataMap
 	// Policy names are stored as <namespace>/<name>
 	nameCacheMap map[PolicyType]map[string]bool
+}
 
+// policyCache ...
+type policyCache struct {
+	pMap
+	logr.Logger
 	// list/get cluster policy resource
 	pLister kyvernolister.ClusterPolicyLister
 
@@ -29,17 +34,12 @@ type pMap struct {
 	npLister kyvernolister.PolicyLister
 }
 
-// policyCache ...
-type policyCache struct {
-	pMap
-	logr.Logger
-}
-
 // Interface ...
 type Interface interface {
 	Add(policy *kyverno.ClusterPolicy)
 	Remove(policy *kyverno.ClusterPolicy)
-	Get(pkey PolicyType, kind *string, nspace *string) ([]string, []*kyverno.ClusterPolicy)
+	Get(pkey PolicyType, kind *string, nspace *string) []*kyverno.ClusterPolicy
+	GetPolicyNames(pkey PolicyType, kind *string, nspace *string) []string
 }
 
 // newPolicyCache ...
@@ -55,10 +55,10 @@ func newPolicyCache(log logr.Logger, pLister kyvernolister.ClusterPolicyLister, 
 		pMap{
 			nameCacheMap: namesCache,
 			kindDataMap:  make(map[string]map[PolicyType][]string),
-			pLister:      pLister,
-			npLister:     npLister,
 		},
 		log,
+		pLister,
+		npLister,
 	}
 }
 
@@ -69,9 +69,11 @@ func (pc *policyCache) Add(policy *kyverno.ClusterPolicy) {
 }
 
 // Get the list of matched policies
-func (pc *policyCache) Get(pkey PolicyType, kind *string, nspace *string) ([]string, []*kyverno.ClusterPolicy) {
-	pname, policy := pc.pMap.get(pkey, kind, nspace)
-	return pname, policy
+func (pc *policyCache) Get(pkey PolicyType, kind, nspace *string) []*kyverno.ClusterPolicy {
+	return pc.get(pkey, kind, nspace)
+}
+func (pc *policyCache) GetPolicyNames(pkey PolicyType, kind, nspace *string) []string {
+	return pc.pMap.getPolicyNames(pkey, kind, nspace)
 }
 
 // Remove a policy from cache
@@ -106,7 +108,7 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 				if !mutateMap[kind+"/"+pName] {
 					mutateMap[kind+"/"+pName] = true
 					mutatePolicy := m.kindDataMap[kind][Mutate]
-					m.kindDataMap[kind][Mutate] = append(mutatePolicy, policy.GetName())
+					m.kindDataMap[kind][Mutate] = append(mutatePolicy, pName)
 				}
 				continue
 			}
@@ -115,7 +117,7 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 					if !validateEnforceMap[kind+"/"+pName] {
 						validateEnforceMap[kind+"/"+pName] = true
 						validatePolicy := m.kindDataMap[kind][ValidateEnforce]
-						m.kindDataMap[kind][ValidateEnforce] = append(validatePolicy, policy.GetName())
+						m.kindDataMap[kind][ValidateEnforce] = append(validatePolicy, pName)
 					}
 					continue
 				}
@@ -124,7 +126,7 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 				if !validateAuditMap[kind+"/"+pName] {
 					validateAuditMap[kind+"/"+pName] = true
 					validatePolicy := m.kindDataMap[kind][ValidateAudit]
-					m.kindDataMap[kind][ValidateAudit] = append(validatePolicy, policy.GetName())
+					m.kindDataMap[kind][ValidateAudit] = append(validatePolicy, pName)
 				}
 				continue
 			}
@@ -133,7 +135,7 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 				if !generateMap[kind+"/"+pName] {
 					generateMap[kind+"/"+pName] = true
 					generatePolicy := m.kindDataMap[kind][Generate]
-					m.kindDataMap[kind][Generate] = append(generatePolicy, policy.GetName())
+					m.kindDataMap[kind][Generate] = append(generatePolicy, pName)
 				}
 				continue
 			}
@@ -145,26 +147,24 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	m.nameCacheMap[Generate] = generateMap
 }
 
-func (m *pMap) get(key PolicyType, kind *string, nspace *string) (pname []string, allPolicies []*kyverno.ClusterPolicy) {
+func (m *policyCache) get(key PolicyType, kind *string, nspace *string) (policyObject []*kyverno.ClusterPolicy) {
 	m.RLock()
 	defer m.RUnlock()
-	for _, policyName := range m.kindDataMap[*kind][key] {
+	policyNames := m.pMap.getPolicyNames(key, kind, nspace)
+	for _, policyName := range policyNames {
+		var policy *kyverno.ClusterPolicy
 		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
 		if !isNamespacedPolicy {
-			policy, _ := m.pLister.Get(key)
-			allPolicies = append(allPolicies, policy)
-			pname = append(pname, policyName)
+			policy, _ = m.pLister.Get(key)
 		} else {
 			if ns == *nspace {
 				nspolicy, _ := m.npLister.Policies(ns).Get(key)
-				policy := policy2.ConvertPolicyToClusterPolicy(nspolicy)
-				allPolicies = append(allPolicies, policy)
-				pname = append(pname, key)
+				policy = policy2.ConvertPolicyToClusterPolicy(nspolicy)
 			}
-
 		}
+		policyObject = append(policyObject, policy)
 	}
-	return pname, allPolicies
+	return policyObject
 }
 
 func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
@@ -197,5 +197,18 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 
 		}
 	}
+}
 
+func (pc *pMap) getPolicyNames(key PolicyType, kind, namespace *string) (names []string) {
+	for _, policyName := range pc.kindDataMap[*kind][key] {
+		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
+		if !isNamespacedPolicy {
+			names = append(names, key)
+		} else {
+			if ns == *namespace {
+				names = append(names, policyName)
+			}
+		}
+	}
+	return names
 }
