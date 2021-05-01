@@ -66,7 +66,7 @@ func buildPolicyReports(resps []*response.EngineResponse, skippedPolicies []Skip
 					APIVersion: report.SchemeGroupVersion.String(),
 					Kind:       "ClusterPolicyReport",
 				},
-				Results: result,
+				Results: generateSingleResult(result),
 				Summary: calculateSummary(result),
 			}
 
@@ -80,7 +80,7 @@ func buildPolicyReports(resps []*response.EngineResponse, skippedPolicies []Skip
 					APIVersion: report.SchemeGroupVersion.String(),
 					Kind:       "PolicyReport",
 				},
-				Results: result,
+				Results: generateSingleResult(result),
 				Summary: calculateSummary(result),
 			}
 
@@ -208,4 +208,24 @@ func calculateSummary(results []*report.PolicyReportResult) (summary report.Poli
 		}
 	}
 	return
+}
+
+func generateSingleResult(results []*report.PolicyReportResult) []*report.PolicyReportResult {
+	if len(results) <= 1 {
+		return results
+	}
+
+	singleResult := []*report.PolicyReportResult{}
+
+	for _, res := range results {
+		if res.Status == report.StatusPass {
+			if len(singleResult) == 0 {
+				singleResult = append(singleResult, res)
+			} else {
+				singleResult[0].Resources = append(singleResult[0].Resources, res.Resources...)
+			}
+		}
+	}
+
+	return singleResult
 }
