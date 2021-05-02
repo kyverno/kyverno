@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	policyAnnotation = "policies.kyverno.io~1patches"
+	policyAnnotation = "policies.kyverno.io~1last-applied-patches"
 )
 
 type rulePatch struct {
