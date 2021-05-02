@@ -7,6 +7,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	utils2 "github.com/kyverno/kyverno/pkg/utils"
 	"gotest.tools/assert"
 	"k8s.io/api/admission/v1beta1"
@@ -2140,4 +2141,104 @@ func executeTest(t *testing.T, err error, test testCase) {
 	if resp.IsSuccessful() && test.requestDenied {
 		t.Errorf("Testcase has failed, policy: %v", policy.Name)
 	}
+}
+
+func TestValidate_context_variable_substitution_CLI(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "restrict-pod-count"
+		},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "restrict-pod-count",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "context": [
+				{
+				  "name": "podcounts",
+				  "apiCall": {
+					"urlPath": "/api/v1/pods",
+					"jmesPath": "items[?spec.nodeName=='minikube'] | length(@)"
+				  }
+				}
+			  ],
+			  "validate": {
+				"message": "restrict pod counts to be no more than 10 on node minikube",
+				"deny": {
+				  "conditions": [
+					{
+					  "key": "{{ podcounts }}",
+					  "operator": "GreaterThanOrEquals",
+					  "value": 10
+					}
+				  ]
+				}
+			  }
+			}
+		  ]
+		}
+	  }
+	`)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		  "name": "nginx-config-test"
+		},
+		"spec": {
+		  "containers": [
+			{
+			  "image": "nginx:latest",
+			  "name": "test-nginx"
+			}
+		  ]
+		}
+	  }
+	`)
+
+	configMapVariableContext := store.Context{
+		Policies: []store.Policy{
+			{
+				Name: "restrict-pod-count",
+				Rules: []store.Rule{
+					{
+						Name: "restrict-pod-count",
+						Values: map[string]string{
+							"podcounts": "12",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	store.SetContext(configMapVariableContext)
+	store.SetMock(true)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	msgs := []string{
+		"restrict pod counts to be no more than 10 on node minikube",
+	}
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, !er.IsSuccessful())
 }

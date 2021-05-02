@@ -221,7 +221,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 		}
 
 		// add configmap json data to context
-		if err := engine.LoadContext(log, rule.Context, resCache, policyContext); err != nil {
+		if err := engine.LoadContext(log, rule.Context, resCache, policyContext, rule.Name); err != nil {
 			log.Error(err, "cannot add configmaps to context")
 			return nil, err
 		}
