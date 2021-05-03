@@ -199,7 +199,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 
 	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
 		pol, _ := common.MutatePolicy(p, logger)
-		p.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
+		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
 		if err != nil {
 			logger.Error(err, "failed to add policy ")
@@ -221,9 +221,10 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
 		pol, _ := common.MutatePolicy(curP, logger)
-		curP.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
+		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
 		if err != nil {
+			fmt.Println("i'm error here")
 			logger.Error(err, "failed to update policy ")
 		}
 	}
@@ -276,7 +277,7 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	pol := ConvertPolicyToClusterPolicy(p)
 	if pol.Spec.Background == nil || pol.Spec.ValidationFailureAction == "" || missingAutoGenRules(pol, logger) {
 		nsPol, _ := common.MutatePolicy(pol, logger)
-		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
+		nsPol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", p.Namespace, nsPol, false)
 		if err != nil {
 			logger.Error(err, "failed to add namespace policy")
@@ -297,7 +298,7 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 
 	if ncurP.Spec.Background == nil || ncurP.Spec.ValidationFailureAction == "" || missingAutoGenRules(ncurP, logger) {
 		nsPol, _ := common.MutatePolicy(ncurP, logger)
-		ncurP.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
+		nsPol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", ncurP.GetNamespace(), nsPol, false)
 		if err != nil {
 			logger.Error(err, "failed to update namespace policy ")
