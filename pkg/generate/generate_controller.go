@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"fmt"
 	"reflect"
 	"time"
 
@@ -316,6 +317,7 @@ func (c *Controller) updateGR(old, cur interface{}) {
 }
 
 func (c *Controller) deleteGR(obj interface{}) {
+	fmt.Println("1*****")
 	logger := c.log
 	gr, ok := obj.(*kyverno.GenerateRequest)
 	if !ok {

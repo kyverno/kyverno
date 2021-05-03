@@ -1,6 +1,7 @@
 package cleanup
 
 import (
+	"fmt"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -120,6 +121,7 @@ func (c *Controller) deleteGenericResource(obj interface{}) {
 }
 
 func (c *Controller) deletePolicy(obj interface{}) {
+	fmt.Println("1----")
 	logger := c.log
 	p, ok := obj.(*kyverno.ClusterPolicy)
 	if !ok {
@@ -139,15 +141,15 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	// clean up the GR
 	// Get the corresponding GR
 	// get the list of GR for the current Policy version
-	grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(p.Name)
-	if err != nil {
-		logger.Error(err, "failed to generate request CR for the policy", "name", p.Name)
-		return
-	}
+	// grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(p.Name)
+	// if err != nil {
+	// 	logger.Error(err, "failed to generate request CR for the policy", "name", p.Name)
+	// 	return
+	// }
 
-	for _, gr := range grs {
-		c.addGR(gr)
-	}
+	// for _, gr := range grs {
+	// 	c.addGR(gr)
+	// }
 }
 
 func (c *Controller) addGR(obj interface{}) {
@@ -161,6 +163,7 @@ func (c *Controller) updateGR(old, cur interface{}) {
 }
 
 func (c *Controller) deleteGR(obj interface{}) {
+	fmt.Println("2*****")
 	logger := c.log
 	gr, ok := obj.(*kyverno.GenerateRequest)
 	if !ok {

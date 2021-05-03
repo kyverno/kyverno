@@ -176,6 +176,7 @@ func (g *ReportGenerator) updateClusterReportChangeRequest(old interface{}, cur 
 }
 
 func (g *ReportGenerator) deletePolicyReport(obj interface{}) {
+	fmt.Println("4----")
 	report := obj.(*report.PolicyReport)
 	g.log.V(2).Info("PolicyReport deleted", "name", report.GetName())
 	g.ReconcileCh <- false
