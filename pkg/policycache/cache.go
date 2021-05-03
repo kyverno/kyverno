@@ -38,8 +38,8 @@ type policyCache struct {
 type Interface interface {
 	Add(policy *kyverno.ClusterPolicy)
 	Remove(policy *kyverno.ClusterPolicy)
-	Get(pkey PolicyType, kind *string, nspace *string) []*kyverno.ClusterPolicy
-	GetPolicyNames(pkey PolicyType, kind *string, nspace *string) []string
+	Get(pkey PolicyType, kind *string, nspace *string) []string
+	GetPolicyNames(pkey PolicyType, kind *string, nspace *string) []*kyverno.ClusterPolicy
 }
 
 // newPolicyCache ...
@@ -69,11 +69,11 @@ func (pc *policyCache) Add(policy *kyverno.ClusterPolicy) {
 }
 
 // Get the list of matched policies
-func (pc *policyCache) Get(pkey PolicyType, kind, nspace *string) []*kyverno.ClusterPolicy {
-	return pc.get(pkey, kind, nspace)
+func (pc *policyCache) Get(pkey PolicyType, kind, nspace *string) []string {
+	return pc.pMap.get(pkey, kind, nspace)
 }
-func (pc *policyCache) GetPolicyNames(pkey PolicyType, kind, nspace *string) []string {
-	return pc.pMap.getPolicyNames(pkey, kind, nspace)
+func (pc *policyCache) GetPolicyNames(pkey PolicyType, kind, nspace *string) []*kyverno.ClusterPolicy {
+	return pc.getPolicyNames(pkey, kind, nspace)
 }
 
 // Remove a policy from cache
@@ -147,10 +147,9 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	m.nameCacheMap[Generate] = generateMap
 }
 
-func (m *policyCache) get(key PolicyType, kind *string, nspace *string) (policyObject []*kyverno.ClusterPolicy) {
-	m.RLock()
-	defer m.RUnlock()
-	policyNames := m.pMap.getPolicyNames(key, kind, nspace)
+func (m *policyCache) getPolicyNames(key PolicyType, kind *string, nspace *string) (policyObject []*kyverno.ClusterPolicy) {
+
+	policyNames := m.pMap.get(key, kind, nspace)
 	for _, policyName := range policyNames {
 		var policy *kyverno.ClusterPolicy
 		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
@@ -199,7 +198,9 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 	}
 }
 
-func (pc *pMap) getPolicyNames(key PolicyType, kind, namespace *string) (names []string) {
+func (pc *pMap) get(key PolicyType, kind, namespace *string) (names []string) {
+	pc.RLock()
+	defer pc.RUnlock()
 	for _, policyName := range pc.kindDataMap[*kind][key] {
 		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
 		if !isNamespacedPolicy {
