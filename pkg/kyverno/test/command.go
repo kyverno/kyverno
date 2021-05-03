@@ -355,6 +355,7 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults, 
 	printer := tableprinter.New(os.Stdout)
 	table := []*Table{}
 	boldRed := color.New(color.FgRed).Add(color.Bold)
+	boldYellow := color.New(color.FgYellow).Add(color.Bold)
 	boldFgCyan := color.New(color.FgCyan).Add(color.Bold)
 	for i, v := range testResults {
 		res := new(Table)
@@ -368,7 +369,7 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults, 
 		}
 		var r []ReportResult
 		json.Unmarshal(valuesBytes, &r)
-		res.Result = boldRed.Sprintf("Fail")
+		res.Result = boldYellow.Sprintf("Not found")
 		if len(r) != 0 {
 			var resource TestResults
 			for _, testRes := range r {
@@ -381,6 +382,7 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults, 
 						res.Result = "Pass"
 						rc.pass++
 					} else {
+						res.Result = boldRed.Sprintf("Fail")
 						rc.fail++
 					}
 				}
