@@ -337,7 +337,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 					}
 				}
 			}
-			if resourcePolicy != policy.GetName() {
+			if len(valuesMap) != 0 && resourcePolicy != policy.GetName() {
 				log.Log.V(3).Info(fmt.Sprintf("Skipping resource, policy names do not match %s != %s", resourcePolicy, policy.GetName()))
 				continue
 			}
