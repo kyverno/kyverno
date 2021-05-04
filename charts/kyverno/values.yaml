@@ -12,6 +12,9 @@ podSecurityPolicies: []
 # For more info- https://kyverno.io/docs/writing-policies/validate/
 validationFailureAction: audit
 
+# -- Additional labels
+customLabels: {}
+
 rbac:
   create: true
   serviceAccount:
