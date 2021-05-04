@@ -21,6 +21,7 @@ import (
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -130,6 +131,8 @@ type WebhookServer struct {
 	grController *generate.Controller
 
 	debug bool
+
+	promConfig *metrics.PromConfig
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -161,6 +164,7 @@ func NewWebhookServer(
 	resCache resourcecache.ResourceCache,
 	grc *generate.Controller,
 	debug bool,
+	promConfig *metrics.PromConfig,
 ) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -208,6 +212,7 @@ func NewWebhookServer(
 		openAPIController: openAPIController,
 		resCache:          resCache,
 		debug:             debug,
+		promConfig:        promConfig,
 	}
 
 	mux := httprouter.New()

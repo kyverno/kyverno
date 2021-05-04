@@ -19,6 +19,7 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	pm "github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
@@ -105,6 +106,8 @@ type PolicyController struct {
 	reconcilePeriod time.Duration
 
 	log logr.Logger
+
+	promConfig *metrics.PromConfig
 }
 
 // NewPolicyController create a new PolicyController
@@ -120,7 +123,8 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
 	resCache resourcecache.ResourceCache,
-	reconcilePeriod time.Duration) (*PolicyController, error) {
+	reconcilePeriod time.Duration,
+	promConfig *metrics.PromConfig) (*PolicyController, error) {
 
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
@@ -143,6 +147,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 		log:                log,
 		resCache:           resCache,
 		reconcilePeriod:    reconcilePeriod,
+		promConfig:         promConfig,
 	}
 
 	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
