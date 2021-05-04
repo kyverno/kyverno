@@ -39,6 +39,7 @@ var (
 	regexReplaceAll        = "regex_replace_all"
 	regexReplaceAllLiteral = "regex_replace_all_literal"
 	regexMatch             = "regex_match"
+	labelMatch             = "label_match"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -145,6 +146,15 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpString, JpNumber}},
 			},
 			Handler: jpRegexMatch,
+		},
+		{
+			// Validates if label (param1) would match pod/host/etc labels (param2)
+			Name: labelMatch,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpObject}},
+				{Types: []JpType{JpObject}},
+			},
+			Handler: jpLabelMatch,
 		},
 	}
 
@@ -351,6 +361,28 @@ func jpRegexMatch(arguments []interface{}) (interface{}, error) {
 	}
 
 	return regexp.Match(regex.String(), []byte(src))
+}
+
+func jpLabelMatch(arguments []interface{}) (interface{}, error) {
+	labelMap, ok := arguments[0].(map[string]interface{})
+
+	if !ok {
+		return nil, fmt.Errorf(invalidArgumentTypeError, labelMatch, 0, "Object")
+	}
+
+	matchMap, ok := arguments[1].(map[string]interface{})
+
+	if !ok {
+		return nil, fmt.Errorf(invalidArgumentTypeError, labelMatch, 1, "Object")
+	}
+
+	for key, value := range labelMap {
+		if val, ok := matchMap[key]; !ok || val != value {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 // InterfaceToString casts an interface to a string type

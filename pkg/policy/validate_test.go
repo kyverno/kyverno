@@ -1286,6 +1286,7 @@ func Test_Validate_Kind(t *testing.T) {
 	err = Validate(policy, nil, true, openAPIController)
 	assert.Assert(t, err != nil)
 }
+
 func Test_checkAutoGenRules(t *testing.T) {
 	testCases := []struct {
 		name           string
@@ -1321,5 +1322,50 @@ func Test_checkAutoGenRules(t *testing.T) {
 
 		res := missingAutoGenRules(&policy, log.Log)
 		assert.Equal(t, test.expectedResult, res, fmt.Sprintf("test %s failed", test.name))
+	}
+}
+
+func Test_Validate_ApiCall(t *testing.T) {
+	testCases := []struct {
+		resource       kyverno.ContextEntry
+		expectedResult interface{}
+	}{
+		{
+			resource: kyverno.ContextEntry{
+				APICall: &kyverno.APICall{
+					URLPath:  "/apis/networking.k8s.io/v1/namespaces/{{request.namespace}}/networkpolicies",
+					JMESPath: "",
+				},
+			},
+			expectedResult: nil,
+		},
+		{
+			resource: kyverno.ContextEntry{
+				APICall: &kyverno.APICall{
+					URLPath:  "/apis/networking.k8s.io/v1/namespaces/{{request.namespace}}/networkpolicies",
+					JMESPath: "items[",
+				},
+			},
+			expectedResult: "failed to parse JMESPath items[: SyntaxError: Expected tStar, received: tEOF",
+		},
+		{
+			resource: kyverno.ContextEntry{
+				APICall: &kyverno.APICall{
+					URLPath:  "/apis/networking.k8s.io/v1/namespaces/{{request.namespace}}/networkpolicies",
+					JMESPath: "items[{{request.namespace}}",
+				},
+			},
+			expectedResult: nil,
+		},
+	}
+
+	for _, testCase := range testCases {
+		err := validateAPICall(testCase.resource)
+
+		if err == nil {
+			assert.Equal(t, err, testCase.expectedResult)
+		} else {
+			assert.Equal(t, err.Error(), testCase.expectedResult)
+		}
 	}
 }
