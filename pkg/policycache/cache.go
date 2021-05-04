@@ -39,7 +39,7 @@ type Interface interface {
 	Add(policy *kyverno.ClusterPolicy)
 	Remove(policy *kyverno.ClusterPolicy)
 	Get(pkey PolicyType, kind *string, nspace *string) []string
-	GetPolicyNames(pkey PolicyType, kind *string, nspace *string) []*kyverno.ClusterPolicy
+	GetPolicyObject(pkey PolicyType, kind *string, nspace *string) []*kyverno.ClusterPolicy
 }
 
 // newPolicyCache ...
@@ -72,8 +72,8 @@ func (pc *policyCache) Add(policy *kyverno.ClusterPolicy) {
 func (pc *policyCache) Get(pkey PolicyType, kind, nspace *string) []string {
 	return pc.pMap.get(pkey, kind, nspace)
 }
-func (pc *policyCache) GetPolicyNames(pkey PolicyType, kind, nspace *string) []*kyverno.ClusterPolicy {
-	return pc.getPolicyNames(pkey, kind, nspace)
+func (pc *policyCache) GetPolicyObject(pkey PolicyType, kind, nspace *string) []*kyverno.ClusterPolicy {
+	return pc.getPolicyObject(pkey, kind, nspace)
 }
 
 // Remove a policy from cache
@@ -147,23 +147,20 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	m.nameCacheMap[Generate] = generateMap
 }
 
-func (m *policyCache) getPolicyNames(key PolicyType, kind *string, nspace *string) (policyObject []*kyverno.ClusterPolicy) {
-
-	policyNames := m.pMap.get(key, kind, nspace)
-	for _, policyName := range policyNames {
-		var policy *kyverno.ClusterPolicy
+func (pc *pMap) get(key PolicyType, kind, namespace *string) (names []string) {
+	pc.RLock()
+	defer pc.RUnlock()
+	for _, policyName := range pc.kindDataMap[*kind][key] {
 		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
 		if !isNamespacedPolicy {
-			policy, _ = m.pLister.Get(key)
+			names = append(names, key)
 		} else {
-			if ns == *nspace {
-				nspolicy, _ := m.npLister.Policies(ns).Get(key)
-				policy = policy2.ConvertPolicyToClusterPolicy(nspolicy)
+			if ns == *namespace {
+				names = append(names, policyName)
 			}
 		}
-		policyObject = append(policyObject, policy)
 	}
-	return policyObject
+	return names
 }
 
 func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
@@ -197,19 +194,21 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 		}
 	}
 }
+func (m *policyCache) getPolicyObject(key PolicyType, kind *string, nspace *string) (policyObject []*kyverno.ClusterPolicy) {
 
-func (pc *pMap) get(key PolicyType, kind, namespace *string) (names []string) {
-	pc.RLock()
-	defer pc.RUnlock()
-	for _, policyName := range pc.kindDataMap[*kind][key] {
+	policyNames := m.pMap.get(key, kind, nspace)
+	for _, policyName := range policyNames {
+		var policy *kyverno.ClusterPolicy
 		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
 		if !isNamespacedPolicy {
-			names = append(names, key)
+			policy, _ = m.pLister.Get(key)
 		} else {
-			if ns == *namespace {
-				names = append(names, policyName)
+			if ns == *nspace {
+				nspolicy, _ := m.npLister.Policies(ns).Get(key)
+				policy = policy2.ConvertPolicyToClusterPolicy(nspolicy)
 			}
 		}
+		policyObject = append(policyObject, policy)
 	}
-	return names
+	return policyObject
 }
