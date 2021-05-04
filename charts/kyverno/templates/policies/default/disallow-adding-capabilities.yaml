@@ -12,6 +12,7 @@ metadata:
     policies.kyverno.io/description: >-
       Capabilities permit privileged actions without giving full root access.
       Adding capabilities beyond the default set must not be allowed.
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
 spec:
   validationFailureAction: {{ .Values.validationFailureAction }}
   background: true

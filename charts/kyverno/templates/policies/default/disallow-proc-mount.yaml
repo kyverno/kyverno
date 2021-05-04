@@ -11,6 +11,7 @@ metadata:
     {{- end }}
     policies.kyverno.io/description: >-
       The default /proc masks are set up to reduce attack surface and should be required.
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
 spec:
   validationFailureAction: {{ .Values.validationFailureAction }}
   background: true
