@@ -329,6 +329,18 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			continue
 		}
 		for _, resource := range resources {
+			var resourcePolicy string
+			for polName, values := range valuesMap {
+				for resName := range values {
+					if resName == resource.GetName() {
+						resourcePolicy = polName
+					}
+				}
+			}
+			if resourcePolicy != policy.GetName() {
+				log.Log.V(3).Info(fmt.Sprintf("Skipping resource, policy names do not match %s != %s", resourcePolicy, policy.GetName()))
+				continue
+			}
 			thisPolicyResourceValues := make(map[string]string)
 			if len(valuesMap[policy.GetName()]) != 0 && !reflect.DeepEqual(valuesMap[policy.GetName()][resource.GetName()], Resource{}) {
 				thisPolicyResourceValues = valuesMap[policy.GetName()][resource.GetName()].Values
