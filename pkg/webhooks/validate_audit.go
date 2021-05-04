@@ -11,6 +11,7 @@ import (
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/policystatus"
@@ -60,6 +61,7 @@ type auditHandler struct {
 	log           logr.Logger
 	configHandler config.Interface
 	resCache      resourcecache.ResourceCache
+	promConfig    *metrics.PromConfig
 }
 
 // NewValidateAuditHandler returns a new instance of audit policy handler
@@ -73,7 +75,8 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	log logr.Logger,
 	dynamicConfig config.Interface,
 	resCache resourcecache.ResourceCache,
-	client *client.Client) AuditHandler {
+	client *client.Client,
+	promConfig *metrics.PromConfig) AuditHandler {
 
 	return &auditHandler{
 		pCache:         pCache,
@@ -91,6 +94,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		configHandler:  dynamicConfig,
 		resCache:       resCache,
 		client:         client,
+		promConfig:     promConfig,
 	}
 }
 
