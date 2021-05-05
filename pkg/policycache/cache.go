@@ -15,7 +15,7 @@ type pMap struct {
 	// kindDataMap field stores names of ClusterPolicies and  Namespaced Policies.
 	// Since both the policy name use same type (i.e. string), Both policies can be differentiated based on
 	// "namespace". namespace policy get stored with policy namespace with policy name"
-	// kindDataMap {"kind": {{"clustertype" : {"policyName","nsname/policyName}}},"kind2": {{"clustertype" : {"nsname/policyName" }}}}
+	// kindDataMap {"kind": {{"policytype" : {"policyName","nsname/policyName}}},"kind2": {{"policytype" : {"nsname/policyName" }}}}
 	kindDataMap map[string]map[PolicyType][]string
 
 	// nameCacheMap stores the names of all existing policies in dataMap
@@ -175,7 +175,7 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 	for _, rule := range policy.Spec.Rules {
 		for _, kind := range rule.MatchResources.Kinds {
 			dataMap := m.kindDataMap[kind]
-			for k, policies := range dataMap {
+			for policyType, policies := range dataMap {
 				var newPolicies []string
 				for _, p := range policies {
 					if p == pName {
@@ -183,7 +183,7 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 					}
 					newPolicies = append(newPolicies, p)
 				}
-				m.kindDataMap[kind][k] = newPolicies
+				m.kindDataMap[kind][policyType] = newPolicies
 			}
 			for _, nameCache := range m.nameCacheMap {
 				if ok := nameCache[kind+"/"+pName]; ok {

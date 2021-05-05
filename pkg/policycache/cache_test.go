@@ -61,11 +61,11 @@ func Test_All(t *testing.T) {
 
 			validateEnforce := pCache.Get(ValidateEnforce, &kind, nil)
 			if len(validateEnforce) != 1 {
-				t.Errorf("expected 1 mutate policy, found %v", len(validateEnforce))
+				t.Errorf("expected 1 validate policy, found %v", len(validateEnforce))
 			}
 			generate := pCache.Get(Generate, &kind, nil)
 			if len(generate) != 1 {
-				t.Errorf("expected 1 mutate policy, found %v", len(generate))
+				t.Errorf("expected 1 generate policy, found %v", len(generate))
 			}
 		}
 	}
@@ -93,11 +93,11 @@ func Test_Add_Duplicate_Policy(t *testing.T) {
 
 			validateEnforce := pCache.Get(ValidateEnforce, &kind, nil)
 			if len(validateEnforce) != 1 {
-				t.Errorf("expected 1 mutate policy, found %v", len(validateEnforce))
+				t.Errorf("expected 1 validate policy, found %v", len(validateEnforce))
 			}
 			generate := pCache.Get(Generate, &kind, nil)
 			if len(generate) != 1 {
-				t.Errorf("expected 1 mutate policy, found %v", len(generate))
+				t.Errorf("expected 1 generate policy, found %v", len(generate))
 			}
 		}
 	}
@@ -122,7 +122,7 @@ func Test_Add_Validate_Audit(t *testing.T) {
 
 			validateAudit := pCache.Get(ValidateAudit, &kind, nil)
 			if len(validateEnforce) != 1 {
-				t.Errorf("expected 1 mutate policy, found %v", len(validateAudit))
+				t.Errorf("expected 1 validate policy, found %v", len(validateAudit))
 			}
 		}
 	}
@@ -385,11 +385,11 @@ func Test_Ns_All(t *testing.T) {
 
 			validateEnforce := pCache.Get(ValidateEnforce, &kind, &nspace)
 			if len(validateEnforce) != 1 {
-				t.Errorf("expected 1 mutate policy, found %v", len(validateEnforce))
+				t.Errorf("expected 1 validate policy, found %v", len(validateEnforce))
 			}
 			generate := pCache.Get(Generate, &kind, &nspace)
 			if len(generate) != 1 {
-				t.Errorf("expected 1 mutate policy, found %v", len(generate))
+				t.Errorf("expected 1 generate policy, found %v", len(generate))
 			}
 		}
 	}
@@ -402,7 +402,7 @@ func Test_Ns_All(t *testing.T) {
 
 func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
 	pCache := newPolicyCache(log.Log, dummyLister{}, dummyNsLister{})
-	policy := newPolicy(t)
+	policy := newNsPolicy(t)
 	pCache.Add(policy)
 	pCache.Add(policy)
 	pCache.Add(policy)
@@ -417,11 +417,11 @@ func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
 
 			validateEnforce := pCache.Get(ValidateEnforce, &kind, &nspace)
 			if len(validateEnforce) != 1 {
-				t.Errorf("expected 1 mutate policy, found %v", len(validateEnforce))
+				t.Errorf("expected 1 validate policy, found %v", len(validateEnforce))
 			}
 			generate := pCache.Get(Generate, &kind, &nspace)
 			if len(generate) != 1 {
-				t.Errorf("expected 1 mutate policy, found %v", len(generate))
+				t.Errorf("expected 1 generate policy, found %v", len(generate))
 			}
 		}
 	}
@@ -429,7 +429,7 @@ func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
 
 func Test_Ns_Add_Validate_Audit(t *testing.T) {
 	pCache := newPolicyCache(log.Log, dummyLister{}, dummyNsLister{})
-	policy := newPolicy(t)
+	policy := newNsPolicy(t)
 	pCache.Add(policy)
 	pCache.Add(policy)
 	nspace := policy.GetNamespace()
@@ -441,12 +441,12 @@ func Test_Ns_Add_Validate_Audit(t *testing.T) {
 
 			validateEnforce := pCache.Get(ValidateEnforce, &kind, &nspace)
 			if len(validateEnforce) != 1 {
-				t.Errorf("expected 1 mutate policy, found %v", len(validateEnforce))
+				t.Errorf("expected 1 validate policy, found %v", len(validateEnforce))
 			}
 
 			validateAudit := pCache.Get(ValidateAudit, &kind, &nspace)
 			if len(validateEnforce) != 1 {
-				t.Errorf("expected 1 mutate policy, found %v", len(validateAudit))
+				t.Errorf("expected 1 validate policy, found %v", len(validateAudit))
 			}
 		}
 	}
@@ -454,7 +454,7 @@ func Test_Ns_Add_Validate_Audit(t *testing.T) {
 
 func Test_Ns_Add_Remove(t *testing.T) {
 	pCache := newPolicyCache(log.Log, dummyLister{}, dummyNsLister{})
-	policy := newPolicy(t)
+	policy := newNsPolicy(t)
 	nspace := policy.GetNamespace()
 	kind := "Pod"
 	pCache.Add(policy)
