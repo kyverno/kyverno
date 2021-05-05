@@ -33,7 +33,7 @@ type resourceCache struct {
 	log logr.Logger
 }
 
-var KyvernoDefaultInformer = []string{"ConfigMap", "Secret", "Deployment", "MutatingWebhookConfiguration", "ValidatingWebhookConfiguration"}
+var KyvernoDefaultInformer = []string{"ConfigMap", "Deployment", "MutatingWebhookConfiguration", "ValidatingWebhookConfiguration"}
 
 // NewResourceCache - initializes the ResourceCache
 func NewResourceCache(dclient *dclient.Client, dInformer dynamicinformer.DynamicSharedInformerFactory, logger logr.Logger) (ResourceCache, error) {

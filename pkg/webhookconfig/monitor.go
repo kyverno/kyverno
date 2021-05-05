@@ -4,15 +4,16 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/tls"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	v1 "k8s.io/api/core/v1"
+	informerv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -41,22 +42,14 @@ type Monitor struct {
 }
 
 //NewMonitor returns a new instance of webhook monitor
-func NewMonitor(resCache resourcecache.ResourceCache, log logr.Logger) *Monitor {
+func NewMonitor(nsInformer informerv1.SecretInformer, log logr.Logger) *Monitor {
 	monitor := &Monitor{
 		t:           time.Now(),
 		secretQueue: make(chan bool, 1),
 		log:         log,
 	}
 
-	var err error
-	secretCache, ok := resCache.GetGVRCache("Secret")
-	if !ok {
-		if secretCache, err = resCache.CreateGVKInformer("Secret"); err != nil {
-			log.Error(err, "unable to start Secret's informer")
-		}
-	}
-
-	secretCache.GetInformer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    monitor.addSecretFunc,
 		UpdateFunc: monitor.updateSecretFunc,
 	})
@@ -80,7 +73,7 @@ func (t *Monitor) SetTime(tm time.Time) {
 }
 
 func (t *Monitor) addSecretFunc(obj interface{}) {
-	secret := obj.(*unstructured.Unstructured)
+	secret := obj.(*v1.Secret)
 	if secret.GetNamespace() != config.KyvernoNamespace {
 		return
 	}
@@ -94,8 +87,8 @@ func (t *Monitor) addSecretFunc(obj interface{}) {
 }
 
 func (t *Monitor) updateSecretFunc(oldObj interface{}, newObj interface{}) {
-	old := oldObj.(*unstructured.Unstructured)
-	new := newObj.(*unstructured.Unstructured)
+	old := oldObj.(*v1.Secret)
+	new := newObj.(*v1.Secret)
 	if new.GetNamespace() != config.KyvernoNamespace {
 		return
 	}
@@ -105,7 +98,7 @@ func (t *Monitor) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 		return
 	}
 
-	if reflect.DeepEqual(old.UnstructuredContent()["data"], new.UnstructuredContent()["data"]) {
+	if reflect.DeepEqual(old.DeepCopy().Data, new.DeepCopy().Data) {
 		return
 	}
 
@@ -182,7 +175,10 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			valid, err := certRenewer.ValidCert()
 			if err != nil {
 				logger.Error(err, "failed to validate cert")
-				continue
+
+				if !strings.Contains(err.Error(), tls.ErrorsNotFound) {
+					continue
+				}
 			}
 
 			if valid {
@@ -199,7 +195,10 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			valid, err := certRenewer.ValidCert()
 			if err != nil {
 				logger.Error(err, "failed to validate cert")
-				continue
+
+				if !strings.Contains(err.Error(), tls.ErrorsNotFound) {
+					continue
+				}
 			}
 
 			if valid {
