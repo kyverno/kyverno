@@ -26,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	util "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/lensesio/tableprinter"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -76,10 +77,10 @@ type SkippedPolicy struct {
 }
 
 type TestResults struct {
-	Policy   string `json:"policy"`
-	Rule     string `json:"rule"`
-	Status   string `json:"status"`
-	Resource string `json:"resource"`
+	Policy   string              `json:"policy"`
+	Rule     string              `json:"rule"`
+	Status   report.PolicyStatus `json:"status"`
+	Resource string              `json:"resource"`
 }
 
 type ReportResult struct {
@@ -107,6 +108,7 @@ type Values struct {
 }
 
 type resultCounts struct {
+	skip int
 	pass int
 	fail int
 }
@@ -219,26 +221,52 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 	return errors
 }
 
-func buildPolicyResults(resps []*response.EngineResponse) map[string][]interface{} {
-	results := make(map[string][]interface{})
+func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResults) map[string]report.PolicyReportResult {
+	results := make(map[string]report.PolicyReportResult)
 	infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
+	for _, resp := range resps {
+		policyName := resp.PolicyResponse.Policy
+		resourceName := resp.PolicyResponse.Resource.Name
+		var rules []string
+		for _, rule := range resp.PolicyResponse.Rules {
+			rules = append(rules, rule.Name)
+		}
+		result := report.PolicyReportResult{
+			Policy: policyName,
+			Resources: []*corev1.ObjectReference{
+				{
+					Name: resourceName,
+				},
+			},
+		}
+		for _, test := range testResults {
+			if test.Policy == policyName && test.Resource == resourceName {
+				if !util.ContainsString(rules, test.Rule) {
+					result.Status = report.StatusSkip
+				}
+				resultsKey := fmt.Sprintf("%s-%s-%s", test.Policy, test.Rule, test.Resource)
+				if _, ok := results[resultsKey]; !ok {
+					results[resultsKey] = result
+				}
+			}
+		}
+	}
 	for _, info := range infos {
 		for _, infoResult := range info.Results {
 			for _, rule := range infoResult.Rules {
 				if rule.Type != utils.Validation.String() {
 					continue
 				}
-				result := report.PolicyReportResult{
-					Policy: info.PolicyName,
-					Resources: []*corev1.ObjectReference{
-						{
-							Name: infoResult.Resource.Name,
-						},
-					},
+				var result report.PolicyReportResult
+				resultsKey := fmt.Sprintf("%s-%s-%s", info.PolicyName, rule.Name, infoResult.Resource.Name)
+				if val, ok := results[resultsKey]; ok {
+					result = val
+				} else {
+					continue
 				}
 				result.Rule = rule.Name
 				result.Status = report.PolicyStatus(rule.Check)
-				results[rule.Name] = append(results[rule.Name], result)
+				results[resultsKey] = result
 			}
 		}
 	}
@@ -357,7 +385,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			validateEngineResponses = append(validateEngineResponses, validateErs)
 		}
 	}
-	resultsMap := buildPolicyResults(validateEngineResponses)
+	resultsMap := buildPolicyResults(validateEngineResponses, values.Results)
 	resultErr := printTestResult(resultsMap, values.Results, rc)
 	if resultErr != nil {
 		return sanitizederror.NewWithError("Unable to genrate result. Error:", resultErr)
@@ -365,9 +393,10 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	return
 }
 
-func printTestResult(resps map[string][]interface{}, testResults []TestResults, rc *resultCounts) error {
+func printTestResult(resps map[string]report.PolicyReportResult, testResults []TestResults, rc *resultCounts) error {
 	printer := tableprinter.New(os.Stdout)
 	table := []*Table{}
+	boldGreen := color.New(color.FgGreen).Add(color.Bold)
 	boldRed := color.New(color.FgRed).Add(color.Bold)
 	boldYellow := color.New(color.FgYellow).Add(color.Bold)
 	boldFgCyan := color.New(color.FgCyan).Add(color.Bold)
@@ -375,32 +404,27 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults, 
 		res := new(Table)
 		res.ID = i + 1
 		res.Resource = boldFgCyan.Sprintf(v.Resource) + " with " + boldFgCyan.Sprintf(v.Policy) + "/" + boldFgCyan.Sprintf(v.Rule)
-		n := resps[v.Rule]
-		data, _ := json.Marshal(n)
-		valuesBytes, err := yaml.ToJSON(data)
-		if err != nil {
-			return sanitizederror.NewWithError("failed to convert json", err)
+		resultKey := fmt.Sprintf("%s-%s-%s", v.Policy, v.Rule, v.Resource)
+		var testRes report.PolicyReportResult
+		if val, ok := resps[resultKey]; ok {
+			testRes = val
+		} else {
+			res.Result = boldYellow.Sprintf("Not found")
+			rc.fail++
+			table = append(table, res)
+			continue
 		}
-		var r []ReportResult
-		json.Unmarshal(valuesBytes, &r)
-		res.Result = boldYellow.Sprintf("Not found")
-		if len(r) != 0 {
-			var resource TestResults
-			for _, testRes := range r {
-				if testRes.Resources[0].Name == v.Resource {
-					resource.Policy = testRes.Policy
-					resource.Rule = testRes.Rule
-					resource.Status = testRes.Status
-					resource.Resource = testRes.Resources[0].Name
-					if v == resource {
-						res.Result = "Pass"
-						rc.pass++
-					} else {
-						res.Result = boldRed.Sprintf("Fail")
-						rc.fail++
-					}
-				}
+		if testRes.Status == v.Status {
+			if testRes.Status == report.StatusSkip {
+				res.Result = boldGreen.Sprintf("Skip")
+				rc.skip++
+			} else {
+				res.Result = boldGreen.Sprintf("Pass")
+				rc.pass++
 			}
+		} else {
+			res.Result = boldRed.Sprintf("Fail")
+			rc.fail++
 		}
 		table = append(table, res)
 	}

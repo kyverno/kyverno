@@ -176,10 +176,12 @@ test-e2e:
 	$(eval export E2E="")
 
 #Test TestCmd Policy
-run_testcmd_policy:
-	go build -o  kyvernoctl cmd/cli/kubectl-kyverno/main.go
-	./kyvernoctl test https://github.com/kyverno/policies/main
-	./kyvernoctl test ./test/cli/test
+run_testcmd_policy: cli
+	$(PWD)/$(CLI_PATH)/kyverno test https://github.com/kyverno/policies/main
+	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test
+	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-policy || exit 0
+	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-rule || exit 0
+	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-resource || exit 0
 
 # godownloader create downloading script for kyverno-cli
 godownloader:
