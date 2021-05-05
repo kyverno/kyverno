@@ -1,7 +1,6 @@
 package policycache
 
 import (
-	"fmt"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -77,7 +76,6 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 }
 
 func (c *Controller) deletePolicy(obj interface{}) {
-	fmt.Println("3----")
 	p := obj.(*kyverno.ClusterPolicy)
 	c.Cache.Remove(p)
 }

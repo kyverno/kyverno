@@ -316,7 +316,6 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 }
 
 func (pc *PolicyController) deletePolicy(obj interface{}) {
-	fmt.Println("2----")
 	logger := pc.log
 	p, ok := obj.(*kyverno.ClusterPolicy)
 	if !ok {
@@ -342,8 +341,19 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 
 	// we process policies that are not set of background processing
 	// as we need to clean up GRs when a policy is deleted
-	// pc.enqueuePolicy(p)
-	// pc.enqueueRCRDeletedPolicy(p.Name)
+	// skip generate policies with clone
+	generatePolicyWithClone := false
+	rules := p.Spec.Rules
+	for _, rule := range rules {
+		if rule.Generation.Clone.Name != "" {
+			generatePolicyWithClone = true
+		}
+	}
+
+	if !generatePolicyWithClone {
+		pc.enqueuePolicy(p)
+		pc.enqueueRCRDeletedPolicy(p.Name)
+	}
 }
 
 func (pc *PolicyController) registerPolicyRuleInfoMetricAddNsPolicy(logger logr.Logger, p *kyverno.Policy) {
@@ -652,7 +662,6 @@ func (pc *PolicyController) getPolicy(key string) (policy *kyverno.ClusterPolicy
 }
 
 func deleteGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*kyverno.GenerateRequest, logger logr.Logger) {
-	fmt.Println("3*****")
 	for _, v := range grList {
 		if policyKey == v.Spec.Policy {
 			err := kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
