@@ -27,6 +27,9 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resC
 	policyName := ctx.Policy.Name
 	if store.GetMock() {
 		rule := store.GetPolicyRuleFromContext(policyName, ruleName)
+		if len(rule.Values) == 0 {
+			return fmt.Errorf("No values found for policy %s rule %s", policyName, ruleName)
+		}
 		variables := rule.Values
 
 		for key, value := range variables {

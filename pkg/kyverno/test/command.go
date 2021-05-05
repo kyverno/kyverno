@@ -22,6 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -145,83 +146,77 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 		sort.Strings(policyYamls)
 		for _, yamlFilePath := range policyYamls {
 			file, err := fs.Open(yamlFilePath)
+			if err != nil {
+				errors = append(errors, sanitizederror.NewWithError("Error: failed to open file", err))
+				continue
+			}
 			if strings.Contains(file.Name(), fileName) {
 				testYamlCount++
 				policyresoucePath := strings.Trim(yamlFilePath, fileName)
 				bytes, err := ioutil.ReadAll(file)
 				if err != nil {
-					sanitizederror.NewWithError("Error: failed to read file", err)
+					errors = append(errors, sanitizederror.NewWithError("Error: failed to read file", err))
 					continue
 				}
 				policyBytes, err := yaml.ToJSON(bytes)
 				if err != nil {
-					sanitizederror.NewWithError("failed to convert to JSON", err)
+					errors = append(errors, sanitizederror.NewWithError("failed to convert to JSON", err))
 					continue
 				}
 				if err := applyPoliciesFromPath(fs, policyBytes, valuesFile, true, policyresoucePath, rc); err != nil {
 					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
 			}
-			if err != nil {
-				sanitizederror.NewWithError("Error: failed to open file", err)
-				continue
-			}
+		}
+		if testYamlCount == 0 {
+			fmt.Printf("\n No test yamls available \n")
 		}
 	} else {
 		path := filepath.Clean(dirPath[0])
-		if err != nil {
-			errors = append(errors, err)
-		}
-		err := getLocalDirTestFiles(fs, path, fileName, valuesFile, rc, testYamlCount)
-		if err != nil {
-			errors = append(errors, err)
-		}
-		if len(errors) > 0 && log.Log.V(1).Enabled() {
-			fmt.Printf("ignoring errors: \n")
-			for _, e := range errors {
-				fmt.Printf("    %v \n", e.Error())
-			}
+		errors = getLocalDirTestFiles(fs, path, fileName, valuesFile, rc)
+	}
+	if len(errors) > 0 && log.Log.V(1).Enabled() {
+		fmt.Printf("ignoring errors: \n")
+		for _, e := range errors {
+			fmt.Printf("    %v \n", e.Error())
 		}
 	}
 	if rc.fail > 0 {
 		os.Exit(1)
 	}
-	if testYamlCount == 0 {
-		fmt.Printf("\n No test yamls available \n")
-	}
 	os.Exit(0)
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts, testYamlCount int) error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts) []error {
+	var errors []error
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
-		return fmt.Errorf("failed to read %v: %v", path, err.Error())
+		return []error{fmt.Errorf("failed to read %v: %v", path, err.Error())}
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc, testYamlCount)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc)
 			continue
 		}
 		if strings.Contains(file.Name(), fileName) {
-			testYamlCount++
 			yamlFile, err := ioutil.ReadFile(filepath.Join(path, file.Name()))
 			if err != nil {
-				sanitizederror.NewWithError("unable to read yaml", err)
+				errors = append(errors, sanitizederror.NewWithError("unable to read yaml", err))
 				continue
 			}
 			valuesBytes, err := yaml.ToJSON(yamlFile)
 			if err != nil {
-				sanitizederror.NewWithError("failed to convert json", err)
+				errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
 				continue
 			}
 			if err := applyPoliciesFromPath(fs, valuesBytes, valuesFile, false, path, rc); err != nil {
-				sanitizederror.NewWithError("failed to apply test command", err)
+				errors = append(errors, sanitizederror.NewWithError(fmt.Sprintf("failed to apply test command from file %s", file.Name()), err))
 				continue
 			}
 		}
 	}
-	return nil
+	return errors
 }
 
 func buildPolicyResults(resps []*response.EngineResponse) map[string][]interface{} {
@@ -269,6 +264,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	var dClient *client.Client
 	values := &Test{}
 	var variablesString string
+	store.SetMock(true)
 
 	if err := json.Unmarshal(policyBytes, values); err != nil {
 		return sanitizederror.NewWithError("failed to decode yaml", err)
@@ -333,6 +329,18 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			continue
 		}
 		for _, resource := range resources {
+			var resourcePolicy string
+			for polName, values := range valuesMap {
+				for resName := range values {
+					if resName == resource.GetName() {
+						resourcePolicy = polName
+					}
+				}
+			}
+			if len(valuesMap) != 0 && resourcePolicy != policy.GetName() {
+				log.Log.V(3).Info(fmt.Sprintf("Skipping resource, policy names do not match %s != %s", resourcePolicy, policy.GetName()))
+				continue
+			}
 			thisPolicyResourceValues := make(map[string]string)
 			if len(valuesMap[policy.GetName()]) != 0 && !reflect.DeepEqual(valuesMap[policy.GetName()][resource.GetName()], Resource{}) {
 				thisPolicyResourceValues = valuesMap[policy.GetName()][resource.GetName()].Values
@@ -361,6 +369,7 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults, 
 	printer := tableprinter.New(os.Stdout)
 	table := []*Table{}
 	boldRed := color.New(color.FgRed).Add(color.Bold)
+	boldYellow := color.New(color.FgYellow).Add(color.Bold)
 	boldFgCyan := color.New(color.FgCyan).Add(color.Bold)
 	for i, v := range testResults {
 		res := new(Table)
@@ -374,7 +383,7 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults, 
 		}
 		var r []ReportResult
 		json.Unmarshal(valuesBytes, &r)
-		res.Result = boldRed.Sprintf("Fail")
+		res.Result = boldYellow.Sprintf("Not found")
 		if len(r) != 0 {
 			var resource TestResults
 			for _, testRes := range r {
@@ -387,6 +396,7 @@ func printTestResult(resps map[string][]interface{}, testResults []TestResults, 
 						res.Result = "Pass"
 						rc.pass++
 					} else {
+						res.Result = boldRed.Sprintf("Fail")
 						rc.fail++
 					}
 				}
