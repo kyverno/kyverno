@@ -179,9 +179,9 @@ test-e2e:
 run_testcmd_policy: cli
 	$(PWD)/$(CLI_PATH)/kyverno test https://github.com/kyverno/policies/main
 	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test
-	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-policy || exit 0
-	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-rule || exit 0
-	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-resource || exit 0
+	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
+	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-rule && exit 1 || exit 0
+	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
 
 # godownloader create downloading script for kyverno-cli
 godownloader:
