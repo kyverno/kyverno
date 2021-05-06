@@ -511,31 +511,13 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 		// ======== Check Updated NetworkPolicy =============
 		// get updated network policy
 		updatedNetPol, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
-		fmt.Println("updatedNetPol: ", updatedNetPol)
 		Expect(err).NotTo(HaveOccurred())
-		// compare updated network policy and updated generate policy. how????
-		a, b, c := unstructured.NestedMap(updatedNetPol.UnstructuredContent(), "spec", "egress", "ports")
-		fmt.Println("\n\nunstructured.NestedStringSlice  \na: ", a, "\nb: ", b, "\nc", c)
-		// d := a[0]
-		// fmt.Println("d: ", d)
-		// typedd, ok := d.(map[string]interface{})
-		// if ok {
-		// 	e := typedd["ports"]
-		// 	fmt.Println("e: ", e)
-		// 	typede, ok := e.([]interface{})
-		// 	if ok {
-		// 		f := typede[0]
-		// 		fmt.Println("f: ", f)
-		// 		if f == "TCP" {
-		// 			fmt.Println("------TCP--------")
-		// 		}
-		// 	}
-		// 	switch typede := e.(type) {
-		// 	// map
-		// 	default:
-		// 		fmt.Println("typede: ", reflect.TypeOf(typede))
-		// 	}
-		// }
+
+		// compare updated network policy and updated generate policy
+		element, specFound, err := unstructured.NestedMap(updatedNetPol.UnstructuredContent(), "spec")
+		Expect(specFound).To(Equal(true))
+		loop(element)
+		Expect(found).To(Equal(true))
 
 		// ============================================
 		// ======= CleanUp Resources =====
@@ -556,6 +538,29 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 
 		By(fmt.Sprintf("Test %s Completed \n\n\n", test.TestName))
 	}
+}
+
+var found bool
+
+func loop(elementObj interface{}) {
+	switch typedelementObj := elementObj.(type) {
+	case map[string]interface{}:
+		for k, v := range typedelementObj {
+			if k == "protocol" {
+				if v == "TCP" {
+					found = true
+					return
+				}
+			} else {
+				loop(v)
+			}
+		}
+	case []interface{}:
+		loop(typedelementObj[0])
+	default:
+		fmt.Println("unexpected type :", fmt.Sprintf("%T", elementObj))
+	}
+	return
 }
 
 func Test_Generate_synchronize_flag(t *testing.T) {
