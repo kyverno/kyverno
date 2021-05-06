@@ -411,16 +411,14 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 			label["policy.kyverno.io/synchronize"] = "disable"
 		}
 
-		if rule.Generation.Synchronize {
-			logger.V(4).Info("updating existing resource")
-			newResource.SetLabels(label)
-			_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
-			if err != nil {
-				logger.Error(err, "failed to update resource")
-				return noGenResource, err
-			}
-			logger.V(2).Info("updated target resource")
+		logger.V(4).Info("updating label in existing resource")
+		newResource.SetLabels(label)
+		_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
+		if err != nil {
+			logger.Error(err, "failed to update resource")
+			return noGenResource, err
 		}
+		logger.V(2).Info("updated target resource")
 	}
 
 	return newGenResource, nil
