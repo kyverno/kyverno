@@ -35,11 +35,12 @@ type policyCache struct {
 }
 
 // Interface ...
+// Interface get method use for to get policy names and mostly use to test cache testcases
 type Interface interface {
 	Add(policy *kyverno.ClusterPolicy)
 	Remove(policy *kyverno.ClusterPolicy)
-	Get(pkey PolicyType, kind *string, nspace *string) []string
 	GetPolicyObject(pkey PolicyType, kind *string, nspace *string) []*kyverno.ClusterPolicy
+	get(pkey PolicyType, kind *string, nspace *string) []string
 }
 
 // newPolicyCache ...
@@ -69,7 +70,7 @@ func (pc *policyCache) Add(policy *kyverno.ClusterPolicy) {
 }
 
 // Get the list of matched policies
-func (pc *policyCache) Get(pkey PolicyType, kind, nspace *string) []string {
+func (pc *policyCache) get(pkey PolicyType, kind, nspace *string) []string {
 	return pc.pMap.get(pkey, kind, nspace)
 }
 func (pc *policyCache) GetPolicyObject(pkey PolicyType, kind, nspace *string) []*kyverno.ClusterPolicy {
@@ -195,7 +196,6 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 	}
 }
 func (m *policyCache) getPolicyObject(key PolicyType, kind *string, nspace *string) (policyObject []*kyverno.ClusterPolicy) {
-
 	policyNames := m.pMap.get(key, kind, nspace)
 	for _, policyName := range policyNames {
 		var policy *kyverno.ClusterPolicy
