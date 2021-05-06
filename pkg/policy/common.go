@@ -57,7 +57,7 @@ func ConvertPolicyToClusterPolicy(nsPolicies *kyverno.Policy) *kyverno.ClusterPo
 	return &cpol
 }
 
-func parseNamespacedPolicy(key string) (string, string, bool) {
+func ParseNamespacedPolicy(key string) (string, string, bool) {
 	namespace := ""
 	index := strings.Index(key, "/")
 	if index != -1 {
