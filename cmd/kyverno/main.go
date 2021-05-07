@@ -148,8 +148,7 @@ func main() {
 		debug,
 		log.Log)
 
-	// Resource Mutating Webhook Watcher
-	webhookMonitor := webhookconfig.NewMonitor(rCache, log.Log.WithName("WebhookMonitor"))
+	webhookMonitor := webhookconfig.NewMonitor(kubeInformer.Core().V1().Secrets(), log.Log.WithName("WebhookMonitor"))
 
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:

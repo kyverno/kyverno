@@ -334,7 +334,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 			}
 			yamlFile, err = ioutil.ReadAll(filep)
 		} else {
-			yamlFile, err = ioutil.ReadFile(valuesFile)
+			yamlFile, err = ioutil.ReadFile(filepath.Join(policyresoucePath, valuesFile))
 		}
 
 		if err != nil {

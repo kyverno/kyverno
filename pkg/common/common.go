@@ -103,7 +103,7 @@ func VariableToJSON(key, value string) []byte {
 		}
 	}
 
-	midString := fmt.Sprintf(`"%s"`, value)
+	midString := fmt.Sprintf(`"%s"`, strings.Replace(value, `"`, `\"`, -1))
 	finalString := startString + midString + endString
 	var jsonData = []byte(finalString)
 	return jsonData

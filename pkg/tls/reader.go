@@ -13,6 +13,8 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+var ErrorsNotFound = "root CA certificate not found"
+
 // ReadRootCASecret returns the RootCA from the pre-defined secret
 func ReadRootCASecret(restConfig *rest.Config, client *client.Client) (result []byte, err error) {
 	certProps, err := GetTLSCertProps(restConfig)
@@ -33,7 +35,7 @@ func ReadRootCASecret(restConfig *rest.Config, client *client.Client) (result []
 
 	result = tlsca.Data[RootCAKey]
 	if len(result) == 0 {
-		return nil, errors.Errorf("root CA certificate not found in secret %s/%s", certProps.Namespace, tlsca.Name)
+		return nil, errors.Errorf("%s in secret %s/%s", ErrorsNotFound, certProps.Namespace, tlsca.Name)
 	}
 
 	return result, nil

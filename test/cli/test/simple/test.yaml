@@ -1,0 +1,14 @@
+name: test-simple
+policies:
+  - policy.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: disallow-latest-tag
+    rule: validate-image-tag
+    resource: test-web
+    status: fail
+  - policy: disallow-latest-tag
+    rule: validate-image-tag
+    resource: test-app
+    status: pass

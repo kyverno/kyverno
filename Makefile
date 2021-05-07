@@ -179,6 +179,7 @@ test-e2e:
 run_testcmd_policy:
 	go build -o  kyvernoctl cmd/cli/kubectl-kyverno/main.go
 	./kyvernoctl test https://github.com/kyverno/policies/main
+	./kyvernoctl test ./test/cli/test
 
 # godownloader create downloading script for kyverno-cli
 godownloader:
