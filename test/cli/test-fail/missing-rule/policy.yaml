@@ -16,6 +16,8 @@ spec:
       resources:
         kinds:
         - Pod
+        namespaces:
+        - test
     validate:
       message: "An image tag is required."  
       pattern:
