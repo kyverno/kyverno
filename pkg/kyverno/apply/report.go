@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -31,7 +32,7 @@ func buildPolicyReports(resps []*response.EngineResponse, skippedPolicies []Skip
 					Message: fmt.Sprintln("skipped policy with variables -", sp.Variable),
 					Policy:  sp.Name,
 					Rule:    r.Name,
-					Status:  "skip",
+					Result:  "skip",
 				},
 			}
 
@@ -110,6 +111,7 @@ func buildPolicyReports(resps []*response.EngineResponse, skippedPolicies []Skip
 func buildPolicyResults(resps []*response.EngineResponse) map[string][]*report.PolicyReportResult {
 	results := make(map[string][]*report.PolicyReportResult)
 	infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
+	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, info := range infos {
 		var appname string
@@ -142,7 +144,9 @@ func buildPolicyResults(resps []*response.EngineResponse) map[string][]*report.P
 
 				result.Rule = rule.Name
 				result.Message = rule.Message
-				result.Status = report.PolicyStatus(rule.Check)
+				result.Result = report.PolicyResult(rule.Check)
+				result.Source = policyreport.SourceValue
+				result.Timestamp = now
 				results[appname] = append(results[appname], &result)
 			}
 		}
@@ -158,7 +162,7 @@ func mergeSucceededResults(results map[string][]*report.PolicyReportResult) map[
 
 		resourcesMap := make(map[string]*report.PolicyReportResult)
 		for _, result := range scopedResults {
-			if result.Status != report.PolicyStatus("pass") {
+			if result.Result != report.PolicyResult("pass") {
 				resultsNew[scope] = append(resultsNew[scope], result)
 				continue
 			}
@@ -183,7 +187,7 @@ func mergeSucceededResults(results map[string][]*report.PolicyReportResult) map[
 				Policy:    names[0],
 				Rule:      names[1],
 				Resources: v.Resources,
-				Status:    report.PolicyStatus(v.Status),
+				Result:    report.PolicyResult(v.Result),
 			}
 
 			resultsNew[scope] = append(resultsNew[scope], r)
@@ -194,7 +198,7 @@ func mergeSucceededResults(results map[string][]*report.PolicyReportResult) map[
 
 func calculateSummary(results []*report.PolicyReportResult) (summary report.PolicyReportSummary) {
 	for _, res := range results {
-		switch string(res.Status) {
+		switch string(res.Result) {
 		case report.StatusPass:
 			summary.Pass++
 		case report.StatusFail:

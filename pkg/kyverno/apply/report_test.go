@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	preport "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	preport "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
@@ -106,9 +106,9 @@ func Test_buildPolicyResults(t *testing.T) {
 		for _, r := range result {
 			switch r.Rule {
 			case "policy1-rule1", "clusterpolicy2-rule1":
-				assert.Assert(t, r.Status == report.PolicyStatus(preport.StatusPass))
+				assert.Assert(t, r.Result == report.PolicyResult(preport.StatusPass))
 			case "policy1-rule2", "clusterpolicy2-rule2":
-				assert.Assert(t, r.Status == report.PolicyStatus(preport.StatusFail))
+				assert.Assert(t, r.Result == report.PolicyResult(preport.StatusFail))
 			}
 		}
 	}
@@ -118,17 +118,17 @@ func Test_calculateSummary(t *testing.T) {
 	results := []*report.PolicyReportResult{
 		{
 			Resources: make([]*v1.ObjectReference, 5),
-			Status:    report.PolicyStatus(preport.StatusPass),
+			Result:    report.PolicyResult(preport.StatusPass),
 		},
-		{Status: report.PolicyStatus(preport.StatusFail)},
-		{Status: report.PolicyStatus(preport.StatusFail)},
-		{Status: report.PolicyStatus(preport.StatusFail)},
+		{Result: report.PolicyResult(preport.StatusFail)},
+		{Result: report.PolicyResult(preport.StatusFail)},
+		{Result: report.PolicyResult(preport.StatusFail)},
 		{
 			Resources: make([]*v1.ObjectReference, 1),
-			Status:    report.PolicyStatus(preport.StatusPass)},
+			Result:    report.PolicyResult(preport.StatusPass)},
 		{
 			Resources: make([]*v1.ObjectReference, 4),
-			Status:    report.PolicyStatus(preport.StatusPass),
+			Result:    report.PolicyResult(preport.StatusPass),
 		},
 	}
 

@@ -175,8 +175,8 @@ func main() {
 	// POLICY Report GENERATOR
 	reportReqGen := policyreport.NewReportChangeRequestGenerator(pclient,
 		client,
-		pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
-		pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
+		pInformer.Kyverno().V1alpha2().ReportChangeRequests(),
+		pInformer.Kyverno().V1alpha2().ClusterReportChangeRequests(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
 		statusSync.Listener,
@@ -185,10 +185,10 @@ func main() {
 
 	prgen := policyreport.NewReportGenerator(pclient,
 		client,
-		pInformer.Wgpolicyk8s().V1alpha1().ClusterPolicyReports(),
-		pInformer.Wgpolicyk8s().V1alpha1().PolicyReports(),
-		pInformer.Kyverno().V1alpha1().ReportChangeRequests(),
-		pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
+		pInformer.Wgpolicyk8s().V1alpha2().ClusterPolicyReports(),
+		pInformer.Wgpolicyk8s().V1alpha2().PolicyReports(),
+		pInformer.Kyverno().V1alpha2().ReportChangeRequests(),
+		pInformer.Kyverno().V1alpha2().ClusterReportChangeRequests(),
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyReportGenerator"),
 	)

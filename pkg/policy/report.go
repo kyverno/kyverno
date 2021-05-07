@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	v1alpha1 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	v1alpha2 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	policyreportlister "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
+	policyreportlister "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -68,9 +68,9 @@ func eraseResultsEntries(pclient *kyvernoclient.Clientset, reportLister policyre
 		errors = append(errors, err.Error())
 	} else {
 		for _, polr := range polrs {
-			polr.Results = []*v1alpha1.PolicyReportResult{}
-			polr.Summary = v1alpha1.PolicyReportSummary{}
-			if _, err = pclient.Wgpolicyk8sV1alpha1().PolicyReports(polr.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
+			polr.Results = []*v1alpha2.PolicyReportResult{}
+			polr.Summary = v1alpha2.PolicyReportSummary{}
+			if _, err = pclient.Wgpolicyk8sV1alpha2().PolicyReports(polr.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
 				errors = append(errors, fmt.Sprintf("%s/%s/%s: %v", polr.Kind, polr.Namespace, polr.Name, err))
 			}
 		}
@@ -80,9 +80,9 @@ func eraseResultsEntries(pclient *kyvernoclient.Clientset, reportLister policyre
 		errors = append(errors, err.Error())
 	} else {
 		for _, cpolr := range cpolrs {
-			cpolr.Results = []*v1alpha1.PolicyReportResult{}
-			cpolr.Summary = v1alpha1.PolicyReportSummary{}
-			if _, err = pclient.Wgpolicyk8sV1alpha1().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
+			cpolr.Results = []*v1alpha2.PolicyReportResult{}
+			cpolr.Summary = v1alpha2.PolicyReportSummary{}
+			if _, err = pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
 				errors = append(errors, fmt.Sprintf("%s/%s: %v", cpolr.Kind, cpolr.Name, err))
 			}
 		}

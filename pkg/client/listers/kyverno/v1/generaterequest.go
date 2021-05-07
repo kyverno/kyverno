@@ -26,8 +26,10 @@ import (
 )
 
 // GenerateRequestLister helps list GenerateRequests.
+// All objects returned here must be treated as read-only.
 type GenerateRequestLister interface {
 	// List lists all GenerateRequests in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.GenerateRequest, err error)
 	// GenerateRequests returns an object that can list and get GenerateRequests.
 	GenerateRequests(namespace string) GenerateRequestNamespaceLister
@@ -58,10 +60,13 @@ func (s *generateRequestLister) GenerateRequests(namespace string) GenerateReque
 }
 
 // GenerateRequestNamespaceLister helps list and get GenerateRequests.
+// All objects returned here must be treated as read-only.
 type GenerateRequestNamespaceLister interface {
 	// List lists all GenerateRequests in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.GenerateRequest, err error)
 	// Get retrieves the GenerateRequest from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1.GenerateRequest, error)
 	GenerateRequestNamespaceListerExpansion
 }
