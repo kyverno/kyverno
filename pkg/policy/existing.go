@@ -45,7 +45,11 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 
 			namespaces := pc.getNamespacesForRule(&rule, logger.WithValues("kind", k))
 			for _, ns := range namespaces {
-				pc.applyAndReportPerNamespace(policy, k, ns, rule, logger.WithValues("kind", k).WithValues("ns", ns))
+				// for kind: Policy, consider only the namespace which the policy belongs to.
+				// for kind: ClusterPolicy, consider all the namespaces.
+				if policy.Namespace == ns || policy.Namespace == "" {
+					pc.applyAndReportPerNamespace(policy, k, ns, rule, logger.WithValues("kind", k).WithValues("ns", ns))
+				}
 			}
 		}
 	}
