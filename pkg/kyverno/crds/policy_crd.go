@@ -122,9 +122,6 @@ const PolicyCRD = `
 								"description": "ResourceDescription contains information about the resource being created or modified.",
 								"properties": {
 								  "annotations": {
-									"additionalProperties": {
-									  "type": "string"
-									},
 									"description": "Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters \"*\" (matches zero or many characters) and \"?\" (matches at least one character).",
 									"type": "object"
 								  },
@@ -178,9 +175,6 @@ const PolicyCRD = `
 										"type": "array"
 									  },
 									  "matchLabels": {
-										"additionalProperties": {
-										  "type": "string"
-										},
 										"description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is \"key\", the operator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
 										"type": "object"
 									  }
@@ -233,9 +227,6 @@ const PolicyCRD = `
 										"type": "array"
 									  },
 									  "matchLabels": {
-										"additionalProperties": {
-										  "type": "string"
-										},
 										"description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is \"key\", the operator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
 										"type": "object"
 									  }
@@ -349,9 +340,6 @@ const PolicyCRD = `
 								"description": "ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources.",
 								"properties": {
 								  "annotations": {
-									"additionalProperties": {
-									  "type": "string"
-									},
 									"description": "Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters \"*\" (matches zero or many characters) and \"?\" (matches at least one character).",
 									"type": "object"
 								  },
@@ -405,9 +393,6 @@ const PolicyCRD = `
 										"type": "array"
 									  },
 									  "matchLabels": {
-										"additionalProperties": {
-										  "type": "string"
-										},
 										"description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is \"key\", the operator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
 										"type": "object"
 									  }
@@ -460,9 +445,6 @@ const PolicyCRD = `
 										"type": "array"
 									  },
 									  "matchLabels": {
-										"additionalProperties": {
-										  "type": "string"
-										},
 										"description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is \"key\", the operator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
 										"type": "object"
 									  }
