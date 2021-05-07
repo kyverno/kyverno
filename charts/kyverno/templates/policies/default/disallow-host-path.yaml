@@ -14,6 +14,7 @@ metadata:
       Using host resources can be used to access shared data or escalate privileges
       and should not be allowed.
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 spec:
   validationFailureAction: {{ .Values.validationFailureAction }}
   background: true

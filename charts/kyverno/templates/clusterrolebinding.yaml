@@ -4,6 +4,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ template "kyverno.fullname" . }}:webhook
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -18,6 +19,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ template "kyverno.fullname" . }}:userinfo
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -32,6 +34,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ template "kyverno.fullname" . }}:customresources
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -46,6 +49,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ template "kyverno.fullname" . }}:policycontroller
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -60,6 +64,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ template "kyverno.fullname" . }}:generatecontroller
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

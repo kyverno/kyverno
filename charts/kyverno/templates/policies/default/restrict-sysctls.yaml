@@ -15,6 +15,7 @@ metadata:
       sysctl is considered safe if it is namespaced in the container or the
       Pod, and it is isolated from other Pods or processes on the same Node.
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 spec:
   validationFailureAction: {{ .Values.validationFailureAction }}
   background: true

@@ -15,6 +15,7 @@ metadata:
       The default policy should prevent overriding or disabling the policy, or restrict 
       overrides to an allowed set of profiles.
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 spec:
   validationFailureAction: {{ .Values.validationFailureAction }}
   background: true

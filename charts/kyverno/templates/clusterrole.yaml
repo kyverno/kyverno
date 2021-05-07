@@ -4,6 +4,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.fullname" . }}:webhook
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 rules:
 # Dynamic creation of webhooks, events & certs
 - apiGroups:
@@ -50,6 +51,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.fullname" . }}:userinfo
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 rules:
 # get the roleRef for incoming api-request user
 - apiGroups:
@@ -70,6 +72,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.fullname" . }}:customresources
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 rules:
 # Kyverno CRs
 - apiGroups:
@@ -109,6 +112,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.fullname" . }}:policycontroller
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 rules:
 # background processing, identify all existing resources
 - apiGroups:
@@ -126,6 +130,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.fullname" . }}:generatecontroller
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 rules:
 # process generate rules to generate resources
 - apiGroups:
@@ -162,6 +167,7 @@ metadata:
   name: {{ template "kyverno.fullname" . }}:admin-policies
   labels: {{ include "kyverno.labels" . | nindent 4 }}
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    app: kyverno
 rules:
 - apiGroups:
   - kyverno.io
@@ -176,6 +182,7 @@ kind: ClusterRole
 metadata:
   labels: {{ include "kyverno.labels" . | nindent 4 }}
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    app: kyverno
   name: {{ template "kyverno.fullname" . }}:admin-policyreport
 rules:
   - apiGroups:
@@ -191,6 +198,7 @@ kind: ClusterRole
 metadata:
   labels: {{ include "kyverno.labels" . | nindent 4 }}
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    app: kyverno
   name: {{ template "kyverno.fullname" . }}:admin-reportchangerequest
 rules:
 - apiGroups:

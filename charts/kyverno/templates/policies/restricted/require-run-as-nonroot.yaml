@@ -11,6 +11,7 @@ metadata:
     {{- end }}
     policies.kyverno.io/description: Containers must be required to run as non-root users.
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 spec:
   background: true
   validationFailureAction: {{ .Values.validationFailureAction }}
