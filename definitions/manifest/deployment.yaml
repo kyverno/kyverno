@@ -26,6 +26,13 @@ spec:
         - name: kyverno-pre
           image: ghcr.io/kyverno/kyvernopre:latest
           imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 100m
+              memory: 256Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
           securityContext:
             runAsNonRoot: true
             privileged: false
