@@ -149,27 +149,6 @@ var NetworkPolicyGenerateTests = []struct {
 		Sync:              true,
 		Data:              genNetworkPolicyYaml,
 	},
-	// {
-	// 	TestName:          "test-generate-policy-for-namesoace-without-label",
-	// 	NetworkPolicyName: "allow-dns",
-	// 	ResourceNamespace: "test",
-	// 	Clone:             false,
-	// 	Sync:              true,
-	// 	Data:              genNetworkPolicyYaml,
-	// },
-	//{
-	//	TestName:                          "test-clusterrole-clusterrolebinding-with-sync-with-clone",
-	//	// TODO: fix NetworkPolicyName
-	//	NetworkPolicyName:                 "should-be-something",
-	//	ResourceNamespace:                 "test",
-	//	Clone:                             true,
-	//	ClonerClusterRoleName:             "base-cluster-role",
-	//	ClonerClusterRoleBindingName:      "base-cluster-role-binding",
-	//	CloneSourceClusterRoleData:        baseClusterRoleData,
-	//	CloneSourceClusterRoleBindingData: baseClusterRoleBindingData,
-	//	Sync:                              false,
-	//	Data:                              genNetworkPolicyYaml,
-	//},
 }
 
 // NetworkPolicyGenerateTests - E2E Test Config for NetworkPolicyGenerateTests
@@ -202,7 +181,7 @@ var GenerateNetworkPolicyOnNamespaceWithoutLabelTests = []struct {
 	UpdateData []byte
 }{
 	{
-		TestName:           "test-generate-policy-for-namespace-without-label",
+		TestName:           "test-generate-policy-for-namespace-label-actions",
 		ResourceNamespace:  "test",
 		NetworkPolicyName:  "allow-dns",
 		GeneratePolicyName: "add-networkpolicy",

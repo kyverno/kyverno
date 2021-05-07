@@ -299,13 +299,6 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 		// Clear Namespace
 		By(fmt.Sprintf("Deleting Namespace : %s", test.ResourceNamespace))
 		e2eClient.DeleteClusteredResource(nsGVR, test.ResourceNamespace)
-		// If Clone is true Clear Source Resource and Recreate
-		// if test.Clone {
-		// 	By(fmt.Sprintf("Clone = true, Deleting NetworkPolicy from Clone Namespace : %s", test.CloneNamespace))
-		// 	// Delete NetworkPolicy to be cloned
-		// 	e2eClient.DeleteNamespacedResource(npGVR, test.CloneNamespace, test.NetworkPolicyName)
-
-		// }
 
 		// Wait Till Deletion of Namespace
 		e2e.GetWithRetry(time.Duration(1), 15, func() error {
@@ -321,16 +314,6 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
-
-		// === If Clone is true Create Source Resources ==
-		//if test.Clone {
-		//	By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", test.CloneNamespace))
-		//	_, err := e2eClient.CreateNamespacedResourceYaml(rGVR, test.CloneNamespace, test.CloneSourceRoleData)
-		//	Expect(err).NotTo(HaveOccurred())
-		//	_, err = e2eClient.CreateNamespacedResourceYaml(rbGVR, test.CloneNamespace, test.CloneSourceRoleBindingData)
-		//	Expect(err).NotTo(HaveOccurred())
-		//}
-		// ================================================
 
 		// ======= Create Namespace ==================
 		By(fmt.Sprintf("Creating Namespace which triggers generate %s", npPolNS))
@@ -359,32 +342,12 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 		})
 		npRes, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
 
-		// TODO: remove this later
-		//fmt.Println("=======open: listing all network policies =======")
-		//fmt.Println(npGVR)
-		//fmt.Println(test.ResourceNamespace)
-		//lnr, err := e2eClient.ListNamespacedResources(npGVR, test.ResourceNamespace)
-		//if err != nil {
-		//	fmt.Println(err)
-		//}
-		//fmt.Println(lnr)
-		//fmt.Println("=======close: listing all network policies =======")
-
 		Expect(err).NotTo(HaveOccurred())
 		Expect(npRes.GetName()).To(Equal(test.NetworkPolicyName))
 		// ============================================
 
 		// ======= CleanUp Resources =====
 		e2eClient.CleanClusterPolicies(clPolGVR)
-
-		// === If Clone is true Delete Source Resources ==
-		// TODO: check this later
-		//if test.Clone {
-		//	By(fmt.Sprintf("Clone = true, Deleting Cloner Resources in Namespace : %s", test.CloneNamespace))
-		//	e2eClient.DeleteNamespacedResource(rGVR, test.CloneNamespace, test.RoleName)
-		//	e2eClient.DeleteNamespacedResource(rbGVR, test.CloneNamespace, test.RoleBindingName)
-		//}
-		// ================================================
 
 		// Clear Namespace
 		e2eClient.DeleteClusteredResource(nsGVR, test.ResourceNamespace)
@@ -403,11 +366,12 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 
 }
 
-func Test_Generate_Namespace_Without_Label(t *testing.T) {
+func Test_Generate_Namespace_Label_Action(t *testing.T) {
 	RegisterTestingT(t)
 	// if os.Getenv("E2E") == "" {
 	// 	t.Skip("Skipping E2E Test")
 	// }
+
 	// Generate E2E Client ==================
 	e2eClient, err := e2e.NewE2EClient()
 	Expect(err).To(BeNil())
@@ -443,7 +407,7 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 
 		// Test: when creating the new namespace without the label, there should not have any generated resource
 		// ======= Create Namespace ==================
-		By(fmt.Sprintf("Creating Namespace which should not triggers generate %s", npPolNS))
+		By(fmt.Sprintf("Creating Namespace which should not triggers generate policy %s", npPolNS))
 		_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, namespaceYaml)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -473,7 +437,7 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 		// ============================================
 
 		// Test: when adding the matched label to the namespace, the target resource should be generated
-		By(fmt.Sprintf("Updating Namespace which triggers generate %s", npPolNS))
+		By(fmt.Sprintf("Updating Namespace which triggers generate policy %s", npPolNS))
 		// add label to the namespace
 		_, err = e2eClient.UpdateClusteredResourceYaml(nsGVR, namespaceWithLabelYaml)
 		Expect(err).NotTo(HaveOccurred())
@@ -492,7 +456,8 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 		// =================================================
 
 		// Test: when changing the content in generate.data, the change should be synced to the generated resource
-		// check for metadata.resourceVersion in policy
+		// check for metadata.resourceVersion in policy - need to add this feils while updating the policy
+		By(fmt.Sprintf("Update generate policy: %s", test.GeneratePolicyName))
 		genPolicy, err := e2eClient.GetNamespacedResource(clPolGVR, "", test.GeneratePolicyName)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -509,6 +474,7 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 		// ============================================
 
 		// ======== Check Updated NetworkPolicy =============
+		By(fmt.Sprintf("Verifying updated NetworkPolicy in the Namespace : %s", test.ResourceNamespace))
 		// get updated network policy
 		updatedNetPol, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
 		Expect(err).NotTo(HaveOccurred())
@@ -516,7 +482,7 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 		// compare updated network policy and updated generate policy
 		element, specFound, err := unstructured.NestedMap(updatedNetPol.UnstructuredContent(), "spec")
 		Expect(specFound).To(Equal(true))
-		loop(element)
+		loopElement(element)
 		Expect(found).To(Equal(true))
 
 		// ============================================
@@ -542,7 +508,7 @@ func Test_Generate_Namespace_Without_Label(t *testing.T) {
 
 var found bool
 
-func loop(elementObj interface{}) {
+func loopElement(elementObj interface{}) {
 	switch typedelementObj := elementObj.(type) {
 	case map[string]interface{}:
 		for k, v := range typedelementObj {
@@ -552,162 +518,162 @@ func loop(elementObj interface{}) {
 					return
 				}
 			} else {
-				loop(v)
+				loopElement(v)
 			}
 		}
 	case []interface{}:
-		loop(typedelementObj[0])
+		loopElement(typedelementObj[0])
 	default:
 		fmt.Println("unexpected type :", fmt.Sprintf("%T", elementObj))
 	}
 	return
 }
 
-func Test_Generate_synchronize_flag(t *testing.T) {
-	RegisterTestingT(t)
-	// if os.Getenv("E2E") == "" {
-	// 	t.Skip("Skipping E2E Test")
-	// }
-	// Generate E2E Client ==================
-	e2eClient, err := e2e.NewE2EClient()
-	Expect(err).To(BeNil())
-	// ======================================
+// func Test_Generate_synchronize_flag(t *testing.T) {
+// 	RegisterTestingT(t)
+// 	// if os.Getenv("E2E") == "" {
+// 	// 	t.Skip("Skipping E2E Test")
+// 	// }
+// 	// Generate E2E Client ==================
+// 	e2eClient, err := e2e.NewE2EClient()
+// 	Expect(err).To(BeNil())
+// 	// ======================================
 
-	// ====== Range Over RuleTest ==================
-	for _, test := range GenerateSynchronizeFlagTests {
-		By(fmt.Sprintf("Test to generate NetworkPolicy : %s", test.TestName))
-		By(fmt.Sprintf("synchronize = %v\t clone = %v", test.Sync, test.Clone))
+// 	// ====== Range Over RuleTest ==================
+// 	for _, test := range GenerateSynchronizeFlagTests {
+// 		By(fmt.Sprintf("Test to generate NetworkPolicy : %s", test.TestName))
+// 		By(fmt.Sprintf("synchronize = %v\t clone = %v", test.Sync, test.Clone))
 
-		// ======= CleanUp Resources =====
-		By(fmt.Sprintf("Cleaning Cluster Policies"))
-		e2eClient.CleanClusterPolicies(clPolGVR)
-		// Clear Namespace
-		By(fmt.Sprintf("Deleting Namespace : %s", test.ResourceNamespace))
-		e2eClient.DeleteClusteredResource(nsGVR, test.ResourceNamespace)
+// 		// ======= CleanUp Resources =====
+// 		By(fmt.Sprintf("Cleaning Cluster Policies"))
+// 		e2eClient.CleanClusterPolicies(clPolGVR)
+// 		// Clear Namespace
+// 		By(fmt.Sprintf("Deleting Namespace : %s", test.ResourceNamespace))
+// 		e2eClient.DeleteClusteredResource(nsGVR, test.ResourceNamespace)
 
-		// Wait Till Deletion of Namespace
-		e2e.GetWithRetry(time.Duration(1), 15, func() error {
-			_, err := e2eClient.GetClusteredResource(nsGVR, test.ResourceNamespace)
-			if err != nil {
-				return nil
-			}
-			return errors.New("deleting Namespace")
-		})
-		// ====================================
-		// ======== Create Generate NetworkPolicy Policy =============
-		By(fmt.Sprintf("Creating Generate NetworkPolicy Policy"))
-		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
-		Expect(err).NotTo(HaveOccurred())
-		// ================================================
+// 		// Wait Till Deletion of Namespace
+// 		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+// 			_, err := e2eClient.GetClusteredResource(nsGVR, test.ResourceNamespace)
+// 			if err != nil {
+// 				return nil
+// 			}
+// 			return errors.New("deleting Namespace")
+// 		})
+// 		// ====================================
+// 		// ======== Create Generate NetworkPolicy Policy =============
+// 		By(fmt.Sprintf("Creating Generate NetworkPolicy Policy"))
+// 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
+// 		Expect(err).NotTo(HaveOccurred())
+// 		// ================================================
 
-		// ======= Create Namespace ==================
-		By(fmt.Sprintf("Creating Namespace which triggers generate %s", npPolNS))
-		_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, namespaceWithLabelYaml)
-		Expect(err).NotTo(HaveOccurred())
+// 		// ======= Create Namespace ==================
+// 		By(fmt.Sprintf("Creating Namespace which triggers generate %s", npPolNS))
+// 		_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, namespaceWithLabelYaml)
+// 		Expect(err).NotTo(HaveOccurred())
 
-		// Wait Till Creation of Namespace
-		e2e.GetWithRetry(time.Duration(1), 15, func() error {
-			_, err := e2eClient.GetClusteredResource(nsGVR, test.ResourceNamespace)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-		// ===========================================
+// 		// Wait Till Creation of Namespace
+// 		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+// 			_, err := e2eClient.GetClusteredResource(nsGVR, test.ResourceNamespace)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			return nil
+// 		})
+// 		// ===========================================
 
-		// ======== NetworkPolicy Creation =====
-		By(fmt.Sprintf("Verifying NetworkPolicy in the Namespace : %s", test.ResourceNamespace))
-		// Wait Till Creation of NetworkPolicy
-		e2e.GetWithRetry(time.Duration(1), 15, func() error {
-			_, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-		npRes, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
+// 		// ======== NetworkPolicy Creation =====
+// 		By(fmt.Sprintf("Verifying NetworkPolicy in the Namespace : %s", test.ResourceNamespace))
+// 		// Wait Till Creation of NetworkPolicy
+// 		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+// 			_, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			return nil
+// 		})
+// 		npRes, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
 
-		Expect(err).NotTo(HaveOccurred())
-		Expect(npRes.GetName()).To(Equal(test.NetworkPolicyName))
-		// ============================================
+// 		Expect(err).NotTo(HaveOccurred())
+// 		Expect(npRes.GetName()).To(Equal(test.NetworkPolicyName))
+// 		// ============================================
 
-		// Test: when synchronize flag is set to true in the policy, one cannot delete the generated resource
-		// ======= Delete Networkpolicy =====
-		By(fmt.Sprintf("Deleting NetworkPolicy %s in the Namespace : %s", test.NetworkPolicyName, test.ResourceNamespace))
-		err = e2eClient.DeleteNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
-		Expect(err).NotTo(HaveOccurred())
-		// ============================================
+// 		// Test: when synchronize flag is set to true in the policy, one cannot delete the generated resource
+// 		// ======= Delete Networkpolicy =====
+// 		By(fmt.Sprintf("Deleting NetworkPolicy %s in the Namespace : %s", test.NetworkPolicyName, test.ResourceNamespace))
+// 		err = e2eClient.DeleteNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
+// 		Expect(err).NotTo(HaveOccurred())
+// 		// ============================================
 
-		// ======= Check Networkpolicy =====
-		By(fmt.Sprintf("Checking NetworkPolicy %s in the Namespace : %s", test.NetworkPolicyName, test.ResourceNamespace))
-		e2e.GetWithRetry(time.Duration(1), 15, func() error {
-			_, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-		Expect(err).NotTo(HaveOccurred())
-		// ============================================
+// 		// ======= Check Networkpolicy =====
+// 		By(fmt.Sprintf("Checking NetworkPolicy %s in the Namespace : %s", test.NetworkPolicyName, test.ResourceNamespace))
+// 		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+// 			_, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			return nil
+// 		})
+// 		Expect(err).NotTo(HaveOccurred())
+// 		// ============================================
 
-		// check for metadata.resourceVersion in policy
-		genPolicy, err := e2eClient.GetNamespacedResource(clPolGVR, "", test.GeneratePolicyName)
-		Expect(err).NotTo(HaveOccurred())
+// 		// check for metadata.resourceVersion in policy
+// 		genPolicy, err := e2eClient.GetNamespacedResource(clPolGVR, "", test.GeneratePolicyName)
+// 		Expect(err).NotTo(HaveOccurred())
 
-		resVer := genPolicy.GetResourceVersion()
-		unstructGenPol := unstructured.Unstructured{}
-		err = yaml.Unmarshal(test.UpdateData, &unstructGenPol)
-		Expect(err).NotTo(HaveOccurred())
-		unstructGenPol.SetResourceVersion(resVer)
+// 		resVer := genPolicy.GetResourceVersion()
+// 		unstructGenPol := unstructured.Unstructured{}
+// 		err = yaml.Unmarshal(test.UpdateData, &unstructGenPol)
+// 		Expect(err).NotTo(HaveOccurred())
+// 		unstructGenPol.SetResourceVersion(resVer)
 
-		// ======== Update Generate NetworkPolicy =============
-		By(fmt.Sprintf("Updating Generate NetworkPolicy"))
-		_, err = e2eClient.UpdateNamespacedResource(clPolGVR, npPolNS, &unstructGenPol)
-		Expect(err).NotTo(HaveOccurred())
-		// ============================================
+// 		// ======== Update Generate NetworkPolicy =============
+// 		By(fmt.Sprintf("Updating Generate NetworkPolicy"))
+// 		_, err = e2eClient.UpdateNamespacedResource(clPolGVR, npPolNS, &unstructGenPol)
+// 		Expect(err).NotTo(HaveOccurred())
+// 		// ============================================
 
-		netpol, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
-		Expect(err).NotTo(HaveOccurred())
+// 		netpol, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
+// 		Expect(err).NotTo(HaveOccurred())
 
-		netPolLabels := netpol.GetLabels()
-		Expect(netPolLabels["policy.kyverno.io/synchronize"]).To(Equal("disable"))
-		// ============================================
+// 		netPolLabels := netpol.GetLabels()
+// 		Expect(netPolLabels["policy.kyverno.io/synchronize"]).To(Equal("disable"))
+// 		// ============================================
 
-		// Test: with synchronize is false, one should be able to delete the generated resource
-		// ======= Delete Networkpolicy =====
-		By(fmt.Sprintf("Deleting NetworkPolicy %s in the Namespace : %s", test.NetworkPolicyName, test.ResourceNamespace))
-		err = e2eClient.DeleteNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
-		Expect(err).NotTo(HaveOccurred())
-		// ============================================
+// 		// Test: with synchronize is false, one should be able to delete the generated resource
+// 		// ======= Delete Networkpolicy =====
+// 		By(fmt.Sprintf("Deleting NetworkPolicy %s in the Namespace : %s", test.NetworkPolicyName, test.ResourceNamespace))
+// 		err = e2eClient.DeleteNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
+// 		Expect(err).NotTo(HaveOccurred())
+// 		// ============================================
 
-		time.Sleep(10 * time.Second)
-		// ======= Check Networkpolicy =====
-		By(fmt.Sprintf("Checking NetworkPolicy %s in the Namespace : %s", test.NetworkPolicyName, test.ResourceNamespace))
-		e2e.GetWithRetry(time.Duration(1), 15, func() error {
-			_, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-		Expect(err).To(HaveOccurred())
+// 		time.Sleep(10 * time.Second)
+// 		// ======= Check Networkpolicy =====
+// 		By(fmt.Sprintf("Checking NetworkPolicy %s in the Namespace : %s", test.NetworkPolicyName, test.ResourceNamespace))
+// 		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+// 			_, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			return nil
+// 		})
+// 		Expect(err).To(HaveOccurred())
 
-		// ======= CleanUp Resources =====
-		e2eClient.CleanClusterPolicies(clPolGVR)
+// 		// ======= CleanUp Resources =====
+// 		e2eClient.CleanClusterPolicies(clPolGVR)
 
-		// Clear Namespace
-		e2eClient.DeleteClusteredResource(nsGVR, test.ResourceNamespace)
-		// Wait Till Deletion of Namespace
-		e2e.GetWithRetry(time.Duration(1), 15, func() error {
-			_, err := e2eClient.GetClusteredResource(nsGVR, test.ResourceNamespace)
-			if err != nil {
-				return nil
-			}
-			return errors.New("deleting Namespace")
-		})
-		// ====================================
+// 		// Clear Namespace
+// 		e2eClient.DeleteClusteredResource(nsGVR, test.ResourceNamespace)
+// 		// Wait Till Deletion of Namespace
+// 		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+// 			_, err := e2eClient.GetClusteredResource(nsGVR, test.ResourceNamespace)
+// 			if err != nil {
+// 				return nil
+// 			}
+// 			return errors.New("deleting Namespace")
+// 		})
+// 		// ====================================
 
-		By(fmt.Sprintf("Test %s Completed \n\n\n", test.TestName))
-	}
+// 		By(fmt.Sprintf("Test %s Completed \n\n\n", test.TestName))
+// 	}
 
-}
+// }
