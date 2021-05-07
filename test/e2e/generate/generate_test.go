@@ -523,13 +523,18 @@ func loopElement(elementObj interface{}) {
 		}
 	case []interface{}:
 		loopElement(typedelementObj[0])
+	case string:
+		return
+	case int64:
+		return
 	default:
 		fmt.Println("unexpected type :", fmt.Sprintf("%T", elementObj))
+		return
 	}
 	return
 }
 
-func Test_Generate_synchronize_flag(t *testing.T) {
+func Test_Generate_Synchronize_Flag(t *testing.T) {
 	RegisterTestingT(t)
 	if os.Getenv("E2E") == "" {
 		t.Skip("Skipping E2E Test")
@@ -635,6 +640,7 @@ func Test_Generate_synchronize_flag(t *testing.T) {
 
 		By(fmt.Sprintf("Verify the label in the updated network policy: %s", test.NetworkPolicyName))
 		// get updated network policy and verify the label
+		// need to wait for updation of NetworkPolicy?
 		netpol, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
 		Expect(err).NotTo(HaveOccurred())
 
