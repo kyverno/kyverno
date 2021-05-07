@@ -139,7 +139,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  app: kyverno
+  labels:
+    app: kyverno
   name: kyverno:policycontroller
 rules:
 # background processing, identify all existing resources
