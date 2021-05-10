@@ -47,6 +47,9 @@ spec:
         - name: kyverno-pre
           image: {{ .Values.initImage.repository }}:{{ default .Chart.AppVersion (default .Values.image.tag .Values.initImage.tag) }}
           imagePullPolicy: {{ default .Values.image.pullPolicy .Values.initImage.pullPolicy }}
+          {{- with .Values.initResources }}
+          resources: {{ tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           securityContext:
             runAsUser: 1000
             runAsNonRoot: true

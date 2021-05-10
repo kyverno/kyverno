@@ -243,3 +243,61 @@ func Test_regexReplaceAllLiteral(t *testing.T) {
 
 	assert.Equal(t, string(result), expected)
 }
+
+func Test_labelMatch(t *testing.T) {
+	resourceRaw := []byte(`
+	{
+		"metadata": {
+			"labels": {
+				"app": "test-app",
+				"controller-name": "test-controller"
+			}
+		}
+	}
+	`)
+
+	testCases := []struct {
+		resource       []byte
+		test           string
+		expectedResult bool
+	}{
+		{
+			resource:       resourceRaw,
+			test:           `{ "app": "test-app" }`,
+			expectedResult: true,
+		},
+		{
+			resource:       resourceRaw,
+			test:           `{ "app": "test-app", "controller-name": "test-controller" }`,
+			expectedResult: true,
+		},
+		{
+			resource:       resourceRaw,
+			test:           `{ "app": "test-app2" }`,
+			expectedResult: false,
+		},
+		{
+			resource:       resourceRaw,
+			test:           `{ "app.kubernetes.io/name": "test-app" }`,
+			expectedResult: false,
+		},
+	}
+
+	for _, testCase := range testCases {
+		var resource interface{}
+		err := json.Unmarshal(testCase.resource, &resource)
+		assert.NilError(t, err)
+
+		query, err := New("label_match(`" + testCase.test + "`, metadata.labels)")
+		assert.NilError(t, err)
+
+		res, err := query.Search(resource)
+		assert.NilError(t, err)
+
+		result, ok := res.(bool)
+		assert.Assert(t, ok)
+
+		assert.Equal(t, result, testCase.expectedResult)
+	}
+
+}

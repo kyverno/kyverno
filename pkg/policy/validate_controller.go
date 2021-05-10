@@ -474,7 +474,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 }
 
 func (pc *PolicyController) getPolicy(key string) (policy *kyverno.ClusterPolicy, err error) {
-	namespace, key, isNamespacedPolicy := parseNamespacedPolicy(key)
+	namespace, key, isNamespacedPolicy := ParseNamespacedPolicy(key)
 	if !isNamespacedPolicy {
 		return pc.pLister.Get(key)
 	}

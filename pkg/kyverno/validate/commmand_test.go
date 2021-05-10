@@ -13,6 +13,7 @@ func Test_validateUsingPolicyCRD(t *testing.T) {
 	type TestCase struct {
 		rawPolicy   []byte
 		errorDetail string
+		detail      string
 	}
 
 	testcases := []TestCase{
@@ -57,7 +58,9 @@ func Test_validateUsingPolicyCRD(t *testing.T) {
 		  }
 		`),
 			errorDetail: "spec.rules.name in body should be at most 63 chars long",
+			detail:      "Test: char count for rule name",
 		},
+
 		{
 			rawPolicy: []byte(`
 				{
@@ -92,6 +95,271 @@ func Test_validateUsingPolicyCRD(t *testing.T) {
 				  }
 		`),
 			errorDetail: "",
+			detail:      "Test: basic vaild policy",
+		},
+
+		{
+			rawPolicy: []byte(`
+				{
+					"apiVersion": "kyverno.io/v1",
+					"kind": "ClusterPolicy",
+					"metadata": {
+					  "name": "disallow-singleton"
+					},
+					"spec": {
+					  "validationFailureAction": "audit",
+					  "rules": [
+						{
+						  "name": "validate-replicas",
+						  "match": {
+							"resources": {
+							  "kinds": [
+								"Deployment"
+							  ],
+							  "annotations": {
+								"singleton": "true"
+							  }
+							}
+						  },
+						  "validate": {
+							"message": "Replicasets require at least 2 replicas.",
+							"pattern": {
+							  "spec": {
+								"replicas": ">1"
+							  }
+							}
+						  }
+						}
+					  ]
+					}
+				  }
+		`),
+			errorDetail: "",
+			detail:      "Test: schema validation for spec.rules.match.resources.annotations",
+		},
+
+		{
+			rawPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+				  "name": "disallow-singleton"
+				},
+				"spec": {
+				  "validationFailureAction": "audit",
+				  "rules": [
+					{
+					  "name": "validate-replicas",
+					  "match": {
+						"resources": {
+						  "kinds": [
+							"Deployment"
+						  ]
+						}
+					  },
+					  "exclude": {
+						"resources": {
+						  "annotations": {
+							"singleton": "true"
+						  }
+						}
+					  },
+					  "validate": {
+						"message": "Replicasets require at least 2 replicas.",
+						"pattern": {
+						  "spec": {
+							"replicas": ">1"
+						  }
+						}
+					  }
+					}
+				  ]
+				}
+			  }
+		`),
+			errorDetail: "",
+			detail:      "Test: schema validation for spec.rules.exclude.resources.annotations",
+		},
+
+		{
+			rawPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+				  "name": "enforce-pod-name"
+				},
+				"spec": {
+				  "validationFailureAction": "audit",
+				  "background": true,
+				  "rules": [
+					{
+					  "name": "validate-name",
+					  "match": {
+						"resources": {
+						  "kinds": [
+							"Pod"
+						  ],
+						  "namespaceSelector": {
+							"matchLabels": {
+							  "app-namespace": "true"
+							}
+						  }
+						}
+					  },
+					  "validate": {
+						"message": "The Pod must end with -nginx",
+						"pattern": {
+						  "metadata": {
+							"name": "*-nginx"
+						  }
+						}
+					  }
+					}
+				  ]
+				}
+			  }
+		`),
+			errorDetail: "",
+			detail:      "Test: schema validation for spec.rules.match.resources.namespaceSelector.matchLabels",
+		},
+
+		{
+			rawPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+				  "name": "enforce-pod-name"
+				},
+				"spec": {
+				  "validationFailureAction": "audit",
+				  "background": true,
+				  "rules": [
+					{
+					  "name": "validate-name",
+					  "match": {
+						"resources": {
+						  "kinds": [
+							"Pod"
+						  ]
+						}
+					  },
+					  "exclude": {
+						"resources": {
+						  "namespaceSelector": {
+							"matchLabels": {
+							  "app-namespace": "true"
+							}
+						  }
+						}
+					  },
+					  "validate": {
+						"message": "The Pod must end with -nginx",
+						"pattern": {
+						  "metadata": {
+							"name": "*-nginx"
+						  }
+						}
+					  }
+					}
+				  ]
+				}
+			  }
+		`),
+			errorDetail: "",
+			detail:      "Test: schema validation for spec.rules.exclude.resources.namespaceSelector.matchLabels",
+		},
+
+		{
+			rawPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+				  "name": "enforce-pod-name"
+				},
+				"spec": {
+				  "validationFailureAction": "audit",
+				  "background": true,
+				  "rules": [
+					{
+					  "name": "validate-name",
+					  "match": {
+						"resources": {
+						  "kinds": [
+							"Pod"
+						  ],
+						  "selector": {
+							"matchLabels": {
+							  "app-namespace": "true"
+							}
+						  }
+						}
+					  },
+					  "validate": {
+						"message": "The Pod must end with -nginx",
+						"pattern": {
+						  "metadata": {
+							"name": "*-nginx"
+						  }
+						}
+					  }
+					}
+				  ]
+				}
+			  }
+		`),
+			errorDetail: "",
+			detail:      "Test: schema validation for spec.rules.match.resources.selector.matchLabels",
+		},
+
+		{
+			rawPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+				  "name": "enforce-pod-name"
+				},
+				"spec": {
+				  "validationFailureAction": "audit",
+				  "background": true,
+				  "rules": [
+					{
+					  "name": "validate-name",
+					  "match": {
+						"resources": {
+						  "kinds": [
+							"Pod"
+						  ]
+						}
+					  },
+					  "exclude": {
+						"resources": {
+						  "selector": {
+							"matchLabels": {
+							  "app-namespace": "true"
+							}
+						  }
+						}
+					  },
+					  "validate": {
+						"message": "The Pod must end with -nginx",
+						"pattern": {
+						  "metadata": {
+							"name": "*-nginx"
+						  }
+						}
+					  }
+					}
+				  ]
+				}
+			  }
+		`),
+			errorDetail: "",
+			detail:      "Test: schema validation for spec.rules.exclude.resources.selector.matchLabels",
 		},
 	}
 
@@ -104,7 +372,7 @@ func Test_validateUsingPolicyCRD(t *testing.T) {
 		assert.NilError(t, err)
 
 		_, errorList := validatePolicyAccordingToPolicyCRD(&policy, v1crd)
-		fmt.Println("errorList:  ", errorList)
+		fmt.Println(tc.detail)
 		for _, e := range errorList {
 			assert.Assert(t, tc.errorDetail == e.Detail)
 		}
