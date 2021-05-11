@@ -6,6 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/common"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 )
 
@@ -99,7 +100,8 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	}
 	for _, rule := range policy.Spec.Rules {
 
-		for _, kind := range rule.MatchResources.Kinds {
+		for _, gvk := range rule.MatchResources.Kinds {
+			_, kind := common.GetKindFromGVK(gvk)
 			_, ok := m.kindDataMap[kind]
 			if !ok {
 				m.kindDataMap[kind] = make(map[PolicyType][]string)
@@ -148,9 +150,10 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	m.nameCacheMap[Generate] = generateMap
 }
 
-func (pc *pMap) get(key PolicyType, kind, namespace string) (names []string) {
+func (pc *pMap) get(key PolicyType, gvk, namespace string) (names []string) {
 	pc.RLock()
 	defer pc.RUnlock()
+	_, kind := common.GetKindFromGVK(gvk)
 	for _, policyName := range pc.kindDataMap[kind][key] {
 		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
 		if !isNamespacedPolicy {
@@ -174,7 +177,8 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 	}
 
 	for _, rule := range policy.Spec.Rules {
-		for _, kind := range rule.MatchResources.Kinds {
+		for _, gvk := range rule.MatchResources.Kinds {
+			_, kind := common.GetKindFromGVK(gvk)
 			dataMap := m.kindDataMap[kind]
 			for policyType, policies := range dataMap {
 				var newPolicies []string
@@ -195,7 +199,8 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 		}
 	}
 }
-func (m *policyCache) getPolicyObject(key PolicyType, kind string, nspace string) (policyObject []*kyverno.ClusterPolicy) {
+func (m *policyCache) getPolicyObject(key PolicyType, gvk string, nspace string) (policyObject []*kyverno.ClusterPolicy) {
+	_, kind := common.GetKindFromGVK(gvk)
 	policyNames := m.pMap.get(key, kind, nspace)
 	for _, policyName := range policyNames {
 		var policy *kyverno.ClusterPolicy
