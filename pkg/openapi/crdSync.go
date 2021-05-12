@@ -64,8 +64,8 @@ func NewCRDSync(client *client.Client, controller *Controller) *crdSync {
 }
 
 func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
-	if err := c.controller.updateKindToAPIVersions(c.client.DiscoveryClient.DiscoveryCache()); err != nil {
-		log.Log.Error(err, "Failed to update server preferred versions")
+	if err := c.updateInClusterKindToAPIVersions(); err != nil {
+		log.Log.Error(err, "failed to update in-cluster api versions")
 	}
 
 	newDoc, err := c.client.DiscoveryClient.DiscoveryCache().OpenAPISchema()
@@ -103,9 +103,24 @@ func (c *crdSync) sync() {
 		c.controller.ParseCRD(crd)
 	}
 
-	if err := c.controller.updateKindToAPIVersions(c.client.DiscoveryClient.DiscoveryCache()); err != nil {
-		log.Log.Error(err, "Failed to update server preferred versions")
+	if err := c.updateInClusterKindToAPIVersions(); err != nil {
+		log.Log.Error(err, "sync failed, unable to update in-cluster api versions")
 	}
+}
+
+func (c *crdSync) updateInClusterKindToAPIVersions() error {
+	apiResourceLists, err := c.client.DiscoveryClient.DiscoveryCache().ServerResources()
+	if err != nil {
+		return fmt.Errorf("unable to fetch apiResourceLists: %v", err)
+	}
+
+	preferredAPIResourcesLists, err := c.client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
+	if err != nil {
+		return fmt.Errorf("unable to fetch apiResourceLists: %v", err)
+	}
+
+	c.controller.updateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists)
+	return nil
 }
 
 func (o *Controller) deleteCRDFromPreviousSync() {

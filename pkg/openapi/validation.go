@@ -1,6 +1,7 @@
 package openapi
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -17,7 +18,6 @@ import (
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/discovery"
 	"k8s.io/kube-openapi/pkg/util/proto"
 	"k8s.io/kube-openapi/pkg/util/proto/validation"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
@@ -80,6 +80,13 @@ func NewOpenAPIController() (*Controller, error) {
 		gvkToDefinitionName: newConcurrentMap(),
 		kindToAPIVersions:   newConcurrentMap(),
 	}
+
+	apiResourceLists, preferredAPIResourcesLists, err := getAPIResourceLists()
+	if err != nil {
+		return nil, err
+	}
+
+	controller.updateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists)
 
 	defaultDoc, err := getSchemaDocument()
 	if err != nil {
@@ -176,7 +183,7 @@ func (o *Controller) useOpenAPIDocument(doc *openapiv2.Document) error {
 
 		gvk, preferredGVK, err := o.getGVKByDefinitionName(definitionName)
 		if err != nil {
-			log.Log.Error(err, "failed to cache OpenAPISchema", "definitionName", definitionName)
+			log.Log.V(3).Info("unable to cache OpenAPISchema", "definitionName", definitionName, "reason", err.Error())
 			continue
 		}
 
@@ -209,7 +216,7 @@ func (o *Controller) getGVKByDefinitionName(definitionName string) (gvk string, 
 	kind := paths[len(paths)-1]
 	versions, ok := o.kindToAPIVersions.Get(kind)
 	if !ok {
-		// kind is the sub-resource of a K8s Kind, i.e. CronJobStatus
+		// the kind here is the sub-resource of a K8s Kind, i.e. CronJobStatus
 		// such cases are skipped in schema validation
 		return
 	}
@@ -276,26 +283,16 @@ func matchGVK(definitionName, gvk string) bool {
 	return true
 }
 
-func (c *Controller) updateKindToAPIVersions(discoveryCache discovery.CachedDiscoveryInterface) error {
-	apiResourceLists, err := discoveryCache.ServerResources()
-	if err != nil {
-		return err
-	}
+// updateKindToAPIVersions sets kindToAPIVersions with static manifests
+func (c *Controller) updateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists []*metav1.APIResourceList) {
+	tempKindToAPIVersions := getAllAPIVersions(apiResourceLists)
+	tempKindToAPIVersions = setPreferredVersions(tempKindToAPIVersions, preferredAPIResourcesLists)
 
 	c.kindToAPIVersions = newConcurrentMap()
-	tempKindToAPIVersions := getAllAPIVersions(apiResourceLists)
-
-	preferredAPIResourcesLists, err := discoveryCache.ServerPreferredResources()
-	if err != nil {
-		return err
-	}
-
-	tempKindToAPIVersions = setPreferredVersions(tempKindToAPIVersions, preferredAPIResourcesLists)
 	for key, value := range tempKindToAPIVersions {
 		c.kindToAPIVersions.Set(key, value)
 	}
 
-	return nil
 }
 
 func getSchemaDocument() (*openapiv2.Document, error) {
@@ -474,6 +471,7 @@ func getAllAPIVersions(apiResourceLists []*metav1.APIResourceList) map[string]ap
 			lastKind = apiResource.Kind
 		}
 	}
+
 	return tempKindToAPIVersions
 }
 
@@ -513,4 +511,20 @@ func copyKindToAPIVersions(old map[string]apiVersions) map[string]apiVersions {
 		new[key] = value
 	}
 	return new
+}
+
+func getAPIResourceLists() ([]*metav1.APIResourceList, []*metav1.APIResourceList, error) {
+	var apiResourceLists []*metav1.APIResourceList
+	err := json.Unmarshal([]byte(data.APIResourceLists), &apiResourceLists)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to load apiResourceLists: %v", err)
+	}
+
+	var preferredAPIResourcesLists []*metav1.APIResourceList
+	err = json.Unmarshal([]byte(data.APIResourceLists), &preferredAPIResourcesLists)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to load preferredAPIResourcesLists: %v", err)
+	}
+
+	return apiResourceLists, preferredAPIResourcesLists, nil
 }

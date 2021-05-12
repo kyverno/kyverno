@@ -131,12 +131,29 @@ func Test_matchGVK(t *testing.T) {
 	}
 }
 
-// definitionName, _ := o.gvkToDefinitionName.Get("Ingress")
-// fmt.Println("====Ingress definitionName", definitionName)
-// definitionName, _ = o.gvkToDefinitionName.Get("networking.k8s.io/v1/Ingress")
-// fmt.Println("====networking.k8s.io/v1/Ingress definitionName", definitionName)
+// this test covers all supported Ingress in 1.20 cluster
+// networking.k8s.io/v1/Ingress
+// networking.k8s.io/v1beta1/Ingress
+// extensions/v1beta1/Ingress
+func Test_Ingress(t *testing.T) {
+	o, err := NewOpenAPIController()
+	assert.NilError(t, err)
 
-// definitionName, _ = o.gvkToDefinitionName.Get("networking.k8s.io/v1beta1/Ingress")
-// fmt.Println("====networking.k8s.io/v1beta1/Ingress definitionName", definitionName)
-// definitionName, _ = o.gvkToDefinitionName.Get("extensions/v1beta1/Ingress")
-// fmt.Println("====extensions/v1beta1/Ingress definitionName", definitionName)
+	versions, ok := o.kindToAPIVersions.Get("Ingress")
+	assert.Equal(t, true, ok)
+	versionsTyped := versions.(apiVersions)
+	assert.Equal(t, versionsTyped.serverPreferredGVK, "networking.k8s.io/v1/Ingress")
+	assert.Equal(t, len(versionsTyped.gvks), 3)
+
+	definitionName, _ := o.gvkToDefinitionName.Get("Ingress")
+	assert.Equal(t, definitionName, "io.k8s.api.networking.v1.Ingress")
+
+	definitionName, _ = o.gvkToDefinitionName.Get("networking.k8s.io/v1/Ingress")
+	assert.Equal(t, definitionName, "io.k8s.api.networking.v1.Ingress")
+
+	definitionName, _ = o.gvkToDefinitionName.Get("networking.k8s.io/v1beta1/Ingress")
+	assert.Equal(t, definitionName, "io.k8s.api.networking.v1beta1.Ingress")
+
+	definitionName, _ = o.gvkToDefinitionName.Get("extensions/v1beta1/Ingress")
+	assert.Equal(t, definitionName, "io.k8s.api.extensions.v1beta1.Ingress")
+}
