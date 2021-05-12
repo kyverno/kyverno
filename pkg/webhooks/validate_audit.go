@@ -149,9 +149,9 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	var err error
 
 	logger := h.log.WithName("process")
-	policies := h.pCache.Get(policycache.ValidateAudit, nil)
+	policies := h.pCache.GetPolicyObject(policycache.ValidateAudit, request.Kind.Kind, "")
 	// Get namespace policies from the cache for the requested resource namespace
-	nsPolicies := h.pCache.Get(policycache.ValidateAudit, &request.Namespace)
+	nsPolicies := h.pCache.GetPolicyObject(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
 	policies = append(policies, nsPolicies...)
 	// getRoleRef only if policy has roles/clusterroles defined
 	if containRBACInfo(policies) {

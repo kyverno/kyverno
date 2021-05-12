@@ -50,6 +50,10 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		logger.Error(err, "failed to add namespace to ctx")
 	}
 
+	if err := ctx.AddImageInfo(&resource); err != nil {
+		logger.Error(err, "unable to add image info to variables context")
+	}
+
 	engineResponseMutation, err = mutation(policy, resource, logger, resCache, ctx, namespaceLabels)
 	if err != nil {
 		logger.Error(err, "failed to process mutation rule")

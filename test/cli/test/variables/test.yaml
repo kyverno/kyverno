@@ -1,0 +1,24 @@
+name: test-variables
+policies:
+  - cm-variable-example.yaml
+  - cm-array-example.yaml
+resources:
+  - resources.yaml
+variables: variables.yaml
+results:
+  - policy: cm-variable-example
+    rule: example-configmap-lookup
+    resource: test-env-test
+    status: pass
+  - policy: cm-variable-example
+    rule: example-configmap-lookup
+    resource: test-env-dev
+    status: fail
+  - policy: cm-array-example
+    rule: validate-role-annotation
+    resource: test-web
+    status: fail
+  - policy: cm-array-example
+    rule: validate-role-annotation
+    resource: test-app
+    status: pass

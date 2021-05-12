@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	contextdefault "context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -14,10 +15,13 @@ import (
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
+	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	gen "github.com/kyverno/kyverno/pkg/generate"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
@@ -147,27 +151,32 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 		if policy.GetName() == policyName {
 			for _, rule := range policy.Spec.Rules {
 				if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
-					data := rule.Generation.DeepCopy().Data
-					if data != nil {
-						if _, err := gen.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
-							enqueueBool = true
-							break
-						}
-					}
-
-					cloneName := rule.Generation.Clone.Name
-					if cloneName != "" {
-						obj, err := ws.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
-						if err != nil {
-							logger.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
-							continue
+					updatedRule, err := getGeneratedByResource(newRes, resLabels, ws.client, rule, logger)
+					if err != nil {
+						logger.V(4).Info("skipping generate policy and resource pattern validaton", "error", err)
+					} else {
+						data := updatedRule.Generation.DeepCopy().Data
+						if data != nil {
+							if _, err := gen.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
+								enqueueBool = true
+								break
+							}
 						}
 
-						sourceObj, newResObj := stripNonPolicyFields(obj.Object, newRes.Object, logger)
+						cloneName := updatedRule.Generation.Clone.Name
+						if cloneName != "" {
+							obj, err := ws.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+							if err != nil {
+								logger.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
+								continue
+							}
 
-						if _, err := gen.ValidateResourceWithPattern(logger, newResObj, sourceObj); err != nil {
-							enqueueBool = true
-							break
+							sourceObj, newResObj := stripNonPolicyFields(obj.Object, newRes.Object, logger)
+
+							if _, err := gen.ValidateResourceWithPattern(logger, newResObj, sourceObj); err != nil {
+								enqueueBool = true
+								break
+							}
 						}
 					}
 				}
@@ -184,6 +193,38 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 		}
 		ws.grController.EnqueueGenerateRequestFromWebhook(gr)
 	}
+}
+
+func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client *client.Client, rule v1.Rule, logger logr.Logger) (v1.Rule, error) {
+	var apiVersion, kind, name, namespace string
+	sourceRequest := &v1beta1.AdmissionRequest{}
+	kind = resLabels["kyverno.io/generated-by-kind"]
+	name = resLabels["kyverno.io/generated-by-name"]
+	if kind != "Namespace" {
+		namespace = resLabels["kyverno.io/generated-by-namespace"]
+	}
+	obj, err := client.GetResource(apiVersion, kind, namespace, name)
+	if err != nil {
+		logger.Error(err, "source resource not found.")
+		return rule, err
+	}
+	rawObj, err := json.Marshal(obj)
+	if err != nil {
+		logger.Error(err, "failed to marshal resource")
+		return rule, err
+	}
+	sourceRequest.Object.Raw = rawObj
+	sourceRequest.Operation = "CREATE"
+	ctx := enginectx.NewContext()
+	if err := ctx.AddRequest(sourceRequest); err != nil {
+		logger.Error(err, "failed to load incoming request in context")
+		return rule, err
+	}
+	if rule, err = variables.SubstituteAllInRule(logger, ctx, rule); err != nil {
+		logger.Error(err, "variable substitution failed for rule %s", rule.Name)
+		return rule, err
+	}
+	return rule, nil
 }
 
 //stripNonPolicyFields - remove feilds which get updated with each request by kyverno and are non policy fields

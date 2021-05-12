@@ -5,9 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
-	random "math/rand"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +18,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/kyverno/common"
+	pm "github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	utils "github.com/kyverno/kyverno/pkg/utils"
@@ -197,10 +197,10 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 
 	logger.Info("policy created", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
 
-	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || checkAutoGenRules(p) {
-		p.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": strconv.Itoa(random.Intn(100))})
-		p.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
-		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", p, false)
+	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
+		pol, _ := common.MutatePolicy(p, logger)
+		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
+		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
 		if err != nil {
 			logger.Error(err, "failed to add policy ")
 		}
@@ -219,11 +219,12 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
 
-	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || checkAutoGenRules(curP) {
-		curP.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": strconv.Itoa(random.Intn(100))})
-		curP.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
-		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", curP, false)
+	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
+		pol, _ := common.MutatePolicy(curP, logger)
+		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
+		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
 		if err != nil {
+			fmt.Println("i'm error here")
 			logger.Error(err, "failed to update policy ")
 		}
 	}
@@ -274,10 +275,10 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	logger.Info("policy created", "uid", p.UID, "kind", "Policy", "name", p.Name, "namespaces", p.Namespace)
 
 	pol := ConvertPolicyToClusterPolicy(p)
-	if pol.Spec.Background == nil || pol.Spec.ValidationFailureAction == "" || checkAutoGenRules(pol) {
-		pol.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": strconv.Itoa(random.Intn(100))})
-		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
-		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", p.Namespace, pol, false)
+	if pol.Spec.Background == nil || pol.Spec.ValidationFailureAction == "" || missingAutoGenRules(pol, logger) {
+		nsPol, _ := common.MutatePolicy(pol, logger)
+		nsPol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
+		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", p.Namespace, nsPol, false)
 		if err != nil {
 			logger.Error(err, "failed to add namespace policy")
 		}
@@ -295,10 +296,10 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	curP := cur.(*kyverno.Policy)
 	ncurP := ConvertPolicyToClusterPolicy(curP)
 
-	if ncurP.Spec.Background == nil || ncurP.Spec.ValidationFailureAction == "" || checkAutoGenRules(ncurP) {
-		ncurP.ObjectMeta.SetAnnotations(map[string]string{"kyverno.io/mutate-policy": strconv.Itoa(random.Intn(100))})
-		ncurP.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
-		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", ncurP.GetNamespace(), ncurP, false)
+	if ncurP.Spec.Background == nil || ncurP.Spec.ValidationFailureAction == "" || missingAutoGenRules(ncurP, logger) {
+		nsPol, _ := common.MutatePolicy(ncurP, logger)
+		nsPol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
+		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", ncurP.GetNamespace(), nsPol, false)
 		if err != nil {
 			logger.Error(err, "failed to update namespace policy ")
 		}
@@ -473,7 +474,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 }
 
 func (pc *PolicyController) getPolicy(key string) (policy *kyverno.ClusterPolicy, err error) {
-	namespace, key, isNamespacedPolicy := parseNamespacedPolicy(key)
+	namespace, key, isNamespacedPolicy := ParseNamespacedPolicy(key)
 	if !isNamespacedPolicy {
 		return pc.pLister.Get(key)
 	}
@@ -520,14 +521,15 @@ func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 	}
 }
 
-func checkAutoGenRules(policy *kyverno.ClusterPolicy) bool {
+func missingAutoGenRules(policy *kyverno.ClusterPolicy, log logr.Logger) bool {
 	var podRuleName []string
 	ruleCount := 1
-	for _, rule := range policy.Spec.Rules {
-		if utils.ContainsString(rule.MatchResources.ResourceDescription.Kinds, "Pod") {
+	if canApplyAutoGen, _ := pm.CanAutoGen(policy, log); canApplyAutoGen {
+		for _, rule := range policy.Spec.Rules {
 			podRuleName = append(podRuleName, rule.Name)
 		}
 	}
+
 	if len(podRuleName) > 0 {
 		annotations := policy.GetAnnotations()
 		val, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]

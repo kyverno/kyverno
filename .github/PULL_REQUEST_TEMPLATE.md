@@ -65,7 +65,7 @@ them, don't hesitate to ask. We're here to help! This is simply a reminder of wh
   - [] I have raised an issue in [kyverno/website](https://github.com/kyverno/website) to track the doc update and the link is:
   <!-- Uncomment to link to the issue -->
   <!-- https://github.com/kyverno/website/issues/1 -->
-  - [] I have read the [PR documentation guide](pr_documentation.md) and followed the process including adding proof manifests to this PR.
+  - [] I have read the [PR documentation guide](https://github.com/kyverno/kyverno/blob/main/.github/pr_documentation.md) and followed the process including adding proof manifests to this PR.
 
 ## Further Comments
 

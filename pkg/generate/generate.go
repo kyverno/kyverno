@@ -221,7 +221,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 		}
 
 		// add configmap json data to context
-		if err := engine.LoadContext(log, rule.Context, resCache, policyContext); err != nil {
+		if err := engine.LoadContext(log, rule.Context, resCache, policyContext, rule.Name); err != nil {
 			log.Error(err, "cannot add configmaps to context")
 			return nil, err
 		}
@@ -377,7 +377,9 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	newResource.SetAPIVersion(genAPIVersion)
 	// manage labels
 	// - app.kubernetes.io/managed-by: kyverno
-	// - kyverno.io/generated-by: kind/namespace/name (trigger resource)
+	// "kyverno.io/generated-by-kind": kind (trigger resource)
+	// "kyverno.io/generated-by-namespace": namespace (trigger resource)
+	// "kyverno.io/generated-by-name": name (trigger resource)
 	manageLabels(newResource, resource)
 	// Add Synchronize label
 	label := newResource.GetLabels()
@@ -409,16 +411,14 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 			label["policy.kyverno.io/synchronize"] = "disable"
 		}
 
-		if rule.Generation.Synchronize {
-			logger.V(4).Info("updating existing resource")
-			newResource.SetLabels(label)
-			_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
-			if err != nil {
-				logger.Error(err, "failed to update resource")
-				return noGenResource, err
-			}
-			logger.V(2).Info("updated target resource")
+		logger.V(4).Info("updating label in existing resource")
+		newResource.SetLabels(label)
+		_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
+		if err != nil {
+			logger.Error(err, "failed to update resource")
+			return noGenResource, err
 		}
+		logger.V(2).Info("updated target resource")
 	}
 
 	return newGenResource, nil

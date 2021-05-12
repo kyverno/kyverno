@@ -65,7 +65,7 @@ func (c *CertRenewer) InitTLSPemPair(serverIP string) (*PemPair, error) {
 			logger.Info("using existing TLS key/certificate pair")
 			return tlsPair, nil
 		}
-	} else {
+	} else if err != nil {
 		logger.V(3).Info("unable to find TLS pair", "reason", err.Error())
 	}
 
