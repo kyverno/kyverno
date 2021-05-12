@@ -73,7 +73,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{/* Set if a default policy is managed */}}
 {{- define "kyverno.podSecurityDefault" -}}
-{{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
+{{- if or (eq .Values.podSecurityStandard "baseline") (eq .Values.podSecurityStandard "restricted") }}
 {{- true }}
 {{- else if and (eq .Values.podSecurityStandard "custom") (has .name .Values.podSecurityPolicies) }}
 {{- true }}
