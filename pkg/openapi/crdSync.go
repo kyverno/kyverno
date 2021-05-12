@@ -64,7 +64,11 @@ func NewCRDSync(client *client.Client, controller *Controller) *crdSync {
 }
 
 func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
-	newDoc, err := c.client.DiscoveryClient.OpenAPISchema()
+	if err := c.controller.updateKindToAPIVersions(c.client.DiscoveryClient.DiscoveryCache()); err != nil {
+		log.Log.Error(err, "Failed to update server preferred versions")
+	}
+
+	newDoc, err := c.client.DiscoveryClient.DiscoveryCache().OpenAPISchema()
 	if err != nil {
 		log.Log.Error(err, "cannot get OpenAPI schema")
 	}
@@ -85,7 +89,7 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 func (c *crdSync) sync() {
 	crds, err := c.client.GetDynamicInterface().Resource(runtimeSchema.GroupVersionResource{
 		Group:    "apiextensions.k8s.io",
-		Version:  "v1beta1",
+		Version:  "v1",
 		Resource: "customresourcedefinitions",
 	}).List(context.TODO(), v1.ListOptions{})
 	if err != nil {
@@ -98,11 +102,15 @@ func (c *crdSync) sync() {
 	for _, crd := range crds.Items {
 		c.controller.ParseCRD(crd)
 	}
+
+	if err := c.controller.updateKindToAPIVersions(c.client.DiscoveryClient.DiscoveryCache()); err != nil {
+		log.Log.Error(err, "Failed to update server preferred versions")
+	}
 }
 
 func (o *Controller) deleteCRDFromPreviousSync() {
 	for _, crd := range o.crdList {
-		o.kindToDefinitionName.Remove(crd)
+		o.gvkToDefinitionName.Remove(crd)
 		o.definitions.Remove(crd)
 	}
 
@@ -160,7 +168,7 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 	}
 
 	o.crdList = append(o.crdList, crdName)
-	o.kindToDefinitionName.Set(crdName, crdName)
+	o.gvkToDefinitionName.Set(crdName, crdName)
 	o.definitions.Set(crdName, parsedSchema)
 }
 

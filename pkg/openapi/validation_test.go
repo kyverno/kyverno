@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"gotest.tools/assert"
 )
 
 func Test_ValidateMutationPolicy(t *testing.T) {
@@ -70,3 +71,72 @@ func Test_addDefaultFieldsToSchema(t *testing.T) {
 	addingDefaultFieldsToSchema([]byte(`null`))
 	addingDefaultFieldsToSchema(nil)
 }
+
+func Test_matchGVK(t *testing.T) {
+	testCases := []struct {
+		definitionName string
+		gvk            string
+		match          bool
+	}{
+		{
+			"io.k8s.api.networking.v1.Ingress",
+			"networking.k8s.io/v1/Ingress",
+			true,
+		},
+		{
+			"io.wgpolicyk8s.v1alpha1.PolicyReport",
+			"wgpolicyk8s.io/v1alpha1/PolicyReport",
+			true,
+		},
+		{
+			"io.k8s.api.rbac.v1.RoleBinding",
+			"rbac.authorization.k8s.io/v1/RoleBinding",
+			true,
+		},
+		{
+			"io.k8s.api.rbac.v1beta1.ClusterRoleBinding",
+			"rbac.authorization.k8s.io/v1beta1/ClusterRoleBinding",
+			true,
+		},
+		{
+			"io.k8s.api.rbac.v1.Role",
+			"rbac.authorization.k8s.io/v1/Role",
+			true,
+		},
+		{
+			"io.k8s.api.rbac.v1.ClusterRole",
+			"rbac.authorization.k8s.io/v1/ClusterRole",
+			true,
+		},
+		{
+			"io.k8s.api.flowcontrol.v1beta1.FlowSchema",
+			"flowcontrol.apiserver.k8s.io/v1beta1/FlowSchema",
+			true,
+		},
+		{
+			"io.k8s.api.policy.v1beta1.Eviction",
+			"v1/Eviction",
+			true,
+		},
+		{
+			"io.k8s.api.rbac.v1beta1.ClusterRole",
+			"rbac.authorization.k8s.io/v1beta1/ClusterRole",
+			true,
+		},
+	}
+
+	for i, test := range testCases {
+		res := matchGVK(test.definitionName, test.gvk)
+		assert.Equal(t, res, test.match, "test #%d failed", i)
+	}
+}
+
+// definitionName, _ := o.gvkToDefinitionName.Get("Ingress")
+// fmt.Println("====Ingress definitionName", definitionName)
+// definitionName, _ = o.gvkToDefinitionName.Get("networking.k8s.io/v1/Ingress")
+// fmt.Println("====networking.k8s.io/v1/Ingress definitionName", definitionName)
+
+// definitionName, _ = o.gvkToDefinitionName.Get("networking.k8s.io/v1beta1/Ingress")
+// fmt.Println("====networking.k8s.io/v1beta1/Ingress definitionName", definitionName)
+// definitionName, _ = o.gvkToDefinitionName.Get("extensions/v1beta1/Ingress")
+// fmt.Println("====extensions/v1beta1/Ingress definitionName", definitionName)
