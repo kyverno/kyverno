@@ -1,12 +1,17 @@
 package mutate
 
-// Namespace Description
-var namespaceYaml = []byte(`
+import "fmt"
+
+func newNamespaceYaml(name string) []byte {
+	ns := fmt.Sprintf(`
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: test-mutate
-`)
+  name: %s
+`, name)
+
+	return []byte(ns)
+}
 
 // Cluster Policy to copy the copy me label from one configmap to the target
 var configMapMutationYaml = []byte(`
@@ -107,4 +112,96 @@ metadata:
 data:
   data.yaml: |
     some: data
+`)
+
+var mutateIngressCpol = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-ingress-host
+spec:
+  rules:
+  - name: mutate-rules-host
+    match:
+      resources:
+        kinds:
+        - Ingress
+        namespaces:
+        - test-ingress
+    mutate:
+      patchesJson6902: |-
+        - op: replace
+          path: /spec/rules/0/host
+          value: {{request.object.spec.rules[0].host}}.mycompany.com
+`)
+
+var ingressNetworkingV1 = []byte(`
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kuard-v1
+  namespace: test-ingress
+  labels:
+    app: kuard
+spec:
+  rules:
+  - host: kuard
+    http:
+      paths:
+      - backend:
+          service: 
+            name: kuard
+            port: 
+              number: 8080
+        path: /
+        pathType: ImplementationSpecific
+  tls:
+  - hosts:
+    - kuard
+`)
+
+var ingressNetworkingV1beta1 = []byte(`
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  labels:
+    app: kuard
+  name: kuard-v1beta1
+  namespace: test-ingress
+spec:
+  rules:
+  - host: kuard
+    http:
+      paths:
+      - backend:
+          serviceName: kuard
+          servicePort: 8080
+        path: /
+        pathType: ImplementationSpecific
+  tls:
+  - hosts:
+    - kuard
+`)
+
+var ingressExtensionV1beta1 = []byte(`
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  labels:
+    app: kuard
+  name: kuard-extensions
+  namespace: test-ingress
+spec:
+  rules:
+  - host: kuard
+    http:
+      paths:
+      - backend:
+          serviceName: kuard
+          servicePort: 8080
+        path: /
+        pathType: ImplementationSpecific
+  tls:
+  - hosts:
+    - kuard
 `)
