@@ -186,8 +186,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 				variable := replaceBracesAndTrimSpaces(v)
 
 				if variable == "@" {
-					currentPath := getJMESPath(data.Path)
-					variable = strings.Replace(variable, "@", fmt.Sprintf("request.object%s", currentPath), -1)
+					variable = strings.Replace(variable, "@", fmt.Sprintf("request.object.%s", getJMESPath(data.Path)), -1)
 				}
 
 				operation, err := ctx.Query("request.operation")
@@ -235,7 +234,8 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 
 // getJMESPath converts path to JMES format
 func getJMESPath(rawPath string) string {
-	path := strings.ReplaceAll(rawPath, "/", ".")
+	tokens := strings.Split(rawPath, "/")[3:] // skip empty element and two non-resource (like mutate.overlay)
+	path := strings.Join(tokens, ".")
 	regex := regexp.MustCompile(`\.([\d])\.`)
 	return string(regex.ReplaceAll([]byte(path), []byte("[$1].")))
 }
