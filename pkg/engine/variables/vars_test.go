@@ -1,6 +1,7 @@
 package variables
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -136,49 +137,83 @@ func Test_subVars_failed(t *testing.T) {
 }
 
 func Test_subVars_with_JMESPath_At(t *testing.T) {
-	patternMap := []byte(`
-	{
-		"kind": "{{@}}",
-		"data": {
-			"rules": [
-				{
-					"apiGroups": [
-						"{{request.object.metadata.name}}"
-					],
-					"resources": [
-						"namespaces"
-					],
-					"verbs": [
-						"*"
-					],
-					"resourceNames": [
-						"{{request.object.metadata.name}}"
-					]
+	patternMap := []byte(`{
+		"mutate": {
+			"overlay": {
+				"spec": {
+					"kind": "{{@}}",
+					"data": {
+						"rules": [
+							{
+								"apiGroups": [
+									"{{request.object.metadata.name}}"
+								],
+								"resources": [
+									"namespaces"
+								],
+								"verbs": [
+									"*"
+								],
+								"resourceNames": [
+									"{{request.object.metadata.name}}"
+								]
+							}
+						]
+					}
 				}
-			]
+			}
 		}
-	}
-	`)
+	}`)
 
 	resourceRaw := []byte(`
 	{
-		"kind": "foo",
-		"name": "bar",
 		"metadata": {
 			"name": "temp",
 			"namespace": "n1"
 		},
 		"spec": {
+			"kind": "foo",
 			"namespace": "n1",
 			"name": "temp1"
 		}
 	}
 		`)
 
-	expected := []byte(`{"data":{"rules":[{"apiGroups":["temp"],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"kind":"foo"}`)
+	expectedRaw := []byte(`{
+		"mutate":{
+		   "overlay":{
+			  "spec":{
+				 "data":{
+					"rules":[
+					   {
+						  "apiGroups":[
+							 "temp"
+						  ],
+						  "resourceNames":[
+							 "temp"
+						  ],
+						  "resources":[
+							 "namespaces"
+						  ],
+						  "verbs":[
+							 "*"
+						  ]
+					   }
+					]
+				 },
+				 "kind":"foo"
+			  }
+		   }
+		}
+	}`)
+
+	var err error
+
+	expected := new(bytes.Buffer)
+	err = json.Compact(expected, expectedRaw)
+	assert.NilError(t, err)
 
 	var pattern, resource interface{}
-	var err error
 	err = json.Unmarshal(patternMap, &pattern)
 	assert.NilError(t, err)
 	err = json.Unmarshal(resourceRaw, &resource)
@@ -192,34 +227,52 @@ func Test_subVars_with_JMESPath_At(t *testing.T) {
 	assert.NilError(t, err)
 	out, err := json.Marshal(output)
 	assert.NilError(t, err)
-	assert.Equal(t, string(out), string(expected))
+	assert.Equal(t, string(out), expected.String())
 }
 
 func Test_subVars_withRegexMatch(t *testing.T) {
-	patternMap := []byte(`
-	{
-		"port": "{{ regex_match('(443)', '{{@}}') }}",
-		"name": "ns-owner-{{request.object.metadata.name}}"
-	}
-	`)
+	patternMap := []byte(`{
+		"mutate": {
+			"overlay": {
+				"spec": {
+					"port": "{{ regex_match('(443)', '{{@}}') }}",
+					"name": "ns-owner-{{request.object.metadata.name}}"
+				}
+			}
+		}
+	}`)
 
 	resourceRaw := []byte(`
 	{
-		"port": "443",
 		"metadata": {
 			"name": "temp",
 			"namespace": "n1"
 		},
 		"spec": {
+			"port": "443",
 			"namespace": "n1",
 			"name": "temp1"
 		}
-	}
-		`)
-	expected := []byte(`{"name":"ns-owner-temp","port":true}`)
+	}`)
+
+	expectedRaw := []byte(`{
+		"mutate":{
+		   "overlay":{
+			  "spec":{
+				 "name":"ns-owner-temp",
+				 "port":true
+			  }
+		   }
+		}
+	 }`)
+
+	var err error
+
+	expected := new(bytes.Buffer)
+	err = json.Compact(expected, expectedRaw)
+	assert.NilError(t, err)
 
 	var pattern, resource interface{}
-	var err error
 	err = json.Unmarshal(patternMap, &pattern)
 	assert.NilError(t, err)
 	err = json.Unmarshal(resourceRaw, &resource)
@@ -234,31 +287,34 @@ func Test_subVars_withRegexMatch(t *testing.T) {
 	out, err := json.Marshal(output)
 	assert.NilError(t, err)
 	fmt.Print(string(out))
-	assert.Equal(t, string(out), string(expected))
+	assert.Equal(t, string(out), expected.String())
 }
 
 func Test_subVars_withRegexReplaceAll(t *testing.T) {
-	patternMap := []byte(`
-	{
-		"port": "{{ regex_replace_all_literal('.*', '{{@}}', '1313') }}",
-		"name": "ns-owner-{{request.object.metadata.name}}"
-	}
-	`)
+	patternMap := []byte(`{
+		"mutate": {
+			"overlay": {
+				"spec": {
+					"port": "{{ regex_replace_all_literal('.*', '{{@}}', '1313') }}",
+					"name": "ns-owner-{{request.object.metadata.name}}"
+				}
+			}
+		}
+			
+	}`)
 
-	resourceRaw := []byte(`
-	{
-		"port": "43123",
+	resourceRaw := []byte(`{
 		"metadata": {
 			"name": "temp",
 			"namespace": "n1"
 		},
 		"spec": {
+			"port": "43123",
 			"namespace": "n1",
 			"name": "temp1"
 		}
-	}
-		`)
-	expected := []byte(`{"name":"ns-owner-temp","port":"1313"}`)
+	}`)
+	expected := []byte(`{"mutate":{"overlay":{"spec":{"name":"ns-owner-temp","port":"1313"}}}}`)
 
 	var pattern, resource interface{}
 	var err error
