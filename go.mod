@@ -18,7 +18,6 @@ require (
 	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
-	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
 	github.com/mattn/go-isatty v0.0.12 // indirect
@@ -50,7 +49,7 @@ require (
 // Added for go1.13 migration https://github.com/golang/go/issues/32805
 replace (
 	github.com/gorilla/rpc v1.2.0+incompatible => github.com/gorilla/rpc v1.2.0
-	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20210302163943-f30eab0a3ed6
+	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20210511164400-a1d46efa2ed6
 	k8s.io/code-generator => k8s.io/code-generator v0.0.0-20200306081859-6a048a382944
 	k8s.io/component-base => k8s.io/component-base v0.0.0-20190612130303-4062e14deebe
 )
