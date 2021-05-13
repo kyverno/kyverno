@@ -34,7 +34,7 @@ import (
 
 //HandleGenerate handles admission-requests for policies with generate rules
 func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo, dynamicConfig config.Interface) {
-	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	logger.V(4).Info("incoming request")
 	var engineResponses []*response.EngineResponse
 	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
@@ -100,7 +100,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 
 //handleUpdate handles admission-requests for update
 func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy) {
-	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
 	if err != nil {
 		logger.Error(err, "failed to convert object resource to unstructured format")
@@ -293,7 +293,7 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 
 //HandleDelete handles admission-requests for delete
 func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
-	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
 	if err != nil {
 		logger.Error(err, "failed to convert object resource to unstructured format")

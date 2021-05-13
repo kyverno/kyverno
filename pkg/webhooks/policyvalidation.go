@@ -13,7 +13,7 @@ import (
 
 //HandlePolicyValidation performs the validation check on policy resource
 func (ws *WebhookServer) policyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	logger := ws.log.WithValues("action", "policy validation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	logger := ws.log.WithValues("action", "policy validation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	var policy *kyverno.ClusterPolicy
 
 	if err := json.Unmarshal(request.Object.Raw, &policy); err != nil {
