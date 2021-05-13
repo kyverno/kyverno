@@ -109,7 +109,7 @@ func (c *crdSync) sync() {
 }
 
 func (c *crdSync) updateInClusterKindToAPIVersions() error {
-	apiResourceLists, err := c.client.DiscoveryClient.DiscoveryCache().ServerResources()
+	_, apiResourceLists, err := c.client.DiscoveryClient.DiscoveryCache().ServerGroupsAndResources()
 	if err != nil {
 		return fmt.Errorf("unable to fetch apiResourceLists: %v", err)
 	}

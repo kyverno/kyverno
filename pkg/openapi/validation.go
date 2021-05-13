@@ -208,10 +208,6 @@ func (o *Controller) useOpenAPIDocument(doc *openapiv2.Document) error {
 }
 
 func (o *Controller) getGVKByDefinitionName(definitionName string) (gvk string, preferredGVK bool, err error) {
-	if o.kindToAPIVersions.IsEmpty() {
-		// TODO: embed static apiDocs
-	}
-
 	paths := strings.Split(definitionName, ".")
 	kind := paths[len(paths)-1]
 	versions, ok := o.kindToAPIVersions.Get(kind)
