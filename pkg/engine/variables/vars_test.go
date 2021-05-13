@@ -286,7 +286,6 @@ func Test_subVars_withRegexMatch(t *testing.T) {
 	assert.NilError(t, err)
 	out, err := json.Marshal(output)
 	assert.NilError(t, err)
-	fmt.Print(string(out))
 	assert.Equal(t, string(out), expected.String())
 }
 

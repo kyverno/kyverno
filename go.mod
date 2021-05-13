@@ -7,7 +7,7 @@ require (
 	github.com/cornelk/hashmap v1.0.1
 	github.com/distribution/distribution v2.7.1+incompatible
 	github.com/docker/distribution v2.7.1+incompatible // indirect
-	github.com/evanphx/json-patch/v5 v5.2.0
+	github.com/evanphx/json-patch/v5 v5.3.0
 	github.com/fatih/color v1.9.0
 	github.com/gardener/controller-manager-library v0.2.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
@@ -48,6 +48,7 @@ require (
 
 // Added for go1.13 migration https://github.com/golang/go/issues/32805
 replace (
+	github.com/evanphx/json-patch/v5 => github.com/kacejot/json-patch/v5 v5.3.1-0.20210513152033-7395b4a9e87f
 	github.com/gorilla/rpc v1.2.0+incompatible => github.com/gorilla/rpc v1.2.0
 	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20210511164400-a1d46efa2ed6
 	k8s.io/code-generator => k8s.io/code-generator v0.0.0-20200306081859-6a048a382944
