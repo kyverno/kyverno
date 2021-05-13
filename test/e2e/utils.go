@@ -2,6 +2,9 @@ package e2e
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"time"
 
@@ -16,6 +19,12 @@ import (
 // E2EClient ...
 type E2EClient struct {
 	Client dynamic.Interface
+}
+
+type APIRequest struct {
+	URL  string
+	Type string
+	Body io.Reader
 }
 
 // NewE2EClient returns a new instance of E2EClient
@@ -123,4 +132,30 @@ func (e2e *E2EClient) CreateClusteredResourceYaml(gvr schema.GroupVersionResourc
 	}
 	result, err := e2e.CreateClusteredResource(gvr, &resource)
 	return result, err
+}
+
+func CallAPI(request APIRequest) (*http.Response, error) {
+	var response *http.Response
+	switch request.Type {
+	case "GET":
+		resp, err := http.Get(request.URL)
+		if err != nil {
+			return nil, fmt.Errorf("error occurred while calling %s: %w", request.URL, err)
+		}
+		response = resp
+	case "POST", "PUT", "DELETE", "PATCH":
+		req, err := http.NewRequest(string(request.Type), request.URL, request.Body)
+		if err != nil {
+			return nil, fmt.Errorf("error occurred while calling %s: %w", request.URL, err)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("error occurred while calling %s: %w", request.URL, err)
+		}
+		response = resp
+	default:
+		return nil, fmt.Errorf("error occurred while calling %s: wrong request type found", request.URL)
+	}
+
+	return response, nil
 }

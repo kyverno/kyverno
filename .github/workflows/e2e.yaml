@@ -82,6 +82,8 @@ jobs:
           kubectl get pods -n kyverno
           ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh -n kyverno  kyverno
           sleep 20
+          echo ">>> Expose the Kyverno's service's metric server to the host"
+          kubectl port-forward svc/kyverno-svc -n kyverno 8000:8000 &
           echo ">>> Run Kyverno e2e test"
           make test-e2e
           kubectl delete -f ${GITHUB_WORKSPACE}/definitions/install.yaml

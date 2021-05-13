@@ -57,7 +57,6 @@ var (
 
 	profile              bool
 	disableMetricsExport bool
-	policyReport         bool
 
 	policyControllerResyncPeriod time.Duration
 	setupLog                     = log.Log.WithName("setup")
