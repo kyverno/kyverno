@@ -151,7 +151,8 @@ func (h *auditHandler) processNextWorkItem() bool {
 func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	var roles, clusterRoles []string
 	var err error
-
+	// time at which the corresponding the admission request's processing got initiated
+	admissionRequestTimestamp := time.Now().Unix()
 	logger := h.log.WithName("process")
 	policies := h.pCache.GetPolicyObject(policycache.ValidateAudit, request.Kind.Kind, "")
 	// Get namespace policies from the cache for the requested resource namespace
@@ -180,7 +181,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 
-	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, h.client, namespaceLabels)
+	HandleValidation(h.promConfig, request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, h.client, namespaceLabels, admissionRequestTimestamp)
 	return nil
 }
 

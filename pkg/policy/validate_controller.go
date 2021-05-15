@@ -624,7 +624,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	}
 
 	updateGR(pc.kyvernoClient, policy.Name, grList, logger)
-	pc.processExistingResources(policy)
+	pc.processExistingResources(policy, startTime.Unix())
 	return nil
 }
 

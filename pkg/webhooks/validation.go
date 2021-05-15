@@ -22,12 +22,16 @@ import (
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/kyverno/kyverno/pkg/metrics"
+	policyRuleResults "github.com/kyverno/kyverno/pkg/metrics/policyruleresults"
 )
 
 // HandleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
 func HandleValidation(
+	promConfig *metrics.PromConfig,
 	request *v1beta1.AdmissionRequest,
 	policies []*kyverno.ClusterPolicy,
 	patchedResource []byte,
@@ -40,7 +44,8 @@ func HandleValidation(
 	dynamicConfig config.Interface,
 	resCache resourcecache.ResourceCache,
 	client *client.Client,
-	namespaceLabels map[string]string) (bool, string) {
+	namespaceLabels map[string]string,
+	admissionRequestTimestamp int64) (bool, string) {
 
 	if len(policies) == 0 {
 		return true, ""
@@ -99,6 +104,9 @@ func HandleValidation(
 			continue
 		}
 
+		// registering the kyverno_policy_rule_results_info metric concurrently
+		go registerPolicyRuleResultsMetricValidation(promConfig, logger, string(request.Operation), policyContext.Policy, *engineResponse, admissionRequestTimestamp)
+
 		engineResponses = append(engineResponses, engineResponse)
 		statusListener.Update(validateStats{
 			resp:      engineResponse,
@@ -145,6 +153,16 @@ func HandleValidation(
 	prGenerator.Add(prInfos...)
 
 	return true, ""
+}
+
+func registerPolicyRuleResultsMetricValidation(promConfig *metrics.PromConfig, logger logr.Logger, requestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, admissionRequestTimestamp int64) {
+	resourceRequestOperationPromAlias, err := policyRuleResults.ParseResourceRequestOperation(requestOperation)
+	if err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_rule_results_info metrics for the above policy", "name", policy.Name)
+	}
+	if err := policyRuleResults.ParsePromMetrics(*promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_rule_results_info metrics for the above policy", "name", policy.Name)
+	}
 }
 
 func buildDeletionPrInfo(oldR unstructured.Unstructured) policyreport.Info {

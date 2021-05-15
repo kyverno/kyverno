@@ -30,7 +30,7 @@ func NewPromConfig() *PromConfig {
 	}
 	policyRuleResultsMetric := prom.NewGaugeVec(
 		prom.GaugeOpts{
-			Name: "kyverno_policy_rule_results",
+			Name: "kyverno_policy_rule_results_info",
 			Help: "can be used to track the results associated with the policies applied in the user’s cluster, at the level from rule to policy to admission requests.",
 		},
 		policyRuleResultsLabels,
