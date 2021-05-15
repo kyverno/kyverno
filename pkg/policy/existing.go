@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	policyRuleExecutionLatency "github.com/kyverno/kyverno/pkg/metrics/policyruleexecutionlatency"
 	policyRuleResults "github.com/kyverno/kyverno/pkg/metrics/policyruleresults"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -88,6 +89,8 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPo
 		for _, engineResponse := range engineResponses {
 			// registering the kyverno_policy_rule_results_info metric concurrently
 			go pc.registerPolicyRuleResultsMetricValidationBS(logger, *policy, *engineResponse, backgroundScanTimestamp)
+			// registering the kyverno_policy_rule_execution_latency_milliseconds metric concurrently
+			go pc.registerPolicyRuleExecutionLatencyMetricValidateBS(logger, *policy, *engineResponse, backgroundScanTimestamp)
 		}
 		*metricAlreadyRegistered = true
 	}
@@ -98,6 +101,12 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPo
 func (pc *PolicyController) registerPolicyRuleResultsMetricValidationBS(logger logr.Logger, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, backgroundScanTimestamp int64) {
 	if err := policyRuleResults.ParsePromMetrics(*pc.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated, backgroundScanTimestamp); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_rule_results_info metrics for the above policy", "name", policy.Name)
+	}
+}
+
+func (pc *PolicyController) registerPolicyRuleExecutionLatencyMetricValidateBS(logger logr.Logger, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, backgroundScanTimestamp int64) {
+	if err := policyRuleExecutionLatency.ParsePromMetrics(*pc.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, "", metrics.ResourceCreated, backgroundScanTimestamp); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_rule_execution_latency_milliseconds metrics for the above policy", "name", policy.Name)
 	}
 }
 

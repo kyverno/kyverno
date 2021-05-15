@@ -25,6 +25,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	gen "github.com/kyverno/kyverno/pkg/generate"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	policyRuleExecutionLatency "github.com/kyverno/kyverno/pkg/metrics/policyruleexecutionlatency"
 	policyRuleResults "github.com/kyverno/kyverno/pkg/metrics/policyruleresults"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
@@ -85,6 +86,9 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 			}
 			// registering the kyverno_policy_rule_results_info metric concurrently
 			go ws.registerPolicyRuleResultsMetricGeneration(logger, string(request.Operation), *policy, *engineResponse, admissionRequestTimestamp)
+
+			// registering the kyverno_policy_rule_execution_latency_milliseconds metric concurrently
+			go ws.registerPolicyRuleExecutionLatencyMetricGenerate(logger, string(request.Operation), *policy, *engineResponse, admissionRequestTimestamp)
 		}
 
 		// Adds Generate Request to a channel(queue size 1000) to generators
@@ -109,6 +113,16 @@ func (ws *WebhookServer) registerPolicyRuleResultsMetricGeneration(logger logr.L
 	}
 	if err := policyRuleResults.ParsePromMetrics(*ws.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_rule_results_info metrics for the above policy", "name", policy.Name)
+	}
+}
+
+func (ws *WebhookServer) registerPolicyRuleExecutionLatencyMetricGenerate(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, admissionRequestTimestamp int64) {
+	resourceRequestOperationPromAlias, err := policyRuleExecutionLatency.ParseResourceRequestOperation(resourceRequestOperation)
+	if err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_rule_execution_latency_milliseconds metrics for the above policy", "name", policy.Name)
+	}
+	if err := policyRuleExecutionLatency.ParsePromMetrics(*ws.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_rule_execution_latency_milliseconds metrics for the above policy", "name", policy.Name)
 	}
 }
 

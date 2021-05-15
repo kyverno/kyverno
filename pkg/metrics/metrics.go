@@ -66,8 +66,8 @@ func NewPromConfig() *PromConfig {
 	}
 	policyRuleExecutionLatencyMetric := prom.NewGaugeVec(
 		prom.GaugeOpts{
-			Name: "kyverno_policy_rule_execution_latency",
-			Help: "can be used to track the latencies associated with the execution/processing of the individual rules under Kyverno policies whenever they evaluate incoming resource requests.",
+			Name: "kyverno_policy_rule_execution_latency_milliseconds",
+			Help: "can be used to track the latencies (in milliseconds) associated with the execution/processing of the individual rules under Kyverno policies whenever they evaluate incoming resource requests.",
 		},
 		policyRuleExecutionLatencyLabels,
 	)
