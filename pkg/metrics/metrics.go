@@ -52,7 +52,7 @@ func NewPromConfig() *PromConfig {
 	}
 	policyChangesMetric := prom.NewGaugeVec(
 		prom.GaugeOpts{
-			Name: "kyverno_policy_changes",
+			Name: "kyverno_policy_changes_info",
 			Help: "can be used to track all the Kyverno policies which have been created, updated or deleted.",
 		},
 		policyChangesLabels,
