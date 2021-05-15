@@ -313,6 +313,8 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	logger.V(6).Info("received an admission request in mutating webhook")
+	// timestamp at which this admission request got triggered
+	admissionRequestTimestamp := time.Now().Unix()
 	mutatePolicies := ws.pCache.GetPolicyObject(policycache.Mutate, request.Kind.Kind, "")
 	generatePolicies := ws.pCache.GetPolicyObject(policycache.Generate, request.Kind.Kind, "")
 
@@ -360,7 +362,7 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 	patchedResource := request.Object.Raw
 
 	// MUTATION
-	patches = ws.HandleMutation(request, resource, mutatePolicies, ctx, userRequestInfo)
+	patches = ws.HandleMutation(request, resource, mutatePolicies, ctx, userRequestInfo, admissionRequestTimestamp)
 	logger.V(6).Info("", "generated patches", string(patches))
 
 	// patch the resource with patches before handling validation rules
@@ -370,7 +372,7 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 	// GENERATE
 	newRequest := request.DeepCopy()
 	newRequest.Object.Raw = patchedResource
-	go ws.HandleGenerate(newRequest, generatePolicies, ctx, userRequestInfo, ws.configHandler)
+	go ws.HandleGenerate(newRequest, generatePolicies, ctx, userRequestInfo, ws.configHandler, admissionRequestTimestamp)
 
 	patchType := v1beta1.PatchTypeJSONPatch
 	return &v1beta1.AdmissionResponse{
@@ -399,6 +401,8 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	}
 
 	logger.V(6).Info("received an admission request in validating webhook")
+	// timestamp at which this admission request got triggered
+	admissionRequestTimestamp := time.Now().Unix()
 
 	policies := ws.pCache.GetPolicyObject(policycache.ValidateEnforce, request.Kind.Kind, "")
 	// Get namespace policies from the cache for the requested resource namespace
@@ -450,7 +454,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, ws.nsLister, logger)
 	}
 
-	ok, msg := HandleValidation(request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.prGenerator, ws.log, ws.configHandler, ws.resCache, ws.client, namespaceLabels)
+	ok, msg := HandleValidation(ws.promConfig, request, policies, nil, ctx, userRequestInfo, ws.statusListener, ws.eventGen, ws.prGenerator, ws.log, ws.configHandler, ws.resCache, ws.client, namespaceLabels, admissionRequestTimestamp)
 	if !ok {
 		logger.Info("admission request denied")
 		return &v1beta1.AdmissionResponse{
