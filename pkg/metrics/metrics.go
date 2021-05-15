@@ -11,7 +11,7 @@ type PromConfig struct {
 
 type PromMetrics struct {
 	PolicyRuleResults          *prom.GaugeVec
-	PolicyRuleCount            *prom.GaugeVec
+	PolicyRuleInfo             *prom.GaugeVec
 	PolicyChanges              *prom.GaugeVec
 	PolicyRuleExecutionLatency *prom.GaugeVec
 	AdmissionReviewLatency     *prom.GaugeVec
@@ -36,15 +36,15 @@ func NewPromConfig() *PromConfig {
 		policyRuleResultsLabels,
 	)
 
-	policyRuleCountLabels := []string{
+	policyRuleInfoLabels := []string{
 		"policy_validation_mode", "policy_type", "policy_background_mode", "policy_namespace", "policy_name", "rule_name", "rule_type",
 	}
-	policyRuleCountMetric := prom.NewGaugeVec(
+	policyRuleInfoMetric := prom.NewGaugeVec(
 		prom.GaugeOpts{
-			Name: "kyverno_policy_rule_count",
-			Help: "can be used to track the number of rules or/and policies present in the cluster. 0 means the rule doesn't exist and has been deleted, 1 means the rule is currently existent in the cluster.",
+			Name: "kyverno_policy_rule_info_total",
+			Help: "can be used to track the info of the rules or/and policies present in the cluster. 0 means the rule doesn't exist and has been deleted, 1 means the rule is currently existent in the cluster.",
 		},
-		policyRuleCountLabels,
+		policyRuleInfoLabels,
 	)
 
 	policyChangesLabels := []string{
@@ -87,14 +87,14 @@ func NewPromConfig() *PromConfig {
 
 	pc.Metrics = &PromMetrics{
 		PolicyRuleResults:          policyRuleResultsMetric,
-		PolicyRuleCount:            policyRuleCountMetric,
+		PolicyRuleInfo:             policyRuleInfoMetric,
 		PolicyChanges:              policyChangesMetric,
 		PolicyRuleExecutionLatency: policyRuleExecutionLatencyMetric,
 		AdmissionReviewLatency:     admissionReviewLatencyMetric,
 	}
 
 	pc.MetricsRegistry.MustRegister(pc.Metrics.PolicyRuleResults)
-	pc.MetricsRegistry.MustRegister(pc.Metrics.PolicyRuleCount)
+	pc.MetricsRegistry.MustRegister(pc.Metrics.PolicyRuleInfo)
 	pc.MetricsRegistry.MustRegister(pc.Metrics.PolicyChanges)
 	pc.MetricsRegistry.MustRegister(pc.Metrics.PolicyRuleExecutionLatency)
 	pc.MetricsRegistry.MustRegister(pc.Metrics.AdmissionReviewLatency)
