@@ -22,17 +22,17 @@ import (
 )
 
 // HandleMutation handles mutating webhook admission request
-// return value: generated patches
+// return value: generated patches, triggered policies, engine responses correspdonding to the triggered policies
 func (ws *WebhookServer) HandleMutation(
 	request *v1beta1.AdmissionRequest,
 	resource unstructured.Unstructured,
 	policies []*kyverno.ClusterPolicy,
 	ctx *context.Context,
 	userRequestInfo kyverno.RequestInfo,
-	admissionRequestTimestamp int64) []byte {
+	admissionRequestTimestamp int64) ([]byte, []kyverno.ClusterPolicy, []*response.EngineResponse) {
 
 	if len(policies) == 0 {
-		return nil
+		return nil, nil, nil
 	}
 
 	resourceName := request.Kind.Kind + "/" + request.Name
@@ -100,6 +100,7 @@ func (ws *WebhookServer) HandleMutation(
 
 		// registering the kyverno_policy_rule_execution_latency_milliseconds metric concurrently
 		go ws.registerPolicyRuleExecutionLatencyMetricMutate(logger, string(request.Operation), *policy, *engineResponse, admissionRequestTimestamp)
+		triggeredPolicies = append(triggeredPolicies, *policy)
 	}
 
 	// generate annotations
@@ -131,7 +132,7 @@ func (ws *WebhookServer) HandleMutation(
 	}()
 
 	// patches holds all the successful patches, if no patch is created, it returns nil
-	return engineutils.JoinPatches(patches)
+	return engineutils.JoinPatches(patches), triggeredPolicies, engineResponses
 }
 
 func (ws *WebhookServer) registerPolicyRuleResultsMetricMutation(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, admissionRequestTimestamp int64) {

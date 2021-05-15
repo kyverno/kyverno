@@ -19,9 +19,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	admissionReviewLatency "github.com/kyverno/kyverno/pkg/metrics/admissionreviewlatency"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -362,18 +364,30 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 	patchedResource := request.Object.Raw
 
 	// MUTATION
-	patches = ws.HandleMutation(request, resource, mutatePolicies, ctx, userRequestInfo, admissionRequestTimestamp)
+	var triggeredMutatePolicies []v1.ClusterPolicy
+	var mutateEngineResponses []*response.EngineResponse
+
+	patches, triggeredMutatePolicies, mutateEngineResponses = ws.HandleMutation(request, resource, mutatePolicies, ctx, userRequestInfo, admissionRequestTimestamp)
 	logger.V(6).Info("", "generated patches", string(patches))
 
 	// patch the resource with patches before handling validation rules
 	patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
 	logger.V(6).Info("", "patchedResource", string(patchedResource))
+	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
+	// registering the kyverno_admission_review_latency_milliseconds metric concurrently
+	go registerAdmissionReviewLatencyMetricMutate(logger, *ws.promConfig.Metrics, string(request.Operation), mutateEngineResponses, triggeredMutatePolicies, admissionReviewLatencyDuration)
 
 	// GENERATE
 	newRequest := request.DeepCopy()
 	newRequest.Object.Raw = patchedResource
-	go ws.HandleGenerate(newRequest, generatePolicies, ctx, userRequestInfo, ws.configHandler, admissionRequestTimestamp)
 
+	// this channel will be used to transmit the admissionReviewLatency from ws.HandleGenerate(..,) goroutine to registeGeneraterPolicyAdmissionReviewLatencyMetric(...) goroutine
+	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
+
+	go ws.HandleGenerate(newRequest, generatePolicies, ctx, userRequestInfo, ws.configHandler, admissionRequestTimestamp, &admissionReviewCompletionLatencyChannel)
+
+	// registering the kyverno_admission_review_latency_milliseconds metric concurrently
+	go registerAdmissionReviewLatencyMetricGenerate(logger, *ws.promConfig.Metrics, string(request.Operation), mutateEngineResponses, triggeredMutatePolicies, &admissionReviewCompletionLatencyChannel)
 	patchType := v1beta1.PatchTypeJSONPatch
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
@@ -382,6 +396,29 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 		},
 		Patch:     patches,
 		PatchType: &patchType,
+	}
+}
+
+func registerAdmissionReviewLatencyMetricMutate(logger logr.Logger, promMetrics metrics.PromMetrics, requestOperation string, engineResponses []*response.EngineResponse, triggeredPolicies []v1.ClusterPolicy, admissionReviewLatencyDuration int64) {
+	resourceRequestOperationPromAlias, err := admissionReviewLatency.ParseResourceRequestOperation(requestOperation)
+	if err != nil {
+		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
+	}
+	if err := admissionReviewLatency.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, triggeredPolicies, admissionReviewLatencyDuration, resourceRequestOperationPromAlias); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
+	}
+}
+
+func registerAdmissionReviewLatencyMetricGenerate(logger logr.Logger, promMetrics metrics.PromMetrics, requestOperation string, engineResponses []*response.EngineResponse, triggeredPolicies []v1.ClusterPolicy, latencyReceiver *chan int64) {
+	defer close(*latencyReceiver)
+	resourceRequestOperationPromAlias, err := admissionReviewLatency.ParseResourceRequestOperation(requestOperation)
+	if err != nil {
+		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
+	}
+	// this goroutine will keep on waiting here till it doesn't receive the admission review latency int64 from the other goroutine i.e. ws.HandleGenerate
+	admissionReviewLatencyDuration := <-(*latencyReceiver)
+	if err := admissionReviewLatency.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, triggeredPolicies, admissionReviewLatencyDuration, resourceRequestOperationPromAlias); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
 	}
 }
 

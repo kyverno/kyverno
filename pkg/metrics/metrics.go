@@ -79,7 +79,7 @@ func NewPromConfig() *PromConfig {
 	}
 	admissionReviewLatencyMetric := prom.NewGaugeVec(
 		prom.GaugeOpts{
-			Name: "kyverno_admission_review_latency",
+			Name: "kyverno_admission_review_latency_milliseconds",
 			Help: "can be used to track the latencies associated with the entire individual admission review. For example, if an incoming request trigger, say, five policies, this metric will track the e2e latency associated with the execution of all those policies.",
 		},
 		admissionReviewLatency,
