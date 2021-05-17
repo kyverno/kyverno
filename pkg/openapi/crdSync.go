@@ -64,7 +64,11 @@ func NewCRDSync(client *client.Client, controller *Controller) *crdSync {
 }
 
 func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
-	newDoc, err := c.client.DiscoveryClient.OpenAPISchema()
+	if err := c.updateInClusterKindToAPIVersions(); err != nil {
+		log.Log.Error(err, "failed to update in-cluster api versions")
+	}
+
+	newDoc, err := c.client.DiscoveryClient.DiscoveryCache().OpenAPISchema()
 	if err != nil {
 		log.Log.Error(err, "cannot get OpenAPI schema")
 	}
@@ -85,7 +89,7 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 func (c *crdSync) sync() {
 	crds, err := c.client.GetDynamicInterface().Resource(runtimeSchema.GroupVersionResource{
 		Group:    "apiextensions.k8s.io",
-		Version:  "v1beta1",
+		Version:  "v1",
 		Resource: "customresourcedefinitions",
 	}).List(context.TODO(), v1.ListOptions{})
 	if err != nil {
@@ -98,11 +102,30 @@ func (c *crdSync) sync() {
 	for _, crd := range crds.Items {
 		c.controller.ParseCRD(crd)
 	}
+
+	if err := c.updateInClusterKindToAPIVersions(); err != nil {
+		log.Log.Error(err, "sync failed, unable to update in-cluster api versions")
+	}
+}
+
+func (c *crdSync) updateInClusterKindToAPIVersions() error {
+	_, apiResourceLists, err := c.client.DiscoveryClient.DiscoveryCache().ServerGroupsAndResources()
+	if err != nil {
+		return fmt.Errorf("unable to fetch apiResourceLists: %v", err)
+	}
+
+	preferredAPIResourcesLists, err := c.client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
+	if err != nil {
+		return fmt.Errorf("unable to fetch apiResourceLists: %v", err)
+	}
+
+	c.controller.updateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists)
+	return nil
 }
 
 func (o *Controller) deleteCRDFromPreviousSync() {
 	for _, crd := range o.crdList {
-		o.kindToDefinitionName.Remove(crd)
+		o.gvkToDefinitionName.Remove(crd)
 		o.definitions.Remove(crd)
 	}
 
@@ -160,7 +183,7 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 	}
 
 	o.crdList = append(o.crdList, crdName)
-	o.kindToDefinitionName.Set(crdName, crdName)
+	o.gvkToDefinitionName.Set(crdName, crdName)
 	o.definitions.Set(crdName, parsedSchema)
 }
 

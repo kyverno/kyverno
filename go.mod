@@ -14,6 +14,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.0.0
 	github.com/go-git/go-git/v5 v5.2.0
 	github.com/go-logr/logr v0.4.0
+	github.com/google/uuid v1.1.2
 	github.com/googleapis/gnostic v0.5.4
 	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
 	github.com/julienschmidt/httprouter v1.3.0
