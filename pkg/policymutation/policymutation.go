@@ -322,7 +322,7 @@ func updateGenRuleByte(pbyte []byte, kind string, genRule kyvernoRule) (obj []by
 	if kind == "Cronjob" {
 		obj = []byte(strings.Replace(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec", -1))
 	}
-	obj = []byte(strings.Replace(string(pbyte), "request.object.metadata", "request.object.spec.template.metadata", -1))
+	obj = []byte(strings.Replace(string(obj), "request.object.metadata", "request.object.spec.template.metadata", -1))
 	return obj
 }
 
@@ -393,7 +393,6 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log l
 		if !reflect.DeepEqual(genRule, kyvernoRule{}) {
 			pbytes := convertToPatches(genRule, patchPostion)
 			pbytes = updateGenRuleByte(pbytes, "Cronjob", genRule)
-			fmt.Println(string(pbytes))
 			if pbytes != nil {
 				rulePatches = append(rulePatches, pbytes)
 			}
