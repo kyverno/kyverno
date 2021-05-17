@@ -51,7 +51,7 @@ func HandleValidation(
 		resourceName = request.Namespace + "/" + resourceName
 	}
 
-	logger := log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation)
+	logger := log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind.String())
 
 	// Get new and old resource
 	newR, oldR, err := utils.ExtractResources(patchedResource, request)
