@@ -101,6 +101,10 @@ type Rule struct {
 	// Generation is used to create new resources.
 	// +optional
 	Generation Generation `json:"generate,omitempty" yaml:"generate,omitempty"`
+
+	// VerifyImages is used to verify image signatures and mutate them to add a digest
+	// +optional
+	VerifyImages ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
 
 // AnyAllCondition consists of conditions wrapped denoting a logical criteria to be fulfilled.
@@ -369,6 +373,19 @@ type Deny struct {
 	// For the sake of backwards compatibility, it can be populated with []kyverno.Condition.
 	// +kubebuilder:validation:XPreserveUnknownFields
 	AnyAllConditions apiextensions.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+}
+
+// ImageVerification validates that images that match the specified pattern
+// are signed with the supplied public key. Once the image is verified it is
+// mutated to include the SHA digest retrieved during the registration.
+type ImageVerification struct {
+
+	// Image is the image name consisting of the registry address, repository, image, and tag.
+	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
+	Image string  `json:"image,omitempty" yaml:"image,omitempty"`
+
+	// Key is the PEM encoded public key that the image is signed with.
+	Key string  `json:"key,omitempty" yaml:"key,omitempty"`
 }
 
 // Generation defines how new resources should be created and managed.
