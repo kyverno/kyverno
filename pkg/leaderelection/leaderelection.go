@@ -78,9 +78,6 @@ func (e *Config) ID() string {
 
 func (e *Config) Run(ctx context.Context) {
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
 		Lock:            e.lock,
 		ReleaseOnCancel: true,
@@ -105,7 +102,7 @@ func (e *Config) Run(ctx context.Context) {
 					return
 				}
 
-				e.log.WithValues("id", e.lock.Identity(), "leaderelection", identity).Info("new leaderelection")
+				e.log.WithValues("current id", e.lock.Identity(), "leader", identity).Info("another instance has been elected as leader")
 			},
 		},
 	})
