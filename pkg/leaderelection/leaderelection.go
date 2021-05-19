@@ -2,28 +2,29 @@ package leaderelection
 
 import (
 	"context"
+	"os"
+	"sync/atomic"
+	"time"
+
 	"github.com/go-logr/logr"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
-	"os"
-	"time"
 )
 
 type Config struct {
-	Name       string
-	Namespace  string
-	StartWork  func()
-	StopWork   func()
-	KubeClient kubernetes.Interface
-	Log        logr.Logger
-	isLeader bool
+	name       string
+	namespace  string
+	startWork  func()
+	stopWork   func()
+	kubeClient kubernetes.Interface
+	log        logr.Logger
+	isLeader   int64
 }
 
 func (e *Config) IsLeader() bool {
-	return isLeader
+	return atomic.LoadInt64(&e.isLeader) == 1
 }
 
 func (e *Config) Run(ctx context.Context) {
@@ -38,15 +39,19 @@ func (e *Config) Run(ctx context.Context) {
 
 	id = id + "_" + string(uuid.NewUUID())
 
-	var lock = &resourcelock.LeaseLock{
-		LeaseMeta: metav1.ObjectMeta{
-			Name:      e.name,
-			Namespace: e.namespace,
-		},
-		Client: e.kubeClient.CoordinationV1(),
-		LockConfig: resourcelock.ResourceLockConfig{
+	lock, err := resourcelock.New(
+		resourcelock.ConfigMapsResourceLock,
+		e.namespace,
+		e.name,
+		e.kubeClient.CoreV1(),
+		e.kubeClient.CoordinationV1(),
+		resourcelock.ResourceLockConfig{
 			Identity: id,
 		},
+	)
+
+	if err != nil {
+		e.log.Error(err, "error running controller", "namespace", e.namespace, "name", e.name)
 	}
 
 	leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
@@ -57,13 +62,15 @@ func (e *Config) Run(ctx context.Context) {
 		RetryPeriod:     2 * time.Second,
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
+				atomic.StoreInt64(&e.isLeader, 1)
 				e.log.WithValues("id", id).Info("started leading")
-				e.StartWork()
+				e.startWork()
 			},
 
 			OnStoppedLeading: func() {
+				atomic.StoreInt64(&e.isLeader, 0)
 				e.log.WithValues("id", id).Info("stopped leading")
-				e.StopWork()
+				e.stopWork()
 			},
 
 			OnNewLeader: func(identity string) {
