@@ -349,7 +349,6 @@ func main() {
 		pCacheController.Cache,
 		webhookCfg,
 		webhookMonitor,
-		certRenewer,
 		statusSync.Listener,
 		configData,
 		reportReqGen,
@@ -360,7 +359,6 @@ func main() {
 		openAPIController,
 		rCache,
 		grc,
-		debug,
 	)
 
 	if err != nil {
@@ -388,6 +386,10 @@ func main() {
 
 	// verifies if the admission control is enabled and active
 	server.RunAsync(stopCh)
+
+	if !debug {
+		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
+	}
 
 	go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
 	go backwardcompatibility.AddCloneLabel(client, pInformer.Kyverno().V1().ClusterPolicies())
