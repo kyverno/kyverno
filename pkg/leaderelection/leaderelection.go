@@ -26,7 +26,7 @@ type Config struct {
 	log        logr.Logger
 }
 
-func NewLeaderElection(name, namespace string, kubeClient kubernetes.Interface, startWork, stopWork func(), log logr.Logger) (*Config, error) {
+func New(name, namespace string, kubeClient kubernetes.Interface, startWork, stopWork func(), log logr.Logger) (*Config, error) {
 	id, err := os.Hostname()
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing leader election")
@@ -72,7 +72,7 @@ func (e *Config) IsLeader() bool {
 	return atomic.LoadInt64(&e.isLeader) == 1
 }
 
-func (e *Config) GetID() string {
+func (e *Config) ID() string {
 	return e.lock.Identity()
 }
 
