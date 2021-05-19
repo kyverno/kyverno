@@ -42,14 +42,14 @@ type Monitor struct {
 }
 
 //NewMonitor returns a new instance of webhook monitor
-func NewMonitor(nsInformer informerv1.SecretInformer, log logr.Logger) *Monitor {
+func NewMonitor(secretInformer informerv1.SecretInformer, log logr.Logger) *Monitor {
 	monitor := &Monitor{
 		t:           time.Now(),
 		secretQueue: make(chan bool, 1),
 		log:         log,
 	}
 
-	nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    monitor.addSecretFunc,
 		UpdateFunc: monitor.updateSecretFunc,
 	})

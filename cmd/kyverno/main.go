@@ -296,8 +296,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	// // leader election context
+	// ctx, cancel := context.WithCancel(context.Background())
+	// defer cancel()
+
+	// // cancel leader election context on shutdown signals
+	// go func() {
+	// 	<-stopCh
+	// 	cancel()
+	// }()
+
 	// Register webhookCfg
-	go func() {
+	registerWebhookConfig := func() {
 		registerTimeout := time.After(30 * time.Second)
 		registerTicker := time.NewTicker(time.Second)
 		defer registerTicker.Stop()
@@ -317,7 +327,9 @@ func main() {
 				os.Exit(1)
 			}
 		}
-	}()
+	}
+
+	go registerWebhookConfig()
 
 	openAPIController, err := openapi.NewOpenAPIController()
 	if err != nil {
