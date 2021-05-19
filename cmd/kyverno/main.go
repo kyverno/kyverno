@@ -17,6 +17,7 @@ import (
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
 	generatecleanup "github.com/kyverno/kyverno/pkg/generate/cleanup"
+	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policycache"
@@ -296,15 +297,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	// // leader election context
-	// ctx, cancel := context.WithCancel(context.Background())
-	// defer cancel()
+	// leader election context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// // cancel leader election context on shutdown signals
-	// go func() {
-	// 	<-stopCh
-	// 	cancel()
-	// }()
+	// cancel leader election context on shutdown signals
+	go func() {
+		<-stopCh
+		cancel()
+	}()
 
 	// Register webhookCfg
 	registerWebhookConfig := func() {
@@ -329,7 +330,13 @@ func main() {
 		}
 	}
 
-	go registerWebhookConfig()
+	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace, kubeClient, registerWebhookConfig, nil, log.Log.WithName("LeaderElection/WebhookRegister"))
+	if err != nil {
+		setupLog.Error(err, "failed to elector leader")
+		os.Exit(1)
+	}
+
+	go webhookRegisterLeader.Run(ctx)
 
 	openAPIController, err := openapi.NewOpenAPIController()
 	if err != nil {
@@ -406,14 +413,6 @@ func main() {
 	go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
 	go backwardcompatibility.AddCloneLabel(client, pInformer.Kyverno().V1().ClusterPolicies())
 	<-stopCh
-
-	// by default http.Server waits indefinitely for connections to return to idle and then shuts down
-	// adding a threshold will handle zombie connections
-	// adjust the context deadline to 5 seconds
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer func() {
-		cancel()
-	}()
 
 	// cleanup webhookconfigurations followed by webhook shutdown
 	server.Stop(ctx)
