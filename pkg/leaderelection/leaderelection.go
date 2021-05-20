@@ -14,6 +14,24 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 )
 
+type Interface interface {
+
+	// Run runs a leader election
+	Run(ctx context.Context)
+
+	// ID returns this instances unique identifier
+	ID() string
+
+	// Name returns the name of the leader election
+	Name() string
+
+	// Namespace is the Kubernetes namespace used to coordinate the leader election
+	Namespace() string
+
+	// IsLeader indicates if this instance is the leader
+	IsLeader() bool
+}
+
 type Config struct {
 	name       string
 	namespace  string
@@ -26,7 +44,7 @@ type Config struct {
 	log        logr.Logger
 }
 
-func New(name, namespace string, kubeClient kubernetes.Interface, startWork, stopWork func(), log logr.Logger) (*Config, error) {
+func New(name, namespace string, kubeClient kubernetes.Interface, startWork, stopWork func(), log logr.Logger) (Interface, error) {
 	id, err := os.Hostname()
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing leader election")
@@ -88,13 +106,17 @@ func (e *Config) Run(ctx context.Context) {
 			OnStartedLeading: func(ctx context.Context) {
 				atomic.StoreInt64(&e.isLeader, 1)
 				e.log.WithValues("id", e.lock.Identity()).Info("started leading")
-				e.startWork()
+				if e.startWork != nil {
+					go e.startWork()
+				}
 			},
 
 			OnStoppedLeading: func() {
 				atomic.StoreInt64(&e.isLeader, 0)
 				e.log.WithValues("id", e.lock.Identity()).Info("stopped leading")
-				e.stopWork()
+				if e.stopWork != nil {
+					e.stopWork()
+				}
 			},
 
 			OnNewLeader: func(identity string) {

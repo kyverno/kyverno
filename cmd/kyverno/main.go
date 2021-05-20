@@ -307,14 +307,18 @@ func main() {
 		cancel()
 	}()
 
-	// elect certManager leader
-	cerManager := webhookconfig.NewCertManager(kubeInformer.Core().V1().Secrets(), certRenewer, log.Log.WithName("CertManager"))
-	cerManagerLeader, err := leaderelection.New("cert-manager", config.KyvernoNamespace, kubeClient, cerManager.Renew, nil, log.Log.WithName("LeaderElection/CertManager"))
+	cerManager, err := webhookconfig.NewCertManager(
+		kubeInformer.Core().V1().Secrets(),
+		kubeClient,
+		certRenewer,
+		log.Log.WithName("CertManager"),
+		stopCh,
+	)
+
 	if err != nil {
-		setupLog.Error(err, "failed to elector leader")
+		setupLog.Error(err, "failed to initialize CertManager")
 		os.Exit(1)
 	}
-	go cerManagerLeader.Run(ctx)
 
 	// Register webhookCfg by the leader
 	registerWebhookConfig := func() {
@@ -399,6 +403,7 @@ func main() {
 	kubeInformer.Start(stopCh)
 	kubedynamicInformer.Start(stopCh)
 
+	go cerManager.Run()
 	go reportReqGen.Run(2, stopCh)
 	go prgen.Run(1, stopCh)
 	go configData.Run(stopCh)
