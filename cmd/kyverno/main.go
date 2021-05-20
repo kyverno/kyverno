@@ -149,7 +149,7 @@ func main() {
 		debug,
 		log.Log)
 
-	webhookMonitor := webhookconfig.NewMonitor(kubeInformer.Core().V1().Secrets(), log.Log.WithName("WebhookMonitor"))
+	webhookMonitor := webhookconfig.NewMonitor(log.Log.WithName("WebhookMonitor"))
 
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
@@ -307,7 +307,16 @@ func main() {
 		cancel()
 	}()
 
-	// Register webhookCfg
+	// elect certManager leader
+	cerManager := webhookconfig.NewCertManager(kubeInformer.Core().V1().Secrets(), certRenewer, log.Log.WithName("CertManager"))
+	cerManagerLeader, err := leaderelection.New("cert-manager", config.KyvernoNamespace, kubeClient, cerManager.Renew, nil, log.Log.WithName("LeaderElection/CertManager"))
+	if err != nil {
+		setupLog.Error(err, "failed to elector leader")
+		os.Exit(1)
+	}
+	go cerManagerLeader.Run(ctx)
+
+	// Register webhookCfg by the leader
 	registerWebhookConfig := func() {
 		registerTimeout := time.After(30 * time.Second)
 		registerTicker := time.NewTicker(time.Second)
