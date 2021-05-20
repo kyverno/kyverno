@@ -296,8 +296,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	// // leader election context
+	// ctx, cancel := context.WithCancel(context.Background())
+	// defer cancel()
+
+	// // cancel leader election context on shutdown signals
+	// go func() {
+	// 	<-stopCh
+	// 	cancel()
+	// }()
+
 	// Register webhookCfg
-	go func() {
+	registerWebhookConfig := func() {
 		registerTimeout := time.After(30 * time.Second)
 		registerTicker := time.NewTicker(time.Second)
 		defer registerTicker.Stop()
@@ -317,7 +327,9 @@ func main() {
 				os.Exit(1)
 			}
 		}
-	}()
+	}
+
+	go registerWebhookConfig()
 
 	openAPIController, err := openapi.NewOpenAPIController()
 	if err != nil {
@@ -349,7 +361,6 @@ func main() {
 		pCacheController.Cache,
 		webhookCfg,
 		webhookMonitor,
-		certRenewer,
 		statusSync.Listener,
 		configData,
 		reportReqGen,
@@ -360,7 +371,6 @@ func main() {
 		openAPIController,
 		rCache,
 		grc,
-		debug,
 	)
 
 	if err != nil {
@@ -388,6 +398,10 @@ func main() {
 
 	// verifies if the admission control is enabled and active
 	server.RunAsync(stopCh)
+
+	if !debug {
+		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
+	}
 
 	go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
 	go backwardcompatibility.AddCloneLabel(client, pInformer.Kyverno().V1().ClusterPolicies())

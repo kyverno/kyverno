@@ -26,7 +26,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
-	ktls "github.com/kyverno/kyverno/pkg/tls"
 	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	userinfo "github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -105,8 +104,6 @@ type WebhookServer struct {
 	// last request time
 	webhookMonitor *webhookconfig.Monitor
 
-	certRenewer *ktls.CertRenewer
-
 	// policy report generator
 	prGenerator policyreport.GeneratorInterface
 
@@ -128,8 +125,6 @@ type WebhookServer struct {
 	resCache resourcecache.ResourceCache
 
 	grController *generate.Controller
-
-	debug bool
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -149,7 +144,6 @@ func NewWebhookServer(
 	pCache policycache.Interface,
 	webhookRegistrationClient *webhookconfig.Register,
 	webhookMonitor *webhookconfig.Monitor,
-	certRenewer *ktls.CertRenewer,
 	statusSync policystatus.Listener,
 	configHandler config.Interface,
 	prGenerator policyreport.GeneratorInterface,
@@ -160,7 +154,6 @@ func NewWebhookServer(
 	openAPIController *openapi.Controller,
 	resCache resourcecache.ResourceCache,
 	grc *generate.Controller,
-	debug bool,
 ) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -199,7 +192,6 @@ func NewWebhookServer(
 		configHandler:     configHandler,
 		cleanUp:           cleanUp,
 		webhookMonitor:    webhookMonitor,
-		certRenewer:       certRenewer,
 		prGenerator:       prGenerator,
 		grGenerator:       grGenerator,
 		grController:      grc,
@@ -207,7 +199,6 @@ func NewWebhookServer(
 		log:               log,
 		openAPIController: openAPIController,
 		resCache:          resCache,
-		debug:             debug,
 	}
 
 	mux := httprouter.New()
@@ -481,9 +472,6 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 
 	logger.Info("starting service")
 
-	if !ws.debug {
-		go ws.webhookMonitor.Run(ws.webhookRegister, ws.certRenewer, ws.eventGen, stopCh)
-	}
 }
 
 // Stop TLS server and returns control after the server is shut down
