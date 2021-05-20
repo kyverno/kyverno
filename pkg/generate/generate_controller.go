@@ -314,6 +314,11 @@ func (c *Controller) addGR(obj interface{}) {
 }
 
 func (c *Controller) updateGR(old, cur interface{}) {
+	if !c.leaderElection.IsLeader() {
+		c.log.V(3).Info("skip policy update processing for non-leader", "instance", c.leaderElection.Name)
+		return
+	}
+
 	oldGr := old.(*kyverno.GenerateRequest)
 	curGr := cur.(*kyverno.GenerateRequest)
 	if oldGr.ResourceVersion == curGr.ResourceVersion {
@@ -330,6 +335,11 @@ func (c *Controller) updateGR(old, cur interface{}) {
 }
 
 func (c *Controller) deleteGR(obj interface{}) {
+	if !c.leaderElection.IsLeader() {
+		c.log.V(3).Info("skip delete GR processing for non-leader", "instance", c.leaderElection.Name)
+		return
+	}
+
 	logger := c.log
 	gr, ok := obj.(*kyverno.GenerateRequest)
 	if !ok {
@@ -344,6 +354,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 			return
 		}
 	}
+
 	for _, resource := range gr.Status.GeneratedResources {
 		r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
 		if err != nil && !apierrors.IsNotFound(err) {
