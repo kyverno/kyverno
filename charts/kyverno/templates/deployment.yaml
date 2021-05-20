@@ -64,9 +64,9 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          {{- with .Values.envVars }}
-          env:
-            {{- toYaml . | nindent 14 }}
+          {{- range .Values.envVars }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
           {{- end }}
       containers:
         - name: kyverno
