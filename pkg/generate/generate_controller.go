@@ -261,7 +261,7 @@ func (c *Controller) enqueueGenerateRequest(gr *kyverno.GenerateRequest) {
 
 func (c *Controller) enqueueGenerateRequestIfLeader(gr *kyverno.GenerateRequest) {
 	if !c.leaderElection.IsLeader() {
-		c.log.V(3).Info("skip queuing for non-leader", "instance", c.leaderElection.Name)
+		c.log.V(3).Info("skip enqueuing GR for non-leader", "instance", c.leaderElection.ID())
 		return
 	}
 
@@ -269,6 +269,11 @@ func (c *Controller) enqueueGenerateRequestIfLeader(gr *kyverno.GenerateRequest)
 }
 
 func (c *Controller) updatePolicy(old, cur interface{}) {
+	if !c.leaderElection.IsLeader() {
+		c.log.V(3).Info("skip update policy for non-leader", "instance", c.leaderElection.ID())
+		return
+	}
+
 	logger := c.log
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
@@ -315,7 +320,7 @@ func (c *Controller) addGR(obj interface{}) {
 
 func (c *Controller) updateGR(old, cur interface{}) {
 	if !c.leaderElection.IsLeader() {
-		c.log.V(3).Info("skip policy update processing for non-leader", "instance", c.leaderElection.Name)
+		c.log.V(3).Info("skip update GR for non-leader", "instance", c.leaderElection.ID())
 		return
 	}
 
@@ -336,7 +341,7 @@ func (c *Controller) updateGR(old, cur interface{}) {
 
 func (c *Controller) deleteGR(obj interface{}) {
 	if !c.leaderElection.IsLeader() {
-		c.log.V(3).Info("skip delete GR processing for non-leader", "instance", c.leaderElection.Name)
+		c.log.V(3).Info("skip delete GR for non-leader", "instance", c.leaderElection.ID())
 		return
 	}
 
