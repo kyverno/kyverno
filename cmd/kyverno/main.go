@@ -289,14 +289,6 @@ func main() {
 		client,
 	)
 
-	certRenewer := ktls.NewCertRenewer(client, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, log.Log.WithName("CertRenewer"))
-	// Configure certificates
-	tlsPair, err := certRenewer.InitTLSPemPair(serverIP)
-	if err != nil {
-		setupLog.Error(err, "Failed to initialize TLS key/certificate pair")
-		os.Exit(1)
-	}
-
 	// leader election context
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -307,7 +299,8 @@ func main() {
 		cancel()
 	}()
 
-	cerManager, err := webhookconfig.NewCertManager(
+	certRenewer := ktls.NewCertRenewer(client, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, log.Log.WithName("CertRenewer"))
+	certManager, err := webhookconfig.NewCertManager(
 		kubeInformer.Core().V1().Secrets(),
 		kubeClient,
 		certRenewer,
@@ -320,7 +313,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Register webhookCfg by the leader
+	var tlsPair *ktls.PemPair
+	if certManager.LeaderElection().IsLeader() {
+		tlsPair, err = certManager.InitTLSPemPair(serverIP)
+	} else {
+		tlsPair, err = certManager.GetTLSPemPair()
+	}
+
+	if err != nil {
+		setupLog.Error(err, "Failed to get TLS key/certificate pair")
+		os.Exit(1)
+	}
+
+	// Register webhookCfg by the webhookRegister leader
 	registerWebhookConfig := func() {
 		registerTimeout := time.After(30 * time.Second)
 		registerTicker := time.NewTicker(time.Second)
@@ -403,7 +408,7 @@ func main() {
 	kubeInformer.Start(stopCh)
 	kubedynamicInformer.Start(stopCh)
 
-	go cerManager.Run()
+	go certManager.Run()
 	go reportReqGen.Run(2, stopCh)
 	go prgen.Run(1, stopCh)
 	go configData.Run(stopCh)

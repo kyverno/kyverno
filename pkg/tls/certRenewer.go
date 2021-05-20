@@ -50,6 +50,14 @@ func NewCertRenewer(client *client.Client, clientConfig *rest.Config, certRenewa
 	}
 }
 
+func (c *CertRenewer) Client() *client.Client {
+	return c.client
+}
+
+func (c *CertRenewer) ClientConfig() *rest.Config {
+	return c.clientConfig
+}
+
 // InitTLSPemPair Loads or creates PEM private key and TLS certificate for webhook server.
 // Created pair is stored in cluster's secret.
 // Returns struct with key/certificate pair.

@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/tls"
+	ktls "github.com/kyverno/kyverno/pkg/tls"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	informerv1 "k8s.io/client-go/informers/core/v1"
@@ -18,6 +19,20 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+type Interface interface {
+	// Run starts the certManager
+	Run()
+
+	// LeaderElection returns the factory for leaderElection
+	LeaderElection() leaderelection.Interface
+
+	// InitTLSPemPair initializes the TLSPemPair
+	// it should be invoked by the leader
+	InitTLSPemPair(string) (*ktls.PemPair, error)
+
+	// GetTLSPemPair gets the existing TLSPemPair from the secret
+	GetTLSPemPair() (*ktls.PemPair, error)
+}
 type certManager struct {
 	leaderElection leaderelection.Interface
 	renewer        *tls.CertRenewer
@@ -26,7 +41,7 @@ type certManager struct {
 	log            logr.Logger
 }
 
-func NewCertManager(secretInformer informerv1.SecretInformer, kubeClient kubernetes.Interface, certRenewer *tls.CertRenewer, log logr.Logger, stopCh <-chan struct{}) (*certManager, error) {
+func NewCertManager(secretInformer informerv1.SecretInformer, kubeClient kubernetes.Interface, certRenewer *tls.CertRenewer, log logr.Logger, stopCh <-chan struct{}) (Interface, error) {
 	manager := &certManager{
 		renewer:     certRenewer,
 		secretQueue: make(chan bool, 1),
@@ -92,6 +107,24 @@ func (m *certManager) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 	m.log.V(4).Info("secret updated, reconciling webhook configurations")
 }
 
+func (m *certManager) LeaderElection() leaderelection.Interface {
+	return m.leaderElection
+}
+
+func (m *certManager) InitTLSPemPair(serverIP string) (*ktls.PemPair, error) {
+	if !m.leaderElection.IsLeader() {
+		return nil, errors.Errorf("illegal call: only the leader can init the TLS PemPair, instance: %s", m.leaderElection.ID())
+	}
+
+	tls, err := m.renewer.InitTLSPemPair(serverIP)
+	return tls, errors.Wrapf(err, "initialaztion error, instance: %s", m.leaderElection.ID())
+}
+
+func (m *certManager) GetTLSPemPair() (*ktls.PemPair, error) {
+	tls, err := ktls.ReadTLSPair(m.renewer.ClientConfig(), m.renewer.Client())
+	return tls, errors.Wrapf(err, "error loading TLS PemPair, instance: %s", m.leaderElection.ID())
+}
+
 func (m *certManager) Run() {
 	m.leaderElection.Run(context.Background())
 
@@ -145,6 +178,7 @@ func (m *certManager) Run() {
 				m.log.Error(err, "unable to trigger a rolling update to re-register webhook server, force restarting")
 				os.Exit(1)
 			}
+
 		case <-m.stopCh:
 			m.log.V(2).Info("stopping cert renewer")
 			return
