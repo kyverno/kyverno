@@ -237,6 +237,7 @@ func main() {
 	// GENERATE CONTROLLER
 	// - applies generate rules on resources based on generate requests created by webhook
 	grc, err := generate.NewController(
+		kubeClient,
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
