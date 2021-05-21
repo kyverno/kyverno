@@ -228,6 +228,11 @@ func (c *Controller) syncGenerateRequest(key string) error {
 }
 
 func (c *Controller) updateGenericResource(old, cur interface{}) {
+	if !c.leaderElection.IsLeader() {
+		c.log.V(3).Info("skip update generic resource for non-leader", "instance", c.leaderElection.ID())
+		return
+	}
+
 	logger := c.log
 	curR := cur.(*unstructured.Unstructured)
 
