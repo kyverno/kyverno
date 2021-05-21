@@ -48,7 +48,7 @@ spec:
         pattern:
           spec:
             =(securityContext):
-              =(supplementalGroups): ["null"]
+              =(supplementalGroups): ">0"
     - name: check-fsGroup
       match:
         resources:

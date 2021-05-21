@@ -2441,7 +2441,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: ghcr.io/kyverno/kyverno:v1.3.6-rc3
+        image: ghcr.io/kyverno/kyverno:v1.3.6
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 2
@@ -2483,7 +2483,7 @@ spec:
           readOnlyRootFilesystem: true
           runAsNonRoot: true
       initContainers:
-      - image: ghcr.io/kyverno/kyvernopre:v1.3.6-rc3
+      - image: ghcr.io/kyverno/kyvernopre:v1.3.6
         imagePullPolicy: IfNotPresent
         name: kyverno-pre
         resources:

@@ -35,7 +35,7 @@ func (ws *WebhookServer) HandleMutation(
 		resourceName = request.Namespace + "/" + resourceName
 	}
 
-	logger := ws.log.WithValues("action", "mutate", "resource", resourceName, "operation", request.Operation)
+	logger := ws.log.WithValues("action", "mutate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind.String())
 
 	var patches [][]byte
 	var engineResponses []*response.EngineResponse
@@ -73,7 +73,7 @@ func (ws *WebhookServer) HandleMutation(
 			continue
 		}
 
-		err := ws.openAPIController.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetKind())
+		err := ws.openAPIController.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
 			logger.V(4).Info("validation error", "policy", policy.Name, "error", err.Error())
 			continue
