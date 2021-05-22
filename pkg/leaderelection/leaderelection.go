@@ -16,7 +16,7 @@ import (
 
 type Interface interface {
 
-	// Run runs a leader election
+	// Run is a blocking call that runs a leader election
 	Run(ctx context.Context)
 
 	// ID returns this instances unique identifier
@@ -47,7 +47,7 @@ type Config struct {
 func New(name, namespace string, kubeClient kubernetes.Interface, startWork, stopWork func(), log logr.Logger) (Interface, error) {
 	id, err := os.Hostname()
 	if err != nil {
-		return nil, errors.Wrap(err, "error initializing leader election")
+		return nil, errors.Wrapf(err, "error getting host name", "namespace", namespace, "name", name)
 	}
 
 	id = id + "_" + string(uuid.NewUUID())
@@ -64,7 +64,7 @@ func New(name, namespace string, kubeClient kubernetes.Interface, startWork, sto
 	)
 
 	if err != nil {
-		return nil, errors.Wrapf(err, "error initializing leader election", "namespace", namespace, "name", name)
+		return nil, errors.Wrapf(err, "error initializing resource lock", "namespace", namespace, "name", name)
 	}
 
 	return &Config{
@@ -107,7 +107,7 @@ func (e *Config) Run(ctx context.Context) {
 				atomic.StoreInt64(&e.isLeader, 1)
 				e.log.WithValues("id", e.lock.Identity()).Info("started leading")
 				if e.startWork != nil {
-					go e.startWork()
+					e.startWork()
 				}
 			},
 

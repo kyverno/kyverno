@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/tls"
@@ -28,7 +29,7 @@ type Interface interface {
 
 	// InitTLSPemPair initializes the TLSPemPair
 	// it should be invoked by the leader
-	InitTLSPemPair(string) (*ktls.PemPair, error)
+	InitTLSPemPair()
 
 	// GetTLSPemPair gets the existing TLSPemPair from the secret
 	GetTLSPemPair() (*ktls.PemPair, error)
@@ -50,9 +51,10 @@ func NewCertManager(secretInformer informerv1.SecretInformer, kubeClient kuberne
 	}
 
 	var err error
-	manager.leaderElection, err = leaderelection.New("cert-manager", config.KyvernoNamespace, kubeClient, nil, nil, log.WithName("LeaderElection/CertManager"))
+	f := func() { manager.InitTLSPemPair() }
+	manager.leaderElection, err = leaderelection.New("cert-manager", config.KyvernoNamespace, kubeClient, f, nil, log.WithName("LeaderElection"))
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to elector leader")
+		return nil, errors.Wrap(err, "failed to elector leader")
 	}
 
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -60,6 +62,7 @@ func NewCertManager(secretInformer informerv1.SecretInformer, kubeClient kuberne
 		UpdateFunc: manager.updateSecretFunc,
 	})
 
+	go manager.leaderElection.Run(context.Background())
 	return manager, nil
 }
 
@@ -111,25 +114,37 @@ func (m *certManager) LeaderElection() leaderelection.Interface {
 	return m.leaderElection
 }
 
-func (m *certManager) InitTLSPemPair(serverIP string) (*ktls.PemPair, error) {
+func (m *certManager) InitTLSPemPair() {
 	if !m.leaderElection.IsLeader() {
-		return nil, errors.Errorf("illegal call: only the leader can init the TLS PemPair, instance: %s", m.leaderElection.ID())
+		m.log.Error(errors.Errorf("illegal call: only the leader can init the TLS PemPair"), "instance", m.leaderElection.ID())
+		return
 	}
 
-	tls, err := m.renewer.InitTLSPemPair(serverIP)
-	return tls, errors.Wrapf(err, "initialaztion error, instance: %s", m.leaderElection.ID())
+	_, err := m.renewer.InitTLSPemPair()
+	if err != nil {
+		m.log.Error(err, "initialaztion error, instance: %s", m.leaderElection.ID())
+		os.Exit(1)
+	}
 }
 
 func (m *certManager) GetTLSPemPair() (*ktls.PemPair, error) {
-	tls, err := ktls.ReadTLSPair(m.renewer.ClientConfig(), m.renewer.Client())
-	return tls, errors.Wrapf(err, "error loading TLS PemPair, instance: %s", m.leaderElection.ID())
+	var tls *ktls.PemPair
+	var err error
+
+	retryReadTLS := func() error {
+		tls, err = ktls.ReadTLSPair(m.renewer.ClientConfig(), m.renewer.Client())
+		return err
+	}
+
+	f := common.RetryFunc(time.Second, time.Minute, retryReadTLS, m.log.WithName("GetTLSPemPair/Retry"))
+	f()
+
+	return tls, err
 }
 
 func (m *certManager) Run() {
-	m.leaderElection.Run(context.Background())
-
 	if !m.leaderElection.IsLeader() {
-		m.log.V(3).Info("skip enqueuing secret for non-leader", "instance", m.leaderElection.ID())
+		m.log.V(2).Info("skip enqueuing secret for non-leader", "instance", m.leaderElection.ID())
 		return
 	}
 

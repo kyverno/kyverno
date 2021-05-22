@@ -12,6 +12,7 @@ import (
 	backwardcompatibility "github.com/kyverno/kyverno/pkg/backward_compatibility"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
+	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
@@ -149,7 +150,11 @@ func main() {
 		debug,
 		log.Log)
 
-	webhookMonitor := webhookconfig.NewMonitor(log.Log.WithName("WebhookMonitor"))
+	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, log.Log.WithName("WebhookMonitor"))
+	if err != nil {
+		setupLog.Error(err, "failed to initialize webhookMonitor")
+		os.Exit(1)
+	}
 
 	// KYVERNO CRD INFORMER
 	// watches CRD resources:
@@ -299,7 +304,7 @@ func main() {
 		cancel()
 	}()
 
-	certRenewer := ktls.NewCertRenewer(client, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, log.Log.WithName("CertRenewer"))
+	certRenewer := ktls.NewCertRenewer(client, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
 	certManager, err := webhookconfig.NewCertManager(
 		kubeInformer.Core().V1().Secrets(),
 		kubeClient,
@@ -314,41 +319,22 @@ func main() {
 	}
 
 	var tlsPair *ktls.PemPair
-	if certManager.LeaderElection().IsLeader() {
-		tlsPair, err = certManager.InitTLSPemPair(serverIP)
-	} else {
-		tlsPair, err = certManager.GetTLSPemPair()
-	}
-
+	tlsPair, err = certManager.GetTLSPemPair()
 	if err != nil {
 		setupLog.Error(err, "Failed to get TLS key/certificate pair")
 		os.Exit(1)
 	}
 
-	// Register webhookCfg by the webhookRegister leader
-	registerWebhookConfig := func() {
-		registerTimeout := time.After(30 * time.Second)
-		registerTicker := time.NewTicker(time.Second)
-		defer registerTicker.Stop()
-		var err error
-	loop:
-		for {
-			select {
-			case <-registerTicker.C:
-				err = webhookCfg.Register()
-				if err != nil {
-					setupLog.V(3).Info("Failed to register admission control webhooks", "reason", err.Error())
-				} else {
-					break loop
-				}
-			case <-registerTimeout:
-				setupLog.Error(err, "Timeout registering admission control webhooks")
-				os.Exit(1)
-			}
+	registerWrapper := func() error { return webhookCfg.Register() }
+	registerWrapperRetry := common.RetryFunc(time.Second, 30*time.Second, registerWrapper, setupLog)
+	f := func() {
+		if registrationErr := registerWrapperRetry(); registrationErr != nil {
+			setupLog.Error(err, "Timeout registering admission control webhooks")
+			os.Exit(1)
 		}
 	}
 
-	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace, kubeClient, registerWebhookConfig, nil, log.Log.WithName("LeaderElection/WebhookRegister"))
+	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace, kubeClient, f, nil, log.Log.WithName("WebhookRegister/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elector leader")
 		os.Exit(1)
@@ -426,6 +412,8 @@ func main() {
 	server.RunAsync(stopCh)
 
 	if !debug {
+		// the webhookMonitor has to be started after the webhook server is up
+		// the timestamp will be updated once the instance receives the webhook
 		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
 	}
 

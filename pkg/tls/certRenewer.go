@@ -36,16 +36,21 @@ type CertRenewer struct {
 	clientConfig         *rest.Config
 	certRenewalInterval  time.Duration
 	certValidityDuration time.Duration
-	log                  logr.Logger
+
+	// IP address where Kyverno controller runs. Only required if out-of-cluster.
+	serverIP string
+
+	log logr.Logger
 }
 
 // NewCertRenewer returns an instance of CertRenewer
-func NewCertRenewer(client *client.Client, clientConfig *rest.Config, certRenewalInterval, certValidityDuration time.Duration, log logr.Logger) *CertRenewer {
+func NewCertRenewer(client *client.Client, clientConfig *rest.Config, certRenewalInterval, certValidityDuration time.Duration, serverIP string, log logr.Logger) *CertRenewer {
 	return &CertRenewer{
 		client:               client,
 		clientConfig:         clientConfig,
 		certRenewalInterval:  certRenewalInterval,
 		certValidityDuration: certValidityDuration,
+		serverIP:             serverIP,
 		log:                  log,
 	}
 }
@@ -61,7 +66,7 @@ func (c *CertRenewer) ClientConfig() *rest.Config {
 // InitTLSPemPair Loads or creates PEM private key and TLS certificate for webhook server.
 // Created pair is stored in cluster's secret.
 // Returns struct with key/certificate pair.
-func (c *CertRenewer) InitTLSPemPair(serverIP string) (*PemPair, error) {
+func (c *CertRenewer) InitTLSPemPair() (*PemPair, error) {
 	logger := c.log.WithName("InitTLSPemPair")
 	certProps, err := GetTLSCertProps(c.clientConfig)
 	if err != nil {
@@ -78,7 +83,7 @@ func (c *CertRenewer) InitTLSPemPair(serverIP string) (*PemPair, error) {
 	}
 
 	logger.Info("building key/certificate pair for TLS")
-	return c.buildTLSPemPairAndWriteToSecrets(certProps, serverIP)
+	return c.buildTLSPemPairAndWriteToSecrets(certProps, c.serverIP)
 }
 
 // buildTLSPemPairAndWriteToSecrets Issues TLS certificate for webhook server using self-signed CA cert
@@ -226,7 +231,7 @@ func (c *CertRenewer) RollingUpdate() error {
 			return errors.Wrap(err, "failed to find Kyverno")
 		}
 
-		if IsKyvernoIsInRollingUpdate(deploy.UnstructuredContent(), c.log) {
+		if IsKyvernoInRollingUpdate(deploy.UnstructuredContent(), c.log) {
 			return nil
 		}
 
@@ -327,8 +332,8 @@ func (c *CertRenewer) ValidCert() (bool, error) {
 	return true, nil
 }
 
-// IsKyvernoIsInRollingUpdate returns true if Kyverno is in rolling update
-func IsKyvernoIsInRollingUpdate(deploy map[string]interface{}, logger logr.Logger) bool {
+// IsKyvernoInRollingUpdate returns true if Kyverno is in rolling update
+func IsKyvernoInRollingUpdate(deploy map[string]interface{}, logger logr.Logger) bool {
 	replicas, _, err := unstructured.NestedInt64(deploy, "spec", "replicas")
 	if err != nil {
 		logger.Error(err, "unable to fetch spec.replicas")
