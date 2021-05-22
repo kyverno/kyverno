@@ -59,9 +59,9 @@ func NewMonitor(kubeClient kubernetes.Interface, log logr.Logger) (*Monitor, err
 		log:                 log,
 	}
 
-	leader, err := leaderelection.New("webhook-monitor", config.KyvernoNamespace, kubeClient, nil, nil, log)
+	leader, err := leaderelection.New("webhook-monitor", config.KyvernoNamespace, kubeClient, nil, nil, log.WithName("LeaderElection"))
 	if err != nil {
-		return nil, errors.Wrapf(err, "error electing leader")
+		return nil, errors.Wrap(err, "error electing leader")
 	}
 
 	monitor.leaderelection = leader
