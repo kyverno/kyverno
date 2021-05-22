@@ -184,7 +184,7 @@ func NewPolicyController(
 		return nil, fmt.Errorf("failed to create leader election: %v", err)
 	}
 
-	pc.leaderElection.Run(context.Background())
+	go pc.leaderElection.Run(context.Background())
 	return &pc, nil
 }
 

@@ -183,7 +183,9 @@ func main() {
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
 
-	prgen := policyreport.NewReportGenerator(pclient,
+	prgen, err := policyreport.NewReportGenerator(
+		kubeClient,
+		pclient,
 		client,
 		pInformer.Wgpolicyk8s().V1alpha1().ClusterPolicyReports(),
 		pInformer.Wgpolicyk8s().V1alpha1().PolicyReports(),
@@ -192,6 +194,11 @@ func main() {
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyReportGenerator"),
 	)
+
+	if err != nil {
+		setupLog.Error(err, "Failed to create policy report controller")
+		os.Exit(1)
+	}
 
 	// Configuration Data
 	// dynamically load the configuration from configMap
