@@ -19,6 +19,7 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
+	"github.com/kyverno/kyverno/pkg/leaderelection"
 	pm "github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
@@ -31,6 +32,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -104,11 +106,15 @@ type PolicyController struct {
 
 	reconcilePeriod time.Duration
 
+	leaderElection leaderelection.Interface
+
 	log logr.Logger
 }
 
 // NewPolicyController create a new PolicyController
-func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
+func NewPolicyController(
+	kubeClient kubernetes.Interface,
+	kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
@@ -173,6 +179,12 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	//TODO: pass the time in seconds instead of converting it internally
 	pc.rm = NewResourceManager(30)
 
+	pc.leaderElection, err = leaderelection.New("policy-controller", config.KyvernoNamespace, kubeClient, nil, nil, pc.log.WithName("LeaderElection"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create leader election: %v", err)
+	}
+
+	pc.leaderElection.Run(context.Background())
 	return &pc, nil
 }
 
@@ -193,6 +205,11 @@ func (pc *PolicyController) canBackgroundProcess(p *kyverno.ClusterPolicy) bool 
 
 func (pc *PolicyController) addPolicy(obj interface{}) {
 	logger := pc.log
+	if !pc.leaderElection.IsLeader() {
+		logger.V(5).Info("skip enqueuing clusterPolicy creation event for non-leader", "instance", pc.leaderElection.ID())
+		return
+	}
+
 	p := obj.(*kyverno.ClusterPolicy)
 
 	logger.Info("policy created", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
@@ -216,6 +233,11 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 
 func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	logger := pc.log
+	if !pc.leaderElection.IsLeader() {
+		logger.V(5).Info("skip enqueuing clusterPolicy update event for non-leader", "instance", pc.leaderElection.ID())
+		return
+	}
+
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
 
@@ -245,6 +267,11 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 
 func (pc *PolicyController) deletePolicy(obj interface{}) {
 	logger := pc.log
+	if !pc.leaderElection.IsLeader() {
+		logger.V(5).Info("skip enqueuing clusterPolicy deletion event for non-leader", "instance", pc.leaderElection.ID())
+		return
+	}
+
 	p, ok := obj.(*kyverno.ClusterPolicy)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -270,6 +297,11 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 
 func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	logger := pc.log
+	if !pc.leaderElection.IsLeader() {
+		logger.V(5).Info("skip enqueuing policy creation event for non-leader", "instance", pc.leaderElection.ID())
+		return
+	}
+
 	p := obj.(*kyverno.Policy)
 
 	logger.Info("policy created", "uid", p.UID, "kind", "Policy", "name", p.Name, "namespaces", p.Namespace)
@@ -292,6 +324,11 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 
 func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	logger := pc.log
+	if !pc.leaderElection.IsLeader() {
+		logger.V(5).Info("skip enqueuing policy update event for non-leader", "instance", pc.leaderElection.ID())
+		return
+	}
+
 	oldP := old.(*kyverno.Policy)
 	curP := cur.(*kyverno.Policy)
 	ncurP := ConvertPolicyToClusterPolicy(curP)
@@ -321,6 +358,11 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 
 func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	logger := pc.log
+	if !pc.leaderElection.IsLeader() {
+		logger.V(5).Info("skip enqueuing policy deletion event for non-leader", "instance", pc.leaderElection.ID())
+		return
+	}
+
 	p, ok := obj.(*kyverno.Policy)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)

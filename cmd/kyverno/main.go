@@ -211,7 +211,9 @@ func main() {
 	// - reconciliation policy and policy violation
 	// - process policy on existing resources
 	// - status aggregator: receives stats when a policy is applied & updates the policy status
-	policyCtrl, err := policy.NewPolicyController(pclient,
+	policyCtrl, err := policy.NewPolicyController(
+		kubeClient,
+		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
