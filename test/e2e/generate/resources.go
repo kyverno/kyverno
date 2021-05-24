@@ -366,7 +366,7 @@ spec:
           spec:
             egress:
               - ports:
-                  - protocol: TCP
+                  - protocol: UDP
                     port: 5353
             podSelector: {}
             policyTypes:

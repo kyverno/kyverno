@@ -640,12 +640,20 @@ func Test_Generate_Synchronize_Flag(t *testing.T) {
 
 		By(fmt.Sprintf("Verify the label in the updated network policy: %s", test.NetworkPolicyName))
 		// get updated network policy and verify the label
-		// need to wait for updation of NetworkPolicy?
-		netpol, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
-		Expect(err).NotTo(HaveOccurred())
+		synchronizeFlagValueGotUpdated := false
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+			netpol, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
+			Expect(err).NotTo(HaveOccurred())
+			netPolLabels := netpol.GetLabels()
+			if netPolLabels["policy.kyverno.io/synchronize"] == "disable" {
+				synchronizeFlagValueGotUpdated = true
+			} else {
+				return errors.New("still enabled")
+			}
+			return nil
+		})
 
-		netPolLabels := netpol.GetLabels()
-		Expect(netPolLabels["policy.kyverno.io/synchronize"]).To(Equal("disable"))
+		Expect(synchronizeFlagValueGotUpdated).To(Equal(true))
 		// ============================================
 
 		// Test: with synchronize is false, one should be able to delete the generated resource
@@ -655,17 +663,39 @@ func Test_Generate_Synchronize_Flag(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
 
-		// need to wait for deletion of NetworkPolicy?
 		// ======= Check Networkpolicy =====
 		By(fmt.Sprintf("Checking NetworkPolicy %s in the Namespace : %s", test.NetworkPolicyName, test.ResourceNamespace))
+		// e2e.GetWithRetry(time.Duration(1), 15, func() error {
+		// 	_, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	return nil
+		// })
+		// Expect(err).To(HaveOccurred())
+		//-------------------------------------------------------------
+		// for i := 0; i < 31; i++ {
+		// 	_, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
+		// 	if err != nil {
+		// 		break
+		// 	}
+		// }
+		// fmt.Println("**********err: ", err)
+		// Expect(err).To(HaveOccurred())
+		//-------------------------------------------------------------
+
+		netpolGotDeleted := false
 		e2e.GetWithRetry(time.Duration(1), 15, func() error {
 			_, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
 			if err != nil {
-				return err
+				netpolGotDeleted = true
+			} else {
+				return errors.New("network policy still exists")
 			}
 			return nil
 		})
-		Expect(err).To(HaveOccurred())
+
+		Expect(netpolGotDeleted).To(Equal(true))
 
 		// ======= CleanUp Resources =====
 		e2eClient.CleanClusterPolicies(clPolGVR)
