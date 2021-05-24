@@ -135,9 +135,17 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 
 		// ======= Verify ClusterRoleBinding Creation ========
 		By("Verifying ClusterRoleBinding")
-		rbRes, err := e2eClient.GetClusteredResource(crbGVR, tests.ClusterRoleBindingName)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(rbRes.GetName()).To(Equal(tests.ClusterRoleBindingName))
+
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+			rbRes, err := e2eClient.GetClusteredResource(crbGVR, tests.ClusterRoleBindingName)
+			if err != nil {
+				return err
+			}
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rbRes.GetName()).To(Equal(tests.ClusterRoleBindingName))
+			return nil
+		})
+
 		// ============================================
 
 		// ======= CleanUp Resources =====
@@ -479,11 +487,21 @@ func Test_Generate_Namespace_Label_Actions(t *testing.T) {
 		updatedNetPol, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
 		Expect(err).NotTo(HaveOccurred())
 
-		// compare updated network policy and updated generate policy
-		element, specFound, err := unstructured.NestedMap(updatedNetPol.UnstructuredContent(), "spec")
-		Expect(specFound).To(Equal(true))
-		loopElement(element)
-		Expect(found).To(Equal(true))
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+			// compare updated network policy and updated generate policy
+			element, specFound, err := unstructured.NestedMap(updatedNetPol.UnstructuredContent(), "spec")
+			if err != nil {
+				return err
+			}
+			found := false
+			found = loopElement(found, element)
+			if found == false {
+				return errors.New("not found ")
+			}
+			Expect(specFound).To(Equal(true))
+			Expect(found).To(Equal(true))
+			return nil
+		})
 
 		// ============================================
 		// ======= CleanUp Resources =====
@@ -506,32 +524,33 @@ func Test_Generate_Namespace_Label_Actions(t *testing.T) {
 	}
 }
 
-var found bool
-
-func loopElement(elementObj interface{}) {
+func loopElement(found bool, elementObj interface{}) bool {
+	if found == true {
+		return found
+	}
 	switch typedelementObj := elementObj.(type) {
 	case map[string]interface{}:
 		for k, v := range typedelementObj {
 			if k == "protocol" {
 				if v == "TCP" {
 					found = true
-					return
+					return found
 				}
 			} else {
-				loopElement(v)
+				found = loopElement(found, v)
 			}
 		}
 	case []interface{}:
-		loopElement(typedelementObj[0])
+		found = loopElement(found, typedelementObj[0])
 	case string:
-		return
+		return found
 	case int64:
-		return
+		return found
 	default:
 		fmt.Println("unexpected type :", fmt.Sprintf("%T", elementObj))
-		return
+		return found
 	}
-	return
+	return found
 }
 
 func Test_Generate_Synchronize_Flag(t *testing.T) {
