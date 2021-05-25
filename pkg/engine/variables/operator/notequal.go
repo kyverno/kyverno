@@ -34,12 +34,12 @@ func (neh NotEqualHandler) Evaluate(key, value interface{}) bool {
 	// substitute the variables
 	if key, err = neh.subHandler(neh.log, neh.ctx, key); err != nil {
 		// Failed to resolve the variable
-		neh.log.Error(err, "Failed to resolve variable", "variable", key)
+		neh.log.Info( "Failed to resolve variable","info", err, "variable", key)
 		return false
 	}
 	if value, err = neh.subHandler(neh.log, neh.ctx, value); err != nil {
 		// Failed to resolve the variable
-		neh.log.Error(err, "Failed to resolve variable", "variable", value)
+		neh.log.Info( "Failed to resolve variable","info", err, "variable", value)
 		return false
 	}
 	// key and value need to be of same type
