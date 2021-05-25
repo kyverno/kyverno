@@ -239,6 +239,11 @@ func (g *ReportGenerator) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("start")
 	defer logger.Info("shutting down")
 
+	if !leaderelection.WaitForLeaderElects(stopCh, g.leaderElection.LeaderElected) {
+		logger.Info("failed to elect leader")
+		return
+	}
+
 	if !cache.WaitForCacheSync(stopCh, g.reportReqSynced, g.clusterReportReqSynced, g.reportSynced, g.clusterReportSynced, g.nsListerSynced) {
 		logger.Info("failed to sync informer cache")
 	}

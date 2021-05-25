@@ -246,7 +246,6 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
 		if err != nil {
-			fmt.Println("i'm error here")
 			logger.Error(err, "failed to update policy ")
 		}
 	}
@@ -435,6 +434,11 @@ func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-c
 
 	logger.Info("starting")
 	defer logger.Info("shutting down")
+
+	if !leaderelection.WaitForLeaderElects(stopCh, pc.leaderElection.LeaderElected) {
+		logger.Info("failed to elect leader")
+		return
+	}
 
 	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.npListerSynced, pc.nsListerSynced, pc.grListerSynced) {
 		logger.Info("failed to sync informer cache")
