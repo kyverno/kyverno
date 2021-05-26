@@ -70,7 +70,8 @@ func (wrc *Register) constructOwner() v1.OwnerReference {
 	}
 }
 
-// GetKubePolicyDeployment gets Kyverno deployment
+// GetKubePolicyDeployment gets Kyverno deployment using the resource cache
+// it does not initialize any client call
 func (wrc *Register) GetKubePolicyDeployment() (*apps.Deployment, *unstructured.Unstructured, error) {
 	lister, _ := wrc.resCache.GetGVRCache("Deployment")
 	kubePolicyDeployment, err := lister.NamespacedLister(config.KyvernoNamespace).Get(config.KyvernoDeploymentName)
