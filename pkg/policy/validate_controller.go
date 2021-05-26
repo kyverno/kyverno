@@ -13,12 +13,14 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
+	kinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
+	"github.com/kyverno/kyverno/pkg/leaderelection"
 	pm "github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
@@ -31,6 +33,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -50,6 +53,8 @@ const (
 // PolicyController is responsible for synchronizing Policy objects stored
 // in the system with the corresponding policy violations
 type PolicyController struct {
+	policyInformer kinformer.SharedInformerFactory
+
 	client        *client.Client
 	kyvernoClient *kyvernoclient.Clientset
 	eventGen      event.Interface
@@ -104,11 +109,16 @@ type PolicyController struct {
 
 	reconcilePeriod time.Duration
 
+	leaderElection leaderelection.Interface
+
 	log logr.Logger
 }
 
 // NewPolicyController create a new PolicyController
-func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
+func NewPolicyController(
+	policyInformer kinformer.SharedInformerFactory,
+	kubeClient kubernetes.Interface,
+	kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
@@ -132,6 +142,7 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
+		policyInformer:     policyInformer,
 		client:             client,
 		kyvernoClient:      kyvernoClient,
 		eventGen:           eventGen,
@@ -173,6 +184,12 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	//TODO: pass the time in seconds instead of converting it internally
 	pc.rm = NewResourceManager(30)
 
+	pc.leaderElection, err = leaderelection.New("policy-controller", config.KyvernoNamespace, kubeClient, nil, nil, policyInformer.Start, pc.log.WithName("LeaderElection"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create leader election: %v", err)
+	}
+
+	go pc.leaderElection.Run(context.Background())
 	return &pc, nil
 }
 
@@ -193,6 +210,11 @@ func (pc *PolicyController) canBackgroundProcess(p *kyverno.ClusterPolicy) bool 
 
 func (pc *PolicyController) addPolicy(obj interface{}) {
 	logger := pc.log
+	if !pc.leaderElection.IsLeader() {
+		logger.V(5).Info("skip enqueuing clusterPolicy creation event for non-leader", "instance", pc.leaderElection.ID())
+		return
+	}
+
 	p := obj.(*kyverno.ClusterPolicy)
 
 	logger.Info("policy created", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
@@ -216,6 +238,11 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 
 func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	logger := pc.log
+	if !pc.leaderElection.IsLeader() {
+		logger.V(5).Info("skip enqueuing clusterPolicy update event for non-leader", "instance", pc.leaderElection.ID())
+		return
+	}
+
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
 
@@ -224,7 +251,6 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
 		if err != nil {
-			fmt.Println("i'm error here")
 			logger.Error(err, "failed to update policy ")
 		}
 	}
@@ -245,6 +271,11 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 
 func (pc *PolicyController) deletePolicy(obj interface{}) {
 	logger := pc.log
+	if !pc.leaderElection.IsLeader() {
+		logger.V(5).Info("skip enqueuing clusterPolicy deletion event for non-leader", "instance", pc.leaderElection.ID())
+		return
+	}
+
 	p, ok := obj.(*kyverno.ClusterPolicy)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -270,6 +301,11 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 
 func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	logger := pc.log
+	if !pc.leaderElection.IsLeader() {
+		logger.V(5).Info("skip enqueuing policy creation event for non-leader", "instance", pc.leaderElection.ID())
+		return
+	}
+
 	p := obj.(*kyverno.Policy)
 
 	logger.Info("policy created", "uid", p.UID, "kind", "Policy", "name", p.Name, "namespaces", p.Namespace)
@@ -292,6 +328,11 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 
 func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	logger := pc.log
+	if !pc.leaderElection.IsLeader() {
+		logger.V(5).Info("skip enqueuing policy update event for non-leader", "instance", pc.leaderElection.ID())
+		return
+	}
+
 	oldP := old.(*kyverno.Policy)
 	curP := cur.(*kyverno.Policy)
 	ncurP := ConvertPolicyToClusterPolicy(curP)
@@ -321,6 +362,11 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 
 func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	logger := pc.log
+	if !pc.leaderElection.IsLeader() {
+		logger.V(5).Info("skip enqueuing policy deletion event for non-leader", "instance", pc.leaderElection.ID())
+		return
+	}
+
 	p, ok := obj.(*kyverno.Policy)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -393,6 +439,11 @@ func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-c
 
 	logger.Info("starting")
 	defer logger.Info("shutting down")
+
+	if !leaderelection.WaitForLeaderElects(stopCh, pc.leaderElection.LeaderElected) {
+		logger.Info("failed to elect leader")
+		return
+	}
 
 	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.npListerSynced, pc.nsListerSynced, pc.grListerSynced) {
 		logger.Info("failed to sync informer cache")

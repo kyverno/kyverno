@@ -2,9 +2,10 @@ package cleanup
 
 import (
 	"context"
+	"time"
+
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"k8s.io/client-go/kubernetes"
-	"time"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -65,7 +66,7 @@ type Controller struct {
 	leaderElection leaderelection.Interface
 
 	// logger
-	log        logr.Logger
+	log logr.Logger
 }
 
 //NewController returns a new controller instance to manage generate-requests
@@ -115,7 +116,7 @@ func NewController(
 		DeleteFunc: c.deleteGenericResource,
 	})
 
-	c.leaderElection, err = leaderelection.New("generate-cleanup-controller", config.KyvernoNamespace, kubeClient, nil, nil, c.log)
+	c.leaderElection, err = leaderelection.New("generate-cleanup-controller", config.KyvernoNamespace, kubeClient, nil, nil, nil, c.log)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create leader election")
 	}

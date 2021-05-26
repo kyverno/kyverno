@@ -2,9 +2,10 @@ package generate
 
 import (
 	"context"
-	"k8s.io/client-go/kubernetes"
 	"reflect"
 	"time"
+
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -131,7 +132,7 @@ func NewController(
 		UpdateFunc: c.updateGenericResource,
 	})
 
-	c.leaderElection, err = leaderelection.New("generate-controller", config.KyvernoNamespace, kubeClient, nil, nil, c.log)
+	c.leaderElection, err = leaderelection.New("generate-controller", config.KyvernoNamespace, kubeClient, nil, nil, nil, c.log)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create leader election")
 	}

@@ -9,15 +9,15 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 )
 
-
 type Interface interface {
 
-	// Run runs a leader election
+	// Run is a blocking call that runs a leader election
 	Run(ctx context.Context)
 
 	// ID returns this instances unique identifier
@@ -31,30 +31,37 @@ type Interface interface {
 
 	// IsLeader indicates if this instance is the leader
 	IsLeader() bool
+
+	GetLeader() string
+
+	LeaderElected() bool
 }
 
-type leaderElection struct {
-	name       string
-	namespace  string
-	id         string
-	startWork  func()
-	stopWork   func()
-	kubeClient kubernetes.Interface
-	lock       resourcelock.Interface
-	isLeader   int64
-	log        logr.Logger
+type Config struct {
+	name              string
+	namespace         string
+	id                string
+	startWork         func()
+	startInformer     func(<-chan struct{})
+	stopWork          func()
+	kubeClient        kubernetes.Interface
+	lock              resourcelock.Interface
+	leaderElectionCfg leaderelection.LeaderElectionConfig
+	leaderElector     *leaderelection.LeaderElector
+	isLeader          int64
+	log               logr.Logger
 }
 
-func New(name, namespace string, kubeClient kubernetes.Interface, startWork, stopWork func(), log logr.Logger) (Interface, error) {
+func New(name, namespace string, kubeClient kubernetes.Interface, startWork, stopWork func(), startInformer func(<-chan struct{}), log logr.Logger) (Interface, error) {
 	id, err := os.Hostname()
 	if err != nil {
-		return nil, errors.Wrap(err, "error fetching hostname")
+		return nil, errors.Wrapf(err, "error getting host name", "namespace", namespace, "name", name)
 	}
 
 	id = id + "_" + string(uuid.NewUUID())
 
 	lock, err := resourcelock.New(
-		resourcelock.ConfigMapsResourceLock,
+		resourcelock.LeasesResourceLock,
 		namespace,
 		name,
 		kubeClient.CoreV1(),
@@ -65,67 +72,111 @@ func New(name, namespace string, kubeClient kubernetes.Interface, startWork, sto
 	)
 
 	if err != nil {
-		return nil, errors.Wrapf(err, "error creating lock for leader election %s in namespace %s", namespace, name)
+		return nil, errors.Wrapf(err, "error initializing resource lock", "namespace", namespace, "name", name)
 	}
 
-	return &leaderElection{
-		name:       name,
-		namespace:  namespace,
-		kubeClient: kubeClient,
-		lock:       lock,
-		startWork:  startWork,
-		stopWork:   stopWork,
-		log:        log,
-	}, nil
-}
+	e := &Config{
+		name:          name,
+		namespace:     namespace,
+		kubeClient:    kubeClient,
+		lock:          lock,
+		startWork:     startWork,
+		stopWork:      stopWork,
+		startInformer: startInformer,
+		log:           log,
+	}
 
-func (le *leaderElection) Name() string {
-	return le.name
-}
-
-func (le *leaderElection) Namespace() string {
-	return le.namespace
-}
-
-func (le *leaderElection) IsLeader() bool {
-	return atomic.LoadInt64(&le.isLeader) == 1
-}
-
-func (le *leaderElection) ID() string {
-	return le.lock.Identity()
-}
-
-func (le *leaderElection) Run(ctx context.Context) {
-
-	leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
-		Lock:            le.lock,
+	e.leaderElectionCfg = leaderelection.LeaderElectionConfig{
+		Lock:            e.lock,
 		ReleaseOnCancel: true,
 		LeaseDuration:   15 * time.Second,
 		RenewDeadline:   10 * time.Second,
 		RetryPeriod:     2 * time.Second,
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
-				atomic.StoreInt64(&le.isLeader, 1)
-				le.log.WithValues("id", le.lock.Identity()).Info("started leading")
-				if le.startWork != nil {
-					go le.startWork()
+				if e.startInformer != nil {
+					go e.startInformer(ctx.Done())
+				}
+				atomic.StoreInt64(&e.isLeader, 1)
+				e.log.WithValues("id", e.lock.Identity()).Info("started leading")
+
+				if e.startWork != nil {
+					e.startWork()
 				}
 			},
 
 			OnStoppedLeading: func() {
-				atomic.StoreInt64(&le.isLeader, 0)
-				le.log.WithValues("id", le.lock.Identity()).Info("stopped leading")
-				if le.stopWork != nil {
-					go le.stopWork()
+				atomic.StoreInt64(&e.isLeader, 0)
+				e.log.WithValues("id", e.lock.Identity()).Info("stopped leading")
+				if e.stopWork != nil {
+					e.stopWork()
 				}
 			},
 
 			OnNewLeader: func(identity string) {
-				if identity == le.lock.Identity() {
+				if identity == e.lock.Identity() {
 					return
 				}
-				le.log.WithValues("current id", le.lock.Identity(), "leader", identity).Info("another instance has been elected as leader")
+				e.log.WithValues("current id", e.lock.Identity(), "leader", identity).Info("another instance has been elected as leader")
 			},
+		}}
+
+	e.leaderElector, err = leaderelection.NewLeaderElector(e.leaderElectionCfg)
+	if err != nil {
+		e.log.Error(err, "failed to create leaderElector")
+		os.Exit(1)
+	}
+
+	if e.leaderElectionCfg.WatchDog != nil {
+		e.leaderElectionCfg.WatchDog.SetLeaderElection(e.leaderElector)
+	}
+
+	return e, nil
+}
+
+func (e *Config) Name() string {
+	return e.name
+}
+
+func (e *Config) Namespace() string {
+	return e.namespace
+}
+
+func (e *Config) ID() string {
+	return e.lock.Identity()
+}
+
+func (e *Config) IsLeader() bool {
+	return atomic.LoadInt64(&e.isLeader) == 1
+}
+
+func (e *Config) GetLeader() string {
+	return e.leaderElector.GetLeader()
+}
+
+func (e *Config) LeaderElected() bool {
+	return !(e.GetLeader() == "")
+}
+
+func (e *Config) Run(ctx context.Context) {
+	e.leaderElector.Run(ctx)
+}
+
+// syncedPollPeriod controls how often you look at the status of your sync funcs
+const syncedPollPeriod = 100 * time.Millisecond
+
+func WaitForLeaderElects(stopCh <-chan struct{}, leaderElected func() bool) bool {
+	err := wait.PollImmediateUntil(syncedPollPeriod,
+		func() (bool, error) {
+			if leaderElected() {
+				return true, nil
+			}
+			return true, nil
 		},
-	})
+		stopCh)
+
+	if err != nil {
+		return false
+	}
+	return true
 }
