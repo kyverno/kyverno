@@ -53,6 +53,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 		return nil
 	}
 
+	var err error
 	startTime := time.Now()
 
 	policy := policyContext.Policy
@@ -67,10 +68,10 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name,
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 
-	if err := MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err != nil {
+	if err = MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err != nil {
 
 		// if the oldResource matched, return "false" to delete GR for it
-		if err := MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err == nil {
+		if err = MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err == nil {
 			return &response.RuleResponse{
 				Name:    rule.Name,
 				Type:    "Generation",
@@ -87,8 +88,14 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	policyContext.JSONContext.Checkpoint()
 	defer policyContext.JSONContext.Restore()
 
-	if err := LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
+	if err = LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
+		return nil
+	}
+
+	rule.AnyAllConditions, err = variables.SubstituteAllInPreconditions(logger, ctx, rule.AnyAllConditions)
+	if err != nil {
+		logger.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", rule.Name)
 		return nil
 	}
 

@@ -2,21 +2,21 @@ package operator
 
 import (
 	"fmt"
-	"github.com/minio/minio/pkg/wildcard"
 	"math"
 	"reflect"
 	"strconv"
+
+	"github.com/minio/minio/pkg/wildcard"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
 //NewNotEqualHandler returns handler to manage NotEqual operations
-func NewNotEqualHandler(log logr.Logger, ctx context.EvalInterface, subHandler VariableSubstitutionHandler) OperatorHandler {
+func NewNotEqualHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return NotEqualHandler{
-		ctx:        ctx,
-		subHandler: subHandler,
-		log:        log,
+		ctx: ctx,
+		log: log,
 	}
 }
 
@@ -29,20 +29,6 @@ type NotEqualHandler struct {
 
 //Evaluate evaluates expression with NotEqual Operator
 func (neh NotEqualHandler) Evaluate(key, value interface{}) bool {
-	var err error
-	//TODO: decouple variables from evaluation
-	// substitute the variables
-	if key, err = neh.subHandler(neh.log, neh.ctx, key); err != nil {
-		// Failed to resolve the variable
-		neh.log.Error(err, "Failed to resolve variable", "variable", key)
-		return false
-	}
-	if value, err = neh.subHandler(neh.log, neh.ctx, value); err != nil {
-		// Failed to resolve the variable
-		neh.log.Error(err, "Failed to resolve variable", "variable", value)
-		return false
-	}
-	// key and value need to be of same type
 	switch typedKey := key.(type) {
 	case bool:
 		return neh.validateValueWithBoolPattern(typedKey, value)

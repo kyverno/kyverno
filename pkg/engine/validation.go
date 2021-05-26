@@ -104,6 +104,12 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 
 		log.V(3).Info("matched validate rule")
 
+		rule.AnyAllConditions, err = variables.SubstituteAllInPreconditions(log, ctx.JSONContext, rule.AnyAllConditions)
+		if err != nil {
+			log.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", rule.Name)
+			return nil
+		}
+
 		// operate on the copy of the conditions, as we perform variable substitution
 		preconditionsCopy, err := copyConditions(rule.AnyAllConditions)
 		if err != nil {
@@ -140,6 +146,12 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 				}
 			}
 		} else if rule.Validation.Deny != nil {
+			rule.Validation.Deny.AnyAllConditions, err = variables.SubstituteAllInPreconditions(log, ctx.JSONContext, rule.Validation.Deny.AnyAllConditions)
+			if err != nil {
+				log.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", rule.Name)
+				return nil
+			}
+
 			denyConditionsCopy, err := copyConditions(rule.Validation.Deny.AnyAllConditions)
 			if err != nil {
 				log.V(2).Info("wrongfully configured data", "reason", err.Error())
