@@ -400,7 +400,7 @@ func main() {
 	}
 
 	// Start the components
-	// pInformer.Start(stopCh)
+	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
 	kubedynamicInformer.Start(stopCh)
 
