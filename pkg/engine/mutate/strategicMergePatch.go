@@ -26,6 +26,7 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
+		resp.RuleStats.RuleExecutionTimestamp = startTime.Unix()
 		logger.V(4).Info("finished applying strategicMerge patch", "processingTime", resp.RuleStats.ProcessingTime.String())
 	}()
 

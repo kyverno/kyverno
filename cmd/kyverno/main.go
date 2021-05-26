@@ -34,6 +34,9 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const resyncPeriod = 15 * time.Minute
@@ -47,12 +50,13 @@ var (
 	excludeGroupRole   string
 	excludeUsername    string
 	profilePort        string
+	metricsPort        string
 
 	webhookTimeout int
 	genWorkers     int
 
-	profile      bool
-	policyReport bool
+	profile              bool
+	disableMetricsExport bool
 
 	policyControllerResyncPeriod time.Duration
 	setupLog                     = log.Log.WithName("setup")
@@ -70,6 +74,8 @@ func main() {
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
 	flag.StringVar(&profilePort, "profile-port", "6060", "Enable profiling at given port, default to 6060.")
+	flag.BoolVar(&disableMetricsExport, "disable-metrics", false, "Set this flag to 'true', to enable exposing the metrics.")
+	flag.StringVar(&metricsPort, "metrics-port", "8000", "Expose prometheus metrics at the given port, default to 8000.")
 	flag.DurationVar(&policyControllerResyncPeriod, "background-scan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h.")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
@@ -87,16 +93,35 @@ func main() {
 		os.Exit(1)
 	}
 
+	var profilingServerMux *http.ServeMux
+	var metricsServerMux *http.ServeMux
+	var promConfig *metrics.PromConfig
+
 	if profile {
+		profilingServerMux = http.NewServeMux()
 		addr := ":" + profilePort
 		setupLog.Info("Enable profiling, see details at https://github.com/kyverno/kyverno/wiki/Profiling-Kyverno-on-Kubernetes", "port", profilePort)
 		go func() {
-			if err := http.ListenAndServe(addr, nil); err != nil {
+			if err := http.ListenAndServe(addr, profilingServerMux); err != nil {
 				setupLog.Error(err, "Failed to enable profiling")
 				os.Exit(1)
 			}
 		}()
 
+	}
+
+	if !disableMetricsExport {
+		promConfig = metrics.NewPromConfig()
+		metricsServerMux = http.NewServeMux()
+		metricsServerMux.Handle("/metrics", promhttp.HandlerFor(promConfig.MetricsRegistry, promhttp.HandlerOpts{Timeout: 10 * time.Second}))
+		metricsAddr := ":" + metricsPort
+		setupLog.Info("Enable exposure of metrics, see details at https://github.com/kyverno/kyverno/wiki/Metrics-Kyverno-on-Kubernetes", "port", metricsPort)
+		go func() {
+			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
+				setupLog.Error(err, "Failed to enable exposure of metrics")
+				os.Exit(1)
+			}
+		}()
 	}
 
 	// KYVERNO CRD CLIENT
@@ -224,6 +249,7 @@ func main() {
 		log.Log.WithName("PolicyController"),
 		rCache,
 		policyControllerResyncPeriod,
+		promConfig,
 	)
 
 	if err != nil {
@@ -286,6 +312,7 @@ func main() {
 		configData,
 		rCache,
 		client,
+		promConfig,
 	)
 
 	certRenewer := ktls.NewCertRenewer(client, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, log.Log.WithName("CertRenewer"))
@@ -361,6 +388,7 @@ func main() {
 		rCache,
 		grc,
 		debug,
+		promConfig,
 	)
 
 	if err != nil {

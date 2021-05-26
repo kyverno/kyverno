@@ -15,7 +15,11 @@ metadata:
 spec:
   ports:
   - port: 443
+    name: https
     targetPort: https
+  - port: 8000
+    name: metrics-port
+    targetPort: metrics-port
   selector:
     app: kyverno
     app.kubernetes.io/name: kyverno
