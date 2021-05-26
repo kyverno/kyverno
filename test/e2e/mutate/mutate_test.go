@@ -1,7 +1,6 @@
 package mutate
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -99,17 +98,7 @@ func Test_Mutate_Sets(t *testing.T) {
 			return nil
 		})
 
-		if err != nil {
-			fmt.Println("1. error occurred while verifing ConfigMap:", err)
-		}
-
 		cmRes, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, "target")
-		if err != nil {
-			fmt.Println("2. error occurred while verifing ConfigMap:", err)
-		}
-		c, _ := json.Marshal(cmRes)
-		fmt.Println("configmap : ", string(c))
-		By(fmt.Sprintf("Printing ConfigMap : %s", string(c)))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cmRes.GetLabels()["kyverno.key/copy-me"]).To(Equal("sample-value"))
 
