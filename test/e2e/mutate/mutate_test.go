@@ -89,18 +89,23 @@ func Test_Mutate_Sets(t *testing.T) {
 		// Verify created ConfigMap
 		By(fmt.Sprintf("Verifying ConfigMap in the Namespace : %s", tests.ResourceNamespace))
 		// Wait Till Creation of ConfigMap
-		e2e.GetWithRetry(time.Duration(1), 15, func() error {
-			cmRes, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, "target")
+		err = e2e.GetWithRetry(time.Duration(1), 15, func() error {
+			_, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, "target")
 			if err != nil {
 				return err
-			}
-			if cmRes.GetLabels()["kyverno.key/copy-me"] != "sample-value" {
-				return errors.New("still not mutated")
 			}
 
 			return nil
 		})
+
+		if err != nil {
+			fmt.Println("1. error occurred while verifing ConfigMap:", err)
+		}
+
 		cmRes, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, "target")
+		if err != nil {
+			fmt.Println("2. error occurred while verifing ConfigMap:", err)
+		}
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cmRes.GetLabels()["kyverno.key/copy-me"]).To(Equal("sample-value"))
 
