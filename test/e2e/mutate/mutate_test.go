@@ -1,6 +1,7 @@
 package mutate
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -106,6 +107,8 @@ func Test_Mutate_Sets(t *testing.T) {
 		if err != nil {
 			fmt.Println("2. error occurred while verifing ConfigMap:", err)
 		}
+		c, _ := json.Marshal(cmRes)
+		fmt.Println("configmap : ", string(c))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cmRes.GetLabels()["kyverno.key/copy-me"]).To(Equal("sample-value"))
 
