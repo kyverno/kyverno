@@ -109,6 +109,7 @@ func Test_Mutate_Sets(t *testing.T) {
 		}
 		c, _ := json.Marshal(cmRes)
 		fmt.Println("configmap : ", string(c))
+		By(fmt.Sprintf("Printing ConfigMap : %s", string(c)))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cmRes.GetLabels()["kyverno.key/copy-me"]).To(Equal("sample-value"))
 
