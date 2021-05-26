@@ -253,6 +253,7 @@ func main() {
 	// GENERATE CONTROLLER
 	// - applies generate rules on resources based on generate requests created by webhook
 	grc, err := generate.NewController(
+		kubeClient,
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
@@ -272,6 +273,7 @@ func main() {
 	// GENERATE REQUEST CLEANUP
 	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout
 	grcc, err := generatecleanup.NewController(
+		kubeClient,
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),

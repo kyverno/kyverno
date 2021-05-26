@@ -117,7 +117,6 @@ func New(name, namespace string, kubeClient kubernetes.Interface, startWork, sto
 				if identity == e.lock.Identity() {
 					return
 				}
-
 				e.log.WithValues("current id", e.lock.Identity(), "leader", identity).Info("another instance has been elected as leader")
 			},
 		}}
