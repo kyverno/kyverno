@@ -125,7 +125,7 @@ func NewReportGenerator(
 	gen.nsListerSynced = namespace.Informer().HasSynced
 
 	var err error
-	gen.leaderElection, err = leaderelection.New("policy-report-controller", config.KyvernoNamespace, kubeClient, nil, nil, gen.log.WithName("LeaderElection"))
+	gen.leaderElection, err = leaderelection.New("policy-report-controller", config.KyvernoNamespace, kubeClient, nil, nil, nil, gen.log.WithName("LeaderElection"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create leader election: %v", err)
 	}

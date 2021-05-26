@@ -219,6 +219,7 @@ func main() {
 	// - process policy on existing resources
 	// - status aggregator: receives stats when a policy is applied & updates the policy status
 	policyCtrl, err := policy.NewPolicyController(
+		pInformer,
 		kubeClient,
 		pclient,
 		client,
@@ -378,7 +379,7 @@ func main() {
 	}
 
 	// Start the components
-	pInformer.Start(stopCh)
+	// pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
 	kubedynamicInformer.Start(stopCh)
 

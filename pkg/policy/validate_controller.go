@@ -13,6 +13,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
+	kinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -52,6 +53,8 @@ const (
 // PolicyController is responsible for synchronizing Policy objects stored
 // in the system with the corresponding policy violations
 type PolicyController struct {
+	policyInformer kinformer.SharedInformerFactory
+
 	client        *client.Client
 	kyvernoClient *kyvernoclient.Clientset
 	eventGen      event.Interface
@@ -113,6 +116,7 @@ type PolicyController struct {
 
 // NewPolicyController create a new PolicyController
 func NewPolicyController(
+	policyInformer kinformer.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
 	kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
@@ -138,6 +142,7 @@ func NewPolicyController(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
+		policyInformer:     policyInformer,
 		client:             client,
 		kyvernoClient:      kyvernoClient,
 		eventGen:           eventGen,
@@ -179,7 +184,7 @@ func NewPolicyController(
 	//TODO: pass the time in seconds instead of converting it internally
 	pc.rm = NewResourceManager(30)
 
-	pc.leaderElection, err = leaderelection.New("policy-controller", config.KyvernoNamespace, kubeClient, nil, nil, pc.log.WithName("LeaderElection"))
+	pc.leaderElection, err = leaderelection.New("policy-controller", config.KyvernoNamespace, kubeClient, nil, nil, policyInformer.Start, pc.log.WithName("LeaderElection"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create leader election: %v", err)
 	}

@@ -42,6 +42,7 @@ type Config struct {
 	namespace         string
 	id                string
 	startWork         func()
+	startInformer     func(<-chan struct{})
 	stopWork          func()
 	kubeClient        kubernetes.Interface
 	lock              resourcelock.Interface
@@ -51,7 +52,7 @@ type Config struct {
 	log               logr.Logger
 }
 
-func New(name, namespace string, kubeClient kubernetes.Interface, startWork, stopWork func(), log logr.Logger) (Interface, error) {
+func New(name, namespace string, kubeClient kubernetes.Interface, startWork, stopWork func(), startInformer func(<-chan struct{}), log logr.Logger) (Interface, error) {
 	id, err := os.Hostname()
 	if err != nil {
 		return nil, errors.Wrapf(err, "error getting host name", "namespace", namespace, "name", name)
@@ -60,7 +61,7 @@ func New(name, namespace string, kubeClient kubernetes.Interface, startWork, sto
 	id = id + "_" + string(uuid.NewUUID())
 
 	lock, err := resourcelock.New(
-		resourcelock.ConfigMapsResourceLock,
+		resourcelock.LeasesResourceLock,
 		namespace,
 		name,
 		kubeClient.CoreV1(),
@@ -75,13 +76,14 @@ func New(name, namespace string, kubeClient kubernetes.Interface, startWork, sto
 	}
 
 	e := &Config{
-		name:       name,
-		namespace:  namespace,
-		kubeClient: kubeClient,
-		lock:       lock,
-		startWork:  startWork,
-		stopWork:   stopWork,
-		log:        log,
+		name:          name,
+		namespace:     namespace,
+		kubeClient:    kubeClient,
+		lock:          lock,
+		startWork:     startWork,
+		stopWork:      stopWork,
+		startInformer: startInformer,
+		log:           log,
 	}
 
 	e.leaderElectionCfg = leaderelection.LeaderElectionConfig{
@@ -92,8 +94,12 @@ func New(name, namespace string, kubeClient kubernetes.Interface, startWork, sto
 		RetryPeriod:     2 * time.Second,
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
+				if e.startInformer != nil {
+					go e.startInformer(ctx.Done())
+				}
 				atomic.StoreInt64(&e.isLeader, 1)
 				e.log.WithValues("id", e.lock.Identity()).Info("started leading")
+
 				if e.startWork != nil {
 					e.startWork()
 				}
