@@ -1,15 +1,12 @@
 package webhookconfig
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -47,8 +44,6 @@ type Monitor struct {
 	lastSeenRequestTime time.Time
 	mu                  sync.RWMutex
 
-	leaderelection leaderelection.Interface
-
 	log logr.Logger
 }
 
@@ -59,12 +54,6 @@ func NewMonitor(kubeClient kubernetes.Interface, log logr.Logger) (*Monitor, err
 		log:                 log,
 	}
 
-	leader, err := leaderelection.New("webhook-monitor", config.KyvernoNamespace, kubeClient, nil, nil, nil, log.WithName("LeaderElection"))
-	if err != nil {
-		return nil, errors.Wrap(err, "error electing leader")
-	}
-
-	monitor.leaderelection = leader
 	return monitor, nil
 }
 
@@ -87,8 +76,6 @@ func (t *Monitor) SetTime(tm time.Time) {
 func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen event.Interface, stopCh <-chan struct{}) {
 	logger := t.log
 
-	go t.leaderelection.Run(context.Background())
-
 	logger.V(4).Info("starting webhook monitor", "interval", idleCheckInterval)
 	status := newStatusControl(register, eventGen, t.log.WithName("WebhookStatusControl"))
 
@@ -99,11 +86,9 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 		select {
 		case <-ticker.C:
 
-			if t.leaderelection.IsLeader() {
-				err := registerWebhookIfNotPresent(register, t.log.WithName("registerWebhookIfNotPresent"))
-				if err != nil {
-					t.log.Error(err, "")
-				}
+			err := registerWebhookIfNotPresent(register, t.log.WithName("registerWebhookIfNotPresent"))
+			if err != nil {
+				t.log.Error(err, "")
 			}
 
 			timeDiff := time.Since(t.Time())

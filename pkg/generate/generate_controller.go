@@ -1,7 +1,6 @@
 package generate
 
 import (
-	"context"
 	"reflect"
 	"time"
 
@@ -15,10 +14,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
-	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -73,8 +70,6 @@ type Controller struct {
 
 	Config   config.Interface
 	resCache resourcecache.ResourceCache
-
-	leaderElection leaderelection.Interface
 }
 
 //NewController returns an instance of the Generate-Request Controller
@@ -132,15 +127,10 @@ func NewController(
 		UpdateFunc: c.updateGenericResource,
 	})
 
-	c.leaderElection, err = leaderelection.New("generate-controller", config.KyvernoNamespace, kubeClient, nil, nil, nil, c.log)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create leader election")
-	}
-
 	return &c, nil
 }
 
-//Run starts workers and triggers a leader election
+// Run starts workers
 func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
@@ -155,7 +145,6 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(c.worker, time.Second, stopCh)
 	}
 
-	c.leaderElection.Run(context.Background())
 	<-stopCh
 }
 
@@ -229,11 +218,6 @@ func (c *Controller) syncGenerateRequest(key string) error {
 }
 
 func (c *Controller) updateGenericResource(old, cur interface{}) {
-	if !c.leaderElection.IsLeader() {
-		c.log.V(3).Info("skip update generic resource for non-leader", "instance", c.leaderElection.ID())
-		return
-	}
-
 	logger := c.log
 	curR := cur.(*unstructured.Unstructured)
 
@@ -245,7 +229,7 @@ func (c *Controller) updateGenericResource(old, cur interface{}) {
 
 	// re-evaluate the GR as the resource was updated
 	for _, gr := range grs {
-		c.enqueueGenerateRequestIfLeader(gr)
+		c.enqueueGenerateRequest(gr)
 	}
 }
 
@@ -265,21 +249,7 @@ func (c *Controller) enqueueGenerateRequest(gr *kyverno.GenerateRequest) {
 	c.queue.Add(key)
 }
 
-func (c *Controller) enqueueGenerateRequestIfLeader(gr *kyverno.GenerateRequest) {
-	if !c.leaderElection.IsLeader() {
-		c.log.V(3).Info("skip enqueuing GR for non-leader", "instance", c.leaderElection.ID())
-		return
-	}
-
-	c.enqueueGenerateRequest(gr)
-}
-
 func (c *Controller) updatePolicy(old, cur interface{}) {
-	if !c.leaderElection.IsLeader() {
-		c.log.V(3).Info("skip update policy for non-leader", "instance", c.leaderElection.ID())
-		return
-	}
-
 	logger := c.log
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
@@ -315,21 +285,16 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 
 	// re-evaluate the GR as the policy was updated
 	for _, gr := range grs {
-		c.enqueueGenerateRequestIfLeader(gr)
+		c.enqueueGenerateRequest(gr)
 	}
 }
 
 func (c *Controller) addGR(obj interface{}) {
 	gr := obj.(*kyverno.GenerateRequest)
-	c.enqueueGenerateRequestIfLeader(gr)
+	c.enqueueGenerateRequest(gr)
 }
 
 func (c *Controller) updateGR(old, cur interface{}) {
-	if !c.leaderElection.IsLeader() {
-		c.log.V(3).Info("skip update GR for non-leader", "instance", c.leaderElection.ID())
-		return
-	}
-
 	oldGr := old.(*kyverno.GenerateRequest)
 	curGr := cur.(*kyverno.GenerateRequest)
 	if oldGr.ResourceVersion == curGr.ResourceVersion {
@@ -342,15 +307,10 @@ func (c *Controller) updateGR(old, cur interface{}) {
 	if curGr.Status.State == kyverno.Failed {
 		return
 	}
-	c.enqueueGenerateRequestIfLeader(curGr)
+	c.enqueueGenerateRequest(curGr)
 }
 
 func (c *Controller) deleteGR(obj interface{}) {
-	if !c.leaderElection.IsLeader() {
-		c.log.V(3).Info("skip delete GR for non-leader", "instance", c.leaderElection.ID())
-		return
-	}
-
 	logger := c.log
 	gr, ok := obj.(*kyverno.GenerateRequest)
 	if !ok {
@@ -383,5 +343,5 @@ func (c *Controller) deleteGR(obj interface{}) {
 	logger.V(3).Info("deleting generate request", "name", gr.Name)
 
 	// sync Handler will remove it from the queue
-	c.enqueueGenerateRequestIfLeader(gr)
+	c.enqueueGenerateRequest(gr)
 }

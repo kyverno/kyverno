@@ -1,10 +1,8 @@
 package cleanup
 
 import (
-	"context"
 	"time"
 
-	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/go-logr/logr"
@@ -14,7 +12,6 @@ import (
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -61,9 +58,6 @@ type Controller struct {
 
 	// namespace informer
 	nsInformer informers.GenericInformer
-
-	// leader election configuration
-	leaderElection leaderelection.Interface
 
 	// logger
 	log logr.Logger
@@ -116,20 +110,10 @@ func NewController(
 		DeleteFunc: c.deleteGenericResource,
 	})
 
-	c.leaderElection, err = leaderelection.New("generate-cleanup-controller", config.KyvernoNamespace, kubeClient, nil, nil, nil, c.log)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create leader election")
-	}
-
 	return &c, nil
 }
 
 func (c *Controller) deleteGenericResource(obj interface{}) {
-	if !c.leaderElection.IsLeader() {
-		c.log.V(3).Info("skip delete generic resource for non-leader", "instance", c.leaderElection.ID())
-		return
-	}
-
 	logger := c.log
 	r := obj.(*unstructured.Unstructured)
 	grs, err := c.grLister.GetGenerateRequestsForResource(r.GetKind(), r.GetNamespace(), r.GetName())
@@ -144,11 +128,6 @@ func (c *Controller) deleteGenericResource(obj interface{}) {
 }
 
 func (c *Controller) deletePolicy(obj interface{}) {
-	if !c.leaderElection.IsLeader() {
-		c.log.V(3).Info("skip delete policy for non-leader", "instance", c.leaderElection.ID())
-		return
-	}
-
 	logger := c.log
 	p, ok := obj.(*kyverno.ClusterPolicy)
 	if !ok {
@@ -190,11 +169,6 @@ func (c *Controller) updateGR(old, cur interface{}) {
 }
 
 func (c *Controller) deleteGR(obj interface{}) {
-	if !c.leaderElection.IsLeader() {
-		c.log.V(3).Info("skip delete GR for non-leader", "instance", c.leaderElection.ID())
-		return
-	}
-
 	logger := c.log
 	gr, ok := obj.(*kyverno.GenerateRequest)
 	if !ok {
@@ -232,11 +206,6 @@ func (c *Controller) deleteGR(obj interface{}) {
 }
 
 func (c *Controller) enqueue(gr *kyverno.GenerateRequest) {
-	if !c.leaderElection.IsLeader() {
-		c.log.V(3).Info("skip enqueue for non-leader", "instance", c.leaderElection.ID())
-		return
-	}
-
 	// skip enqueueing Pending requests
 	if gr.Status.State == kyverno.Pending {
 		return
@@ -270,7 +239,6 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(c.worker, time.Second, stopCh)
 	}
 
-	c.leaderElection.Run(context.Background())
 	<-stopCh
 }
 

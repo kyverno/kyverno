@@ -9,6 +9,11 @@ import (
 	"os"
 	"time"
 
+	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/klogr"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
+
 	backwardcompatibility "github.com/kyverno/kyverno/pkg/backward_compatibility"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
@@ -32,10 +37,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/generate"
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/klog/v2"
-	"k8s.io/klog/v2/klogr"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const resyncPeriod = 15 * time.Minute
@@ -306,16 +307,6 @@ func main() {
 		client,
 	)
 
-	// leader election context
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// cancel leader election context on shutdown signals
-	go func() {
-		<-stopCh
-		cancel()
-	}()
-
 	certRenewer := ktls.NewCertRenewer(client, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
 	certManager, err := webhookconfig.NewCertManager(
 		kubeInformer.Core().V1().Secrets(),
@@ -330,38 +321,86 @@ func main() {
 		os.Exit(1)
 	}
 
-	var tlsPair *ktls.PemPair
-	tlsPair, err = certManager.GetTLSPemPair()
-	if err != nil {
-		setupLog.Error(err, "Failed to get TLS key/certificate pair")
-		os.Exit(1)
-	}
+	registerWrapperRetry := common.RetryFunc(time.Second, 30*time.Second, webhookCfg.Register, setupLog)
+	registerWebhookConfigurations := func() {
+		certManager.InitTLSPemPair()
 
-	registerWrapper := func() error { return webhookCfg.Register() }
-	registerWrapperRetry := common.RetryFunc(time.Second, 30*time.Second, registerWrapper, setupLog)
-	f := func() {
 		if registrationErr := registerWrapperRetry(); registrationErr != nil {
 			setupLog.Error(err, "Timeout registering admission control webhooks")
 			os.Exit(1)
 		}
 	}
 
-	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace, kubeClient, f, nil, nil, log.Log.WithName("WebhookRegister/LeaderElection"))
+	// leader election context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// cancel leader election context on shutdown signals
+	go func() {
+		<-stopCh
+		cancel()
+	}()
+
+	// register webhooks by the leader, it's one-time job
+	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace, kubeClient, registerWebhookConfigurations, nil, log.Log.WithName("LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elector leader")
 		os.Exit(1)
 	}
 
+	// start informers and Kyverno controllers
 	go webhookRegisterLeader.Run(ctx)
 
-	openAPIController, err := openapi.NewOpenAPIController()
+	// wrap all controllers that need leaderelection
+	// start them once by the leader
+	run := func() {
+
+		// Start the components
+		pInformer.Start(stopCh)
+		kubeInformer.Start(stopCh)
+		kubedynamicInformer.Start(stopCh)
+
+		go certManager.Run()
+		go reportReqGen.Run(2, stopCh)
+		go prgen.Run(1, stopCh)
+		go configData.Run(stopCh)
+		go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
+		go eventGenerator.Run(3, stopCh)
+		go grgen.Run(10, stopCh)
+		go grc.Run(genWorkers, stopCh)
+		go grcc.Run(1, stopCh)
+		go statusSync.Run(1, stopCh)
+		go pCacheController.Run(1, stopCh)
+		go auditHandler.Run(10, stopCh)
+
+		if !debug {
+			// the webhookMonitor has to be started after the webhook server is up
+			// the timestamp will be updated once the instance receives the webhook
+			go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
+		}
+
+		go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
+		go backwardcompatibility.AddCloneLabel(client, pInformer.Kyverno().V1().ClusterPolicies())
+	}
+
+	le, err := leaderelection.New("kyverno", config.KyvernoNamespace, kubeClient, run, nil, log.Log.WithName("LeaderElection"))
 	if err != nil {
-		setupLog.Error(err, "Failed to create openAPIController")
+		setupLog.Error(err, "failed to elector leader")
 		os.Exit(1)
 	}
 
-	// Sync openAPI definitions of resources
-	openAPISync := openapi.NewCRDSync(client, openAPIController)
+	// start informers and Kyverno controllers
+	go le.Run(ctx)
+
+	// the webhook server runs across all instances
+	openAPIController := startOpenAPIController(client, stopCh)
+
+	var tlsPair *ktls.PemPair
+	tlsPair, err = certManager.GetTLSPemPair()
+	if err != nil {
+		setupLog.Error(err, "Failed to get TLS key/certificate pair")
+		os.Exit(1)
+	}
 
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
@@ -401,36 +440,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Start the components
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
 	kubedynamicInformer.Start(stopCh)
 
-	go certManager.Run()
-	go reportReqGen.Run(2, stopCh)
-	go prgen.Run(1, stopCh)
-	go configData.Run(stopCh)
-	go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
-	go eventGenerator.Run(3, stopCh)
-	go grgen.Run(10, stopCh)
-	go grc.Run(genWorkers, stopCh)
-	go grcc.Run(1, stopCh)
-	go statusSync.Run(1, stopCh)
-	go pCacheController.Run(1, stopCh)
-	go auditHandler.Run(10, stopCh)
-	openAPISync.Run(1, stopCh)
-
 	// verifies if the admission control is enabled and active
 	server.RunAsync(stopCh)
 
-	if !debug {
-		// the webhookMonitor has to be started after the webhook server is up
-		// the timestamp will be updated once the instance receives the webhook
-		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
-	}
-
-	go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
-	go backwardcompatibility.AddCloneLabel(client, pInformer.Kyverno().V1().ClusterPolicies())
 	<-stopCh
 
 	// cleanup webhookconfigurations followed by webhook shutdown
@@ -440,4 +456,21 @@ func main() {
 	// remove webhook configurations
 	<-cleanUp
 	setupLog.Info("Kyverno shutdown successful")
+}
+
+func startOpenAPIController(client *dclient.Client, stopCh <-chan struct{}) *openapi.Controller {
+	openAPIController, err := openapi.NewOpenAPIController()
+	if err != nil {
+		setupLog.Error(err, "Failed to create openAPIController")
+		os.Exit(1)
+	}
+
+	// Sync openAPI definitions of resources
+	openAPISync := openapi.NewCRDSync(client, openAPIController)
+
+	// start openAPI controller, this is used in admission review
+	// thus is required in each instance
+	openAPISync.Run(1, stopCh)
+
+	return openAPIController
 }

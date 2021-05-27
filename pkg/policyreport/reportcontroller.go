@@ -1,7 +1,6 @@
 package policyreport
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -32,7 +31,6 @@ import (
 	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/leaderelection"
 )
 
 const (
@@ -65,8 +63,6 @@ type ReportGenerator struct {
 	// ReconcileCh sends a signal to policy controller to force the reconciliation of policy report
 	// if send true, the reports' results will be erased, this is used to recover from the invalid records
 	ReconcileCh chan bool
-
-	leaderElection leaderelection.Interface
 
 	log logr.Logger
 }
@@ -124,13 +120,6 @@ func NewReportGenerator(
 	gen.nsLister = namespace.Lister()
 	gen.nsListerSynced = namespace.Informer().HasSynced
 
-	var err error
-	gen.leaderElection, err = leaderelection.New("policy-report-controller", config.KyvernoNamespace, kubeClient, nil, nil, nil, gen.log.WithName("LeaderElection"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create leader election: %v", err)
-	}
-
-	go gen.leaderElection.Run(context.Background())
 	return gen, nil
 }
 
@@ -169,7 +158,7 @@ func generateCacheKey(changeRequest interface{}) string {
 
 func (g *ReportGenerator) addReportChangeRequest(obj interface{}) {
 	key := generateCacheKey(obj)
-	g.enqueueRequestIfLeader(key, "reportChangeRequest", "create")
+	g.queue.Add(key)
 }
 
 func (g *ReportGenerator) updateReportChangeRequest(old interface{}, cur interface{}) {
@@ -180,12 +169,12 @@ func (g *ReportGenerator) updateReportChangeRequest(old interface{}, cur interfa
 	}
 
 	key := generateCacheKey(cur)
-	g.enqueueRequestIfLeader(key, "reportChangeRequest", "update")
+	g.queue.Add(key)
 }
 
 func (g *ReportGenerator) addClusterReportChangeRequest(obj interface{}) {
 	key := generateCacheKey(obj)
-	g.enqueueRequestIfLeader(key, "clusterReportChangeRequest", "create")
+	g.queue.Add(key)
 }
 
 func (g *ReportGenerator) updateClusterReportChangeRequest(old interface{}, cur interface{}) {
@@ -196,36 +185,16 @@ func (g *ReportGenerator) updateClusterReportChangeRequest(old interface{}, cur 
 		return
 	}
 
-	g.enqueueRequestIfLeader("", "clusterReportChangeRequest", "update")
-
-}
-
-func (g *ReportGenerator) enqueueRequestIfLeader(key string, kind, operation string) {
-	if !g.leaderElection.IsLeader() {
-		g.log.V(5).Info("skip enqueuing report change request for non-leader", "kind", kind, "event type", operation, "instance", g.leaderElection.ID())
-		return
-	}
-
-	g.queue.Add(key)
+	g.queue.Add("")
 }
 
 func (g *ReportGenerator) deletePolicyReport(obj interface{}) {
-	if !g.leaderElection.IsLeader() {
-		g.log.V(5).Info("skip enqueuing policyReport deletion event for non-leader", "instance", g.leaderElection.ID())
-		return
-	}
-
 	report := obj.(*report.PolicyReport)
 	g.log.V(2).Info("PolicyReport deleted", "name", report.GetName())
 	g.ReconcileCh <- false
 }
 
 func (g *ReportGenerator) deleteClusterPolicyReport(obj interface{}) {
-	if !g.leaderElection.IsLeader() {
-		g.log.V(5).Info("skip enqueuing clusterPolicyReport deletion event for non-leader", "instance", g.leaderElection.ID())
-		return
-	}
-
 	g.log.V(2).Info("ClusterPolicyReport deleted")
 	g.ReconcileCh <- false
 }
@@ -238,11 +207,6 @@ func (g *ReportGenerator) Run(workers int, stopCh <-chan struct{}) {
 
 	logger.Info("start")
 	defer logger.Info("shutting down")
-
-	if !leaderelection.WaitForLeaderElects(stopCh, g.leaderElection.LeaderElected) {
-		logger.Info("failed to elect leader")
-		return
-	}
 
 	if !cache.WaitForCacheSync(stopCh, g.reportReqSynced, g.clusterReportReqSynced, g.reportSynced, g.clusterReportSynced, g.nsListerSynced) {
 		logger.Info("failed to sync informer cache")
