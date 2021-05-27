@@ -5,16 +5,19 @@ import (
 	"sort"
 	"time"
 
-	client "github.com/kyverno/kyverno/pkg/dclient"
-
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
+	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/metrics"
+	admissionReviewLatency "github.com/kyverno/kyverno/pkg/metrics/admissionreviewlatency"
+	policyRuleExecutionLatency "github.com/kyverno/kyverno/pkg/metrics/policyruleexecutionlatency"
+	policyRuleResults "github.com/kyverno/kyverno/pkg/metrics/policyruleresults"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
@@ -28,6 +31,7 @@ import (
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
 func HandleValidation(
+	promConfig *metrics.PromConfig,
 	request *v1beta1.AdmissionRequest,
 	policies []*kyverno.ClusterPolicy,
 	patchedResource []byte,
@@ -40,7 +44,8 @@ func HandleValidation(
 	dynamicConfig config.Interface,
 	resCache resourcecache.ResourceCache,
 	client *client.Client,
-	namespaceLabels map[string]string) (bool, string) {
+	namespaceLabels map[string]string,
+	admissionRequestTimestamp int64) (bool, string) {
 
 	if len(policies) == 0 {
 		return true, ""
@@ -88,6 +93,7 @@ func HandleValidation(
 	}
 
 	var engineResponses []*response.EngineResponse
+	var triggeredPolicies []kyverno.ClusterPolicy
 	for _, policy := range policies {
 		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 		policyContext.Policy = *policy
@@ -99,7 +105,13 @@ func HandleValidation(
 			continue
 		}
 
+		// registering the kyverno_policy_rule_results_info metric concurrently
+		go registerPolicyRuleResultsMetricValidation(promConfig, logger, string(request.Operation), policyContext.Policy, *engineResponse, admissionRequestTimestamp)
+		// registering the kyverno_policy_rule_execution_latency_milliseconds metric concurrently
+		go registerPolicyRuleExecutionLatencyMetricValidate(promConfig, logger, string(request.Operation), policyContext.Policy, *engineResponse, admissionRequestTimestamp)
+
 		engineResponses = append(engineResponses, engineResponse)
+		triggeredPolicies = append(triggeredPolicies, *policy)
 		statusListener.Update(validateStats{
 			resp:      engineResponse,
 			namespace: policy.Namespace,
@@ -133,6 +145,9 @@ func HandleValidation(
 	eventGen.Add(events...)
 	if blocked {
 		logger.V(4).Info("resource blocked")
+		//registering the kyverno_admission_review_latency_milliseconds metric concurrently
+		admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
+		go registerAdmissionReviewLatencyMetricValidate(promConfig, logger, string(request.Operation), engineResponses, triggeredPolicies, admissionReviewLatencyDuration)
 		return false, getEnforceFailureErrorMsg(engineResponses)
 	}
 
@@ -144,7 +159,41 @@ func HandleValidation(
 	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
 	prGenerator.Add(prInfos...)
 
+	//registering the kyverno_admission_review_latency_milliseconds metric concurrently
+	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
+	go registerAdmissionReviewLatencyMetricValidate(promConfig, logger, string(request.Operation), engineResponses, triggeredPolicies, admissionReviewLatencyDuration)
+
 	return true, ""
+}
+
+func registerPolicyRuleResultsMetricValidation(promConfig *metrics.PromConfig, logger logr.Logger, requestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, admissionRequestTimestamp int64) {
+	resourceRequestOperationPromAlias, err := policyRuleResults.ParseResourceRequestOperation(requestOperation)
+	if err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_rule_results_info metrics for the above policy", "name", policy.Name)
+	}
+	if err := policyRuleResults.ParsePromMetrics(*promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_rule_results_info metrics for the above policy", "name", policy.Name)
+	}
+}
+
+func registerPolicyRuleExecutionLatencyMetricValidate(promConfig *metrics.PromConfig, logger logr.Logger, requestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, admissionRequestTimestamp int64) {
+	resourceRequestOperationPromAlias, err := policyRuleExecutionLatency.ParseResourceRequestOperation(requestOperation)
+	if err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_rule_execution_latency_milliseconds metrics for the above policy", "name", policy.Name)
+	}
+	if err := policyRuleExecutionLatency.ParsePromMetrics(*promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_rule_execution_latency_milliseconds metrics for the above policy", "name", policy.Name)
+	}
+}
+
+func registerAdmissionReviewLatencyMetricValidate(promConfig *metrics.PromConfig, logger logr.Logger, requestOperation string, engineResponses []*response.EngineResponse, triggeredPolicies []kyverno.ClusterPolicy, admissionReviewLatencyDuration int64) {
+	resourceRequestOperationPromAlias, err := admissionReviewLatency.ParseResourceRequestOperation(requestOperation)
+	if err != nil {
+		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
+	}
+	if err := admissionReviewLatency.ParsePromMetrics(*promConfig.Metrics).ProcessEngineResponses(engineResponses, triggeredPolicies, admissionReviewLatencyDuration, resourceRequestOperationPromAlias); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
+	}
 }
 
 func buildDeletionPrInfo(oldR unstructured.Unstructured) policyreport.Info {

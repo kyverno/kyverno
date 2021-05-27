@@ -28,6 +28,7 @@ require (
 	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v1.7.1
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.6.1
 	gopkg.in/yaml.v2 v2.4.0

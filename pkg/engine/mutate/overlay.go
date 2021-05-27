@@ -28,6 +28,7 @@ func ProcessOverlay(log logr.Logger, ruleName string, overlay interface{}, resou
 	resp.Type = utils.Mutation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
+		resp.RuleStats.RuleExecutionTimestamp = startTime.Unix()
 		logger.V(4).Info("finished applying overlay rule", "processingTime", resp.RuleStats.ProcessingTime.String())
 	}()
 

@@ -91,6 +91,9 @@ spec:
           - containerPort: 9443
             name: https
             protocol: TCP
+          - containerPort: 8000
+            name: metrics-port
+            protocol: TCP  
           env:
           - name: INIT_CONFIG
             value: {{ template "kyverno.configMapName" . }}
