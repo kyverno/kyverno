@@ -54,7 +54,7 @@ type Config struct {
 func New(name, namespace string, kubeClient kubernetes.Interface, startWork, stopWork func(), log logr.Logger) (Interface, error) {
 	id, err := os.Hostname()
 	if err != nil {
-		return nil, errors.Wrapf(err, "error getting host name", "namespace", namespace, "name", name)
+		return nil, errors.Wrapf(err, "error getting host name: %s/%s", namespace, name)
 	}
 
 	id = id + "_" + string(uuid.NewUUID())
@@ -71,7 +71,7 @@ func New(name, namespace string, kubeClient kubernetes.Interface, startWork, sto
 	)
 
 	if err != nil {
-		return nil, errors.Wrapf(err, "error initializing resource lock", "namespace", namespace, "name", name)
+		return nil, errors.Wrapf(err, "error initializing resource lock: %s/%s", namespace, name)
 	}
 
 	e := &Config{
@@ -170,8 +170,5 @@ func WaitForLeaderElects(stopCh <-chan struct{}, leaderElected func() bool) bool
 		},
 		stopCh)
 
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }

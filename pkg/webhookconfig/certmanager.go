@@ -110,7 +110,7 @@ func (m *certManager) GetTLSPemPair() (*ktls.PemPair, error) {
 	}
 
 	f := common.RetryFunc(time.Second, time.Minute, retryReadTLS, m.log.WithName("GetTLSPemPair/Retry"))
-	f()
+	err = f()
 
 	return tls, err
 }
