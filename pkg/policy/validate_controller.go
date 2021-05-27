@@ -13,7 +13,6 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
-	kinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -56,10 +55,11 @@ const (
 // PolicyController is responsible for synchronizing Policy objects stored
 // in the system with the corresponding policy violations
 type PolicyController struct {
-	policyInformer kinformer.SharedInformerFactory
-
 	client        *client.Client
 	kyvernoClient *kyvernoclient.Clientset
+	pInformer     kyvernoinformer.ClusterPolicyInformer
+	npInformer    kyvernoinformer.PolicyInformer
+
 	eventGen      event.Interface
 	eventRecorder record.EventRecorder
 
@@ -119,7 +119,6 @@ type PolicyController struct {
 
 // NewPolicyController create a new PolicyController
 func NewPolicyController(
-	policyInformer kinformer.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
 	kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
@@ -146,38 +145,28 @@ func NewPolicyController(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
-		policyInformer:     policyInformer,
 		client:             client,
 		kyvernoClient:      kyvernoClient,
+		pInformer:          pInformer,
+		npInformer:         npInformer,
 		eventGen:           eventGen,
 		eventRecorder:      eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
 		queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		configHandler:      configHandler,
 		prGenerator:        prGenerator,
 		policyReportEraser: policyReportEraser,
-		log:                log,
 		resCache:           resCache,
 		reconcilePeriod:    reconcilePeriod,
 		promConfig:         promConfig,
+		log:                log,
 	}
-
-	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    pc.addPolicy,
-		UpdateFunc: pc.updatePolicy,
-		DeleteFunc: pc.deletePolicy,
-	})
-
-	npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    pc.addNsPolicy,
-		UpdateFunc: pc.updateNsPolicy,
-		DeleteFunc: pc.deleteNsPolicy,
-	})
 
 	pc.pLister = pInformer.Lister()
 	pc.npLister = npInformer.Lister()
 
 	pc.nsLister = namespaces.Lister()
 	pc.grLister = grInformer.Lister()
+
 	pc.pListerSynced = pInformer.Informer().HasSynced
 	pc.npListerSynced = npInformer.Informer().HasSynced
 
@@ -560,6 +549,18 @@ func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-c
 		logger.Info("failed to sync informer cache")
 		return
 	}
+
+	pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    pc.addPolicy,
+		UpdateFunc: pc.updatePolicy,
+		DeleteFunc: pc.deletePolicy,
+	})
+
+	pc.npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    pc.addNsPolicy,
+		UpdateFunc: pc.updateNsPolicy,
+		DeleteFunc: pc.deleteNsPolicy,
+	})
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, time.Second, stopCh)

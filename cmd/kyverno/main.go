@@ -250,7 +250,6 @@ func main() {
 	// - process policy on existing resources
 	// - status aggregator: receives stats when a policy is applied & updates the policy status
 	policyCtrl, err := policy.NewPolicyController(
-		pInformer,
 		kubeClient,
 		pclient,
 		client,
@@ -380,33 +379,15 @@ func main() {
 	// wrap all controllers that need leaderelection
 	// start them once by the leader
 	run := func() {
-
-		// Start the components
-		pInformer.Start(stopCh)
-		kubeInformer.Start(stopCh)
-		kubedynamicInformer.Start(stopCh)
-
-		go certManager.Run()
-		go reportReqGen.Run(2, stopCh)
-		go prgen.Run(1, stopCh)
-		go configData.Run(stopCh)
+		go certManager.Run(stopCh)
 		go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
-		go eventGenerator.Run(3, stopCh)
-		go grgen.Run(10, stopCh)
+		go prgen.Run(1, stopCh)
 		go grc.Run(genWorkers, stopCh)
 		go grcc.Run(1, stopCh)
-		go statusSync.Run(1, stopCh)
-		go pCacheController.Run(1, stopCh)
-		go auditHandler.Run(10, stopCh)
 
 		if !debug {
-			// the webhookMonitor has to be started after the webhook server is up
-			// the timestamp will be updated once the instance receives the webhook
 			go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
 		}
-
-		go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
-		go backwardcompatibility.AddCloneLabel(client, pInformer.Kyverno().V1().ClusterPolicies())
 	}
 
 	le, err := leaderelection.New("kyverno", config.KyvernoNamespace, kubeClient, run, nil, log.Log.WithName("LeaderElection"))
@@ -417,6 +398,17 @@ func main() {
 
 	// start informers and Kyverno controllers
 	go le.Run(ctx)
+
+	go reportReqGen.Run(2, stopCh)
+	go configData.Run(stopCh)
+	go eventGenerator.Run(3, stopCh)
+	go grgen.Run(10, stopCh)
+	go statusSync.Run(1, stopCh)
+	go pCacheController.Run(1, stopCh)
+	go auditHandler.Run(10, stopCh)
+
+	go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
+	go backwardcompatibility.AddCloneLabel(client, pInformer.Kyverno().V1().ClusterPolicies())
 
 	// the webhook server runs across all instances
 	openAPIController := startOpenAPIController(client, stopCh)

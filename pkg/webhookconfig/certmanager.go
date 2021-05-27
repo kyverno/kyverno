@@ -19,7 +19,7 @@ import (
 
 type Interface interface {
 	// Run starts the certManager
-	Run()
+	Run(stopCh <-chan struct{})
 
 	// InitTLSPemPair initializes the TLSPemPair
 	// it should be invoked by the leader
@@ -29,18 +29,20 @@ type Interface interface {
 	GetTLSPemPair() (*ktls.PemPair, error)
 }
 type certManager struct {
-	renewer     *tls.CertRenewer
-	secretQueue chan bool
-	stopCh      <-chan struct{}
-	log         logr.Logger
+	renewer        *tls.CertRenewer
+	secretInformer informerv1.SecretInformer
+	secretQueue    chan bool
+	stopCh         <-chan struct{}
+	log            logr.Logger
 }
 
 func NewCertManager(secretInformer informerv1.SecretInformer, kubeClient kubernetes.Interface, certRenewer *tls.CertRenewer, log logr.Logger, stopCh <-chan struct{}) (Interface, error) {
 	manager := &certManager{
-		renewer:     certRenewer,
-		secretQueue: make(chan bool, 1),
-		stopCh:      stopCh,
-		log:         log,
+		renewer:        certRenewer,
+		secretInformer: secretInformer,
+		secretQueue:    make(chan bool, 1),
+		stopCh:         stopCh,
+		log:            log,
 	}
 
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -113,7 +115,17 @@ func (m *certManager) GetTLSPemPair() (*ktls.PemPair, error) {
 	return tls, err
 }
 
-func (m *certManager) Run() {
+func (m *certManager) Run(stopCh <-chan struct{}) {
+	if !cache.WaitForCacheSync(stopCh, m.secretInformer.Informer().HasSynced) {
+		m.log.Info("failed to sync informer cache")
+		return
+	}
+
+	m.secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    m.addSecretFunc,
+		UpdateFunc: m.updateSecretFunc,
+	})
+
 	m.log.Info("start managing certificate")
 	certsRenewalTicker := time.NewTicker(tls.CertRenewalInterval)
 	defer certsRenewalTicker.Stop()

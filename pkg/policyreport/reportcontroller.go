@@ -43,6 +43,11 @@ type ReportGenerator struct {
 	pclient *kyvernoclient.Clientset
 	dclient *dclient.Client
 
+	clusterReportInformer    policyreportinformer.ClusterPolicyReportInformer
+	reportInformer           policyreportinformer.PolicyReportInformer
+	reportReqInformer        requestinformer.ReportChangeRequestInformer
+	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer
+
 	reportLister policyreport.PolicyReportLister
 	reportSynced cache.InformerSynced
 
@@ -80,34 +85,16 @@ func NewReportGenerator(
 	log logr.Logger) (*ReportGenerator, error) {
 
 	gen := &ReportGenerator{
-		pclient:     pclient,
-		dclient:     dclient,
-		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), prWorkQueueName),
-		ReconcileCh: make(chan bool, 10),
-		log:         log,
+		pclient:                  pclient,
+		dclient:                  dclient,
+		clusterReportInformer:    clusterReportInformer,
+		reportInformer:           reportInformer,
+		reportReqInformer:        reportReqInformer,
+		clusterReportReqInformer: clusterReportReqInformer,
+		queue:                    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), prWorkQueueName),
+		ReconcileCh:              make(chan bool, 10),
+		log:                      log,
 	}
-
-	reportReqInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc:    gen.addReportChangeRequest,
-			UpdateFunc: gen.updateReportChangeRequest,
-		})
-
-	clusterReportReqInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc:    gen.addClusterReportChangeRequest,
-			UpdateFunc: gen.updateClusterReportChangeRequest,
-		})
-
-	reportInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			DeleteFunc: gen.deletePolicyReport,
-		})
-
-	clusterReportInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			DeleteFunc: gen.deleteClusterPolicyReport,
-		})
 
 	gen.clusterReportLister = clusterReportInformer.Lister()
 	gen.clusterReportSynced = clusterReportInformer.Informer().HasSynced
@@ -211,6 +198,28 @@ func (g *ReportGenerator) Run(workers int, stopCh <-chan struct{}) {
 	if !cache.WaitForCacheSync(stopCh, g.reportReqSynced, g.clusterReportReqSynced, g.reportSynced, g.clusterReportSynced, g.nsListerSynced) {
 		logger.Info("failed to sync informer cache")
 	}
+
+	g.reportReqInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    g.addReportChangeRequest,
+			UpdateFunc: g.updateReportChangeRequest,
+		})
+
+	g.clusterReportReqInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    g.addClusterReportChangeRequest,
+			UpdateFunc: g.updateClusterReportChangeRequest,
+		})
+
+	g.reportInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			DeleteFunc: g.deletePolicyReport,
+		})
+
+	g.clusterReportInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			DeleteFunc: g.deleteClusterPolicyReport,
+		})
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(g.runWorker, time.Second, stopCh)

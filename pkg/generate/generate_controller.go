@@ -38,6 +38,8 @@ type Controller struct {
 	// typed client for Kyverno CRDs
 	kyvernoClient *kyvernoclient.Clientset
 
+	policyInformer kyvernoinformer.ClusterPolicyInformer
+
 	// event generator interface
 	eventGen event.Interface
 
@@ -90,6 +92,7 @@ func NewController(
 	c := Controller{
 		client:               client,
 		kyvernoClient:        kyvernoClient,
+		policyInformer:       policyInformer,
 		eventGen:             eventGen,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
 		dynamicInformer:      dynamicInformer,
@@ -102,10 +105,6 @@ func NewController(
 	c.statusControl = StatusControl{client: kyvernoClient}
 
 	c.policySynced = policyInformer.Informer().HasSynced
-	policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: c.updatePolicy, // We only handle updates to policy
-		// Deletion of policy will be handled by cleanup controller
-	})
 
 	c.grSynced = grInformer.Informer().HasSynced
 	grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -123,9 +122,6 @@ func NewController(
 	}
 
 	c.nsInformer = dynamicInformer.ForResource(gvr)
-	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: c.updateGenericResource,
-	})
 
 	return &c, nil
 }
@@ -140,6 +136,15 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 		c.log.Info("failed to sync informer cache")
 		return
 	}
+
+	c.policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updatePolicy, // We only handle updates to policy
+		// Deletion of policy will be handled by cleanup controller
+	})
+
+	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updateGenericResource,
+	})
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.worker, time.Second, stopCh)

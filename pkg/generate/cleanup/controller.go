@@ -35,6 +35,9 @@ type Controller struct {
 	// typed client for kyverno CRDs
 	kyvernoClient *kyvernoclient.Clientset
 
+	pInformer  kyvernoinformer.ClusterPolicyInformer
+	grInformer kyvernoinformer.GenerateRequestInformer
+
 	// control is used to delete the GR
 	control ControlInterface
 
@@ -76,6 +79,8 @@ func NewController(
 	c := Controller{
 		kyvernoClient:   kyvernoclient,
 		client:          client,
+		pInformer:       pInformer,
+		grInformer:      grInformer,
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
 		dynamicInformer: dynamicInformer,
 		log:             log,
@@ -89,16 +94,6 @@ func NewController(
 	c.pSynced = pInformer.Informer().HasSynced
 	c.grSynced = grInformer.Informer().HasSynced
 
-	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: c.deletePolicy, // we only cleanup if the policy is delete
-	})
-
-	grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addGR,
-		UpdateFunc: c.updateGR,
-		DeleteFunc: c.deleteGR,
-	})
-
 	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
 	if err != nil {
 		return nil, err
@@ -106,9 +101,6 @@ func NewController(
 
 	nsInformer := dynamicInformer.ForResource(gvr)
 	c.nsInformer = nsInformer
-	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: c.deleteGenericResource,
-	})
 
 	return &c, nil
 }
@@ -234,6 +226,20 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
+
+	c.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: c.deletePolicy, // we only cleanup if the policy is delete
+	})
+
+	c.grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addGR,
+		UpdateFunc: c.updateGR,
+		DeleteFunc: c.deleteGR,
+	})
+
+	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: c.deleteGenericResource,
+	})
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.worker, time.Second, stopCh)
