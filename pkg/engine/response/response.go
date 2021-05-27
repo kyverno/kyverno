@@ -101,6 +101,16 @@ func (er EngineResponse) IsSuccessful() bool {
 	return true
 }
 
+//IsFailed checks if any rule has succeeded or not
+func (er EngineResponse) IsFailed() bool {
+	for _, r := range er.PolicyResponse.Rules {
+		if r.Success {
+			return false
+		}
+	}
+	return true
+}
+
 //GetPatches returns all the patches joined
 func (er EngineResponse) GetPatches() [][]byte {
 	var patches [][]byte

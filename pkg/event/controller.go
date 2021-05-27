@@ -212,6 +212,9 @@ func (gen *Generator) syncHandler(key Info) error {
 
 	// set the event type based on reason
 	eventType := v1.EventTypeWarning
+	if key.Reason == PolicyApplied.String() {
+		eventType = v1.EventTypeNormal
+	}
 
 	// based on the source of event generation, use different event recorders
 	switch key.Source {

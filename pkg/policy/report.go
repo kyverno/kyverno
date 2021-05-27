@@ -163,24 +163,40 @@ func generateEventsPerEr(log logr.Logger, er *response.EngineResponse) []event.I
 		e.Message = fmt.Sprintf("policy '%s' (%s) rule '%s' failed. %v", er.PolicyResponse.Policy.Name, rule.Type, rule.Name, rule.Message)
 		eventInfos = append(eventInfos, e)
 	}
-	if er.IsSuccessful() {
-		return eventInfos
+
+	if !er.IsFailed() {
+		// generate event on policy for success rules
+		logger.V(4).Info("generating event on policy for success rules")
+		e := event.Info{}
+		kind := "ClusterPolicy"
+		if er.PolicyResponse.Policy.Namespace != "" {
+			kind = "Policy"
+		}
+		e.Kind = kind
+		e.Namespace = er.PolicyResponse.Policy.Namespace
+		e.Name = er.PolicyResponse.Policy.Name
+		e.Reason = event.PolicyApplied.String()
+		e.Source = event.PolicyController
+		e.Message = fmt.Sprintf("rules '%v' successfully applied on resource '%s/%s/%s'", er.GetSuccessRules(), er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
+		eventInfos = append(eventInfos, e)
 	}
 
-	// generate event on policy for failed rules
-	logger.V(4).Info("generating event on policy")
-	e := event.Info{}
-	kind := "ClusterPolicy"
-	if er.PolicyResponse.Policy.Namespace != "" {
-		kind = "Policy"
+	if !er.IsSuccessful() {
+		// generate event on policy for failed rules
+		logger.V(4).Info("generating event on policy")
+		e := event.Info{}
+		kind := "ClusterPolicy"
+		if er.PolicyResponse.Policy.Namespace != "" {
+			kind = "Policy"
+		}
+		e.Kind = kind
+		e.Name = er.PolicyResponse.Policy.Name
+		e.Namespace = er.PolicyResponse.Policy.Namespace
+		e.Reason = event.PolicyViolation.String()
+		e.Source = event.PolicyController
+		e.Message = fmt.Sprintf("rules '%v' not satisfied on resource '%s/%s/%s'", er.GetFailedRules(), er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
+		eventInfos = append(eventInfos, e)
 	}
-	e.Kind = kind
-	e.Name = er.PolicyResponse.Policy.Name
-	e.Namespace = er.PolicyResponse.Policy.Namespace
-	e.Reason = event.PolicyViolation.String()
-	e.Source = event.PolicyController
-	e.Message = fmt.Sprintf("rules '%v' not satisfied on resource '%s/%s/%s'", er.GetFailedRules(), er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-	eventInfos = append(eventInfos, e)
 	return eventInfos
 }
 
