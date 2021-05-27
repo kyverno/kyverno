@@ -26,7 +26,7 @@ var engineResponses = []*response.EngineResponse{
 			},
 		},
 		PolicyResponse: response.PolicyResponse{
-			Policy:   "policy1",
+			Policy:   response.PolicySpec{Name: "policy1"},
 			Resource: response.ResourceSpec{Name: "policy1-pod"},
 			Rules: []response.RuleResponse{
 				{
@@ -52,7 +52,7 @@ var engineResponses = []*response.EngineResponse{
 			},
 		},
 		PolicyResponse: response.PolicyResponse{
-			Policy:   "clusterpolicy2",
+			Policy:   response.PolicySpec{Name: "clusterpolicy2"},
 			Resource: response.ResourceSpec{Name: "policy2-clusterrole"},
 			Rules: []response.RuleResponse{
 				{

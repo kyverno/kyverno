@@ -26,8 +26,12 @@ import (
 type Generator struct {
 	client *client.Client
 	// list/get cluster policy
-	pLister kyvernolister.ClusterPolicyLister
+	cpLister kyvernolister.ClusterPolicyLister
 	// returns true if the cluster policy store has been synced at least once
+	cpSynced cache.InformerSynced
+	// list/get policy
+	pLister kyvernolister.PolicyLister
+	// returns true if the policy store has been synced at least once
 	pSynced cache.InformerSynced
 	// queue to store event generation requests
 	queue workqueue.RateLimitingInterface
@@ -47,13 +51,15 @@ type Interface interface {
 }
 
 //NewEventGenerator to generate a new event controller
-func NewEventGenerator(client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer, resCache resourcecache.ResourceCache, log logr.Logger) *Generator {
+func NewEventGenerator(client *client.Client, cpInformer kyvernoinformer.ClusterPolicyInformer, pInformer kyvernoinformer.PolicyInformer, resCache resourcecache.ResourceCache, log logr.Logger) *Generator {
 
 	gen := Generator{
 		client:               client,
+		cpLister:             cpInformer.Lister(),
+		cpSynced:             cpInformer.Informer().HasSynced,
 		pLister:              pInformer.Lister(),
-		queue:                workqueue.NewNamedRateLimitingQueue(rateLimiter(), eventWorkQueueName),
 		pSynced:              pInformer.Informer().HasSynced,
+		queue:                workqueue.NewNamedRateLimitingQueue(rateLimiter(), eventWorkQueueName),
 		policyCtrRecorder:    initRecorder(client, PolicyController, log),
 		admissionCtrRecorder: initRecorder(client, AdmissionController, log),
 		genPolicyRecorder:    initRecorder(client, GeneratePolicyController, log),
@@ -112,7 +118,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("start")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, gen.pSynced) {
+	if !cache.WaitForCacheSync(stopCh, gen.cpSynced, gen.pSynced) {
 		logger.Info("failed to sync informer cache")
 	}
 
@@ -183,7 +189,13 @@ func (gen *Generator) syncHandler(key Info) error {
 	switch key.Kind {
 	case "ClusterPolicy":
 		//TODO: policy is clustered resource so wont need namespace
-		robj, err = gen.pLister.Get(key.Name)
+		robj, err = gen.cpLister.Get(key.Name)
+		if err != nil {
+			logger.Error(err, "failed to get cluster policy", "name", key.Name)
+			return err
+		}
+	case "Policy":
+		robj, err = gen.pLister.Policies(key.Namespace).Get(key.Name)
 		if err != nil {
 			logger.Error(err, "failed to get policy", "name", key.Name)
 			return err

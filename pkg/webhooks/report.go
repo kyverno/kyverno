@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	kyvernov1alpha1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -15,6 +16,7 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked, onUpdat
 
 	// - Admission-Response is SUCCESS
 	//   - Some/All policies failed (policy violations generated)
+	//     - report event on policy that failed
 	//     - report event on resource that failed
 
 	for _, er := range engineResponses {
@@ -26,9 +28,26 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked, onUpdat
 		failedRules := er.GetFailedRules()
 		filedRulesStr := strings.Join(failedRules, ";")
 
+		// Event on the policy
+		kind := "ClusterPolicy"
+		if er.PolicyResponse.Policy.Namespace != "" {
+			kind = "Policy"
+		}
+		pe := event.NewEvent(
+			log,
+			kind,
+			kyvernov1alpha1.SchemeGroupVersion.String(),
+			er.PolicyResponse.Policy.Namespace,
+			er.PolicyResponse.Policy.Name,
+			event.PolicyViolation.String(),
+			event.AdmissionController,
+			event.FPolicyApplyFailed,
+			filedRulesStr,
+			er.PolicyResponse.Resource.GetKey(),
+		)
+
 		// Event on the resource
-		// event on resource
-		e := event.NewEvent(
+		re := event.NewEvent(
 			log,
 			er.PolicyResponse.Resource.Kind,
 			er.PolicyResponse.Resource.APIVersion,
@@ -38,9 +57,9 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked, onUpdat
 			event.AdmissionController,
 			event.FResourcePolicyFailed,
 			filedRulesStr,
-			er.PolicyResponse.Policy,
+			er.PolicyResponse.Policy.Name,
 		)
-		events = append(events, e)
+		events = append(events, pe, re)
 	}
 
 	return events

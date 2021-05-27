@@ -19,7 +19,7 @@ func Test_GenerateStats(t *testing.T) {
 		generateStats: []*response.EngineResponse{
 			{
 				PolicyResponse: response.PolicyResponse{
-					Policy: "policy1",
+					Policy: response.PolicySpec{Name: "policy1"},
 					Rules: []response.RuleResponse{
 						{
 							Name:    "rule5",
@@ -40,7 +40,7 @@ func Test_GenerateStats(t *testing.T) {
 			},
 			{
 				PolicyResponse: response.PolicyResponse{
-					Policy: "policy2",
+					Policy: response.PolicySpec{Name: "policy2"},
 					Rules: []response.RuleResponse{
 						{
 							Name:    "rule5",
@@ -86,7 +86,7 @@ func Test_MutateStats(t *testing.T) {
 		mutateStats: []*response.EngineResponse{
 			{
 				PolicyResponse: response.PolicyResponse{
-					Policy: "policy1",
+					Policy: response.PolicySpec{Name: "policy1"},
 					Rules: []response.RuleResponse{
 						{
 							Name:    "rule1",
@@ -107,7 +107,7 @@ func Test_MutateStats(t *testing.T) {
 			},
 			{
 				PolicyResponse: response.PolicyResponse{
-					Policy: "policy2",
+					Policy: response.PolicySpec{Name: "policy2"},
 					Rules: []response.RuleResponse{
 						{
 							Name:    "rule1",
@@ -152,7 +152,7 @@ func Test_ValidateStats(t *testing.T) {
 		validateStats: []*response.EngineResponse{
 			{
 				PolicyResponse: response.PolicyResponse{
-					Policy:                  "policy1",
+					Policy:                  response.PolicySpec{Name: "policy1"},
 					ValidationFailureAction: "enforce",
 					Rules: []response.RuleResponse{
 						{
@@ -174,7 +174,7 @@ func Test_ValidateStats(t *testing.T) {
 			},
 			{
 				PolicyResponse: response.PolicyResponse{
-					Policy: "policy2",
+					Policy: response.PolicySpec{Name: "policy2"},
 					Rules: []response.RuleResponse{
 						{
 							Name:    "rule3",

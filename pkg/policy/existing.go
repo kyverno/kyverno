@@ -95,7 +95,7 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPo
 		*metricAlreadyRegistered = true
 	}
 
-	pc.report(policy.Name, engineResponses, logger)
+	pc.report(engineResponses, logger)
 }
 
 func (pc *PolicyController) registerPolicyRuleResultsMetricValidationBS(logger logr.Logger, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, backgroundScanTimestamp int64) {

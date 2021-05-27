@@ -17,8 +17,8 @@ type EngineResponse struct {
 
 //PolicyResponse policy application response
 type PolicyResponse struct {
-	// policy name
-	Policy string `json:"policy"`
+	// policy details
+	Policy PolicySpec `json:"policy"`
 	// resource details
 	Resource ResourceSpec `json:"resource"`
 	// policy statistics
@@ -27,6 +27,12 @@ type PolicyResponse struct {
 	Rules []RuleResponse `json:"rules"`
 	// ValidationFailureAction: audit(default if not set),enforce
 	ValidationFailureAction string
+}
+
+//PolicySpec policy
+type PolicySpec struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
 }
 
 //ResourceSpec resource action applied on
