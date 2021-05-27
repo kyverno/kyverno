@@ -99,6 +99,8 @@ func Test_Mutate_Sets(t *testing.T) {
 		})
 
 		cmRes, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, "target")
+		By(fmt.Sprintf("configMap name : %s", cmRes.GetName()))
+
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cmRes.GetLabels()["kyverno.key/copy-me"]).To(Equal("sample-value"))
 
