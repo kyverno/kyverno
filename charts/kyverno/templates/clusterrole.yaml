@@ -2,6 +2,22 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: {{ template "kyverno.fullname" . }}:leaderelection
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: {{ template "kyverno.fullname" . }}:webhook
 rules:
 # Dynamic creation of webhooks, events & certs

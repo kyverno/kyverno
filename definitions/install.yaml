@@ -2244,6 +2244,22 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: kyverno:leaderelection
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: kyverno:policycontroller
 rules:
 - apiGroups:
@@ -2347,6 +2363,19 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  name: kyverno:leaderelection
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:leaderelection
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
   name: kyverno:policycontroller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -2402,8 +2431,12 @@ metadata:
   namespace: kyverno
 spec:
   ports:
-  - port: 443
+  - name: https
+    port: 443
     targetPort: https
+  - name: metrics-port
+    port: 8000
+    targetPort: metrics-port
   selector:
     app: kyverno
     app.kubernetes.io/name: kyverno
@@ -2457,6 +2490,9 @@ spec:
         ports:
         - containerPort: 9443
           name: https
+          protocol: TCP
+        - containerPort: 8000
+          name: metrics-port
           protocol: TCP
         readinessProbe:
           failureThreshold: 4
