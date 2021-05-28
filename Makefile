@@ -171,6 +171,7 @@ code-cov-report: $(CODE_COVERAGE_FILE_TXT)
 # Test E2E
 test-e2e:
 	$(eval export E2E="ok")
+	go test ./test/e2e/metrics -v
 	go test ./test/e2e/mutate -v
 	go test ./test/e2e/generate -v
 	$(eval export E2E="")
