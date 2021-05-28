@@ -34,12 +34,12 @@ func (eh EqualHandler) Evaluate(key, value interface{}) bool {
 	// substitute the variables
 	if key, err = eh.subHandler(eh.log, eh.ctx, key); err != nil {
 		// Failed to resolve the variable
-		eh.log.Error(err, "Failed to resolve variable", "variable", key)
+		eh.log.Info("Failed to resolve variable", "info", err, "variable", key)
 		return false
 	}
 	if value, err = eh.subHandler(eh.log, eh.ctx, value); err != nil {
 		// Failed to resolve the variable
-		eh.log.Error(err, "Failed to resolve variable", "variable", value)
+		eh.log.Info("Failed to resolve variable", "info", err, "variable", value)
 		return false
 	}
 

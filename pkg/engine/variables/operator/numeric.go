@@ -48,12 +48,12 @@ func (noh NumericOperatorHandler) Evaluate(key, value interface{}) bool {
 	var err error
 	if key, err = noh.subHandler(noh.log, noh.ctx, key); err != nil {
 		// Failed to resolve the variable
-		noh.log.Error(err, "Failed to resolve variable", "variable", key)
+		noh.log.Info("Failed to resolve variable", "info", err, "variable", key)
 		return false
 	}
 	if value, err = noh.subHandler(noh.log, noh.ctx, value); err != nil {
 		// Failed to resolve the variable
-		noh.log.Error(err, "Failed to resolve variable", "variable", value)
+		noh.log.Info("Failed to resolve variable", "info", err, "variable", value)
 		return false
 	}
 

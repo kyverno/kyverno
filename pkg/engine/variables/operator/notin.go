@@ -29,12 +29,12 @@ func (nin NotInHandler) Evaluate(key, value interface{}) bool {
 
 	// substitute the variables
 	if key, err = nin.subHandler(nin.log, nin.ctx, key); err != nil {
-		nin.log.Error(err, "Failed to resolve variable", "variable", key)
+		nin.log.Info("Failed to resolve variable", "info", err, "variable", key)
 		return false
 	}
 
 	if value, err = nin.subHandler(nin.log, nin.ctx, value); err != nil {
-		nin.log.Error(err, "Failed to resolve variable", "variable", value)
+		nin.log.Info("Failed to resolve variable", "info", err, "variable", value)
 		return false
 	}
 

@@ -31,12 +31,12 @@ func (in InHandler) Evaluate(key, value interface{}) bool {
 	var err error
 	// substitute the variables
 	if key, err = in.subHandler(in.log, in.ctx, key); err != nil {
-		in.log.Error(err, "Failed to resolve variable", "variable", key)
+		in.log.Info("Failed to resolve variable", "info", err, "variable", key)
 		return false
 	}
 
 	if value, err = in.subHandler(in.log, in.ctx, value); err != nil {
-		in.log.Error(err, "Failed to resolve variable", "variable", value)
+		in.log.Info("Failed to resolve variable", "info", err, "variable", value)
 		return false
 	}
 
