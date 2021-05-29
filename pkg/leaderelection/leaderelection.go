@@ -106,7 +106,7 @@ func New(name, namespace string, kubeClient kubernetes.Interface, startWork, sto
 				if e.stopWork != nil {
 					e.stopWork()
 				} else {
-					// os.Exit(1)
+					os.Exit(1)
 				}
 			},
 
