@@ -186,8 +186,6 @@ metadata:
   name: kind-chaos
   namespace: test-litmus
 spec:
-  # It can be true/false
-  #annotationCheck: 'true'
   # It can be active/stop
   engineState: 'active'
   appinfo:
