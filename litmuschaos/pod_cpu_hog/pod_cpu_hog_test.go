@@ -27,11 +27,11 @@ var (
 	cpuGVR = e2e.GetGVR("litmuschaos.io", "v1alpha1", "chaosexperiments")
 	// ChaosEngine GVR
 	ceGVR = e2e.GetGVR("litmuschaos.io", "v1alpha1", "chaosengines")
-	// chaos result GVR
+	// Chaos Result GVR
 	crGVR = e2e.GetGVR("litmuschaos.io", "v1alpha1", "chaosresults")
 	// Cluster Policy GVR
 	clPolGVR = e2e.GetGVR("kyverno.io", "v1", "clusterpolicies")
-	// disallow_cri_sock_mount Policy GVR
+	// Kyverno disallow_cri_sock_mount Policy GVR
 	dcsmPolGVR = e2e.GetGVR("", "v1", "pods")
 
 	// ClusterPolicy Namespace
@@ -56,12 +56,9 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 		// CleanUp Resources
 		By(fmt.Sprintf("Cleaning Cluster Policies in %s", nspace))
 		e2eClient.CleanClusterPolicies(clPolGVR)
-
-		// Clear Namespace
 		By(fmt.Sprintf("Deleting Namespace : %s", nspace))
-		e2eClient.DeleteClusteredResource(nsGVR, nspace)
+		e2eClient.DeleteClusteredResource(nsGVR, nspace) // Clear Namespace
 		e2eClient.DeleteNamespacedResource(dcsmPolGVR, nspace, resource.testResourceName)
-
 		e2e.GetWithRetry(time.Duration(1), 15, func() error { // Wait Till Deletion of Namespace
 			_, err := e2eClient.GetClusteredResource(nsGVR, nspace)
 			if err != nil {
@@ -83,6 +80,7 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 		})
 
 		// ====== Litmus Chaos Experiment ==================
+
 		// Prepare chaosServiceAccount
 		By(fmt.Sprintf("\nPrepareing Chaos Service Account in %s", nspace))
 		_, err = e2eClient.CreateNamespacedResourceYaml(saGVR, nspace, ChaosServiceAccountYaml)
@@ -124,7 +122,7 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 			return errors.New("Chaos result is not passed")
 		})
 
-		// Create disallow_cri_sock_mount policy; kind: ClusterPolicy
+		// Create disallow_cri_sock_mount policy
 		By(fmt.Sprintf("\nCreating Enforce Policy in %s", clPolNS))
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, DisallowAddingCapabilitiesYaml)
 		Expect(err).NotTo(HaveOccurred())
