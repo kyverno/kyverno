@@ -55,7 +55,7 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 
 		// CleanUp Resources
 		By(fmt.Sprintf("Cleaning Cluster Policies in %s", nspace))
-		e2eClient.CleanClusterPolicies(clPolGVR)
+		e2eClient.CleanClusterPolicies(clPolGVR) //Clean Cluster Policy
 		By(fmt.Sprintf("Deleting Namespace : %s", nspace))
 		e2eClient.DeleteClusteredResource(nsGVR, nspace) // Clear Namespace
 		e2eClient.DeleteNamespacedResource(dcsmPolGVR, nspace, resource.testResourceName)
@@ -79,8 +79,7 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 			return nil
 		})
 
-		// ====== Litmus Chaos Experiment ==================
-
+		// ================== Litmus Chaos Experiment ==================
 		// Prepare chaosServiceAccount
 		By(fmt.Sprintf("\nPrepareing Chaos Service Account in %s", nspace))
 		_, err = e2eClient.CreateNamespacedResourceYaml(saGVR, nspace, ChaosServiceAccountYaml)
@@ -105,10 +104,8 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 		e2e.GetWithRetry(time.Duration(30), 5, func() error { // Wait Till preparing Chaos engine
 			chaosresult, err := e2eClient.GetNamespacedResource(crGVR, nspace, "kind-chaos-pod-cpu-hog")
 			if err != nil {
-
 				return fmt.Errorf("Unable to fatch ChaosResult: %v", err)
 			}
-
 			chaosVerdict, _, err := unstructured.NestedString(chaosresult.UnstructuredContent(), "status", "experimentStatus", "verdict")
 			if err != nil {
 				By(fmt.Sprintf("\nUnable to fatch the status.verdict from ChaosResult: %v", err))
@@ -130,10 +127,10 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 		// Deploy disallow_cri_sock_mount policy
 		By(fmt.Sprintf("\nDeploying Enforce Policy in %s", nspace))
 		_, err = e2eClient.CreateNamespacedResourceYaml(dcsmPolGVR, nspace, resource.manifest)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).To(HaveOccurred())
 
 		//CleanUp Resources
-		e2eClient.CleanClusterPolicies(clPolGVR) //Clean Cluster Policies
+		e2eClient.CleanClusterPolicies(clPolGVR) //Clean Cluster Policy
 		e2eClient.CleanClusterPolicies(saGVR)
 		e2eClient.DeleteClusteredResource(nsGVR, nspace)      // Clear Namespace
 		e2e.GetWithRetry(time.Duration(1), 15, func() error { // Wait Till Deletion of Namespace
