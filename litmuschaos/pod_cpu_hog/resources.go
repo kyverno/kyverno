@@ -20,7 +20,7 @@ metadata:
     app.kubernetes.io/part-of: litmus
 `)
 
-var ChaosServiceAccountRoleYaml = []byte(`
+var ChaosRoleYaml = []byte(`
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -53,7 +53,7 @@ rules:
   verbs: ["create","list","get","patch","update"]
 `)
 
-var ChaosServiceAccountRoleBindingYaml = []byte(`
+var ChaosRoleBindingYaml = []byte(`
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:

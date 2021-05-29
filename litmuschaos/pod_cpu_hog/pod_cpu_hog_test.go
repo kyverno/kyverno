@@ -49,9 +49,12 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 	Expect(err).To(BeNil())
 
 	for _, resource := range PodCPUHogTest.TestData {
-		//CleanUp Resources
-		e2eClient.CleanClusterPolicies(saGVR)
-		e2eClient.DeleteClusteredResource(nsGVR, nspace)      // Clear Namespace
+
+		// Clear Namespace
+		By(fmt.Sprintf("Deleting Namespace : %s", nspace))
+		e2eClient.DeleteClusteredResource(nsGVR, nspace)
+		e2eClient.DeleteNamespacedResource(dcsmPolGVR, nspace, resource.testResourceName)
+
 		e2e.GetWithRetry(time.Duration(1), 15, func() error { // Wait Till Deletion of Namespace
 			_, err := e2eClient.GetClusteredResource(nsGVR, nspace)
 			if err != nil {
@@ -77,9 +80,9 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 		By(fmt.Sprintf("\nPrepareing Chaos Service Account in %s", nspace))
 		_, err = e2eClient.CreateNamespacedResourceYaml(saGVR, nspace, ChaosServiceAccountYaml)
 		Expect(err).NotTo(HaveOccurred())
-		_, err = e2eClient.CreateNamespacedResourceYaml(rGVR, nspace, ChaosServiceAccountRoleYaml)
+		_, err = e2eClient.CreateNamespacedResourceYaml(rGVR, nspace, ChaosRoleYaml)
 		Expect(err).NotTo(HaveOccurred())
-		_, err = e2eClient.CreateNamespacedResourceYaml(rbGVR, nspace, ChaosServiceAccountRoleBindingYaml)
+		_, err = e2eClient.CreateNamespacedResourceYaml(rbGVR, nspace, ChaosRoleBindingYaml)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Deploy Pod CPU Hog Experiment
@@ -92,6 +95,15 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 		_, err = e2eClient.CreateNamespacedResourceYaml(ceGVR, nspace, ChaosEngineYaml)
 		Expect(err).NotTo(HaveOccurred())
 
+		e2e.GetWithRetry(time.Duration(1), 15, func() error { // Wait Till preparing Chaos engine
+			_, err := e2eClient.GetNamespacedResource(ceGVR, nspace, "kind-chaos")
+			if err = litmuschaos_experiment_verdict.Status.experimentStatus.verdict("pass"); err != nil {
+				return nil
+			}
+
+			//return errors.New("Creating Chaos Engine ")
+		})
+
 		// Create disallow_cri_sock_mount policy; kind: ClusterPolicy
 		By(fmt.Sprintf("\nCreating Enforce Policy in %s", clPolNS))
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, DisallowAddingCapabilitiesYaml)
@@ -101,6 +113,8 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 		By(fmt.Sprintf("\nDeploying Enforce Policy in %s", nspace))
 		_, err = e2eClient.CreateNamespacedResourceYaml(dcsmPolGVR, nspace, resource.manifest)
 		Expect(err).NotTo(HaveOccurred())
+
+		// Check pod responce
 
 		//CleanUp Resources
 		e2eClient.CleanClusterPolicies(saGVR)
