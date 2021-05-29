@@ -79,8 +79,7 @@ func (vc statusControl) setStatus(status string) error {
 	// update counter
 	_, err = vc.register.client.UpdateResource("", "Deployment", deployNamespace, deploy, false)
 	if err != nil {
-		logger.Error(err, "failed to update deployment annotation", "key", annWebhookStatus, "val", status)
-		return err
+		return errors.Wrapf(err, "key %s, val %s", annWebhookStatus, status)
 	}
 
 	// create event on kyverno deployment
@@ -147,7 +146,7 @@ func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
 		return errors.Wrap(err, "unable to get Kyverno deployment")
 	}
 
-	annotation, ok, err := unstructured.NestedStringMap(deploy.UnstructuredContent(), "annotations")
+	annotation, ok, err := unstructured.NestedStringMap(deploy.UnstructuredContent(), "metadata", "annotations")
 	if err != nil {
 		return errors.Wrap(err, "unable to get annotation")
 	}
@@ -156,7 +155,12 @@ func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
 		annotation = make(map[string]string)
 	}
 
-	annotation[annLastRequestTime] = new.String()
+	t, err := new.MarshalText()
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal timestamp")
+	}
+
+	annotation[annLastRequestTime] = string(t)
 	deploy.SetAnnotations(annotation)
 	_, err = vc.register.client.UpdateResource("", "Deployment", deploy.GetNamespace(), deploy, false)
 	if err != nil {

@@ -366,8 +366,8 @@ func main() {
 		cancel()
 	}()
 
-	// register webhooks by the leader, it's one-time job
-	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace, kubeClient, registerWebhookConfigurations, nil, log.Log.WithName("LeaderElection"))
+	// register webhooks by the leader, it's a one-time job
+	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace, kubeClient, registerWebhookConfigurations, nil, log.Log.WithName("webhookRegister/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elector leader")
 		os.Exit(1)
@@ -384,13 +384,15 @@ func main() {
 		go prgen.Run(1, stopCh)
 		go grc.Run(genWorkers, stopCh)
 		go grcc.Run(1, stopCh)
-
-		if !debug {
-			go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
-		}
 	}
 
-	le, err := leaderelection.New("kyverno", config.KyvernoNamespace, kubeClient, run, nil, log.Log.WithName("LeaderElection"))
+	kubeClientLeaderElection, err := utils.NewKubeClient(clientConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
+	}
+
+	le, err := leaderelection.New("kyverno", config.KyvernoNamespace, kubeClientLeaderElection, run, nil, log.Log.WithName("kyverno/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elector leader")
 		os.Exit(1)
@@ -406,6 +408,9 @@ func main() {
 	go statusSync.Run(1, stopCh)
 	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)
+	if !debug {
+		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
+	}
 
 	go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
 	go backwardcompatibility.AddCloneLabel(client, pInformer.Kyverno().V1().ClusterPolicies())

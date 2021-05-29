@@ -102,9 +102,11 @@ func New(name, namespace string, kubeClient kubernetes.Interface, startWork, sto
 
 			OnStoppedLeading: func() {
 				atomic.StoreInt64(&e.isLeader, 0)
-				e.log.WithValues("id", e.lock.Identity()).Info("stopped leading")
+				e.log.WithValues("id", e.lock.Identity()).Info("leaseship lost, stopped leading")
 				if e.stopWork != nil {
 					e.stopWork()
+				} else {
+					// os.Exit(1)
 				}
 			},
 

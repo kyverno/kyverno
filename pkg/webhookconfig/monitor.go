@@ -107,30 +107,38 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			}
 
 			if timeDiff > idleCheckInterval {
-				logger.Info("webhook idle time exceeded", "deadline", idleCheckInterval.String())
 				if skipWebhookCheck(register, logger.WithName("skipWebhookCheck")) {
 					logger.Info("skip validating webhook status, Kyverno is in rolling update")
 					continue
 				}
 
-				lastRequestTime := lastRequestTimeFromAnnotation(register, t.log.WithName("lastRequestTimeFromAnnotation"))
-				if lastRequestTime == nil {
+				lastRequestTimeFromAnn := lastRequestTimeFromAnnotation(register, t.log.WithName("lastRequestTimeFromAnnotation"))
+				if lastRequestTimeFromAnn == nil {
 					now := time.Now()
-					lastRequestTime = &now
-					// if timestamp from the annotation is older than the lastSeenRequestTime
-					// of the current instance, update the annotation
+					lastRequestTimeFromAnn = &now
 					if err := status.UpdateLastRequestTimestmap(t.Time()); err != nil {
-						logger.Error(err, "failed to annotate deployment for webhook status")
+						logger.Error(err, "failed to annotate deployment for lastRequestTime")
+					} else {
+						logger.Info("initialized lastRequestTimestamp", "time", lastRequestTimeFromAnn)
 					}
-					logger.V(2).Info("updated annotation timestamp", "time", lastRequestTime)
+					continue
 				}
 
-				if t.Time().Before(*lastRequestTime) {
-					t.SetTime(*lastRequestTime)
-					logger.V(2).Info("updated in-memory timestamp", "time", lastRequestTime)
+				if t.Time().Before(*lastRequestTimeFromAnn) {
+					t.SetTime(*lastRequestTimeFromAnn)
+					logger.V(3).Info("updated in-memory timestamp", "time", lastRequestTimeFromAnn)
+					continue
 				}
 
-				continue
+				idleT := time.Since(*lastRequestTimeFromAnn)
+				if idleT > idleCheckInterval*2 {
+					logger.V(3).Info("webhook idle time exceeded", "lastRequestTimeFromAnn", (*lastRequestTimeFromAnn).String(), "deadline", (idleCheckInterval * 2).String())
+					if err := status.UpdateLastRequestTimestmap(t.Time()); err != nil {
+						logger.Error(err, "failed to update lastRequestTimestamp annotation")
+					} else {
+						logger.V(3).Info("updated annotation lastRequestTimestamp", "time", t.Time())
+					}
+				}
 			}
 
 			// if the status was false before then we update it to true
@@ -171,7 +179,7 @@ func lastRequestTimeFromAnnotation(register *Register, logger logr.Logger) *time
 		return nil
 	}
 
-	annotation, ok, err := unstructured.NestedStringMap(deploy.UnstructuredContent(), "annotations")
+	annotation, ok, err := unstructured.NestedStringMap(deploy.UnstructuredContent(), "metadata", "annotations")
 	if err != nil {
 		logger.Info("unable to get annotation", "reason", err.Error())
 		return nil
@@ -185,6 +193,7 @@ func lastRequestTimeFromAnnotation(register *Register, logger logr.Logger) *time
 	timeStamp := annotation[annLastRequestTime]
 	annTime, err := time.Parse(time.RFC3339, timeStamp)
 	if err != nil {
+		logger.Error(err, "failed to parse timestamp annotation")
 		return nil
 	}
 
