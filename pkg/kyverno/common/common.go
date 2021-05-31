@@ -224,6 +224,7 @@ func objectHasVariables(object interface{}) error {
 func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) error {
 	for _, rule := range policy.Spec.Rules {
 		var err error
+
 		ruleJSON, err := json.Marshal(rule)
 		if err != nil {
 			return err

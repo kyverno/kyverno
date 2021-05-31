@@ -5,6 +5,7 @@ import (
 
 	ut "github.com/kyverno/kyverno/pkg/utils"
 	"gotest.tools/assert"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 func TestNotAllowedVars_MatchSection(t *testing.T) {
@@ -226,6 +227,38 @@ func TestNotAllowedVars_JSONPatchPath_PositiveCase(t *testing.T) {
 	  }`)
 
 	policy, err := ut.GetPolicy(policyWithVarInExclude)
+	assert.NilError(t, err)
+
+	err = PolicyHasNonAllowedVariables(*policy[0])
+	assert.NilError(t, err)
+}
+
+func TestNotAllowedVars_JSONPatchPath_PositiveCaseWithValue(t *testing.T) {
+	var policyYAML = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-ingress-host
+spec:
+  rules:
+  - name: mutate-rules-host
+    match:
+      resources:
+        kinds:
+        - Ingress
+        namespaces:
+        - test-ingress
+    mutate:
+      patchesJson6902: |-
+        - op: replace
+          path: /spec/rules/0/host
+          value: "{{request.object.spec.rules[0].host}}.mycompany.com"
+`)
+
+	policyJSON, err := yaml.ToJSON(policyYAML)
+	assert.NilError(t, err)
+
+	policy, err := ut.GetPolicy(policyJSON)
 	assert.NilError(t, err)
 
 	err = PolicyHasNonAllowedVariables(*policy[0])
