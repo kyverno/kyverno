@@ -299,7 +299,6 @@ func Test_subVars_withRegexReplaceAll(t *testing.T) {
 				}
 			}
 		}
-			
 	}`)
 
 	resourceRaw := []byte(`{
