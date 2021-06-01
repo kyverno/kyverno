@@ -300,7 +300,6 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
 		if err != nil {
-			fmt.Println("i'm error here")
 			logger.Error(err, "failed to update policy ")
 		}
 	}
