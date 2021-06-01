@@ -30,10 +30,16 @@ If release name contains chart name it will be used as a full name.
 
 {{/* Helm required labels */}}
 {{- define "kyverno.labels" -}}
-app.kubernetes.io/name: {{ template "kyverno.name" . }}
-helm.sh/chart: {{ template "kyverno.chart" . }}
+app.kubernetes.io/component: kyverno
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/name: {{ template "kyverno.name" . }}
+app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
+app.kubernetes.io/version: "{{ .Chart.Version }}"
+helm.sh/chart: {{ template "kyverno.chart" . }}
+{{- if .Values.customLabels }}
+{{ toYaml .Values.customLabels | indent 4 }}
+{{- end }}
 {{- end -}}
 
 {{/* matchLabels */}}

@@ -4,5 +4,7 @@ data:
   excludeGroupRole: 'system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler'
 kind: ConfigMap
 metadata:
+  labels:
+    app: kyverno
   name: init-config
   namespace: kyverno
