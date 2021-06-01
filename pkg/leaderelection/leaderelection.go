@@ -9,7 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
@@ -32,9 +31,8 @@ type Interface interface {
 	// IsLeader indicates if this instance is the leader
 	IsLeader() bool
 
+	// GetLeader returns the leader ID
 	GetLeader() string
-
-	LeaderElected() bool
 }
 
 type Config struct {
@@ -102,11 +100,9 @@ func New(name, namespace string, kubeClient kubernetes.Interface, startWork, sto
 
 			OnStoppedLeading: func() {
 				atomic.StoreInt64(&e.isLeader, 0)
-				e.log.WithValues("id", e.lock.Identity()).Info("leaseship lost, stopped leading")
+				e.log.WithValues("id", e.lock.Identity()).Info("leadership lost, stopped leading")
 				if e.stopWork != nil {
 					e.stopWork()
-				} else {
-					os.Exit(1)
 				}
 			},
 
@@ -151,26 +147,6 @@ func (e *Config) GetLeader() string {
 	return e.leaderElector.GetLeader()
 }
 
-func (e *Config) LeaderElected() bool {
-	return !(e.GetLeader() == "")
-}
-
 func (e *Config) Run(ctx context.Context) {
 	e.leaderElector.Run(ctx)
-}
-
-// syncedPollPeriod controls how often you look at the status of your sync funcs
-const syncedPollPeriod = 100 * time.Millisecond
-
-func WaitForLeaderElects(stopCh <-chan struct{}, leaderElected func() bool) bool {
-	err := wait.PollImmediateUntil(syncedPollPeriod,
-		func() (bool, error) {
-			if leaderElected() {
-				return true, nil
-			}
-			return true, nil
-		},
-		stopCh)
-
-	return err == nil
 }

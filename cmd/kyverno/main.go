@@ -376,45 +376,6 @@ func main() {
 	// start informers and Kyverno controllers
 	go webhookRegisterLeader.Run(ctx)
 
-	// wrap all controllers that need leaderelection
-	// start them once by the leader
-	run := func() {
-		go certManager.Run(stopCh)
-		go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
-		go prgen.Run(1, stopCh)
-		go grc.Run(genWorkers, stopCh)
-		go grcc.Run(1, stopCh)
-	}
-
-	kubeClientLeaderElection, err := utils.NewKubeClient(clientConfig)
-	if err != nil {
-		setupLog.Error(err, "Failed to create kubernetes client")
-		os.Exit(1)
-	}
-
-	le, err := leaderelection.New("kyverno", config.KyvernoNamespace, kubeClientLeaderElection, run, nil, log.Log.WithName("kyverno/LeaderElection"))
-	if err != nil {
-		setupLog.Error(err, "failed to elector leader")
-		os.Exit(1)
-	}
-
-	// start informers and Kyverno controllers
-	go le.Run(ctx)
-
-	go reportReqGen.Run(2, stopCh)
-	go configData.Run(stopCh)
-	go eventGenerator.Run(3, stopCh)
-	go grgen.Run(10, stopCh)
-	go statusSync.Run(1, stopCh)
-	go pCacheController.Run(1, stopCh)
-	go auditHandler.Run(10, stopCh)
-	if !debug {
-		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
-	}
-
-	go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
-	go backwardcompatibility.AddCloneLabel(client, pInformer.Kyverno().V1().ClusterPolicies())
-
 	// the webhook server runs across all instances
 	openAPIController := startOpenAPIController(client, stopCh)
 
@@ -464,6 +425,56 @@ func main() {
 		os.Exit(1)
 	}
 
+	// wrap all controllers that need leaderelection
+	// start them once by the leader
+	run := func() {
+		go certManager.Run(stopCh)
+		go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
+		go prgen.Run(1, stopCh)
+		go grc.Run(genWorkers, stopCh)
+		go grcc.Run(1, stopCh)
+	}
+
+	kubeClientLeaderElection, err := utils.NewKubeClient(clientConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
+	}
+
+	// cleanup Kyverno managed resources followed by webhook shutdown
+	stop := func() {
+		c, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		server.Stop(c)
+
+		// exit on stop leading
+		os.Exit(1)
+	}
+
+	le, err := leaderelection.New("kyverno", config.KyvernoNamespace, kubeClientLeaderElection, run, stop, log.Log.WithName("kyverno/LeaderElection"))
+	if err != nil {
+		setupLog.Error(err, "failed to elector leader")
+		os.Exit(1)
+	}
+
+	// init events handlers
+	// start Kyverno controllers
+	go le.Run(ctx)
+
+	go reportReqGen.Run(2, stopCh)
+	go configData.Run(stopCh)
+	go eventGenerator.Run(3, stopCh)
+	go grgen.Run(10, stopCh)
+	go statusSync.Run(1, stopCh)
+	go pCacheController.Run(1, stopCh)
+	go auditHandler.Run(10, stopCh)
+	if !debug {
+		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
+	}
+
+	go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
+	go backwardcompatibility.AddCloneLabel(client, pInformer.Kyverno().V1().ClusterPolicies())
+
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
 	kubedynamicInformer.Start(stopCh)
@@ -472,9 +483,6 @@ func main() {
 	server.RunAsync(stopCh)
 
 	<-stopCh
-
-	// cleanup webhookconfigurations followed by webhook shutdown
-	server.Stop(ctx)
 
 	// resource cleanup
 	// remove webhook configurations
