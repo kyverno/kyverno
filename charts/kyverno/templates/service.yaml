@@ -3,6 +3,7 @@ kind: Service
 metadata:
   name: {{ template "kyverno.serviceName" . }}
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
   namespace: {{ template "kyverno.namespace" . }}
   {{- with .Values.service.annotations }}
   annotations: {{ tpl (toYaml .) $ | nindent 4 }}
@@ -24,4 +25,5 @@ spec:
     nodePort: {{ .Values.service.metricsNodePort }}
     {{- end }}
   selector: {{ include "kyverno.matchLabels" . | nindent 4 }}
+    app: kyverno
   type: {{ .Values.service.type }}

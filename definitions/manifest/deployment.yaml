@@ -2,11 +2,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: kyverno
-  name: kyverno
   labels:
     app: kyverno
-    app.kubernetes.io/name: kyverno
+  namespace: kyverno
+  name: kyverno
 spec:
   selector:
     matchLabels:
@@ -17,7 +16,6 @@ spec:
     metadata:
       labels:
         app: kyverno
-        app.kubernetes.io/name: kyverno
     spec:
       serviceAccountName: kyverno-service-account
       securityContext:

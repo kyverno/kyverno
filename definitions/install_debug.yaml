@@ -1,6 +1,8 @@
 apiVersion: v1
 kind: Namespace
 metadata:
+  labels:
+    app: kyverno
   name: kyverno
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -2129,6 +2131,8 @@ status:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  labels:
+    app: kyverno
   name: kyverno-service-account
   namespace: kyverno
 ---
@@ -2136,6 +2140,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
+    app: kyverno
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policies
 rules:
@@ -2151,6 +2156,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
+    app: kyverno
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policyreport
 rules:
@@ -2166,6 +2172,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
+    app: kyverno
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-reportchangerequest
 rules:
@@ -2180,6 +2187,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:customresources
 rules:
 - apiGroups:
@@ -2217,6 +2226,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:generatecontroller
 rules:
 - apiGroups:
@@ -2244,6 +2255,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:leaderelection
 rules:
 - apiGroups:
@@ -2260,6 +2273,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:policycontroller
 rules:
 - apiGroups:
@@ -2275,6 +2290,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:userinfo
 rules:
 - apiGroups:
@@ -2293,6 +2310,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:webhook
 rules:
 - apiGroups:
@@ -2337,6 +2356,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:customresources
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -2350,6 +2371,8 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:generatecontroller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -2363,6 +2386,8 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:leaderelection
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -2376,6 +2401,8 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:policycontroller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -2389,6 +2416,8 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:userinfo
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -2402,6 +2431,8 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:webhook
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -2418,6 +2449,8 @@ data:
   resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]'
 kind: ConfigMap
 metadata:
+  labels:
+    app: kyverno
   name: init-config
   namespace: kyverno
 ---
