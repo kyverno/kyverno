@@ -742,9 +742,9 @@ func Test_Generate_Synchronize_Flag(t *testing.T) {
 
 func Test_Source_Resource_Update_Replication(t *testing.T) {
 	RegisterTestingT(t)
-	// if os.Getenv("E2E") == "" {
-	// 	t.Skip("Skipping E2E Test")
-	// }
+	if os.Getenv("E2E") == "" {
+		t.Skip("Skipping E2E Test")
+	}
 	// Generate E2E Client ==================
 	e2eClient, err := e2e.NewE2EClient()
 	Expect(err).To(BeNil())
@@ -832,7 +832,7 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 		element["initial_lives"] = "5"
 
 		unstructured.SetNestedMap(sourceRes.UnstructuredContent(), element, "data")
-		_, err = e2eClient.UpdateNamespacedResource(cmGVR, sourceRes, tests.CloneNamespace)
+		_, err = e2eClient.UpdateNamespacedResource(cmGVR, tests.CloneNamespace, sourceRes)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
 
@@ -879,7 +879,7 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 		element["initial_lives"] = "15"
 
 		unstructured.SetNestedMap(genRes.UnstructuredContent(), element, "data")
-		_, err = e2eClient.UpdateNamespacedResource(cmGVR, genRes, tests.ResourceNamespace)
+		_, err = e2eClient.UpdateNamespacedResource(cmGVR, tests.ResourceNamespace, genRes)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
 
