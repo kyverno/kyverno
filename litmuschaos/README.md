@@ -8,4 +8,4 @@ Kyverno is a policy engine designed for Kubernetes. It can validate, mutate, and
 | ------------- | ------------- |
 | Test command  | `go test ./litmuschaos/pod_cpu_hog -v` |
 | Goal  | Seeing how the overall application stack behaves when Kyverno pods experience CPU spikes either due to expected/undesired processes  |
-| Expected result  | Kyverno is responding after running CPU Hog  |
+| Expected result  | Kyverno is responding after running Pod CPU Hog experiment |
