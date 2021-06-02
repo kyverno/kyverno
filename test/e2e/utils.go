@@ -159,3 +159,8 @@ func CallAPI(request APIRequest) (*http.Response, error) {
 
 	return response, nil
 }
+
+// UpdateNamespacedResource ...
+func (e2e *E2EClient) UpdateNamespacedResource(gvr schema.GroupVersionResource, resourceData *unstructured.Unstructured, namespace string) (*unstructured.Unstructured, error) {
+	return e2e.Client.Resource(gvr).Namespace(namespace).Update(context.TODO(), resourceData, metav1.UpdateOptions{})
+}

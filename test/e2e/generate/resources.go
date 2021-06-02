@@ -93,7 +93,7 @@ spec:
             namespace: default
 `)
 
-// Source Role from which ROle is Cloned by generate
+// Source Role from which Role is Cloned by generate
 var sourceRoleYaml = []byte(`
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
@@ -244,4 +244,42 @@ subjects:
 - kind: ServiceAccount
   name: kyverno-service-account
   namespace: kyverno
+`)
+
+var cloneSourceResource = []byte(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: game-demo
+data:
+  initial_lives: "2"
+`)
+
+var genCloneConfigMapPolicyYaml = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-policy
+spec:
+  rules:
+  - name: copy-game-demo
+    match:
+      resources:
+        kinds:
+        - Namespace
+    exclude:
+      resources:
+        namespaces:
+        - kube-system
+        - default
+        - kube-public
+        - kyverno
+    generate:
+      kind: ConfigMap
+      name: game-demo
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: default
+        name: game-demo
 `)
