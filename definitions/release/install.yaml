@@ -3183,8 +3183,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  app: kyverno
   labels:
+    app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Kustomize
