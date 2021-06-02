@@ -8,6 +8,16 @@ metadata:
   name: test
 `)
 
+// Namespace With Label Description
+var namespaceWithLabelYaml = []byte(`
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test
+  labels:
+    security: standard
+`)
+
 // Cluster Policy to generate Role and RoleBinding with synchronize=true
 var roleRoleBindingYamlWithSync = []byte(`
 apiVersion: kyverno.io/v1
@@ -93,7 +103,7 @@ spec:
             namespace: default
 `)
 
-// Source Role from which Role is Cloned by generate
+// Source Role from which ROle is Cloned by generate
 var sourceRoleYaml = []byte(`
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
@@ -244,6 +254,123 @@ subjects:
 - kind: ServiceAccount
   name: kyverno-service-account
   namespace: kyverno
+`)
+
+var genNetworkPolicyYaml = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-networkpolicy
+spec:
+  background: true
+  rules:
+    - name: allow-dns
+      match:
+        resources:
+          kinds:
+            - Namespace
+          selector:
+            matchLabels:
+              security: standard
+      exclude:
+        resources:
+          namespaces:
+            - "kube-system"
+            - "default"
+            - "kube-public"
+            - "nova-kyverno"
+      generate:
+        synchronize: true
+        kind: NetworkPolicy
+        name: allow-dns
+        namespace: "{{request.object.metadata.name}}"
+        data:
+          spec:
+            egress:
+              - ports:
+                  - protocol: UDP
+                    port: 5353
+            podSelector: {}
+            policyTypes:
+              - Egress
+`)
+
+var updatGenNetworkPolicyYaml = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-networkpolicy
+spec:
+  background: true
+  rules:
+    - name: allow-dns
+      match:
+        resources:
+          kinds:
+            - Namespace
+          selector:
+            matchLabels:
+              security: standard
+      exclude:
+        resources:
+          namespaces:
+            - "kube-system"
+            - "default"
+            - "kube-public"
+            - "nova-kyverno"
+      generate:
+        synchronize: true
+        kind: NetworkPolicy
+        name: allow-dns
+        namespace: "{{request.object.metadata.name}}"
+        data:
+          spec:
+            egress:
+              - ports:
+                  - protocol: TCP
+                    port: 5353
+            podSelector: {}
+            policyTypes:
+              - Egress
+`)
+
+var updateSynchronizeInGeneratePolicyYaml = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-networkpolicy
+spec:
+  background: true
+  rules:
+    - name: allow-dns
+      match:
+        resources:
+          kinds:
+            - Namespace
+          selector:
+            matchLabels:
+              security: standard
+      exclude:
+        resources:
+          namespaces:
+            - "kube-system"
+            - "default"
+            - "kube-public"
+            - "nova-kyverno"
+      generate:
+        synchronize: false
+        kind: NetworkPolicy
+        name: allow-dns
+        namespace: "{{request.object.metadata.name}}"
+        data:
+          spec:
+            egress:
+              - ports:
+                  - protocol: UDP
+                    port: 5353
+            podSelector: {}
+            policyTypes:
+              - Egress
 `)
 
 var cloneSourceResource = []byte(`

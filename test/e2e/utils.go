@@ -82,6 +82,8 @@ func GetWithRetry(sleepInterval time.Duration, retryCount int, retryFunc func() 
 		if err != nil {
 			time.Sleep(sleepInterval * time.Second)
 			continue
+		} else {
+			break
 		}
 	}
 	return err
@@ -132,6 +134,38 @@ func (e2e *E2EClient) CreateClusteredResourceYaml(gvr schema.GroupVersionResourc
 	}
 	result, err := e2e.CreateClusteredResource(gvr, &resource)
 	return result, err
+}
+
+// UpdateClusteredResource ...
+func (e2e *E2EClient) UpdateClusteredResource(gvr schema.GroupVersionResource, resourceData *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	return e2e.Client.Resource(gvr).Update(context.TODO(), resourceData, metav1.UpdateOptions{})
+}
+
+// UpdateClusteredResourceYaml creates cluster resources from YAML like Namespace, ClusterRole, ClusterRoleBinding etc ...
+func (e2e *E2EClient) UpdateClusteredResourceYaml(gvr schema.GroupVersionResource, resourceData []byte) (*unstructured.Unstructured, error) {
+	resource := unstructured.Unstructured{}
+	err := yaml.Unmarshal(resourceData, &resource)
+	if err != nil {
+		return nil, err
+	}
+	result, err := e2e.UpdateClusteredResource(gvr, &resource)
+	return result, err
+}
+
+// UpdateNamespacedResourceYaml creates namespaced resources like Pods, Services, Deployments etc
+func (e2e *E2EClient) UpdateNamespacedResourceYaml(gvr schema.GroupVersionResource, namespace string, resourceData []byte) (*unstructured.Unstructured, error) {
+	resource := unstructured.Unstructured{}
+	err := yaml.Unmarshal(resourceData, &resource)
+	if err != nil {
+		return nil, err
+	}
+	result, err := e2e.Client.Resource(gvr).Namespace(namespace).Update(context.TODO(), &resource, metav1.UpdateOptions{})
+	return result, err
+}
+
+// CreateNamespacedResource ...
+func (e2e *E2EClient) UpdateNamespacedResource(gvr schema.GroupVersionResource, namespace string, resourceData *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	return e2e.Client.Resource(gvr).Namespace(namespace).Update(context.TODO(), resourceData, metav1.UpdateOptions{})
 }
 
 func CallAPI(request APIRequest) (*http.Response, error) {
