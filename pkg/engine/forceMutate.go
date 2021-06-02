@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 
+	"github.com/ghodss/yaml"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
@@ -86,6 +87,20 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 				return unstructured.Unstructured{}, fmt.Errorf(resp.Message)
 			}
 		}
+
+		if rule.Mutation.PatchesJSON6902 != "" {
+			var resp response.RuleResponse
+			jsonPatches, err := yaml.YAMLToJSON([]byte(rule.Mutation.PatchesJSON6902))
+			if err != nil {
+				return unstructured.Unstructured{}, err
+			}
+
+			resp, resource = mutate.ProcessPatchJSON6902(rule.Name, jsonPatches, resource, logger.WithValues("rule", rule.Name))
+			if !resp.Success {
+				return unstructured.Unstructured{}, fmt.Errorf(resp.Message)
+			}
+		}
+
 	}
 
 	return resource, nil

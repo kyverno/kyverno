@@ -1,4 +1,4 @@
-{{ $name := "restrict-sysctls" -}}
+{{- $name := "restrict-sysctls" }}
 {{- if eq (include "kyverno.podSecurityDefault" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -6,11 +6,16 @@ metadata:
   name: {{ $name }}
   annotations:
     policies.kyverno.io/category: Pod Security Standards (Default)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- end }}
     policies.kyverno.io/description: >-
       Sysctls can disable security mechanisms or affect all containers on a
       host, and should be disallowed except for an allowed "safe" subset. A
       sysctl is considered safe if it is namespaced in the container or the
       Pod, and it is isolated from other Pods or processes on the same Node.
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 spec:
   validationFailureAction: {{ .Values.validationFailureAction }}
   background: true

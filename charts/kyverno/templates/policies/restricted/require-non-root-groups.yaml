@@ -1,4 +1,4 @@
-{{ $name := "require-non-root-groups" -}}
+{{- $name := "require-non-root-groups" }}
 {{- if eq (include "kyverno.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -6,8 +6,13 @@ metadata:
   name: {{ $name }}
   annotations:
     policies.kyverno.io/category: Pod Security Standards (Restricted)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- end }}
     policies.kyverno.io/description: >-
       Containers should be forbidden from running with a root primary or supplementary GID.
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 spec:
   background: true
   validationFailureAction: {{ .Values.validationFailureAction }}
@@ -45,7 +50,7 @@ spec:
         pattern:
           spec:
             =(securityContext):
-              =(supplementalGroups): ["null"]
+              =(supplementalGroups): ">0"
     - name: check-fsGroup
       match:
         resources:
@@ -53,10 +58,10 @@ spec:
             - Pod
       validate:
         message: >-
-          Changing of file system groups is not allowed. The field	
-          spec.securityContext.fsGroup must not be defined.
+          Changing to root group ID is disallowed. The field
+          spec.securityContext.fsGroup must be empty or greater than zero.
         pattern:
           spec:
             =(securityContext):
-              X(fsGroup): "*"
+              =(fsGroup): ">0"
 {{- end -}}

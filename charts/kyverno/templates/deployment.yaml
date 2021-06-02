@@ -3,14 +3,17 @@ kind: Deployment
 metadata:
   name: {{ template "kyverno.fullname" . }}
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
   namespace: {{ template "kyverno.namespace" . }}
 spec:
   selector:
     matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
+      app: kyverno
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels: {{ include "kyverno.labels" . | nindent 8 }}
+        app: kyverno
         {{- range $key, $value := .Values.podLabels }}
         {{ $key }}: {{ $value }}
         {{- end }}
@@ -47,6 +50,9 @@ spec:
         - name: kyverno-pre
           image: {{ .Values.initImage.repository }}:{{ default .Chart.AppVersion (default .Values.image.tag .Values.initImage.tag) }}
           imagePullPolicy: {{ default .Values.image.pullPolicy .Values.initImage.pullPolicy }}
+          {{- with .Values.initResources }}
+          resources: {{ tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           securityContext:
             runAsUser: 1000
             runAsNonRoot: true
@@ -88,6 +94,9 @@ spec:
           - containerPort: 9443
             name: https
             protocol: TCP
+          - containerPort: 8000
+            name: metrics-port
+            protocol: TCP  
           env:
           - name: INIT_CONFIG
             value: {{ template "kyverno.configMapName" . }}

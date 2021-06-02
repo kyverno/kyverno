@@ -22,9 +22,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	util "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/lensesio/tableprinter"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -75,10 +77,10 @@ type SkippedPolicy struct {
 }
 
 type TestResults struct {
-	Policy   string `json:"policy"`
-	Rule     string `json:"rule"`
-	Status   string `json:"status"`
-	Resource string `json:"resource"`
+	Policy   string              `json:"policy"`
+	Rule     string              `json:"rule"`
+	Status   report.PolicyStatus `json:"status"`
+	Resource string              `json:"resource"`
 }
 
 type ReportResult struct {
@@ -106,6 +108,7 @@ type Values struct {
 }
 
 type resultCounts struct {
+	skip int
 	pass int
 	fail int
 }
@@ -145,105 +148,125 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 		sort.Strings(policyYamls)
 		for _, yamlFilePath := range policyYamls {
 			file, err := fs.Open(yamlFilePath)
+			if err != nil {
+				errors = append(errors, sanitizederror.NewWithError("Error: failed to open file", err))
+				continue
+			}
 			if strings.Contains(file.Name(), fileName) {
 				testYamlCount++
 				policyresoucePath := strings.Trim(yamlFilePath, fileName)
 				bytes, err := ioutil.ReadAll(file)
 				if err != nil {
-					sanitizederror.NewWithError("Error: failed to read file", err)
+					errors = append(errors, sanitizederror.NewWithError("Error: failed to read file", err))
 					continue
 				}
 				policyBytes, err := yaml.ToJSON(bytes)
 				if err != nil {
-					sanitizederror.NewWithError("failed to convert to JSON", err)
+					errors = append(errors, sanitizederror.NewWithError("failed to convert to JSON", err))
 					continue
 				}
 				if err := applyPoliciesFromPath(fs, policyBytes, valuesFile, true, policyresoucePath, rc); err != nil {
 					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
 			}
-			if err != nil {
-				sanitizederror.NewWithError("Error: failed to open file", err)
-				continue
-			}
+		}
+		if testYamlCount == 0 {
+			fmt.Printf("\n No test yamls available \n")
 		}
 	} else {
 		path := filepath.Clean(dirPath[0])
-		if err != nil {
-			errors = append(errors, err)
-		}
-		err := getLocalDirTestFiles(fs, path, fileName, valuesFile, rc, testYamlCount)
-		if err != nil {
-			errors = append(errors, err)
-		}
-		if len(errors) > 0 && log.Log.V(1).Enabled() {
-			fmt.Printf("ignoring errors: \n")
-			for _, e := range errors {
-				fmt.Printf("    %v \n", e.Error())
-			}
+		errors = getLocalDirTestFiles(fs, path, fileName, valuesFile, rc)
+	}
+	if len(errors) > 0 && log.Log.V(1).Enabled() {
+		fmt.Printf("ignoring errors: \n")
+		for _, e := range errors {
+			fmt.Printf("    %v \n", e.Error())
 		}
 	}
 	if rc.fail > 0 {
 		os.Exit(1)
 	}
-	if testYamlCount == 0 {
-		fmt.Printf("\n No test yamls available \n")
-	}
 	os.Exit(0)
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts, testYamlCount int) error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts) []error {
+	var errors []error
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
-		return fmt.Errorf("failed to read %v: %v", path, err.Error())
+		return []error{fmt.Errorf("failed to read %v: %v", path, err.Error())}
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc, testYamlCount)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc)
 			continue
 		}
 		if strings.Contains(file.Name(), fileName) {
-			testYamlCount++
 			yamlFile, err := ioutil.ReadFile(filepath.Join(path, file.Name()))
 			if err != nil {
-				sanitizederror.NewWithError("unable to read yaml", err)
+				errors = append(errors, sanitizederror.NewWithError("unable to read yaml", err))
 				continue
 			}
 			valuesBytes, err := yaml.ToJSON(yamlFile)
 			if err != nil {
-				sanitizederror.NewWithError("failed to convert json", err)
+				errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
 				continue
 			}
 			if err := applyPoliciesFromPath(fs, valuesBytes, valuesFile, false, path, rc); err != nil {
-				sanitizederror.NewWithError("failed to apply test command", err)
+				errors = append(errors, sanitizederror.NewWithError(fmt.Sprintf("failed to apply test command from file %s", file.Name()), err))
 				continue
 			}
 		}
 	}
-	return nil
+	return errors
 }
 
-func buildPolicyResults(resps []*response.EngineResponse) map[string][]interface{} {
-	results := make(map[string][]interface{})
+func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResults) map[string]report.PolicyReportResult {
+	results := make(map[string]report.PolicyReportResult)
 	infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
+	for _, resp := range resps {
+		policyName := resp.PolicyResponse.Policy
+		resourceName := resp.PolicyResponse.Resource.Name
+		var rules []string
+		for _, rule := range resp.PolicyResponse.Rules {
+			rules = append(rules, rule.Name)
+		}
+		result := report.PolicyReportResult{
+			Policy: policyName,
+			Resources: []*corev1.ObjectReference{
+				{
+					Name: resourceName,
+				},
+			},
+		}
+		for _, test := range testResults {
+			if test.Policy == policyName && test.Resource == resourceName {
+				if !util.ContainsString(rules, test.Rule) {
+					result.Status = report.StatusSkip
+				}
+				resultsKey := fmt.Sprintf("%s-%s-%s", test.Policy, test.Rule, test.Resource)
+				if _, ok := results[resultsKey]; !ok {
+					results[resultsKey] = result
+				}
+			}
+		}
+	}
 	for _, info := range infos {
 		for _, infoResult := range info.Results {
 			for _, rule := range infoResult.Rules {
 				if rule.Type != utils.Validation.String() {
 					continue
 				}
-				result := report.PolicyReportResult{
-					Policy: info.PolicyName,
-					Resources: []*corev1.ObjectReference{
-						{
-							Name: infoResult.Resource.Name,
-						},
-					},
+				var result report.PolicyReportResult
+				resultsKey := fmt.Sprintf("%s-%s-%s", info.PolicyName, rule.Name, infoResult.Resource.Name)
+				if val, ok := results[resultsKey]; ok {
+					result = val
+				} else {
+					continue
 				}
 				result.Rule = rule.Name
 				result.Status = report.PolicyStatus(rule.Check)
-				results[rule.Name] = append(results[rule.Name], result)
+				results[resultsKey] = result
 			}
 		}
 	}
@@ -269,6 +292,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	var dClient *client.Client
 	values := &Test{}
 	var variablesString string
+	store.SetMock(true)
 
 	if err := json.Unmarshal(policyBytes, values); err != nil {
 		return sanitizederror.NewWithError("failed to decode yaml", err)
@@ -333,6 +357,18 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			continue
 		}
 		for _, resource := range resources {
+			var resourcePolicy string
+			for polName, values := range valuesMap {
+				for resName := range values {
+					if resName == resource.GetName() {
+						resourcePolicy = polName
+					}
+				}
+			}
+			if len(valuesMap) != 0 && resourcePolicy != policy.GetName() {
+				log.Log.V(3).Info(fmt.Sprintf("Skipping resource, policy names do not match %s != %s", resourcePolicy, policy.GetName()))
+				continue
+			}
 			thisPolicyResourceValues := make(map[string]string)
 			if len(valuesMap[policy.GetName()]) != 0 && !reflect.DeepEqual(valuesMap[policy.GetName()][resource.GetName()], Resource{}) {
 				thisPolicyResourceValues = valuesMap[policy.GetName()][resource.GetName()].Values
@@ -349,7 +385,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			validateEngineResponses = append(validateEngineResponses, validateErs)
 		}
 	}
-	resultsMap := buildPolicyResults(validateEngineResponses)
+	resultsMap := buildPolicyResults(validateEngineResponses, values.Results)
 	resultErr := printTestResult(resultsMap, values.Results, rc)
 	if resultErr != nil {
 		return sanitizederror.NewWithError("Unable to genrate result. Error:", resultErr)
@@ -357,40 +393,38 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	return
 }
 
-func printTestResult(resps map[string][]interface{}, testResults []TestResults, rc *resultCounts) error {
+func printTestResult(resps map[string]report.PolicyReportResult, testResults []TestResults, rc *resultCounts) error {
 	printer := tableprinter.New(os.Stdout)
 	table := []*Table{}
+	boldGreen := color.New(color.FgGreen).Add(color.Bold)
 	boldRed := color.New(color.FgRed).Add(color.Bold)
+	boldYellow := color.New(color.FgYellow).Add(color.Bold)
 	boldFgCyan := color.New(color.FgCyan).Add(color.Bold)
 	for i, v := range testResults {
 		res := new(Table)
 		res.ID = i + 1
 		res.Resource = boldFgCyan.Sprintf(v.Resource) + " with " + boldFgCyan.Sprintf(v.Policy) + "/" + boldFgCyan.Sprintf(v.Rule)
-		n := resps[v.Rule]
-		data, _ := json.Marshal(n)
-		valuesBytes, err := yaml.ToJSON(data)
-		if err != nil {
-			return sanitizederror.NewWithError("failed to convert json", err)
+		resultKey := fmt.Sprintf("%s-%s-%s", v.Policy, v.Rule, v.Resource)
+		var testRes report.PolicyReportResult
+		if val, ok := resps[resultKey]; ok {
+			testRes = val
+		} else {
+			res.Result = boldYellow.Sprintf("Not found")
+			rc.fail++
+			table = append(table, res)
+			continue
 		}
-		var r []ReportResult
-		json.Unmarshal(valuesBytes, &r)
-		res.Result = boldRed.Sprintf("Fail")
-		if len(r) != 0 {
-			var resource TestResults
-			for _, testRes := range r {
-				if testRes.Resources[0].Name == v.Resource {
-					resource.Policy = testRes.Policy
-					resource.Rule = testRes.Rule
-					resource.Status = testRes.Status
-					resource.Resource = testRes.Resources[0].Name
-					if v == resource {
-						res.Result = "Pass"
-						rc.pass++
-					} else {
-						rc.fail++
-					}
-				}
+		if testRes.Status == v.Status {
+			if testRes.Status == report.StatusSkip {
+				res.Result = boldGreen.Sprintf("Skip")
+				rc.skip++
+			} else {
+				res.Result = boldGreen.Sprintf("Pass")
+				rc.pass++
 			}
+		} else {
+			res.Result = boldRed.Sprintf("Fail")
+			rc.fail++
 		}
 		table = append(table, res)
 	}

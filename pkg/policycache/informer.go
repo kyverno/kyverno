@@ -28,7 +28,7 @@ func NewPolicyCacheController(
 	log logr.Logger) *Controller {
 
 	pc := Controller{
-		Cache: newPolicyCache(log),
+		Cache: newPolicyCache(log, pInformer.Lister(), nspInformer.Lister()),
 		log:   log,
 	}
 

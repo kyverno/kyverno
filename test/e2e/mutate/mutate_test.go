@@ -10,10 +10,11 @@ import (
 	"github.com/kyverno/kyverno/test/e2e"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var (
-	// Cluster Polict GVR
+	// Cluster Policy GVR
 	clPolGVR = e2e.GetGVR("kyverno.io", "v1", "clusterpolicies")
 	// Namespace GVR
 	nsGVR = e2e.GetGVR("", "v1", "namespaces")
@@ -57,7 +58,7 @@ func Test_Mutate_Sets(t *testing.T) {
 
 		// Create Namespace
 		By(fmt.Sprintf("Creating Namespace %s", clPolNS))
-		_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, namespaceYaml)
+		_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, newNamespaceYaml("test-mutate"))
 		Expect(err).NotTo(HaveOccurred())
 
 		// Create source CM
@@ -106,4 +107,68 @@ func Test_Mutate_Sets(t *testing.T) {
 		By(fmt.Sprintf("Test %s Completed \n\n\n", tests.TestName))
 	}
 
+}
+
+func Test_Mutate_Ingress(t *testing.T) {
+	RegisterTestingT(t)
+	if os.Getenv("E2E") == "" {
+		t.Skip("Skipping E2E Test")
+	}
+
+	// Generate E2E Client
+	e2eClient, err := e2e.NewE2EClient()
+	Expect(err).To(BeNil())
+
+	nspace := ingressTests.testNamesapce
+	By(fmt.Sprintf("Cleaning Cluster Policies"))
+	e2eClient.CleanClusterPolicies(clPolGVR)
+
+	By(fmt.Sprintf("Deleting Namespace : %s", nspace))
+	e2eClient.DeleteClusteredResource(nsGVR, nspace)
+
+	// Wait Till Deletion of Namespace
+	err = e2e.GetWithRetry(time.Duration(1), 15, func() error {
+		_, err := e2eClient.GetClusteredResource(nsGVR, nspace)
+		if err != nil {
+			return nil
+		}
+		return errors.New("Deleting Namespace")
+	})
+	Expect(err).To(BeNil())
+
+	By(fmt.Sprintf("Creating mutate ClusterPolicy "))
+	_, err = e2eClient.CreateClusteredResourceYaml(clPolGVR, ingressTests.cpol)
+	Expect(err).NotTo(HaveOccurred())
+
+	By(fmt.Sprintf("Creating Namespace %s", nspace))
+	_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, newNamespaceYaml(nspace))
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, test := range ingressTests.tests {
+		By(fmt.Sprintf("\n\nStart testing %s", test.testName))
+
+		gvr := e2e.GetGVR(test.group, test.version, test.rsc)
+		By(fmt.Sprintf("Creating Ingress %v in %s", gvr, nspace))
+		_, err = e2eClient.CreateNamespacedResourceYaml(gvr, nspace, test.resource)
+		Expect(err).NotTo(HaveOccurred())
+
+		By(fmt.Sprintf("Verifying Ingress %v in the Namespace : %s", gvr, nspace))
+		var mutatedResource *unstructured.Unstructured
+		err = e2e.GetWithRetry(time.Duration(1), 15, func() error {
+			mutatedResource, err = e2eClient.GetNamespacedResource(gvr, nspace, test.resourceName)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+		Expect(err).To(BeNil())
+
+		By(fmt.Sprintf("Comparing patched field"))
+		rules, ok, err := unstructured.NestedSlice(mutatedResource.UnstructuredContent(), "spec", "rules")
+		Expect(err).To(BeNil())
+		Expect(ok).To(BeTrue())
+		rule := rules[0].(map[string]interface{})
+		host := rule["host"].(string)
+		Expect(host).To(Equal("kuard.mycompany.com"))
+	}
 }

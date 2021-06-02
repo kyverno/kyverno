@@ -7,8 +7,13 @@ metadata:
   annotations:
     policies.kyverno.io/title: Disallow SELinux
     policies.kyverno.io/category: Pod Security Standards (Default)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- end }}
     policies.kyverno.io/description: >-
       SELinux options can be used to escalate privileges and should not be allowed.
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 spec:
   validationFailureAction: {{ .Values.validationFailureAction }}
   background: true

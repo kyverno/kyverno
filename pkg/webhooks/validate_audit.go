@@ -11,6 +11,7 @@ import (
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/policystatus"
@@ -60,6 +61,7 @@ type auditHandler struct {
 	log           logr.Logger
 	configHandler config.Interface
 	resCache      resourcecache.ResourceCache
+	promConfig    *metrics.PromConfig
 }
 
 // NewValidateAuditHandler returns a new instance of audit policy handler
@@ -73,7 +75,8 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	log logr.Logger,
 	dynamicConfig config.Interface,
 	resCache resourcecache.ResourceCache,
-	client *client.Client) AuditHandler {
+	client *client.Client,
+	promConfig *metrics.PromConfig) AuditHandler {
 
 	return &auditHandler{
 		pCache:         pCache,
@@ -91,6 +94,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		configHandler:  dynamicConfig,
 		resCache:       resCache,
 		client:         client,
+		promConfig:     promConfig,
 	}
 }
 
@@ -147,11 +151,12 @@ func (h *auditHandler) processNextWorkItem() bool {
 func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	var roles, clusterRoles []string
 	var err error
-
+	// time at which the corresponding the admission request's processing got initiated
+	admissionRequestTimestamp := time.Now().Unix()
 	logger := h.log.WithName("process")
-	policies := h.pCache.Get(policycache.ValidateAudit, nil)
+	policies := h.pCache.GetPolicyObject(policycache.ValidateAudit, request.Kind.Kind, "")
 	// Get namespace policies from the cache for the requested resource namespace
-	nsPolicies := h.pCache.Get(policycache.ValidateAudit, &request.Namespace)
+	nsPolicies := h.pCache.GetPolicyObject(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
 	policies = append(policies, nsPolicies...)
 	// getRoleRef only if policy has roles/clusterroles defined
 	if containRBACInfo(policies) {
@@ -176,7 +181,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 
-	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, h.client, namespaceLabels)
+	HandleValidation(h.promConfig, request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, h.client, namespaceLabels, admissionRequestTimestamp)
 	return nil
 }
 

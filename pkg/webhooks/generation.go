@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	contextdefault "context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -14,12 +15,18 @@ import (
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
+	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	gen "github.com/kyverno/kyverno/pkg/generate"
+	"github.com/kyverno/kyverno/pkg/metrics"
+	policyRuleExecutionLatency "github.com/kyverno/kyverno/pkg/metrics/policyruleexecutionlatency"
+	policyRuleResults "github.com/kyverno/kyverno/pkg/metrics/policyruleresults"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -29,8 +36,8 @@ import (
 )
 
 //HandleGenerate handles admission-requests for policies with generate rules
-func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo, dynamicConfig config.Interface) {
-	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo, dynamicConfig config.Interface, admissionRequestTimestamp int64, latencySender *chan int64) {
+	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	logger.V(4).Info("incoming request")
 	var engineResponses []*response.EngineResponse
 	if request.Operation == v1beta1.Create || request.Operation == v1beta1.Update {
@@ -77,6 +84,11 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 					resp: engineResponse,
 				})
 			}
+			// registering the kyverno_policy_rule_results_info metric concurrently
+			go ws.registerPolicyRuleResultsMetricGeneration(logger, string(request.Operation), *policy, *engineResponse, admissionRequestTimestamp)
+
+			// registering the kyverno_policy_rule_execution_latency_milliseconds metric concurrently
+			go ws.registerPolicyRuleExecutionLatencyMetricGenerate(logger, string(request.Operation), *policy, *engineResponse, admissionRequestTimestamp)
 		}
 
 		// Adds Generate Request to a channel(queue size 1000) to generators
@@ -92,11 +104,35 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	if request.Operation == v1beta1.Update {
 		ws.handleUpdate(request, policies)
 	}
+
+	// sending the admission request latency to other goroutine (reporting the metrics) over the channel
+	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
+	*latencySender <- admissionReviewLatencyDuration
+}
+
+func (ws *WebhookServer) registerPolicyRuleResultsMetricGeneration(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, admissionRequestTimestamp int64) {
+	resourceRequestOperationPromAlias, err := policyRuleResults.ParseResourceRequestOperation(resourceRequestOperation)
+	if err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_rule_results_info metrics for the above policy", "name", policy.Name)
+	}
+	if err := policyRuleResults.ParsePromMetrics(*ws.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_rule_results_info metrics for the above policy", "name", policy.Name)
+	}
+}
+
+func (ws *WebhookServer) registerPolicyRuleExecutionLatencyMetricGenerate(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, admissionRequestTimestamp int64) {
+	resourceRequestOperationPromAlias, err := policyRuleExecutionLatency.ParseResourceRequestOperation(resourceRequestOperation)
+	if err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_rule_execution_latency_milliseconds metrics for the above policy", "name", policy.Name)
+	}
+	if err := policyRuleExecutionLatency.ParsePromMetrics(*ws.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_rule_execution_latency_milliseconds metrics for the above policy", "name", policy.Name)
+	}
 }
 
 //handleUpdate handles admission-requests for update
 func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy) {
-	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
 	if err != nil {
 		logger.Error(err, "failed to convert object resource to unstructured format")
@@ -147,27 +183,32 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 		if policy.GetName() == policyName {
 			for _, rule := range policy.Spec.Rules {
 				if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
-					data := rule.Generation.DeepCopy().Data
-					if data != nil {
-						if _, err := gen.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
-							enqueueBool = true
-							break
-						}
-					}
-
-					cloneName := rule.Generation.Clone.Name
-					if cloneName != "" {
-						obj, err := ws.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
-						if err != nil {
-							logger.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
-							continue
+					updatedRule, err := getGeneratedByResource(newRes, resLabels, ws.client, rule, logger)
+					if err != nil {
+						logger.V(4).Info("skipping generate policy and resource pattern validaton", "error", err)
+					} else {
+						data := updatedRule.Generation.DeepCopy().Data
+						if data != nil {
+							if _, err := gen.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
+								enqueueBool = true
+								break
+							}
 						}
 
-						sourceObj, newResObj := stripNonPolicyFields(obj.Object, newRes.Object, logger)
+						cloneName := updatedRule.Generation.Clone.Name
+						if cloneName != "" {
+							obj, err := ws.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+							if err != nil {
+								logger.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
+								continue
+							}
 
-						if _, err := gen.ValidateResourceWithPattern(logger, newResObj, sourceObj); err != nil {
-							enqueueBool = true
-							break
+							sourceObj, newResObj := stripNonPolicyFields(obj.Object, newRes.Object, logger)
+
+							if _, err := gen.ValidateResourceWithPattern(logger, newResObj, sourceObj); err != nil {
+								enqueueBool = true
+								break
+							}
 						}
 					}
 				}
@@ -184,6 +225,38 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 		}
 		ws.grController.EnqueueGenerateRequestFromWebhook(gr)
 	}
+}
+
+func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client *client.Client, rule v1.Rule, logger logr.Logger) (v1.Rule, error) {
+	var apiVersion, kind, name, namespace string
+	sourceRequest := &v1beta1.AdmissionRequest{}
+	kind = resLabels["kyverno.io/generated-by-kind"]
+	name = resLabels["kyverno.io/generated-by-name"]
+	if kind != "Namespace" {
+		namespace = resLabels["kyverno.io/generated-by-namespace"]
+	}
+	obj, err := client.GetResource(apiVersion, kind, namespace, name)
+	if err != nil {
+		logger.Error(err, "source resource not found.")
+		return rule, err
+	}
+	rawObj, err := json.Marshal(obj)
+	if err != nil {
+		logger.Error(err, "failed to marshal resource")
+		return rule, err
+	}
+	sourceRequest.Object.Raw = rawObj
+	sourceRequest.Operation = "CREATE"
+	ctx := enginectx.NewContext()
+	if err := ctx.AddRequest(sourceRequest); err != nil {
+		logger.Error(err, "failed to load incoming request in context")
+		return rule, err
+	}
+	if rule, err = variables.SubstituteAllInRule(logger, ctx, rule); err != nil {
+		logger.Error(err, "variable substitution failed for rule %s", rule.Name)
+		return rule, err
+	}
+	return rule, nil
 }
 
 //stripNonPolicyFields - remove feilds which get updated with each request by kyverno and are non policy fields
@@ -252,7 +325,7 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 
 //HandleDelete handles admission-requests for delete
 func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
-	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
 	if err != nil {
 		logger.Error(err, "failed to convert object resource to unstructured format")

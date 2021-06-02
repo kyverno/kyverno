@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	jmespath "github.com/jmespath/go-jmespath"
+	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 )
 
 //Query the JSON context with JMESPATH search path
@@ -25,7 +25,7 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 	}
 
 	// compile the query
-	queryPath, err := jmespath.Compile(query)
+	queryPath, err := jmespath.New(query)
 	if err != nil {
 		ctx.log.Error(err, "incorrect query", "query", query)
 		return emptyResult, fmt.Errorf("incorrect query %s: %v", query, err)

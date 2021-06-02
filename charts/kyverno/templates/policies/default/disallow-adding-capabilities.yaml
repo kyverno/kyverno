@@ -1,4 +1,4 @@
-{{ $name := "disallow-add-capabilities" -}}
+{{- $name := "disallow-add-capabilities" }}
 {{- if eq (include "kyverno.podSecurityDefault" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -6,9 +6,14 @@ metadata:
   name: {{ $name }}
   annotations:
     policies.kyverno.io/category: Pod Security Standards (Default)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- end }}
     policies.kyverno.io/description: >-
       Capabilities permit privileged actions without giving full root access.
       Adding capabilities beyond the default set must not be allowed.
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 spec:
   validationFailureAction: {{ .Values.validationFailureAction }}
   background: true

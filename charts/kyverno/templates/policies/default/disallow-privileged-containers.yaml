@@ -6,8 +6,13 @@ metadata:
   name: {{ $name }}
   annotations:
     policies.kyverno.io/category: Pod Security Standards (Default)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- end }}
     policies.kyverno.io/description: >-
       Privileged mode disables most security mechanisms and must not be allowed.
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 spec:
   validationFailureAction: {{ .Values.validationFailureAction }}
   background: true

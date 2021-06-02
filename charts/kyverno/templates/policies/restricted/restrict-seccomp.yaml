@@ -1,4 +1,4 @@
-{{ $name := "restrict-seccomp" -}}
+{{- $name := "restrict-seccomp" }}
 {{- if eq (include "kyverno.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -7,9 +7,14 @@ metadata:
   annotations:
     policies.kyverno.io/title: Restrict Seccomp
     policies.kyverno.io/category: Pod Security Standards (Restricted)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- end }}
     policies.kyverno.io/description: >-
       The runtime default seccomp profile must be required, or only specific
       additional profiles should be allowed.
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 spec:
   background: true
   validationFailureAction: {{ .Values.validationFailureAction }}

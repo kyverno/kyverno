@@ -1,6 +1,7 @@
 package openapi
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -12,8 +13,10 @@ import (
 	data "github.com/kyverno/kyverno/api"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/utils"
 	cmap "github.com/orcaman/concurrent-map"
 	"gopkg.in/yaml.v3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kube-openapi/pkg/util/proto"
 	"k8s.io/kube-openapi/pkg/util/proto/validation"
@@ -24,13 +27,28 @@ type concurrentMap struct{ cmap.ConcurrentMap }
 
 // Controller represents OpenAPIController
 type Controller struct {
-	// definitions holds the kind - *openapiv2.Schema map
+	// definitions holds the map of {definitionName: *openapiv2.Schema}
 	definitions concurrentMap
-	// kindToDefinitionName holds the kind - definition map
-	// i.e. - Namespace: io.k8s.api.core.v1.Namespace
-	kindToDefinitionName concurrentMap
-	crdList              []string
-	models               proto.Models
+
+	// kindToDefinitionName holds the map of {(group/version/)kind: definitionName}
+	// i.e. with k8s 1.20.2
+	// - Ingress: io.k8s.api.networking.v1.Ingress (preferred version)
+	// - networking.k8s.io/v1/Ingress: io.k8s.api.networking.v1.Ingress
+	// - networking.k8s.io/v1beta1/Ingress: io.k8s.api.networking.v1beta1.Ingress
+	// - extension/v1beta1/Ingress: io.k8s.api.extensions.v1beta1.Ingress
+	gvkToDefinitionName concurrentMap
+
+	crdList []string
+	models  proto.Models
+
+	// kindToAPIVersions stores the Kind and all its available apiVersions, {kind: apiVersions}
+	kindToAPIVersions concurrentMap
+}
+
+// apiVersions stores all available gvks for a kind, a gvk is "/" seperated string
+type apiVersions struct {
+	serverPreferredGVK string
+	gvks               []string
 }
 
 func newConcurrentMap() concurrentMap {
@@ -58,9 +76,17 @@ func (m concurrentMap) GetSchema(key string) *openapiv2.Schema {
 // NewOpenAPIController initializes a new instance of OpenAPIController
 func NewOpenAPIController() (*Controller, error) {
 	controller := &Controller{
-		definitions:          newConcurrentMap(),
-		kindToDefinitionName: newConcurrentMap(),
+		definitions:         newConcurrentMap(),
+		gvkToDefinitionName: newConcurrentMap(),
+		kindToAPIVersions:   newConcurrentMap(),
 	}
+
+	apiResourceLists, preferredAPIResourcesLists, err := getAPIResourceLists()
+	if err != nil {
+		return nil, err
+	}
+
+	controller.updateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists)
 
 	defaultDoc, err := getSchemaDocument()
 	if err != nil {
@@ -81,10 +107,15 @@ func (o *Controller) ValidatePolicyFields(policy v1.ClusterPolicy) error {
 }
 
 // ValidateResource ...
-func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured, kind string) error {
+func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured, apiVersion, kind string) error {
 	var err error
 
-	kind = o.kindToDefinitionName.GetKind(kind)
+	gvk := kind
+	if apiVersion != "" {
+		gvk = apiVersion + "/" + kind
+	}
+
+	kind = o.gvkToDefinitionName.GetKind(gvk)
 	schema := o.models.LookupModel(kind)
 	if schema == nil {
 		// Check if kind is a CRD
@@ -121,7 +152,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	for kind, rules := range kindToRules {
 		newPolicy := *policy.DeepCopy()
 		newPolicy.Spec.Rules = rules
-		k := o.kindToDefinitionName.GetKind(kind)
+		k := o.gvkToDefinitionName.GetKind(kind)
 		resource, _ := o.generateEmptyResource(o.definitions.GetSchema(k)).(map[string]interface{})
 		if resource == nil || len(resource) == 0 {
 			log.Log.V(2).Info("unable to validate resource. OpenApi definition not found", "kind", kind)
@@ -136,7 +167,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 			return err
 		}
 
-		err = o.ValidateResource(*patchedResource.DeepCopy(), kind)
+		err = o.ValidateResource(*patchedResource.DeepCopy(), "", kind)
 		if err != nil {
 			return err
 		}
@@ -147,9 +178,24 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 
 func (o *Controller) useOpenAPIDocument(doc *openapiv2.Document) error {
 	for _, definition := range doc.GetDefinitions().AdditionalProperties {
-		o.definitions.Set(definition.GetName(), definition.GetValue())
-		path := strings.Split(definition.GetName(), ".")
-		o.kindToDefinitionName.Set(path[len(path)-1], definition.GetName())
+		definitionName := definition.GetName()
+		o.definitions.Set(definitionName, definition.GetValue())
+
+		gvk, preferredGVK, err := o.getGVKByDefinitionName(definitionName)
+		if err != nil {
+			log.Log.V(3).Info("unable to cache OpenAPISchema", "definitionName", definitionName, "reason", err.Error())
+			continue
+		}
+
+		if preferredGVK {
+			paths := strings.Split(definitionName, ".")
+			kind := paths[len(paths)-1]
+			o.gvkToDefinitionName.Set(kind, definitionName)
+		}
+
+		if gvk != "" {
+			o.gvkToDefinitionName.Set(gvk, definitionName)
+		}
 	}
 
 	var err error
@@ -159,6 +205,90 @@ func (o *Controller) useOpenAPIDocument(doc *openapiv2.Document) error {
 	}
 
 	return nil
+}
+
+func (o *Controller) getGVKByDefinitionName(definitionName string) (gvk string, preferredGVK bool, err error) {
+	paths := strings.Split(definitionName, ".")
+	kind := paths[len(paths)-1]
+	versions, ok := o.kindToAPIVersions.Get(kind)
+	if !ok {
+		// the kind here is the sub-resource of a K8s Kind, i.e. CronJobStatus
+		// such cases are skipped in schema validation
+		return
+	}
+
+	versionsTyped, ok := versions.(apiVersions)
+	if !ok {
+		return "", preferredGVK, fmt.Errorf("type mismatched, expected apiVersions, got %T", versions)
+	}
+
+	if matchGVK(definitionName, versionsTyped.serverPreferredGVK) {
+		preferredGVK = true
+	}
+
+	for _, gvk := range versionsTyped.gvks {
+		if matchGVK(definitionName, gvk) {
+			return gvk, preferredGVK, nil
+		}
+	}
+
+	return "", preferredGVK, fmt.Errorf("gvk not found by the given definition name %s, %v", definitionName, versionsTyped.gvks)
+}
+
+// matchGVK is a helper function that checks if the
+// given GVK matches the definition name
+func matchGVK(definitionName, gvk string) bool {
+	paths := strings.Split(definitionName, ".")
+
+	gvkMap := make(map[string]bool)
+	for _, p := range paths {
+		gvkMap[p] = true
+	}
+
+	gvkList := strings.Split(gvk, "/")
+	// group can be a dot-seperated string
+	// here we allow at most 1 missing element in group elements, except for Ingress
+	// as a specific element could be missing in apiDocs name
+	// io.k8s.api.rbac.v1.Role - rbac.authorization.k8s.io/v1/Role
+	missingMoreThanOneElement := false
+	for i, element := range gvkList {
+		if i == 0 {
+			items := strings.Split(element, ".")
+			for _, item := range items {
+				_, ok := gvkMap[item]
+				if !ok {
+					if gvkList[len(gvkList)-1] == "Ingress" {
+						return false
+					}
+
+					if missingMoreThanOneElement {
+						return false
+					}
+					missingMoreThanOneElement = true
+				}
+			}
+			continue
+		}
+
+		_, ok := gvkMap[element]
+		if !ok {
+			return false
+		}
+	}
+
+	return true
+}
+
+// updateKindToAPIVersions sets kindToAPIVersions with static manifests
+func (c *Controller) updateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists []*metav1.APIResourceList) {
+	tempKindToAPIVersions := getAllAPIVersions(apiResourceLists)
+	tempKindToAPIVersions = setPreferredVersions(tempKindToAPIVersions, preferredAPIResourcesLists)
+
+	c.kindToAPIVersions = newConcurrentMap()
+	for key, value := range tempKindToAPIVersions {
+		c.kindToAPIVersions.Set(key, value)
+	}
+
 }
 
 func getSchemaDocument() (*openapiv2.Document, error) {
@@ -312,4 +442,85 @@ func getAnyValue(any *openapiv2.Any) []byte {
 	}
 
 	return nil
+}
+
+// getAllAPIVersions gets all available versions for a kind
+// returns a map which stores all kinds with its versions
+func getAllAPIVersions(apiResourceLists []*metav1.APIResourceList) map[string]apiVersions {
+	tempKindToAPIVersions := make(map[string]apiVersions)
+
+	for _, apiResourceList := range apiResourceLists {
+		lastKind := ""
+		for _, apiResource := range apiResourceList.APIResources {
+			if apiResource.Kind == lastKind {
+				continue
+			}
+
+			version, ok := tempKindToAPIVersions[apiResource.Kind]
+			if !ok {
+				tempKindToAPIVersions[apiResource.Kind] = apiVersions{}
+			}
+
+			gvk := strings.Join([]string{apiResourceList.GroupVersion, apiResource.Kind}, "/")
+			version.gvks = append(version.gvks, gvk)
+			tempKindToAPIVersions[apiResource.Kind] = version
+			lastKind = apiResource.Kind
+		}
+	}
+
+	return tempKindToAPIVersions
+}
+
+// setPreferredVersions sets the serverPreferredGVK of the given apiVersions map
+func setPreferredVersions(kindToAPIVersions map[string]apiVersions, preferredAPIResourcesLists []*metav1.APIResourceList) map[string]apiVersions {
+	tempKindToAPIVersionsCopied := copyKindToAPIVersions(kindToAPIVersions)
+
+	for kind, versions := range tempKindToAPIVersionsCopied {
+		for _, preferredAPIResourcesList := range preferredAPIResourcesLists {
+			for _, resource := range preferredAPIResourcesList.APIResources {
+				preferredGV := preferredAPIResourcesList.GroupVersion
+				preferredGVK := preferredGV + "/" + resource.Kind
+
+				if utils.ContainsString(versions.gvks, preferredGVK) {
+					v := kindToAPIVersions[kind]
+
+					// if a Kind belongs to multiple groups, the first group/version
+					// returned from discovery docs is used as preferred version
+					// https://github.com/kubernetes/kubernetes/issues/94761#issuecomment-691982480
+					if v.serverPreferredGVK != "" {
+						continue
+					}
+
+					v.serverPreferredGVK = strings.Join([]string{preferredGV, kind}, "/")
+					kindToAPIVersions[kind] = v
+				}
+			}
+		}
+	}
+
+	return kindToAPIVersions
+}
+
+func copyKindToAPIVersions(old map[string]apiVersions) map[string]apiVersions {
+	new := make(map[string]apiVersions, len(old))
+	for key, value := range old {
+		new[key] = value
+	}
+	return new
+}
+
+func getAPIResourceLists() ([]*metav1.APIResourceList, []*metav1.APIResourceList, error) {
+	var apiResourceLists []*metav1.APIResourceList
+	err := json.Unmarshal([]byte(data.APIResourceLists), &apiResourceLists)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to load apiResourceLists: %v", err)
+	}
+
+	var preferredAPIResourcesLists []*metav1.APIResourceList
+	err = json.Unmarshal([]byte(data.APIResourceLists), &preferredAPIResourcesLists)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to load preferredAPIResourcesLists: %v", err)
+	}
+
+	return apiResourceLists, preferredAPIResourcesLists, nil
 }

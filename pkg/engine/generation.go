@@ -14,10 +14,11 @@ import (
 //    - the caller has to check the ruleResponse to determine whether the path exist
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func Generate(policyContext *PolicyContext) (resp *response.EngineResponse) {
-	return filterRules(policyContext)
+	policyStartTime := time.Now()
+	return filterRules(policyContext, policyStartTime)
 }
 
-func filterRules(policyContext *PolicyContext) *response.EngineResponse {
+func filterRules(policyContext *PolicyContext, startTime time.Time) *response.EngineResponse {
 	kind := policyContext.NewResource.GetKind()
 	name := policyContext.NewResource.GetName()
 	namespace := policyContext.NewResource.GetNamespace()
@@ -25,6 +26,9 @@ func filterRules(policyContext *PolicyContext) *response.EngineResponse {
 	resp := &response.EngineResponse{
 		PolicyResponse: response.PolicyResponse{
 			Policy: policyContext.Policy.Name,
+			PolicyStats: response.PolicyStats{
+				PolicyExecutionTimestamp: startTime.Unix(),
+			},
 			Resource: response.ResourceSpec{
 				Kind:       kind,
 				Name:       name,
@@ -76,7 +80,8 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 				Type:    "Generation",
 				Success: false,
 				RuleStats: response.RuleStats{
-					ProcessingTime: time.Since(startTime),
+					ProcessingTime:         time.Since(startTime),
+					RuleExecutionTimestamp: startTime.Unix(),
 				},
 			}
 		}
@@ -87,7 +92,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	policyContext.JSONContext.Checkpoint()
 	defer policyContext.JSONContext.Restore()
 
-	if err := LoadContext(logger, rule.Context, resCache, policyContext); err != nil {
+	if err := LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}
@@ -111,7 +116,8 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 		Type:    "Generation",
 		Success: true,
 		RuleStats: response.RuleStats{
-			ProcessingTime: time.Since(startTime),
+			ProcessingTime:         time.Since(startTime),
+			RuleExecutionTimestamp: startTime.Unix(),
 		},
 	}
 }

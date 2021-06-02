@@ -1,6 +1,6 @@
 # Kyverno [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Kubernetes%20Native%20Policy%20Management.%20No%20new%20language%20required%21&url=https://github.com/kyverno/kyverno/&hashtags=kubernetes,devops)
 
-**Kubernetes Native Policy Management**
+**Kubernetes Native Policy Management 🎉**
 
 ![build](https://github.com/kyverno/kyverno/workflows/build/badge.svg) 
 ![prereleaser](https://github.com/kyverno/kyverno/workflows/prereleaser/badge.svg) 
@@ -11,30 +11,49 @@
 
 <a href="https://kyverno.io" rel="kyverno.io">![logo](img/Kyverno_Horizontal.png)</a>
 
-<p class="callout info" style="font-size: 2000%;">
+<p class="callout info" style="font-size: 100%;">
 Kyverno is a policy engine designed for Kubernetes. It can validate, mutate, and generate configurations using admission controls and background scans. Kyverno policies are Kubernetes resources and do not require learning a new language. Kyverno is designed to work nicely with tools you already use like kubectl, kustomize, and Git.
 </p>
 
-## Documentation
+## 📙 Documentation 
 
-Kyverno guides and reference documents are available at: <a href="https://kyverno.io/">kyverno.io</a>. 
+Kyverno installation and reference documents are available at: <a href="https://kyverno.io/">kyverno.io</a>. 
 
-Try the [quick start guide](https://kyverno.io/docs/introduction/#quick-start) to install Kyverno and create your first policy.
+  👉 **[Quick Start](https://kyverno.io/docs/introduction/#quick-start)**
 
-## Contributing
+  👉 **[Installation](https://kyverno.io/docs/installation/)**
 
-Checkout out the Kyverno <a href="https://kyverno.io/community">Community</a> page for ways to get involved and details on joining our next community meeting.
+  👉 **[Sample Policies](https://kyverno.io/policies/)**
 
-## Getting Help
 
-- For feature requests and bugs, file an [issue](https://github.com/kyverno/kyverno/issues).
-- For discussions or questions, join the **#kyverno** channel on the [Kubernetes Slack](https://kubernetes.slack.com/) or the [mailing list](https://groups.google.com/g/kyverno).
+## 🙋‍♂️ Getting Help
 
-## Spread The Love
+We are here to help! 
 
-We built Kyverno to make it easy to secure and manage Kubernetes configurations. If you like the project, [let us know](https://github.com/kyverno/kyverno/stargazers)!
+  ✔ For feature requests and bugs, file an [issue](https://github.com/kyverno/kyverno/issues).
 
-[![Stargazers over time](https://starchart.cc/kyverno/kyverno.svg)](https://starchart.cc/kyverno/kyverno)
+  ✔ For discussions or questions, join the **#kyverno** channel on the [Kubernetes Slack](https://kubernetes.slack.com/).
+
+  ✔ For community meeting access join the [mailing list](https://groups.google.com/g/kyverno).
+
+  ✔ To get updates ⭐️ [star this repository](https://github.com/kyverno/kyverno/stargazers).
+
+
+## ➕ Contributing
+
+Thanks for your interest in contributing to Kyverno! Here are some steps to help get you started:
+
+  ✔ Read and agree to the [Contribution Guidelines](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md).
+
+  ✔ Browse through the [GitHub discussions](https://github.com/kyverno/kyverno/discussions).
+
+  ✔ Read Kyverno design and development details on the [GitHub Wiki](https://github.com/kyverno/kyverno/wiki).
+
+  ✔ Check out the **[good first issue](https://github.com/kyverno/kyverno/labels/good%20first%20issue)** list. Add a comment with `/assign` to request assignment of the issue.
+
+  ✔ Checkout out the Kyverno <a href="https://kyverno.io/community">Community</a> page for other ways to get involved.
+
+
 
 
 

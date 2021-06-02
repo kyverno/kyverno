@@ -1,4 +1,4 @@
-{{ $name := "require-run-as-non-root" -}}
+{{- $name := "require-run-as-non-root" }}
 {{- if eq (include "kyverno.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -6,7 +6,12 @@ metadata:
   name: {{ $name }}
   annotations:
     policies.kyverno.io/category: Pod Security Standards (Restricted)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- end }}
     policies.kyverno.io/description: Containers must be required to run as non-root users.
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 spec:
   background: true
   validationFailureAction: {{ .Values.validationFailureAction }}

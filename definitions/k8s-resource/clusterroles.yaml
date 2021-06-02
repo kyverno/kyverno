@@ -1,34 +1,9 @@
 ---
-kind: Namespace
-apiVersion: v1
-metadata:
-    name: "kyverno"
----
-apiVersion: v1
-kind: Service
-metadata:
-  namespace: kyverno
-  name: kyverno-svc
-  labels:
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-spec:
-  ports:
-  - port: 443
-    targetPort: https
-  selector:
-    app: kyverno
-    app.kubernetes.io/name: kyverno
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: kyverno-service-account
-  namespace: kyverno
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:webhook
 rules:
 # Dynamic creation of webhooks, events & certs
@@ -74,6 +49,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:userinfo
 rules:
 # get the roleRef for incoming api-request user
@@ -93,6 +70,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:customresources
 rules:
 # Kyverno CRs
@@ -131,6 +110,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:policycontroller
 rules:
 # background processing, identify all existing resources
@@ -147,6 +128,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:generatecontroller
 rules:
 # process generate rules to generate resources
@@ -178,6 +161,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
+    app: kyverno
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policies
 rules:
@@ -193,6 +177,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
+    app: kyverno
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policyreport
 rules:
@@ -208,6 +193,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
+    app: kyverno
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-reportchangerequest
 rules:

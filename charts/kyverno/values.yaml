@@ -4,11 +4,16 @@ namespace:
 # Supported- default/restricted/privileged/custom
 # For more info- https://kyverno.io/policies/pod-security
 podSecurityStandard: default
+# Supported- low/medium/high
+podSecuritySeverity: medium
 # Policies to include when podSecurityStandard is custom
 podSecurityPolicies: []
 # Supported values- `audit`, `enforce`
 # For more info- https://kyverno.io/docs/writing-policies/validate/
 validationFailureAction: audit
+
+# -- Additional labels
+customLabels: {}
 
 rbac:
   create: true
@@ -68,6 +73,14 @@ resources:
   requests:
     cpu: 100m
     memory: 50Mi
+
+initResources:
+  limits:
+    cpu: 100m
+    memory: 256Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
 
 ## Liveness Probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
@@ -135,6 +148,10 @@ service:
   type: ClusterIP
   # Only used if service.type is NodePort
   nodePort:
+  ## Kyverno's metrics server will be exposed at this port
+  metricsPort: 8000
+  ## The Node's port which will allow access Kyverno's metrics at the host level. Only used if service.type is NodePort.
+  metricsNodePort: 8000
   ## Provide any additional annotations which may be required. This can be used to
   ## set the LoadBalancer service type to internal only.
   ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#internal-load-balancer

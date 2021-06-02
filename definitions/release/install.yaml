@@ -1170,7 +1170,7 @@ spec:
       name: Background
       type: string
     - jsonPath: .spec.validationFailureAction
-      name: Validation Failure Action
+      name: Action
       type: string
     name: v1
     schema:
@@ -2386,7 +2386,7 @@ subjects:
 apiVersion: v1
 data:
   excludeGroupRole: system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler
-  resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]'
+  resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]'
 kind: ConfigMap
 metadata:
   name: init-config
@@ -2397,6 +2397,7 @@ kind: Service
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/name: kyverno
   name: kyverno-svc
   namespace: kyverno
 spec:
@@ -2405,12 +2406,14 @@ spec:
     targetPort: https
   selector:
     app: kyverno
+    app.kubernetes.io/name: kyverno
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/name: kyverno
   name: kyverno
   namespace: kyverno
 spec:
@@ -2418,10 +2421,12 @@ spec:
   selector:
     matchLabels:
       app: kyverno
+      app.kubernetes.io/name: kyverno
   template:
     metadata:
       labels:
         app: kyverno
+        app.kubernetes.io/name: kyverno
     spec:
       containers:
       - args:
@@ -2436,7 +2441,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: ghcr.io/kyverno/kyverno:v1.3.5-rc3
+        image: ghcr.io/kyverno/kyverno:v1.3.6
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 2
@@ -2478,9 +2483,16 @@ spec:
           readOnlyRootFilesystem: true
           runAsNonRoot: true
       initContainers:
-      - image: ghcr.io/kyverno/kyvernopre:v1.3.5-rc3
+      - image: ghcr.io/kyverno/kyvernopre:v1.3.6
         imagePullPolicy: IfNotPresent
         name: kyverno-pre
+        resources:
+          limits:
+            cpu: 100m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

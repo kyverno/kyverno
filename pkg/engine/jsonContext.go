@@ -8,41 +8,59 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"k8s.io/client-go/dynamic/dynamiclister"
 )
 
 // LoadContext - Fetches and adds external data to the Context.
-func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCache, ctx *PolicyContext) error {
+func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCache, ctx *PolicyContext, ruleName string) error {
 	if len(contextEntries) == 0 {
 		return nil
 	}
 
-	// get GVR Cache for "configmaps"
-	// can get cache for other resources if the informers are enabled in resource cache
-	gvrC, ok := resCache.GetGVRCache("ConfigMap")
-	if !ok {
-		return errors.New("configmaps GVR Cache not found")
-	}
+	policyName := ctx.Policy.Name
+	if store.GetMock() {
+		rule := store.GetPolicyRuleFromContext(policyName, ruleName)
+		if len(rule.Values) == 0 {
+			return fmt.Errorf("No values found for policy %s rule %s", policyName, ruleName)
+		}
+		variables := rule.Values
 
-	lister := gvrC.Lister()
-
-	for _, entry := range contextEntries {
-		if entry.ConfigMap != nil {
-			if err := loadConfigMap(logger, entry, lister, ctx.JSONContext); err != nil {
-				return err
-			}
-		} else if entry.APICall != nil {
-			if err := loadAPIData(logger, entry, ctx); err != nil {
+		for key, value := range variables {
+			jsonData := pkgcommon.VariableToJSON(key, value)
+			if err := ctx.JSONContext.AddJSON(jsonData); err != nil {
 				return err
 			}
 		}
-	}
 
+	} else {
+		// get GVR Cache for "configmaps"
+		// can get cache for other resources if the informers are enabled in resource cache
+		gvrC, ok := resCache.GetGVRCache("ConfigMap")
+		if !ok {
+			return errors.New("configmaps GVR Cache not found")
+		}
+
+		lister := gvrC.Lister()
+
+		for _, entry := range contextEntries {
+			if entry.ConfigMap != nil {
+				if err := loadConfigMap(logger, entry, lister, ctx.JSONContext); err != nil {
+					return err
+				}
+			} else if entry.APICall != nil {
+				if err := loadAPIData(logger, entry, ctx); err != nil {
+					return err
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -88,7 +106,7 @@ func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCont
 }
 
 func applyJMESPath(jmesPath string, jsonData []byte) (interface{}, error) {
-	jp, err := jmespath.Compile(jmesPath)
+	jp, err := jmespath.New(jmesPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", jmesPath, err)
 	}

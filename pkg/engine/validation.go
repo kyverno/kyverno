@@ -67,6 +67,7 @@ func buildResponse(logger logr.Logger, ctx *PolicyContext, resp *response.Engine
 	resp.PolicyResponse.Resource.APIVersion = resp.PatchedResource.GetAPIVersion()
 	resp.PolicyResponse.ValidationFailureAction = ctx.Policy.Spec.ValidationFailureAction
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
+	resp.PolicyResponse.PolicyExecutionTimestamp = startTime.Unix()
 }
 
 func incrementAppliedCount(resp *response.EngineResponse) {
@@ -97,7 +98,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		}
 
 		ctx.JSONContext.Restore()
-		if err := LoadContext(log, rule.Context, ctx.ResourceCache, ctx); err != nil {
+		if err := LoadContext(log, rule.Context, ctx.ResourceCache, ctx, rule.Name); err != nil {
 			log.Error(err, "failed to load context")
 			continue
 		}
@@ -121,12 +122,13 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 				Name:    rule.Name,
 				Type:    utils.Validation.String(),
 				Message: fmt.Sprintf("variable substitution failed for rule %s: %s", rule.Name, err.Error()),
-				Success: false,
+				Success: true,
 			}
 
 			incrementAppliedCount(resp)
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
 
+			log.Error(err, "failed to substitute variables, skip current rule", "rule name", rule.Name)
 			continue
 		}
 
@@ -228,6 +230,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 	resp.Type = utils.Validation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
+		resp.RuleStats.RuleExecutionTimestamp = startTime.Unix()
 		logger.V(4).Info("finished processing rule", "processingTime", resp.RuleStats.ProcessingTime.String())
 	}()
 
