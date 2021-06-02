@@ -4,17 +4,23 @@ kind: Deployment
 metadata:
   labels:
     app: kyverno
+    # do not remove
+    app.kubernetes.io/name: kyverno
   namespace: kyverno
   name: kyverno
 spec:
   selector:
     matchLabels:
       app: kyverno
+      # do not remove
+      app.kubernetes.io/name: kyverno
   replicas: 1
   template:
     metadata:
       labels:
         app: kyverno
+        # do not remove
+        app.kubernetes.io/name: kyverno
     spec:
       serviceAccountName: kyverno-service-account
       securityContext:
