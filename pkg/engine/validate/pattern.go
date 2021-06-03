@@ -183,8 +183,6 @@ func validateValueWithStringPattern(log logr.Logger, value interface{}, pattern 
 
 	operator := operator.GetOperatorFromStringPattern(pattern)
 	pattern = pattern[len(operator):]
-	// remove leading and trailing white spaces before
-	// getting numerical and string parts
 	pattern = strings.TrimSpace(pattern)
 	number, str := getNumberAndStringPartsFromPattern(pattern)
 
