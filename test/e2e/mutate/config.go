@@ -6,18 +6,23 @@ var MutateTests = []struct {
 	TestName string
 	// Data - The Yaml file of the ClusterPolicy
 	Data []byte
+	// ResourceNamespace - Namespace of the Resource
+	ResourceNamespace string
 }{
 	{
-		TestName: "test-mutate-with-context",
-		Data:     configMapMutationYaml,
+		TestName:          "test-mutate-with-context",
+		Data:              configMapMutationYaml,
+		ResourceNamespace: "test-mutate",
 	},
 	{
-		TestName: "test-mutate-with-logic-in-context",
-		Data:     configMapMutationWithContextLogicYaml,
+		TestName:          "test-mutate-with-logic-in-context",
+		Data:              configMapMutationWithContextLogicYaml,
+		ResourceNamespace: "test-mutate",
 	},
 	{
-		TestName: "test-mutate-with-context-label-selection",
-		Data:     configMapMutationWithContextLabelSelectionYaml,
+		TestName:          "test-mutate-with-context-label-selection",
+		Data:              configMapMutationWithContextLabelSelectionYaml,
+		ResourceNamespace: "test-mutate",
 	},
 }
 

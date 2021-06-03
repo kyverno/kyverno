@@ -13,6 +13,8 @@ metadata:
     policies.kyverno.io/description: >-
       The runtime default seccomp profile must be required, or only specific
       additional profiles should be allowed.
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 spec:
   background: true
   validationFailureAction: {{ .Values.validationFailureAction }}

@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: kyverno
+  namespace: kyverno
+  name: kyverno-svc
+spec:
+  ports:
+  - port: 443
+    name: https
+    targetPort: https
+  - port: 8000
+    name: metrics-port
+    targetPort: metrics-port
+  selector:
+    app: kyverno
+    # do not remove
+    app.kubernetes.io/name: kyverno

@@ -11,6 +11,8 @@ metadata:
     {{- end }}
     policies.kyverno.io/description: >-
       Containers should be forbidden from running with a root primary or supplementary GID.
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 spec:
   background: true
   validationFailureAction: {{ .Values.validationFailureAction }}
