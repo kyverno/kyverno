@@ -17,7 +17,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/userinfo"
-	"github.com/minio/minio/internal/logger"
 	"k8s.io/api/admission/v1beta1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -112,7 +111,7 @@ func (h *auditHandler) Run(workers int, stopCh <-chan struct{}) {
 	}()
 
 	if !cache.WaitForCacheSync(stopCh, h.rbSynced, h.crbSynced) {
-		logger.Info("failed to sync informer cache")
+		h.log.Info("failed to sync informer cache")
 	}
 
 	for i := 0; i < workers; i++ {
@@ -138,7 +137,7 @@ func (h *auditHandler) processNextWorkItem() bool {
 	request, ok := obj.(*v1beta1.AdmissionRequest)
 	if !ok {
 		h.queue.Forget(obj)
-		logger.Info("incorrect type: expecting type 'AdmissionRequest'", "object", obj)
+		h.log.Info("incorrect type: expecting type 'AdmissionRequest'", "object", obj)
 		return true
 	}
 
