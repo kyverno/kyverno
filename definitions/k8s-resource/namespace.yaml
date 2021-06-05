@@ -1,0 +1,7 @@
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  labels:
+    app: kyverno
+  name: kyverno

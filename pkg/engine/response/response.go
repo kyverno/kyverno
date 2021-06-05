@@ -52,6 +52,8 @@ type PolicyStats struct {
 	ProcessingTime time.Duration `json:"processingTime"`
 	// Count of rules that were applied successfully
 	RulesAppliedCount int `json:"rulesAppliedCount"`
+	// Timestamp of the instant the Policy was triggered
+	PolicyExecutionTimestamp int64 `json:"policyExecutionTimestamp"`
 }
 
 //RuleResponse details for each rule application
@@ -79,6 +81,8 @@ func (rr RuleResponse) ToString() string {
 type RuleStats struct {
 	// time required to apply the rule on the resource
 	ProcessingTime time.Duration `json:"processingTime"`
+	// Timestamp of the instant the rule got triggered
+	RuleExecutionTimestamp int64 `json:"ruleExecutionTimestamp"`
 }
 
 //IsSuccessful checks if any rule has failed or not
