@@ -2,6 +2,9 @@ package webhooks
 
 import (
 	"errors"
+	"fmt"
+	request "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/common"
 	"reflect"
 	"sort"
 	"time"
@@ -9,7 +12,6 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -45,6 +47,7 @@ func (ws *WebhookServer) HandleMutation(
 	var patches [][]byte
 	var engineResponses []*response.EngineResponse
 	var triggeredPolicies []kyverno.ClusterPolicy
+
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
 		AdmissionInfo:       userRequestInfo,
@@ -61,46 +64,40 @@ func (ws *WebhookServer) HandleMutation(
 	}
 
 	for _, policy := range policies {
-		logger.V(3).Info("evaluating policy", "policy", policy.Name)
 
-		policyContext.Policy = *policy
-		if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-			policyContext.NamespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, ws.nsLister, logger)
-		}
-		engineResponse := engine.Mutate(policyContext)
-		policyPatches := engineResponse.GetPatches()
+		if policy.HasVerifyImages() {
+			engineResponse, policyPatches, err := ws.applyImageVerification(policyContext, policy)
 
-		if engineResponse.PolicyResponse.RulesAppliedCount > 0 && len(policyPatches) > 0 {
-			ws.statusListener.Update(mutateStats{resp: engineResponse, namespace: policy.Namespace})
 		}
 
-		if !engineResponse.IsSuccessful() && len(engineResponse.GetFailedRules()) > 0 {
-			logger.Error(errors.New("some rules failed"), "failed to apply policy", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
-			continue
+
+		if policy.HasMutate() {
+			logger.V(3).Info("evaluating policy for mutate rules", "policy", policy.Name)
+
+			engineResponse, policyPatches, err := ws.applyMutation(policyContext, policy)
+			if err != nil {
+				// TODO report errors in engineResponse and record in metrics
+				logger.Error(err, "mutate error")
+				continue
+			}
+
+			if len(policyPatches) > 0 {
+				patches = append(patches, policyPatches...)
+				rules := engineResponse.GetSuccessRules()
+				logger.Info("mutation rules from policy applied successfully", "policy", policy.Name, "rules", rules)
+			}
+
+			policyContext.NewResource = engineResponse.PatchedResource
+			engineResponses = append(engineResponses, engineResponse)
+
+			// registering the kyverno_policy_rule_results_info metric concurrently
+			go ws.registerPolicyRuleResultsMetricMutation(logger, string(request.Operation), *policy, *engineResponse, admissionRequestTimestamp)
+			triggeredPolicies = append(triggeredPolicies, *policy)
+
+			// registering the kyverno_policy_rule_execution_latency_milliseconds metric concurrently
+			go ws.registerPolicyRuleExecutionLatencyMetricMutate(logger, string(request.Operation), *policy, *engineResponse, admissionRequestTimestamp)
+			triggeredPolicies = append(triggeredPolicies, *policy)
 		}
-
-		err := ws.openAPIController.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
-		if err != nil {
-			logger.V(4).Info("validation error", "policy", policy.Name, "error", err.Error())
-			continue
-		}
-
-		if len(policyPatches) > 0 {
-			patches = append(patches, policyPatches...)
-			rules := engineResponse.GetSuccessRules()
-			logger.Info("mutation rules from policy applied successfully", "policy", policy.Name, "rules", rules)
-		}
-
-		policyContext.NewResource = engineResponse.PatchedResource
-		engineResponses = append(engineResponses, engineResponse)
-
-		// registering the kyverno_policy_rule_results_info metric concurrently
-		go ws.registerPolicyRuleResultsMetricMutation(logger, string(request.Operation), *policy, *engineResponse, admissionRequestTimestamp)
-		triggeredPolicies = append(triggeredPolicies, *policy)
-
-		// registering the kyverno_policy_rule_execution_latency_milliseconds metric concurrently
-		go ws.registerPolicyRuleExecutionLatencyMetricMutate(logger, string(request.Operation), *policy, *engineResponse, admissionRequestTimestamp)
-		triggeredPolicies = append(triggeredPolicies, *policy)
 	}
 
 	// generate annotations
@@ -133,6 +130,32 @@ func (ws *WebhookServer) HandleMutation(
 
 	// patches holds all the successful patches, if no patch is created, it returns nil
 	return engineutils.JoinPatches(patches), triggeredPolicies, engineResponses
+}
+
+func (ws *WebhookServer) applyMutation(policyContext *engine.PolicyContext, policy *v1.ClusterPolicy) (*response.EngineResponse,  [][]byte, error) {
+	policyContext.Policy = *policy
+	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
+		policyContext.NamespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(
+			request.Kind.Kind, request.Namespace, ws.nsLister, logger)
+	}
+
+	engineResponse := engine.Mutate(policyContext)
+	policyPatches := engineResponse.GetPatches()
+
+	if engineResponse.PolicyResponse.RulesAppliedCount > 0 && len(policyPatches) > 0 {
+		ws.statusListener.Update(mutateStats{resp: engineResponse, namespace: policy.Namespace})
+	}
+
+	if !engineResponse.IsSuccessful() && len(engineResponse.GetFailedRules()) > 0 {
+		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policy.Name, engineResponse.GetFailedRules())
+	}
+
+	err := ws.openAPIController.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to validate resource mutated by policy %s", policy.Name)
+	}
+
+	return engineResponse, policyPatches, nil
 }
 
 func (ws *WebhookServer) registerPolicyRuleResultsMetricMutation(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, admissionRequestTimestamp int64) {

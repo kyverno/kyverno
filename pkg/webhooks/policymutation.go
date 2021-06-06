@@ -19,7 +19,6 @@ func (ws *WebhookServer) policyMutation(request *v1beta1.AdmissionRequest) *v1be
 	var policy *kyverno.ClusterPolicy
 	raw := request.Object.Raw
 
-	//TODO: can this happen? wont this be picked by OpenAPI spec schema ?
 	if err := json.Unmarshal(raw, &policy); err != nil {
 		logger.Error(err, "failed to unmarshal policy admission request")
 		return &v1beta1.AdmissionResponse{

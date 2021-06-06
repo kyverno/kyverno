@@ -104,7 +104,7 @@ type Rule struct {
 
 	// VerifyImages is used to verify image signatures and mutate them to add a digest
 	// +optional
-	VerifyImages ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+	VerifyImages []*ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
 
 // AnyAllCondition consists of conditions wrapped denoting a logical criteria to be fulfilled.

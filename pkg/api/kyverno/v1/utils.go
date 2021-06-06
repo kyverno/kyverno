@@ -27,6 +27,28 @@ func (p *ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
 	return false
 }
 
+//HasMutate checks for mutate rule types
+func (p *ClusterPolicy) HasMutate() bool {
+	for _, rule := range p.Spec.Rules {
+		if rule.HasMutate() {
+			return true
+		}
+	}
+
+	return false
+}
+
+//HasVerifyImages checks for image verification rule types
+func (p *ClusterPolicy) HasVerifyImages() bool {
+	for _, rule := range p.Spec.Rules {
+		if rule.HasVerifyImages() {
+			return true
+		}
+	}
+
+	return false
+}
+
 // BackgroundProcessingEnabled checks if background is set to true
 func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 	if p.Spec.Background == nil {
@@ -39,6 +61,11 @@ func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 // HasMutate checks for mutate rule
 func (r Rule) HasMutate() bool {
 	return !reflect.DeepEqual(r.Mutation, Mutation{})
+}
+
+// HasVerifyImages checks for verifyImages rule
+func (r Rule) HasVerifyImages() bool {
+	return !reflect.DeepEqual(r.VerifyImages, Mutation{})
 }
 
 // HasValidate checks for validate rule

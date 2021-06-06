@@ -41,7 +41,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	defer endMutateResultResponse(logger, resp, startTime)
 
 	if ManagedPodResource(policy, patchedResource) {
-		logger.V(5).Info("skip applying policy as direct changes to pods managed by workload controllers are not allowed", "policy", policy.GetName())
+		logger.V(5).Info("changes to pods managed by workload controllers are not permitted", "policy", policy.GetName())
 		resp.PatchedResource = patchedResource
 		return
 	}
@@ -50,15 +50,13 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	defer policyContext.JSONContext.Restore()
 
 	for _, rule := range policy.Spec.Rules {
-		var ruleResponse response.RuleResponse
-		logger := logger.WithValues("rule", rule.Name)
 		if !rule.HasMutate() {
 			continue
 		}
 
-		// check if the resource satisfies the filter conditions defined in the rule
-		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
-		// don't satisfy a policy rule resource description
+		var ruleResponse response.RuleResponse
+		logger := logger.WithValues("rule", rule.Name)
+
 		excludeResource := []string{}
 		if len(policyContext.ExcludeGroupRole) > 0 {
 			excludeResource = policyContext.ExcludeGroupRole

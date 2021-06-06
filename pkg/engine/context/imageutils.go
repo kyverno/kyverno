@@ -9,92 +9,69 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type imageInfo struct {
+type ImageInfo struct {
 	Registry string `json:"registry,omitempty"`
 	Name     string `json:"name"`
 	Tag      string `json:"tag,omitempty"`
 	Digest   string `json:"digest,omitempty"`
 }
 
-type containerImage struct {
+type ContainerImage struct {
 	Name  string
-	Image imageInfo
+	Image *ImageInfo
 }
 
-type resourceImage struct {
-	Containers     map[string]interface{} `json:"containers"`
-	InitContainers map[string]interface{} `json:"initContainers,omitempty"`
+type Images struct {
+	InitContainers map[string]*ImageInfo `json:"initContainers,omitempty"`
+	Containers     map[string]*ImageInfo `json:"containers"`
 }
 
-func newResourceImage(initContainersImgs, containersImgs []*containerImage) resourceImage {
-	initContainers := make(map[string]interface{})
-	containers := make(map[string]interface{})
-
+func newImages(initContainersImgs, containersImgs []*ContainerImage) *Images {
+	initContainers := make(map[string]*ImageInfo)
 	for _, resource := range initContainersImgs {
 		initContainers[resource.Name] = resource.Image
 	}
 
+	containers := make(map[string]*ImageInfo)
 	for _, resource := range containersImgs {
 		containers[resource.Name] = resource.Image
 	}
 
-	return resourceImage{
-		Containers:     containers,
+	return &Images{
 		InitContainers: initContainers,
+		Containers:     containers,
 	}
 }
 
-func extractImageInfo(resource *unstructured.Unstructured, log logr.Logger) (initContainersImgs, containersImgs []*containerImage) {
+func extractImageInfo(resource *unstructured.Unstructured, log logr.Logger) (initContainersImgs, containersImgs []*ContainerImage) {
 	logger := log.WithName("extractImageInfo").WithValues("kind", resource.GetKind(), "ns", resource.GetNamespace(), "name", resource.GetName())
 
-	switch resource.GetKind() {
-	case "Pod":
-		for i, tag := range []string{"initContainers", "containers"} {
-			if initContainers, ok, _ := unstructured.NestedSlice(resource.UnstructuredContent(), "spec", tag); ok {
-				img, err := convertToImageInfo(initContainers)
-				if err != nil {
-					logger.WithName(tag).Error(err, "failed to extract image info")
-					continue
-				}
-
-				if i == 0 {
-					initContainersImgs = append(initContainersImgs, img...)
+	for _, tag := range []string{"initContainers", "containers"} {
+		switch resource.GetKind() {
+		case "Pod":
+			if containers, ok, _ := unstructured.NestedSlice(resource.UnstructuredContent(), "spec", tag); ok {
+				if tag == "initContainers" {
+					initContainersImgs = extractImageInfos(containers, initContainersImgs, logger)
 				} else {
-					containersImgs = append(containersImgs, img...)
+					containersImgs = extractImageInfos(containers, containersImgs, logger)
 				}
 			}
-		}
 
-	case "Deployment", "DaemonSet", "Job", "StatefulSet":
-		for i, tag := range []string{"initContainers", "containers"} {
-			if initContainers, ok, _ := unstructured.NestedSlice(resource.UnstructuredContent(), "spec", "template", "spec", tag); ok {
-				img, err := convertToImageInfo(initContainers)
-				if err != nil {
-					logger.WithName(tag).Error(err, "failed to extract image info")
-					continue
-				}
-
-				if i == 0 {
-					initContainersImgs = append(initContainersImgs, img...)
+		case "CronJob":
+			if containers, ok, _ := unstructured.NestedSlice(resource.UnstructuredContent(), "spec", "jobTemplate", "spec", "template", "spec", tag); ok {
+				if tag == "initContainers" {
+					initContainersImgs = extractImageInfos(containers, initContainersImgs, logger)
 				} else {
-					containersImgs = append(containersImgs, img...)
-				}
-			}
-		}
+					containersImgs = extractImageInfos(containers, containersImgs, logger)
+				}			}
 
-	case "CronJob":
-		for i, tag := range []string{"initContainers", "containers"} {
-			if initContainers, ok, _ := unstructured.NestedSlice(resource.UnstructuredContent(), "spec", "jobTemplate", "spec", "template", "spec", tag); ok {
-				img, err := convertToImageInfo(initContainers)
-				if err != nil {
-					logger.WithName(tag).Error(err, "failed to extract image info")
-					continue
-				}
-
-				if i == 0 {
-					initContainersImgs = append(initContainersImgs, img...)
+		// handles "Deployment", "DaemonSet", "Job", "StatefulSet", and custom controllers with the same pattern
+		default:
+			if containers, ok, _ := unstructured.NestedSlice(resource.UnstructuredContent(), "spec", "template", "spec", tag); ok {
+				if tag == "initContainers" {
+					initContainersImgs = extractImageInfos(containers, initContainersImgs, logger)
 				} else {
-					containersImgs = append(containersImgs, img...)
+					containersImgs = extractImageInfos(containers, containersImgs, logger)
 				}
 			}
 		}
@@ -103,47 +80,29 @@ func extractImageInfo(resource *unstructured.Unstructured, log logr.Logger) (ini
 	return
 }
 
-func convertToImageInfo(containers []interface{}) (images []*containerImage, err error) {
-	var errs []string
+func extractImageInfos(containers []interface{}, images []*ContainerImage, log logr.Logger) []*ContainerImage {
+	img, err := convertToImageInfo(containers)
+	if err != nil {
+		log.Error(err, "failed to extract image info", "element", containers)
+	}
 
+	return append(images, img...)
+}
+
+func convertToImageInfo(containers []interface{}) (images []*ContainerImage, err error) {
+	var errs []string
 	for _, ctr := range containers {
 		if container, ok := ctr.(map[string]interface{}); ok {
-			repo, err := reference.Parse(container["image"].(string))
+			image := container["image"].(string)
+			imageInfo, err := newImageInfo(image)
 			if err != nil {
-				errs = append(errs, errors.Wrapf(err, "bad image: %s", container["image"].(string)).Error())
+				errs = append(errs, err.Error())
 				continue
 			}
 
-			var registry, name, tag, digest string
-			if named, ok := repo.(reference.Named); ok {
-				registry, name = reference.SplitHostname(named)
-			}
-
-			if tagged, ok := repo.(reference.Tagged); ok {
-				tag = tagged.Tag()
-			}
-
-			if digested, ok := repo.(reference.Digested); ok {
-				digest = digested.Digest().String()
-			}
-
-			// set default registry and tag
-			if registry == "" {
-				registry = "docker.io"
-			}
-
-			if tag == "" {
-				tag = "latest"
-			}
-
-			images = append(images, &containerImage{
-				Name: container["name"].(string),
-				Image: imageInfo{
-					Registry: registry,
-					Name:     name,
-					Tag:      tag,
-					Digest:   digest,
-				},
+			images = append(images, &ContainerImage{
+				Name: image,
+				Image: imageInfo,
 			})
 		}
 	}
@@ -153,4 +112,41 @@ func convertToImageInfo(containers []interface{}) (images []*containerImage, err
 	}
 
 	return images, errors.Errorf("%s", strings.Join(errs, ";"))
+}
+
+func newImageInfo(image string) (*ImageInfo, error) {
+	repo, err := reference.Parse(image)
+	if err != nil {
+		return nil, errors.Wrapf(err, "bad image: %s", image)
+	}
+
+	var registry, name, tag, digest string
+	if named, ok := repo.(reference.Named); ok {
+		registry = reference.Domain(named)
+		name = reference.Path(named)
+	}
+
+	if tagged, ok := repo.(reference.Tagged); ok {
+		tag = tagged.Tag()
+	}
+
+	if digested, ok := repo.(reference.Digested); ok {
+		digest = digested.Digest().String()
+	}
+
+	// set default registry and tag
+	if registry == "" {
+		registry = "docker.io"
+	}
+
+	if tag == "" {
+		tag = "latest"
+	}
+
+	return &ImageInfo{
+		Registry: registry,
+		Name:     name,
+		Tag:      tag,
+		Digest:   digest,
+	}, nil
 }
