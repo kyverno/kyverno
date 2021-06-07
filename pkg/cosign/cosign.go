@@ -52,7 +52,7 @@ func Verify(imageRef string, key []byte) (digest string, err error) {
 		return "", errors.Wrap(err, "failed to parse image")
 	}
 
-	verified, err := cosign.Verify(context.Background(), ref, cosignOpts)
+	verified, err := cosign.Verify(context.Background(), ref, cosignOpts, "https://rekor.sigstore.dev")
 	if err != nil {
 		return "", errors.Wrap(err, "failed to verify image")
 	}

@@ -9,4 +9,5 @@ const (
 	ValidateEnforce
 	ValidateAudit
 	Generate
+	VerifyImages
 )

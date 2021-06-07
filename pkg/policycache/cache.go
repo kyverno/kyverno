@@ -51,6 +51,7 @@ func newPolicyCache(log logr.Logger, pLister kyvernolister.ClusterPolicyLister, 
 		ValidateEnforce: make(map[string]bool),
 		ValidateAudit:   make(map[string]bool),
 		Generate:        make(map[string]bool),
+		VerifyImages:    make(map[string]bool),
 	}
 
 	return &policyCache{
@@ -93,11 +94,14 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	validateEnforceMap := m.nameCacheMap[ValidateEnforce]
 	validateAuditMap := m.nameCacheMap[ValidateAudit]
 	generateMap := m.nameCacheMap[Generate]
+	imageVerifyMap := m.nameCacheMap[VerifyImages]
+
 	var pName = policy.GetName()
 	pSpace := policy.GetNamespace()
 	if pSpace != "" {
 		pName = pSpace + "/" + pName
 	}
+
 	for _, rule := range policy.Spec.Rules {
 
 		for _, gvk := range rule.MatchResources.Kinds {
@@ -115,6 +119,7 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 				}
 				continue
 			}
+
 			if rule.HasValidate() {
 				if enforcePolicy {
 					if !validateEnforceMap[kind+"/"+pName] {
@@ -142,12 +147,23 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 				}
 				continue
 			}
+
+			if rule.HasVerifyImages() {
+				if !imageVerifyMap[kind+"/"+pName] {
+					imageVerifyMap[kind+"/"+pName] = true
+					imageVerifyMapPolicy := m.kindDataMap[kind][VerifyImages]
+					m.kindDataMap[kind][VerifyImages] = append(imageVerifyMapPolicy, pName)
+				}
+				continue
+			}
 		}
 	}
+
 	m.nameCacheMap[Mutate] = mutateMap
 	m.nameCacheMap[ValidateEnforce] = validateEnforceMap
 	m.nameCacheMap[ValidateAudit] = validateAuditMap
 	m.nameCacheMap[Generate] = generateMap
+	m.nameCacheMap[VerifyImages] = imageVerifyMap
 }
 
 func (pc *pMap) get(key PolicyType, gvk, namespace string) (names []string) {

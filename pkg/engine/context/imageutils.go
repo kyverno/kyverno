@@ -12,8 +12,18 @@ import (
 type ImageInfo struct {
 	Registry string `json:"registry,omitempty"`
 	Name     string `json:"name"`
+	Path     string `json:"path"`
 	Tag      string `json:"tag,omitempty"`
 	Digest   string `json:"digest,omitempty"`
+}
+
+func (i *ImageInfo) String() string {
+	image := i.Registry + "/" + i.Path + ":" + i.Tag
+	if i.Digest != "" {
+		image = image + "@" + i.Digest
+	}
+
+	return image
 }
 
 type ContainerImage struct {
@@ -63,7 +73,8 @@ func extractImageInfo(resource *unstructured.Unstructured, log logr.Logger) (ini
 					initContainersImgs = extractImageInfos(containers, initContainersImgs, logger)
 				} else {
 					containersImgs = extractImageInfos(containers, containersImgs, logger)
-				}			}
+				}
+			}
 
 		// handles "Deployment", "DaemonSet", "Job", "StatefulSet", and custom controllers with the same pattern
 		default:
@@ -93,6 +104,7 @@ func convertToImageInfo(containers []interface{}) (images []*ContainerImage, err
 	var errs []string
 	for _, ctr := range containers {
 		if container, ok := ctr.(map[string]interface{}); ok {
+			name := container["name"].(string)
 			image := container["image"].(string)
 			imageInfo, err := newImageInfo(image)
 			if err != nil {
@@ -101,7 +113,7 @@ func convertToImageInfo(containers []interface{}) (images []*ContainerImage, err
 			}
 
 			images = append(images, &ContainerImage{
-				Name: image,
+				Name:  name,
 				Image: imageInfo,
 			})
 		}
@@ -120,10 +132,11 @@ func newImageInfo(image string) (*ImageInfo, error) {
 		return nil, errors.Wrapf(err, "bad image: %s", image)
 	}
 
-	var registry, name, tag, digest string
+	var registry, path, name, tag, digest string
 	if named, ok := repo.(reference.Named); ok {
 		registry = reference.Domain(named)
-		name = reference.Path(named)
+		path = reference.Path(named)
+		name = path[strings.LastIndex(path, "/")+1:]
 	}
 
 	if tagged, ok := repo.(reference.Tagged); ok {
@@ -146,6 +159,7 @@ func newImageInfo(image string) (*ImageInfo, error) {
 	return &ImageInfo{
 		Registry: registry,
 		Name:     name,
+		Path:     path,
 		Tag:      tag,
 		Digest:   digest,
 	}, nil

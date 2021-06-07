@@ -50,8 +50,8 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 					ruleToReason[rule.Name] = rule.Message
 				}
 			}
-			resourceName = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
 
+			resourceName = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
 			policyToRule[er.PolicyResponse.Policy] = ruleToReason
 		}
 	}
@@ -110,7 +110,7 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	return resource
 }
 
-func containRBACInfo(policies ...[]*kyverno.ClusterPolicy) bool {
+func containsRBACInfo(policies ...[]*kyverno.ClusterPolicy) bool {
 	for _, policySlice := range policies {
 		for _, policy := range policySlice {
 			for _, rule := range policy.Spec.Rules {

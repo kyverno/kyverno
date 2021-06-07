@@ -35,8 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-//HandleGenerate handles admission-requests for policies with generate rules
-func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo, dynamicConfig config.Interface, admissionRequestTimestamp int64, latencySender *chan int64) {
+//handleGenerate handles admission-requests for policies with generate rules
+func (ws *WebhookServer) handleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo, dynamicConfig config.Interface, admissionRequestTimestamp int64, latencySender *chan int64) {
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	logger.V(4).Info("incoming request")
 	var engineResponses []*response.EngineResponse

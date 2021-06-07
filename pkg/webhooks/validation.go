@@ -1,6 +1,8 @@
 package webhooks
 
 import (
+	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/policystatus"
 	"reflect"
 	"sort"
 	"time"
@@ -8,42 +10,34 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	admissionReviewLatency "github.com/kyverno/kyverno/pkg/metrics/admissionreviewlatency"
 	policyRuleExecutionLatency "github.com/kyverno/kyverno/pkg/metrics/policyruleexecutionlatency"
 	policyRuleResults "github.com/kyverno/kyverno/pkg/metrics/policyruleresults"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/policystatus"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
-	"github.com/kyverno/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// HandleValidation handles validating webhook admission request
+type validationHandler struct {
+	log logr.Logger
+	statusListener policystatus.Listener
+	eventGen event.Interface
+	prGenerator policyreport.GeneratorInterface
+}
+
+
+// handleValidation handles validating webhook admission request
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
-func HandleValidation(
+func (v *validationHandler) handleValidation(
 	promConfig *metrics.PromConfig,
 	request *v1beta1.AdmissionRequest,
 	policies []*kyverno.ClusterPolicy,
-	patchedResource []byte,
-	ctx *context.Context,
-	userRequestInfo kyverno.RequestInfo,
-	statusListener policystatus.Listener,
-	eventGen event.Interface,
-	prGenerator policyreport.GeneratorInterface,
-	log logr.Logger,
-	dynamicConfig config.Interface,
-	resCache resourcecache.ResourceCache,
-	client *client.Client,
+	policyContext *engine.PolicyContext,
 	namespaceLabels map[string]string,
 	admissionRequestTimestamp int64) (bool, string) {
 
@@ -56,40 +50,17 @@ func HandleValidation(
 		resourceName = request.Namespace + "/" + resourceName
 	}
 
-	logger := log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind.String())
-
-	// Get new and old resource
-	newR, oldR, err := utils.ExtractResources(patchedResource, request)
-	if err != nil {
-		// as resource cannot be parsed, we skip processing
-		logger.Error(err, "failed to extract resource")
-		return true, ""
-	}
+	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind.String())
 
 	var deletionTimeStamp *metav1.Time
-	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
-		deletionTimeStamp = newR.GetDeletionTimestamp()
+	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
+		deletionTimeStamp = policyContext.NewResource.GetDeletionTimestamp()
 	} else {
-		deletionTimeStamp = oldR.GetDeletionTimestamp()
+		deletionTimeStamp = policyContext.OldResource.GetDeletionTimestamp()
 	}
 
 	if deletionTimeStamp != nil && request.Operation == v1beta1.Update {
 		return true, ""
-	}
-
-	if err := ctx.AddImageInfo(&newR); err != nil {
-		logger.Error(err, "unable to add image info to variables context")
-	}
-
-	policyContext := &engine.PolicyContext{
-		NewResource:         newR,
-		OldResource:         oldR,
-		AdmissionInfo:       userRequestInfo,
-		ExcludeGroupRole:    dynamicConfig.GetExcludeGroupRole(),
-		ExcludeResourceFunc: dynamicConfig.ToFilter,
-		ResourceCache:       resCache,
-		JSONContext:         ctx,
-		Client:              client,
 	}
 
 	var engineResponses []*response.EngineResponse
@@ -112,7 +83,7 @@ func HandleValidation(
 
 		engineResponses = append(engineResponses, engineResponse)
 		triggeredPolicies = append(triggeredPolicies, *policy)
-		statusListener.Update(validateStats{
+		v.statusListener.Update(validateStats{
 			resp:      engineResponse,
 			namespace: policy.Namespace,
 		})
@@ -142,7 +113,7 @@ func HandleValidation(
 	//   all policies were applied successfully.
 	//   create an event on the resource
 	events := generateEvents(engineResponses, blocked, (request.Operation == v1beta1.Update), logger)
-	eventGen.Add(events...)
+	v.eventGen.Add(events...)
 	if blocked {
 		logger.V(4).Info("resource blocked")
 		//registering the kyverno_admission_review_latency_milliseconds metric concurrently
@@ -152,12 +123,12 @@ func HandleValidation(
 	}
 
 	if request.Operation == v1beta1.Delete {
-		prGenerator.Add(buildDeletionPrInfo(oldR))
+		v.prGenerator.Add(buildDeletionPrInfo(policyContext.OldResource))
 		return true, ""
 	}
 
 	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
-	prGenerator.Add(prInfos...)
+	v.prGenerator.Add(prInfos...)
 
 	//registering the kyverno_admission_review_latency_milliseconds metric concurrently
 	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
