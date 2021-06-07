@@ -125,6 +125,9 @@ func (e2e *E2EClient) CreateNamespacedResourceYaml(gvr schema.GroupVersionResour
 		return nil, err
 	}
 	result, err := e2e.Client.Resource(gvr).Namespace(namespace).Create(context.TODO(), &resource, metav1.CreateOptions{})
+	if gvr.Resource == "clusterpolicies" {
+		time.Sleep(1 * time.Second)
+	}
 	return result, err
 }
 
@@ -166,7 +169,7 @@ func (e2e *E2EClient) UpdateNamespacedResourceYaml(gvr schema.GroupVersionResour
 	return result, err
 }
 
-// CreateNamespacedResource ...
+// UpdateNamespacedResource ...
 func (e2e *E2EClient) UpdateNamespacedResource(gvr schema.GroupVersionResource, namespace string, resourceData *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	return e2e.Client.Resource(gvr).Namespace(namespace).Update(context.TODO(), resourceData, metav1.UpdateOptions{})
 }
