@@ -123,7 +123,7 @@ func (e2e *E2EClient) CreateNamespacedResourceYaml(gvr schema.GroupVersionResour
 	}
 	result, err := e2e.Client.Resource(gvr).Namespace(namespace).Create(context.TODO(), &resource, metav1.CreateOptions{})
 	if gvr.Resource == "clusterpolicies" {
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 	return result, err
 }
