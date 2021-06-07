@@ -81,7 +81,7 @@ func (ws *WebhookServer) HandleMutation(
 
 		err := ws.openAPIController.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
-			logger.V(4).Info("validation error", "policy", policy.Name, "error", err.Error())
+			logger.Info("validation error", "policy", policy.Name, "error", err.Error())
 			continue
 		}
 
