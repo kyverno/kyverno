@@ -76,6 +76,7 @@ func NewPromConfig() *PromConfig {
 		"cluster_policies_count", "namespaced_policies_count",
 		"validate_rules_count", "mutate_rules_count", "generate_rules_count",
 		"resource_name", "resource_kind", "resource_namespace", "resource_request_operation",
+		"admission_request_timestamp",
 	}
 	admissionReviewLatencyMetric := prom.NewGaugeVec(
 		prom.GaugeOpts{
