@@ -164,8 +164,24 @@ func (ws *WebhookServer) handleUpdateCloneSourceResource(resLabels map[string]st
 			return
 		}
 		for _, gr := range grList {
-			ws.grController.EnqueueGenerateRequestFromWebhook(gr)
+			ws.updateAnnotationInGR(gr, logger)
 		}
+	}
+}
+
+// updateAnnotationInGR - function used to update GR annotation
+// updating GR will trigger reprocessing of GR and recreation/updation of generated resource
+func (ws *WebhookServer) updateAnnotationInGR(gr *v1.GenerateRequest, logger logr.Logger) {
+	grAnnotations := gr.Annotations
+	if len(grAnnotations) == 0 {
+		grAnnotations = make(map[string]string)
+	}
+	grAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
+	gr.SetAnnotations(grAnnotations)
+	_, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(contextdefault.TODO(), gr, metav1.UpdateOptions{})
+	if err != nil {
+		logger.Error(err, "failed to update generate request for the resource", "generate request", gr.Name)
+		return
 	}
 }
 
@@ -227,7 +243,7 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 			logger.Error(err, "failed to get generate request", "name", grName)
 			return
 		}
-		ws.grController.EnqueueGenerateRequestFromWebhook(gr)
+		ws.updateAnnotationInGR(gr, logger)
 	}
 }
 
@@ -343,7 +359,7 @@ func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
 			logger.Error(err, "failed to get generate request", "name", grName)
 			return
 		}
-		ws.grController.EnqueueGenerateRequestFromWebhook(gr)
+		ws.updateAnnotationInGR(gr, logger)
 	}
 }
 

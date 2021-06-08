@@ -3,6 +3,8 @@ package cleanup
 import (
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -10,7 +12,6 @@ import (
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -27,37 +28,47 @@ const (
 
 //Controller manages life-cycle of generate-requests
 type Controller struct {
+
 	// dynamic client implementation
 	client *dclient.Client
+
 	// typed client for kyverno CRDs
 	kyvernoClient *kyvernoclient.Clientset
-	// handler for GR CR
-	syncHandler func(grKey string) error
-	// handler to enqueue GR
-	enqueueGR func(gr *kyverno.GenerateRequest)
+
+	pInformer  kyvernoinformer.ClusterPolicyInformer
+	grInformer kyvernoinformer.GenerateRequestInformer
 
 	// control is used to delete the GR
 	control ControlInterface
+
 	// gr that need to be synced
 	queue workqueue.RateLimitingInterface
+
 	// pLister can list/get cluster policy from the shared informer's store
 	pLister kyvernolister.ClusterPolicyLister
+
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestNamespaceLister
+
 	// pSynced returns true if the cluster policy has been synced at least once
 	pSynced cache.InformerSynced
+
 	// grSynced returns true if the generate request store has been synced at least once
 	grSynced cache.InformerSynced
+
 	// dynamic sharedinformer factory
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
-	//TODO: list of generic informers
-	// only support Namespaces for deletion of resource
+
+	// namespace informer
 	nsInformer informers.GenericInformer
-	log        logr.Logger
+
+	// logger
+	log logr.Logger
 }
 
 //NewController returns a new controller instance to manage generate-requests
 func NewController(
+	kubeClient kubernetes.Interface,
 	kyvernoclient *kyvernoclient.Clientset,
 	client *dclient.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
@@ -68,14 +79,14 @@ func NewController(
 	c := Controller{
 		kyvernoClient:   kyvernoclient,
 		client:          client,
+		pInformer:       pInformer,
+		grInformer:      grInformer,
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
 		dynamicInformer: dynamicInformer,
 		log:             log,
 	}
 
 	c.control = Control{client: kyvernoclient}
-	c.enqueueGR = c.enqueue
-	c.syncHandler = c.syncGenerateRequest
 
 	c.pLister = pInformer.Lister()
 	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
@@ -83,18 +94,6 @@ func NewController(
 	c.pSynced = pInformer.Informer().HasSynced
 	c.grSynced = grInformer.Informer().HasSynced
 
-	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: c.deletePolicy, // we only cleanup if the policy is delete
-	})
-
-	grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addGR,
-		UpdateFunc: c.updateGR,
-		DeleteFunc: c.deleteGR,
-	})
-
-	//TODO: dynamic registration
-	// Only supported for namespaces
 	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
 	if err != nil {
 		return nil, err
@@ -102,9 +101,6 @@ func NewController(
 
 	nsInformer := dynamicInformer.ForResource(gvr)
 	c.nsInformer = nsInformer
-	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: c.deleteGenericResource,
-	})
 
 	return &c, nil
 }
@@ -119,7 +115,7 @@ func (c *Controller) deleteGenericResource(obj interface{}) {
 	}
 	// re-evaluate the GR as the resource was deleted
 	for _, gr := range grs {
-		c.enqueueGR(gr)
+		c.enqueue(gr)
 	}
 }
 
@@ -156,12 +152,12 @@ func (c *Controller) deletePolicy(obj interface{}) {
 
 func (c *Controller) addGR(obj interface{}) {
 	gr := obj.(*kyverno.GenerateRequest)
-	c.enqueueGR(gr)
+	c.enqueue(gr)
 }
 
 func (c *Controller) updateGR(old, cur interface{}) {
 	gr := cur.(*kyverno.GenerateRequest)
-	c.enqueueGR(gr)
+	c.enqueue(gr)
 }
 
 func (c *Controller) deleteGR(obj interface{}) {
@@ -198,7 +194,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 
 	logger.V(4).Info("deleting Generate Request CR", "name", gr.Name)
 	// sync Handler will remove it from the queue
-	c.enqueueGR(gr)
+	c.enqueue(gr)
 }
 
 func (c *Controller) enqueue(gr *kyverno.GenerateRequest) {
@@ -230,14 +226,30 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
+
+	c.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: c.deletePolicy, // we only cleanup if the policy is delete
+	})
+
+	c.grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addGR,
+		UpdateFunc: c.updateGR,
+		DeleteFunc: c.deleteGR,
+	})
+
+	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: c.deleteGenericResource,
+	})
+
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.worker, time.Second, stopCh)
 	}
+
 	<-stopCh
 }
 
 // worker runs a worker thread that just de-queues items, processes them, and marks them done.
-// It enforces that the syncHandler is never invoked concurrently with the same key.
+// It enforces that the syncGenerateRequest is never invoked concurrently with the same key.
 func (c *Controller) worker() {
 	for c.processNextWorkItem() {
 	}
@@ -249,7 +261,7 @@ func (c *Controller) processNextWorkItem() bool {
 		return false
 	}
 	defer c.queue.Done(key)
-	err := c.syncHandler(key.(string))
+	err := c.syncGenerateRequest(key.(string))
 	c.handleErr(err, key)
 
 	return true
@@ -262,7 +274,7 @@ func (c *Controller) handleErr(err error, key interface{}) {
 		return
 	}
 
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		logger.V(4).Info("dropping generate request", "key", key, "error", err.Error())
 		c.queue.Forget(key)
 		return
@@ -287,7 +299,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 		logger.V(4).Info("finished syncing generate request", "processingTIme", time.Since(startTime).String())
 	}()
 	_, grName, err := cache.SplitMetaNamespaceKey(key)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		logger.Info("generate request has been deleted")
 		return nil
 	}
@@ -301,7 +313,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 
 	_, err = c.pLister.Get(gr.Spec.Policy)
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !apierrors.IsNotFound(err) {
 			return err
 		}
 		c.control.Delete(gr.Name)

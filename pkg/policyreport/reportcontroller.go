@@ -7,15 +7,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	requestinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
-	policyreportinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
-	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
-	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
-	"github.com/kyverno/kyverno/pkg/config"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,9 +17,20 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+
+	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	requestinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
+	policyreportinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha1"
+	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/config"
+	dclient "github.com/kyverno/kyverno/pkg/dclient"
 )
 
 const (
@@ -40,6 +42,11 @@ const (
 type ReportGenerator struct {
 	pclient *kyvernoclient.Clientset
 	dclient *dclient.Client
+
+	clusterReportInformer    policyreportinformer.ClusterPolicyReportInformer
+	reportInformer           policyreportinformer.PolicyReportInformer
+	reportReqInformer        requestinformer.ReportChangeRequestInformer
+	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer
 
 	reportLister policyreport.PolicyReportLister
 	reportSynced cache.InformerSynced
@@ -67,6 +74,7 @@ type ReportGenerator struct {
 
 // NewReportGenerator returns a new instance of policy report generator
 func NewReportGenerator(
+	kubeClient kubernetes.Interface,
 	pclient *kyvernoclient.Clientset,
 	dclient *dclient.Client,
 	clusterReportInformer policyreportinformer.ClusterPolicyReportInformer,
@@ -74,37 +82,19 @@ func NewReportGenerator(
 	reportReqInformer requestinformer.ReportChangeRequestInformer,
 	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
 	namespace informers.NamespaceInformer,
-	log logr.Logger) *ReportGenerator {
+	log logr.Logger) (*ReportGenerator, error) {
 
 	gen := &ReportGenerator{
-		pclient:     pclient,
-		dclient:     dclient,
-		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), prWorkQueueName),
-		ReconcileCh: make(chan bool, 10),
-		log:         log,
+		pclient:                  pclient,
+		dclient:                  dclient,
+		clusterReportInformer:    clusterReportInformer,
+		reportInformer:           reportInformer,
+		reportReqInformer:        reportReqInformer,
+		clusterReportReqInformer: clusterReportReqInformer,
+		queue:                    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), prWorkQueueName),
+		ReconcileCh:              make(chan bool, 10),
+		log:                      log,
 	}
-
-	reportReqInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc:    gen.addReportChangeRequest,
-			UpdateFunc: gen.updateReportChangeRequest,
-		})
-
-	clusterReportReqInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc:    gen.addClusterReportChangeRequest,
-			UpdateFunc: gen.updateClusterReportChangeRequest,
-		})
-
-	reportInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			DeleteFunc: gen.deletePolicyReport,
-		})
-
-	clusterReportInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			DeleteFunc: gen.deleteClusterPolicyReport,
-		})
 
 	gen.clusterReportLister = clusterReportInformer.Lister()
 	gen.clusterReportSynced = clusterReportInformer.Informer().HasSynced
@@ -117,7 +107,7 @@ func NewReportGenerator(
 	gen.nsLister = namespace.Lister()
 	gen.nsListerSynced = namespace.Informer().HasSynced
 
-	return gen
+	return gen, nil
 }
 
 const deletedPolicyKey string = "deletedpolicy"
@@ -208,6 +198,28 @@ func (g *ReportGenerator) Run(workers int, stopCh <-chan struct{}) {
 	if !cache.WaitForCacheSync(stopCh, g.reportReqSynced, g.clusterReportReqSynced, g.reportSynced, g.clusterReportSynced, g.nsListerSynced) {
 		logger.Info("failed to sync informer cache")
 	}
+
+	g.reportReqInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    g.addReportChangeRequest,
+			UpdateFunc: g.updateReportChangeRequest,
+		})
+
+	g.clusterReportReqInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    g.addClusterReportChangeRequest,
+			UpdateFunc: g.updateClusterReportChangeRequest,
+		})
+
+	g.reportInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			DeleteFunc: g.deletePolicyReport,
+		})
+
+	g.clusterReportInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			DeleteFunc: g.deleteClusterPolicyReport,
+		})
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(g.runWorker, time.Second, stopCh)
