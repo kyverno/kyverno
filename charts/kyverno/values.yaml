@@ -54,8 +54,8 @@ antiAffinityTopologyKey: "kubernetes.io/hostname"
 
 # Hard means that by default pods will only be scheduled if there are enough nodes for them
 # and that they will never end up on the same node. Setting this to soft will do this "best effort"
-antiAffinity: "hard"nodeSelector: {}
-
+antiAffinity: "hard"
+nodeSelector: {}
 tolerations: []
 
 # change hostNetwork to true when you want the kyverno's pod to share its host's network namespace
