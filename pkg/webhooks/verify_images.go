@@ -9,11 +9,27 @@ import (
 
 func (ws *WebhookServer) handleVerifyImages(request *v1beta1.AdmissionRequest,
 	policyContext *engine.PolicyContext,
-	policies []*v1.ClusterPolicy,
-	admissionRequestTimestamp int64) (*response.EngineResponse) {
+	policies []*v1.ClusterPolicy) (bool, string) {
 
+	if len(policies) == 0 {
+		return true, ""
+	}
 
+	resourceName := getResourceName(request)
+	logger := ws.log.WithValues("action", "verifyImages", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind.String())
 
+	var engineResponses []*response.EngineResponse
+	for _, p := range policies {
+		policyContext.Policy = *p
+		resp := engine.VerifyImages(policyContext)
+		engineResponses = append(engineResponses, resp)
+	}
 
-	return nil
+	blocked := toBlockResource(engineResponses, logger)
+	if blocked {
+		logger.V(4).Info("resource blocked")
+		return false, getEnforceFailureErrorMsg(engineResponses)
+	}
+
+	return true, ""
 }

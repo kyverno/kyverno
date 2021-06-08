@@ -34,6 +34,7 @@ func toBlockResource(engineReponses []*response.EngineResponse, log logr.Logger)
 			return true
 		}
 	}
+
 	log.V(4).Info("spec.ValidationFailureAction set to audit for all applicable policies, won't block resource operation")
 	return false
 }

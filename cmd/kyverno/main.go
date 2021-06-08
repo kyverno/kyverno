@@ -4,9 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/kyverno/kyverno/pkg/cosign"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"strings"
 	"time"
 
 	backwardcompatibility "github.com/kyverno/kyverno/pkg/backward_compatibility"
@@ -44,21 +46,19 @@ const resyncPeriod = 15 * time.Minute
 var (
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
-	filterK8sResources string
-	kubeconfig         string
-	serverIP           string
-	excludeGroupRole   string
-	excludeUsername    string
-	profilePort        string
-	metricsPort        string
-
-	webhookTimeout int
-	genWorkers     int
-
-	profile              bool
-	disableMetricsExport bool
-
+	filterK8sResources           string
+	kubeconfig                   string
+	serverIP                     string
+	excludeGroupRole             string
+	excludeUsername              string
+	profilePort                  string
+	metricsPort                  string
+	webhookTimeout               int
+	genWorkers                   int
+	profile                      bool
+	disableMetricsExport         bool
 	policyControllerResyncPeriod time.Duration
+	imagePullSecrets             string
 	setupLog                     = log.Log.WithName("setup")
 )
 
@@ -73,10 +73,12 @@ func main() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
-	flag.StringVar(&profilePort, "profile-port", "6060", "Enable profiling at given port, default to 6060.")
+	flag.StringVar(&profilePort, "profile-port", "6060", "Enable profiling at given port, defaults to 6060.")
 	flag.BoolVar(&disableMetricsExport, "disable-metrics", false, "Set this flag to 'true', to enable exposing the metrics.")
 	flag.StringVar(&metricsPort, "metrics-port", "8000", "Expose prometheus metrics at the given port, default to 8000.")
 	flag.DurationVar(&policyControllerResyncPeriod, "background-scan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h.")
+	flag.StringVar(&imagePullSecrets, "image-pull-secrets", "", "Secret resource names for image registry access credentials")
+
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -107,7 +109,6 @@ func main() {
 				os.Exit(1)
 			}
 		}()
-
 	}
 
 	if !disableMetricsExport {
@@ -162,7 +163,18 @@ func main() {
 	rCache, err := resourcecache.NewResourceCache(client, kubedynamicInformer, log.Log.WithName("resourcecache"))
 	if err != nil {
 		setupLog.Error(err, "ConfigMap lookup disabled: failed to create resource cache")
+		os.Exit(1)
 	}
+
+	secrets := strings.Split(imagePullSecrets, ",")
+	if imagePullSecrets != "" && len(secrets) > 0 {
+		setupLog.Info("initializing registry credentials", "secrets", secrets)
+		if err := cosign.Initialize(kubeClient, config.KyvernoNamespace, "", secrets); err != nil {
+			setupLog.Error(err, "failed to initialize image pull secrets")
+			os.Exit(1)
+		}
+	}
+
 	debug := serverIP != ""
 	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,

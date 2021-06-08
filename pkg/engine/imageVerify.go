@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func verifyImages(policyContext *PolicyContext) (resp *response.EngineResponse) {
+func VerifyImages(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	images := policyContext.JSONContext.ImageInfo()
 	if images == nil {
@@ -28,7 +28,7 @@ func verifyImages(policyContext *PolicyContext) (resp *response.EngineResponse) 
 	startTime := time.Now()
 	defer func() {
 		buildResponse(logger, policyContext, resp, startTime)
-		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
+		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "rulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
 	policyContext.JSONContext.Checkpoint()
@@ -65,17 +65,20 @@ func verifyImageInfos(logger logr.Logger, rule *v1.Rule, imageVerify *v1.ImageVe
 			ruleResp := response.RuleResponse{
 				Name:    rule.Name,
 				Type:    utils.Validation.String(),
-				Success: true,
-				Message: fmt.Sprintf("image %s verified", image),
 			}
 
 			// TODO - use digest to mutate the image
-			_, err := cosign.Verify(image, []byte(key))
+			digest, err := cosign.Verify(image, []byte(key))
 			if err != nil {
+				logger.Info("image verification error", "image", image, "error", err)
 				ruleResp.Success = false
 				ruleResp.Message = fmt.Sprintf("image verification failed for %s: %v", image, err)
+			} else {
+				ruleResp.Success = true
+				ruleResp.Message = fmt.Sprintf("image %s verified", image)
 			}
 
+			logger.V(4).Info("verified image", "image", image, "digest", digest)
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
 		}
 	}

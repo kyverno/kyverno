@@ -45,11 +45,7 @@ func (v *validationHandler) handleValidation(
 		return true, ""
 	}
 
-	resourceName := request.Kind.Kind + "/" + request.Name
-	if request.Namespace != "" {
-		resourceName = request.Namespace + "/" + resourceName
-	}
-
+	resourceName := getResourceName(request)
 	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind.String())
 
 	var deletionTimeStamp *metav1.Time
@@ -135,6 +131,15 @@ func (v *validationHandler) handleValidation(
 	go registerAdmissionReviewLatencyMetricValidate(promConfig, logger, string(request.Operation), engineResponses, triggeredPolicies, admissionReviewLatencyDuration)
 
 	return true, ""
+}
+
+func getResourceName(request *v1beta1.AdmissionRequest) string {
+	resourceName := request.Kind.Kind + "/" + request.Name
+	if request.Namespace != "" {
+		resourceName = request.Namespace + "/" + resourceName
+	}
+
+	return resourceName
 }
 
 func registerPolicyRuleResultsMetricValidation(promConfig *metrics.PromConfig, logger logr.Logger, requestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, admissionRequestTimestamp int64) {

@@ -385,10 +385,10 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	go registerAdmissionReviewLatencyMetricMutate(logger, *ws.promConfig.Metrics, string(request.Operation), mutateEngineResponses, triggeredMutatePolicies, admissionReviewLatencyDuration)
 
 	// IMAGE VERIFICATION
-	verifyImageEngineResponse := ws.handleVerifyImages(request, policyContext, verifyImagesPolicies, admissionRequestTimestamp)
-	if !verifyImageEngineResponse.IsSuccessful(){
-		logger.Info("image verification error", "response", verifyImageEngineResponse)
-
+	ok, message := ws.handleVerifyImages(request, policyContext, verifyImagesPolicies)
+	if !ok{
+		logger.Info("image verification failed", "reason", message)
+		return failureResponse(message)
 	}
 
 	// GENERATE
@@ -425,6 +425,16 @@ func errorResponse(logger logr.Logger, err error, message string) *v1beta1.Admis
 		Result: &metav1.Status{
 			Status:  "Failure",
 			Message: message + ": " + err.Error(),
+		},
+	}
+}
+
+func failureResponse(message string) *v1beta1.AdmissionResponse {
+	return &v1beta1.AdmissionResponse{
+		Allowed: false,
+		Result: &metav1.Status{
+			Status:  "Failure",
+			Message: message,
 		},
 	}
 }

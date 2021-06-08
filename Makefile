@@ -7,6 +7,7 @@ GIT_VERSION := $(shell git describe --always --tags)
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
+CONTROLLER_GEN=controller-gen
 CONTROLLER_GEN_REQ_VERSION := v0.4.0
 
 REGISTRY?=ghcr.io
@@ -75,7 +76,7 @@ docker-publish-kyverno: docker-build-kyverno docker-push-kyverno
 docker-build-kyverno:
 	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
-docker-build-local-kyverno:
+docker-build-kyverno-local:
 	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
 	@docker build -f $(PWD)/$(KYVERNO_PATH)/localDockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(PWD)/$(KYVERNO_PATH)
 	@docker tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REPO)/$(KYVERNO_IMAGE):latest
