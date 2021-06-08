@@ -373,7 +373,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// start informers and Kyverno controllers
 	go webhookRegisterLeader.Run(ctx)
 
 	// the webhook server runs across all instances
@@ -442,13 +441,12 @@ func main() {
 	}
 
 	// cleanup Kyverno managed resources followed by webhook shutdown
+	// No need to exit here, as server.Stop(ctx) closes the cleanUp
+	// chan, thus the main process exits.
 	stop := func() {
 		c, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		server.Stop(c)
-
-		// exit on stop leading
-		os.Exit(1)
 	}
 
 	le, err := leaderelection.New("kyverno", config.KyvernoNamespace, kubeClientLeaderElection, run, stop, log.Log.WithName("kyverno/LeaderElection"))

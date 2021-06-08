@@ -34,9 +34,9 @@ const (
 // annotation update; otherwise lastSeenRequestTime is updated to latestTimestamp.
 //
 //
-// Webhook configurations are checked every tickerInterval by the leader. Currently
-// the check only queries for the expected resource name, and does not compare
-// other details like the webhook settings.
+// Webhook configurations are checked every tickerInterval across all instances.
+// Currently the check only queries for the expected resource name, and does
+// not compare other details like the webhook settings.
 //
 type Monitor struct {
 	// lastSeenRequestTime records the timestamp
