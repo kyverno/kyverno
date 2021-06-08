@@ -36,10 +36,12 @@ import (
 )
 
 //HandleGenerate handles admission-requests for policies with generate rules
-func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo, dynamicConfig config.Interface, admissionRequestTimestamp int64, latencySender *chan int64) {
+func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo, dynamicConfig config.Interface, admissionRequestTimestamp int64, latencySender *chan int64, triggeredGeneratePoliciesSender *chan []kyverno.ClusterPolicy, generateEngineResponsesSender *chan []*response.EngineResponse) {
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	logger.V(4).Info("incoming request")
+
 	var engineResponses []*response.EngineResponse
+	var triggeredGeneratePolicies []kyverno.ClusterPolicy
 	if (request.Operation == v1beta1.Create || request.Operation == v1beta1.Update) && len(policies) != 0 {
 		// convert RAW to unstructured
 		new, old, err := kyvernoutils.ExtractResources(nil, request)
@@ -77,6 +79,7 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 				engineResponse.PolicyResponse.Rules = rules
 				// some generate rules do apply to the resource
 				engineResponses = append(engineResponses, engineResponse)
+				triggeredGeneratePolicies = append(triggeredGeneratePolicies, *policy)
 				ws.statusListener.Update(generateStats{
 					resp: engineResponse,
 				})
@@ -105,6 +108,8 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	// sending the admission request latency to other goroutine (reporting the metrics) over the channel
 	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
 	*latencySender <- admissionReviewLatencyDuration
+	*triggeredGeneratePoliciesSender <- triggeredGeneratePolicies
+	*generateEngineResponsesSender <- engineResponses
 }
 
 func (ws *WebhookServer) registerPolicyRuleResultsMetricGeneration(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, admissionRequestTimestamp int64) {
@@ -197,6 +202,7 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 		logger.Error(err, "failed to get policy from kyverno client.", "policy name", policyName)
 		return
 	}
+
 	for _, rule := range policy.Spec.Rules {
 		if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
 			updatedRule, err := getGeneratedByResource(newRes, resLabels, ws.client, rule, logger)
