@@ -91,3 +91,38 @@ app.kubernetes.io/instance: {{ .Release.Name }}
     {{ default "default" .Values.rbac.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
+
+{{/* Create the default PodDisruptionBudget to use */}}
+{{- define "podDisruptionBudget.spec" -}}
+{{- if and .Values.podDisruptionBudget.minAvailable .Values.podDisruptionBudget.maxUnavailable }}
+{{- fail "Cannot set both .Values.podDisruptionBudget.minAvailable and .Values.podDisruptionBudget.maxUnavailable" -}}
+{{- end }}
+{{- if not .Values.podDisruptionBudget.maxUnavailable }}
+minAvailable: {{ default 1 .Values.podDisruptionBudget.minAvailable }}
+{{- end }}
+{{- if .Values.podDisruptionBudget.maxUnavailable }}
+maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+{{- end }}
+{{- end }}
+
+{{/* Set if a default policy is managed */}}
+{{- define "kyverno.podSecurityDefault" -}}
+{{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
+{{- true }}
+{{- else if and (eq .Values.podSecurityStandard "custom") (has .name .Values.podSecurityPolicies) }}
+{{- true }}
+{{- else -}}
+{{- false }}
+{{- end -}}
+{{- end -}}
+
+{{/* Set if a restricted policy is managed */}}
+{{- define "kyverno.podSecurityRestricted" -}}
+{{- if eq .Values.podSecurityStandard "restricted" }}
+{{- true }}
+{{- else if and (eq .Values.podSecurityStandard "custom") (has .name .Values.podSecurityPolicies) }}
+{{- true }}
+{{- else -}}
+{{- false }}
+{{- end -}}
+{{- end -}}
