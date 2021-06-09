@@ -31,7 +31,16 @@ spec:
       securityContext: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       {{- with .Values.affinity }}
-      affinity: {{ tpl (toYaml .) $ | nindent 8 }}
+      affinity: 
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                - kyverno
+            topologyKey: "kubernetes.io/hostname"
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector: {{ tpl (toYaml .) $ | nindent 8 }}
