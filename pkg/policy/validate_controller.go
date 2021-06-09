@@ -33,6 +33,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -56,6 +57,9 @@ const (
 type PolicyController struct {
 	client        *client.Client
 	kyvernoClient *kyvernoclient.Clientset
+	pInformer     kyvernoinformer.ClusterPolicyInformer
+	npInformer    kyvernoinformer.PolicyInformer
+
 	eventGen      event.Interface
 	eventRecorder record.EventRecorder
 
@@ -114,7 +118,9 @@ type PolicyController struct {
 }
 
 // NewPolicyController create a new PolicyController
-func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
+func NewPolicyController(
+	kubeClient kubernetes.Interface,
+	kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
@@ -141,35 +147,26 @@ func NewPolicyController(kyvernoClient *kyvernoclient.Clientset,
 	pc := PolicyController{
 		client:             client,
 		kyvernoClient:      kyvernoClient,
+		pInformer:          pInformer,
+		npInformer:         npInformer,
 		eventGen:           eventGen,
 		eventRecorder:      eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
 		queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		configHandler:      configHandler,
 		prGenerator:        prGenerator,
 		policyReportEraser: policyReportEraser,
-		log:                log,
 		resCache:           resCache,
 		reconcilePeriod:    reconcilePeriod,
 		promConfig:         promConfig,
+		log:                log,
 	}
-
-	pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    pc.addPolicy,
-		UpdateFunc: pc.updatePolicy,
-		DeleteFunc: pc.deletePolicy,
-	})
-
-	npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    pc.addNsPolicy,
-		UpdateFunc: pc.updateNsPolicy,
-		DeleteFunc: pc.deleteNsPolicy,
-	})
 
 	pc.pLister = pInformer.Lister()
 	pc.npLister = npInformer.Lister()
 
 	pc.nsLister = namespaces.Lister()
 	pc.grLister = grInformer.Lister()
+
 	pc.pListerSynced = pInformer.Informer().HasSynced
 	pc.npListerSynced = npInformer.Informer().HasSynced
 
@@ -552,6 +549,18 @@ func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-c
 		logger.Info("failed to sync informer cache")
 		return
 	}
+
+	pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    pc.addPolicy,
+		UpdateFunc: pc.updatePolicy,
+		DeleteFunc: pc.deletePolicy,
+	})
+
+	pc.npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    pc.addNsPolicy,
+		UpdateFunc: pc.updateNsPolicy,
+		DeleteFunc: pc.deleteNsPolicy,
+	})
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(pc.worker, time.Second, stopCh)

@@ -2,6 +2,24 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: {{ template "kyverno.fullname" . }}:leaderelection
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: {{ template "kyverno.fullname" . }}:webhook
   labels: {{ include "kyverno.labels" . | nindent 4 }}
     app: kyverno

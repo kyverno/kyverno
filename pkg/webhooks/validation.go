@@ -114,7 +114,7 @@ func (v *validationHandler) handleValidation(
 		logger.V(4).Info("resource blocked")
 		//registering the kyverno_admission_review_latency_milliseconds metric concurrently
 		admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
-		go registerAdmissionReviewLatencyMetricValidate(promConfig, logger, string(request.Operation), engineResponses, triggeredPolicies, admissionReviewLatencyDuration)
+		go registerAdmissionReviewLatencyMetricValidate(promConfig, logger, string(request.Operation), engineResponses, triggeredPolicies, admissionReviewLatencyDuration, admissionRequestTimestamp)
 		return false, getEnforceFailureErrorMsg(engineResponses)
 	}
 
@@ -128,7 +128,7 @@ func (v *validationHandler) handleValidation(
 
 	//registering the kyverno_admission_review_latency_milliseconds metric concurrently
 	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
-	go registerAdmissionReviewLatencyMetricValidate(promConfig, logger, string(request.Operation), engineResponses, triggeredPolicies, admissionReviewLatencyDuration)
+	go registerAdmissionReviewLatencyMetricValidate(promConfig, logger, string(request.Operation), engineResponses, triggeredPolicies, admissionReviewLatencyDuration, admissionRequestTimestamp)
 
 	return true, ""
 }
@@ -162,12 +162,12 @@ func registerPolicyRuleExecutionLatencyMetricValidate(promConfig *metrics.PromCo
 	}
 }
 
-func registerAdmissionReviewLatencyMetricValidate(promConfig *metrics.PromConfig, logger logr.Logger, requestOperation string, engineResponses []*response.EngineResponse, triggeredPolicies []kyverno.ClusterPolicy, admissionReviewLatencyDuration int64) {
+func registerAdmissionReviewLatencyMetricValidate(promConfig *metrics.PromConfig, logger logr.Logger, requestOperation string, engineResponses []*response.EngineResponse, triggeredPolicies []kyverno.ClusterPolicy, admissionReviewLatencyDuration int64, admissionRequestTimestamp int64) {
 	resourceRequestOperationPromAlias, err := admissionReviewLatency.ParseResourceRequestOperation(requestOperation)
 	if err != nil {
 		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
 	}
-	if err := admissionReviewLatency.ParsePromMetrics(*promConfig.Metrics).ProcessEngineResponses(engineResponses, triggeredPolicies, admissionReviewLatencyDuration, resourceRequestOperationPromAlias); err != nil {
+	if err := admissionReviewLatency.ParsePromMetrics(*promConfig.Metrics).ProcessEngineResponses(engineResponses, triggeredPolicies, admissionReviewLatencyDuration, resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
 	}
 }

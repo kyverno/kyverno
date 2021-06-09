@@ -5,10 +5,11 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/kyverno/kyverno/pkg/engine"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/kyverno/kyverno/pkg/engine"
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
@@ -30,7 +31,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
-	ktls "github.com/kyverno/kyverno/pkg/tls"
 	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	userinfo "github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -109,8 +109,6 @@ type WebhookServer struct {
 	// last request time
 	webhookMonitor *webhookconfig.Monitor
 
-	certRenewer *ktls.CertRenewer
-
 	// policy report generator
 	prGenerator policyreport.GeneratorInterface
 
@@ -133,8 +131,6 @@ type WebhookServer struct {
 
 	grController *generate.Controller
 
-	debug bool
-
 	promConfig *metrics.PromConfig
 }
 
@@ -155,7 +151,6 @@ func NewWebhookServer(
 	pCache policycache.Interface,
 	webhookRegistrationClient *webhookconfig.Register,
 	webhookMonitor *webhookconfig.Monitor,
-	certRenewer *ktls.CertRenewer,
 	statusSync policystatus.Listener,
 	configHandler config.Interface,
 	prGenerator policyreport.GeneratorInterface,
@@ -166,7 +161,6 @@ func NewWebhookServer(
 	openAPIController *openapi.Controller,
 	resCache resourcecache.ResourceCache,
 	grc *generate.Controller,
-	debug bool,
 	promConfig *metrics.PromConfig,
 ) (*WebhookServer, error) {
 
@@ -206,7 +200,6 @@ func NewWebhookServer(
 		configHandler:     configHandler,
 		cleanUp:           cleanUp,
 		webhookMonitor:    webhookMonitor,
-		certRenewer:       certRenewer,
 		prGenerator:       prGenerator,
 		grGenerator:       grGenerator,
 		grController:      grc,
@@ -214,7 +207,6 @@ func NewWebhookServer(
 		log:               log,
 		openAPIController: openAPIController,
 		resCache:          resCache,
-		debug:             debug,
 		promConfig:        promConfig,
 	}
 
@@ -382,11 +374,12 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	logger.V(6).Info("", "patchedResource", string(patchedResource))
 
 	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
-	go registerAdmissionReviewLatencyMetricMutate(logger, *ws.promConfig.Metrics, string(request.Operation), mutateEngineResponses, triggeredMutatePolicies, admissionReviewLatencyDuration)
+	// registering the kyverno_admission_review_latency_milliseconds metric concurrently
+	go registerAdmissionReviewLatencyMetricMutate(logger, *ws.promConfig.Metrics, string(request.Operation), mutateEngineResponses, triggeredMutatePolicies, admissionReviewLatencyDuration, admissionRequestTimestamp)
 
 	// IMAGE VERIFICATION
 	ok, message := ws.handleVerifyImages(request, policyContext, verifyImagesPolicies)
-	if !ok{
+	if !ok {
 		logger.Info("image verification failed", "reason", message)
 		return failureResponse(message)
 	}
@@ -395,8 +388,10 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	newRequest := request.DeepCopy()
 	newRequest.Object.Raw = patchedResource
 	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
-	go ws.handleGenerate(newRequest, generatePolicies, ctx, userRequestInfo, ws.configHandler, admissionRequestTimestamp, &admissionReviewCompletionLatencyChannel)
-	go registerAdmissionReviewLatencyMetricGenerate(logger, *ws.promConfig.Metrics, string(request.Operation), mutateEngineResponses, triggeredMutatePolicies, &admissionReviewCompletionLatencyChannel)
+	triggeredGeneratePoliciesChannel := make(chan []v1.ClusterPolicy, 1)
+	generateEngineResponsesChannel := make(chan []*response.EngineResponse, 1)
+	go ws.handleGenerate(newRequest, generatePolicies, ctx, userRequestInfo, ws.configHandler, admissionRequestTimestamp, &admissionReviewCompletionLatencyChannel, &triggeredGeneratePoliciesChannel, &generateEngineResponsesChannel)
+	go registerAdmissionReviewLatencyMetricGenerate(logger, *ws.promConfig.Metrics, string(newRequest.Operation), admissionRequestTimestamp, &admissionReviewCompletionLatencyChannel, &triggeredGeneratePoliciesChannel, &generateEngineResponsesChannel)
 
 	return successResponse(patches)
 }
@@ -439,25 +434,31 @@ func failureResponse(message string) *v1beta1.AdmissionResponse {
 	}
 }
 
-func registerAdmissionReviewLatencyMetricMutate(logger logr.Logger, promMetrics metrics.PromMetrics, requestOperation string, engineResponses []*response.EngineResponse, triggeredPolicies []v1.ClusterPolicy, admissionReviewLatencyDuration int64) {
+func registerAdmissionReviewLatencyMetricMutate(logger logr.Logger, promMetrics metrics.PromMetrics, requestOperation string, engineResponses []*response.EngineResponse, triggeredPolicies []v1.ClusterPolicy, admissionReviewLatencyDuration int64, admissionRequestTimestamp int64) {
 	resourceRequestOperationPromAlias, err := admissionReviewLatency.ParseResourceRequestOperation(requestOperation)
 	if err != nil {
 		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
 	}
-	if err := admissionReviewLatency.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, triggeredPolicies, admissionReviewLatencyDuration, resourceRequestOperationPromAlias); err != nil {
+	if err := admissionReviewLatency.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, triggeredPolicies, admissionReviewLatencyDuration, resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
 	}
 }
 
-func registerAdmissionReviewLatencyMetricGenerate(logger logr.Logger, promMetrics metrics.PromMetrics, requestOperation string, engineResponses []*response.EngineResponse, triggeredPolicies []v1.ClusterPolicy, latencyReceiver *chan int64) {
+func registerAdmissionReviewLatencyMetricGenerate(logger logr.Logger, promMetrics metrics.PromMetrics, requestOperation string, admissionRequestTimestamp int64, latencyReceiver *chan int64, triggeredGeneratePoliciesReceiver *chan []v1.ClusterPolicy, engineResponsesReceiver *chan []*response.EngineResponse) {
 	defer close(*latencyReceiver)
+	defer close(*triggeredGeneratePoliciesReceiver)
+	defer close(*engineResponsesReceiver)
+
+	triggeredPolicies := <-(*triggeredGeneratePoliciesReceiver)
+	engineResponses := <-(*engineResponsesReceiver)
+
 	resourceRequestOperationPromAlias, err := admissionReviewLatency.ParseResourceRequestOperation(requestOperation)
 	if err != nil {
 		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
 	}
 	// this goroutine will keep on waiting here till it doesn't receive the admission review latency int64 from the other goroutine i.e. ws.HandleGenerate
 	admissionReviewLatencyDuration := <-(*latencyReceiver)
-	if err := admissionReviewLatency.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, triggeredPolicies, admissionReviewLatencyDuration, resourceRequestOperationPromAlias); err != nil {
+	if err := admissionReviewLatency.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, triggeredPolicies, admissionReviewLatencyDuration, resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
 	}
 }
@@ -534,10 +535,10 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	}
 
 	vh := &validationHandler{
-		log: ws.log,
+		log:            ws.log,
 		statusListener: ws.statusListener,
-		eventGen: ws.eventGen,
-		prGenerator: ws.prGenerator,
+		eventGen:       ws.eventGen,
+		prGenerator:    ws.prGenerator,
 	}
 
 	ok, msg := vh.handleValidation(ws.promConfig, request, policies, policyContext, namespaceLabels, admissionRequestTimestamp)
@@ -576,9 +577,6 @@ func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
 
 	logger.Info("starting service")
 
-	if !ws.debug {
-		go ws.webhookMonitor.Run(ws.webhookRegister, ws.certRenewer, ws.eventGen, stopCh)
-	}
 }
 
 // Stop TLS server and returns control after the server is shut down
@@ -630,8 +628,6 @@ func (ws *WebhookServer) bodyToAdmissionReview(request *http.Request, writer htt
 
 	return admissionReview
 }
-
-
 
 func newVariablesContext(request *v1beta1.AdmissionRequest, userRequestInfo *v1.RequestInfo) (*enginectx.Context, error) {
 	ctx := enginectx.NewContext()

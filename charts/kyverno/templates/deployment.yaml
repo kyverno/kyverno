@@ -54,7 +54,6 @@ spec:
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           securityContext:
-            runAsUser: 1000
             runAsNonRoot: true
             privileged: false
             allowPrivilegeEscalation: false
@@ -82,7 +81,6 @@ spec:
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           securityContext:
-            runAsUser: 1000
             runAsNonRoot: true
             privileged: false
             allowPrivilegeEscalation: false
