@@ -2257,6 +2257,24 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
+  name: kyverno:leaderelection
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: kyverno
   name: kyverno:policycontroller
 rules:
 - apiGroups:
@@ -2360,6 +2378,21 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: kyverno:generatecontroller
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: kyverno
+  name: kyverno:leaderelection
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:leaderelection
 subjects:
 - kind: ServiceAccount
   name: kyverno-service-account

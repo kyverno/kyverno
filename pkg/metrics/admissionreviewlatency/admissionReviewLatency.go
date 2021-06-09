@@ -6,6 +6,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	prom "github.com/prometheus/client_golang/prometheus"
+	"time"
 )
 
 func (pm PromMetrics) registerAdmissionReviewLatencyMetric(
@@ -14,22 +15,24 @@ func (pm PromMetrics) registerAdmissionReviewLatencyMetric(
 	resourceName, resourceKind, resourceNamespace string,
 	resourceRequestOperation metrics.ResourceRequestOperation,
 	admissionRequestLatency float64,
+	admissionRequestTimestamp int64,
 ) error {
 	pm.AdmissionReviewLatency.With(prom.Labels{
-		"cluster_policies_count":     fmt.Sprintf("%d", clusterPoliciesCount),
-		"namespaced_policies_count":  fmt.Sprintf("%d", namespacedPoliciesCount),
-		"validate_rules_count":       fmt.Sprintf("%d", validateRulesCount),
-		"mutate_rules_count":         fmt.Sprintf("%d", mutateRulesCount),
-		"generate_rules_count":       fmt.Sprintf("%d", generateRulesCount),
-		"resource_name":              resourceName,
-		"resource_kind":              resourceKind,
-		"resource_namespace":         resourceNamespace,
-		"resource_request_operation": string(resourceRequestOperation),
+		"cluster_policies_count":      fmt.Sprintf("%d", clusterPoliciesCount),
+		"namespaced_policies_count":   fmt.Sprintf("%d", namespacedPoliciesCount),
+		"validate_rules_count":        fmt.Sprintf("%d", validateRulesCount),
+		"mutate_rules_count":          fmt.Sprintf("%d", mutateRulesCount),
+		"generate_rules_count":        fmt.Sprintf("%d", generateRulesCount),
+		"resource_name":               resourceName,
+		"resource_kind":               resourceKind,
+		"resource_namespace":          resourceNamespace,
+		"resource_request_operation":  string(resourceRequestOperation),
+		"admission_request_timestamp": fmt.Sprintf("%+v", time.Unix(admissionRequestTimestamp, 0)),
 	}).Set(admissionRequestLatency)
 	return nil
 }
 
-func (pm PromMetrics) ProcessEngineResponses(engineResponses []*response.EngineResponse, triggeredPolicies []kyverno.ClusterPolicy, admissionReviewLatencyDuration int64, resourceRequestOperation metrics.ResourceRequestOperation) error {
+func (pm PromMetrics) ProcessEngineResponses(engineResponses []*response.EngineResponse, triggeredPolicies []kyverno.ClusterPolicy, admissionReviewLatencyDuration int64, resourceRequestOperation metrics.ResourceRequestOperation, admissionRequestTimestamp int64) error {
 	if len(engineResponses) == 0 {
 		return nil
 	}
@@ -64,5 +67,5 @@ func (pm PromMetrics) ProcessEngineResponses(engineResponses []*response.EngineR
 		return nil
 	}
 	admissionReviewLatencyDurationInMs := float64(admissionReviewLatencyDuration) / float64(1000*1000)
-	return pm.registerAdmissionReviewLatencyMetric(clusterPoliciesCount, namespacedPoliciesCount, totalValidateRulesCount, totalMutateRulesCount, totalGenerateRulesCount, resourceName, resourceKind, resourceNamespace, resourceRequestOperation, admissionReviewLatencyDurationInMs)
+	return pm.registerAdmissionReviewLatencyMetric(clusterPoliciesCount, namespacedPoliciesCount, totalValidateRulesCount, totalMutateRulesCount, totalGenerateRulesCount, resourceName, resourceKind, resourceNamespace, resourceRequestOperation, admissionReviewLatencyDurationInMs, admissionRequestTimestamp)
 }

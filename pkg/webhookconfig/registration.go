@@ -297,7 +297,7 @@ func (wrc *Register) createVerifyMutatingWebhookConfiguration(caData []byte) err
 
 func (wrc *Register) removeWebhookConfigurations() {
 	startTime := time.Now()
-	wrc.log.Info("deleting all webhook configurations")
+	wrc.log.V(3).Info("deleting all webhook configurations")
 	defer func() {
 		wrc.log.V(4).Info("removed webhook configurations", "processingTime", time.Since(startTime).String())
 	}()
@@ -497,7 +497,9 @@ func (wrc *Register) removeSecrets() {
 
 	for _, secret := range secretList.Items {
 		if err := wrc.client.DeleteResource("", "Secret", secret.GetNamespace(), secret.GetName(), false); err != nil {
-			wrc.log.Error(err, "failed to delete secret", "ns", secret.GetNamespace(), "name", secret.GetName())
+			if !errorsapi.IsNotFound(err) {
+				wrc.log.Error(err, "failed to delete secret", "ns", secret.GetNamespace(), "name", secret.GetName())
+			}
 		}
 	}
 }
