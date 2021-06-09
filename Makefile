@@ -250,3 +250,7 @@ fmt:
 
 vet:
 	go vet ./...
+
+# Install Litmus Chaos
+install-litmus-chaos:
+	kubectl apply -f https://litmuschaos.github.io/litmus/litmus-operator-v1.13.5.yaml	
