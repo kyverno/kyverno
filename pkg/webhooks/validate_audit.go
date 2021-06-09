@@ -17,7 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/userinfo"
-	"github.com/minio/minio/cmd/logger"
+	"github.com/minio/minio/internal/logger"
 	"k8s.io/api/admission/v1beta1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
