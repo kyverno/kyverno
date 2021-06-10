@@ -2629,6 +2629,25 @@ spec:
   - name: https
     port: 443
     targetPort: https
+  selector:
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/managed-by: Kustomize
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: v1.4.0-rc1
+  name: kyverno-svc-metrics
+  namespace: kyverno
+spec:
+  ports:
   - name: metrics-port
     port: 8000
     targetPort: metrics-port
