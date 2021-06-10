@@ -358,7 +358,7 @@ func (ws *WebhookServer) ResourceMutation(request *v1beta1.AdmissionRequest) *v1
 	var triggeredMutatePolicies []v1.ClusterPolicy
 	var mutateEngineResponses []*response.EngineResponse
 
-	patches, triggeredMutatePolicies, mutateEngineResponses = ws.HandleMutation(request, resource, mutatePolicies, ctx, userRequestInfo, admissionRequestTimestamp)
+	patches, triggeredMutatePolicies, mutateEngineResponses = ws.HandleMutation(request, resource, mutatePolicies, ctx, patchedResource, userRequestInfo, admissionRequestTimestamp)
 	logger.V(6).Info("", "generated patches", string(patches))
 
 	// patch the resource with patches before handling validation rules
