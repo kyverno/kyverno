@@ -22,5 +22,5 @@ spec:
         - /bin/sh
         - -c
         - |
-          sleep 20 ; wget -O- -S --no-check-certificate https://{{ template "kyverno.serviceName" . }}-metrics:{{ .Values.metricsService.port }}/metrics
+          sleep 20 ; wget -O- -S --no-check-certificate http://{{ template "kyverno.serviceName" . }}-metrics:{{ .Values.metricsService.port }}/metrics
   restartPolicy: Never
