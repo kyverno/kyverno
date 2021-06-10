@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/mattbaird/jsonpatch"
-	"github.com/minio/minio/pkg/wildcard"
+	"github.com/minio/pkg/wildcard"
 )
 
 func generatePatches(src, dst []byte) ([][]byte, error) {
