@@ -187,7 +187,7 @@ func (cd *ConfigData) updateCM(old, cur interface{}) {
 	}
 
 	if updateWebook {
-		cd.log.Info("webhook configurations changed, re-registering webhook configurations")
+		cd.log.Info("webhook configurations changed, updating webhook configurations")
 		cd.updateWebhookConfigurations <- true
 	}
 }

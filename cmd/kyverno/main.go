@@ -351,7 +351,7 @@ func main() {
 	registerWrapperRetry := common.RetryFunc(time.Second, 30*time.Second, webhookCfg.Register, setupLog)
 	registerWebhookConfigurations := func() {
 		certManager.InitTLSPemPair()
-
+		go webhookCfg.UpdateWebhookConfigurations(configData)
 		if registrationErr := registerWrapperRetry(); registrationErr != nil {
 			setupLog.Error(err, "Timeout registering admission control webhooks")
 			os.Exit(1)
