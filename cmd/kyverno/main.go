@@ -356,6 +356,7 @@ func main() {
 			setupLog.Error(err, "Timeout registering admission control webhooks")
 			os.Exit(1)
 		}
+		webhookCfg.UpdateWebhookChan <- true
 	}
 
 	// leader election context
