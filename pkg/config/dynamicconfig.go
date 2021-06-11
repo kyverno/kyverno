@@ -101,6 +101,10 @@ func (cd *ConfigData) GetWebhooks() []WebhookConfig {
 	return cd.webhooks
 }
 
+func (cd *ConfigData) GetInitConfigMapName() string {
+	return cd.cmName
+}
+
 // Interface to be used by consumer to check filters
 type Interface interface {
 	ToFilter(kind, namespace, name string) bool
@@ -109,6 +113,7 @@ type Interface interface {
 	RestrictDevelopmentUsername() []string
 	FilterNamespaces(namespaces []string) []string
 	GetWebhooks() []WebhookConfig
+	GetInitConfigMapName() string
 }
 
 // NewConfigData ...

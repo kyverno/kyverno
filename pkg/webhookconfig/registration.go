@@ -191,6 +191,29 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface)
 	}
 }
 
+func (wrc *Register) ValidateWebhookConfigurations(namespace, name string) error {
+	logger := wrc.log.WithName("ValidateWebhookConfigurations")
+
+	cm, err := wrc.client.GetResource("", "ConfigMap", namespace, name)
+	if err != nil {
+		logger.Error(err, "unable to fetch ConfigMap", "namespace", namespace, "name", name)
+		return nil
+	}
+
+	webhooks, ok, err := unstructured.NestedString(cm.UnstructuredContent(), "data", "webhooks")
+	if err != nil {
+		logger.Error(err, "failed to fetch tag 'webhooks' from the ConfigMap")
+		return nil
+	}
+
+	if !ok {
+		logger.V(4).Info("webhook configurations not defined")
+	}
+
+	webhookCfgs := make([]config.WebhookConfig, 0, 10)
+	return json.Unmarshal([]byte(webhooks), &webhookCfgs)
+}
+
 // cleanupKyvernoResource returns true if Kyverno deployment is terminating
 func (wrc *Register) cleanupKyvernoResource() bool {
 	logger := wrc.log.WithName("cleanupKyvernoResource")
