@@ -2,6 +2,9 @@ package e2e
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"time"
 
@@ -16,6 +19,12 @@ import (
 // E2EClient ...
 type E2EClient struct {
 	Client dynamic.Interface
+}
+
+type APIRequest struct {
+	URL  string
+	Type string
+	Body io.Reader
 }
 
 // NewE2EClient returns a new instance of E2EClient
@@ -73,6 +82,8 @@ func GetWithRetry(sleepInterval time.Duration, retryCount int, retryFunc func() 
 		if err != nil {
 			time.Sleep(sleepInterval * time.Second)
 			continue
+		} else {
+			break
 		}
 	}
 	return err
@@ -111,6 +122,9 @@ func (e2e *E2EClient) CreateNamespacedResourceYaml(gvr schema.GroupVersionResour
 		return nil, err
 	}
 	result, err := e2e.Client.Resource(gvr).Namespace(namespace).Create(context.TODO(), &resource, metav1.CreateOptions{})
+	if gvr.Resource == "clusterpolicies" {
+		time.Sleep(1 * time.Second)
+	}
 	return result, err
 }
 
@@ -123,4 +137,62 @@ func (e2e *E2EClient) CreateClusteredResourceYaml(gvr schema.GroupVersionResourc
 	}
 	result, err := e2e.CreateClusteredResource(gvr, &resource)
 	return result, err
+}
+
+// UpdateClusteredResource ...
+func (e2e *E2EClient) UpdateClusteredResource(gvr schema.GroupVersionResource, resourceData *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	return e2e.Client.Resource(gvr).Update(context.TODO(), resourceData, metav1.UpdateOptions{})
+}
+
+// UpdateClusteredResourceYaml creates cluster resources from YAML like Namespace, ClusterRole, ClusterRoleBinding etc ...
+func (e2e *E2EClient) UpdateClusteredResourceYaml(gvr schema.GroupVersionResource, resourceData []byte) (*unstructured.Unstructured, error) {
+	resource := unstructured.Unstructured{}
+	err := yaml.Unmarshal(resourceData, &resource)
+	if err != nil {
+		return nil, err
+	}
+	result, err := e2e.UpdateClusteredResource(gvr, &resource)
+	return result, err
+}
+
+// UpdateNamespacedResourceYaml creates namespaced resources like Pods, Services, Deployments etc
+func (e2e *E2EClient) UpdateNamespacedResourceYaml(gvr schema.GroupVersionResource, namespace string, resourceData []byte) (*unstructured.Unstructured, error) {
+	resource := unstructured.Unstructured{}
+	err := yaml.Unmarshal(resourceData, &resource)
+	if err != nil {
+		return nil, err
+	}
+	result, err := e2e.Client.Resource(gvr).Namespace(namespace).Update(context.TODO(), &resource, metav1.UpdateOptions{})
+	return result, err
+}
+
+// UpdateNamespacedResource ...
+func (e2e *E2EClient) UpdateNamespacedResource(gvr schema.GroupVersionResource, namespace string, resourceData *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	return e2e.Client.Resource(gvr).Namespace(namespace).Update(context.TODO(), resourceData, metav1.UpdateOptions{})
+}
+
+func CallAPI(request APIRequest) (*http.Response, error) {
+	var response *http.Response
+	switch request.Type {
+	case "GET":
+		resp, err := http.Get(request.URL)
+		if err != nil {
+			return nil, fmt.Errorf("error occurred while calling %s: %w", request.URL, err)
+		}
+		response = resp
+	case "POST", "PUT", "DELETE", "PATCH":
+		req, err := http.NewRequest(string(request.Type), request.URL, request.Body)
+		if err != nil {
+			return nil, fmt.Errorf("error occurred while calling %s: %w", request.URL, err)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("error occurred while calling %s: %w", request.URL, err)
+		}
+		response = resp
+	default:
+		return nil, fmt.Errorf("error occurred while calling %s: wrong request type found", request.URL)
+	}
+
+	return response, nil
 }

@@ -2,7 +2,7 @@ package operator
 
 import (
 	"fmt"
-	"github.com/minio/minio/pkg/wildcard"
+	"github.com/minio/pkg/wildcard"
 	"math"
 	"reflect"
 	"strconv"

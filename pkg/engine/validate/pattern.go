@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
-	"github.com/minio/minio/pkg/wildcard"
+	"github.com/minio/pkg/wildcard"
 	apiresource "k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -183,6 +183,7 @@ func validateValueWithStringPattern(log logr.Logger, value interface{}, pattern 
 
 	operator := operator.GetOperatorFromStringPattern(pattern)
 	pattern = pattern[len(operator):]
+	pattern = strings.TrimSpace(pattern)
 	number, str := getNumberAndStringPartsFromPattern(pattern)
 
 	if "" == number {

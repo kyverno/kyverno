@@ -306,6 +306,10 @@ func TestGetNumberAndStringPartsFromPattern_Empty(t *testing.T) {
 	assert.Equal(t, str, "")
 }
 
+func TestValidateValueWithStringPattern_WithSpace(t *testing.T) {
+	assert.Assert(t, validateValueWithStringPattern(log.Log, 4, ">= 3"))
+}
+
 func TestValidateNumberWithStr_LessFloatAndInt(t *testing.T) {
 	assert.Assert(t, validateNumberWithStr(log.Log, 7.00001, "7.000001", operator.More))
 	assert.Assert(t, validateNumberWithStr(log.Log, 7.00001, "7", operator.NotEqual))

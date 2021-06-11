@@ -2,21 +2,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: kyverno
-  name: kyverno
   labels:
     app: kyverno
+    # do not remove
     app.kubernetes.io/name: kyverno
+  namespace: kyverno
+  name: kyverno
 spec:
   selector:
     matchLabels:
       app: kyverno
+      # do not remove
       app.kubernetes.io/name: kyverno
   replicas: 1
   template:
     metadata:
       labels:
         app: kyverno
+        # do not remove
         app.kubernetes.io/name: kyverno
     spec:
       serviceAccountName: kyverno-service-account
@@ -57,6 +60,9 @@ spec:
           ports:
             - containerPort: 9443
               name: https
+              protocol: TCP
+            - containerPort: 8000
+              name: metrics-port
               protocol: TCP
           env:
             - name: INIT_CONFIG

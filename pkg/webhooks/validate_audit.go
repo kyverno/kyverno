@@ -11,12 +11,12 @@ import (
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/userinfo"
-	"github.com/minio/minio/cmd/logger"
 	"k8s.io/api/admission/v1beta1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -60,6 +60,7 @@ type auditHandler struct {
 	log           logr.Logger
 	configHandler config.Interface
 	resCache      resourcecache.ResourceCache
+	promConfig    *metrics.PromConfig
 }
 
 // NewValidateAuditHandler returns a new instance of audit policy handler
@@ -73,7 +74,8 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	log logr.Logger,
 	dynamicConfig config.Interface,
 	resCache resourcecache.ResourceCache,
-	client *client.Client) AuditHandler {
+	client *client.Client,
+	promConfig *metrics.PromConfig) AuditHandler {
 
 	return &auditHandler{
 		pCache:         pCache,
@@ -91,6 +93,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		configHandler:  dynamicConfig,
 		resCache:       resCache,
 		client:         client,
+		promConfig:     promConfig,
 	}
 }
 
@@ -108,7 +111,7 @@ func (h *auditHandler) Run(workers int, stopCh <-chan struct{}) {
 	}()
 
 	if !cache.WaitForCacheSync(stopCh, h.rbSynced, h.crbSynced) {
-		logger.Info("failed to sync informer cache")
+		h.log.Info("failed to sync informer cache")
 	}
 
 	for i := 0; i < workers; i++ {
@@ -134,7 +137,7 @@ func (h *auditHandler) processNextWorkItem() bool {
 	request, ok := obj.(*v1beta1.AdmissionRequest)
 	if !ok {
 		h.queue.Forget(obj)
-		logger.Info("incorrect type: expecting type 'AdmissionRequest'", "object", obj)
+		h.log.Info("incorrect type: expecting type 'AdmissionRequest'", "object", obj)
 		return true
 	}
 
@@ -147,7 +150,8 @@ func (h *auditHandler) processNextWorkItem() bool {
 func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	var roles, clusterRoles []string
 	var err error
-
+	// time at which the corresponding the admission request's processing got initiated
+	admissionRequestTimestamp := time.Now().Unix()
 	logger := h.log.WithName("process")
 	policies := h.pCache.GetPolicyObject(policycache.ValidateAudit, request.Kind.Kind, "")
 	// Get namespace policies from the cache for the requested resource namespace
@@ -176,7 +180,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 
-	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, h.client, namespaceLabels)
+	HandleValidation(h.promConfig, request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, h.client, namespaceLabels, admissionRequestTimestamp)
 	return nil
 }
 

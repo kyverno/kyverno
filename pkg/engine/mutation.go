@@ -147,5 +147,6 @@ func endMutateResultResponse(logger logr.Logger, resp *response.EngineResponse, 
 	}
 
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
+	resp.PolicyResponse.PolicyExecutionTimestamp = startTime.Unix()
 	logger.V(5).Info("finished processing policy", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 }
