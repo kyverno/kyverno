@@ -18,7 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/minio/pkg/wildcard"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
