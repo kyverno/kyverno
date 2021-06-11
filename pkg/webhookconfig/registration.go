@@ -158,37 +158,35 @@ func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface) {
 	logger := wrc.log.WithName("UpdateWebhookConfigurations")
 	for {
-		select {
-		case <-wrc.UpdateWebhookChan:
-			logger.Info("received the signal to update webhook configurations")
+		<-wrc.UpdateWebhookChan
+		logger.Info("received the signal to update webhook configurations")
 
-			var nsSelector map[string]interface{}
-			webhookCfgs := configHandler.GetWebhooks()
-			if webhookCfgs != nil {
-				selector := webhookCfgs[0].NamespaceSelector
-				selectorBytes, err := json.Marshal(*selector)
-				if err != nil {
-					logger.Error(err, "failed to serialize namespaceSelector")
-					continue
-				}
-
-				if err = json.Unmarshal(selectorBytes, &nsSelector); err != nil {
-					logger.Error(err, "failed to convert namespaceSelector to the map")
-					continue
-				}
+		var nsSelector map[string]interface{}
+		webhookCfgs := configHandler.GetWebhooks()
+		if webhookCfgs != nil {
+			selector := webhookCfgs[0].NamespaceSelector
+			selectorBytes, err := json.Marshal(*selector)
+			if err != nil {
+				logger.Error(err, "failed to serialize namespaceSelector")
+				continue
 			}
 
-			if err := wrc.updateResourceMutatingWebhookConfiguration(nsSelector); err != nil {
-				logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", wrc.getResourceMutatingWebhookConfigName())
-			} else {
-				logger.Info("successfully updated mutatingWebhookConfigurations", "name", wrc.getResourceMutatingWebhookConfigName())
+			if err = json.Unmarshal(selectorBytes, &nsSelector); err != nil {
+				logger.Error(err, "failed to convert namespaceSelector to the map")
+				continue
 			}
+		}
 
-			if err := wrc.updateResourceValidatingWebhookConfiguration(nsSelector); err != nil {
-				logger.Error(err, "unable to update validatingWebhookConfigurations", "name", wrc.getResourceValidatingWebhookConfigName())
-			} else {
-				logger.Info("successfully updated validatingWebhookConfigurations", "name", wrc.getResourceValidatingWebhookConfigName())
-			}
+		if err := wrc.updateResourceMutatingWebhookConfiguration(nsSelector); err != nil {
+			logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", wrc.getResourceMutatingWebhookConfigName())
+		} else {
+			logger.Info("successfully updated mutatingWebhookConfigurations", "name", wrc.getResourceMutatingWebhookConfigName())
+		}
+
+		if err := wrc.updateResourceValidatingWebhookConfiguration(nsSelector); err != nil {
+			logger.Error(err, "unable to update validatingWebhookConfigurations", "name", wrc.getResourceValidatingWebhookConfigName())
+		} else {
+			logger.Info("successfully updated validatingWebhookConfigurations", "name", wrc.getResourceValidatingWebhookConfigName())
 		}
 	}
 }
