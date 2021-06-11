@@ -40,6 +40,8 @@ type Register struct {
 	timeoutSeconds int32
 	log            logr.Logger
 	debug          bool
+
+	UpdateWebhookChan chan bool
 }
 
 // NewRegister creates new Register instance
@@ -52,13 +54,14 @@ func NewRegister(
 	debug bool,
 	log logr.Logger) *Register {
 	return &Register{
-		clientConfig:   clientConfig,
-		client:         client,
-		resCache:       resCache,
-		serverIP:       serverIP,
-		timeoutSeconds: webhookTimeout,
-		log:            log.WithName("Register"),
-		debug:          debug,
+		clientConfig:      clientConfig,
+		client:            client,
+		resCache:          resCache,
+		serverIP:          serverIP,
+		timeoutSeconds:    webhookTimeout,
+		log:               log.WithName("Register"),
+		debug:             debug,
+		UpdateWebhookChan: make(chan bool),
 	}
 }
 
@@ -179,9 +182,9 @@ func (wrc *Register) createResourceMutatingWebhookConfiguration(caData []byte) e
 	var config *admregapi.MutatingWebhookConfiguration
 
 	if wrc.serverIP != "" {
-		config = wrc.constructDebugMutatingWebhookConfig(caData)
+		config = wrc.constructDefaultDebugMutatingWebhookConfig(caData)
 	} else {
-		config = wrc.constructMutatingWebhookConfig(caData)
+		config = wrc.constructDefaultMutatingWebhookConfig(caData)
 	}
 
 	logger := wrc.log.WithValues("kind", kindMutating, "name", config.Name)
@@ -205,9 +208,9 @@ func (wrc *Register) createResourceValidatingWebhookConfiguration(caData []byte)
 	var config *admregapi.ValidatingWebhookConfiguration
 
 	if wrc.serverIP != "" {
-		config = wrc.constructDebugValidatingWebhookConfig(caData)
+		config = wrc.constructDefaultDebugValidatingWebhookConfig(caData)
 	} else {
-		config = wrc.constructValidatingWebhookConfig(caData)
+		config = wrc.constructDefaultValidatingWebhookConfig(caData)
 	}
 
 	logger := wrc.log.WithValues("kind", kindValidating, "name", config.Name)
