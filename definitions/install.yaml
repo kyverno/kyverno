@@ -2745,3 +2745,8 @@ spec:
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kyverno-service-account
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 40%
+      maxSurge: 1
