@@ -1,0 +1,13 @@
+name: Labeling issues
+on:
+  issues:
+    types: ['opened','edited']
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Renato66/auto-label@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          ignore-comments: true
+          labels-synonyms: '{"API Call":["/api-call","api"],"bug":["/bug","error","errors","not working","bug","To Reproduce"],"Documentation":["/documentation","doc","docs","website"],"enhancement":["/enhancement","feature request"],"good first issue":["/good-first-issue","new contributor","new contributors"],"help wanted":["/help-wanted","urgent","help"],"hold":["/hold"],"HA":["/ha","HA"],"question":["/question","question","doubt","ask"],"LFX":["/LFX","LFX"]}'
