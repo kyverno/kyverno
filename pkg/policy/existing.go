@@ -99,13 +99,13 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPo
 }
 
 func (pc *PolicyController) registerPolicyRuleResultsMetricValidationBS(logger logr.Logger, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, backgroundScanTimestamp int64) {
-	if err := policyRuleResults.ParsePromMetrics(*pc.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated, backgroundScanTimestamp); err != nil {
+	if err := policyRuleResults.ParsePromMetrics(*pc.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated, backgroundScanTimestamp, logger); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_rule_results_info metrics for the above policy", "name", policy.Name)
 	}
 }
 
 func (pc *PolicyController) registerPolicyRuleExecutionLatencyMetricValidateBS(logger logr.Logger, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, backgroundScanTimestamp int64) {
-	if err := policyRuleExecutionLatency.ParsePromMetrics(*pc.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, "", metrics.ResourceCreated, backgroundScanTimestamp); err != nil {
+	if err := policyRuleExecutionLatency.ParsePromMetrics(*pc.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, "", metrics.ResourceCreated, backgroundScanTimestamp, logger); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_rule_execution_latency_milliseconds metrics for the above policy", "name", policy.Name)
 	}
 }

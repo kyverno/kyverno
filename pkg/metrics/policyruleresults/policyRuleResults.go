@@ -2,6 +2,7 @@ package policyruleresults
 
 import (
 	"fmt"
+	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -50,8 +51,12 @@ func (pm PromMetrics) registerPolicyRuleResultsMetric(
 
 //policy - policy related data
 //engineResponse - resource and rule related data
-func (pm PromMetrics) ProcessEngineResponse(policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, resourceRequestOperation metrics.ResourceRequestOperation, mainRequestTriggerTimestamp int64) error {
-
+func (pm PromMetrics) ProcessEngineResponse(policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, resourceRequestOperation metrics.ResourceRequestOperation, mainRequestTriggerTimestamp int64, logger logr.Logger) error {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error(fmt.Errorf("panic initiated"), "error occurred while registering kyverno_policy_rule_results_info metrics")
+		}
+	}()
 	policyValidationMode, err := metrics.ParsePolicyValidationMode(policy.Spec.ValidationFailureAction)
 	if err != nil {
 		return err

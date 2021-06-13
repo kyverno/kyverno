@@ -396,7 +396,7 @@ func registerAdmissionReviewLatencyMetricMutate(logger logr.Logger, promMetrics 
 	if err != nil {
 		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
 	}
-	if err := admissionReviewLatency.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, triggeredPolicies, admissionReviewLatencyDuration, resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
+	if err := admissionReviewLatency.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, triggeredPolicies, admissionReviewLatencyDuration, resourceRequestOperationPromAlias, admissionRequestTimestamp, logger); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
 	}
 }
@@ -415,7 +415,7 @@ func registerAdmissionReviewLatencyMetricGenerate(logger logr.Logger, promMetric
 	}
 	// this goroutine will keep on waiting here till it doesn't receive the admission review latency int64 from the other goroutine i.e. ws.HandleGenerate
 	admissionReviewLatencyDuration := <-(*latencyReceiver)
-	if err := admissionReviewLatency.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, triggeredPolicies, admissionReviewLatencyDuration, resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
+	if err := admissionReviewLatency.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, triggeredPolicies, admissionReviewLatencyDuration, resourceRequestOperationPromAlias, admissionRequestTimestamp, logger); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
 	}
 }

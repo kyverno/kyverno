@@ -2,6 +2,7 @@ package policychanges
 
 import (
 	"fmt"
+	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -31,7 +32,12 @@ func (pm PromMetrics) registerPolicyChangesMetric(
 	return nil
 }
 
-func (pm PromMetrics) RegisterPolicy(policy interface{}, policyChangeType PolicyChangeType, policyChangeTimestamp int64) error {
+func (pm PromMetrics) RegisterPolicy(policy interface{}, policyChangeType PolicyChangeType, policyChangeTimestamp int64, logger logr.Logger) error {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error(fmt.Errorf("panic initiated"), "error occurred while registering kyverno_policy_changes_info metrics")
+		}
+	}()
 	switch inputPolicy := policy.(type) {
 	case *kyverno.ClusterPolicy:
 		policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.ValidationFailureAction)

@@ -2,6 +2,7 @@ package admissionreviewlatency
 
 import (
 	"fmt"
+	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -32,7 +33,12 @@ func (pm PromMetrics) registerAdmissionReviewLatencyMetric(
 	return nil
 }
 
-func (pm PromMetrics) ProcessEngineResponses(engineResponses []*response.EngineResponse, triggeredPolicies []kyverno.ClusterPolicy, admissionReviewLatencyDuration int64, resourceRequestOperation metrics.ResourceRequestOperation, admissionRequestTimestamp int64) error {
+func (pm PromMetrics) ProcessEngineResponses(engineResponses []*response.EngineResponse, triggeredPolicies []kyverno.ClusterPolicy, admissionReviewLatencyDuration int64, resourceRequestOperation metrics.ResourceRequestOperation, admissionRequestTimestamp int64, logger logr.Logger) error {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error(fmt.Errorf("panic initiated"), "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
+		}
+	}()
 	if len(engineResponses) == 0 {
 		return nil
 	}
