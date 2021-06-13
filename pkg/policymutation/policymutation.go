@@ -267,7 +267,7 @@ func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bo
 
 		if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil ||
 			exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil {
-			log.Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
+			log.Info("skip autogen as name / selector in resource description may not be applicable.", "rule", rule.Name)
 			return false, "none"
 		}
 
@@ -419,6 +419,7 @@ type kyvernoRule struct {
 	AnyAllConditions *apiextensions.JSON       `json:"preconditions,omitempty"`
 	Mutation         *kyverno.Mutation         `json:"mutate,omitempty"`
 	Validation       *kyverno.Validation       `json:"validate,omitempty"`
+	VerifyImages     []*kyverno.ImageVerification      `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
 
 func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.Logger) kyvernoRule {
@@ -558,6 +559,13 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 			Message:    variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "anyPattern"),
 			AnyPattern: patterns,
 		}
+		return *controllerRule
+	}
+
+	if rule.VerifyImages != nil {
+		newVerifyImages := controllerRule.VerifyImages.DeepCopy()
+
+		controllerRule.VerifyImages = newValidate.DeepCopy()
 		return *controllerRule
 	}
 

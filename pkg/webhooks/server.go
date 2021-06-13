@@ -305,13 +305,9 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	logger.V(6).Info("received an admission request in mutating webhook")
 	admissionRequestTimestamp := time.Now().Unix()
 
-	mutatePolicies := ws.pCache.GetPolicyObject(policycache.Mutate, request.Kind.Kind, "")
-	nsMutatePolicies := ws.pCache.GetPolicyObject(policycache.Mutate, request.Kind.Kind, request.Namespace)
-	mutatePolicies = append(mutatePolicies, nsMutatePolicies...)
-
-	generatePolicies := ws.pCache.GetPolicyObject(policycache.Generate, request.Kind.Kind, "")
-
-	verifyImagesPolicies := ws.pCache.GetPolicyObject(policycache.VerifyImages, request.Kind.Kind, "")
+	mutatePolicies := ws.pCache.GetPolicies(policycache.Mutate, request.Kind.Kind, request.Namespace)
+	generatePolicies := ws.pCache.GetPolicies(policycache.Generate, request.Kind.Kind, "")
+	verifyImagesPolicies := ws.pCache.GetPolicies(policycache.VerifyImages, request.Kind.Kind, "")
 
 	if len(mutatePolicies) == 0 && len(generatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
 		return successResponse(nil)
@@ -477,10 +473,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	// timestamp at which this admission request got triggered
 	admissionRequestTimestamp := time.Now().Unix()
 
-	policies := ws.pCache.GetPolicyObject(policycache.ValidateEnforce, request.Kind.Kind, "")
-	// Get namespace policies from the cache for the requested resource namespace
-	nsPolicies := ws.pCache.GetPolicyObject(policycache.ValidateEnforce, request.Kind.Kind, request.Namespace)
-	policies = append(policies, nsPolicies...)
+	policies := ws.pCache.GetPolicies(policycache.ValidateEnforce, request.Kind.Kind, "")
 	if len(policies) == 0 {
 		// push admission request to audit handler, this won't block the admission request
 		ws.auditHandler.Add(request.DeepCopy())

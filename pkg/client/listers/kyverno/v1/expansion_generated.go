@@ -18,16 +18,9 @@ limitations under the License.
 
 package v1
 
-import (
-	kyvernov1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"k8s.io/apimachinery/pkg/labels"
-)
-
 // ClusterPolicyListerExpansion allows custom methods to be added to
 // ClusterPolicyLister.
-type ClusterPolicyListerExpansion interface {
-	ListResources(selector labels.Selector) (ret []*kyvernov1.ClusterPolicy, err error)
-}
+type ClusterPolicyListerExpansion interface{}
 
 // GenerateRequestListerExpansion allows custom methods to be added to
 // GenerateRequestLister.
@@ -35,10 +28,7 @@ type GenerateRequestListerExpansion interface{}
 
 // GenerateRequestNamespaceListerExpansion allows custom methods to be added to
 // GenerateRequestNamespaceLister.
-type GenerateRequestNamespaceListerExpansion interface {
-	GetGenerateRequestsForClusterPolicy(policy string) ([]*kyvernov1.GenerateRequest, error)
-	GetGenerateRequestsForResource(kind, namespace, name string) ([]*kyvernov1.GenerateRequest, error)
-}
+type GenerateRequestNamespaceListerExpansion interface{}
 
 // PolicyListerExpansion allows custom methods to be added to
 // PolicyLister.

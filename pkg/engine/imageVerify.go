@@ -25,6 +25,12 @@ func VerifyImages(policyContext *PolicyContext) (resp *response.EngineResponse) 
 	logger := log.Log.WithName("EngineVerifyImages").WithValues("policy", policy.Name,
 		"kind", patchedResource.GetKind(), "namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
 
+	if ManagedPodResource(policy, patchedResource) {
+		logger.V(5).Info("container images for pods managed by workload controllers are already verified", "policy", policy.GetName())
+		resp.PatchedResource = patchedResource
+		return
+	}
+
 	startTime := time.Now()
 	defer func() {
 		buildResponse(logger, policyContext, resp, startTime)
