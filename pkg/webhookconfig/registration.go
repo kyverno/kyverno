@@ -208,6 +208,7 @@ func (wrc *Register) ValidateWebhookConfigurations(namespace, name string) error
 
 	if !ok {
 		logger.V(4).Info("webhook configurations not defined")
+		return nil
 	}
 
 	webhookCfgs := make([]config.WebhookConfig, 0, 10)
