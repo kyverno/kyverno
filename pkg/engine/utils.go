@@ -135,6 +135,19 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 		}
 	}
 
+	if len(conditionBlock.Names) > 0 {
+		noneMatch := true
+		for i := range conditionBlock.Names {
+			if checkName(conditionBlock.Names[i], resource.GetName()) {
+				noneMatch = false
+				break
+			}
+		}
+		if noneMatch {
+			errs = append(errs, fmt.Errorf("none of the names match"))
+		}
+	}
+
 	if len(conditionBlock.Namespaces) > 0 {
 		if !checkNameSpace(conditionBlock.Namespaces, resource) {
 			errs = append(errs, fmt.Errorf("namespace does not match"))
