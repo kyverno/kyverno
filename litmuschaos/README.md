@@ -6,11 +6,11 @@ Kyverno is a policy engine designed for Kubernetes. It can validate, mutate, and
 ## Steps to Execute LitmusChaos Experiment
 
 ### Prerequisites
-- At first, ensure that the Kyverno is running by executing `kubectl get pods` in operator namespace.If not, install from [here](https://kyverno.io/docs/installation/)
-- Install Litmus Chaos operator using `make install-litmus-chaos`. 
-- We will change the base image soon so that the Litmuschaos tests can be run against the official images. For that, in [Dockerfile](https://github.com/kyverno/kyverno/blob/main/cmd/kyverno/Dockerfile) and [localDockerfile](https://github.com/kyverno/kyverno/blob/5dfd16ce44131c05c3867409f1edf9953e7b45c0/cmd/kyverno/localDockerfile) change `scratch` to `alpine` and execute both commands - `make docker-build-all-amd64` and `make docker-build-local-kyverno`. 
-- Pull the Docker image with test-litmuschaos tag  ` docker pull ghcr.io/kyverno/kyverno:test-litmuschaos `.
-- Restart the Kyverno pod so that new changes can be applied using `kubectl -n kyverno delete pod --all `.
+* Ensure that Kubernetes Version > 1.15
+* Ensure that the Kyverno is running by executing `kubectl get pods` in operator namespace (typically, `kyverno`). If not, install from [here](https://kyverno.io/docs/installation/).
+* Update Kyverno Deployment to use `ghcr.io/kyverno/kyverno:test-litmuschaos` image. Note that this image is built specifically to run Litmuschaos experiments per this request,  [CHAOS_KILL_COMMAND](https://docs.litmuschaos.io/docs/pod-cpu-hog/#prepare-chaosengine). The official Kyverno images will adopt this soon.
+* Ensure that the Litmus Chaos Operator is running by executing `kubectl get pods` in operator namespace (typically, `litmus`). If not, install from [here](https://docs.litmuschaos.io/docs/getstarted/#install-litmus).
+
 
 
 ### Running experiment
