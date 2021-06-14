@@ -133,7 +133,9 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 
 func (builder *requestBuilder) buildRCRResult(policy string, resource response.ResourceSpec, rule kyverno.ViolatedRule) *report.PolicyReportResult {
 	av := builder.fetchAnnotationValues(policy, resource.Namespace)
-
+	fmt.Println("$$$")
+	fmt.Println(av.scored)
+	fmt.Println("$$$")
 	result := &report.PolicyReportResult{
 		Policy: policy,
 		Resources: []*v1.ObjectReference{
