@@ -64,7 +64,7 @@ func (pm PromMetrics) ProcessEngineResponse(policy kyverno.ClusterPolicy, engine
 		return err
 	}
 	policyType := metrics.Namespaced
-	policyBackgroundMode := metrics.ParsePolicyBackgroundMode(*policy.Spec.Background)
+	policyBackgroundMode := metrics.ParsePolicyBackgroundMode(policy.Spec.Background)
 	policyNamespace := policy.ObjectMeta.Namespace
 	if policyNamespace == "" {
 		policyNamespace = "-"
