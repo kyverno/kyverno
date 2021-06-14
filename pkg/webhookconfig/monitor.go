@@ -101,6 +101,12 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 
 				if err := register.Register(); err != nil {
 					logger.Error(err, "Failed to register webhooks")
+				} else {
+					// if the status was false before then we update it to true
+					// send request to update the Kyverno deployment
+					if err := status.success(); err != nil {
+						logger.Error(err, "failed to annotate deployment webhook status to success")
+					}
 				}
 
 				continue
@@ -139,12 +145,6 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 						logger.V(3).Info("updated annotation lastRequestTimestamp", "time", t.Time())
 					}
 				}
-			}
-
-			// if the status was false before then we update it to true
-			// send request to update the Kyverno deployment
-			if err := status.success(); err != nil {
-				logger.Error(err, "failed to annotate deployment webhook status to success")
 			}
 
 		case <-stopCh:
