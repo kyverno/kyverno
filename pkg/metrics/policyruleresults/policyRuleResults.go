@@ -2,11 +2,12 @@ package policyruleresults
 
 import (
 	"fmt"
+	"time"
+
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	prom "github.com/prometheus/client_golang/prometheus"
-	"time"
 )
 
 func (pm PromMetrics) registerPolicyRuleResultsMetric(
@@ -57,7 +58,7 @@ func (pm PromMetrics) ProcessEngineResponse(policy kyverno.ClusterPolicy, engine
 		return err
 	}
 	policyType := metrics.Namespaced
-	policyBackgroundMode := metrics.ParsePolicyBackgroundMode(*policy.Spec.Background)
+	policyBackgroundMode := metrics.ParsePolicyBackgroundMode(policy.Spec.Background)
 	policyNamespace := policy.ObjectMeta.Namespace
 	if policyNamespace == "" {
 		policyNamespace = "-"
