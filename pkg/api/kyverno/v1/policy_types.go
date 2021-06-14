@@ -266,7 +266,7 @@ type ResourceDescription struct {
 	// Names are the names of the resources. Each name supports wildcard characters
 	// "*" (matches zero or many characters) and "?" (at least one character).
 	// +optional
-	Names []string `json:"names,omitempty" yaml:"name,omitempty"`
+	Names []string `json:"names,omitempty" yaml:"names,omitempty"`
 
 	// Namespaces is a list of namespaces names. Each name supports wildcard characters
 	// "*" (matches zero or many characters) and "?" (at least one character).
