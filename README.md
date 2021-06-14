@@ -30,13 +30,13 @@ Kyverno installation and reference documents are available at: <a href="https://
 
 We are here to help! 
 
-  ✔ For feature requests and bugs, file an [issue](https://github.com/kyverno/kyverno/issues).
+  👉 For feature requests and bugs, file an [issue](https://github.com/kyverno/kyverno/issues).
 
-  ✔ For discussions or questions, join the **#kyverno** channel on the [Kubernetes Slack](https://kubernetes.slack.com/).
+  👉 For discussions or questions, join the slack channel [k8s.slack.io/#kyverno](https://slack.k8s.io/#kyverno).
 
-  ✔ For community meeting access join the [mailing list](https://groups.google.com/g/kyverno).
+  👉 For community meeting access join the [mailing list](https://groups.google.com/g/kyverno).
 
-  ✔ To get updates ⭐️ [star this repository](https://github.com/kyverno/kyverno/stargazers).
+  👉 To get updates ⭐️ [star this repository](https://github.com/kyverno/kyverno/stargazers).
 
 
 ## ➕ Contributing
