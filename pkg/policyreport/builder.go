@@ -296,6 +296,8 @@ func (builder *requestBuilder) fetchAnnotationValues(policy, ns string) annotati
 		} else {
 			av.scored = true
 		}
+	} else {
+		av.scored = true
 	}
 
 	return av
