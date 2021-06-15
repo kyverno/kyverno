@@ -81,6 +81,9 @@ func GetWithRetry(sleepInterval time.Duration, retryCount int, retryFunc func() 
 		err = retryFunc()
 		if err == nil {
 			return nil
+		}		
+		if err == nil {
+			return nil
 		}
 		if err != nil {
 			time.Sleep(sleepInterval * time.Second)
