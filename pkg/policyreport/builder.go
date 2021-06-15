@@ -155,6 +155,9 @@ func (builder *requestBuilder) buildRCRResult(policy string, resource response.R
 	result.Rule = rule.Name
 	result.Message = rule.Message
 	result.Status = report.PolicyStatus(rule.Check)
+	if result.Status == "fail" && !av.scored {
+		result.Status = "warn"
+	}
 	return result
 }
 
@@ -290,10 +293,10 @@ func (builder *requestBuilder) fetchAnnotationValues(policy, ns string) annotati
 		av.setSeverityFromString(severity)
 	}
 	if scored, ok := ann[scoredLabel]; ok {
-		if scored == "true" {
-			av.scored = true
-		} else {
+		if scored == "false" {
 			av.scored = false
+		} else {
+			av.scored = true
 		}
 	}
 
