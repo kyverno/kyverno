@@ -127,8 +127,7 @@ mutatingwebhookconfigurations=$(kubectl get mutatingwebhookconfigurations | wc -
 validatingwebhookconfigurations=$(kubectl get validatingwebhookconfigurations | wc -l)
 while [[ ${mutatingwebhookconfigurations} -lt 4 || ${validatingwebhookconfigurations} -lt 3 ]]; do
   sleep 5
-  echo "registed webhooks:"
-  kubectl get mutatingwebhookconfigurations,validatingwebhookconfigurations
 done
 
 echo "All webhooks are registered."
+echo "kubectl get mutatingwebhookconfigurations,validatingwebhookconfigurations"
