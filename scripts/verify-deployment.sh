@@ -130,4 +130,3 @@ while [[ ${mutatingwebhookconfigurations} -lt 4 || ${validatingwebhookconfigurat
 done
 
 echo "All webhooks are registered."
-echo "kubectl get mutatingwebhookconfigurations,validatingwebhookconfigurations"
