@@ -42,26 +42,30 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 		resourceTypes = append(resourceTypes, kind)
 	}
 
-	var resourceMap map[string]map[string]*unstructured.Unstructured
+	var resourceMap map[string]map[string]map[string]*unstructured.Unstructured
 	if cluster && dClient != nil {
 		resourceMap, err = getResourcesOfTypeFromCluster(resourceTypes, dClient, namespace)
 		if err != nil {
 			return nil, err
 		}
 		if len(resourcePaths) == 0 {
-			for _, rm := range resourceMap {
-				for _, rr := range rm {
-					resources = append(resources, rr)
+			for _, rkm := range resourceMap {
+				for _, rm := range rkm {
+					for _, rr := range rm {
+						resources = append(resources, rr)
+					}
 				}
 			}
 		} else {
 			for _, resourcePath := range resourcePaths {
 				lenOfResource := len(resources)
-				for _, rm := range resourceMap {
-					for rn, rr := range rm {
-						if rn == resourcePath {
-							resources = append(resources, rr)
-							continue
+				for _, rkm := range resourceMap {
+					for _, rm := range rkm {
+						for rn, rr := range rm {
+							if rn == resourcePath {
+								resources = append(resources, rr)
+								continue
+							}
 						}
 					}
 				}
@@ -176,27 +180,27 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	return resources, nil
 }
 
-func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Client, namespace string) (map[string]map[string]*unstructured.Unstructured, error) {
-	r := make(map[string]map[string]*unstructured.Unstructured)
+func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Client, namespace string) (map[string]map[string]map[string]*unstructured.Unstructured, error) {
+	r := make(map[string]map[string]map[string]*unstructured.Unstructured)
 
-	var resources []*unstructured.Unstructured
 	for _, kind := range resourceTypes {
-		r[kind] = make(map[string]*unstructured.Unstructured)
+		r[kind] = make(map[string]map[string]*unstructured.Unstructured)
 		resourceList, err := dClient.ListResource("", kind, namespace, nil)
 		if err != nil {
-			// return nil, err
 			continue
 		}
 
 		version := resourceList.GetAPIVersion()
 		for _, resource := range resourceList.Items {
-			r[kind][resource.GetName()] = resource.DeepCopy()
+			if r[kind][resource.GetNamespace()] == nil {
+				r[kind][resource.GetNamespace()] = map[string]*unstructured.Unstructured{}
+			}
+			r[kind][resource.GetNamespace()][resource.GetName()] = resource.DeepCopy()
 			resource.SetGroupVersionKind(schema.GroupVersionKind{
 				Group:   "",
 				Version: version,
 				Kind:    kind,
 			})
-			resources = append(resources, resource.DeepCopy())
 		}
 	}
 	return r, nil
