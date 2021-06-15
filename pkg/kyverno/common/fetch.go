@@ -42,32 +42,40 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 		resourceTypes = append(resourceTypes, kind)
 	}
 
-	var resourceMap map[string]map[string]map[string]*unstructured.Unstructured
+	// var resourceMap map[string]map[string]map[string]*unstructured.Unstructured
+	var resourceMap map[string]*unstructured.Unstructured
 	if cluster && dClient != nil {
 		resourceMap, err = getResourcesOfTypeFromCluster(resourceTypes, dClient, namespace)
 		if err != nil {
 			return nil, err
 		}
 		if len(resourcePaths) == 0 {
-			for _, rkm := range resourceMap {
-				for _, rm := range rkm {
-					for _, rr := range rm {
-						resources = append(resources, rr)
-					}
-				}
+			// for _, rkm := range resourceMap {
+			// 	for _, rm := range rkm {
+			// 		for _, rr := range rm {
+			// 			resources = append(resources, rr)
+			// 		}
+			// 	}
+			// }
+			for _, rr := range resourceMap {
+				resources = append(resources, rr)
 			}
 		} else {
 			for _, resourcePath := range resourcePaths {
 				lenOfResource := len(resources)
-				for _, rkm := range resourceMap {
-					for _, rm := range rkm {
-						for rn, rr := range rm {
-							if rn == resourcePath {
-								resources = append(resources, rr)
-								continue
-							}
-						}
-					}
+				// for _, rkm := range resourceMap {
+				// 	for _, rm := range rkm {
+				// 		for rn, rr := range rm {
+				// 			if rn == resourcePath {
+				// 				resources = append(resources, rr)
+				// 				continue
+				// 			}
+				// 		}
+				// 	}
+				// }
+				for _, rr := range resourceMap {
+					s := strings.Split("", "-")
+					resources = append(resources, rr)
 				}
 				if lenOfResource >= len(resources) {
 					if policyReport {
@@ -180,11 +188,12 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	return resources, nil
 }
 
-func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Client, namespace string) (map[string]map[string]map[string]*unstructured.Unstructured, error) {
-	r := make(map[string]map[string]map[string]*unstructured.Unstructured)
+func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Client, namespace string) (map[string]*unstructured.Unstructured, error) {
+	// r := make(map[string]map[string]map[string]*unstructured.Unstructured)
+	r := make(map[string]*unstructured.Unstructured)
 
 	for _, kind := range resourceTypes {
-		r[kind] = make(map[string]map[string]*unstructured.Unstructured)
+		// r[kind] = make(map[string]map[string]*unstructured.Unstructured)
 		resourceList, err := dClient.ListResource("", kind, namespace, nil)
 		if err != nil {
 			continue
@@ -192,10 +201,13 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Clien
 
 		version := resourceList.GetAPIVersion()
 		for _, resource := range resourceList.Items {
-			if r[kind][resource.GetNamespace()] == nil {
-				r[kind][resource.GetNamespace()] = map[string]*unstructured.Unstructured{}
-			}
-			r[kind][resource.GetNamespace()][resource.GetName()] = resource.DeepCopy()
+			// if r[kind][resource.GetNamespace()] == nil {
+			// 	r[kind][resource.GetNamespace()] = map[string]*unstructured.Unstructured{}
+			// }
+			// r[kind][resource.GetNamespace()][resource.GetName()] = resource.DeepCopy()
+
+			key := kind + "-" + resource.GetNamespace() + "-" + resource.GetName()
+			r[key] = resource.DeepCopy()
 			resource.SetGroupVersionKind(schema.GroupVersionKind{
 				Group:   "",
 				Version: version,
