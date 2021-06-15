@@ -122,3 +122,13 @@ while [[ ${updated_replicas} -lt ${specified_replicas} || ${current_replicas} -g
 done
 
 echo "Deployment ${deployment} successful. All ${available_replicas} replicas are ready."
+
+mutatingwebhookconfigurations=$(kubectl get mutatingwebhookconfigurations | wc -l)
+validatingwebhookconfigurations=$(kubectl get validatingwebhookconfigurations | wc -l)
+while [[ ${mutatingwebhookconfigurations} -lt 4 || ${validatingwebhookconfigurations} -lt 3 ]]; do
+  sleep 5
+  echo "registed webhooks:"
+  kubectl get mutatingwebhookconfigurations,validatingwebhookconfigurations
+done
+
+echo "All webhooks are registered."
