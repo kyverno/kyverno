@@ -15,6 +15,7 @@ import (
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
+	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiservervalidation "k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -142,8 +143,12 @@ func validatePolicyAccordingToPolicyCRD(policy *v1.ClusterPolicy, v1crd apiexten
 	}
 
 	versions := v1crd.Versions
+	var validationSchemainternal *apiextensionsinternal.CustomResourceValidation
 	for _, version := range versions {
-		validator, _, err := apiservervalidation.NewSchemaValidator(&apiextensions.CustomResourceValidation{OpenAPIV3Schema: version.Schema.OpenAPIV3Schema})
+		if err := apiextensions.Convert_v1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(version.Schema, validationSchemainternal, nil); err != nil {
+			return sanitizederror.NewWithError("failed to convert CRD for validation", err), nil
+		}
+		validator, _, err := apiservervalidation.NewSchemaValidator(validationSchemainternal)
 		if err != nil {
 			return sanitizederror.NewWithError("failed to create schema validator", err), nil
 		}
