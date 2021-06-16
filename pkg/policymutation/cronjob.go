@@ -42,7 +42,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 
 	var JSONValue apiextensions.JSON
 	if (jobRule.Mutation != nil) && (jobRule.Mutation.Overlay.Raw != nil) {
-		JSONValue, _ = kyverno.Convert_interface_to_v1_JSON(map[string]interface{}{
+		JSONValue, _ = kyverno.ConvertInterfaceToV1JSON(map[string]interface{}{
 			"spec": map[string]interface{}{
 				"jobTemplate": jobRule.Mutation.Overlay,
 			},
@@ -56,7 +56,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 	}
 
 	if (jobRule.Mutation != nil) && (jobRule.Mutation.PatchStrategicMerge.Raw != nil) {
-		JSONValue, _ = kyverno.Convert_interface_to_v1_JSON(map[string]interface{}{
+		JSONValue, _ = kyverno.ConvertInterfaceToV1JSON(map[string]interface{}{
 			"spec": map[string]interface{}{
 				"jobTemplate": jobRule.Mutation.PatchStrategicMerge,
 			},
@@ -69,7 +69,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 	}
 
 	if (jobRule.Validation != nil) && (jobRule.Validation.Pattern.Raw != nil) {
-		JSONValue, _ = kyverno.Convert_interface_to_v1_JSON(map[string]interface{}{
+		JSONValue, _ = kyverno.ConvertInterfaceToV1JSON(map[string]interface{}{
 			"spec": map[string]interface{}{
 				"jobTemplate": jobRule.Validation.Pattern,
 			},

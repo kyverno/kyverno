@@ -73,7 +73,7 @@ func (in *Validation) DeserializeAnyPattern() ([]interface{}, error) {
 }
 
 // Convert []interface{} to apiextensions.JSON
-func Convert_interface_to_v1_JSON(in interface{}) (apiextensions.JSON, error) {
+func ConvertInterfaceToV1JSON(in interface{}) (apiextensions.JSON, error) {
 	var out apiextensions.JSON
 	if in == nil {
 		return out, nil
