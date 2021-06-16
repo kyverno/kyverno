@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"reflect"
 	"strings"
+
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
@@ -68,6 +70,21 @@ func (in *Validation) DeserializeAnyPattern() ([]interface{}, error) {
 	}
 
 	return res, nil
+}
+
+// Convert []interface{} to apiextensions.JSON
+func Convert_interface_to_v1_JSON(in interface{}) (apiextensions.JSON, error) {
+	var out apiextensions.JSON
+	if in == nil {
+		return out, nil
+	}
+
+	raw, err := json.Marshal(in)
+	if err != nil {
+		return out, err
+	}
+	out.Raw = raw
+	return out, nil
 }
 
 // DeepCopyInto is declared because k8s:deepcopy-gen is
