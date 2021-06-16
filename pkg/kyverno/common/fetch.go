@@ -43,126 +43,77 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	}
 
 	if cluster && dClient != nil {
-		// resources, err = whenClusterIsTrue(resourceTypes, dClient, namespace, resourcePaths, policyReport)
-		// if err != nil {
-		// 	return resources, err
-		// }
-		resourceMap, err := getResourcesOfTypeFromCluster(resourceTypes, dClient, namespace)
+		resources, err = whenClusterIsTrue(resourceTypes, dClient, namespace, resourcePaths, policyReport)
 		if err != nil {
-			return nil, err
-		}
-
-		if len(resourcePaths) == 0 {
-			for _, rr := range resourceMap {
-				resources = append(resources, rr)
-			}
-		} else {
-			for _, resourcePath := range resourcePaths {
-				lenOfResource := len(resources)
-				for rn, rr := range resourceMap {
-					s := strings.Split(rn, "-")
-					if s[2] == resourcePath {
-						resources = append(resources, rr)
-					}
-				}
-
-				if lenOfResource >= len(resources) {
-					if policyReport {
-						log.Log.V(3).Info(fmt.Sprintf("%s not found in cluster", resourcePath))
-					} else {
-						fmt.Printf("\n----------------------------------------------------------------------\nresource %s not found in cluster\n----------------------------------------------------------------------\n", resourcePath)
-					}
-					return nil, errors.New(fmt.Sprintf("%s not found in cluster", resourcePath))
-				}
-			}
+			return resources, err
 		}
 	} else if len(resourcePaths) > 0 {
-		// resources, err = whenClusterIsFalse(resourcePaths, policyReport)
-		// if err != nil {
-		// 	return resources, err
-		// }
-		for _, resourcePath := range resourcePaths {
-			resourceBytes, err := getFileBytes(resourcePath)
-			if err != nil {
-				if policyReport {
-					log.Log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", resourcePath), "error", err)
-				} else {
-					fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
-				}
-				continue
-			}
-
-			getResources, err := GetResource(resourceBytes)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, resource := range getResources {
-				resources = append(resources, resource)
-			}
+		resources, err = whenClusterIsFalse(resourcePaths, policyReport)
+		if err != nil {
+			return resources, err
 		}
 	}
 	return resources, err
 }
 
-// func whenClusterIsTrue(resourceTypes []string, dClient *client.Client, namespace string, resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
-// 	resources := make([]*unstructured.Unstructured, 0)
-// 	resourceMap, err := getResourcesOfTypeFromCluster(resourceTypes, dClient, namespace)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+func whenClusterIsTrue(resourceTypes []string, dClient *client.Client, namespace string, resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
+	resources := make([]*unstructured.Unstructured, 0)
+	resourceMap, err := getResourcesOfTypeFromCluster(resourceTypes, dClient, namespace)
+	if err != nil {
+		return nil, err
+	}
 
-// 	if len(resourcePaths) == 0 {
-// 		for _, rr := range resourceMap {
-// 			resources = append(resources, rr)
-// 		}
-// 	} else {
-// 		for _, resourcePath := range resourcePaths {
-// 			lenOfResource := len(resources)
-// 			for rn, rr := range resourceMap {
-// 				s := strings.Split(rn, "-")
-// 				if s[2] == resourcePath {
-// 					resources = append(resources, rr)
-// 				}
-// 			}
+	if len(resourcePaths) == 0 {
+		for _, rr := range resourceMap {
+			resources = append(resources, rr)
+		}
+	} else {
+		for _, resourcePath := range resourcePaths {
+			lenOfResource := len(resources)
+			for rn, rr := range resourceMap {
+				s := strings.Split(rn, "-")
+				if s[2] == resourcePath {
+					resources = append(resources, rr)
+				}
+			}
 
-// 			if lenOfResource >= len(resources) {
-// 				if policyReport {
-// 					log.Log.V(3).Info(fmt.Sprintf("%s not found in cluster", resourcePath))
-// 				} else {
-// 					fmt.Printf("\n----------------------------------------------------------------------\nresource %s not found in cluster\n----------------------------------------------------------------------\n", resourcePath)
-// 				}
-// 				return nil, errors.New(fmt.Sprintf("%s not found in cluster", resourcePath))
-// 			}
-// 		}
-// 	}
-// 	return resources, nil
-// }
+			if lenOfResource >= len(resources) {
+				if policyReport {
+					log.Log.V(3).Info(fmt.Sprintf("%s not found in cluster", resourcePath))
+				} else {
+					fmt.Printf("\n----------------------------------------------------------------------\nresource %s not found in cluster\n----------------------------------------------------------------------\n", resourcePath)
+				}
+				return nil, errors.New(fmt.Sprintf("%s not found in cluster", resourcePath))
+			}
+		}
+	}
+	return resources, nil
+}
 
-// func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
-// 	resources := make([]*unstructured.Unstructured, 0)
-// 	for _, resourcePath := range resourcePaths {
-// 		resourceBytes, err := getFileBytes(resourcePath)
-// 		if err != nil {
-// 			if policyReport {
-// 				log.Log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", resourcePath), "error", err)
-// 			} else {
-// 				fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
-// 			}
-// 			continue
-// 		}
+func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
+	resources := make([]*unstructured.Unstructured, 0)
+	for _, resourcePath := range resourcePaths {
+		resourceBytes, err := getFileBytes(resourcePath)
+		if err != nil {
+			if policyReport {
+				log.Log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", resourcePath), "error", err)
+			} else {
+				fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
+			}
+			continue
+		}
 
-// 		getResources, err := GetResource(resourceBytes)
-// 		if err != nil {
-// 			return nil, err
-// 		}
+		getResources, err := GetResource(resourceBytes)
+		if err != nil {
+			return nil, err
+		}
 
-// 		for _, resource := range getResources {
-// 			resources = append(resources, resource)
-// 		}
-// 	}
-// 	return resources, nil
-// }
+		for _, resource := range getResources {
+			resources = append(resources, resource)
+		}
+	}
+	return resources, nil
+}
 
 // GetResourcesWithTest with gets matched resources by the given policies
 func GetResourcesWithTest(fs billy.Filesystem, policies []*v1.ClusterPolicy, resourcePaths []string, isGit bool, policyresoucePath string) ([]*unstructured.Unstructured, error) {
