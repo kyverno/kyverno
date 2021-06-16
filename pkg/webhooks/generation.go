@@ -210,7 +210,7 @@ func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRe
 				logger.V(4).Info("skipping generate policy and resource pattern validaton", "error", err)
 			} else {
 				data := updatedRule.Generation.DeepCopy().Data
-				if data != nil {
+				if data.Raw != nil {
 					if _, err := gen.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
 						enqueueBool = true
 						break
