@@ -274,9 +274,11 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 	if len(rule.ExcludeResources.ResourceDescription.Names) > 0 {
 		excludeSlice := rule.ExcludeResources.ResourceDescription.Names
 		matchSlice := rule.MatchResources.ResourceDescription.Names
-		fmt.Println("$$$$")
-		fmt.Println("WENT HERE")
-		fmt.Println("$$$$")
+
+		if len(rule.MatchResources.ResourceDescription.Names) == 0 {
+			return false
+		}
+
 		for _, matchName := range matchSlice {
 			foundMatch := false
 			for _, excludeName := range excludeSlice {
