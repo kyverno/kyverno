@@ -408,8 +408,9 @@ func isLabelAndAnnotationsString(rule kyverno.Rule) bool {
 		return true
 	}
 
-	patternMap, ok := rule.Validation.Pattern.(map[string]interface{})
-	if ok {
+	var patternMap map[string]interface{}
+	err := json.Unmarshal(rule.Validation.Pattern.Raw, &patternMap)
+	if err == nil {
 		return checkMetadata(patternMap)
 	} else if rule.Validation.AnyPattern.Raw != nil {
 		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
@@ -433,8 +434,8 @@ func isLabelAndAnnotationsString(rule kyverno.Rule) bool {
 
 func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 
-	
-	overlayMap, _ := rule.Mutation.Overlay.(map[string]interface{})
+	var overlayMap map[string]interface{}
+	_ = json.Unmarshal(rule.Mutation.Overlay.Raw, &overlayMap)
 	for k := range overlayMap {
 		if k != "metadata" {
 			return false
@@ -447,7 +448,8 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 		}
 	}
 
-	patternMap, _ := rule.Validation.Pattern.(map[string]interface{})
+	var patternMap map[string]interface{}
+	_ = json.Unmarshal(rule.Validation.Pattern.Raw, &overlayMap)
 	for k := range patternMap {
 		if k != "metadata" {
 			return false
