@@ -83,7 +83,7 @@ func whenClusterIsTrue(resourceTypes []string, dClient *client.Client, namespace
 				} else {
 					fmt.Printf("\n----------------------------------------------------------------------\nresource %s not found in cluster\n----------------------------------------------------------------------\n", resourcePath)
 				}
-				return nil, errors.New(fmt.Sprintf("%s not found in cluster", resourcePath))
+				return nil, fmt.Errorf("%s not found in cluster", resourcePath)
 			}
 		}
 	}
@@ -108,9 +108,7 @@ func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructu
 			return nil, err
 		}
 
-		for _, resource := range getResources {
-			resources = append(resources, resource)
-		}
+		resources = append(resources, getResources...)
 	}
 	return resources, nil
 }
