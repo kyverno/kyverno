@@ -93,6 +93,14 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 
 			timeDiff := time.Since(t.Time())
 			lastRequestTimeFromAnn := lastRequestTimeFromAnnotation(register, t.log.WithName("lastRequestTimeFromAnnotation"))
+			if lastRequestTimeFromAnn == nil {
+				if err := status.UpdateLastRequestTimestmap(t.Time()); err != nil {
+					logger.Error(err, "failed to annotate deployment for lastRequestTime")
+				} else {
+					logger.Info("initialized lastRequestTimestamp", "time", t.Time())
+				}
+				continue
+			}
 
 			switch {
 			case timeDiff > idleDeadline:
@@ -109,17 +117,6 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			case timeDiff > 2*idleCheckInterval:
 				if skipWebhookCheck(register, logger.WithName("skipWebhookCheck")) {
 					logger.Info("skip validating webhook status, Kyverno is in rolling update")
-					continue
-				}
-
-				if lastRequestTimeFromAnn == nil {
-					now := time.Now()
-					lastRequestTimeFromAnn = &now
-					if err := status.UpdateLastRequestTimestmap(t.Time()); err != nil {
-						logger.Error(err, "failed to annotate deployment for lastRequestTime")
-					} else {
-						logger.Info("initialized lastRequestTimestamp", "time", lastRequestTimeFromAnn)
-					}
 					continue
 				}
 
@@ -177,7 +174,7 @@ func lastRequestTimeFromAnnotation(register *Register, logger logr.Logger) *time
 		return nil
 	}
 
-	annotation, ok, err := unstructured.NestedStringMap(deploy.UnstructuredContent(), "metadata", "annotations")
+	timeStamp, ok, err := unstructured.NestedString(deploy.UnstructuredContent(), "metadata", "annotations", annLastRequestTime)
 	if err != nil {
 		logger.Info("unable to get annotation", "reason", err.Error())
 		return nil
@@ -188,10 +185,9 @@ func lastRequestTimeFromAnnotation(register *Register, logger logr.Logger) *time
 		return nil
 	}
 
-	timeStamp := annotation[annLastRequestTime]
 	annTime, err := time.Parse(time.RFC3339, timeStamp)
 	if err != nil {
-		logger.Error(err, "failed to parse timestamp annotation")
+		logger.Error(err, "failed to parse timestamp annotation", "timeStamp", timeStamp)
 		return nil
 	}
 
