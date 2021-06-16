@@ -83,27 +83,9 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 	}
 
 	if (jobRule.Validation != nil) && (jobRule.Validation.AnyPattern.Raw != nil) {
-		var patterns []interface{}
-		anyPatterns, err := jobRule.Validation.DeserializeAnyPattern()
-		if err != nil {
-			logger.Error(err, "failed to deserialize anyPattern, expect type array")
-		}
-
-		for _, pattern := range anyPatterns {
-			newPattern := map[string]interface{}{
-				"spec": map[string]interface{}{
-					"jobTemplate": pattern,
-				},
-			}
-
-			patterns = append(patterns, newPattern)
-		}
-
-		// Convert patterns to apiextensions.JSON
-
 		cronJobRule.Validation = &kyverno.Validation{
 			Message:    variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "anyPattern"),
-			AnyPattern: patterns,
+			AnyPattern: jobRule.Validation.AnyPattern,
 		}
 		return *cronJobRule
 	}

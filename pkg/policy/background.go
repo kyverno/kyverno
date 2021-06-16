@@ -44,7 +44,7 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 			return fmt.Errorf("variable substitution failed for rule %s: %s", rule.Name, err.Error())
 		}
 
-		if rule.AnyAllConditions != nil {
+		if rule.AnyAllConditions.Raw != nil {
 			if err = validatePreConditions(idx, ctx, rule.AnyAllConditions); !checkNotFoundErr(err) {
 				return err
 			}
@@ -121,7 +121,7 @@ func userInfoDefined(ui kyverno.UserInfo) string {
 	return ""
 }
 
-func validateBackgroundModeVars(ctx context.EvalInterface, document apiextensions.JSON) error {
+func validateBackgroundModeVars(ctx context.EvalInterface, document interface{}) error {
 	jsonByte, err := json.Marshal(document)
 	if err != nil {
 		return err
@@ -139,28 +139,28 @@ func validateBackgroundModeVars(ctx context.EvalInterface, document apiextension
 func substituteVarsInJSON(ctx context.EvalInterface, document apiextensions.JSON) (apiextensions.JSON, error) {
 	jsonByte, err := json.Marshal(document)
 	if err != nil {
-		return nil, err
+		return apiextensions.JSON{}, err
 	}
 
 	var jsonInterface interface{}
 	err = json.Unmarshal(jsonByte, &jsonInterface)
 	if err != nil {
-		return nil, err
+		return apiextensions.JSON{}, err
 	}
 
 	jsonInterface, err = variables.SubstituteAll(log.Log, ctx, jsonInterface)
 	if err != nil {
-		return nil, err
+		return apiextensions.JSON{}, err
 	}
 
 	jsonByte, err = json.Marshal(jsonInterface)
 	if err != nil {
-		return nil, err
+		return apiextensions.JSON{}, err
 	}
 
 	err = json.Unmarshal(jsonByte, &document)
 	if err != nil {
-		return nil, err
+		return apiextensions.JSON{}, err
 	}
 
 	return document, nil

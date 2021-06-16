@@ -124,7 +124,7 @@ func convertOverlayToStrategicMerge(policy *kyverno.ClusterPolicy, log logr.Logg
 			if !reflect.DeepEqual(rule.Mutation.Overlay, kyverno.Mutation{}.Overlay) {
 				mutation := rule.Mutation
 				mutation.PatchStrategicMerge = mutation.Overlay
-				var a interface{}
+				var a apiextensions.JSON
 				mutation.Overlay = a
 
 				jsonPatch := struct {
@@ -498,65 +498,53 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		controllerRule.ExcludeResources.Kinds = strings.Split(controllers, ",")
 	}
 
-	if rule.Mutation.Overlay != nil {
-		newMutation := &kyverno.Mutation{
-			PatchStrategicMerge: map[string]interface{}{
-				"spec": map[string]interface{}{
-					"template": rule.Mutation.Overlay,
-				},
+	if rule.Mutation.Overlay.Raw != nil {
+		JSONValue, _ := kyverno.ConvertInterfaceToV1JSON(map[string]interface{}{
+			"spec": map[string]interface{}{
+				"template": rule.Mutation.Overlay,
 			},
+		})
+		newMutation := &kyverno.Mutation{
+			PatchStrategicMerge: JSONValue,
 		}
 
 		controllerRule.Mutation = newMutation.DeepCopy()
 		return *controllerRule
 	}
 
-	if rule.Mutation.PatchStrategicMerge != nil {
-		newMutation := &kyverno.Mutation{
-			PatchStrategicMerge: map[string]interface{}{
-				"spec": map[string]interface{}{
-					"template": rule.Mutation.PatchStrategicMerge,
-				},
+	if rule.Mutation.PatchStrategicMerge.Raw != nil {
+		JSONValue, _ := kyverno.ConvertInterfaceToV1JSON(map[string]interface{}{
+			"spec": map[string]interface{}{
+				"template": rule.Mutation.PatchStrategicMerge,
 			},
+		})
+		newMutation := &kyverno.Mutation{
+			PatchStrategicMerge: JSONValue,
 		}
 
 		controllerRule.Mutation = newMutation.DeepCopy()
 		return *controllerRule
 	}
 
-	if rule.Validation.Pattern != nil {
+	if rule.Validation.Pattern.Raw != nil {
+		JSONValue, _ := kyverno.ConvertInterfaceToV1JSON(map[string]interface{}{
+			"spec": map[string]interface{}{
+				"template": rule.Validation.Pattern,
+			},
+		})
+
 		newValidate := &kyverno.Validation{
 			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
-			Pattern: map[string]interface{}{
-				"spec": map[string]interface{}{
-					"template": rule.Validation.Pattern,
-				},
-			},
+			Pattern: JSONValue,
 		}
 		controllerRule.Validation = newValidate.DeepCopy()
 		return *controllerRule
 	}
 
-	if rule.Validation.AnyPattern != nil {
-		var patterns []interface{}
-		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
-		if err != nil {
-			logger.Error(err, "failed to deserialize anyPattern, expect type array")
-		}
-
-		for _, pattern := range anyPatterns {
-			newPattern := map[string]interface{}{
-				"spec": map[string]interface{}{
-					"template": pattern,
-				},
-			}
-
-			patterns = append(patterns, newPattern)
-		}
-
+	if rule.Validation.AnyPattern.Raw != nil {
 		controllerRule.Validation = &kyverno.Validation{
 			Message:    variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "anyPattern"),
-			AnyPattern: patterns,
+			AnyPattern: rule.Validation.AnyPattern,
 		}
 		return *controllerRule
 	}
