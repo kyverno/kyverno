@@ -215,6 +215,13 @@ func NewWebhookServer(
 	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.policyValidation, true))
 	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.verifyHandler, false))
 
+	mux.HandlerFunc("GET", config.GetCachePath, func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(pCache)
+	})
+
 	// Handle Liveness responds to a Kubernetes Liveness probe
 	// Fail this request if Kubernetes should restart this instance
 	mux.HandlerFunc("GET", config.LivenessServicePath, func(w http.ResponseWriter, r *http.Request) {
