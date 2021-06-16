@@ -179,12 +179,14 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface)
 
 		if err := wrc.updateResourceMutatingWebhookConfiguration(nsSelector); err != nil {
 			logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", wrc.getResourceMutatingWebhookConfigName())
+			go func() { wrc.UpdateWebhookChan <- true }()
 		} else {
 			logger.Info("successfully updated mutatingWebhookConfigurations", "name", wrc.getResourceMutatingWebhookConfigName())
 		}
 
 		if err := wrc.updateResourceValidatingWebhookConfiguration(nsSelector); err != nil {
 			logger.Error(err, "unable to update validatingWebhookConfigurations", "name", wrc.getResourceValidatingWebhookConfigName())
+			go func() { wrc.UpdateWebhookChan <- true }()
 		} else {
 			logger.Info("successfully updated validatingWebhookConfigurations", "name", wrc.getResourceValidatingWebhookConfigName())
 		}
