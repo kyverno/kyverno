@@ -544,19 +544,15 @@ spec:
                       description: Mutation is used to modify matching resources.
                       properties:
                         overlay:
-                          allOf:
-                          - x-kubernetes-preserve-unknown-fields: true
-                          - x-kubernetes-preserve-unknown-fields: true
                           description: Overlay specifies an overlay pattern to modify
                             resources. DEPRECATED. Use PatchStrategicMerge instead.
                             Scheduled for removal in release 1.5+.
+                          x-kubernetes-preserve-unknown-fields: true
                         patchStrategicMerge:
-                          allOf:
-                          - x-kubernetes-preserve-unknown-fields: true
-                          - x-kubernetes-preserve-unknown-fields: true
                           description: PatchStrategicMerge is a strategic merge patch
                             used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
                             and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                          x-kubernetes-preserve-unknown-fields: true
                         patches:
                           description: Patches specifies a RFC 6902 JSON Patch to
                             modify resources. DEPRECATED. Use PatchesJSON6902 instead.
@@ -572,14 +568,11 @@ spec:
                                 description: Path specifies path of the resource.
                                 type: string
                               value:
-                                allOf:
-                                - x-kubernetes-preserve-unknown-fields: true
-                                - x-kubernetes-preserve-unknown-fields: true
                                 description: Value specifies the value to be applied.
+                                x-kubernetes-preserve-unknown-fields: true
                             type: object
                           nullable: true
                           type: array
-                          x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: PatchesJSON6902 is a list of RFC 6902 JSON
                             Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902
@@ -592,9 +585,6 @@ spec:
                       maxLength: 63
                       type: string
                     preconditions:
-                      allOf:
-                      - x-kubernetes-preserve-unknown-fields: true
-                      - x-kubernetes-preserve-unknown-fields: true
                       description: AnyAllConditions enable variable-based conditional
                         rule execution. This is useful for finer control of when an
                         rule is applied. A condition can reference object data using
@@ -603,38 +593,33 @@ spec:
                         in some other situation, atleast one condition is enough to
                         pass. For the sake of backwards compatibility, it can be populated
                         with []kyverno.Condition.
+                      x-kubernetes-preserve-unknown-fields: true
                     validate:
                       description: Validation is used to validate matching resources.
                       properties:
                         anyPattern:
-                          allOf:
-                          - x-kubernetes-preserve-unknown-fields: true
-                          - x-kubernetes-preserve-unknown-fields: true
                           description: AnyPattern specifies list of validation patterns.
                             At least one of the patterns must be satisfied for the
                             validation rule to succeed.
+                          x-kubernetes-preserve-unknown-fields: true
                         deny:
                           description: Deny defines conditions to fail the validation
                             rule.
                           properties:
                             conditions:
-                              allOf:
-                              - x-kubernetes-preserve-unknown-fields: true
-                              - x-kubernetes-preserve-unknown-fields: true
                               description: specifies the set of conditions to deny
                                 in a logical manner For the sake of backwards compatibility,
                                 it can be populated with []kyverno.Condition.
+                              x-kubernetes-preserve-unknown-fields: true
                           type: object
                         message:
                           description: Message specifies a custom message to be displayed
                             on failure.
                           type: string
                         pattern:
-                          allOf:
-                          - x-kubernetes-preserve-unknown-fields: true
-                          - x-kubernetes-preserve-unknown-fields: true
                           description: Pattern specifies an overlay-style pattern
                             used to check resources.
+                          x-kubernetes-preserve-unknown-fields: true
                       type: object
                   type: object
                 type: array
