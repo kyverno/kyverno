@@ -177,6 +177,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 // doMatchAndExcludeConflict checks if the resultant
 // of match and exclude block is not an empty set
+// returns true if it is an empty set
 func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 
 	if reflect.DeepEqual(rule.ExcludeResources, kyverno.ExcludeResources{}) {
@@ -265,6 +266,30 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 	if rule.ExcludeResources.ResourceDescription.Name != "" {
 		if !wildcard.Match(rule.ExcludeResources.ResourceDescription.Name, rule.MatchResources.ResourceDescription.Name) {
 			return false
+		}
+	}
+
+	// reutrn false if the sets are not *exactly* the same because that
+	// means we do have a non empty set
+	if len(rule.ExcludeResources.ResourceDescription.Names) > 0 {
+		excludeSlice := rule.ExcludeResources.ResourceDescription.Names
+		matchSlice := rule.MatchResources.ResourceDescription.Names
+		fmt.Println("$$$$")
+		fmt.Println("WENT HERE")
+		fmt.Println("$$$$")
+		for _, matchName := range matchSlice {
+			foundMatch := false
+			for _, excludeName := range excludeSlice {
+				if wildcard.Match(excludeName, matchName) {
+					foundMatch = true
+					break
+				}
+			}
+			// name found which exists in match but
+			// not in exclude so we know we have a non empty set
+			if !foundMatch {
+				return false
+			}
 		}
 	}
 
@@ -366,7 +391,6 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		(rule.MatchResources.Annotations != nil && rule.ExcludeResources.Annotations == nil) {
 		return false
 	}
-
 	return true
 }
 
