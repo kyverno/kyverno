@@ -25,8 +25,8 @@ func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResou
 	case isOverlay(mutate):
 		// return newOverlayHandler(ruleName, mutate, patchedResource, context, logger)
 		mutate.PatchStrategicMerge = mutate.Overlay
-		var a interface{}
-		mutate.Overlay = a
+		var a []byte
+		mutate.Overlay.Raw = a
 		return newpatchStrategicMergeHandler(ruleName, mutate, patchedResource, context, logger)
 	case isPatches(mutate):
 		return newpatchesHandler(ruleName, mutate, patchedResource, context, logger)
@@ -156,7 +156,7 @@ func (h emptyHandler) Handle() (response.RuleResponse, unstructured.Unstructured
 }
 
 func isPatchStrategicMerge(mutate *kyverno.Mutation) bool {
-	if mutate.PatchStrategicMerge != nil {
+	if mutate.PatchStrategicMerge.Raw != nil {
 		return true
 	}
 	return false
@@ -170,7 +170,7 @@ func isPatchesJSON6902(mutate *kyverno.Mutation) bool {
 }
 
 func isOverlay(mutate *kyverno.Mutation) bool {
-	if mutate.Overlay != nil {
+	if mutate.Overlay.Raw != nil {
 		return true
 	}
 	return false

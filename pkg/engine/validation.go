@@ -132,7 +132,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 			continue
 		}
 
-		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
+		if rule.Validation.Pattern.Raw != nil || rule.Validation.AnyPattern.Raw != nil {
 			ruleResponse := validateResourceWithRule(log, ctx, rule)
 			if ruleResponse != nil {
 				if !common.IsConditionalAnchorError(ruleResponse.Message) {
@@ -235,7 +235,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 	}()
 
 	validationRule := rule.Validation.DeepCopy()
-	if validationRule.Pattern != nil {
+	if validationRule.Pattern.Raw != nil {
 		pattern := validationRule.Pattern
 
 		if path, err := validate.ValidateResourceWithPattern(logger, resource.Object, pattern); err != nil {
@@ -251,7 +251,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 		return resp
 	}
 
-	if validationRule.AnyPattern != nil {
+	if validationRule.AnyPattern.Raw != nil {
 		var failedAnyPatternsErrors []error
 		var err error
 

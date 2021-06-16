@@ -35,7 +35,7 @@ func (m *Mutate) Validate() (string, error) {
 		}
 	}
 	// Overlay
-	if rule.Overlay != nil {
+	if rule.Overlay.Raw != nil {
 		path, err := common.ValidatePattern(rule.Overlay, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsAddingAnchor})
 		if err != nil {
 			return path, err
@@ -50,7 +50,7 @@ func validatePatch(pp kyverno.Patch) error {
 		return errors.New("JSONPatch field 'path' is mandatory")
 	}
 	if pp.Operation == "add" || pp.Operation == "replace" {
-		if pp.Value == nil {
+		if pp.Value.Raw == nil {
 			return fmt.Errorf("JSONPatch field 'value' is mandatory for operation '%s'", pp.Operation)
 		}
 
