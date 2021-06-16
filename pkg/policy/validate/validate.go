@@ -30,13 +30,13 @@ func (v *Validate) Validate() (string, error) {
 		return "", err
 	}
 
-	if rule.Pattern != nil {
+	if rule.Pattern.Raw != nil {
 		if path, err := common.ValidatePattern(rule.Pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor}); err != nil {
 			return fmt.Sprintf("pattern.%s", path), err
 		}
 	}
 
-	if rule.AnyPattern != nil {
+	if rule.AnyPattern.Raw != nil {
 		anyPattern, err := rule.DeserializeAnyPattern()
 		if err != nil {
 			return "anyPattern", fmt.Errorf("failed to deserialize anyPattern, expect array: %v", err)
@@ -53,11 +53,11 @@ func (v *Validate) Validate() (string, error) {
 // validateOverlayPattern checks one of pattern/anyPattern must exist
 func (v *Validate) validateOverlayPattern() error {
 	rule := v.rule
-	if rule.Pattern == nil && rule.AnyPattern == nil && rule.Deny == nil {
+	if rule.Pattern.Raw == nil && rule.AnyPattern.Raw == nil && rule.Deny == nil {
 		return fmt.Errorf("pattern, anyPattern or deny must be specified")
 	}
 
-	if rule.Pattern != nil && rule.AnyPattern != nil {
+	if rule.Pattern.Raw != nil && rule.AnyPattern.Raw != nil {
 		return fmt.Errorf("only one operation allowed per validation rule(pattern or anyPattern)")
 	}
 

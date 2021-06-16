@@ -53,7 +53,7 @@ func (r Rule) HasGenerate() bool {
 
 // DeserializeAnyPattern deserialize apiextensions.JSON to []interface{}
 func (in *Validation) DeserializeAnyPattern() ([]interface{}, error) {
-	if in.AnyPattern == nil {
+	if in.AnyPattern.Raw == nil {
 		return nil, nil
 	}
 
