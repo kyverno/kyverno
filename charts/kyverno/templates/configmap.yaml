@@ -17,4 +17,7 @@ data:
   {{- if .Values.config.excludeUsername }}
   excludeUsername: {{ join "" .Values.config.excludeUsername | quote }}
   {{- end -}}
+  {{- if .Values.config.webhooks }}
+  webhooks: {{ .Values.config.webhooks  | toJson | quote }}
+  {{- end -}}
 {{- end -}}
