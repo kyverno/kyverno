@@ -741,6 +741,10 @@ func validateMatchedResourceDescription(rd kyverno.ResourceDescription) (string,
 		return "", fmt.Errorf("match resources not specified")
 	}
 
+	if rd.Name != "" && len(rd.Names) > 0 {
+		return "", fmt.Errorf("both name and names can not be specified together")
+	}
+
 	if err := validateResourceDescription(rd); err != nil {
 		return "match", err
 	}
@@ -804,6 +808,11 @@ func validateExcludeResourceDescription(rd kyverno.ResourceDescription) (string,
 		// exclude is not mandatory
 		return "", nil
 	}
+
+	if rd.Name != "" && len(rd.Names) > 0 {
+		return "", fmt.Errorf("both name and names can not be specified together")
+	}
+
 	if err := validateResourceDescription(rd); err != nil {
 		return "exclude", err
 	}
