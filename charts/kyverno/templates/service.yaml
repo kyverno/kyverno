@@ -38,7 +38,7 @@ spec:
     protocol: TCP
     name: metrics-port
     {{- if and (eq .Values.metricsService.type "NodePort") (not (empty .Values.metricsService.nodePort)) }}
-    nodePort: {{ .Values.metricsService.metricsNodePort }}
+    nodePort: {{ .Values.metricsService.nodePort }}
     {{- end }}
   selector: {{ include "kyverno.matchLabels" . | nindent 4 }}
     app: kyverno
