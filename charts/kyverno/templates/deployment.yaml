@@ -104,6 +104,10 @@ spec:
                 fieldPath: metadata.namespace
           - name: KYVERNO_SVC
             value: {{ template "kyverno.serviceName" . }}
+          {{- with .Values.envVars }}
+          env:
+            {{- toYaml . | nindent 14 }}
+          {{- end }}
         {{- with .Values.livenessProbe }}
           livenessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
         {{- end }}
