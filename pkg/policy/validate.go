@@ -288,6 +288,7 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 				}
 			}
 		}
+		return false
 	}
 
 	if len(excludeNamespaces) > 0 {
