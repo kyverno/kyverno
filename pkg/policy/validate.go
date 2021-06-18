@@ -269,28 +269,23 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		}
 	}
 
-	// reutrn false if the sets are not *exactly* the same because that
-	// means we do have a non empty set
 	if len(rule.ExcludeResources.ResourceDescription.Names) > 0 {
 		excludeSlice := rule.ExcludeResources.ResourceDescription.Names
 		matchSlice := rule.MatchResources.ResourceDescription.Names
 
+		// if exclude block has something and match doesn't it means we
+		// have a non empty set
 		if len(rule.MatchResources.ResourceDescription.Names) == 0 {
 			return false
 		}
 
+		// if *any* name in match and exclude conflicts
+		// we want user to fix that
 		for _, matchName := range matchSlice {
-			foundMatch := false
 			for _, excludeName := range excludeSlice {
 				if wildcard.Match(excludeName, matchName) {
-					foundMatch = true
-					break
+					return true
 				}
-			}
-			// name found which exists in match but
-			// not in exclude so we know we have a non empty set
-			if !foundMatch {
-				return false
 			}
 		}
 	}
@@ -393,6 +388,7 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		(rule.MatchResources.Annotations != nil && rule.ExcludeResources.Annotations == nil) {
 		return false
 	}
+
 	return true
 }
 
