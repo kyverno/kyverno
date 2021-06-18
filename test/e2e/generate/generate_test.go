@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -296,9 +297,9 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 
 func Test_Generate_NetworkPolicy(t *testing.T) {
 	RegisterTestingT(t)
-	if os.Getenv("E2E") == "" {
-		t.Skip("Skipping E2E Test")
-	}
+	// if os.Getenv("E2E") == "" {
+	// 	t.Skip("Skipping E2E Test")
+	// }
 	// Generate E2E Client ==================
 	e2eClient, err := e2e.NewE2EClient()
 	Expect(err).To(BeNil())
@@ -324,12 +325,18 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 			}
 			return errors.New("deleting Namespace")
 		})
+
+		// check metrics before policy craetion
+		callMetrics()
 		// ====================================
 		// ======== Create Generate NetworkPolicy Policy =============
 		By("Creating Generate NetworkPolicy Policy")
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
+
+		// check metrics after policy craetion
+		callMetrics()
 
 		// ======= Create Namespace ==================
 		By(fmt.Sprintf("Creating Namespace which triggers generate %s", npPolNS))
@@ -378,6 +385,22 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 
 		By(fmt.Sprintf("Test %s Completed \n\n\n", test.TestName))
 	}
+}
+
+func callMetrics() {
+	requestObj := e2e.APIRequest{
+		URL:  "http://localhost:8000/metrics",
+		Type: "GET",
+	}
+	response, err := e2e.CallAPI(requestObj)
+	Expect(err).NotTo(HaveOccurred())
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(response.Body)
+	newStr := buf.String()
+	fmt.Println("==============================================================")
+	fmt.Println(newStr)
+	fmt.Println("==============================================================")
+
 }
 
 func Test_Generate_Namespace_Label_Actions(t *testing.T) {
