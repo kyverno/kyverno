@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"reflect"
 	"regexp"
@@ -8,8 +9,9 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	"github.com/minio/minio/pkg/wildcard"
+	"github.com/minio/pkg/wildcard"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -21,6 +23,10 @@ const cmNameEnv string = "INIT_CONFIG"
 
 var defaultExcludeGroupRole []string = []string{"system:serviceaccounts:kube-system", "system:nodes", "system:kube-scheduler"}
 
+type WebhookConfig struct {
+	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty" protobuf:"bytes,5,opt,name=namespaceSelector"`
+}
+
 // ConfigData stores the configuration
 type ConfigData struct {
 	client                      kubernetes.Interface
@@ -30,8 +36,10 @@ type ConfigData struct {
 	excludeGroupRole            []string
 	excludeUsername             []string
 	restrictDevelopmentUsername []string
+	webhooks                    []WebhookConfig
 	cmSycned                    cache.InformerSynced
 	reconcilePolicyReport       chan<- bool
+	updateWebhookConfigurations chan<- bool
 	log                         logr.Logger
 }
 
@@ -87,6 +95,16 @@ func (cd *ConfigData) FilterNamespaces(namespaces []string) []string {
 	return results
 }
 
+func (cd *ConfigData) GetWebhooks() []WebhookConfig {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.webhooks
+}
+
+func (cd *ConfigData) GetInitConfigMapName() string {
+	return cd.cmName
+}
+
 // Interface to be used by consumer to check filters
 type Interface interface {
 	ToFilter(kind, namespace, name string) bool
@@ -94,21 +112,24 @@ type Interface interface {
 	GetExcludeUsername() []string
 	RestrictDevelopmentUsername() []string
 	FilterNamespaces(namespaces []string) []string
+	GetWebhooks() []WebhookConfig
+	GetInitConfigMapName() string
 }
 
 // NewConfigData ...
-func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8sResources, excludeGroupRole, excludeUsername string, reconcilePolicyReport chan<- bool, log logr.Logger) *ConfigData {
+func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8sResources, excludeGroupRole, excludeUsername string, reconcilePolicyReport, updateWebhookConfigurations chan<- bool, log logr.Logger) *ConfigData {
 	// environment var is read at start only
 	if cmNameEnv == "" {
 		log.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
 	}
 
 	cd := ConfigData{
-		client:                rclient,
-		cmName:                os.Getenv(cmNameEnv),
-		cmSycned:              cmInformer.Informer().HasSynced,
-		reconcilePolicyReport: reconcilePolicyReport,
-		log:                   log,
+		client:                      rclient,
+		cmName:                      os.Getenv(cmNameEnv),
+		cmSycned:                    cmInformer.Informer().HasSynced,
+		reconcilePolicyReport:       reconcilePolicyReport,
+		updateWebhookConfigurations: updateWebhookConfigurations,
+		log:                         log,
 	}
 
 	cd.restrictDevelopmentUsername = []string{"minikube-user", "kubernetes-admin"}
@@ -156,7 +177,6 @@ func (cd *ConfigData) addCM(obj interface{}) {
 		return
 	}
 	cd.load(*cm)
-	// else load the configuration
 }
 
 func (cd *ConfigData) updateCM(old, cur interface{}) {
@@ -165,10 +185,15 @@ func (cd *ConfigData) updateCM(old, cur interface{}) {
 		return
 	}
 	// if data has not changed then dont load configmap
-	changed := cd.load(*cm)
-	if changed {
+	reconcilePolicyReport, updateWebook := cd.load(*cm)
+	if reconcilePolicyReport {
 		cd.log.Info("resource filters changed, sending reconcile signal to the policy controller")
 		cd.reconcilePolicyReport <- true
+	}
+
+	if updateWebook {
+		cd.log.Info("webhook configurations changed, updating webhook configurations")
+		cd.updateWebhookConfigurations <- true
 	}
 }
 
@@ -195,7 +220,7 @@ func (cd *ConfigData) deleteCM(obj interface{}) {
 	cd.unload(*cm)
 }
 
-func (cd *ConfigData) load(cm v1.ConfigMap) (changed bool) {
+func (cd *ConfigData) load(cm v1.ConfigMap) (reconcilePolicyReport, updateWebhook bool) {
 	logger := cd.log.WithValues("name", cm.Name, "namespace", cm.Namespace)
 	if cm.Data == nil {
 		logger.V(4).Info("configuration: No data defined in ConfigMap")
@@ -215,7 +240,7 @@ func (cd *ConfigData) load(cm v1.ConfigMap) (changed bool) {
 		} else {
 			logger.V(2).Info("Updated resource filters", "oldFilters", cd.filters, "newFilters", newFilters)
 			cd.filters = newFilters
-			changed = true
+			reconcilePolicyReport = true
 		}
 	}
 
@@ -230,7 +255,7 @@ func (cd *ConfigData) load(cm v1.ConfigMap) (changed bool) {
 	} else {
 		logger.V(2).Info("Updated resource excludeGroupRoles", "oldExcludeGroupRole", cd.excludeGroupRole, "newExcludeGroupRole", newExcludeGroupRoles)
 		cd.excludeGroupRole = newExcludeGroupRoles
-		changed = true
+		reconcilePolicyReport = true
 	}
 
 	excludeUsername, ok := cm.Data["excludeUsername"]
@@ -243,11 +268,29 @@ func (cd *ConfigData) load(cm v1.ConfigMap) (changed bool) {
 		} else {
 			logger.V(2).Info("Updated resource excludeUsernames", "oldExcludeUsername", cd.excludeUsername, "newExcludeUsername", excludeUsernames)
 			cd.excludeUsername = excludeUsernames
-			changed = true
+			reconcilePolicyReport = true
 		}
 	}
 
-	return changed
+	webhooks, ok := cm.Data["webhooks"]
+	if !ok {
+		logger.V(4).Info("configuration: No webhook configurations defined in ConfigMap")
+	} else {
+		cfgs, err := parseWebhooks(webhooks)
+		if err != nil {
+			logger.Error(err, "unable to parse webhooks configurations")
+			return
+		}
+
+		if reflect.DeepEqual(cfgs, cd.webhooks) {
+			logger.V(4).Info("webhooks did not change")
+		} else {
+			logger.Info("Updated webhooks configurations", "oldWebhooks", cd.webhooks, "newWebhookd", cfgs)
+			cd.webhooks = cfgs
+			updateWebhook = true
+		}
+	}
+	return
 }
 
 //TODO: this has been added to backward support command line arguments
@@ -329,4 +372,13 @@ func parseKinds(list string) []k8Resource {
 
 func parseRbac(list string) []string {
 	return strings.Split(list, ",")
+}
+
+func parseWebhooks(webhooks string) ([]WebhookConfig, error) {
+	webhookCfgs := make([]WebhookConfig, 0, 10)
+	if err := json.Unmarshal([]byte(webhooks), &webhookCfgs); err != nil {
+		return nil, err
+	}
+
+	return webhookCfgs, nil
 }

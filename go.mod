@@ -5,9 +5,10 @@ go 1.16
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cornelk/hashmap v1.0.1
+	github.com/dchest/siphash v1.2.1 // indirect
 	github.com/distribution/distribution v2.7.1+incompatible
 	github.com/evanphx/json-patch/v5 v5.2.0
-	github.com/fatih/color v1.10.0
+	github.com/fatih/color v1.12.0
 	github.com/gardener/controller-manager-library v0.2.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.0.0
@@ -17,11 +18,13 @@ require (
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210521160948-0233fcda5d53
 	github.com/googleapis/gnostic v0.5.4
 	github.com/jmespath/go-jmespath v0.4.0
+	github.com/json-iterator/go v1.1.11 // indirect
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
 	github.com/minio/minio v0.0.0-20200114012931-30922148fbb5
+	github.com/minio/pkg v1.0.7
 	github.com/onsi/ginkgo v1.15.0
 	github.com/onsi/gomega v1.11.0
 	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6

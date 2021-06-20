@@ -2,8 +2,9 @@ package metrics
 
 import (
 	"fmt"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"reflect"
+
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 )
 
 func ParsePolicyValidationMode(validationFailureAction string) (PolicyValidationMode, error) {
@@ -17,10 +18,11 @@ func ParsePolicyValidationMode(validationFailureAction string) (PolicyValidation
 	}
 }
 
-func ParsePolicyBackgroundMode(backgroundMode bool) PolicyBackgroundMode {
-	if backgroundMode {
+func ParsePolicyBackgroundMode(backgroundMode *bool) PolicyBackgroundMode {
+	if backgroundMode == nil || *backgroundMode {
 		return BackgroundTrue
 	}
+
 	return BackgroundFalse
 }
 

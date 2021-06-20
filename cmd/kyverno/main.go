@@ -168,6 +168,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	// load image registry secrets
 	secrets := strings.Split(imagePullSecrets, ",")
 	if imagePullSecrets != "" && len(secrets) > 0 {
 		setupLog.Info("initializing registry credentials", "secrets", secrets)
@@ -175,22 +176,6 @@ func main() {
 			setupLog.Error(err, "failed to initialize image pull secrets")
 			os.Exit(1)
 		}
-	}
-
-	debug := serverIP != ""
-	webhookCfg := webhookconfig.NewRegister(
-		clientConfig,
-		client,
-		rCache,
-		serverIP,
-		int32(webhookTimeout),
-		debug,
-		log.Log)
-
-	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, log.Log.WithName("WebhookMonitor"))
-	if err != nil {
-		setupLog.Error(err, "failed to initialize webhookMonitor")
-		os.Exit(1)
 	}
 
 	// KYVERNO CRD INFORMER
@@ -243,6 +228,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	debug := serverIP != ""
+	webhookCfg := webhookconfig.NewRegister(
+		clientConfig,
+		client,
+		rCache,
+		serverIP,
+		int32(webhookTimeout),
+		debug,
+		log.Log)
+
+	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, log.Log.WithName("WebhookMonitor"))
+	if err != nil {
+		setupLog.Error(err, "failed to initialize webhookMonitor")
+		os.Exit(1)
+	}
+
 	// Configuration Data
 	// dynamically load the configuration from configMap
 	// - resource filters
@@ -254,6 +255,7 @@ func main() {
 		excludeGroupRole,
 		excludeUsername,
 		prgen.ReconcileCh,
+		webhookCfg.UpdateWebhookChan,
 		log.Log.WithName("ConfigData"),
 	)
 
@@ -362,10 +364,18 @@ func main() {
 	registerWebhookConfigurations := func() {
 		certManager.InitTLSPemPair()
 
+		// validate the ConfigMap format
+		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace, configData.GetInitConfigMapName()); err != nil {
+			setupLog.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
+			os.Exit(1)
+		}
+
+		go webhookCfg.UpdateWebhookConfigurations(configData)
 		if registrationErr := registerWrapperRetry(); registrationErr != nil {
 			setupLog.Error(err, "Timeout registering admission control webhooks")
 			os.Exit(1)
 		}
+		webhookCfg.UpdateWebhookChan <- true
 	}
 
 	// leader election context
@@ -378,7 +388,7 @@ func main() {
 		cancel()
 	}()
 
-	// register webhooks by the leader, it's a one-time job
+	// webhookconfigurations are registered by the leader only
 	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace, kubeClient, registerWebhookConfigurations, nil, log.Log.WithName("webhookRegister/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elector leader")

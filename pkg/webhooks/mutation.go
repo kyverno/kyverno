@@ -2,10 +2,11 @@ package webhooks
 
 import (
 	"fmt"
-	"github.com/kyverno/kyverno/pkg/common"
 	"reflect"
 	"sort"
 	"time"
+
+	"github.com/kyverno/kyverno/pkg/common"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -16,8 +17,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	policyRuleExecutionLatency "github.com/kyverno/kyverno/pkg/metrics/policyruleexecutionlatency"
 	policyRuleResults "github.com/kyverno/kyverno/pkg/metrics/policyruleresults"
+	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	v1beta1 "k8s.io/api/admission/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // handleMutation handles mutating webhook admission request
@@ -39,6 +43,23 @@ func (ws *WebhookServer) handleMutation(
 
 	logger := ws.log.WithValues("action", "mutate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind.String())
 
+	patchedResource := request.Object.Raw
+	newR, oldR, err := utils.ExtractResources(patchedResource, request)
+	if err != nil {
+		// as resource cannot be parsed, we skip processing
+		logger.Error(err, "failed to extract resource")
+		return nil, nil, nil
+	}
+	var deletionTimeStamp *metav1.Time
+	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
+		deletionTimeStamp = newR.GetDeletionTimestamp()
+	} else {
+		deletionTimeStamp = oldR.GetDeletionTimestamp()
+	}
+
+	if deletionTimeStamp != nil && request.Operation == v1beta1.Update {
+		return nil, nil, nil
+	}
 	var patches [][]byte
 	var engineResponses []*response.EngineResponse
 	var triggeredPolicies []kyverno.ClusterPolicy
@@ -107,7 +128,7 @@ func (ws *WebhookServer) handleMutation(
 	return engineutils.JoinPatches(patches), triggeredPolicies, engineResponses
 }
 
-func (ws *WebhookServer) applyMutation(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, logger logr.Logger) (*response.EngineResponse,  [][]byte, error) {
+func (ws *WebhookServer) applyMutation(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, logger logr.Logger) (*response.EngineResponse, [][]byte, error) {
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 		policyContext.NamespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(
 			request.Kind.Kind, request.Namespace, ws.nsLister, logger)

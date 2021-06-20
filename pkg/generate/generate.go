@@ -235,7 +235,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy.Name, gr)
 			if err != nil {
 				log.Error(err, "failed to apply generate rule", "policy", policy.Name,
-					"rule", rule.Name, "resource", resource.GetName())
+					"rule", rule.Name, "resource", resource.GetName(), "suggestion", "users need to grant Kyverno's service account additional privileges")
 				return nil, err
 			}
 			ruleNameToProcessingTime[rule.Name] = time.Since(startTime)

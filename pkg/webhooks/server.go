@@ -357,7 +357,6 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	var patches []byte
-	patchedResource := request.Object.Raw
 
 	// MUTATION
 	var triggeredMutatePolicies []v1.ClusterPolicy
@@ -366,7 +365,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	patches, triggeredMutatePolicies, mutateEngineResponses = ws.handleMutation(request, policyContext, mutatePolicies, admissionRequestTimestamp)
 	logger.V(6).Info("", "generated patches", string(patches))
 
-	patchedResource = processResourceWithPatches(patches, request.Object.Raw, logger)
+	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
 	logger.V(6).Info("", "patchedResource", string(patchedResource))
 
 	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
