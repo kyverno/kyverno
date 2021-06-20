@@ -80,12 +80,11 @@ type Rule struct {
 	// +optional
 	ExcludeResources ExcludeResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 
-	// AnyAllConditions enable variable-based conditional rule execution. This is useful for
-	// finer control of when an rule is applied. A condition can reference object data
-	// using JMESPath notation.
-	// This too can be made to happen in a logical-manner where in some situation all the conditions need to pass
-	// and in some other situation, atleast one condition is enough to pass.
-	// For the sake of backwards compatibility, it can be populated with []kyverno.Condition.
+	// Preconditions are used to determine if a policy rule should be applied by evaluating a
+	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
+	// of conditions (without `any` or `all` statements is supported for backwards compatibility but
+	// will be deprecated in the next major release.
+	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	AnyAllConditions apiextensions.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
@@ -107,6 +106,9 @@ type Rule struct {
 	VerifyImages []*ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
 
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
+
 // AnyAllCondition consists of conditions wrapped denoting a logical criteria to be fulfilled.
 // AnyConditions get fulfilled when at least one of its sub-conditions passes.
 // AllConditions get fulfilled only when all of its sub-conditions pass.
@@ -114,7 +116,7 @@ type AnyAllConditions struct {
 	// AnyConditions enable variable-based conditional rule execution. This is useful for
 	// finer control of when an rule is applied. A condition can reference object data
 	// using JMESPath notation.
-	// Here, atleast one of the conditions need to pass
+	// Here, at least one of the conditions need to pass
 	// +optional
 	AnyConditions []Condition `json:"any,omitempty" yaml:"any,omitempty"`
 
@@ -361,16 +363,19 @@ type Validation struct {
 	// +optional
 	AnyPattern apiextensions.JSON `json:"anyPattern,omitempty" yaml:"anyPattern,omitempty"`
 
-	// Deny defines conditions to fail the validation rule.
+	// Deny defines conditions used to pass or fail a validation rule.
 	// +optional
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
 }
 
-// Deny specifies a list of conditions. The validation rule fails, if any Condition
-// evaluates to "false".
+// +k8s:deepcopy-gen:interfaces=k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
+
+// Deny specifies a list of conditions used to pass or fail a validation rule.
 type Deny struct {
-	// specifies the set of conditions to deny in a logical manner
-	// For the sake of backwards compatibility, it can be populated with []kyverno.Condition.
+	// Multiple conditions can be declared under an `any` or `all` statement. A direct list
+	// of conditions (without `any` or `all` statements) is also supported for backwards compatibility
+	// but will be deprecated in the next major release.
+	// See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
 	// +kubebuilder:validation:XPreserveUnknownFields
 	AnyAllConditions apiextensions.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }

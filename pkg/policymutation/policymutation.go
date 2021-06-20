@@ -468,6 +468,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	if len(name) > 63 {
 		name = name[:63]
 	}
+
 	controllerRule := &kyvernoRule{
 		Name:           name,
 		MatchResources: match.DeepCopy(),
@@ -563,9 +564,12 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	}
 
 	if rule.VerifyImages != nil {
-		newVerifyImages := controllerRule.VerifyImages.DeepCopy()
+		newVerifyImages := make([]*kyverno.ImageVerification, len(rule.VerifyImages))
+		for i, vi := range rule.VerifyImages {
+			newVerifyImages[i] = vi.DeepCopy()
+		}
 
-		controllerRule.VerifyImages = newValidate.DeepCopy()
+		controllerRule.VerifyImages = newVerifyImages
 		return *controllerRule
 	}
 

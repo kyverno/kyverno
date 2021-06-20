@@ -158,10 +158,9 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	// time at which the corresponding the admission request's processing got initiated
 	admissionRequestTimestamp := time.Now().Unix()
 	logger := h.log.WithName("process")
-	policies := h.pCache.GetPolicyObject(policycache.ValidateAudit, request.Kind.Kind, "")
-	// Get namespace policies from the cache for the requested resource namespace
-	nsPolicies := h.pCache.GetPolicyObject(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
-	policies = append(policies, nsPolicies...)
+
+	policies := h.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
+
 	// getRoleRef only if policy has roles/clusterroles defined
 	if containsRBACInfo(policies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(h.rbLister, h.crbLister, request, h.configHandler)
