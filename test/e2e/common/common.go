@@ -1,10 +1,30 @@
 package common
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/kyverno/kyverno/test/e2e"
 )
+
+func CallMetrics() (string, error) {
+	requestObj := e2e.APIRequest{
+		URL:  "http://localhost:8000/metrics",
+		Type: "GET",
+	}
+
+	response, err := e2e.CallAPI(requestObj)
+	if err != nil {
+		return "", err
+	}
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(response.Body)
+	newStr := buf.String()
+	return newStr, nil
+}
 
 func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) bool {
 	fmt.Println("e2ePolicyName: ", e2ePolicyName, "e2eTime: ", e2eTime)

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/test/e2e"
+	commonE2E "github.com/kyverno/kyverno/test/e2e/common"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -79,8 +80,25 @@ func Test_Mutate_Sets(t *testing.T) {
 
 		// Create CM Policy
 		By(fmt.Sprintf("\nCreating Mutate ConfigMap Policy in %s", clPolNS))
+		loc, _ := time.LoadLocation("UTC")
+		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
+
+		// check policy in metrics
+		policySyncBool := false
+		e2e.GetWithRetry(time.Duration(2), 10, func() error {
+			metricsString, err := commonE2E.CallMetrics()
+			if err != nil {
+				return err
+			}
+			policySyncBool = commonE2E.ProcessMetrics(metricsString, tests.PolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false {
+				return errors.New("policy not created")
+			}
+			return nil
+		})
+		Expect(policySyncBool).To(Equal(true))
 
 		// Create target CM
 		By(fmt.Sprintf("\nCreating target ConfigMap in %s", tests.ResourceNamespace))
@@ -152,8 +170,25 @@ func Test_Mutate_Ingress(t *testing.T) {
 	Expect(err).To(BeNil())
 
 	By(fmt.Sprintf("Creating mutate ClusterPolicy "))
+	loc, _ := time.LoadLocation("UTC")
+	timeBeforePolicyCreation := time.Now().In(loc)
 	_, err = e2eClient.CreateClusteredResourceYaml(clPolGVR, ingressTests.cpol)
 	Expect(err).NotTo(HaveOccurred())
+
+	// check policy in metrics
+	policySyncBool := false
+	e2e.GetWithRetry(time.Duration(2), 10, func() error {
+		metricsString, err := commonE2E.CallMetrics()
+		if err != nil {
+			return err
+		}
+		policySyncBool = commonE2E.ProcessMetrics(metricsString, ingressTests.policyName, timeBeforePolicyCreation)
+		if policySyncBool == false {
+			return errors.New("policy not created")
+		}
+		return nil
+	})
+	Expect(policySyncBool).To(Equal(true))
 
 	By(fmt.Sprintf("Creating Namespace %s", nspace))
 	_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, newNamespaceYaml(nspace))

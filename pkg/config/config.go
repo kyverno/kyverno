@@ -78,12 +78,6 @@ var (
 	//VerifyMutatingWebhookServicePath is the path for verify webhook(used to veryfing if admission control is enabled and active)
 	VerifyMutatingWebhookServicePath = "/verifymutate"
 
-	// GetCachePath is the path for getting latest cache
-	GetCachePath = "/cache"
-
-	// CacheSyncPath is the path for syncing the cache
-	CacheSyncPath = "/cache/sync"
-
 	// LivenessServicePath is the path for check liveness health
 	LivenessServicePath = "/health/liveness"
 
