@@ -76,7 +76,7 @@ labels:
       - '\bhelp( me)?\b'
     exclude:
       - '\b\[test(ing)?\]\b'
-  'helm':
+  'hold':
     include:
       - '\b\/hold\b'
     exclude: []
@@ -108,4 +108,3 @@ labels:
       - '\bwip\b'
       - '\bWIP\b'
     exclude: []  
-    
