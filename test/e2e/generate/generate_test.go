@@ -330,14 +330,16 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 		// ====================================
 		// ======== Create Generate NetworkPolicy Policy =============
 		By("Creating Generate NetworkPolicy Policy")
-		timeBeforePolicyCreation := time.Now()
+		// timeBeforePolicyCreation := time.Now()
+		loc, _ := time.LoadLocation("UTC")
+		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
 
 		// check metrics
 		policySyncBool := false
-		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+		e2e.GetWithRetry(time.Duration(2), 10, func() error {
 			metricsString := callMetrics()
 			policySyncBool = commonE2E.ProcessMetrics(metricsString, test.PolicyName, timeBeforePolicyCreation)
 			if policySyncBool == false {

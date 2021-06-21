@@ -42,7 +42,9 @@ func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) bool {
 				fmt.Println("timeInTimeFormat: ", timeInTimeFormat)
 
 				diff := e2eTime.Sub(timeInTimeFormat)
-				if diff < 0 {
+				fmt.Println("diff: ", diff)
+				if diff < time.Second {
+					fmt.Println("****** condition ******")
 					if action == "created" {
 						fmt.Println("************policy created**************")
 						return true
