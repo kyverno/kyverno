@@ -124,6 +124,8 @@ var NetworkPolicyGenerateTests = []struct {
 	NetworkPolicyName string
 	// ResourceNamespace - Namespace for which Resources are Created
 	ResourceNamespace string
+	// PolicyName - Name of the Policy
+	PolicyName string
 	// Clone - Set Clone Value
 	Clone bool
 	// CloneClusterRoleName
@@ -145,6 +147,7 @@ var NetworkPolicyGenerateTests = []struct {
 		TestName:          "test-generate-policy-for-namespace-with-label",
 		NetworkPolicyName: "allow-dns",
 		ResourceNamespace: "test",
+		PolicyName:        "add-networkpolicy",
 		Clone:             false,
 		Sync:              true,
 		Data:              genNetworkPolicyYaml,

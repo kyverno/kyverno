@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/test/e2e"
+	commonE2E "github.com/kyverno/kyverno/test/e2e/common"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
@@ -326,17 +327,25 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 			return errors.New("deleting Namespace")
 		})
 
-		// check metrics before policy craetion
-		callMetrics()
 		// ====================================
 		// ======== Create Generate NetworkPolicy Policy =============
 		By("Creating Generate NetworkPolicy Policy")
+		timeBeforePolicyCreation := time.Now()
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
 
-		// check metrics after policy craetion
-		callMetrics()
+		// check metrics
+		policySyncBool := false
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+			metricsString := callMetrics()
+			policySyncBool = commonE2E.ProcessMetrics(metricsString, test.PolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false {
+				return errors.New("policy not created")
+			}
+			return nil
+		})
+		Expect(policySyncBool).To(Equal(true))
 
 		// ======= Create Namespace ==================
 		By(fmt.Sprintf("Creating Namespace which triggers generate %s", npPolNS))
@@ -387,7 +396,7 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 	}
 }
 
-func callMetrics() {
+func callMetrics() string {
 	requestObj := e2e.APIRequest{
 		URL:  "http://localhost:8000/metrics",
 		Type: "GET",
@@ -397,10 +406,7 @@ func callMetrics() {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(response.Body)
 	newStr := buf.String()
-	fmt.Println("==============================================================")
-	fmt.Println(newStr)
-	fmt.Println("==============================================================")
-
+	return newStr
 }
 
 func Test_Generate_Namespace_Label_Actions(t *testing.T) {
