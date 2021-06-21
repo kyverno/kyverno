@@ -34,12 +34,13 @@ func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) bool {
 				}
 			}
 
-			fmt.Println("action: ", action)
-			fmt.Println("policyName: ", policyName)
-			fmt.Println("timeInTimeFormat: ", timeInTimeFormat)
 			if policyName == e2ePolicyName {
 				fmt.Println("--------------------------------------------------------")
 				fmt.Println(lineSplitedByNewLine)
+				fmt.Println("action: ", action)
+				fmt.Println("policyName: ", policyName)
+				fmt.Println("timeInTimeFormat: ", timeInTimeFormat)
+
 				diff := e2eTime.Sub(timeInTimeFormat)
 				if diff < 0 {
 					if action == "created" {
