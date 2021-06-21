@@ -356,38 +356,44 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		policyContext.OldResource = resource
 	}
 
-	var patches []byte
-
 	// MUTATION
 	var triggeredMutatePolicies []v1.ClusterPolicy
 	var mutateEngineResponses []*response.EngineResponse
 
-	patches, triggeredMutatePolicies, mutateEngineResponses = ws.handleMutation(request, policyContext, mutatePolicies, admissionRequestTimestamp)
-	logger.V(6).Info("", "generated patches", string(patches))
+	mutatePatches, triggeredMutatePolicies, mutateEngineResponses := ws.handleMutation(request, policyContext, mutatePolicies, admissionRequestTimestamp)
+	logger.V(6).Info("", "generated patches", string(mutatePatches))
 
-	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
-	logger.V(6).Info("", "patchedResource", string(patchedResource))
 
 	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
 	// registering the kyverno_admission_review_latency_milliseconds metric concurrently
 	go registerAdmissionReviewLatencyMetricMutate(logger, *ws.promConfig.Metrics, string(request.Operation), mutateEngineResponses, triggeredMutatePolicies, admissionReviewLatencyDuration, admissionRequestTimestamp)
 
 	// IMAGE VERIFICATION
-	ok, message := ws.handleVerifyImages(request, policyContext, verifyImagesPolicies)
+	patchedResource := processResourceWithPatches(mutatePatches, request.Object.Raw, logger)
+	newRequest := request.DeepCopy()
+	newRequest.Object.Raw = patchedResource
+
+	ok, message, imagePatches := ws.handleVerifyImages(newRequest, policyContext, verifyImagesPolicies)
 	if !ok {
 		logger.Info("image verification failed", "reason", message)
 		return failureResponse(message)
 	}
 
+	logger.V(6).Info("images verified", "patches", string(imagePatches))
+
+
 	// GENERATE
-	newRequest := request.DeepCopy()
+	patchedResource = processResourceWithPatches(imagePatches, newRequest.Object.Raw, logger)
+	newRequest = request.DeepCopy()
 	newRequest.Object.Raw = patchedResource
+
 	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
 	triggeredGeneratePoliciesChannel := make(chan []v1.ClusterPolicy, 1)
 	generateEngineResponsesChannel := make(chan []*response.EngineResponse, 1)
 	go ws.handleGenerate(newRequest, generatePolicies, ctx, userRequestInfo, ws.configHandler, admissionRequestTimestamp, &admissionReviewCompletionLatencyChannel, &triggeredGeneratePoliciesChannel, &generateEngineResponsesChannel)
 	go registerAdmissionReviewLatencyMetricGenerate(logger, *ws.promConfig.Metrics, string(newRequest.Operation), admissionRequestTimestamp, &admissionReviewCompletionLatencyChannel, &triggeredGeneratePoliciesChannel, &generateEngineResponsesChannel)
 
+	var patches = append(mutatePatches, imagePatches...)
 	return successResponse(patches)
 }
 

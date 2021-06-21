@@ -80,6 +80,7 @@ func JoinPatches(patches [][]byte) []byte {
 			result = append(result, []byte(",\n")...)
 		}
 	}
+
 	result = append(result, []byte("\n]")...)
 	return result
 }

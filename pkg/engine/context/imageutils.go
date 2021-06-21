@@ -1,6 +1,7 @@
 package context
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/distribution/distribution/reference"
@@ -10,11 +11,24 @@ import (
 )
 
 type ImageInfo struct {
+
+	// Registry is the URL address of the image registry e.g. `docker.io`
 	Registry string `json:"registry,omitempty"`
-	Name     string `json:"name"`
-	Path     string `json:"path"`
-	Tag      string `json:"tag,omitempty"`
-	Digest   string `json:"digest,omitempty"`
+
+	// Name is the image name portion e.g. `busybox`
+	Name string `json:"name"`
+
+	// Path is the repository path and image name e.g. `some-repository/busybox`
+	Path string `json:"path"`
+
+	// Tag is the image tag e.g. `v2`
+	Tag string `json:"tag,omitempty"`
+
+	// Digest is the image digest portion e.g. `sha256:128c6e3534b842a2eec139999b8ce8aa9a2af9907e2b9269550809d18cd832a3`
+	Digest string `json:"digest,omitempty"`
+
+	// JSONPath is full JSON path to this image e.g. `/spec/containers/0/image`
+	JSONPath string `json:"jsonPath,omitempty"`
 }
 
 func (i *ImageInfo) String() string {
@@ -61,18 +75,18 @@ func extractImageInfo(resource *unstructured.Unstructured, log logr.Logger) (ini
 		case "Pod":
 			if containers, ok, _ := unstructured.NestedSlice(resource.UnstructuredContent(), "spec", tag); ok {
 				if tag == "initContainers" {
-					initContainersImgs = extractImageInfos(containers, initContainersImgs, logger)
+					initContainersImgs = extractImageInfos(containers, initContainersImgs, "/spec/initContainers", logger)
 				} else {
-					containersImgs = extractImageInfos(containers, containersImgs, logger)
+					containersImgs = extractImageInfos(containers, containersImgs, "/spec/containers", logger)
 				}
 			}
 
 		case "CronJob":
 			if containers, ok, _ := unstructured.NestedSlice(resource.UnstructuredContent(), "spec", "jobTemplate", "spec", "template", "spec", tag); ok {
 				if tag == "initContainers" {
-					initContainersImgs = extractImageInfos(containers, initContainersImgs, logger)
+					initContainersImgs = extractImageInfos(containers, initContainersImgs, "/spec/jobTemplate/spec/template/spec/initContainers", logger)
 				} else {
-					containersImgs = extractImageInfos(containers, containersImgs, logger)
+					containersImgs = extractImageInfos(containers, containersImgs, "/spec/jobTemplate/spec/template/spec/containers", logger)
 				}
 			}
 
@@ -80,9 +94,9 @@ func extractImageInfo(resource *unstructured.Unstructured, log logr.Logger) (ini
 		default:
 			if containers, ok, _ := unstructured.NestedSlice(resource.UnstructuredContent(), "spec", "template", "spec", tag); ok {
 				if tag == "initContainers" {
-					initContainersImgs = extractImageInfos(containers, initContainersImgs, logger)
+					initContainersImgs = extractImageInfos(containers, initContainersImgs, "/spec/template/spec/initContainers", logger)
 				} else {
-					containersImgs = extractImageInfos(containers, containersImgs, logger)
+					containersImgs = extractImageInfos(containers, containersImgs, "/spec/template/spec/containers", logger)
 				}
 			}
 		}
@@ -91,8 +105,8 @@ func extractImageInfo(resource *unstructured.Unstructured, log logr.Logger) (ini
 	return
 }
 
-func extractImageInfos(containers []interface{}, images []*ContainerImage, log logr.Logger) []*ContainerImage {
-	img, err := convertToImageInfo(containers)
+func extractImageInfos(containers []interface{}, images []*ContainerImage, jsonPath string, log logr.Logger) []*ContainerImage {
+	img, err := convertToImageInfo(containers, jsonPath)
 	if err != nil {
 		log.Error(err, "failed to extract image info", "element", containers)
 	}
@@ -100,13 +114,15 @@ func extractImageInfos(containers []interface{}, images []*ContainerImage, log l
 	return append(images, img...)
 }
 
-func convertToImageInfo(containers []interface{}) (images []*ContainerImage, err error) {
+func convertToImageInfo(containers []interface{}, jsonPath string) (images []*ContainerImage, err error) {
 	var errs []string
+	var index = 0
 	for _, ctr := range containers {
 		if container, ok := ctr.(map[string]interface{}); ok {
 			name := container["name"].(string)
 			image := container["image"].(string)
-			imageInfo, err := newImageInfo(image)
+			jp := strings.Join([]string{jsonPath, strconv.Itoa(index), "image"}, "/")
+			imageInfo, err := newImageInfo(image, jp)
 			if err != nil {
 				errs = append(errs, err.Error())
 				continue
@@ -117,6 +133,8 @@ func convertToImageInfo(containers []interface{}) (images []*ContainerImage, err
 				Image: imageInfo,
 			})
 		}
+
+		index++
 	}
 
 	if len(errs) == 0 {
@@ -126,7 +144,7 @@ func convertToImageInfo(containers []interface{}) (images []*ContainerImage, err
 	return images, errors.Errorf("%s", strings.Join(errs, ";"))
 }
 
-func newImageInfo(image string) (*ImageInfo, error) {
+func newImageInfo(image, jsonPath string) (*ImageInfo, error) {
 	repo, err := reference.Parse(image)
 	if err != nil {
 		return nil, errors.Wrapf(err, "bad image: %s", image)
@@ -162,5 +180,6 @@ func newImageInfo(image string) (*ImageInfo, error) {
 		Path:     path,
 		Tag:      tag,
 		Digest:   digest,
+		JSONPath: jsonPath,
 	}, nil
 }

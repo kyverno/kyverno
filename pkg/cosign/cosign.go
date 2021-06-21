@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"encoding/json"
 	"fmt"
+	"github.com/go-logr/logr"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"k8s.io/client-go/kubernetes"
 	"strings"
@@ -33,7 +34,7 @@ func Initialize(client kubernetes.Interface, namespace, serviceAccount string, i
 	return nil
 }
 
-func Verify(imageRef string, key []byte) (digest string, err error) {
+func Verify(imageRef string, key []byte, log logr.Logger) (digest string, err error) {
 	pubKey, err := decodePEM(key)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to decode PEM %v", string(key))
@@ -57,7 +58,7 @@ func Verify(imageRef string, key []byte) (digest string, err error) {
 		return "", errors.Wrap(err, "failed to verify image")
 	}
 
-	digest, err = extractDigest(imageRef, verified)
+	digest, err = extractDigest(imageRef, verified, log)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get digest")
 	}
@@ -75,12 +76,14 @@ func decodePEM(raw []byte) (pub cosign.PublicKey, err error) {
 	return signature.ECDSAVerifier{Key: ed, HashAlg: crypto.SHA256}, nil
 }
 
-func extractDigest(imgRef string, verified []cosign.SignedPayload) (string, error) {
+func extractDigest(imgRef string, verified []cosign.SignedPayload, log logr.Logger) (string, error) {
 	var jsonMap map[string]interface{}
 	for _, vp := range verified {
 		if err := json.Unmarshal(vp.Payload, &jsonMap); err != nil {
 			return "", err
 		}
+
+		log.V(6).Info("image verification response", "image", imgRef, "payload", jsonMap)
 
 		// an imageRef may contain the digest - split and compare the name only
 		toks := strings.Split(imgRef, "@")

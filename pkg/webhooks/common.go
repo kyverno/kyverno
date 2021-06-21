@@ -108,6 +108,8 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 		log.Error(err, "failed to patch resource:", "patch", string(patch), "resource", string(resource))
 		return nil
 	}
+
+	log.V(6).Info("", "patchedResource", string(resource))
 	return resource
 }
 

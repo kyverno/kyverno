@@ -87,7 +87,7 @@ func generateAnnotationPatches(engineResponses []*response.EngineResponse, log l
 	// check the patch
 	_, err := jsonpatch.DecodePatch([]byte("[" + string(patchByte) + "]"))
 	if err != nil {
-		log.Error(err, "failed o build JSON patch for annotation", "patch", string(patchByte))
+		log.Error(err, "failed to build JSON patch for annotation", "patch", string(patchByte))
 	}
 
 	return patchByte

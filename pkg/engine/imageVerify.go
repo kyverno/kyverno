@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -13,7 +14,7 @@ import (
 	"time"
 )
 
-func VerifyImages(policyContext *PolicyContext) (resp *response.EngineResponse) {
+func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	images := policyContext.JSONContext.ImageInfo()
 	if images == nil {
@@ -49,16 +50,17 @@ func VerifyImages(policyContext *PolicyContext) (resp *response.EngineResponse) 
 			continue
 		}
 
+		policyContext.JSONContext.Restore()
 		for _, imageVerify := range rule.VerifyImages {
-			verifyImageInfos(logger, &rule, imageVerify, images.Containers, resp)
-			verifyImageInfos(logger, &rule, imageVerify, images.InitContainers, resp)
+			verifyAndPatchImages(logger, &rule, imageVerify, images.Containers, resp)
+			verifyAndPatchImages(logger, &rule, imageVerify, images.InitContainers, resp)
 		}
 	}
 
 	return
 }
 
-func verifyImageInfos(logger logr.Logger, rule *v1.Rule, imageVerify *v1.ImageVerification, images map[string]*context.ImageInfo, resp *response.EngineResponse) {
+func verifyAndPatchImages(logger logr.Logger, rule *v1.Rule, imageVerify *v1.ImageVerification, images map[string]*context.ImageInfo, resp *response.EngineResponse) {
 	imagePattern := imageVerify.Image
 	key := imageVerify.Key
 
@@ -73,19 +75,36 @@ func verifyImageInfos(logger logr.Logger, rule *v1.Rule, imageVerify *v1.ImageVe
 				Type:    utils.Validation.String(),
 			}
 
-			// TODO - use digest to mutate the image
-			digest, err := cosign.Verify(image, []byte(key))
+			digest, err := cosign.Verify(image, []byte(key), logger)
 			if err != nil {
 				logger.Info("image verification error", "image", image, "error", err)
 				ruleResp.Success = false
 				ruleResp.Message = fmt.Sprintf("image verification failed for %s: %v", image, err)
 			} else {
+				logger.V(4).Info("verified image", "image", image, "digest", digest)
 				ruleResp.Success = true
 				ruleResp.Message = fmt.Sprintf("image %s verified", image)
+
+				// add digest to image
+				if imageInfo.Digest == "" {
+					patch, err := makeAddDigestPatch(imageInfo, digest)
+					if err != nil {
+						logger.Error(err,"failed to patch image with digest", "image", imageInfo.String(), "jsonPath", imageInfo.JSONPath)
+					} else {
+						ruleResp.Patches = [][]byte{patch}
+					}
+				}
 			}
 
-			logger.V(4).Info("verified image", "image", image, "digest", digest)
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
 		}
 	}
+}
+
+func makeAddDigestPatch(imageInfo *context.ImageInfo, digest string) ([]byte, error) {
+	var patch = make(map[string]interface{})
+	patch["op"] = "replace"
+	patch["path"] = imageInfo.Path
+	patch["op"] = imageInfo.String() + "@" + digest
+	return json.Marshal(patch)
 }
