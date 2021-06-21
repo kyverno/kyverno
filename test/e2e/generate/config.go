@@ -57,7 +57,7 @@ var RoleTests = []struct {
 		CloneNamespace:             "default",
 		Sync:                       false,
 		Data:                       roleRoleBindingYamlWithClone,
-		PolicyName:                 "gen-role",
+		PolicyName:                 "gen-role-policy",
 	},
 }
 
