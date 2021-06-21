@@ -101,8 +101,8 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			policySyncBool = commonE2E.ProcessMetrics(metricsString, tests.PolicyName, timeBeforePolicyCreation)
-			if policySyncBool == false {
+			policySyncBool, err = commonE2E.ProcessMetrics(metricsString, tests.PolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false || err != nil {
 				return errors.New("policy not created")
 			}
 			return nil
@@ -238,10 +238,8 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			fmt.Println("##################################################")
-			fmt.Println("metricsString: ", metricsString)
-			policySyncBool = commonE2E.ProcessMetrics(metricsString, tests.PolicyName, timeBeforePolicyCreation)
-			if policySyncBool == false {
+			policySyncBool, err = commonE2E.ProcessMetrics(metricsString, tests.PolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false || err != nil {
 				return errors.New("policy not created")
 			}
 			return nil
@@ -379,8 +377,8 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			policySyncBool = commonE2E.ProcessMetrics(metricsString, test.PolicyName, timeBeforePolicyCreation)
-			if policySyncBool == false {
+			policySyncBool, err = commonE2E.ProcessMetrics(metricsString, test.PolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false || err != nil {
 				return errors.New("policy not created")
 			}
 			return nil
@@ -484,8 +482,8 @@ func Test_Generate_Namespace_Label_Actions(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			policySyncBool = commonE2E.ProcessMetrics(metricsString, test.GeneratePolicyName, timeBeforePolicyCreation)
-			if policySyncBool == false {
+			policySyncBool, err = commonE2E.ProcessMetrics(metricsString, test.GeneratePolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false || err != nil {
 				return errors.New("policy not created")
 			}
 			return nil
@@ -688,8 +686,8 @@ func Test_Generate_Synchronize_Flag(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			policySyncBool = commonE2E.ProcessMetrics(metricsString, test.GeneratePolicyName, timeBeforePolicyCreation)
-			if policySyncBool == false {
+			policySyncBool, err = commonE2E.ProcessMetrics(metricsString, test.GeneratePolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false || err != nil {
 				return errors.New("policy not created")
 			}
 			return nil
@@ -891,8 +889,8 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			policySyncBool = commonE2E.ProcessMetrics(metricsString, tests.PolicyName, timeBeforePolicyCreation)
-			if policySyncBool == false {
+			policySyncBool, err = commonE2E.ProcessMetrics(metricsString, tests.PolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false || err != nil {
 				return errors.New("policy not created")
 			}
 			return nil

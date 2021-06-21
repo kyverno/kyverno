@@ -2,7 +2,6 @@ package common
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 	"time"
 
@@ -30,8 +29,7 @@ func CallMetrics() (string, error) {
 	return newStr, nil
 }
 
-func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) bool {
-	fmt.Println("e2ePolicyName: ", e2ePolicyName, "e2eTime: ", e2eTime)
+func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) (bool, error) {
 	var action, policyName string
 	var timeInTimeFormat time.Time
 	var err error
@@ -53,29 +51,20 @@ func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) bool {
 					layout := "2006-01-02 15:04:05 -0700 MST"
 					timeInTimeFormat, err = time.Parse(layout, splitByQuote[1])
 					if err != nil {
-						fmt.Println("error occurred: ", err)
+						return false, err
 					}
 				}
 			}
 
 			if policyName == e2ePolicyName {
-				fmt.Println("--------------------------------------------------------")
-				fmt.Println(lineSplitedByNewLine)
-				fmt.Println("action: ", action)
-				fmt.Println("policyName: ", policyName)
-				fmt.Println("timeInTimeFormat: ", timeInTimeFormat)
-
 				diff := e2eTime.Sub(timeInTimeFormat)
-				fmt.Println("diff: ", diff)
 				if diff < time.Second {
-					fmt.Println("****** condition ******")
 					if action == "created" {
-						fmt.Println("************policy created**************")
-						return true
+						return true, nil
 					}
 				}
 			}
 		}
 	}
-	return false
+	return false, nil
 }

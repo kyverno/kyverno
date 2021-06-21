@@ -92,8 +92,8 @@ func Test_Mutate_Sets(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			policySyncBool = commonE2E.ProcessMetrics(metricsString, tests.PolicyName, timeBeforePolicyCreation)
-			if policySyncBool == false {
+			policySyncBool, err = commonE2E.ProcessMetrics(metricsString, tests.PolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false || err != nil {
 				return errors.New("policy not created")
 			}
 			return nil
@@ -182,8 +182,8 @@ func Test_Mutate_Ingress(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		policySyncBool = commonE2E.ProcessMetrics(metricsString, ingressTests.policyName, timeBeforePolicyCreation)
-		if policySyncBool == false {
+		policySyncBool, err = commonE2E.ProcessMetrics(metricsString, ingressTests.policyName, timeBeforePolicyCreation)
+		if policySyncBool == false || err != nil {
 			return errors.New("policy not created")
 		}
 		return nil
