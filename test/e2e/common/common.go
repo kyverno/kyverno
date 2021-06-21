@@ -21,7 +21,11 @@ func CallMetrics() (string, error) {
 	}
 
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(response.Body)
+	_, err = buf.ReadFrom(response.Body)
+	if err != nil {
+		return "", err
+	}
+
 	newStr := buf.String()
 	return newStr, nil
 }
