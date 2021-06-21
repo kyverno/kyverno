@@ -238,6 +238,8 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 			if err != nil {
 				return err
 			}
+			fmt.Println("##################################################")
+			fmt.Println("metricsString: ", metricsString)
 			policySyncBool = commonE2E.ProcessMetrics(metricsString, tests.PolicyName, timeBeforePolicyCreation)
 			if policySyncBool == false {
 				return errors.New("policy not created")
