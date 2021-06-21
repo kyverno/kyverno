@@ -14,8 +14,6 @@ func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) bool {
 	splitByNewLine := strings.Split(newStr, "\n")
 	for _, lineSplitedByNewLine := range splitByNewLine {
 		if strings.HasPrefix(lineSplitedByNewLine, "kyverno_policy_changes_info{") {
-			fmt.Println("--------------------------------------------------------")
-			fmt.Println(lineSplitedByNewLine)
 			splitByComma := strings.Split(lineSplitedByNewLine, ",")
 			for _, lineSplitedByComma := range splitByComma {
 				if strings.HasPrefix(lineSplitedByComma, "policy_change_type=") {
@@ -40,6 +38,8 @@ func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) bool {
 			fmt.Println("policyName: ", policyName)
 			fmt.Println("timeInTimeFormat: ", timeInTimeFormat)
 			if policyName == e2ePolicyName {
+				fmt.Println("--------------------------------------------------------")
+				fmt.Println(lineSplitedByNewLine)
 				diff := e2eTime.Sub(timeInTimeFormat)
 				if diff < 0 {
 					if action == "created" {
