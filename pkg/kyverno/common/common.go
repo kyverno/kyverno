@@ -69,7 +69,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 			err      error
 		)
 
-		isHttpPath := strings.Contains(path, "http")
+		isHttpPath := IsHttpRegex.MatchString(path)
 
 		// path clean and retrieving file info can be possible if it's not an HTTP URL
 		if !isHttpPath {
