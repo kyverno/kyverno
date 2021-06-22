@@ -66,7 +66,7 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          {{- with .Values.envVars }}
+          {{- with .Values.envVarsInit }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
       containers:
