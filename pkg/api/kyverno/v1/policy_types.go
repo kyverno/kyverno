@@ -27,7 +27,7 @@ type Policy struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
-	// Spec defines policy behaviors and contains one or rules.
+	// Spec defines policy behaviors and contains one or more rules.
 	Spec Spec `json:"spec" yaml:"spec"`
 
 	// Status contains policy runtime information.
