@@ -6,7 +6,7 @@ pwd=$(pwd)
 hash=$(git describe --always --tags)
 #
 ## Install Kind
-curl -Lo $pwd/kind https://kind.sigs.k8s.io/dl/v0.10.0/kind-linux-amd64
+curl -Lo $pwd/kind https://kind.sigs.k8s.io/dl/v0.11.0/kind-linux-amd64
 chmod a+x $pwd/kind
 
 ## Create Kind Cluster

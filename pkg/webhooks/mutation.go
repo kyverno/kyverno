@@ -17,7 +17,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	policyRuleExecutionLatency "github.com/kyverno/kyverno/pkg/metrics/policyruleexecutionlatency"
 	policyRuleResults "github.com/kyverno/kyverno/pkg/metrics/policyruleresults"
+	"github.com/kyverno/kyverno/pkg/utils"
 	v1beta1 "k8s.io/api/admission/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -28,6 +30,7 @@ func (ws *WebhookServer) HandleMutation(
 	resource unstructured.Unstructured,
 	policies []*kyverno.ClusterPolicy,
 	ctx *context.Context,
+	patchedResource []byte,
 	userRequestInfo kyverno.RequestInfo,
 	admissionRequestTimestamp int64) ([]byte, []kyverno.ClusterPolicy, []*response.EngineResponse) {
 
@@ -41,7 +44,22 @@ func (ws *WebhookServer) HandleMutation(
 	}
 
 	logger := ws.log.WithValues("action", "mutate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind.String())
+	newR, oldR, err := utils.ExtractResources(patchedResource, request)
+	if err != nil {
+		// as resource cannot be parsed, we skip processing
+		logger.Error(err, "failed to extract resource")
+		return nil, nil, nil
+	}
+	var deletionTimeStamp *metav1.Time
+	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
+		deletionTimeStamp = newR.GetDeletionTimestamp()
+	} else {
+		deletionTimeStamp = oldR.GetDeletionTimestamp()
+	}
 
+	if deletionTimeStamp != nil && request.Operation == v1beta1.Update {
+		return nil, nil, nil
+	}
 	var patches [][]byte
 	var engineResponses []*response.EngineResponse
 	var triggeredPolicies []kyverno.ClusterPolicy
@@ -81,7 +99,7 @@ func (ws *WebhookServer) HandleMutation(
 
 		err := ws.openAPIController.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
-			logger.V(4).Info("validation error", "policy", policy.Name, "error", err.Error())
+			logger.Info("validation error", "policy", policy.Name, "error", err.Error())
 			continue
 		}
 

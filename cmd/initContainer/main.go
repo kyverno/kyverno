@@ -64,7 +64,7 @@ func main() {
 	}
 
 	// Exit for unsupported version of kubernetes cluster
-	if !utils.HigherThanKubernetesVersion(client, log.Log, 1, 14, 0) {
+	if !utils.HigherThanKubernetesVersion(client, log.Log, 1, 16, 0) {
 		os.Exit(1)
 	}
 
