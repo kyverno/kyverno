@@ -145,7 +145,7 @@ func (builder *requestBuilder) buildRCRResult(policy string, resource response.R
 				UID:        types.UID(resource.UID),
 			},
 		},
-		Scored:   true,
+		Scored:   av.scored,
 		Category: av.category,
 		Severity: av.severity,
 	}
@@ -153,6 +153,9 @@ func (builder *requestBuilder) buildRCRResult(policy string, resource response.R
 	result.Rule = rule.Name
 	result.Message = rule.Message
 	result.Status = report.PolicyStatus(rule.Check)
+	if result.Status == "fail" && !av.scored {
+		result.Status = "warn"
+	}
 	return result
 }
 
@@ -258,10 +261,12 @@ func buildViolatedRules(er *response.EngineResponse) []kyverno.ViolatedRule {
 
 const categoryLabel string = "policies.kyverno.io/category"
 const severityLabel string = "policies.kyverno.io/severity"
+const scoredLabel string = "policies.kyverno.io/scored"
 
 type annotationValues struct {
 	category string
 	severity report.PolicySeverity
+	scored   bool
 }
 
 func (av *annotationValues) setSeverityFromString(severity string) {
@@ -284,6 +289,15 @@ func (builder *requestBuilder) fetchAnnotationValues(policy, ns string) annotati
 	}
 	if severity, ok := ann[severityLabel]; ok {
 		av.setSeverityFromString(severity)
+	}
+	if scored, ok := ann[scoredLabel]; ok {
+		if scored == "false" {
+			av.scored = false
+		} else {
+			av.scored = true
+		}
+	} else {
+		av.scored = true
 	}
 
 	return av

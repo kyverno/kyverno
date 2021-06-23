@@ -232,3 +232,34 @@ var GenerateSynchronizeFlagTests = []struct {
 		UpdateData:         updateSynchronizeInGeneratePolicyYaml,
 	},
 }
+
+// ClusterRoleTests - E2E Test Config for ClusterRole and ClusterRoleBinding
+var SourceResourceUpdateReplicationTests = []struct {
+	//TestName - Name of the Test
+	TestName string
+	// ClusterRoleName - Name of the ClusterRole to be Created
+	ResourceNamespace string
+	// Clone - Set Clone Value
+	Clone bool
+	// CloneNamespace - Namespace where Roles are Cloned
+	CloneNamespace string
+	// Sync - Set Synchronize
+	Sync bool
+	// Data - The Yaml file of the ClusterPolicy - ([]byte{})
+	Data []byte
+	// ConfigMapName - name of configMap
+	ConfigMapName string
+	// CloneSourceConfigMapData - Source ConfigMap Yaml
+	CloneSourceConfigMapData []byte
+}{
+	{
+		TestName:                 "test-clone-source-resource-update-replication",
+		ResourceNamespace:        "test",
+		Clone:                    true,
+		Sync:                     true,
+		Data:                     genCloneConfigMapPolicyYaml,
+		ConfigMapName:            "game-demo",
+		CloneNamespace:           "default",
+		CloneSourceConfigMapData: cloneSourceResource,
+	},
+}

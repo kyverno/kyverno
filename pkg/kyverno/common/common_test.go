@@ -7,7 +7,7 @@ import (
 	"gotest.tools/assert"
 )
 
-var policyNamespaceSeelector = []byte(`{
+var policyNamespaceSelector = []byte(`{
 	"apiVersion": "kyverno.io/v1",
 	"kind": "ClusterPolicy",
 	"metadata": {
@@ -56,29 +56,29 @@ func Test_NamespaceSelector(t *testing.T) {
 		policy               []byte
 		resource             []byte
 		namespaceSelectorMap map[string]map[string]string
-		sucess               bool
+		success              bool
 	}
 
 	testcases := []TestCase{
 		{
-			policy:   policyNamespaceSeelector,
+			policy:   policyNamespaceSelector,
 			resource: []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"nginx","namespace":"test1"},"spec":{"containers":[{"image":"nginx:latest","name":"test-fail"}]}}`),
 			namespaceSelectorMap: map[string]map[string]string{
 				"test1": {
 					"foo.com/managed-state": "managed",
 				},
 			},
-			sucess: false,
+			success: false,
 		},
 		{
-			policy:   policyNamespaceSeelector,
+			policy:   policyNamespaceSelector,
 			resource: []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test-nginx","namespace":"test1"},"spec":{"containers":[{"image":"nginx:latest","name":"test-pass"}]}}`),
 			namespaceSelectorMap: map[string]map[string]string{
 				"test1": {
 					"foo.com/managed-state": "managed",
 				},
 			},
-			sucess: true,
+			success: true,
 		},
 	}
 
@@ -86,6 +86,6 @@ func Test_NamespaceSelector(t *testing.T) {
 		policyArray, _ := ut.GetPolicy(tc.policy)
 		resourceArray, _ := GetResource(tc.resource)
 		_, validateErs, _, _, _ := ApplyPolicyOnResource(policyArray[0], resourceArray[0], "", false, nil, false, tc.namespaceSelectorMap, false)
-		assert.Assert(t, tc.sucess == validateErs.IsSuccessful())
+		assert.Assert(t, tc.success == validateErs.IsSuccessful())
 	}
 }

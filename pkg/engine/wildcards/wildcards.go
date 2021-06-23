@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor/common"
-	"github.com/minio/minio/pkg/wildcard"
+	"github.com/minio/pkg/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
