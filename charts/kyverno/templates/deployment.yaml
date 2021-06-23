@@ -8,7 +8,6 @@ metadata:
 spec:
   selector:
     matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
-      app: kyverno
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
