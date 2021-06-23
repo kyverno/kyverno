@@ -78,7 +78,7 @@ func (e2e *E2EClient) GetClusteredResource(gvr schema.GroupVersionResource, name
 func GetWithRetry(sleepInterval time.Duration, retryCount int, retryFunc func() error) error {
 	var err error
 	for i := 0; i < retryCount; i++ {
-		err = retryFunc()		
+		err = retryFunc()
 		if err != nil {
 			time.Sleep(sleepInterval * time.Second)
 			continue
