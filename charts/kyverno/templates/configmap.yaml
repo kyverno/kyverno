@@ -20,4 +20,7 @@ data:
   {{- if .Values.config.webhooks }}
   webhooks: {{ .Values.config.webhooks  | toJson | quote }}
   {{- end -}}
+  {{- if .Values.config.generateSuccessEvents }}
+  generateSuccessEvents: {{ .Values.config.generateSuccessEvents }}
+  {{- end -}}
 {{- end -}}

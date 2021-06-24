@@ -18,8 +18,13 @@ import (
 )
 
 func (pc *PolicyController) report(engineResponses []*response.EngineResponse, logger logr.Logger) {
-	eventInfos := generateEvents(logger, engineResponses)
+	eventInfos := generateFailEvents(logger, engineResponses)
 	pc.eventGen.Add(eventInfos...)
+
+	if pc.configHandler.GetGenerateSuccessEvents() {
+		successEventInfos := generateSuccessEvents(logger, engineResponses)
+		pc.eventGen.Add(successEventInfos...)
+	}
 
 	pvInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
 
@@ -131,22 +136,43 @@ func (pc *PolicyController) requeuePolicies() {
 	}
 }
 
-func generateEvents(log logr.Logger, ers []*response.EngineResponse) []event.Info {
-	var eventInfos []event.Info
+func generateSuccessEvents(log logr.Logger, ers []*response.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
-		if er.IsSuccessful() {
-			continue
+		logger := log.WithValues("policy", er.PolicyResponse.Policy, "kind", er.PolicyResponse.Resource.Kind, "namespace", er.PolicyResponse.Resource.Namespace, "name", er.PolicyResponse.Resource.Name)
+		logger.V(4).Info("reporting success results for policy")
+
+		if !er.IsFailed() {
+			// generate event on policy for success rules
+			logger.V(4).Info("generating event on policy for success rules")
+			e := event.Info{}
+			kind := "ClusterPolicy"
+			if er.PolicyResponse.Policy.Namespace != "" {
+				kind = "Policy"
+			}
+			e.Kind = kind
+			e.Namespace = er.PolicyResponse.Policy.Namespace
+			e.Name = er.PolicyResponse.Policy.Name
+			e.Reason = event.PolicyApplied.String()
+			e.Source = event.PolicyController
+			e.Message = fmt.Sprintf("rules '%v' successfully applied on resource '%s/%s/%s'", er.GetSuccessRules(), er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
+			eventInfos = append(eventInfos, e)
 		}
-		eventInfos = append(eventInfos, generateEventsPerEr(log, er)...)
 	}
 	return eventInfos
 }
 
-func generateEventsPerEr(log logr.Logger, er *response.EngineResponse) []event.Info {
+func generateFailEvents(log logr.Logger, ers []*response.EngineResponse) (eventInfos []event.Info) {
+	for _, er := range ers {
+		eventInfos = append(eventInfos, generateFailEventsPerEr(log, er)...)
+	}
+	return eventInfos
+}
+
+func generateFailEventsPerEr(log logr.Logger, er *response.EngineResponse) []event.Info {
 	var eventInfos []event.Info
 
 	logger := log.WithValues("policy", er.PolicyResponse.Policy.Name, "kind", er.PolicyResponse.Resource.Kind, "namespace", er.PolicyResponse.Resource.Namespace, "name", er.PolicyResponse.Resource.Name)
-	logger.V(4).Info("reporting results for policy")
+	logger.V(4).Info("reporting fail results for policy")
 
 	for _, rule := range er.PolicyResponse.Rules {
 		if rule.Success {
