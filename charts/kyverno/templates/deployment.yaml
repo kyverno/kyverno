@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "kyverno.fullname" . }}
+  name: kyverno
   labels: {{ include "kyverno.labels" . | nindent 4 }}
     app: kyverno
   namespace: {{ template "kyverno.namespace" . }}
