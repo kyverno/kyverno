@@ -1188,7 +1188,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: Spec defines policy behaviors and contains one or rules.
+            description: Spec defines policy behaviors and contains one or more rules.
             properties:
               background:
                 description: Background controls if rules are applied to existing resources during a background scan. Optional. Default value is "true". The value must be set to "false" if the policy rule uses variables that are only available in the admission review request (e.g. user name).
