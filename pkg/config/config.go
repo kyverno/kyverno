@@ -58,8 +58,7 @@ var (
 	KyvernoNamespace = getKyvernoNameSpace()
 
 	// KyvernoDeploymentName is the Kyverno deployment name
-	//KyvernoDeploymentName = getKyvernoDeploymentName()
-	KyvernoDeploymentName = "kyverno"
+	KyvernoDeploymentName = getKyvernoDeploymentName()
 
 	//KyvernoServiceName is the Kyverno service name
 	KyvernoServiceName = getKyvernoServiceName()
@@ -115,7 +114,7 @@ func getKyvernoServiceName() string {
 	return webhookServiceName
 }
 
-// getKyvernoDeploymentName - setting default KyvernoDeploymentName
+// getKyvernoDeploymentName - setting default KyvernoServiceName
 func getKyvernoDeploymentName() string {
 	name := os.Getenv("KYVERNO_DEPLOYMENT")
 	if name == "" {
