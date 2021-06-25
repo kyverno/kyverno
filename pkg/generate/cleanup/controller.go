@@ -1,6 +1,8 @@
 package cleanup
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -141,9 +143,41 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	// get the list of GR for the current Policy version
 	generatePolicyWithClone := false
 	rules := p.Spec.Rules
+
 	for _, rule := range rules {
 		if rule.Generation.Clone.Name != "" {
 			generatePolicyWithClone = true
+			obj, err := c.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+			if err != nil {
+				logger.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
+				continue
+			}
+
+			updateSource := true
+			label := obj.GetLabels()
+
+			if len(label) != 0 {
+				if label["generate.kyverno.io/clone-policy-name"] != "" {
+					policyNames := label["generate.kyverno.io/clone-policy-name"]
+					if strings.Contains(policyNames, p.GetName()) {
+						updatedPolicyNames := strings.Replace(policyNames, p.GetName(), "", -1)
+						label["generate.kyverno.io/clone-policy-name"] = updatedPolicyNames
+					} else {
+						updateSource = false
+					}
+				}
+			}
+
+			if updateSource {
+				logger.V(4).Info("updating existing clone source")
+				obj.SetLabels(label)
+				_, err = c.client.UpdateResource(obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
+				if err != nil {
+					logger.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+					continue
+				}
+				logger.V(4).Info("updated source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+			}
 		}
 	}
 
