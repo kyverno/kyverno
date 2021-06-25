@@ -1,8 +1,6 @@
 package cleanup
 
 import (
-	"fmt"
-	"strings"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -12,6 +10,7 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -141,45 +140,46 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	// clean up the GR
 	// Get the corresponding GR
 	// get the list of GR for the current Policy version
-	generatePolicyWithClone := false
 	rules := p.Spec.Rules
 
-	for _, rule := range rules {
-		if rule.Generation.Clone.Name != "" {
-			generatePolicyWithClone = true
-			obj, err := c.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
-			if err != nil {
-				logger.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
-				continue
-			}
+	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, c.client, p, logger)
 
-			updateSource := true
-			label := obj.GetLabels()
+	// for _, rule := range rules {
+	// 	if rule.Generation.Clone.Name != "" {
+	// 		generatePolicyWithClone = true
+	// 		obj, err := c.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+	// 		if err != nil {
+	// 			logger.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
+	// 			continue
+	// 		}
 
-			if len(label) != 0 {
-				if label["generate.kyverno.io/clone-policy-name"] != "" {
-					policyNames := label["generate.kyverno.io/clone-policy-name"]
-					if strings.Contains(policyNames, p.GetName()) {
-						updatedPolicyNames := strings.Replace(policyNames, p.GetName(), "", -1)
-						label["generate.kyverno.io/clone-policy-name"] = updatedPolicyNames
-					} else {
-						updateSource = false
-					}
-				}
-			}
+	// 		updateSource := true
+	// 		label := obj.GetLabels()
 
-			if updateSource {
-				logger.V(4).Info("updating existing clone source")
-				obj.SetLabels(label)
-				_, err = c.client.UpdateResource(obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
-				if err != nil {
-					logger.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
-					continue
-				}
-				logger.V(4).Info("updated source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
-			}
-		}
-	}
+	// 		if len(label) != 0 {
+	// 			if label["generate.kyverno.io/clone-policy-name"] != "" {
+	// 				policyNames := label["generate.kyverno.io/clone-policy-name"]
+	// 				if strings.Contains(policyNames, p.GetName()) {
+	// 					updatedPolicyNames := strings.Replace(policyNames, p.GetName(), "", -1)
+	// 					label["generate.kyverno.io/clone-policy-name"] = updatedPolicyNames
+	// 				} else {
+	// 					updateSource = false
+	// 				}
+	// 			}
+	// 		}
+
+	// 		if updateSource {
+	// 			logger.V(4).Info("updating existing clone source")
+	// 			obj.SetLabels(label)
+	// 			_, err = c.client.UpdateResource(obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
+	// 			if err != nil {
+	// 				logger.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+	// 				continue
+	// 			}
+	// 			logger.V(4).Info("updated source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+	// 		}
+	// 	}
+	// }
 
 	if !generatePolicyWithClone {
 		grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(p.Name)
