@@ -317,11 +317,12 @@ func updateGenRuleByte(pbyte []byte, kind string, genRule kyvernoRule) (obj []by
 		return obj
 	}
 	if kind == "Pod" {
-		return []byte(strings.Replace(string(pbyte), "request.object.spec", "request.object.spec.template.spec", -1))
+		obj = []byte(strings.Replace(string(pbyte), "request.object.spec", "request.object.spec.template.spec", -1))
 	}
 	if kind == "Cronjob" {
-		return []byte(strings.Replace(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec", -1))
+		obj = []byte(strings.Replace(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec", -1))
 	}
+	obj = []byte(strings.Replace(string(obj), "request.object.metadata", "request.object.spec.template.metadata", -1))
 	return obj
 }
 

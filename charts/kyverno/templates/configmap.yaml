@@ -3,6 +3,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
   name: {{ template "kyverno.configMapName" . }}
   namespace: {{ template "kyverno.namespace" . }}
 data:
@@ -15,5 +16,8 @@ data:
   {{- end -}}
   {{- if .Values.config.excludeUsername }}
   excludeUsername: {{ join "" .Values.config.excludeUsername | quote }}
+  {{- end -}}
+  {{- if .Values.config.webhooks }}
+  webhooks: {{ .Values.config.webhooks  | toJson | quote }}
   {{- end -}}
 {{- end -}}

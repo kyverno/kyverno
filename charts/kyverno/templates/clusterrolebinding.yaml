@@ -2,7 +2,24 @@
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
+  name: {{ template "kyverno.fullname" . }}:leaderelection
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ template "kyverno.fullname" . }}:leaderelection
+subjects:
+- kind: ServiceAccount
+  name: {{ template "kyverno.serviceAccountName" . }}
+  namespace: {{ template "kyverno.namespace" . }}
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
   name: {{ template "kyverno.fullname" . }}:webhook
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -16,6 +33,8 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ template "kyverno.fullname" . }}:userinfo
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -29,6 +48,8 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ template "kyverno.fullname" . }}:customresources
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -42,6 +63,8 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ template "kyverno.fullname" . }}:policycontroller
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -55,6 +78,8 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ template "kyverno.fullname" . }}:generatecontroller
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

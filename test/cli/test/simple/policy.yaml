@@ -27,6 +27,8 @@ spec:
       resources:
         kinds:
         - Pod
+        namespaces:
+        - test
     validate:
       message: "Using a mutable image tag e.g. 'latest' is not allowed."
       pattern:

@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/informers"
@@ -107,4 +109,30 @@ func VariableToJSON(key, value string) []byte {
 	finalString := startString + midString + endString
 	var jsonData = []byte(finalString)
 	return jsonData
+}
+
+func RetryFunc(retryInterval, timeout time.Duration, run func() error, logger logr.Logger) func() error {
+	return func() error {
+		registerTimeout := time.After(timeout)
+		registerTicker := time.NewTicker(retryInterval)
+		defer registerTicker.Stop()
+		var err error
+
+	loop:
+		for {
+			select {
+			case <-registerTicker.C:
+				err = run()
+				if err != nil {
+					logger.V(3).Info("Failed to register admission control webhooks", "reason", err.Error())
+				} else {
+					break loop
+				}
+
+			case <-registerTimeout:
+				return errors.Wrap(err, "Timeout registering admission control webhooks")
+			}
+		}
+		return nil
+	}
 }

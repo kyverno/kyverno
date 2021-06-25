@@ -2,7 +2,6 @@ package generate
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	backoff "github.com/cenkalti/backoff"
@@ -17,7 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -35,7 +33,6 @@ type GeneratorChannel struct {
 // Generator defines the implementation to mange generate request resource
 type Generator struct {
 	// channel to receive request
-	ch     chan GeneratorChannel
 	client *kyvernoclient.Clientset
 	stopCh <-chan struct{}
 	log    logr.Logger
@@ -47,7 +44,6 @@ type Generator struct {
 // NewGenerator returns a new instance of Generate-Request resource generator
 func NewGenerator(client *kyvernoclient.Clientset, grInformer kyvernoinformer.GenerateRequestInformer, stopCh <-chan struct{}, log logr.Logger) *Generator {
 	gen := &Generator{
-		ch:       make(chan GeneratorChannel, 1000),
 		client:   client,
 		stopCh:   stopCh,
 		log:      log,
@@ -67,14 +63,8 @@ func (g *Generator) Apply(gr kyverno.GenerateRequestSpec, action v1beta1.Operati
 		action: action,
 		spec:   gr,
 	}
-
-	select {
-	case g.ch <- message:
-		return nil
-	case <-g.stopCh:
-		logger.Info("shutting down channel")
-		return fmt.Errorf("shutting down gr create channel")
-	}
+	go g.processApply(message)
+	return nil
 }
 
 // Run starts the generate request spec
@@ -92,20 +82,12 @@ func (g *Generator) Run(workers int, stopCh <-chan struct{}) {
 		return
 	}
 
-	for i := 0; i < workers; i++ {
-		go wait.Until(g.processApply, time.Second, g.stopCh)
-	}
-
 	<-g.stopCh
 }
 
-func (g *Generator) processApply() {
-	logger := g.log
-	for r := range g.ch {
-		logger.V(4).Info("received generate request", "request", r)
-		if err := g.generate(r.spec, r.action); err != nil {
-			logger.Error(err, "failed to generate request CR")
-		}
+func (g *Generator) processApply(m GeneratorChannel) {
+	if err := g.generate(m.spec, m.action); err != nil {
+		logger.Error(err, "failed to generate request CR")
 	}
 }
 

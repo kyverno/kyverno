@@ -50,7 +50,7 @@ const (
 	DeploymentKind = "Deployment"
 
 	// DeploymentAPIVersion define the default deployment resource apiVersion
-	DeploymentAPIVersion = "extensions/v1beta1"
+	DeploymentAPIVersion = "apps/v1"
 )
 
 var (

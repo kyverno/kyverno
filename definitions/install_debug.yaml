@@ -1,6 +1,8 @@
 apiVersion: v1
 kind: Namespace
 metadata:
+  labels:
+    app: kyverno
   name: kyverno
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -1186,7 +1188,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: Spec defines policy behaviors and contains one or rules.
+            description: Spec defines policy behaviors and contains one or more rules.
             properties:
               background:
                 description: Background controls if rules are applied to existing resources during a background scan. Optional. Default value is "true". The value must be set to "false" if the policy rule uses variables that are only available in the admission review request (e.g. user name).
@@ -2129,6 +2131,8 @@ status:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  labels:
+    app: kyverno
   name: kyverno-service-account
   namespace: kyverno
 ---
@@ -2136,6 +2140,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
+    app: kyverno
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policies
 rules:
@@ -2151,6 +2156,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
+    app: kyverno
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policyreport
 rules:
@@ -2166,6 +2172,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
+    app: kyverno
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-reportchangerequest
 rules:
@@ -2180,6 +2187,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:customresources
 rules:
 - apiGroups:
@@ -2217,6 +2226,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:generatecontroller
 rules:
 - apiGroups:
@@ -2244,6 +2255,26 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
+  name: kyverno:leaderelection
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: kyverno
   name: kyverno:policycontroller
 rules:
 - apiGroups:
@@ -2259,6 +2290,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:userinfo
 rules:
 - apiGroups:
@@ -2277,6 +2310,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:webhook
 rules:
 - apiGroups:
@@ -2321,6 +2356,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:customresources
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -2334,6 +2371,8 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:generatecontroller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -2347,6 +2386,23 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app: kyverno
+  name: kyverno:leaderelection
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:leaderelection
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: kyverno
   name: kyverno:policycontroller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -2360,6 +2416,8 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:userinfo
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -2373,6 +2431,8 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app: kyverno
   name: kyverno:webhook
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -2389,6 +2449,8 @@ data:
   resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]'
 kind: ConfigMap
 metadata:
+  labels:
+    app: kyverno
   name: init-config
   namespace: kyverno
 ---
@@ -2397,13 +2459,29 @@ kind: Service
 metadata:
   labels:
     app: kyverno
-    app.kubernetes.io/name: kyverno
   name: kyverno-svc
   namespace: kyverno
 spec:
   ports:
-  - port: 443
+  - name: https
+    port: 443
     targetPort: https
+  selector:
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: kyverno
+  name: kyverno-svc-metrics
+  namespace: kyverno
+spec:
+  ports:
+  - name: metrics-port
+    port: 8000
+    targetPort: metrics-port
   selector:
     app: kyverno
     app.kubernetes.io/name: kyverno
