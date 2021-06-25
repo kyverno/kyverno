@@ -154,18 +154,30 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 func (ws *WebhookServer) handleUpdateCloneSourceResource(resLabels map[string]string, logger logr.Logger) {
 	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
 	for _, policyName := range policyNames {
-		selector := labels.SelectorFromSet(labels.Set(map[string]string{
-			"generate.kyverno.io/policy-name": policyName,
-		}))
 
-		grList, err := ws.grLister.List(selector)
+		// check if the policy exists
+		policy, err := ws.kyvernoClient.KyvernoV1().ClusterPolicies().Get(contextdefault.TODO(), policyName, metav1.GetOptions{})
+		fmt.Println("policy", policy, "\nerror: ", err)
 		if err != nil {
-			logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
-			return
+			if strings.Contains(err.Error(), "not found") {
+				logger.V(4).Info("skipping updation og generate request as policy is deleted")
+			} else {
+				logger.Error(err, "failed to get generate policy", "Name", policyName)
+				selector := labels.SelectorFromSet(labels.Set(map[string]string{
+					"generate.kyverno.io/policy-name": policyName,
+				}))
+
+				grList, err := ws.grLister.List(selector)
+				if err != nil {
+					logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
+					return
+				}
+				for _, gr := range grList {
+					ws.updateAnnotationInGR(gr, logger)
+				}
+			}
 		}
-		for _, gr := range grList {
-			ws.updateAnnotationInGR(gr, logger)
-		}
+
 	}
 }
 
