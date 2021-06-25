@@ -38,7 +38,7 @@ app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
 app.kubernetes.io/version: "{{ .Chart.Version }}"
 helm.sh/chart: {{ template "kyverno.chart" . }}
 {{- if .Values.customLabels }}
-{{ toYaml .Values.customLabels | indent 4 }}
+{{ toYaml .Values.customLabels }}
 {{- end }}
 {{- end -}}
 
