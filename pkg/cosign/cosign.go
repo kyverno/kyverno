@@ -6,15 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-logr/logr"
-	"github.com/sigstore/sigstore/pkg/signature"
-	"k8s.io/client-go/kubernetes"
-	"strings"
-
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pkg/errors"
 	"github.com/sigstore/cosign/pkg/cosign"
+	"github.com/sigstore/sigstore/pkg/signature"
+	"k8s.io/client-go/kubernetes"
 )
 
 func Initialize(client kubernetes.Interface, namespace, serviceAccount string, imagePullSecrets []string) error {
@@ -83,10 +81,7 @@ func extractDigest(imgRef string, verified []cosign.SignedPayload, log logr.Logg
 			return "", err
 		}
 
-		log.V(6).Info("image verification response", "image", imgRef, "payload", jsonMap)
-
-		// an imageRef may contain the digest - split and compare the name only
-		toks := strings.Split(imgRef, "@")
+		log.V(4).Info("image verification response", "image", imgRef, "payload", jsonMap)
 
 		// The cosign response is in the JSON format:
 		// {
@@ -106,9 +101,11 @@ func extractDigest(imgRef string, verified []cosign.SignedPayload, log logr.Logg
 			typeStr := critical["type"].(string)
 			if typeStr == "cosign container image signature" {
 				identity := critical["identity"].(map[string]interface{})
-				if identity != nil && identity["docker-reference"] == toks[0] {
+				if identity != nil {
 					image := critical["image"].(map[string]interface{})
-					return image["docker-manifest-digest"].(string), nil
+					if image != nil {
+						return image["docker-manifest-digest"].(string), nil
+					}
 				}
 			}
 		}

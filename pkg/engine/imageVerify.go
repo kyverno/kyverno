@@ -27,7 +27,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 		"kind", patchedResource.GetKind(), "namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
 
 	if ManagedPodResource(policy, patchedResource) {
-		logger.V(5).Info("container images for pods managed by workload controllers are already verified", "policy", policy.GetName())
+		logger.V(4).Info("container images for pods managed by workload controllers are already verified", "policy", policy.GetName())
 		resp.PatchedResource = patchedResource
 		return
 	}
@@ -60,6 +60,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 	return
 }
 
+
 func verifyAndPatchImages(logger logr.Logger, rule *v1.Rule, imageVerify *v1.ImageVerification, images map[string]*context.ImageInfo, resp *response.EngineResponse) {
 	imagePattern := imageVerify.Image
 	key := imageVerify.Key
@@ -77,7 +78,7 @@ func verifyAndPatchImages(logger logr.Logger, rule *v1.Rule, imageVerify *v1.Ima
 
 			digest, err := cosign.Verify(image, []byte(key), logger)
 			if err != nil {
-				logger.Info("image verification error", "image", image, "error", err)
+				logger.Info("failed to verify image", "image", image, "key", key, "error", err)
 				ruleResp.Success = false
 				ruleResp.Message = fmt.Sprintf("image verification failed for %s: %v", image, err)
 			} else {
@@ -91,6 +92,7 @@ func verifyAndPatchImages(logger logr.Logger, rule *v1.Rule, imageVerify *v1.Ima
 					if err != nil {
 						logger.Error(err,"failed to patch image with digest", "image", imageInfo.String(), "jsonPath", imageInfo.JSONPath)
 					} else {
+						logger.V(4).Info("patching verified image with digest", "patch", string(patch))
 						ruleResp.Patches = [][]byte{patch}
 					}
 				}
@@ -104,7 +106,7 @@ func verifyAndPatchImages(logger logr.Logger, rule *v1.Rule, imageVerify *v1.Ima
 func makeAddDigestPatch(imageInfo *context.ImageInfo, digest string) ([]byte, error) {
 	var patch = make(map[string]interface{})
 	patch["op"] = "replace"
-	patch["path"] = imageInfo.Path
-	patch["op"] = imageInfo.String() + "@" + digest
+	patch["path"] = imageInfo.JSONPath
+	patch["value"] = imageInfo.String() + "@" + digest
 	return json.Marshal(patch)
 }
