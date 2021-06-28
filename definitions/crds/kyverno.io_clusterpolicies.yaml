@@ -584,14 +584,12 @@ spec:
                       maxLength: 63
                       type: string
                     preconditions:
-                      description: AnyAllConditions enable variable-based conditional
-                        rule execution. This is useful for finer control of when an
-                        rule is applied. A condition can reference object data using
-                        JMESPath notation. This too can be made to happen in a logical-manner
-                        where in some situation all the conditions need to pass and
-                        in some other situation, atleast one condition is enough to
-                        pass. For the sake of backwards compatibility, it can be populated
-                        with []kyverno.Condition.
+                      description: 'Preconditions are used to determine if a policy
+                        rule should be applied by evaluating a set of conditions.
+                        The declaration can contain nested `any` or `all` statements.
+                        A direct list of conditions (without `any` or `all` statements
+                        is supported for backwards compatibility but will be deprecated
+                        in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                       x-kubernetes-preserve-unknown-fields: true
                     validate:
                       description: Validation is used to validate matching resources.
@@ -602,13 +600,15 @@ spec:
                             validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
                         deny:
-                          description: Deny defines conditions to fail the validation
-                            rule.
+                          description: Deny defines conditions used to pass or fail
+                            a validation rule.
                           properties:
                             conditions:
-                              description: specifies the set of conditions to deny
-                                in a logical manner For the sake of backwards compatibility,
-                                it can be populated with []kyverno.Condition.
+                              description: 'Multiple conditions can be declared under
+                                an `any` or `all` statement. A direct list of conditions
+                                (without `any` or `all` statements) is also supported
+                                for backwards compatibility but will be deprecated
+                                in the next major release. See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
                         message:
