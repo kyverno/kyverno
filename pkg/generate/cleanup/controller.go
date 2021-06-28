@@ -15,6 +15,7 @@ import (
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic/dynamicinformer"
@@ -143,6 +144,23 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	rules := p.Spec.Rules
 
 	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, c.client, p, logger)
+
+	// get the generated resource name from generate request for log
+	selector := labels.SelectorFromSet(labels.Set(map[string]string{
+		"generate.kyverno.io/policy-name": p.Name,
+	}))
+
+	grList, err := c.grLister.List(selector)
+	if err != nil {
+		logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
+		return
+	}
+
+	for _, gr := range grList {
+		for _, generatedResource := range gr.Status.GeneratedResources {
+			logger.Info("retaining resource", "APIVersion", generatedResource.APIVersion, "Kind", generatedResource.Kind, "Name", generatedResource.Name, "Nmaespace", generatedResource.Namespace)
+		}
+	}
 
 	if !generatePolicyWithClone {
 		grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(p.Name)

@@ -343,8 +343,8 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	// we process policies that are not set of background processing
 	// as we need to clean up GRs when a policy is deleted
 	// skip generate policies with clone
-	// generatePolicyWithClone := false
 	rules := p.Spec.Rules
+
 	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, pc.client, p, logger)
 
 	if !generatePolicyWithClone {

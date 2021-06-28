@@ -143,6 +143,7 @@ func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client *dclie
 	generatePolicyWithClone := false
 	for _, rule := range rules {
 		if rule.Generation.Clone.Name != "" {
+			logger.V(4).Info("generate policy with clone, skipping deletion of generate request")
 			generatePolicyWithClone = true
 			obj, err := client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 			if err != nil {
@@ -152,6 +153,7 @@ func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client *dclie
 
 			updateSource := true
 			label := obj.GetLabels()
+			logger.V(4).Info("removing policy name from label of source resource")
 
 			if len(label) != 0 {
 				if label["generate.kyverno.io/clone-policy-name"] != "" {
@@ -177,5 +179,6 @@ func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client *dclie
 			}
 		}
 	}
+
 	return generatePolicyWithClone
 }
