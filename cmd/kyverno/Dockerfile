@@ -23,9 +23,9 @@ RUN CGO_ENABLED=0 go build -o /output/kyverno -tags "${TAGS}" -ldflags="${LD_FLA
 FROM scratch
 
 LABEL maintainer="Kyverno"
-
 COPY --from=builder /output/kyverno /
 COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 USER 10001
 
