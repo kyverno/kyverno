@@ -177,9 +177,9 @@ jobs:
           version: v3.4.0
 
       - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.1.0
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        uses: stefanprodan/helm-gh-pages@master
+        with:
+          token: "${{ secrets.GITHUB_TOKEN }}"
 
   release-cli-via-krew:
     runs-on: ubuntu-latest
