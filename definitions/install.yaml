@@ -2715,7 +2715,7 @@ spec:
       - args:
         - --filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]
         - -v=2
-        - webhooktimeout=15
+        - webhooktimeout=30
         env:
         - name: INIT_CONFIG
           value: init-config
