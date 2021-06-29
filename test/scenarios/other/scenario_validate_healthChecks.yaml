@@ -5,7 +5,9 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: check-probe-exists
+      policy:
+        namespace: ''
+        name: check-probe-exists
       resource:
         kind: Pod
         apiVersion: v1

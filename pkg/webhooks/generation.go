@@ -366,7 +366,7 @@ func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
 func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.EngineResponse) {
 	logger.V(4).Info("querying all generate requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		"generate.kyverno.io/policy-name":        engineResponse.PolicyResponse.Policy,
+		"generate.kyverno.io/policy-name":        engineResponse.PolicyResponse.Policy.Name,
 		"generate.kyverno.io/resource-name":      engineResponse.PolicyResponse.Resource.Name,
 		"generate.kyverno.io/resource-kind":      engineResponse.PolicyResponse.Resource.Kind,
 		"generate.kyverno.io/resource-namespace": engineResponse.PolicyResponse.Resource.Namespace,
@@ -401,7 +401,7 @@ func applyGenerateRequest(gnGenerator generate.GenerateRequests, userRequestInfo
 
 func transform(userRequestInfo kyverno.RequestInfo, er *response.EngineResponse) kyverno.GenerateRequestSpec {
 	gr := kyverno.GenerateRequestSpec{
-		Policy: er.PolicyResponse.Policy,
+		Policy: er.PolicyResponse.Policy.Name,
 		Resource: kyverno.ResourceSpec{
 			Kind:       er.PolicyResponse.Resource.Kind,
 			Namespace:  er.PolicyResponse.Resource.Namespace,
@@ -421,7 +421,7 @@ type generateStats struct {
 }
 
 func (gs generateStats) PolicyName() string {
-	return gs.resp.PolicyResponse.Policy
+	return gs.resp.PolicyResponse.Policy.Name
 }
 
 func (gs generateStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {

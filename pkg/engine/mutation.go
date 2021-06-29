@@ -134,7 +134,8 @@ func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.Clu
 		return
 	}
 
-	resp.PolicyResponse.Policy = policy.Name
+	resp.PolicyResponse.Policy.Name = policy.GetName()
+	resp.PolicyResponse.Policy.Namespace = policy.GetNamespace()
 	resp.PolicyResponse.Resource.Name = resource.GetName()
 	resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
 	resp.PolicyResponse.Resource.Kind = resource.GetKind()

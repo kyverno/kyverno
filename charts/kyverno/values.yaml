@@ -146,7 +146,7 @@ config:
   # will be forwarded to the webhookconfigurations.
   webhooks:
   # webhooks: [{"namespaceSelector":{"matchExpressions":[{"key":"environment","operator":"In","values":["prod"]}]}}]
-
+  generateSuccessEvents: 'false'
   # existingConfig: init-config
 
 service:
