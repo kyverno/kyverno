@@ -21,6 +21,6 @@ data:
   webhooks: {{ .Values.config.webhooks  | toJson | quote }}
   {{- end -}}
   {{- if .Values.config.generateSuccessEvents }}
-  generateSuccessEvents: {{ .Values.config.generateSuccessEvents }}
+  generateSuccessEvents: {{ .Values.config.generateSuccessEvents | quote }}
   {{- end -}}
 {{- end -}}

@@ -6,7 +6,9 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: validate-default-proc-mount
+      policy:
+        namespace: ''
+        name: validate-default-proc-mount
       resource:
         kind: Pod
         apiVersion: v1
