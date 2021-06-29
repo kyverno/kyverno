@@ -62,7 +62,7 @@ spec:
               name: https
               protocol: TCP
             - containerPort: 8000
-              name: metrics-port
+              name: metricsPort
               protocol: TCP
           env:
             - name: INIT_CONFIG
