@@ -6,9 +6,10 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/minio/pkg/wildcard"
+
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/minio/minio/pkg/wildcard"
 )
 
 //NewNotEqualHandler returns handler to manage NotEqual operations
