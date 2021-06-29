@@ -9,7 +9,7 @@ labels:
   app.kubernetes.io/managed-by: Kustomize
   app.kubernetes.io/name: kyverno
   app.kubernetes.io/part-of: kyverno
-  app.kubernetes.io/version: v1.4.0
+  app.kubernetes.io/version: v1.4.1
 fieldSpecs:
 - path: metadata/labels
   create: true

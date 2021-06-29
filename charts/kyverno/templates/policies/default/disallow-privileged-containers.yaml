@@ -1,5 +1,5 @@
 {{- $name := "disallow-privileged-containers" }}
-{{- if eq (include "kyverno.podSecurityDefault" (merge (dict "name" $name) .)) "true" }}
+{{- if eq (include "kyverno.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
