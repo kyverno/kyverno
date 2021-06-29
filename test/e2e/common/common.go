@@ -29,6 +29,7 @@ func CallMetrics() (string, error) {
 	return newStr, nil
 }
 
+// ProcessMetrics checks the metrics log and identify if the policy is added in cache or not
 func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) (bool, error) {
 	var action, policyName string
 	var timeInTimeFormat time.Time
