@@ -268,6 +268,24 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 		rule.MatchResources.UserInfo = kyverno.UserInfo{}
 	}
 
+	if len(rule.MatchResources.ResourceList) > 0 {
+		fmt.Println("$$$$")
+		fmt.Println("Hello")
+		fmt.Println("$$$$")
+		for _, resourceDescription := range rule.MatchResources.ResourceList {
+			fmt.Println("$$$$")
+			fmt.Println("Hello2")
+			fmt.Println("$$$$")
+			if !reflect.DeepEqual(resourceDescription, kyverno.ResourceDescription{}) ||
+				!reflect.DeepEqual(rule.MatchResources.UserInfo, kyverno.UserInfo{}) {
+				matchErrs := doesResourceMatchConditionBlock(resourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
+				reasonsForFailure = append(reasonsForFailure, matchErrs...)
+			} else {
+				reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
+			}
+		}
+	}
+
 	// checking if resource matches the rule
 	if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) ||
 		!reflect.DeepEqual(rule.MatchResources.UserInfo, kyverno.UserInfo{}) {

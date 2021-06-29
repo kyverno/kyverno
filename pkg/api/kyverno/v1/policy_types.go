@@ -222,7 +222,12 @@ type MatchResources struct {
 
 	// ResourceDescription contains information about the resource being created or modified.
 	// Requires at least one tag to be specified when under MatchResources.
+	// +optional
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
+
+	// ResourceList contains information about the resources being created or modified.
+	// Requires at least one resource to be specified when under it.
+	ResourceList `json:"resourceList,omitempty" yaml:"resourceList,omitempty"`
 }
 
 // ExcludeResources specifies resource and admission review request data for
@@ -251,6 +256,8 @@ type UserInfo struct {
 	// +optional
 	Subjects []rbacv1.Subject `json:"subjects,omitempty" yaml:"subjects,omitempty"`
 }
+
+type ResourceList []ResourceDescription
 
 // ResourceDescription contains criteria used to match resources.
 type ResourceDescription struct {
