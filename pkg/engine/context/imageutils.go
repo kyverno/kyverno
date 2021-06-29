@@ -145,23 +145,24 @@ func convertToImageInfo(containers []interface{}, jsonPath string) (images []*Co
 }
 
 func newImageInfo(image, jsonPath string) (*ImageInfo, error) {
-	repo, err := reference.Parse(image)
+	image = addDefaultDomain(image)
+	ref, err := reference.Parse(image)
 	if err != nil {
 		return nil, errors.Wrapf(err, "bad image: %s", image)
 	}
 
 	var registry, path, name, tag, digest string
-	if named, ok := repo.(reference.Named); ok {
+	if named, ok := ref.(reference.Named); ok {
 		registry = reference.Domain(named)
 		path = reference.Path(named)
 		name = path[strings.LastIndex(path, "/")+1:]
 	}
 
-	if tagged, ok := repo.(reference.Tagged); ok {
+	if tagged, ok := ref.(reference.Tagged); ok {
 		tag = tagged.Tag()
 	}
 
-	if digested, ok := repo.(reference.Digested); ok {
+	if digested, ok := ref.(reference.Digested); ok {
 		digest = digested.Digest().String()
 	}
 
@@ -182,4 +183,13 @@ func newImageInfo(image, jsonPath string) (*ImageInfo, error) {
 		Digest:   digest,
 		JSONPath: jsonPath,
 	}, nil
+}
+
+func addDefaultDomain(name string) string {
+	i := strings.IndexRune(name, '/')
+	if i == -1 || (!strings.ContainsAny(name[:i], ".:") && name[:i] != "localhost" && strings.ToLower(name[:i]) == name[:i]) {
+		return "docker.io/" + name
+	}
+
+	return name
 }

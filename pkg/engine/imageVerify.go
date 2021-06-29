@@ -67,39 +67,43 @@ func verifyAndPatchImages(logger logr.Logger, rule *v1.Rule, imageVerify *v1.Ima
 
 	for _, imageInfo := range images {
 		image := imageInfo.String()
-		if wildcard.Match(imagePattern, image) {
-			logger.Info("verifying image", "image", image)
-			incrementAppliedCount(resp)
+		if !wildcard.Match(imagePattern, image) {
+			logger.V(4).Info("image does not match pattern", "image", image, "pattern", imagePattern)
+			continue
+		}
 
-			ruleResp := response.RuleResponse{
-				Name:    rule.Name,
-				Type:    utils.Validation.String(),
-			}
+		logger.Info("verifying image", "image", image)
+		incrementAppliedCount(resp)
 
-			digest, err := cosign.Verify(image, []byte(key), logger)
-			if err != nil {
-				logger.Info("failed to verify image", "image", image, "key", key, "error", err)
-				ruleResp.Success = false
-				ruleResp.Message = fmt.Sprintf("image verification failed for %s: %v", image, err)
-			} else {
-				logger.V(4).Info("verified image", "image", image, "digest", digest)
-				ruleResp.Success = true
-				ruleResp.Message = fmt.Sprintf("image %s verified", image)
+		ruleResp := response.RuleResponse{
+			Name:    rule.Name,
+			Type:    utils.Validation.String(),
+		}
 
-				// add digest to image
-				if imageInfo.Digest == "" {
-					patch, err := makeAddDigestPatch(imageInfo, digest)
-					if err != nil {
-						logger.Error(err,"failed to patch image with digest", "image", imageInfo.String(), "jsonPath", imageInfo.JSONPath)
-					} else {
-						logger.V(4).Info("patching verified image with digest", "patch", string(patch))
-						ruleResp.Patches = [][]byte{patch}
-					}
+		start := time.Now()
+		digest, err := cosign.Verify(image, []byte(key), logger)
+		if err != nil {
+			logger.Info("failed to verify image", "image", image, "key", key, "error", err, "duration", time.Since(start).Seconds())
+			ruleResp.Success = false
+			ruleResp.Message = fmt.Sprintf("image verification failed for %s: %v", image, err)
+		} else {
+			logger.V(3).Info("verified image", "image", image, "digest", digest, "duration", time.Since(start).Seconds())
+			ruleResp.Success = true
+			ruleResp.Message = fmt.Sprintf("image %s verified", image)
+
+			// add digest to image
+			if imageInfo.Digest == "" {
+				patch, err := makeAddDigestPatch(imageInfo, digest)
+				if err != nil {
+					logger.Error(err,"failed to patch image with digest", "image", imageInfo.String(), "jsonPath", imageInfo.JSONPath)
+				} else {
+					logger.V(4).Info("patching verified image with digest", "patch", string(patch))
+					ruleResp.Patches = [][]byte{patch}
 				}
 			}
-
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
 		}
+
+		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
 	}
 }
 

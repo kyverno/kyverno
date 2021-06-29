@@ -16,16 +16,21 @@ func Test_extractImageInfo(t *testing.T) {
 	}{
 		{
 			raw:            []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "myapp"},"spec": {"initContainers": [{"name": "init","image": "index.docker.io/busybox:v1.2.3"}],"containers": [{"name": "nginx","image": "nginx:latest"}]}}`),
-			initContainers: []*ContainerImage{{Name: "init", Image: &ImageInfo{Registry: "index.docker.io", Name: "busybox", Tag: "v1.2.3"}}},
-			containers:     []*ContainerImage{{Name: "nginx", Image: &ImageInfo{Registry: "docker.io", Name: "nginx", Tag: "latest"}}},
+			initContainers: []*ContainerImage{{Name: "init", Image: &ImageInfo{Registry: "index.docker.io", Name: "busybox", Path: "busybox", Tag: "v1.2.3", JSONPath: "/spec/initContainers/0/image"}}},
+			containers:     []*ContainerImage{{Name: "nginx", Image: &ImageInfo{Registry: "docker.io", Name: "nginx", Path: "nginx", Tag: "latest", JSONPath: "/spec/containers/0/image"}}},
+		},
+		{
+			raw:            []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "myapp"},"spec": {"containers": [{"name": "nginx","image": "test/nginx:latest"}]}}`),
+			initContainers: []*ContainerImage{},
+			containers:     []*ContainerImage{{Name: "nginx", Image: &ImageInfo{Registry: "docker.io", Name: "nginx", Path: "test/nginx", Tag: "latest", JSONPath: "/spec/containers/0/image"}}},
 		},
 		{
 			raw:            []byte(`{"apiVersion": "apps/v1","kind": "Deployment","metadata": {"name": "myapp"},"spec": {"selector": {"matchLabels": {"app": "myapp"}},"template": {"metadata": {"labels": {"app": "myapp"}},"spec": {"initContainers": [{"name": "init","image": "fictional.registry.example:10443/imagename:tag@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}],"containers": [{"name": "myapp","image": "fictional.registry.example:10443/imagename"}]}}}}`),
-			initContainers: []*ContainerImage{{Name: "init", Image: &ImageInfo{Registry: "fictional.registry.example:10443", Name: "imagename", Tag: "tag", Digest: "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}}},
-			containers:     []*ContainerImage{{Name: "myapp", Image: &ImageInfo{Registry: "fictional.registry.example:10443", Name: "imagename", Tag: "latest"}}}},
+			initContainers: []*ContainerImage{{Name: "init", Image: &ImageInfo{Registry: "fictional.registry.example:10443", Name: "imagename", Path: "imagename", Tag: "tag", JSONPath: "/spec/template/spec/initContainers/0/image", Digest: "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}}},
+			containers:     []*ContainerImage{{Name: "myapp", Image: &ImageInfo{Registry: "fictional.registry.example:10443", Name: "imagename", Path: "imagename", Tag: "latest", JSONPath: "/spec/template/spec/containers/0/image"}}}},
 		{
-			raw:        []byte(`{"apiVersion": "batch/v1beta1","kind": "CronJob","metadata": {"name": "hello"},"spec": {"schedule": "*/1 * * * *","jobTemplate": {"spec": {"template": {"spec": {"containers": [{"name": "hello","image": "b.gcr.io/test.example.com/my-app:test.example.com"}]}}}}}}`),
-			containers: []*ContainerImage{{Name: "hello", Image: &ImageInfo{Registry: "b.gcr.io", Name: "test.example.com/my-app", Tag: "test.example.com"}}},
+			raw:        []byte(`{"apiVersion": "batch/v1beta1","kind": "CronJob","metadata": {"name": "hello"},"spec": {"schedule": "*/1 * * * *","jobTemplate": {"spec": {"template": {"spec": {"containers": [{"name": "hello","image": "test.example.com/test/my-app:v2"}]}}}}}}`),
+			containers: []*ContainerImage{{Name: "hello", Image: &ImageInfo{Registry: "test.example.com", Name: "my-app", Path: "test/my-app", Tag: "v2", JSONPath: "/spec/jobTemplate/spec/template/spec/containers/0/image"}}},
 		},
 	}
 
@@ -83,17 +88,26 @@ func Test_ImageInfo_String(t *testing.T) {
 		"docker.io/test/nginx:v10.3")
 
 	validateImageInfo(t,
-		"test/nginx:v10.3",
+		"test/nginx",
 		"nginx",
-		"nginx",
-		"test",
-		"v10.3",
+		"test/nginx",
+		"docker.io",
+		"latest",
 		"",
-		"test/nginx:v10.3")
+		"docker.io/test/nginx:latest")
+
+	validateImageInfo(t,
+		"localhost:4443/test/nginx",
+		"nginx",
+		"test/nginx",
+		"localhost:4443",
+		"latest",
+		"",
+		"localhost:4443/test/nginx:latest")
 }
 
 func validateImageInfo(t *testing.T, raw, name, path, registry, tag, digest, str string) {
-	i1, err := newImageInfo(raw)
+	i1, err := newImageInfo(raw, "/spec/containers/0/image")
 	assert.Nil(t, err)
 	assert.Equal(t, name, i1.Name)
 	assert.Equal(t, path, i1.Path)
