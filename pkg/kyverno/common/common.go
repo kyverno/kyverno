@@ -69,7 +69,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 			err      error
 		)
 
-		isHttpPath := strings.Contains(path, "http")
+		isHttpPath := IsHttpRegex.MatchString(path)
 
 		// path clean and retrieving file info can be possible if it's not an HTTP URL
 		if !isHttpPath {
@@ -312,7 +312,7 @@ func RemoveDuplicateVariables(matches [][]string) string {
 	return variableStr
 }
 
-func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyresoucePath string) (map[string]string, map[string]map[string]Resource, map[string]map[string]string, error) {
+func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyResourcePath string) (map[string]string, map[string]map[string]Resource, map[string]map[string]string, error) {
 	valuesMapResource := make(map[string]map[string]Resource)
 	valuesMapRule := make(map[string]map[string]Rule)
 	namespaceSelectorMap := make(map[string]map[string]string)
@@ -328,13 +328,13 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 	}
 	if valuesFile != "" {
 		if isGit {
-			filep, err := fs.Open(filepath.Join(policyresoucePath, valuesFile))
+			filep, err := fs.Open(filepath.Join(policyResourcePath, valuesFile))
 			if err != nil {
 				fmt.Printf("Unable to open variable file: %s. error: %s", valuesFile, err)
 			}
 			yamlFile, err = ioutil.ReadAll(filep)
 		} else {
-			yamlFile, err = ioutil.ReadFile(filepath.Join(policyresoucePath, valuesFile))
+			yamlFile, err = ioutil.ReadFile(filepath.Join(policyResourcePath, valuesFile))
 		}
 
 		if err != nil {
@@ -569,11 +569,11 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 }
 
 // GetPoliciesFromPaths - get policies according to the resource path
-func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyresoucePath string) (policies []*v1.ClusterPolicy, err error) {
+func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyResourcePath string) (policies []*v1.ClusterPolicy, err error) {
 	var errors []error
 	if isGit {
 		for _, pp := range dirPath {
-			filep, err := fs.Open(filepath.Join(policyresoucePath, pp))
+			filep, err := fs.Open(filepath.Join(policyResourcePath, pp))
 			if err != nil {
 				fmt.Printf("Error: file not available with path %s: %v", filep.Name(), err.Error())
 				continue
@@ -632,9 +632,9 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
-	cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string, policyReport bool, isGit bool, policyresoucePath string) (resources []*unstructured.Unstructured, err error) {
+	cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string, policyReport bool, isGit bool, policyResourcePath string) (resources []*unstructured.Unstructured, err error) {
 	if isGit {
-		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyresoucePath)
+		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyResourcePath)
 		if err != nil {
 			return nil, sanitizederror.NewWithError("failed to extract the resources", err)
 		}

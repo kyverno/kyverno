@@ -76,7 +76,7 @@ func (t *Monitor) SetTime(tm time.Time) {
 func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen event.Interface, stopCh <-chan struct{}) {
 	logger := t.log
 
-	logger.V(4).Info("starting webhook monitor", "interval", idleCheckInterval)
+	logger.V(4).Info("starting webhook monitor", "interval", idleCheckInterval.String())
 	status := newStatusControl(register, eventGen, t.log.WithName("WebhookStatusControl"))
 
 	ticker := time.NewTicker(tickerInterval)
@@ -92,7 +92,18 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			}
 
 			timeDiff := time.Since(t.Time())
-			if timeDiff > idleDeadline {
+			lastRequestTimeFromAnn := lastRequestTimeFromAnnotation(register, t.log.WithName("lastRequestTimeFromAnnotation"))
+			if lastRequestTimeFromAnn == nil {
+				if err := status.UpdateLastRequestTimestmap(t.Time()); err != nil {
+					logger.Error(err, "failed to annotate deployment for lastRequestTime")
+				} else {
+					logger.Info("initialized lastRequestTimestamp", "time", t.Time())
+				}
+				continue
+			}
+
+			switch {
+			case timeDiff > idleDeadline:
 				err := fmt.Errorf("admission control configuration error")
 				logger.Error(err, "webhook check failed", "deadline", idleDeadline.String())
 				if err := status.failure(); err != nil {
@@ -103,40 +114,24 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 					logger.Error(err, "Failed to register webhooks")
 				}
 
-				continue
-			}
-
-			if timeDiff > idleCheckInterval {
+			case timeDiff > 2*idleCheckInterval:
 				if skipWebhookCheck(register, logger.WithName("skipWebhookCheck")) {
 					logger.Info("skip validating webhook status, Kyverno is in rolling update")
-					continue
-				}
-
-				lastRequestTimeFromAnn := lastRequestTimeFromAnnotation(register, t.log.WithName("lastRequestTimeFromAnnotation"))
-				if lastRequestTimeFromAnn == nil {
-					now := time.Now()
-					lastRequestTimeFromAnn = &now
-					if err := status.UpdateLastRequestTimestmap(t.Time()); err != nil {
-						logger.Error(err, "failed to annotate deployment for lastRequestTime")
-					} else {
-						logger.Info("initialized lastRequestTimestamp", "time", lastRequestTimeFromAnn)
-					}
 					continue
 				}
 
 				if t.Time().Before(*lastRequestTimeFromAnn) {
 					t.SetTime(*lastRequestTimeFromAnn)
 					logger.V(3).Info("updated in-memory timestamp", "time", lastRequestTimeFromAnn)
-					continue
 				}
+			}
 
-				idleT := time.Since(*lastRequestTimeFromAnn)
-				if idleT > idleCheckInterval*2 {
-					logger.V(3).Info("webhook idle time exceeded", "lastRequestTimeFromAnn", (*lastRequestTimeFromAnn).String(), "deadline", (idleCheckInterval * 2).String())
+			idleT := time.Since(*lastRequestTimeFromAnn)
+			if idleT > idleCheckInterval {
+				if t.Time().After(*lastRequestTimeFromAnn) {
+					logger.V(3).Info("updating annotation lastRequestTimestamp with the latest in-memory timestamp", "time", t.Time())
 					if err := status.UpdateLastRequestTimestmap(t.Time()); err != nil {
 						logger.Error(err, "failed to update lastRequestTimestamp annotation")
-					} else {
-						logger.V(3).Info("updated annotation lastRequestTimestamp", "time", t.Time())
 					}
 				}
 			}
@@ -179,7 +174,7 @@ func lastRequestTimeFromAnnotation(register *Register, logger logr.Logger) *time
 		return nil
 	}
 
-	annotation, ok, err := unstructured.NestedStringMap(deploy.UnstructuredContent(), "metadata", "annotations")
+	timeStamp, ok, err := unstructured.NestedString(deploy.UnstructuredContent(), "metadata", "annotations", annLastRequestTime)
 	if err != nil {
 		logger.Info("unable to get annotation", "reason", err.Error())
 		return nil
@@ -190,10 +185,9 @@ func lastRequestTimeFromAnnotation(register *Register, logger logr.Logger) *time
 		return nil
 	}
 
-	timeStamp := annotation[annLastRequestTime]
 	annTime, err := time.Parse(time.RFC3339, timeStamp)
 	if err != nil {
-		logger.Error(err, "failed to parse timestamp annotation")
+		logger.Error(err, "failed to parse timestamp annotation", "timeStamp", timeStamp)
 		return nil
 	}
 

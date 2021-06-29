@@ -11,7 +11,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (wrc *Register) constructDebugMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
 	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.MutatingWebhookServicePath)
 	logger.V(4).Info("Debug MutatingWebhookConfig registered", "url", url)
@@ -35,7 +35,7 @@ func (wrc *Register) constructDebugMutatingWebhookConfig(caData []byte) *admrega
 	}
 }
 
-func (wrc *Register) constructMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+func (wrc *Register) constructDefaultMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
 
 	webhookCfg := generateMutatingWebhook(
 		config.MutatingWebhookName,
@@ -94,7 +94,7 @@ func (wrc *Register) removeResourceMutatingWebhookConfiguration(wg *sync.WaitGro
 	logger.Info("webhook configuration deleted")
 }
 
-func (wrc *Register) constructDebugValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
+func (wrc *Register) constructDefaultDebugValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.ValidatingWebhookServicePath)
 
 	return &admregapi.ValidatingWebhookConfiguration{
@@ -117,7 +117,7 @@ func (wrc *Register) constructDebugValidatingWebhookConfig(caData []byte) *admre
 	}
 }
 
-func (wrc *Register) constructValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
+func (wrc *Register) constructDefaultValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.ValidatingWebhookConfigurationName,

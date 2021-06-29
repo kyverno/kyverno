@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/test/e2e"
+	commonE2E "github.com/kyverno/kyverno/test/e2e/common"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
@@ -88,9 +89,25 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 
 		// ======== Create ClusterRole Policy =============
 		By(fmt.Sprintf("Creating Generate Role Policy in %s", clPolNS))
+		loc, _ := time.LoadLocation("UTC")
+		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
+		// check policy in metrics
+		policySyncBool := false
+		e2e.GetWithRetry(time.Duration(2), 10, func() error {
+			metricsString, err := commonE2E.CallMetrics()
+			if err != nil {
+				return err
+			}
+			policySyncBool, err = commonE2E.ProcessMetrics(metricsString, tests.PolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false || err != nil {
+				return errors.New("policy not created")
+			}
+			return nil
+		})
+		Expect(policySyncBool).To(Equal(true))
 
 		// == If Clone is true Create Source Resources ======
 		if tests.Clone {
@@ -209,8 +226,26 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 
 		// ======== Create Role Policy =============
 		By(fmt.Sprintf("\nCreating Generate Role Policy in %s", clPolNS))
+		loc, _ := time.LoadLocation("UTC")
+		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
+
+		// check policy in metrics
+		policySyncBool := false
+		e2e.GetWithRetry(time.Duration(2), 10, func() error {
+			metricsString, err := commonE2E.CallMetrics()
+			if err != nil {
+				return err
+			}
+			policySyncBool, err = commonE2E.ProcessMetrics(metricsString, tests.PolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false || err != nil {
+				return errors.New("policy not created")
+			}
+			return nil
+		})
+		Expect(policySyncBool).To(Equal(true))
+
 		// ============================================
 
 		// === If Clone is true Create Source Resources ==
@@ -324,12 +359,31 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 			}
 			return errors.New("deleting Namespace")
 		})
+
 		// ====================================
+
 		// ======== Create Generate NetworkPolicy Policy =============
 		By("Creating Generate NetworkPolicy Policy")
+		loc, _ := time.LoadLocation("UTC")
+		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
+
+		// check policy in metrics
+		policySyncBool := false
+		e2e.GetWithRetry(time.Duration(2), 10, func() error {
+			metricsString, err := commonE2E.CallMetrics()
+			if err != nil {
+				return err
+			}
+			policySyncBool, err = commonE2E.ProcessMetrics(metricsString, test.PolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false || err != nil {
+				return errors.New("policy not created")
+			}
+			return nil
+		})
+		Expect(policySyncBool).To(Equal(true))
 
 		// ======= Create Namespace ==================
 		By(fmt.Sprintf("Creating Namespace which triggers generate %s", npPolNS))
@@ -415,9 +469,26 @@ func Test_Generate_Namespace_Label_Actions(t *testing.T) {
 
 		// ======== Create Generate NetworkPolicy Policy =============
 		By("Creating Generate NetworkPolicy Policy")
+		loc, _ := time.LoadLocation("UTC")
+		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
+
+		// check policy in metrics
+		policySyncBool := false
+		e2e.GetWithRetry(time.Duration(2), 10, func() error {
+			metricsString, err := commonE2E.CallMetrics()
+			if err != nil {
+				return err
+			}
+			policySyncBool, err = commonE2E.ProcessMetrics(metricsString, test.GeneratePolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false || err != nil {
+				return errors.New("policy not created")
+			}
+			return nil
+		})
+		Expect(policySyncBool).To(Equal(true))
 
 		// Test: when creating the new namespace without the label, there should not have any generated resource
 		// ======= Create Namespace ==================
@@ -602,9 +673,26 @@ func Test_Generate_Synchronize_Flag(t *testing.T) {
 		// ====================================
 		// ======== Create Generate NetworkPolicy Policy =============
 		By("Creating Generate NetworkPolicy Policy")
+		loc, _ := time.LoadLocation("UTC")
+		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 		// ================================================
+
+		// check policy in metrics
+		policySyncBool := false
+		e2e.GetWithRetry(time.Duration(2), 10, func() error {
+			metricsString, err := commonE2E.CallMetrics()
+			if err != nil {
+				return err
+			}
+			policySyncBool, err = commonE2E.ProcessMetrics(metricsString, test.GeneratePolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false || err != nil {
+				return errors.New("policy not created")
+			}
+			return nil
+		})
+		Expect(policySyncBool).To(Equal(true))
 
 		// ======= Create Namespace ==================
 		By(fmt.Sprintf("Creating Namespace which triggers generate %s", npPolNS))
@@ -788,9 +876,26 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 
 		// ======== Create Generate Policy =============
 		By(fmt.Sprintf("\nCreating Generate Policy in %s", clPolNS))
+		loc, _ := time.LoadLocation("UTC")
+		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
+
+		// check policy in metrics
+		policySyncBool := false
+		e2e.GetWithRetry(time.Duration(2), 10, func() error {
+			metricsString, err := commonE2E.CallMetrics()
+			if err != nil {
+				return err
+			}
+			policySyncBool, err = commonE2E.ProcessMetrics(metricsString, tests.PolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false || err != nil {
+				return errors.New("policy not created")
+			}
+			return nil
+		})
+		Expect(policySyncBool).To(Equal(true))
 
 		// ======= Create Namespace ==================
 		By(fmt.Sprintf("Creating Namespace which triggers generate %s", clPolNS))

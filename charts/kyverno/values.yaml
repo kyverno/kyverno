@@ -1,9 +1,9 @@
 nameOverride:
 fullnameOverride:
 namespace:
-# Supported- default/restricted/privileged/custom
+# Supported- baseline/restricted/privileged/custom
 # For more info- https://kyverno.io/policies/pod-security
-podSecurityStandard: default
+podSecurityStandard: baseline
 # Supported- low/medium/high
 podSecuritySeverity: medium
 # Policies to include when podSecurityStandard is custom
@@ -141,6 +141,12 @@ config:
 #  - ""
   excludeUsername:
 #  - ""
+  # Webhookconfigurations, this block defines the namespaceSelector in the webhookconfigurations.
+  # Note that it takes a list of namespaceSelector in the JSON format, and only the first element
+  # will be forwarded to the webhookconfigurations.
+  webhooks:
+  # webhooks: [{"namespaceSelector":{"matchExpressions":[{"key":"environment","operator":"In","values":["prod"]}]}}]
+
   # existingConfig: init-config
 
 service:
