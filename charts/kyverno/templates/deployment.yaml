@@ -110,3 +110,8 @@ spec:
         {{- with .Values.readinessProbe }}
           readinessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
         {{- end }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 40%
+      maxSurge: 1

@@ -49,14 +49,14 @@ spec:
           image: ghcr.io/kyverno/kyverno:latest
           imagePullPolicy: IfNotPresent
           args:
-          - "--filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]"
-          # customize webhook timeout
-          #- "--webhooktimeout=4"
-          # enable profiling
-          # - "--profile"
-          # configure the workers for generate controller
-          # - --gen-workers=20
-          - "-v=2"
+            - "--filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]"
+            # customize webhook timeout
+            #- "--webhooktimeout=4"
+            # enable profiling
+            # - "--profile"
+            # configure the workers for generate controller
+            # - --gen-workers=20
+            - "-v=2"
           ports:
             - containerPort: 9443
               name: https
@@ -107,3 +107,8 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 4
             successThreshold: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 40%
+      maxSurge: 1
