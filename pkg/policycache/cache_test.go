@@ -467,6 +467,99 @@ func newUserTestPolicy(t *testing.T) *kyverno.ClusterPolicy {
 	return convertPolicyToClusterPolicy(policy)
 }
 
+func newMutatePolicy(t *testing.T) *kyverno.ClusterPolicy {
+	rawPolicy := []byte(`{
+		"metadata": {
+		  "name": "logger-sidecar5"
+		},
+		"spec": {
+		  "background": false,
+		  "rules": [
+			{
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"StatefulSet"
+				  ]
+				}
+			  },
+			  "mutate": {
+				"patchesJson6902": "- op: add\n  path: /spec/template/spec/containers/-1\n  value: {\"name\": \"logger\", \"image\": \"nginx\"}\n- op: add\n  path: /spec/template/spec/volumes/-1\n  value: {\"name\": \"logs\",\"emptyDir\": {\"medium\": \"Memory\"}}\n- op: add\n  path: /spec/template/spec/containers/0/volumeMounts/-1\n  value: {\"mountPath\": \"/opt/app/logs\",\"name\": \"logs\"}"
+			  },
+			  "name": "logger-sidecar",
+			  "preconditions": [
+				{
+				  "key": "{{ request.object.spec.template.metadata.annotations.\"logger.k8s/inject\"}}",
+				  "operator": "Equals",
+				  "value": "true"
+				},
+				{
+				  "key": "logger",
+				  "operator": "NotIn",
+				  "value": "{{ request.object.spec.template.spec.containers[].name }}"
+				}
+			  ]
+			}
+		  ],
+		  "validationFailureAction": "audit"
+		}
+	  }`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	return policy
+}
+func newgenratePolicy(t *testing.T) *kyverno.ClusterPolicy {
+	rawPolicy := []byte(`{
+		"metadata": {
+		   "name": "add-networkpolicy",
+		   "annotations": {
+			  "policies.kyverno.io/title": "Add Network Policy",
+			  "policies.kyverno.io/category": "Multi-Tenancy",
+			  "policies.kyverno.io/subject": "NetworkPolicy"
+		   }
+		},
+		"spec": {
+		   "validationFailureAction": "audit",
+		   "rules": [
+			  {
+				 "name": "default-deny",
+				 "match": {
+					"resources": {
+					   "kinds": [
+						  "Namespace"
+					   ]
+					}
+				 },
+				 "generate": {
+					"kind": "NetworkPolicy",
+					"name": "default-deny",
+					"namespace": "{{request.object.metadata.name}}",
+					"synchronize": true,
+					"data": {
+					   "spec": {
+						  "podSelector": {},
+						  "policyTypes": [
+							 "Ingress",
+							 "Egress"
+						  ]
+					   }
+					}
+				 }
+			  }
+		   ]
+		}
+	 }`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	return policy
+}
+
 func Test_Ns_All(t *testing.T) {
 	pCache := newPolicyCache(log.Log, dummyLister{}, dummyNsLister{})
 	policy := newNsPolicy(t)
@@ -633,5 +726,39 @@ func Test_Ns_Add_Remove_User(t *testing.T) {
 	deletedValidateEnforce := pCache.get(ValidateEnforce, kind, nspace)
 	if len(deletedValidateEnforce) != 0 {
 		t.Errorf("expected 0 validate enforce policy, found %v", len(deletedValidateEnforce))
+	}
+}
+
+func Test_Mutate_Policy(t *testing.T) {
+	pCache := newPolicyCache(log.Log, dummyLister{}, dummyNsLister{})
+	policy := newMutatePolicy(t)
+	//add
+	pCache.Add(policy)
+	for _, rule := range policy.Spec.Rules {
+		for _, kind := range rule.MatchResources.Kinds {
+
+			// get
+			mutate := pCache.get(Mutate, kind, "")
+			if len(mutate) != 1 {
+				t.Errorf("expected 1 mutate policy, found %v", len(mutate))
+			}
+		}
+	}
+}
+
+func Test_Generate_Policy(t *testing.T) {
+	pCache := newPolicyCache(log.Log, dummyLister{}, dummyNsLister{})
+	policy := newgenratePolicy(t)
+	//add
+	pCache.Add(policy)
+	for _, rule := range policy.Spec.Rules {
+		for _, kind := range rule.MatchResources.Kinds {
+
+			// get
+			generate := pCache.get(Generate, kind, "")
+			if len(generate) != 1 {
+				t.Errorf("expected 1 generate policy, found %v", len(generate))
+			}
+		}
 	}
 }
