@@ -467,50 +467,6 @@ func newUserTestPolicy(t *testing.T) *kyverno.ClusterPolicy {
 	return convertPolicyToClusterPolicy(policy)
 }
 
-func newMutatePolicy(t *testing.T) *kyverno.ClusterPolicy {
-	rawPolicy := []byte(`{
-		"metadata": {
-		  "name": "logger-sidecar5"
-		},
-		"spec": {
-		  "background": false,
-		  "rules": [
-			{
-			  "match": {
-				"resources": {
-				  "kinds": [
-					"StatefulSet"
-				  ]
-				}
-			  },
-			  "mutate": {
-				"patchesJson6902": "- op: add\n  path: /spec/template/spec/containers/-1\n  value: {\"name\": \"logger\", \"image\": \"nginx\"}\n- op: add\n  path: /spec/template/spec/volumes/-1\n  value: {\"name\": \"logs\",\"emptyDir\": {\"medium\": \"Memory\"}}\n- op: add\n  path: /spec/template/spec/containers/0/volumeMounts/-1\n  value: {\"mountPath\": \"/opt/app/logs\",\"name\": \"logs\"}"
-			  },
-			  "name": "logger-sidecar",
-			  "preconditions": [
-				{
-				  "key": "{{ request.object.spec.template.metadata.annotations.\"logger.k8s/inject\"}}",
-				  "operator": "Equals",
-				  "value": "true"
-				},
-				{
-				  "key": "logger",
-				  "operator": "NotIn",
-				  "value": "{{ request.object.spec.template.spec.containers[].name }}"
-				}
-			  ]
-			}
-		  ],
-		  "validationFailureAction": "audit"
-		}
-	  }`)
-
-	var policy *kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
-
-	return policy
-}
 func newgenratePolicy(t *testing.T) *kyverno.ClusterPolicy {
 	rawPolicy := []byte(`{
 		"metadata": {
@@ -558,6 +514,95 @@ func newgenratePolicy(t *testing.T) *kyverno.ClusterPolicy {
 	assert.NilError(t, err)
 
 	return policy
+}
+func newMutatePolicy(t *testing.T) *kyverno.ClusterPolicy {
+	rawPolicy := []byte(`{
+		"metadata": {
+		  "name": "logger-sidecar"
+		},
+		"spec": {
+		  "background": false,
+		  "rules": [
+			{
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"StatefulSet"
+				  ]
+				}
+			  },
+			  "mutate": {
+				"patchesJson6902": "- op: add\n  path: /spec/template/spec/containers/-1\n  value: {\"name\": \"logger\", \"image\": \"nginx\"}\n- op: add\n  path: /spec/template/spec/volumes/-1\n  value: {\"name\": \"logs\",\"emptyDir\": {\"medium\": \"Memory\"}}\n- op: add\n  path: /spec/template/spec/containers/0/volumeMounts/-1\n  value: {\"mountPath\": \"/opt/app/logs\",\"name\": \"logs\"}"
+			  },
+			  "name": "logger-sidecar",
+			  "preconditions": [
+				{
+				  "key": "{{ request.object.spec.template.metadata.annotations.\"logger.k8s/inject\"}}",
+				  "operator": "Equals",
+				  "value": "true"
+				},
+				{
+				  "key": "logger",
+				  "operator": "NotIn",
+				  "value": "{{ request.object.spec.template.spec.containers[].name }}"
+				}
+			  ]
+			}
+		  ],
+		  "validationFailureAction": "audit"
+		}
+	  }`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	return policy
+}
+func newNsMutatePolicy(t *testing.T) *kyverno.ClusterPolicy {
+	rawPolicy := []byte(`{
+		"metadata": {
+		  "name": "logger-sidecar",
+		  "namespace": "logger"
+		},
+		"spec": {
+		  "background": false,
+		  "rules": [
+			{
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"StatefulSet"
+				  ]
+				}
+			  },
+			  "mutate": {
+				"patchesJson6902": "- op: add\n  path: /spec/template/spec/containers/-1\n  value: {\"name\": \"logger\", \"image\": \"nginx\"}\n- op: add\n  path: /spec/template/spec/volumes/-1\n  value: {\"name\": \"logs\",\"emptyDir\": {\"medium\": \"Memory\"}}\n- op: add\n  path: /spec/template/spec/containers/0/volumeMounts/-1\n  value: {\"mountPath\": \"/opt/app/logs\",\"name\": \"logs\"}"
+			  },
+			  "name": "logger-sidecar",
+			  "preconditions": [
+				{
+				  "key": "{{ request.object.spec.template.metadata.annotations.\"logger.k8s/inject\"}}",
+				  "operator": "Equals",
+				  "value": "true"
+				},
+				{
+				  "key": "logger",
+				  "operator": "NotIn",
+				  "value": "{{ request.object.spec.template.spec.containers[].name }}"
+				}
+			  ]
+			}
+		  ],
+		  "validationFailureAction": "audit"
+		}
+	  }`)
+
+	var policy *kyverno.Policy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	return convertPolicyToClusterPolicy(policy)
 }
 
 func Test_Ns_All(t *testing.T) {
@@ -734,6 +779,8 @@ func Test_Mutate_Policy(t *testing.T) {
 	policy := newMutatePolicy(t)
 	//add
 	pCache.Add(policy)
+	pCache.Add(policy)
+	pCache.Add(policy)
 	for _, rule := range policy.Spec.Rules {
 		for _, kind := range rule.MatchResources.Kinds {
 
@@ -761,4 +808,29 @@ func Test_Generate_Policy(t *testing.T) {
 			}
 		}
 	}
+}
+
+func Test_NsMutate_Policy(t *testing.T) {
+	pCache := newPolicyCache(log.Log, dummyLister{}, dummyNsLister{})
+	policy := newMutatePolicy(t)
+	nspolicy := newNsMutatePolicy(t)
+	//add
+	pCache.Add(policy)
+	pCache.Add(nspolicy)
+	pCache.Add(policy)
+	pCache.Add(nspolicy)
+
+	nspace := policy.GetNamespace()
+	// get
+	mutate := pCache.get(Mutate, "StatefulSet", "")
+	if len(mutate) != 1 {
+		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
+	}
+
+	// get
+	nsMutate := pCache.get(Mutate, "StatefulSet", nspace)
+	if len(nsMutate) != 1 {
+		t.Errorf("expected 1 namespace mutate policy, found %v", len(nsMutate))
+	}
+
 }
