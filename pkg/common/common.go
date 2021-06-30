@@ -139,7 +139,7 @@ func RetryFunc(retryInterval, timeout time.Duration, run func() error, logger lo
 	}
 }
 
-func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client *dclient.Client, p *kyverno.ClusterPolicy, logger logr.Logger) bool {
+func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client *dclient.Client, pName string, logger logr.Logger) bool {
 	generatePolicyWithClone := false
 	for _, rule := range rules {
 		if rule.Generation.Clone.Name != "" {
@@ -158,8 +158,8 @@ func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client *dclie
 			if len(label) != 0 {
 				if label["generate.kyverno.io/clone-policy-name"] != "" {
 					policyNames := label["generate.kyverno.io/clone-policy-name"]
-					if strings.Contains(policyNames, p.GetName()) {
-						updatedPolicyNames := strings.Replace(policyNames, p.GetName(), "", -1)
+					if strings.Contains(policyNames, pName) {
+						updatedPolicyNames := strings.Replace(policyNames, pName, "", -1)
 						label["generate.kyverno.io/clone-policy-name"] = updatedPolicyNames
 					} else {
 						updateSource = false

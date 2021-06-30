@@ -159,7 +159,7 @@ func (ws *WebhookServer) handleUpdateCloneSourceResource(resLabels map[string]st
 		_, err := ws.kyvernoClient.KyvernoV1().ClusterPolicies().Get(contextdefault.TODO(), policyName, metav1.GetOptions{})
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
-				logger.V(4).Info("skipping updation og generate request as policy is deleted")
+				logger.V(4).Info("skipping updation of generate request as policy is deleted")
 			} else {
 				logger.Error(err, "failed to get generate policy", "Name", policyName)
 				selector := labels.SelectorFromSet(labels.Set(map[string]string{

@@ -345,7 +345,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	// skip generate policies with clone
 	rules := p.Spec.Rules
 
-	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, pc.client, p, logger)
+	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, pc.client, p.GetName(), logger)
 
 	if !generatePolicyWithClone {
 		pc.enqueuePolicy(p)

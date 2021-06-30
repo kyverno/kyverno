@@ -143,7 +143,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	// get the list of GR for the current Policy version
 	rules := p.Spec.Rules
 
-	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, c.client, p, logger)
+	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, c.client, p.GetName(), logger)
 
 	// get the generated resource name from generate request for log
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
