@@ -1,10 +1,11 @@
 package metrics
 
 import (
-	"github.com/kyverno/kyverno/test/e2e"
-	. "github.com/onsi/gomega"
 	"os"
 	"testing"
+
+	"github.com/kyverno/kyverno/test/e2e"
+	. "github.com/onsi/gomega"
 )
 
 func Test_MetricsServerAvailability(t *testing.T) {

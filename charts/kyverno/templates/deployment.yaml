@@ -93,7 +93,7 @@ spec:
             protocol: TCP
           - containerPort: 8000
             name: metrics-port
-            protocol: TCP  
+            protocol: TCP
           env:
           - name: INIT_CONFIG
             value: {{ template "kyverno.configMapName" . }}
@@ -103,6 +103,8 @@ spec:
                 fieldPath: metadata.namespace
           - name: KYVERNO_SVC
             value: {{ template "kyverno.serviceName" . }}
+          - name: KYVERNO_DEPLOYMENT
+            value: {{ template "kyverno.fullname" . }}
         {{- with .Values.livenessProbe }}
           livenessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
         {{- end }}

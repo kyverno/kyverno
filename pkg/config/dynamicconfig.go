@@ -5,6 +5,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -37,6 +38,7 @@ type ConfigData struct {
 	excludeUsername             []string
 	restrictDevelopmentUsername []string
 	webhooks                    []WebhookConfig
+	generateSuccessEvents       bool
 	cmSycned                    cache.InformerSynced
 	reconcilePolicyReport       chan<- bool
 	updateWebhookConfigurations chan<- bool
@@ -83,6 +85,13 @@ func (cd *ConfigData) GetExcludeUsername() []string {
 	return cd.excludeUsername
 }
 
+// GetGenerateSuccessEvents return if should generate success events
+func (cd *ConfigData) GetGenerateSuccessEvents() bool {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.generateSuccessEvents
+}
+
 // FilterNamespaces filters exclude namespace
 func (cd *ConfigData) FilterNamespaces(namespaces []string) []string {
 	var results []string
@@ -110,6 +119,7 @@ type Interface interface {
 	ToFilter(kind, namespace, name string) bool
 	GetExcludeGroupRole() []string
 	GetExcludeUsername() []string
+	GetGenerateSuccessEvents() bool
 	RestrictDevelopmentUsername() []string
 	FilterNamespaces(namespaces []string) []string
 	GetWebhooks() []WebhookConfig
@@ -290,6 +300,23 @@ func (cd *ConfigData) load(cm v1.ConfigMap) (reconcilePolicyReport, updateWebhoo
 			updateWebhook = true
 		}
 	}
+
+	generateSuccessEvents, ok := cm.Data["generateSuccessEvents"]
+	if !ok {
+		logger.V(4).Info("configuration: No generateSuccessEvents defined in ConfigMap")
+	} else {
+		generateSuccessEvents, err := strconv.ParseBool(generateSuccessEvents)
+		if err != nil {
+			logger.V(4).Info("configuration: generateSuccessEvents must be either true/false")
+		} else if generateSuccessEvents == cd.generateSuccessEvents {
+			logger.V(4).Info("generateSuccessEvents did not change")
+		} else {
+			logger.V(2).Info("Updated generateSuccessEvents", "oldGenerateSuccessEvents", cd.generateSuccessEvents, "newGenerateSuccessEvents", generateSuccessEvents)
+			cd.generateSuccessEvents = generateSuccessEvents
+			reconcilePolicyReport = true
+		}
+	}
+
 	return
 }
 
@@ -333,6 +360,7 @@ func (cd *ConfigData) unload(cm v1.ConfigMap) {
 	cd.excludeGroupRole = []string{}
 	cd.excludeGroupRole = append(cd.excludeGroupRole, defaultExcludeGroupRole...)
 	cd.excludeUsername = []string{}
+	cd.generateSuccessEvents = false
 }
 
 type k8Resource struct {
