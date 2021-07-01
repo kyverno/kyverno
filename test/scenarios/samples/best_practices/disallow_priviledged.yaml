@@ -5,7 +5,9 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: disallow-privileged
+      policy:
+        namespace: ''
+        name: disallow-privileged
       resource:
         kind: Pod
         apiVersion: v1

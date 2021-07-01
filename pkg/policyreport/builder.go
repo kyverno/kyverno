@@ -230,7 +230,7 @@ func calculateSummary(results []*report.PolicyReportResult) (summary report.Poli
 
 func buildPVInfo(er *response.EngineResponse) Info {
 	info := Info{
-		PolicyName: er.PolicyResponse.Policy,
+		PolicyName: er.PolicyResponse.Policy.Name,
 		Namespace:  er.PatchedResource.GetNamespace(),
 		Results: []EngineResponseResult{
 			{

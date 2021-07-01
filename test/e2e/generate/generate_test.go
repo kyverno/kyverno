@@ -1042,3 +1042,205 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 	}
 
 }
+
+func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
+	RegisterTestingT(t)
+	if os.Getenv("E2E") == "" {
+		t.Skip("Skipping E2E Test")
+	}
+	// Generate E2E Client ==================
+	e2eClient, err := e2e.NewE2EClient()
+	Expect(err).To(BeNil())
+	// ======================================
+
+	// ====== Range Over RuleTest ==================
+	for _, tests := range GeneratePolicyDeletionforCloneTests {
+		By(fmt.Sprintf("Test to check kyverno flow when generate policy is deleted: %s", tests.TestName))
+		By(fmt.Sprintf("synchronize = %v\t clone = %v", tests.Sync, tests.Clone))
+
+		// ======= CleanUp Resources =====
+		By("Cleaning Cluster Policies")
+		e2eClient.CleanClusterPolicies(clPolGVR)
+
+		// If Clone is true Clear Source Resource and Recreate
+		if tests.Clone {
+			By(fmt.Sprintf("Clone = true, Deleting Source Resource from Clone Namespace : %s", tests.CloneNamespace))
+			// Delete ConfigMap to be cloned
+			e2eClient.DeleteNamespacedResource(cmGVR, tests.CloneNamespace, tests.ConfigMapName)
+		}
+
+		// Clear Namespace
+		By(fmt.Sprintf("Deleting Namespace : %s", tests.ResourceNamespace))
+		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
+
+		// Wait Till Deletion of Namespace
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
+			if err != nil {
+				return nil
+			}
+			return errors.New("Deleting Namespace")
+		})
+		// ====================================
+
+		// === If Clone is true Create Source Resources ==
+		if tests.Clone {
+			By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", tests.CloneNamespace))
+			_, err := e2eClient.CreateNamespacedResourceYaml(cmGVR, tests.CloneNamespace, tests.CloneSourceConfigMapData)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		// ================================================
+
+		// ======== Create Generate Policy =============
+		By(fmt.Sprintf("\nCreating Generate Policy in %s", clPolNS))
+		loc, _ := time.LoadLocation("UTC")
+		timeBeforePolicyCreation := time.Now().In(loc)
+		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
+		Expect(err).NotTo(HaveOccurred())
+		// ============================================
+
+		// check policy in metrics
+		policySyncBool := false
+		e2e.GetWithRetry(time.Duration(2), 10, func() error {
+			metricsString, err := commonE2E.CallMetrics()
+			if err != nil {
+				return err
+			}
+			policySyncBool, err = commonE2E.ProcessMetrics(metricsString, tests.PolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false || err != nil {
+				return errors.New("policy not created")
+			}
+			return nil
+		})
+		Expect(policySyncBool).To(Equal(true))
+
+		// ======= Create Namespace ==================
+		By(fmt.Sprintf("Creating Namespace which triggers generate %s", clPolNS))
+		_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, namespaceYaml)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Wait Till Creation of Namespace
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+		// ===========================================
+
+		// ======== Verify Configmap Creation =====
+		By(fmt.Sprintf("Verifying Configmap in the Namespace : %s", tests.ResourceNamespace))
+		// Wait Till Creation of Configmap
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+			_, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, tests.ConfigMapName)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+		// ===========================================
+
+		// test: generated resource is not deleted after deletion of generate policy
+		// ========== Delete the Generate Policy =============
+		By(fmt.Sprintf("Delete the generate policy : %s", tests.PolicyName))
+
+		err = e2eClient.DeleteClusteredResource(clPolGVR, tests.PolicyName)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Wait till policy is deleted
+		e2e.GetWithRetry(time.Duration(2), 10, func() error {
+			_, err := e2eClient.GetClusteredResource(clPolGVR, tests.PolicyName)
+			if err != nil {
+				return errors.New("policy still exists")
+			}
+			return nil
+		})
+		_, err := e2eClient.GetClusteredResource(clPolGVR, tests.PolicyName)
+		Expect(err).To(HaveOccurred())
+		// ===========================================
+
+		// ======= Check Generated Resources =======
+		By(fmt.Sprintf("Checking the generated resource (Configmap) in namespace : %s", tests.ResourceNamespace))
+		_, err = e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, tests.ConfigMapName)
+		Expect(err).NotTo(HaveOccurred())
+		// ===========================================
+
+		// test: the generated resource is not updated if the source resource is updated
+		// ======= Update Configmap in default Namespace ========
+		By(fmt.Sprintf("Updating Source Resource(Configmap) in Clone Namespace : %s", tests.CloneNamespace))
+
+		// Get the configmap from default namespace
+		sourceRes, err := e2eClient.GetNamespacedResource(cmGVR, tests.CloneNamespace, tests.ConfigMapName)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(sourceRes.GetName()).To(Equal(tests.ConfigMapName))
+
+		element, _, err := unstructured.NestedMap(sourceRes.UnstructuredContent(), "data")
+		Expect(err).NotTo(HaveOccurred())
+		element["initial_lives"] = "5"
+
+		unstructured.SetNestedMap(sourceRes.UnstructuredContent(), element, "data")
+		_, err = e2eClient.UpdateNamespacedResource(cmGVR, tests.CloneNamespace, sourceRes)
+		Expect(err).NotTo(HaveOccurred())
+		// ============================================
+
+		// ======= Verifying Configmap Data is Not Replicated in Generated Resource ========
+		By("Verifying Configmap Data is Not Replicated in Generated Resource")
+
+		updatedGenRes, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, tests.ConfigMapName)
+		Expect(err).NotTo(HaveOccurred())
+		element, _, err = unstructured.NestedMap(updatedGenRes.UnstructuredContent(), "data")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(element["initial_lives"]).To(Equal("2"))
+		// ============================================
+
+		// test: the generated resource is not deleted after the source is deleted
+		//=========== Delete the Clone Source Resource ============
+		By(fmt.Sprintf("Delete the clone source resource: %s", tests.ConfigMapName))
+
+		err = e2eClient.DeleteNamespacedResource(cmGVR, tests.CloneNamespace, tests.ConfigMapName)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Wait till policy is deleted
+		e2e.GetWithRetry(time.Duration(2), 10, func() error {
+			_, err := e2eClient.GetNamespacedResource(cmGVR, tests.CloneNamespace, tests.ConfigMapName)
+			if err != nil {
+				return errors.New("configmap still exists")
+			}
+			return nil
+		})
+		_, err = e2eClient.GetNamespacedResource(cmGVR, tests.CloneNamespace, tests.ConfigMapName)
+		Expect(err).To(HaveOccurred())
+		// ===========================================
+
+		// ======= Check Generated Resources =======
+		By(fmt.Sprintf("Checking the generated resource (Configmap) in namespace : %s", tests.ResourceNamespace))
+		_, err = e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, tests.ConfigMapName)
+		Expect(err).NotTo(HaveOccurred())
+		// ===========================================
+
+		// ======= CleanUp Resources =====
+		e2eClient.CleanClusterPolicies(clPolGVR)
+
+		// === If Clone is true Delete Source Resources ==
+		if tests.Clone {
+			By(fmt.Sprintf("Clone = true, Deleting Cloner Resources in Namespace : %s", tests.CloneNamespace))
+			e2eClient.DeleteNamespacedResource(cmGVR, tests.CloneNamespace, tests.ConfigMapName)
+		}
+		// ================================================
+
+		// Clear Namespace
+		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
+		// Wait Till Deletion of Namespace
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
+			if err != nil {
+				return nil
+			}
+			return errors.New("Deleting Namespace")
+		})
+		// ====================================
+
+		By(fmt.Sprintf("Test %s Completed \n\n\n", tests.TestName))
+	}
+}

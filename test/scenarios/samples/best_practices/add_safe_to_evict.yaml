@@ -6,7 +6,9 @@ expected:
   mutation:
     patchedresource: test/output/pod-with-emptydir.yaml
     policyresponse:
-      policy: add-safe-to-evict
+      policy:
+        namespace: ''
+        name: add-safe-to-evict
       resource:
         kind: Pod
         apiVersion: v1

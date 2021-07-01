@@ -154,18 +154,31 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 func (ws *WebhookServer) handleUpdateCloneSourceResource(resLabels map[string]string, logger logr.Logger) {
 	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
 	for _, policyName := range policyNames {
-		selector := labels.SelectorFromSet(labels.Set(map[string]string{
-			"generate.kyverno.io/policy-name": policyName,
-		}))
 
-		grList, err := ws.grLister.List(selector)
+		// check if the policy exists
+		_, err := ws.kyvernoClient.KyvernoV1().ClusterPolicies().Get(contextdefault.TODO(), policyName, metav1.GetOptions{})
 		if err != nil {
-			logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
-			return
+			if strings.Contains(err.Error(), "not found") {
+				logger.V(4).Info("skipping updation of generate request as policy is deleted")
+			} else {
+				logger.Error(err, "failed to get generate policy", "Name", policyName)
+			}
+		} else {
+			selector := labels.SelectorFromSet(labels.Set(map[string]string{
+				"generate.kyverno.io/policy-name": policyName,
+			}))
+
+			grList, err := ws.grLister.List(selector)
+			if err != nil {
+				logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
+				return
+			}
+
+			for _, gr := range grList {
+				ws.updateAnnotationInGR(gr, logger)
+			}
 		}
-		for _, gr := range grList {
-			ws.updateAnnotationInGR(gr, logger)
-		}
+
 	}
 }
 
@@ -366,7 +379,7 @@ func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
 func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.EngineResponse) {
 	logger.V(4).Info("querying all generate requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		"generate.kyverno.io/policy-name":        engineResponse.PolicyResponse.Policy,
+		"generate.kyverno.io/policy-name":        engineResponse.PolicyResponse.Policy.Name,
 		"generate.kyverno.io/resource-name":      engineResponse.PolicyResponse.Resource.Name,
 		"generate.kyverno.io/resource-kind":      engineResponse.PolicyResponse.Resource.Kind,
 		"generate.kyverno.io/resource-namespace": engineResponse.PolicyResponse.Resource.Namespace,
@@ -401,7 +414,7 @@ func applyGenerateRequest(gnGenerator generate.GenerateRequests, userRequestInfo
 
 func transform(userRequestInfo kyverno.RequestInfo, er *response.EngineResponse) kyverno.GenerateRequestSpec {
 	gr := kyverno.GenerateRequestSpec{
-		Policy: er.PolicyResponse.Policy,
+		Policy: er.PolicyResponse.Policy.Name,
 		Resource: kyverno.ResourceSpec{
 			Kind:       er.PolicyResponse.Resource.Kind,
 			Namespace:  er.PolicyResponse.Resource.Namespace,
@@ -421,7 +434,7 @@ type generateStats struct {
 }
 
 func (gs generateStats) PolicyName() string {
-	return gs.resp.PolicyResponse.Policy
+	return gs.resp.PolicyResponse.Policy.Name
 }
 
 func (gs generateStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {
