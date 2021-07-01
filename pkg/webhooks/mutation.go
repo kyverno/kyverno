@@ -180,9 +180,9 @@ type mutateStats struct {
 
 func (ms mutateStats) PolicyName() string {
 	if ms.namespace == "" {
-		return ms.resp.PolicyResponse.Policy
+		return ms.resp.PolicyResponse.Policy.Name
 	}
-	return ms.namespace + "/" + ms.resp.PolicyResponse.Policy
+	return ms.namespace + "/" + ms.resp.PolicyResponse.Policy.Name
 }
 
 func (ms mutateStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {

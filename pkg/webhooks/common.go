@@ -30,7 +30,7 @@ func isResponseSuccessful(engineReponses []*response.EngineResponse) bool {
 func toBlockResource(engineReponses []*response.EngineResponse, log logr.Logger) bool {
 	for _, er := range engineReponses {
 		if !er.IsSuccessful() && er.PolicyResponse.ValidationFailureAction == common.Enforce {
-			log.Info("spec.ValidationFailureAction set to enforce blocking resource request", "policy", er.PolicyResponse.Policy)
+			log.Info("spec.ValidationFailureAction set to enforce blocking resource request", "policy", er.PolicyResponse.Policy.Name)
 			return true
 		}
 	}
@@ -53,7 +53,7 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 			}
 
 			resourceName = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-			policyToRule[er.PolicyResponse.Policy] = ruleToReason
+			policyToRule[er.PolicyResponse.Policy.Name] = ruleToReason
 		}
 	}
 
@@ -70,7 +70,7 @@ func getErrorMsg(engineReponses []*response.EngineResponse) string {
 		if !er.IsSuccessful() {
 			// resource in engineReponses is identical as this was called per admission request
 			resourceInfo = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-			str = append(str, fmt.Sprintf("failed policy %s:", er.PolicyResponse.Policy))
+			str = append(str, fmt.Sprintf("failed policy %s:", er.PolicyResponse.Policy.Name))
 			for _, rule := range er.PolicyResponse.Rules {
 				if !rule.Success {
 					str = append(str, rule.ToString())

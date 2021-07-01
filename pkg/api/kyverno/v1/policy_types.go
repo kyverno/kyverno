@@ -27,7 +27,7 @@ type Policy struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
-	// Spec defines policy behaviors and contains one or rules.
+	// Spec defines policy behaviors and contains one or more rules.
 	Spec Spec `json:"spec" yaml:"spec"`
 
 	// Status contains policy runtime information.
@@ -268,6 +268,11 @@ type ResourceDescription struct {
 	// "*" (matches zero or many characters) and "?" (at least one character).
 	// +optional
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+
+	// Names are the names of the resources. Each name supports wildcard characters
+	// "*" (matches zero or many characters) and "?" (at least one character).
+	// +optional
+	Names []string `json:"names,omitempty" yaml:"names,omitempty"`
 
 	// Namespaces is a list of namespaces names. Each name supports wildcard characters
 	// "*" (matches zero or many characters) and "?" (at least one character).

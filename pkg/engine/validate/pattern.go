@@ -257,7 +257,7 @@ func validateNumberWithStr(log logr.Logger, value interface{}, pattern string, o
 
 	// 2. wildcard match
 	if !wildcard.Match(pattern, typedValue) {
-		log.Info("value failed wildcard check", "type", fmt.Sprintf("%T", typedValue), "value", typedValue, "check", pattern)
+		log.V(4).Info("value failed wildcard check", "type", fmt.Sprintf("%T", typedValue), "value", typedValue, "check", pattern)
 		return false
 	}
 	return true

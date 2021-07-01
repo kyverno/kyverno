@@ -186,7 +186,7 @@ func (pc *pMap) get(key PolicyType, gvk, namespace string) (names []string) {
 	_, kind := common.GetKindFromGVK(gvk)
 	for _, policyName := range pc.kindDataMap[kind][key] {
 		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
-		if !isNamespacedPolicy {
+		if !isNamespacedPolicy && namespace == "" {
 			names = append(names, key)
 		} else {
 			if ns == namespace {

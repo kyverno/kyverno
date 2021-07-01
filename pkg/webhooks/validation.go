@@ -194,9 +194,9 @@ type validateStats struct {
 
 func (vs validateStats) PolicyName() string {
 	if vs.namespace == "" {
-		return vs.resp.PolicyResponse.Policy
+		return vs.resp.PolicyResponse.Policy.Name
 	}
-	return vs.namespace + "/" + vs.resp.PolicyResponse.Policy
+	return vs.namespace + "/" + vs.resp.PolicyResponse.Policy.Name
 
 }
 

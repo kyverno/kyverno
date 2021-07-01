@@ -6,7 +6,8 @@ expected:
   mutation:
     patchedresource: test/output/output_mutate_pod_spec.yaml
     policyresponse:
-      policy: mutate-pods-spec
+      policy:
+        name: mutate-pods-spec
       resource:
         kind: Deployment
         apiVersion: apps/v1
