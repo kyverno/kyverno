@@ -1166,6 +1166,34 @@ func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 		// ===========================================
 
+		// test: the generated resource is not updated if the source resource is updated
+		// ======= Update Configmap in default Namespace ========
+		By(fmt.Sprintf("Updating Source Resource(Configmap) in Clone Namespace : %s", tests.CloneNamespace))
+
+		// Get the configmap from default namespace
+		sourceRes, err := e2eClient.GetNamespacedResource(cmGVR, tests.CloneNamespace, tests.ConfigMapName)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(sourceRes.GetName()).To(Equal(tests.ConfigMapName))
+
+		element, _, err := unstructured.NestedMap(sourceRes.UnstructuredContent(), "data")
+		Expect(err).NotTo(HaveOccurred())
+		element["initial_lives"] = "5"
+
+		unstructured.SetNestedMap(sourceRes.UnstructuredContent(), element, "data")
+		_, err = e2eClient.UpdateNamespacedResource(cmGVR, tests.CloneNamespace, sourceRes)
+		Expect(err).NotTo(HaveOccurred())
+		// ============================================
+
+		// ======= Verifying Configmap Data is Not Replicated in Generated Resource ========
+		By("Verifying Configmap Data is Not Replicated in Generated Resource")
+
+		updatedGenRes, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, tests.ConfigMapName)
+		Expect(err).NotTo(HaveOccurred())
+		element, _, err = unstructured.NestedMap(updatedGenRes.UnstructuredContent(), "data")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(element["initial_lives"]).To(Equal("2"))
+		// ============================================
+
 		// ======= CleanUp Resources =====
 		e2eClient.CleanClusterPolicies(clPolGVR)
 
