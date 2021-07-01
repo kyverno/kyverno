@@ -1,5 +1,5 @@
 {{- $name := "disallow-host-ports" }}
-{{- if eq (include "kyverno.podSecurityDefault" (merge (dict "name" $name) .)) "true" }}
+{{- if eq (include "kyverno.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -12,6 +12,8 @@ metadata:
     policies.kyverno.io/description: >-
       Access to host ports allows potential snooping of network traffic and should not be
       allowed, or at minimum restricted to a known list.
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 spec:
   validationFailureAction: {{ .Values.validationFailureAction }}
   background: true

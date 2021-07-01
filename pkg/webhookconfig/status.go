@@ -3,22 +3,27 @@ package webhookconfig
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var deployName string = config.KyvernoDeploymentName
 var deployNamespace string = config.KyvernoNamespace
 
-const annCounter string = "kyverno.io/generationCounter"
-const annWebhookStatus string = "kyverno.io/webhookActive"
+const (
+	annCounter         string = "kyverno.io/generationCounter"
+	annWebhookStatus   string = "kyverno.io/webhookActive"
+	annLastRequestTime string = "kyverno.io/last-request-time"
+)
 
 //statusControl controls the webhook status
 type statusControl struct {
-	client   *dclient.Client
+	register *Register
 	eventGen event.Interface
 	log      logr.Logger
 }
@@ -34,9 +39,9 @@ func (vc statusControl) failure() error {
 }
 
 // NewStatusControl creates a new webhook status control
-func newStatusControl(client *dclient.Client, eventGen event.Interface, log logr.Logger) *statusControl {
+func newStatusControl(register *Register, eventGen event.Interface, log logr.Logger) *statusControl {
 	return &statusControl{
-		client:   client,
+		register: register,
 		eventGen: eventGen,
 		log:      log,
 	}
@@ -46,7 +51,7 @@ func (vc statusControl) setStatus(status string) error {
 	logger := vc.log.WithValues("name", deployName, "namespace", deployNamespace)
 	var ann map[string]string
 	var err error
-	deploy, err := vc.client.GetResource("", "Deployment", deployNamespace, deployName)
+	deploy, err := vc.register.client.GetResource("", "Deployment", deployNamespace, deployName)
 	if err != nil {
 		logger.Error(err, "failed to get deployment")
 		return err
@@ -72,10 +77,9 @@ func (vc statusControl) setStatus(status string) error {
 	deploy.SetAnnotations(ann)
 
 	// update counter
-	_, err = vc.client.UpdateResource("", "Deployment", deployNamespace, deploy, false)
+	_, err = vc.register.client.UpdateResource("", "Deployment", deployNamespace, deploy, false)
 	if err != nil {
-		logger.Error(err, "failed to update deployment annotation", "key", annWebhookStatus, "val", status)
-		return err
+		return errors.Wrapf(err, "key %s, val %s", annWebhookStatus, status)
 	}
 
 	// create event on kyverno deployment
@@ -98,7 +102,7 @@ func (vc statusControl) IncrementAnnotation() error {
 	logger := vc.log
 	var ann map[string]string
 	var err error
-	deploy, err := vc.client.GetResource("", "Deployment", deployNamespace, deployName)
+	deploy, err := vc.register.client.GetResource("", "Deployment", deployNamespace, deployName)
 	if err != nil {
 		logger.Error(err, "failed to find Kyverno", "deployment", deployName, "namespace", deployNamespace)
 		return err
@@ -127,10 +131,40 @@ func (vc statusControl) IncrementAnnotation() error {
 	deploy.SetAnnotations(ann)
 
 	// update counter
-	_, err = vc.client.UpdateResource("", "Deployment", deployNamespace, deploy, false)
+	_, err = vc.register.client.UpdateResource("", "Deployment", deployNamespace, deploy, false)
 	if err != nil {
 		logger.Error(err, fmt.Sprintf("failed to update annotation %s for deployment %s in namespace %s", annCounter, deployName, deployNamespace))
 		return err
+	}
+
+	return nil
+}
+
+func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
+	_, deploy, err := vc.register.GetKubePolicyDeployment()
+	if err != nil {
+		return errors.Wrap(err, "unable to get Kyverno deployment")
+	}
+
+	annotation, ok, err := unstructured.NestedStringMap(deploy.UnstructuredContent(), "metadata", "annotations")
+	if err != nil {
+		return errors.Wrap(err, "unable to get annotation")
+	}
+
+	if !ok {
+		annotation = make(map[string]string)
+	}
+
+	t, err := new.MarshalText()
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal timestamp")
+	}
+
+	annotation[annLastRequestTime] = string(t)
+	deploy.SetAnnotations(annotation)
+	_, err = vc.register.client.UpdateResource("", "Deployment", deploy.GetNamespace(), deploy, false)
+	if err != nil {
+		return errors.Wrapf(err, "failed to update annotation %s for deployment %s in namespace %s", annLastRequestTime, deploy.GetName(), deploy.GetNamespace())
 	}
 
 	return nil

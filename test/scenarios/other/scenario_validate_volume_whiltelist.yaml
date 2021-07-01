@@ -6,7 +6,9 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: validate-volumes-whitelist
+      policy:
+        namespace: ''
+        name: validate-volumes-whitelist
       resource:
         kind: Pod
         apiVersion: v1

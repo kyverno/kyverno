@@ -5,7 +5,9 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: restrict-ingress-classes
+      policy:
+        namespace: ''
+        name: restrict-ingress-classes
       resource:
         kind: Ingress
         apiVersion: v1

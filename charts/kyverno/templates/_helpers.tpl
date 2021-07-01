@@ -30,10 +30,16 @@ If release name contains chart name it will be used as a full name.
 
 {{/* Helm required labels */}}
 {{- define "kyverno.labels" -}}
-app.kubernetes.io/name: {{ template "kyverno.name" . }}
-helm.sh/chart: {{ template "kyverno.chart" . }}
+app.kubernetes.io/component: kyverno
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/name: {{ template "kyverno.name" . }}
+app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
+app.kubernetes.io/version: "{{ .Chart.Version }}"
+helm.sh/chart: {{ template "kyverno.chart" . }}
+{{- if .Values.customLabels }}
+{{ toYaml .Values.customLabels }}
+{{- end }}
 {{- end -}}
 
 {{/* matchLabels */}}
@@ -71,9 +77,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
-{{/* Set if a default policy is managed */}}
-{{- define "kyverno.podSecurityDefault" -}}
-{{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
+{{/* Set if a baseline policy is managed */}}
+{{- define "kyverno.podSecurityBaseline" -}}
+{{- if or (eq .Values.podSecurityStandard "baseline") (eq .Values.podSecurityStandard "restricted") }}
 {{- true }}
 {{- else if and (eq .Values.podSecurityStandard "custom") (has .name .Values.podSecurityPolicies) }}
 {{- true }}

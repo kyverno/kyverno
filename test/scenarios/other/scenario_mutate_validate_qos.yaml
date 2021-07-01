@@ -6,7 +6,9 @@ expected:
   mutation:
     patchedresource: test/output/output_mutate_validate_qos.yaml
     policyresponse:
-      policy: policy-qos
+      policy:
+        namespace: ''
+        name: policy-qos
       resource:
         kind: Deployment
         apiVersion: apps/v1
@@ -19,7 +21,9 @@ expected:
           message: successfully processed strategic merge patch
   validation:
     policyresponse:
-      policy: policy-qos
+      policy:
+        namespace: ''
+        name: policy-qos
       resource:
         kind: Deployment
         apiVersion: apps/v1

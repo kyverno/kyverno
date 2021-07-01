@@ -45,7 +45,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: Spec defines policy behaviors and contains one or rules.
+            description: Spec defines policy behaviors and contains one or more rules.
             properties:
               background:
                 description: Background controls if rules are applied to existing
@@ -147,6 +147,13 @@ spec:
                                 supports wildcard characters "*" (matches zero or
                                 many characters) and "?" (at least one character).
                               type: string
+                            names:
+                              description: Names are the names of the resources. Each
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                              items:
+                                type: string
+                              type: array
                             namespaceSelector:
                               description: 'NamespaceSelector is a label selector
                                 for the resource namespace. Label keys and values
@@ -383,6 +390,13 @@ spec:
                                 supports wildcard characters "*" (matches zero or
                                 many characters) and "?" (at least one character).
                               type: string
+                            names:
+                              description: Names are the names of the resources. Each
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                              items:
+                                type: string
+                              type: array
                             namespaceSelector:
                               description: 'NamespaceSelector is a label selector
                                 for the resource namespace. Label keys and values
