@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
@@ -135,4 +137,48 @@ func RetryFunc(retryInterval, timeout time.Duration, run func() error, logger lo
 		}
 		return nil
 	}
+}
+
+func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client *dclient.Client, pName string, logger logr.Logger) bool {
+	generatePolicyWithClone := false
+	for _, rule := range rules {
+		if rule.Generation.Clone.Name != "" {
+			logger.V(4).Info("generate policy with clone, skipping deletion of generate request")
+			generatePolicyWithClone = true
+			obj, err := client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+			if err != nil {
+				logger.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
+				continue
+			}
+
+			updateSource := true
+			label := obj.GetLabels()
+			logger.V(4).Info("removing policy name from label of source resource")
+
+			if len(label) != 0 {
+				if label["generate.kyverno.io/clone-policy-name"] != "" {
+					policyNames := label["generate.kyverno.io/clone-policy-name"]
+					if strings.Contains(policyNames, pName) {
+						updatedPolicyNames := strings.Replace(policyNames, pName, "", -1)
+						label["generate.kyverno.io/clone-policy-name"] = updatedPolicyNames
+					} else {
+						updateSource = false
+					}
+				}
+			}
+
+			if updateSource {
+				logger.V(4).Info("updating existing clone source")
+				obj.SetLabels(label)
+				_, err = client.UpdateResource(obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
+				if err != nil {
+					logger.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+					continue
+				}
+				logger.V(4).Info("updated source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+			}
+		}
+	}
+
+	return generatePolicyWithClone
 }

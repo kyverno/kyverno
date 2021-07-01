@@ -6,7 +6,9 @@ expected:
   mutation:
     patchedresource: test/output/output_mutate_endpoint.yaml
     policyresponse:
-      policy: policy-endpoints
+      policy:
+        namespace: ''
+        name: policy-endpoints
       resource:
         kind: Endpoints
         apiVersion: v1

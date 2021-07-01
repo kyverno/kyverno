@@ -5,7 +5,9 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: restrict-automount-sa-token
+      policy:
+        namespace: ''
+        name: restrict-automount-sa-token
       resource:
         kind: Pod
         apiVersion: v1

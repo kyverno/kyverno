@@ -225,7 +225,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	results := make(map[string]report.PolicyReportResult)
 	infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
 	for _, resp := range resps {
-		policyName := resp.PolicyResponse.Policy
+		policyName := resp.PolicyResponse.Policy.Name
 		resourceName := resp.PolicyResponse.Resource.Name
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {
@@ -273,18 +273,18 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	return results
 }
 
-func getPolicyResouceFullPath(path []string, policyresoucePath string, isGit bool) []string {
+func getPolicyResourceFullPath(path []string, policyResourcePath string, isGit bool) []string {
 	var pol []string
 	if !isGit {
 		for _, p := range path {
-			pol = append(pol, filepath.Join(policyresoucePath, p))
+			pol = append(pol, filepath.Join(policyResourcePath, p))
 		}
 		return pol
 	}
 	return path
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyresoucePath string, rc *resultCounts) (err error) {
+func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts) (err error) {
 	openAPIController, err := openapi.NewOpenAPIController()
 	engineResponses := make([]*response.EngineResponse, 0)
 	validateEngineResponses := make([]*response.EngineResponse, 0)
@@ -300,7 +300,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 
 	fmt.Printf("\nExecuting %s...", values.Name)
 
-	_, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyresoucePath)
+	_, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to decode yaml", err)
@@ -308,10 +308,10 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		return err
 	}
 
-	fullPolicyPath := getPolicyResouceFullPath(values.Policies, policyresoucePath, isGit)
-	fullResourcePath := getPolicyResouceFullPath(values.Resources, policyresoucePath, isGit)
+	fullPolicyPath := getPolicyResourceFullPath(values.Policies, policyResourcePath, isGit)
+	fullResourcePath := getPolicyResourceFullPath(values.Resources, policyResourcePath, isGit)
 
-	policies, err := common.GetPoliciesFromPaths(fs, fullPolicyPath, isGit, policyresoucePath)
+	policies, err := common.GetPoliciesFromPaths(fs, fullPolicyPath, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		os.Exit(1)
@@ -322,7 +322,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			return sanitizederror.NewWithError("failed to mutate policy", err)
 		}
 	}
-	resources, err := common.GetResourceAccordingToResourcePath(fs, fullResourcePath, false, mutatedPolicies, dClient, "", false, isGit, policyresoucePath)
+	resources, err := common.GetResourceAccordingToResourcePath(fs, fullResourcePath, false, mutatedPolicies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		os.Exit(1)

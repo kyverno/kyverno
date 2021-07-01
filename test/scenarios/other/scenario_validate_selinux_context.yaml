@@ -6,7 +6,8 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: validate-selinux-options
+      policy:
+        name: validate-selinux-options
       resource:
         kind: Pod
         apiVersion: v1

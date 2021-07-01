@@ -60,7 +60,8 @@ func buildResponse(logger logr.Logger, ctx *PolicyContext, resp *response.Engine
 		resp.PatchedResource = resource
 	}
 
-	resp.PolicyResponse.Policy = ctx.Policy.Name
+	resp.PolicyResponse.Policy.Name = ctx.Policy.GetName()
+	resp.PolicyResponse.Policy.Namespace = ctx.Policy.GetNamespace()
 	resp.PolicyResponse.Resource.Name = resp.PatchedResource.GetName()
 	resp.PolicyResponse.Resource.Namespace = resp.PatchedResource.GetNamespace()
 	resp.PolicyResponse.Resource.Kind = resp.PatchedResource.GetKind()

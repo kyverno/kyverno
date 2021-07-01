@@ -8,27 +8,33 @@ var MutateTests = []struct {
 	Data []byte
 	// ResourceNamespace - Namespace of the Resource
 	ResourceNamespace string
+	// PolicyName - Name of the Policy
+	PolicyName string
 }{
 	{
 		TestName:          "test-mutate-with-context",
 		Data:              configMapMutationYaml,
 		ResourceNamespace: "test-mutate",
+		PolicyName:        "mutate-policy",
 	},
 	{
 		TestName:          "test-mutate-with-logic-in-context",
 		Data:              configMapMutationWithContextLogicYaml,
 		ResourceNamespace: "test-mutate",
+		PolicyName:        "mutate-policy",
 	},
 	{
 		TestName:          "test-mutate-with-context-label-selection",
 		Data:              configMapMutationWithContextLabelSelectionYaml,
 		ResourceNamespace: "test-mutate",
+		PolicyName:        "mutate-policy",
 	},
 }
 
 var ingressTests = struct {
 	testNamesapce string
 	cpol          []byte
+	policyName    string
 	tests         []struct {
 		testName                          string
 		group, version, rsc, resourceName string
@@ -37,6 +43,7 @@ var ingressTests = struct {
 }{
 	testNamesapce: "test-ingress",
 	cpol:          mutateIngressCpol,
+	policyName:    "mutate-ingress-host",
 	tests: []struct {
 		testName                          string
 		group, version, rsc, resourceName string

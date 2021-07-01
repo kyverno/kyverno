@@ -8,7 +8,6 @@ metadata:
 spec:
   selector:
     matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
-      app: kyverno
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
@@ -93,7 +92,7 @@ spec:
             protocol: TCP
           - containerPort: 8000
             name: metrics-port
-            protocol: TCP  
+            protocol: TCP
           env:
           - name: INIT_CONFIG
             value: {{ template "kyverno.configMapName" . }}
@@ -106,6 +105,8 @@ spec:
           {{- with .Values.envVars }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+          - name: KYVERNO_DEPLOYMENT
+            value: {{ template "kyverno.fullname" . }}
         {{- with .Values.livenessProbe }}
           livenessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
         {{- end }}
