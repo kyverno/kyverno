@@ -1194,6 +1194,31 @@ func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
 		Expect(element["initial_lives"]).To(Equal("2"))
 		// ============================================
 
+		// test: the generated resource is not deleted after the source is deleted
+		//=========== Delete the Clone Source Resource ============
+		By(fmt.Sprintf("Delete the clone source resource: %s", tests.ConfigMapName))
+
+		err = e2eClient.DeleteNamespacedResource(cmGVR, tests.CloneNamespace, tests.ConfigMapName)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Wait till policy is deleted
+		e2e.GetWithRetry(time.Duration(2), 10, func() error {
+			_, err := e2eClient.GetNamespacedResource(cmGVR, tests.CloneNamespace, tests.ConfigMapName)
+			if err != nil {
+				return errors.New("configmap still exists")
+			}
+			return nil
+		})
+		_, err = e2eClient.GetNamespacedResource(cmGVR, tests.CloneNamespace, tests.ConfigMapName)
+		Expect(err).To(HaveOccurred())
+		// ===========================================
+
+		// ======= Check Generated Resources =======
+		By(fmt.Sprintf("Checking the generated resource (Configmap) in namespace : %s", tests.ResourceNamespace))
+		_, err = e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, tests.ConfigMapName)
+		Expect(err).NotTo(HaveOccurred())
+		// ===========================================
+
 		// ======= CleanUp Resources =====
 		e2eClient.CleanClusterPolicies(clPolGVR)
 
