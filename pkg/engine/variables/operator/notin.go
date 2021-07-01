@@ -24,17 +24,25 @@ type NotInHandler struct {
 }
 
 //Evaluate evaluates expression with NotIn Operator
-func (nin NotInHandler) Evaluate(key, value interface{}) bool {
+func (nin NotInHandler) Evaluate(key, value interface{}, isPreCondition bool) bool {
 	var err error
 
 	// substitute the variables
 	if key, err = nin.subHandler(nin.log, nin.ctx, key); err != nil {
-		nin.log.Info("Failed to resolve variable", "info", err, "variable", key)
+		if isPreCondition {
+			nin.log.Info("Failed to resolve variable", "info", err.Error(), "variable", key)
+		} else {
+			nin.log.Error(err, "Failed to resolve variable", "variable", key)
+		}
 		return false
 	}
 
 	if value, err = nin.subHandler(nin.log, nin.ctx, value); err != nil {
-		nin.log.Info("Failed to resolve variable", "info", err, "variable", value)
+		if isPreCondition {
+			nin.log.Info("Failed to resolve variable", "info", err.Error(), "variable", value)
+		} else {
+			nin.log.Error(err, "Failed to resolve variable", "variable", value)
+		}
 		return false
 	}
 

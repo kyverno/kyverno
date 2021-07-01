@@ -113,7 +113,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 			continue
 		}
 		// evaluate pre-conditions
-		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditionsCopy) {
+		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditionsCopy, true) {
 			log.V(4).Info("resource fails the preconditions")
 			continue
 		}
@@ -147,7 +147,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 				log.V(2).Info("wrongfully configured data", "reason", err.Error())
 				continue
 			}
-			deny := variables.EvaluateConditions(log, ctx.JSONContext, denyConditionsCopy)
+			deny := variables.EvaluateConditions(log, ctx.JSONContext, denyConditionsCopy, false)
 			ruleResp := response.RuleResponse{
 				Name:    rule.Name,
 				Type:    utils.Validation.String(),

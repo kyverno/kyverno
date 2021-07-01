@@ -44,16 +44,24 @@ func compareByCondition(key float64, value float64, op kyverno.ConditionOperator
 	}
 }
 
-func (noh NumericOperatorHandler) Evaluate(key, value interface{}) bool {
+func (noh NumericOperatorHandler) Evaluate(key, value interface{}, isPreCondition bool) bool {
 	var err error
 	if key, err = noh.subHandler(noh.log, noh.ctx, key); err != nil {
 		// Failed to resolve the variable
-		noh.log.Info("Failed to resolve variable", "info", err, "variable", key)
+		if isPreCondition {
+			noh.log.Info("Failed to resolve variable", "info", err.Error(), "variable", key)
+		} else {
+			noh.log.Error(err, "Failed to resolve variable", "variable", key)
+		}
 		return false
 	}
 	if value, err = noh.subHandler(noh.log, noh.ctx, value); err != nil {
 		// Failed to resolve the variable
-		noh.log.Info("Failed to resolve variable", "info", err, "variable", value)
+		if isPreCondition {
+			noh.log.Info("Failed to resolve variable", "info", err.Error(), "variable", value)
+		} else {
+			noh.log.Error(err, "Failed to resolve variable", "variable", value)
+		}
 		return false
 	}
 

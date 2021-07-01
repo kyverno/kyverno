@@ -27,16 +27,24 @@ type InHandler struct {
 }
 
 //Evaluate evaluates expression with In Operator
-func (in InHandler) Evaluate(key, value interface{}) bool {
+func (in InHandler) Evaluate(key, value interface{}, isPreCondition bool) bool {
 	var err error
 	// substitute the variables
 	if key, err = in.subHandler(in.log, in.ctx, key); err != nil {
-		in.log.Info("Failed to resolve variable", "info", err, "variable", key)
+		if isPreCondition {
+			in.log.Info("Failed to resolve variable", "info", err.Error(), "variable", key)
+		} else {
+			in.log.Error(err, "Failed to resolve variable", "variable", key)
+		}
 		return false
 	}
 
 	if value, err = in.subHandler(in.log, in.ctx, value); err != nil {
-		in.log.Info("Failed to resolve variable", "info", err, "variable", value)
+		if isPreCondition {
+			in.log.Info("Failed to resolve variable", "info", err.Error(), "variable", value)
+		} else {
+			in.log.Error(err, "Failed to resolve variable", "variable", value)
+		}
 		return false
 	}
 
