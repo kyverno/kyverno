@@ -47,13 +47,27 @@ func SubstituteAll(log logr.Logger, ctx context.EvalInterface, document interfac
 	return substituteVars(log, ctx, document, DefaultVariableResolver)
 }
 
+func newPreconditionsVariableResolver(log logr.Logger) VariableResolver {
+	// PreconditionsVariableResolver is used to substitute vars in preconditions.
+	// It returns empty string if error occured during substitution
+	return func(ctx context.EvalInterface, variable string) (interface{}, error) {
+		value, err := DefaultVariableResolver(ctx, variable)
+		if err != nil {
+			log.V(3).Info(fmt.Sprintf("Variable \"%s\" is not resolved in preconditions. Considering it as empty string", variable))
+			return "", nil
+		}
+
+		return value, nil
+	}
+}
+
 func SubstituteAllInPreconditions(log logr.Logger, ctx context.EvalInterface, document interface{}) (_ interface{}, err error) {
 	document, err = substituteReferences(log, document)
 	if err != nil {
 		return kyverno.Rule{}, err
 	}
 
-	return substituteVars(log, ctx, document, PreconditionsVariableResolver)
+	return substituteVars(log, ctx, document, newPreconditionsVariableResolver(log))
 }
 
 func SubstituteAllForceMutate(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
@@ -179,17 +193,6 @@ type VariableResolver = func(ctx context.EvalInterface, variable string) (interf
 // DefaultVariableResolver is used in all variable substitutions except preconditions
 func DefaultVariableResolver(ctx context.EvalInterface, variable string) (interface{}, error) {
 	return ctx.Query(variable)
-}
-
-// PreconditionsVariableResolver is used to substitute vars in preconditions.
-// It returns empty string if error occured during substitution
-func PreconditionsVariableResolver(ctx context.EvalInterface, variable string) (interface{}, error) {
-	value, err := DefaultVariableResolver(ctx, variable)
-	if err != nil || value == nil {
-		return "", nil
-	}
-
-	return value, nil
 }
 
 func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr VariableResolver) jsonUtils.Action {
