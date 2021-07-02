@@ -286,7 +286,6 @@ func Test_subVars_withRegexMatch(t *testing.T) {
 	assert.NilError(t, err)
 	out, err := json.Marshal(output)
 	assert.NilError(t, err)
-	fmt.Print(string(out))
 	assert.Equal(t, string(out), expected.String())
 }
 
@@ -633,6 +632,65 @@ var variableObject = []byte(`
 	"simple_object_null": null
 }
 `)
+
+func Test_SubstituteNull(t *testing.T) {
+	patternRaw := []byte(`
+	{
+		"spec": {
+			"content": "{{ request.object.simple_object_null }}"
+		}
+	}
+	`)
+
+	var err error
+	var pattern, resource map[string]interface{}
+	err = json.Unmarshal(patternRaw, &pattern)
+	assert.NilError(t, err)
+
+	err = json.Unmarshal(variableObject, &resource)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(variableObject)
+
+	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+
+	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
+	var expected interface{}
+	expected = nil
+
+	assert.DeepEqual(t, expected, content)
+}
+
+func Test_SubstituteNullInString(t *testing.T) {
+	patternRaw := []byte(`
+	{
+		"spec": {
+			"content": "content = {{ request.object.simple_object_null }}"
+		}
+	}
+	`)
+
+	var err error
+	var pattern, resource map[string]interface{}
+	err = json.Unmarshal(patternRaw, &pattern)
+	assert.NilError(t, err)
+
+	err = json.Unmarshal(variableObject, &resource)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(variableObject)
+
+	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+
+	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
+	expected := "content = null"
+
+	assert.DeepEqual(t, expected, content)
+}
 
 func Test_SubstituteArray(t *testing.T) {
 	patternRaw := []byte(`

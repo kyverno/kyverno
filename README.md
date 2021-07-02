@@ -17,20 +17,42 @@ Kyverno is a policy engine designed for Kubernetes. It can validate, mutate, and
 
 ## 📙 Documentation 
 
-Kyverno guides and reference documents are available at: <a href="https://kyverno.io/">kyverno.io</a>. 
+Kyverno installation and reference documents are available at: <a href="https://kyverno.io/">kyverno.io</a>. 
 
-Try the [quick start guide](https://kyverno.io/docs/introduction/#quick-start) to install Kyverno and create your first policy.
+  👉 **[Quick Start](https://kyverno.io/docs/introduction/#quick-start)**
 
-## ➕ Contributing
+  👉 **[Installation](https://kyverno.io/docs/installation/)**
 
-Checkout out the Kyverno <a href="https://kyverno.io/community">Community</a> page for ways to get involved and details on joining our next community meeting.
+  👉 **[Sample Policies](https://kyverno.io/policies/)**
+
 
 ## 🙋‍♂️ Getting Help
 
-* For feature requests and bugs, file an [issue](https://github.com/kyverno/kyverno/issues).
-* For discussions or questions, join the **#kyverno** channel on the [Kubernetes Slack](https://kubernetes.slack.com/)
-* For community meeting access join the [mailing list](https://groups.google.com/g/kyverno).
-* To get updates ⭐️ [star this repository](https://github.com/kyverno/kyverno/stargazers).
+We are here to help! 
+
+  👉 For feature requests and bugs, file an [issue](https://github.com/kyverno/kyverno/issues).
+
+  👉 For discussions or questions, join the slack channel [k8s.slack.io/#kyverno](https://slack.k8s.io/#kyverno).
+
+  👉 For community meeting access join the [mailing list](https://groups.google.com/g/kyverno).
+
+  👉 To get updates ⭐️ [star this repository](https://github.com/kyverno/kyverno/stargazers).
+
+
+## ➕ Contributing
+
+Thanks for your interest in contributing to Kyverno! Here are some steps to help get you started:
+
+  ✔ Read and agree to the [Contribution Guidelines](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md).
+
+  ✔ Browse through the [GitHub discussions](https://github.com/kyverno/kyverno/discussions).
+
+  ✔ Read Kyverno design and development details on the [GitHub Wiki](https://github.com/kyverno/kyverno/wiki).
+
+  ✔ Check out the **[good first issue](https://github.com/kyverno/kyverno/labels/good%20first%20issue)** list. Add a comment with `/assign` to request assignment of the issue.
+
+  ✔ Checkout out the Kyverno <a href="https://kyverno.io/community">Community</a> page for other ways to get involved.
+
 
 
 

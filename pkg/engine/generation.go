@@ -14,17 +14,24 @@ import (
 //    - the caller has to check the ruleResponse to determine whether the path exist
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func Generate(policyContext *PolicyContext) (resp *response.EngineResponse) {
-	return filterRules(policyContext)
+	policyStartTime := time.Now()
+	return filterRules(policyContext, policyStartTime)
 }
 
-func filterRules(policyContext *PolicyContext) *response.EngineResponse {
+func filterRules(policyContext *PolicyContext, startTime time.Time) *response.EngineResponse {
 	kind := policyContext.NewResource.GetKind()
 	name := policyContext.NewResource.GetName()
 	namespace := policyContext.NewResource.GetNamespace()
 	apiVersion := policyContext.NewResource.GetAPIVersion()
 	resp := &response.EngineResponse{
 		PolicyResponse: response.PolicyResponse{
-			Policy: policyContext.Policy.Name,
+			Policy: response.PolicySpec{
+				Name:      policyContext.Policy.GetName(),
+				Namespace: policyContext.Policy.GetNamespace(),
+			},
+			PolicyStats: response.PolicyStats{
+				PolicyExecutionTimestamp: startTime.Unix(),
+			},
 			Resource: response.ResourceSpec{
 				Kind:       kind,
 				Name:       name,
@@ -77,7 +84,8 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 				Type:    "Generation",
 				Success: false,
 				RuleStats: response.RuleStats{
-					ProcessingTime: time.Since(startTime),
+					ProcessingTime:         time.Since(startTime),
+					RuleExecutionTimestamp: startTime.Unix(),
 				},
 			}
 		}
@@ -118,7 +126,8 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 		Type:    "Generation",
 		Success: true,
 		RuleStats: response.RuleStats{
-			ProcessingTime: time.Since(startTime),
+			ProcessingTime:         time.Since(startTime),
+			RuleExecutionTimestamp: startTime.Unix(),
 		},
 	}
 }

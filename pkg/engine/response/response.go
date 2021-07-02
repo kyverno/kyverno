@@ -17,8 +17,8 @@ type EngineResponse struct {
 
 //PolicyResponse policy application response
 type PolicyResponse struct {
-	// policy name
-	Policy string `json:"policy"`
+	// policy details
+	Policy PolicySpec `json:"policy"`
 	// resource details
 	Resource ResourceSpec `json:"resource"`
 	// policy statistics
@@ -27,6 +27,12 @@ type PolicyResponse struct {
 	Rules []RuleResponse `json:"rules"`
 	// ValidationFailureAction: audit(default if not set),enforce
 	ValidationFailureAction string
+}
+
+//PolicySpec policy
+type PolicySpec struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
 }
 
 //ResourceSpec resource action applied on
@@ -52,6 +58,8 @@ type PolicyStats struct {
 	ProcessingTime time.Duration `json:"processingTime"`
 	// Count of rules that were applied successfully
 	RulesAppliedCount int `json:"rulesAppliedCount"`
+	// Timestamp of the instant the Policy was triggered
+	PolicyExecutionTimestamp int64 `json:"policyExecutionTimestamp"`
 }
 
 //RuleResponse details for each rule application
@@ -79,12 +87,24 @@ func (rr RuleResponse) ToString() string {
 type RuleStats struct {
 	// time required to apply the rule on the resource
 	ProcessingTime time.Duration `json:"processingTime"`
+	// Timestamp of the instant the rule got triggered
+	RuleExecutionTimestamp int64 `json:"ruleExecutionTimestamp"`
 }
 
 //IsSuccessful checks if any rule has failed or not
 func (er EngineResponse) IsSuccessful() bool {
 	for _, r := range er.PolicyResponse.Rules {
 		if !r.Success {
+			return false
+		}
+	}
+	return true
+}
+
+//IsFailed checks if any rule has succeeded or not
+func (er EngineResponse) IsFailed() bool {
+	for _, r := range er.PolicyResponse.Rules {
+		if r.Success {
 			return false
 		}
 	}

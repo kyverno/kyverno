@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   name: {{ template "kyverno.fullname" . }}
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
   namespace: {{ template "kyverno.namespace" . }}
 spec:
   selector:
@@ -11,6 +12,7 @@ spec:
   template:
     metadata:
       labels: {{ include "kyverno.labels" . | nindent 8 }}
+        app: kyverno
         {{- range $key, $value := .Values.podLabels }}
         {{ $key }}: {{ $value }}
         {{- end }}
@@ -51,7 +53,6 @@ spec:
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           securityContext:
-            runAsUser: 1000
             runAsNonRoot: true
             privileged: false
             allowPrivilegeEscalation: false
@@ -64,9 +65,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          {{- with .Values.envVars }}
-          env:
-            {{- toYaml . | nindent 14 }}
+          {{- with .Values.envVarsInit }}
+          {{- toYaml . | nindent 10 }}
           {{- end }}
       containers:
         - name: kyverno
@@ -79,7 +79,6 @@ spec:
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           securityContext:
-            runAsUser: 1000
             runAsNonRoot: true
             privileged: false
             allowPrivilegeEscalation: false
@@ -91,6 +90,9 @@ spec:
           - containerPort: 9443
             name: https
             protocol: TCP
+          - containerPort: 8000
+            name: metrics-port
+            protocol: TCP
           env:
           - name: INIT_CONFIG
             value: {{ template "kyverno.configMapName" . }}
@@ -100,6 +102,11 @@ spec:
                 fieldPath: metadata.namespace
           - name: KYVERNO_SVC
             value: {{ template "kyverno.serviceName" . }}
+          {{- with .Values.envVars }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          - name: KYVERNO_DEPLOYMENT
+            value: {{ template "kyverno.fullname" . }}
         {{- with .Values.livenessProbe }}
           livenessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
         {{- end }}

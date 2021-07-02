@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	gojmespath "github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -110,6 +111,8 @@ func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) json
 			_, err := ctx.Query(variable)
 			if err != nil {
 				switch err.(type) {
+				case gojmespath.NotFoundError:
+					return nil, nil
 				case context.InvalidVariableErr:
 					return nil, err
 				default:
@@ -119,16 +122,6 @@ func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) json
 		}
 		return nil, nil
 	})
-}
-
-// NotFoundVariableErr is returned when it is impossible to resolve the variable
-type NotFoundVariableErr struct {
-	variable string
-	path     string
-}
-
-func (n NotFoundVariableErr) Error() string {
-	return fmt.Sprintf("NotFoundVariableErr, variable %s not resolved at path %s", n.variable, n.path)
 }
 
 // NotResolvedReferenceErr is returned when it is impossible to resolve the variable
@@ -226,7 +219,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 
 				if err != nil {
 					switch err.(type) {
-					case context.InvalidVariableErr:
+					case context.InvalidVariableErr, gojmespath.NotFoundError:
 						return nil, err
 					default:
 						return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
@@ -235,22 +228,15 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 
 				log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", data.Path)
 
-				if substitutedVar != nil {
-					if originalPattern == v {
-						return substitutedVar, nil
-					}
-
-					if value, err = substituteVarInPattern(originalPattern, v, substitutedVar); err != nil {
-						return nil, fmt.Errorf("failed to resolve %v at path %s: %s", variable, data.Path, err.Error())
-					}
-
-					continue
+				if originalPattern == v {
+					return substitutedVar, nil
 				}
 
-				return nil, NotFoundVariableErr{
-					variable: variable,
-					path:     data.Path,
+				if value, err = substituteVarInPattern(originalPattern, v, substitutedVar); err != nil {
+					return nil, fmt.Errorf("failed to resolve %v at path %s: %s", variable, data.Path, err.Error())
 				}
+
+				continue
 			}
 
 			// check for nested variables in strings

@@ -60,13 +60,15 @@ func buildResponse(logger logr.Logger, ctx *PolicyContext, resp *response.Engine
 		resp.PatchedResource = resource
 	}
 
-	resp.PolicyResponse.Policy = ctx.Policy.Name
+	resp.PolicyResponse.Policy.Name = ctx.Policy.GetName()
+	resp.PolicyResponse.Policy.Namespace = ctx.Policy.GetNamespace()
 	resp.PolicyResponse.Resource.Name = resp.PatchedResource.GetName()
 	resp.PolicyResponse.Resource.Namespace = resp.PatchedResource.GetNamespace()
 	resp.PolicyResponse.Resource.Kind = resp.PatchedResource.GetKind()
 	resp.PolicyResponse.Resource.APIVersion = resp.PatchedResource.GetAPIVersion()
 	resp.PolicyResponse.ValidationFailureAction = ctx.Policy.Spec.ValidationFailureAction
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
+	resp.PolicyResponse.PolicyExecutionTimestamp = startTime.Unix()
 }
 
 func incrementAppliedCount(resp *response.EngineResponse) {
@@ -241,6 +243,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 	resp.Type = utils.Validation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
+		resp.RuleStats.RuleExecutionTimestamp = startTime.Unix()
 		logger.V(4).Info("finished processing rule", "processingTime", resp.RuleStats.ProcessingTime.String())
 	}()
 

@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
-	"github.com/minio/minio/pkg/wildcard"
+	"github.com/minio/pkg/wildcard"
 	apiresource "k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -183,6 +183,7 @@ func validateValueWithStringPattern(log logr.Logger, value interface{}, pattern 
 
 	operator := operator.GetOperatorFromStringPattern(pattern)
 	pattern = pattern[len(operator):]
+	pattern = strings.TrimSpace(pattern)
 	number, str := getNumberAndStringPartsFromPattern(pattern)
 
 	if "" == number {
@@ -256,7 +257,7 @@ func validateNumberWithStr(log logr.Logger, value interface{}, pattern string, o
 
 	// 2. wildcard match
 	if !wildcard.Match(pattern, typedValue) {
-		log.Info("value failed wildcard check", "type", fmt.Sprintf("%T", typedValue), "value", typedValue, "check", pattern)
+		log.V(4).Info("value failed wildcard check", "type", fmt.Sprintf("%T", typedValue), "value", typedValue, "check", pattern)
 		return false
 	}
 	return true

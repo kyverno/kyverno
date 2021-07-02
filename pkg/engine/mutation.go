@@ -141,7 +141,8 @@ func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.Clu
 		return
 	}
 
-	resp.PolicyResponse.Policy = policy.Name
+	resp.PolicyResponse.Policy.Name = policy.GetName()
+	resp.PolicyResponse.Policy.Namespace = policy.GetNamespace()
 	resp.PolicyResponse.Resource.Name = resource.GetName()
 	resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
 	resp.PolicyResponse.Resource.Kind = resource.GetKind()
@@ -154,5 +155,6 @@ func endMutateResultResponse(logger logr.Logger, resp *response.EngineResponse, 
 	}
 
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
+	resp.PolicyResponse.PolicyExecutionTimestamp = startTime.Unix()
 	logger.V(5).Info("finished processing policy", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 }
