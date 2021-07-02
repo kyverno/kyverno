@@ -3,6 +3,7 @@ kind: Service
 metadata:
   name: {{ template "kyverno.serviceName" . }}
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
   namespace: {{ template "kyverno.namespace" . }}
   {{- with .Values.service.annotations }}
   annotations: {{ tpl (toYaml .) $ | nindent 4 }}
@@ -16,12 +17,29 @@ spec:
     {{- if and (eq .Values.service.type "NodePort") (not (empty .Values.service.nodePort)) }}
     nodePort: {{ .Values.service.nodePort }}
     {{- end }}
-  - port: {{ .Values.service.metricsPort }}
+  selector: {{ include "kyverno.matchLabels" . | nindent 4 }}
+    app: kyverno
+  type: {{ .Values.service.type }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kyverno.serviceName" . }}-metrics
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
+  namespace: {{ template "kyverno.namespace" . }}
+  {{- with .Values.metricsService.annotations }}
+  annotations: {{ tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
+spec:
+  ports:
+  - port: {{ .Values.metricsService.port }}
     targetPort: 8000
     protocol: TCP
     name: metrics-port
-    {{- if and (eq .Values.service.type "NodePort") (not (empty .Values.service.nodePort)) }}
-    nodePort: {{ .Values.service.metricsNodePort }}
+    {{- if and (eq .Values.metricsService.type "NodePort") (not (empty .Values.metricsService.nodePort)) }}
+    nodePort: {{ .Values.metricsService.nodePort }}
     {{- end }}
   selector: {{ include "kyverno.matchLabels" . | nindent 4 }}
-  type: {{ .Values.service.type }}
+    app: kyverno
+  type: {{ .Values.metricsService.type }}

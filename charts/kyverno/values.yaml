@@ -1,9 +1,9 @@
 nameOverride:
 fullnameOverride:
 namespace:
-# Supported- default/restricted/privileged/custom
+# Supported- baseline/restricted/privileged/custom
 # For more info- https://kyverno.io/policies/pod-security
-podSecurityStandard: default
+podSecurityStandard: baseline
 # Supported- low/medium/high
 podSecuritySeverity: medium
 # Policies to include when podSecurityStandard is custom
@@ -11,6 +11,9 @@ podSecurityPolicies: []
 # Supported values- `audit`, `enforce`
 # For more info- https://kyverno.io/docs/writing-policies/validate/
 validationFailureAction: audit
+
+# -- Additional labels
+customLabels: {}
 
 rbac:
   create: true
@@ -59,6 +62,10 @@ hostNetwork: false
 # for further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
 dnsPolicy: "ClusterFirst"
 
+# env variables for initContainers
+envVarsInit: {}
+
+# env variables for containers
 envVars: {}
 
 extraArgs: []
@@ -138,6 +145,12 @@ config:
 #  - ""
   excludeUsername:
 #  - ""
+  # Webhookconfigurations, this block defines the namespaceSelector in the webhookconfigurations.
+  # Note that it takes a list of namespaceSelector in the JSON format, and only the first element
+  # will be forwarded to the webhookconfigurations.
+  webhooks:
+  # webhooks: [{"namespaceSelector":{"matchExpressions":[{"key":"environment","operator":"In","values":["prod"]}]}}]
+  generateSuccessEvents: 'false'
   # existingConfig: init-config
 
 service:
@@ -145,10 +158,15 @@ service:
   type: ClusterIP
   # Only used if service.type is NodePort
   nodePort:
+  annotations: {}
+
+metricsService:
+  create: true
+  type: ClusterIP
   ## Kyverno's metrics server will be exposed at this port
-  metricsPort: 8000
+  port: 8000
   ## The Node's port which will allow access Kyverno's metrics at the host level. Only used if service.type is NodePort.
-  metricsNodePort: 8000
+  nodePort:
   ## Provide any additional annotations which may be required. This can be used to
   ## set the LoadBalancer service type to internal only.
   ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#internal-load-balancer

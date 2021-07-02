@@ -16,7 +16,7 @@ import (
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/utils"
-	"github.com/minio/minio/pkg/wildcard"
+	"github.com/minio/pkg/wildcard"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -180,6 +180,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 // doMatchAndExcludeConflict checks if the resultant
 // of match and exclude block is not an empty set
+// returns true if it is an empty set
 func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 
 	if reflect.DeepEqual(rule.ExcludeResources, kyverno.ExcludeResources{}) {
@@ -269,6 +270,28 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		if !wildcard.Match(rule.ExcludeResources.ResourceDescription.Name, rule.MatchResources.ResourceDescription.Name) {
 			return false
 		}
+	}
+
+	if len(rule.ExcludeResources.ResourceDescription.Names) > 0 {
+		excludeSlice := rule.ExcludeResources.ResourceDescription.Names
+		matchSlice := rule.MatchResources.ResourceDescription.Names
+
+		// if exclude block has something and match doesn't it means we
+		// have a non empty set
+		if len(rule.MatchResources.ResourceDescription.Names) == 0 {
+			return false
+		}
+
+		// if *any* name in match and exclude conflicts
+		// we want user to fix that
+		for _, matchName := range matchSlice {
+			for _, excludeName := range excludeSlice {
+				if wildcard.Match(excludeName, matchName) {
+					return true
+				}
+			}
+		}
+		return false
 	}
 
 	if len(excludeNamespaces) > 0 {
@@ -718,6 +741,10 @@ func validateMatchedResourceDescription(rd kyverno.ResourceDescription) (string,
 		return "", fmt.Errorf("match resources not specified")
 	}
 
+	if rd.Name != "" && len(rd.Names) > 0 {
+		return "", fmt.Errorf("both name and names can not be specified together")
+	}
+
 	if err := validateResourceDescription(rd); err != nil {
 		return "match", err
 	}
@@ -781,6 +808,11 @@ func validateExcludeResourceDescription(rd kyverno.ResourceDescription) (string,
 		// exclude is not mandatory
 		return "", nil
 	}
+
+	if rd.Name != "" && len(rd.Names) > 0 {
+		return "", fmt.Errorf("both name and names can not be specified together")
+	}
+
 	if err := validateResourceDescription(rd); err != nil {
 		return "exclude", err
 	}

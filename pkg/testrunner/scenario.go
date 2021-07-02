@@ -235,10 +235,8 @@ func validateResponse(t *testing.T, er response.PolicyResponse, expected respons
 	// cant do deepEquals and the stats will be different, or we nil those fields and then do a comparison
 	// forcing only the fields that are specified to be comprared
 	// doing a field by fields comparison will allow us to provied more details logs and granular error reporting
-	// check policy name is same :P
-	if er.Policy != expected.Policy {
-		t.Errorf("Policy name: expected %s, received %s", expected.Policy, er.Policy)
-	}
+	// compare policy spec
+	comparePolicySpec(t, er.Policy, expected.Policy)
 	// compare resource spec
 	compareResourceSpec(t, er.Resource, expected.Resource)
 	// //TODO stats
@@ -257,6 +255,17 @@ func validateResponse(t *testing.T, er response.PolicyResponse, expected respons
 		for index, r := range expected.Rules {
 			compareRules(t, er.Rules[index], r)
 		}
+	}
+}
+
+func comparePolicySpec(t *testing.T, policy response.PolicySpec, expectedPolicy response.PolicySpec) {
+	// namespace
+	if policy.Namespace != expectedPolicy.Namespace {
+		t.Errorf("namespace: expected %s, received %s", expectedPolicy.Namespace, policy.Namespace)
+	}
+	// name
+	if policy.Name != expectedPolicy.Name {
+		t.Errorf("name: expected %s, received %s", expectedPolicy.Name, policy.Name)
 	}
 }
 

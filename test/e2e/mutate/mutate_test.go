@@ -1,6 +1,7 @@
 package mutate
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/test/e2e"
+	commonE2E "github.com/kyverno/kyverno/test/e2e/common"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -25,7 +27,7 @@ var (
 	clPolNS = ""
 	// Namespace Name
 	// Hardcoded in YAML Definition
-	nspace = "test-mutate"
+	// nspace = "test-mutate"
 )
 
 func Test_Mutate_Sets(t *testing.T) {
@@ -41,15 +43,15 @@ func Test_Mutate_Sets(t *testing.T) {
 		By(fmt.Sprintf("Test to mutate objects : %s", tests.TestName))
 
 		// Clean up Resources
-		By(fmt.Sprintf("Cleaning Cluster Policies"))
+		By("Cleaning Cluster Policies")
 		e2eClient.CleanClusterPolicies(clPolGVR)
 		// Clear Namespace
-		By(fmt.Sprintf("Deleting Namespace : %s", nspace))
-		e2eClient.DeleteClusteredResource(nsGVR, nspace)
+		By(fmt.Sprintf("Deleting Namespace : %s", tests.ResourceNamespace))
+		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
 
 		// Wait Till Deletion of Namespace
 		e2e.GetWithRetry(time.Duration(1), 15, func() error {
-			_, err := e2eClient.GetClusteredResource(nsGVR, nspace)
+			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
 			if err != nil {
 				return nil
 			}
@@ -61,32 +63,64 @@ func Test_Mutate_Sets(t *testing.T) {
 		_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, newNamespaceYaml("test-mutate"))
 		Expect(err).NotTo(HaveOccurred())
 
+		// Wait Till Creation of Namespace
+		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+
 		// Create source CM
-		By(fmt.Sprintf("\nCreating source ConfigMap in %s", nspace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(cmGVR, nspace, sourceConfigMapYaml)
+		By(fmt.Sprintf("\nCreating source ConfigMap in %s", tests.ResourceNamespace))
+		_, err = e2eClient.CreateNamespacedResourceYaml(cmGVR, tests.ResourceNamespace, sourceConfigMapYaml)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Create CM Policy
 		By(fmt.Sprintf("\nCreating Mutate ConfigMap Policy in %s", clPolNS))
+		loc, _ := time.LoadLocation("UTC")
+		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 
-		// Create target CM
-		By(fmt.Sprintf("\nCreating target ConfigMap in %s", nspace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(cmGVR, nspace, targetConfigMapYaml)
-		Expect(err).NotTo(HaveOccurred())
-
-		// Verify created ConfigMap
-		By(fmt.Sprintf("Verifying ConfigMap in the Namespace : %s", nspace))
-		// Wait Till Creation of ConfigMap
-		e2e.GetWithRetry(time.Duration(1), 15, func() error {
-			_, err := e2eClient.GetNamespacedResource(cmGVR, nspace, "target")
+		// check policy in metrics
+		policySyncBool := false
+		e2e.GetWithRetry(time.Duration(2), 10, func() error {
+			metricsString, err := commonE2E.CallMetrics()
 			if err != nil {
 				return err
 			}
+			policySyncBool, err = commonE2E.ProcessMetrics(metricsString, tests.PolicyName, timeBeforePolicyCreation)
+			if policySyncBool == false || err != nil {
+				return errors.New("policy not created")
+			}
 			return nil
 		})
-		cmRes, err := e2eClient.GetNamespacedResource(cmGVR, nspace, "target")
+		Expect(policySyncBool).To(Equal(true))
+
+		// Create target CM
+		By(fmt.Sprintf("\nCreating target ConfigMap in %s", tests.ResourceNamespace))
+		_, err = e2eClient.CreateNamespacedResourceYaml(cmGVR, tests.ResourceNamespace, targetConfigMapYaml)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Verify created ConfigMap
+		By(fmt.Sprintf("Verifying ConfigMap in the Namespace : %s", tests.ResourceNamespace))
+		// Wait Till Creation of ConfigMap
+		err = e2e.GetWithRetry(time.Duration(1), 15, func() error {
+			_, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, "target")
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+
+		cmRes, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, "target")
+		c, _ := json.Marshal(cmRes)
+		By(fmt.Sprintf("configMap : %s", string(c)))
+
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cmRes.GetLabels()["kyverno.key/copy-me"]).To(Equal("sample-value"))
 
@@ -94,10 +128,10 @@ func Test_Mutate_Sets(t *testing.T) {
 		e2eClient.CleanClusterPolicies(clPolGVR)
 
 		// Clear Namespace
-		e2eClient.DeleteClusteredResource(nsGVR, nspace)
+		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
 		// Wait Till Deletion of Namespace
 		e2e.GetWithRetry(time.Duration(1), 15, func() error {
-			_, err := e2eClient.GetClusteredResource(nsGVR, nspace)
+			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
 			if err != nil {
 				return nil
 			}
@@ -106,7 +140,6 @@ func Test_Mutate_Sets(t *testing.T) {
 
 		By(fmt.Sprintf("Test %s Completed \n\n\n", tests.TestName))
 	}
-
 }
 
 func Test_Mutate_Ingress(t *testing.T) {
@@ -137,8 +170,25 @@ func Test_Mutate_Ingress(t *testing.T) {
 	Expect(err).To(BeNil())
 
 	By(fmt.Sprintf("Creating mutate ClusterPolicy "))
+	loc, _ := time.LoadLocation("UTC")
+	timeBeforePolicyCreation := time.Now().In(loc)
 	_, err = e2eClient.CreateClusteredResourceYaml(clPolGVR, ingressTests.cpol)
 	Expect(err).NotTo(HaveOccurred())
+
+	// check policy in metrics
+	policySyncBool := false
+	e2e.GetWithRetry(time.Duration(2), 10, func() error {
+		metricsString, err := commonE2E.CallMetrics()
+		if err != nil {
+			return err
+		}
+		policySyncBool, err = commonE2E.ProcessMetrics(metricsString, ingressTests.policyName, timeBeforePolicyCreation)
+		if policySyncBool == false || err != nil {
+			return errors.New("policy not created")
+		}
+		return nil
+	})
+	Expect(policySyncBool).To(Equal(true))
 
 	By(fmt.Sprintf("Creating Namespace %s", nspace))
 	_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, newNamespaceYaml(nspace))

@@ -50,7 +50,7 @@ func (pm PromMetrics) AddPolicy(policy interface{}) error {
 		if err != nil {
 			return err
 		}
-		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(*inputPolicy.Spec.Background)
+		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy.Spec.Background)
 		policyType := metrics.Cluster
 		policyNamespace := "" // doesn't matter for cluster policy
 		policyName := inputPolicy.ObjectMeta.Name
@@ -69,7 +69,7 @@ func (pm PromMetrics) AddPolicy(policy interface{}) error {
 		if err != nil {
 			return err
 		}
-		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(*inputPolicy.Spec.Background)
+		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy.Spec.Background)
 		policyType := metrics.Namespaced
 		policyNamespace := inputPolicy.ObjectMeta.Namespace
 		policyName := inputPolicy.ObjectMeta.Name
@@ -96,7 +96,7 @@ func (pm PromMetrics) RemovePolicy(policy interface{}) error {
 			if err != nil {
 				return err
 			}
-			policyBackgroundMode := metrics.ParsePolicyBackgroundMode(*inputPolicy.Spec.Background)
+			policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy.Spec.Background)
 			policyType := metrics.Cluster
 			policyNamespace := "" // doesn't matter for cluster policy
 			policyName := inputPolicy.ObjectMeta.Name
@@ -114,7 +114,7 @@ func (pm PromMetrics) RemovePolicy(policy interface{}) error {
 			if err != nil {
 				return err
 			}
-			policyBackgroundMode := metrics.ParsePolicyBackgroundMode(*inputPolicy.Spec.Background)
+			policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy.Spec.Background)
 			policyType := metrics.Namespaced
 			policyNamespace := inputPolicy.ObjectMeta.Namespace
 			policyName := inputPolicy.ObjectMeta.Name

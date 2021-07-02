@@ -25,7 +25,10 @@ func filterRules(policyContext *PolicyContext, startTime time.Time) *response.En
 	apiVersion := policyContext.NewResource.GetAPIVersion()
 	resp := &response.EngineResponse{
 		PolicyResponse: response.PolicyResponse{
-			Policy: policyContext.Policy.Name,
+			Policy: response.PolicySpec{
+				Name:      policyContext.Policy.GetName(),
+				Namespace: policyContext.Policy.GetNamespace(),
+			},
 			PolicyStats: response.PolicyStats{
 				PolicyExecutionTimestamp: startTime.Unix(),
 			},
