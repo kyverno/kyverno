@@ -1,7 +1,7 @@
 policies:
 - policy.yaml
 resources:
-- resource.yaml
+- resources.yaml
 results:
 # TEST: Pod with Labels Should Pass
 - policy: require-common-labels
