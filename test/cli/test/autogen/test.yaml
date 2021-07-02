@@ -1,0 +1,40 @@
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+# TEST: Pod with Labels Should Pass
+- policy: require-common-labels
+  rule: check-for-labels
+  status: pass
+  resource: pod-with-labels
+
+# TEST: Pod Missing Labels Should Fail
+- policy: require-common-labels
+  rule: check-for-labels
+  status: fail
+  resource: pod-missing-labels
+
+# TEST: Deployment with Labels Should Pass
+- policy: require-common-labels
+  rule: check-for-labels
+  status: pass
+  resource: deployment-with-labels
+
+# TEST: Deployment with Labels Should Fail
+- policy: require-common-labels
+  rule: check-for-labels
+  status: fail
+  resource: deployment-missing-labels
+
+# TEST: StatefulSet with Labels Should Pass
+- policy: require-common-labels
+  rule: check-for-labels
+  status: pass
+  resource: StatefulSet-with-labels
+
+  # TEST: StatefulSet with Labels Should fail
+- policy: require-common-labels
+  rule: check-for-labels
+  status: fail
+  resource: StatefulSet-without-labels
