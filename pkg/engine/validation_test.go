@@ -1476,7 +1476,7 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 	er := Validate(policyContext)
 	assert.Assert(t, er.PolicyResponse.Rules[0].Success)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
-		"variable substitution failed for rule test-path-not-exist: NotFoundVariableErr, variable request.object.metadata.name1 not resolved at path /validate/pattern/spec/containers/0/name")
+		"variable substitution failed for rule test-path-not-exist: Unknown key \"name1\" in path")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSubstitutionFails(t *testing.T) {
@@ -1567,7 +1567,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSu
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
 	assert.Assert(t, er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: NotFoundVariableErr, variable request.object.metadata.name1 not resolved at path /validate/anyPattern/0/spec/template/spec/containers/0/name")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: Unknown key \"name1\" in path")
 }
 
 func Test_VariableSubstitution_NotOperatorWithStringVariable(t *testing.T) {
@@ -1717,7 +1717,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
 	assert.Assert(t, er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: NotFoundVariableErr, variable request.object.metadata.name1 not resolved at path /validate/anyPattern/0/spec/template/spec/containers/0/name")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: Unknown key \"name1\" in path")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatternSatisfy(t *testing.T) {
@@ -1930,7 +1930,7 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 			// referred variable path not present
 			resourceRaw:     []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team"},"prune":true,"validation":"client"}}`),
 			expectedResult:  true,
-			expectedMessage: "variable substitution failed for rule sourceRefNamespace: NotFoundVariableErr, variable request.object.spec.sourceRef.namespace not resolved at path /validate/deny/conditions/0/key",
+			expectedMessage: "variable substitution failed for rule sourceRefNamespace: Unknown key \"namespace\" in path",
 		},
 		{
 			name:      "resource-with-violation",
