@@ -78,7 +78,8 @@ func (ctx *Context) AddJSON(dataRaw []byte) error {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 	// merge json
-	ctx.jsonRaw, err = jsonpatch.MergePatch(ctx.jsonRaw, dataRaw)
+	ctx.jsonRaw, err = jsonpatch.MergeMergePatches(ctx.jsonRaw, dataRaw)
+
 	if err != nil {
 		ctx.log.Error(err, "failed to merge JSON data")
 		return err

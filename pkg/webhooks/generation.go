@@ -172,18 +172,20 @@ func (ws *WebhookServer) handleUpdateCloneSourceResource(resLabels map[string]st
 				logger.V(4).Info("skipping updation of generate request as policy is deleted")
 			} else {
 				logger.Error(err, "failed to get generate policy", "Name", policyName)
-				selector := labels.SelectorFromSet(labels.Set(map[string]string{
-					"generate.kyverno.io/policy-name": policyName,
-				}))
+			}
+		} else {
+			selector := labels.SelectorFromSet(labels.Set(map[string]string{
+				"generate.kyverno.io/policy-name": policyName,
+			}))
 
-				grList, err := ws.grLister.List(selector)
-				if err != nil {
-					logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
-					return
-				}
-				for _, gr := range grList {
-					ws.updateAnnotationInGR(gr, logger)
-				}
+			grList, err := ws.grLister.List(selector)
+			if err != nil {
+				logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
+				return
+			}
+
+			for _, gr := range grList {
+				ws.updateAnnotationInGR(gr, logger)
 			}
 		}
 

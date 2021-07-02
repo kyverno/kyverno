@@ -65,9 +65,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          {{- with .Values.envVars }}
-          env:
-            {{- toYaml . | nindent 14 }}
+          {{- with .Values.envVarsInit }}
+          {{- toYaml . | nindent 10 }}
           {{- end }}
       containers:
         - name: kyverno
@@ -103,6 +102,9 @@ spec:
                 fieldPath: metadata.namespace
           - name: KYVERNO_SVC
             value: {{ template "kyverno.serviceName" . }}
+          {{- with .Values.envVars }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           - name: KYVERNO_DEPLOYMENT
             value: {{ template "kyverno.fullname" . }}
         {{- with .Values.livenessProbe }}

@@ -52,6 +52,7 @@ require (
 )
 
 replace (
+	github.com/evanphx/json-patch/v5 => github.com/kacejot/json-patch/v5 v5.3.1-0.20210513152033-7395b4a9e87f
 	github.com/gorilla/rpc v1.2.0+incompatible => github.com/gorilla/rpc v1.2.0
-	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20210302163943-f30eab0a3ed6
+	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20210511164400-a1d46efa2ed6
 )

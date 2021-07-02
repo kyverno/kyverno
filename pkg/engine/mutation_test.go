@@ -161,8 +161,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Mutate(policyContext)
-	expectedErrorStr := "variable substitution failed for rule test-path-not-exist: NotFoundVariableErr, variable request.object.metadata.name1 not resolved at path /mutate/overlay/spec/name"
-	t.Log(er.PolicyResponse.Rules[0].Message)
+	expectedErrorStr := "variable substitution failed for rule test-path-not-exist: Unknown key \"name1\" in path"
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, expectedErrorStr)
 }
 

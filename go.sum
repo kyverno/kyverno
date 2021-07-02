@@ -560,8 +560,6 @@ github.com/evanphx/json-patch v4.2.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLi
 github.com/evanphx/json-patch v4.5.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
 github.com/evanphx/json-patch v4.9.0+incompatible h1:kLcOMZeuLAJvL2BPWLMIj5oaZQobrkAqrL+WFZwQses=
 github.com/evanphx/json-patch v4.9.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
-github.com/evanphx/json-patch/v5 v5.2.0 h1:8ozOH5xxoMYDt5/u+yMTsVXydVCbTORFnOOoq2lumco=
-github.com/evanphx/json-patch/v5 v5.2.0/go.mod h1:G79N1coSVB93tBe7j6PhzjmR3/2VvlbKOFpnXhI9Bw4=
 github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d/go.mod h1:ZZMPRZwes7CROmyNKgQzC3XPs6L/G2EJLHddWejkmf4=
 github.com/fatih/camelcase v1.0.0/go.mod h1:yN2Sb0lFhZJUdVvtELVWefmrXpuZESvPmqwoZc+/fpc=
 github.com/fatih/color v1.6.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
@@ -1241,6 +1239,8 @@ github.com/julienschmidt/httprouter v1.3.0 h1:U0609e9tgbseu3rBINet9P48AI/D3oJs4d
 github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8IZAc4RVcycCCAKdM=
 github.com/julz/importas v0.0.0-20210419104244-841f0c0fe66d/go.mod h1:oSFU2R4XK/P7kNBrnL/FEQlDGN1/6WoxXEjSSXO0DV0=
 github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88/go.mod h1:3w7q1U84EfirKl04SVQ/s7nPm1ZPhiXd34z40TNz36k=
+github.com/kacejot/json-patch/v5 v5.3.1-0.20210513152033-7395b4a9e87f h1:stprT8fZPnUIe4BIJaYimenaJFM+UKyBMlRLxmbBsYo=
+github.com/kacejot/json-patch/v5 v5.3.1-0.20210513152033-7395b4a9e87f/go.mod h1:G79N1coSVB93tBe7j6PhzjmR3/2VvlbKOFpnXhI9Bw4=
 github.com/karrick/godirwalk v1.8.0/go.mod h1:H5KPZjojv4lE+QYImBI8xVtrBRgYrIVsaRPx4tDPEn4=
 github.com/karrick/godirwalk v1.10.3/go.mod h1:RoGL9dQei4vP9ilrpETWE8CLOZ1kiN0LhBygSwrAsHA=
 github.com/karrick/godirwalk v1.15.6/go.mod h1:j4mkqPuvaLI8mp1DroR3P6ad7cyYd4c1qeJ3RV7ULlk=
@@ -1300,8 +1300,8 @@ github.com/kurin/blazer v0.5.4-0.20190613185654-cf2f27cc0be3/go.mod h1:4FCXMUWo9
 github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
 github.com/kyoh86/exportloopref v0.1.8/go.mod h1:1tUcJeiioIs7VWe5gcOObrux3lb66+sBqGZrRkMwPgg=
-github.com/kyverno/go-jmespath v0.4.1-0.20210302163943-f30eab0a3ed6 h1:9rJUAc/XxL6wV4i+3X56wcRM8tDhoo0l7DIieuXPGfk=
-github.com/kyverno/go-jmespath v0.4.1-0.20210302163943-f30eab0a3ed6/go.mod h1:T8mJZnbsbmF+m6zOOFylbeCJqk5+pHWvzYPziyZiYoo=
+github.com/kyverno/go-jmespath v0.4.1-0.20210511164400-a1d46efa2ed6 h1:3toVuFm87/kV8FSub2JSnjSuLz3l521ON4sOpvuTNbk=
+github.com/kyverno/go-jmespath v0.4.1-0.20210511164400-a1d46efa2ed6/go.mod h1:T8mJZnbsbmF+m6zOOFylbeCJqk5+pHWvzYPziyZiYoo=
 github.com/ldez/gomoddirectives v0.2.1/go.mod h1:sGicqkRgBOg//JfpXwkB9Hj0X5RyJ7mlACM5B9f6Me4=
 github.com/ldez/tagliatelle v0.2.0/go.mod h1:8s6WJQwEYHbKZDsp/LjArytKOG8qaMrKQQ3mFukHs88=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7 h1:k/1ku0yehLCPqERCHkIHMDqDg1R02AcCScRuHbamU3s=
