@@ -2655,6 +2655,11 @@ spec:
     matchLabels:
       app: kyverno
       app.kubernetes.io/name: kyverno
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 40%
+    type: RollingUpdate
   template:
     metadata:
       labels:
@@ -2745,8 +2750,3 @@ spec:
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kyverno-service-account
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 40%
-      maxSurge: 1
