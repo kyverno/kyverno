@@ -31,7 +31,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 	if len(common.PolicyHasVariables(p)) > 0 {
 		err := common.PolicyHasNonAllowedVariables(p)
 		if err != nil {
-			return fmt.Errorf("check for not allowed variables has failed: %s", err.Error())
+			return fmt.Errorf("policy contains invalid variables: %s", err.Error())
 		}
 	}
 
