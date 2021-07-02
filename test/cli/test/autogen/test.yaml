@@ -33,8 +33,20 @@ results:
   status: pass
   resource: StatefulSet-with-labels
 
-  # TEST: StatefulSet with Labels Should fail
+# TEST: StatefulSet with Labels Should fail
 - policy: require-common-labels
   rule: check-for-labels
   status: fail
   resource: StatefulSet-without-labels
+
+# TEST: Cronjob with Labels Should pass
+- policy: require-common-labels
+  rule: check-for-labels
+  status: pass
+  resource: cronjob-with-labels
+
+# TEST: Cronjob without Labels Should fail
+- policy: require-common-labels
+  rule: check-for-labels
+  status: fail
+  resource: cronjob-without-labels
