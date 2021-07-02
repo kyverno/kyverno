@@ -21,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/policymutation"
@@ -157,25 +158,92 @@ func PolicyHasVariables(policy v1.ClusterPolicy) [][]string {
 	return matches
 }
 
-// PolicyHasNonAllowedVariables - checks for unexpected variables in the policy
-func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) bool {
-	policyRaw, _ := json.Marshal(policy)
+// for now forbidden sections are match, exclude and
+func ruleForbiddenSectionsHaveVariables(rule v1.Rule) error {
+	var err error
 
-	matchesAll := RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
-	matchesAllowed := AllowedVariables.FindAllStringSubmatch(string(policyRaw), -1)
-
-	if len(matchesAll) > len(matchesAllowed) {
-		// If rules contains Context then skip this validation
-		for _, rule := range policy.Spec.Rules {
-			if len(rule.Context) > 0 {
-				return false
-			}
-		}
-
-		return true
+	err = JSONPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
+	if err != nil {
+		return fmt.Errorf("Rule \"%s\" should not have variables in patchesJSON6902 path section", rule.Name)
 	}
 
-	return false
+	err = objectHasVariables(rule.ExcludeResources)
+	if err != nil {
+		return fmt.Errorf("Rule \"%s\" should not have variables in exclude section", rule.Name)
+	}
+
+	err = objectHasVariables(rule.MatchResources)
+	if err != nil {
+		return fmt.Errorf("Rule \"%s\" should not have variables in match section", rule.Name)
+	}
+
+	return nil
+}
+
+func JSONPatchPathHasVariables(patch string) error {
+	jsonPatch, err := yaml.ToJSON([]byte(patch))
+	if err != nil {
+		return err
+	}
+
+	decodedPatch, err := jsonpatch.DecodePatch(jsonPatch)
+	if err != nil {
+		return err
+	}
+
+	for _, operation := range decodedPatch {
+		path, err := operation.Path()
+		if err != nil {
+			return err
+		}
+
+		vars := variables.RegexVariables.FindAllString(path, -1)
+		if len(vars) > 0 {
+			return fmt.Errorf("Operation \"%s\" has forbidden variables", operation.Kind())
+		}
+	}
+
+	return nil
+}
+
+func objectHasVariables(object interface{}) error {
+	var err error
+	objectJSON, err := json.Marshal(object)
+	if err != nil {
+		return err
+	}
+
+	if len(RegexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
+		return fmt.Errorf("Object has forbidden variables")
+	}
+
+	return nil
+}
+
+// PolicyHasNonAllowedVariables - checks for unexpected variables in the policy
+func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) error {
+	for _, rule := range policy.Spec.Rules {
+		var err error
+
+		ruleJSON, err := json.Marshal(rule)
+		if err != nil {
+			return err
+		}
+
+		err = ruleForbiddenSectionsHaveVariables(rule)
+		if err != nil {
+			return err
+		}
+
+		matchesAll := RegexVariables.FindAllStringSubmatch(string(ruleJSON), -1)
+		matchesAllowed := AllowedVariables.FindAllStringSubmatch(string(ruleJSON), -1)
+
+		if (len(matchesAll) > len(matchesAllowed)) && len(rule.Context) == 0 {
+			return fmt.Errorf("Rule \"%s\" has forbidden variables. Allowed variables are: {{request.*}}, {{serviceAccountName}}, {{serviceAccountNamespace}}, {{@}} and ones defined by the context", rule.Name)
+		}
+	}
+
+	return nil
 }
 
 // MutatePolicy - applies mutation to a policy
