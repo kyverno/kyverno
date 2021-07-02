@@ -229,7 +229,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 		resourceName := resp.PolicyResponse.Resource.Name
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {
-			rules = append(rules, rule.Name)
+			rules = append(rules, strings.Trim(rule.Name, "autogen-"))
 		}
 		result := report.PolicyReportResult{
 			Policy: policyName,
@@ -258,13 +258,13 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 					continue
 				}
 				var result report.PolicyReportResult
-				resultsKey := fmt.Sprintf("%s-%s-%s", info.PolicyName, rule.Name, infoResult.Resource.Name)
+				resultsKey := fmt.Sprintf("%s-%s-%s", info.PolicyName, strings.Trim(rule.Name, "autogen-"), infoResult.Resource.Name)
 				if val, ok := results[resultsKey]; ok {
 					result = val
 				} else {
 					continue
 				}
-				result.Rule = rule.Name
+				result.Rule = strings.Trim(rule.Name, "autogen-")
 				result.Status = report.PolicyStatus(rule.Check)
 				results[resultsKey] = result
 			}
