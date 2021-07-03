@@ -9,7 +9,9 @@ expected:
         kind: NetworkPolicy
         namespace: devtest
     policyresponse:
-      policy: add-networkpolicy
+      policy:
+        namespace: ''
+        name: add-networkpolicy
       resource:
         kind: Namespace
         apiVersion: v1

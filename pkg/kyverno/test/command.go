@@ -225,7 +225,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	results := make(map[string]report.PolicyReportResult)
 	infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
 	for _, resp := range resps {
-		policyName := resp.PolicyResponse.Policy
+		policyName := resp.PolicyResponse.Policy.Name
 		resourceName := resp.PolicyResponse.Resource.Name
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {

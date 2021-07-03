@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	gojmespath "github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -16,25 +17,25 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 )
 
-var regexVariables = regexp.MustCompile(`\{\{[^{}]*\}\}`)
-var regexReferences = regexp.MustCompile(`\$\(.[^\ ]*\)`)
+var RegexVariables = regexp.MustCompile(`\{\{[^{}]*\}\}`)
+var RegexReferences = regexp.MustCompile(`\$\(.[^\ ]*\)`)
 
 // IsVariable returns true if the element contains a 'valid' variable {{}}
 func IsVariable(value string) bool {
-	groups := regexVariables.FindAllStringSubmatch(value, -1)
+	groups := RegexVariables.FindAllStringSubmatch(value, -1)
 	return len(groups) != 0
 }
 
 // IsReference returns true if the element contains a 'valid' reference $()
 func IsReference(value string) bool {
-	groups := regexReferences.FindAllStringSubmatch(value, -1)
+	groups := RegexReferences.FindAllStringSubmatch(value, -1)
 	return len(groups) != 0
 }
 
 // ReplaceAllVars replaces all variables with the value defined in the replacement function
 // This is used to avoid validation errors
 func ReplaceAllVars(src string, repl func(string) string) string {
-	return regexVariables.ReplaceAllStringFunc(src, repl)
+	return RegexVariables.ReplaceAllStringFunc(src, repl)
 }
 
 func SubstituteAll(log logr.Logger, ctx context.EvalInterface, document interface{}) (_ interface{}, err error) {
@@ -94,13 +95,15 @@ func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) json
 		if !ok {
 			return data.Element, nil
 		}
-		vars := regexVariables.FindAllString(value, -1)
+		vars := RegexVariables.FindAllString(value, -1)
 		for _, v := range vars {
 			variable := replaceBracesAndTrimSpaces(v)
 
 			_, err := ctx.Query(variable)
 			if err != nil {
 				switch err.(type) {
+				case gojmespath.NotFoundError:
+					return nil, nil
 				case context.InvalidVariableErr:
 					return nil, err
 				default:
@@ -110,16 +113,6 @@ func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) json
 		}
 		return nil, nil
 	})
-}
-
-// NotFoundVariableErr is returned when it is impossible to resolve the variable
-type NotFoundVariableErr struct {
-	variable string
-	path     string
-}
-
-func (n NotFoundVariableErr) Error() string {
-	return fmt.Sprintf("NotFoundVariableErr, variable %s not resolved at path %s", n.variable, n.path)
 }
 
 // NotResolvedReferenceErr is returned when it is impossible to resolve the variable
@@ -139,7 +132,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 			return data.Element, nil
 		}
 
-		for _, v := range regexReferences.FindAllString(value, -1) {
+		for _, v := range RegexReferences.FindAllString(value, -1) {
 			resolvedReference, err := resolveReference(log, data.Document, v, data.Path)
 			if err != nil {
 				switch err.(type) {
@@ -178,7 +171,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 			return data.Element, nil
 		}
 
-		vars := regexVariables.FindAllString(value, -1)
+		vars := RegexVariables.FindAllString(value, -1)
 		for len(vars) > 0 {
 			originalPattern := value
 
@@ -197,7 +190,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 				substitutedVar, err := ctx.Query(variable)
 				if err != nil {
 					switch err.(type) {
-					case context.InvalidVariableErr:
+					case context.InvalidVariableErr, gojmespath.NotFoundError:
 						return nil, err
 					default:
 						return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
@@ -206,26 +199,19 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 
 				log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", data.Path)
 
-				if substitutedVar != nil {
-					if originalPattern == v {
-						return substitutedVar, nil
-					}
-
-					if value, err = substituteVarInPattern(originalPattern, v, substitutedVar); err != nil {
-						return nil, fmt.Errorf("failed to resolve %v at path %s: %s", variable, data.Path, err.Error())
-					}
-
-					continue
+				if originalPattern == v {
+					return substitutedVar, nil
 				}
 
-				return nil, NotFoundVariableErr{
-					variable: variable,
-					path:     data.Path,
+				if value, err = substituteVarInPattern(originalPattern, v, substitutedVar); err != nil {
+					return nil, fmt.Errorf("failed to resolve %v at path %s: %s", variable, data.Path, err.Error())
 				}
+
+				continue
 			}
 
 			// check for nested variables in strings
-			vars = regexVariables.FindAllString(value, -1)
+			vars = RegexVariables.FindAllString(value, -1)
 		}
 
 		return value, nil
@@ -310,7 +296,7 @@ func valFromReferenceToString(value interface{}, operator string) (string, error
 }
 
 func FindAndShiftReferences(log logr.Logger, value, shift, pivot string) string {
-	for _, reference := range regexReferences.FindAllString(value, -1) {
+	for _, reference := range RegexReferences.FindAllString(value, -1) {
 
 		index := strings.Index(reference, pivot)
 		if index == -1 {
