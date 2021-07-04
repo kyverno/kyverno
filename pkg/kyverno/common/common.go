@@ -548,7 +548,7 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 	yaml = yaml + ("\n---\n\n")
 
 	if !mutateLogPathIsDir {
-		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/command.go
+		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
 		f, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0644)
 	} else {
 		f, err = os.OpenFile(mutateLogPath+"/"+fileName+".yaml", os.O_CREATE|os.O_WRONLY, 0644)

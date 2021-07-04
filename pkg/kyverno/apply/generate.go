@@ -11,8 +11,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// generateCLIraw merges all policy reports to a singe cluster policy report
-func generateCLIraw(reports []*unstructured.Unstructured) (*unstructured.Unstructured, error) {
+// generateCLIRaw merges all policy reports to a singe cluster policy report
+func generateCLIRaw(reports []*unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	for _, report := range reports {
 		if report.GetNamespace() != "" {
 			report.SetNamespace("")

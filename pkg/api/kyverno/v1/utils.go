@@ -65,7 +65,7 @@ func (r Rule) HasMutate() bool {
 
 // HasVerifyImages checks for verifyImages rule
 func (r Rule) HasVerifyImages() bool {
-	return !reflect.DeepEqual(r.VerifyImages, Mutation{})
+	return r.VerifyImages != nil && !reflect.DeepEqual(r.VerifyImages, ImageVerification{})
 }
 
 // HasValidate checks for validate rule
