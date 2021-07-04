@@ -204,10 +204,10 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	}
 
 	vh := &validationHandler{
-		log: h.log,
+		log:            h.log,
 		statusListener: h.statusListener,
-		eventGen: h.eventGen,
-		prGenerator: h.prGenerator,
+		eventGen:       h.eventGen,
+		prGenerator:    h.prGenerator,
 	}
 
 	vh.handleValidation(h.promConfig, request, policies, policyContext, namespaceLabels, admissionRequestTimestamp)

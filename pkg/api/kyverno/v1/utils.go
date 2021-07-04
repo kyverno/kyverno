@@ -170,7 +170,6 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 	return
 }
 
-
 //ToKey generates the key string used for adding label to polivy violation
 func (rs ResourceSpec) ToKey() string {
 	return rs.Kind + "." + rs.Name

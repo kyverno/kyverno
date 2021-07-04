@@ -106,9 +106,6 @@ type Rule struct {
 	VerifyImages []*ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
 
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
-
 // AnyAllCondition consists of conditions wrapped denoting a logical criteria to be fulfilled.
 // AnyConditions get fulfilled when at least one of its sub-conditions passes.
 // AllConditions get fulfilled only when all of its sub-conditions pass.
@@ -373,8 +370,6 @@ type Validation struct {
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
-
 // Deny specifies a list of conditions used to pass or fail a validation rule.
 type Deny struct {
 	// Multiple conditions can be declared under an `any` or `all` statement. A direct list
@@ -392,10 +387,10 @@ type ImageVerification struct {
 
 	// Image is the image name consisting of the registry address, repository, image, and tag.
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
-	Image string  `json:"image,omitempty" yaml:"image,omitempty"`
+	Image string `json:"image,omitempty" yaml:"image,omitempty"`
 
 	// Key is the PEM encoded public key that the image is signed with.
-	Key string  `json:"key,omitempty" yaml:"key,omitempty"`
+	Key string `json:"key,omitempty" yaml:"key,omitempty"`
 }
 
 // Generation defines how new resources should be created and managed.

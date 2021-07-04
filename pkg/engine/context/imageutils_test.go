@@ -49,7 +49,6 @@ func Test_extractImageInfo(t *testing.T) {
 	}
 }
 
-
 func Test_ImageInfo_String(t *testing.T) {
 	validateImageInfo(t,
 		"registry.test.io/test/myapp:v1.2-21.g5523e95@sha256:31aaf12480bd08c54e7990c6b0e43d775a7a84603d2921a6de4abbc317b2fd10",

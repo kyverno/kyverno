@@ -60,7 +60,6 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 	return
 }
 
-
 func verifyAndPatchImages(logger logr.Logger, rule *v1.Rule, imageVerify *v1.ImageVerification, images map[string]*context.ImageInfo, resp *response.EngineResponse) {
 	imagePattern := imageVerify.Image
 	key := imageVerify.Key
@@ -76,8 +75,8 @@ func verifyAndPatchImages(logger logr.Logger, rule *v1.Rule, imageVerify *v1.Ima
 		incrementAppliedCount(resp)
 
 		ruleResp := response.RuleResponse{
-			Name:    rule.Name,
-			Type:    utils.Validation.String(),
+			Name: rule.Name,
+			Type: utils.Validation.String(),
 		}
 
 		start := time.Now()
@@ -95,7 +94,7 @@ func verifyAndPatchImages(logger logr.Logger, rule *v1.Rule, imageVerify *v1.Ima
 			if imageInfo.Digest == "" {
 				patch, err := makeAddDigestPatch(imageInfo, digest)
 				if err != nil {
-					logger.Error(err,"failed to patch image with digest", "image", imageInfo.String(), "jsonPath", imageInfo.JSONPath)
+					logger.Error(err, "failed to patch image with digest", "image", imageInfo.String(), "jsonPath", imageInfo.JSONPath)
 				} else {
 					logger.V(4).Info("patching verified image with digest", "patch", string(patch))
 					ruleResp.Patches = [][]byte{patch}

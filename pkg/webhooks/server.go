@@ -363,7 +363,6 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	mutatePatches, triggeredMutatePolicies, mutateEngineResponses := ws.handleMutation(request, policyContext, mutatePolicies, admissionRequestTimestamp)
 	logger.V(6).Info("", "generated patches", string(mutatePatches))
 
-
 	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
 	// registering the kyverno_admission_review_latency_milliseconds metric concurrently
 	go registerAdmissionReviewLatencyMetricMutate(logger, *ws.promConfig.Metrics, string(request.Operation), mutateEngineResponses, triggeredMutatePolicies, admissionReviewLatencyDuration, admissionRequestTimestamp)
@@ -380,7 +379,6 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	logger.V(6).Info("images verified", "patches", string(imagePatches))
-
 
 	// GENERATE
 	patchedResource = processResourceWithPatches(imagePatches, newRequest.Object.Raw, logger)

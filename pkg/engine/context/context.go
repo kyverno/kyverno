@@ -46,7 +46,7 @@ type Context struct {
 	jsonRaw           []byte
 	jsonRawCheckpoint []byte
 	builtInVars       []string
-	images 			  *Images
+	images            *Images
 	log               logr.Logger
 }
 

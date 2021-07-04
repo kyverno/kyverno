@@ -166,11 +166,7 @@ func newImageInfo(image, jsonPath string) (*ImageInfo, error) {
 		digest = digested.Digest().String()
 	}
 
-	// set default registry and tag
-	if registry == "" {
-		registry = "docker.io"
-	}
-
+	// set default tag - the domain is set via addDefaultDomain before parsing
 	if tag == "" {
 		tag = "latest"
 	}

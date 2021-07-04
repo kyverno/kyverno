@@ -412,14 +412,14 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log l
 // https://github.com/kyverno/kyverno/issues/568
 
 type kyvernoRule struct {
-	Name             string                    `json:"name"`
-	MatchResources   *kyverno.MatchResources   `json:"match"`
-	ExcludeResources *kyverno.ExcludeResources `json:"exclude,omitempty"`
-	Context          *[]kyverno.ContextEntry   `json:"context,omitempty"`
-	AnyAllConditions *apiextensions.JSON       `json:"preconditions,omitempty"`
-	Mutation         *kyverno.Mutation         `json:"mutate,omitempty"`
-	Validation       *kyverno.Validation       `json:"validate,omitempty"`
-	VerifyImages     []*kyverno.ImageVerification      `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+	Name             string                       `json:"name"`
+	MatchResources   *kyverno.MatchResources      `json:"match"`
+	ExcludeResources *kyverno.ExcludeResources    `json:"exclude,omitempty"`
+	Context          *[]kyverno.ContextEntry      `json:"context,omitempty"`
+	AnyAllConditions *apiextensions.JSON          `json:"preconditions,omitempty"`
+	Mutation         *kyverno.Mutation            `json:"mutate,omitempty"`
+	Validation       *kyverno.Validation          `json:"validate,omitempty"`
+	VerifyImages     []*kyverno.ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
 
 func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.Logger) kyvernoRule {
