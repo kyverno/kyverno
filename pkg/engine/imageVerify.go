@@ -41,7 +41,8 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 	policyContext.JSONContext.Checkpoint()
 	defer policyContext.JSONContext.Restore()
 
-	for _, rule := range policyContext.Policy.Spec.Rules {
+	for  i := range policyContext.Policy.Spec.Rules {
+		rule := policyContext.Policy.Spec.Rules[i]
 		if len(rule.VerifyImages) == 0 {
 			continue
 		}
