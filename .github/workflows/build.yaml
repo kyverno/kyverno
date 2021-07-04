@@ -172,7 +172,7 @@ jobs:
       - name: Kyverno unit test
         run: |
           export PROJECT_PATH=$(pwd)
-          make test-all
+          make test-unit
 
   helm-tests:
     runs-on: ubuntu-latest

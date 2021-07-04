@@ -48,7 +48,7 @@ jobs:
 
       - name: Test Policy
         run: |
-          make run_testcmd_policy
+          make test-cmd
       
       - name: gofmt check
         run: |
