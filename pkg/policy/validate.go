@@ -28,8 +28,11 @@ import (
 // - ResourceDescription mandatory checks
 func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
 	p := *policy
-	if len(common.PolicyHasVariables(p)) > 0 && common.PolicyHasNonAllowedVariables(p) {
-		return fmt.Errorf("policy contains invalid variables")
+	if len(common.PolicyHasVariables(p)) > 0 {
+		err := common.PolicyHasNonAllowedVariables(p)
+		if err != nil {
+			return fmt.Errorf("policy contains invalid variables: %s", err.Error())
+		}
 	}
 
 	// policy name is stored in the label of the report change request
