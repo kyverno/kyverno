@@ -1,7 +1,6 @@
 package webhooks
 
 import (
-	"github.com/google/go-containerregistry/pkg/authn"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -19,10 +18,6 @@ func (ws *WebhookServer) handleVerifyImages(request *v1beta1.AdmissionRequest,
 
 	resourceName := getResourceName(request)
 	logger := ws.log.WithValues("action", "verifyImages", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind.String())
-
-	if authn.DefaultKeychain == nil {
-
-	}
 
 	var engineResponses []*response.EngineResponse
 	var patches [][]byte

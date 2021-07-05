@@ -137,7 +137,6 @@ func (in *Deny) DeepCopyInto(out *Deny) {
 	if in.AnyAllConditions != nil {
 		out.AnyAllConditions = in.AnyAllConditions
 	}
-	return
 }
 func (in *Rule) DeepCopyInto(out *Rule) {
 	*out = *in
@@ -167,7 +166,6 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 			}
 		}
 	}
-	return
 }
 
 //ToKey generates the key string used for adding label to polivy violation
