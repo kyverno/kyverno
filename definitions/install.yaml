@@ -160,9 +160,10 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name
-                                supports wildcard characters "*" (matches zero or
-                                many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             namespaceSelector:
                               description: 'NamespaceSelector is a label selector
@@ -396,9 +397,10 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name
-                                supports wildcard characters "*" (matches zero or
-                                many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             namespaceSelector:
                               description: 'NamespaceSelector is a label selector
@@ -1759,9 +1761,10 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name
-                                supports wildcard characters "*" (matches zero or
-                                many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             namespaceSelector:
                               description: 'NamespaceSelector is a label selector
@@ -1995,9 +1998,10 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name
-                                supports wildcard characters "*" (matches zero or
-                                many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             namespaceSelector:
                               description: 'NamespaceSelector is a label selector
