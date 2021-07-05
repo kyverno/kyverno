@@ -148,9 +148,10 @@ spec:
                                 many characters) and "?" (at least one character).
                               type: string
                             names:
-                              description: Names are the names of the resources. Each
-                                name supports wildcard characters "*" (matches zero
-                                or many characters) and "?" (at least one character).
+                              description: 'Names are the names of the resources.
+                                Each name supports wildcard characters "*" (matches
+                                zero or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
                               items:
                                 type: string
                               type: array
@@ -391,9 +392,10 @@ spec:
                                 many characters) and "?" (at least one character).
                               type: string
                             names:
-                              description: Names are the names of the resources. Each
-                                name supports wildcard characters "*" (matches zero
-                                or many characters) and "?" (at least one character).
+                              description: 'Names are the names of the resources.
+                                Each name supports wildcard characters "*" (matches
+                                zero or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
                               items:
                                 type: string
                               type: array
