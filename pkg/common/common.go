@@ -166,7 +166,6 @@ func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client *dclie
 	return generatePolicyWithClone
 }
 
-
 func updateSourceResource(pName string, rule kyverno.Rule, client *dclient.Client, log logr.Logger) error {
 	obj, err := client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 	if err != nil {
