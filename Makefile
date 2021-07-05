@@ -161,12 +161,12 @@ $(GO_ACC):
 # go-acc merges the result for pks so that it be used by
 # go tool cover for reporting
 
-test: test-all test-e2e test-cmd
+test: test-unit test-e2e test-cmd
 
 
 # go get downloads and installs the binary
 # we temporarily add the GO_ACC to the path
-test-all: $(GO_ACC)
+test-unit: $(GO_ACC)
 	@echo "	running unit tests"
 	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
 
