@@ -70,7 +70,7 @@ func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) error {
 }
 
 func PolicyCreated(policyName string, timeBeforePolicyCreation time.Time) error {
-	return e2e.GetWithRetry(1*time.Second, 30, checkPolicyCreated(policyName, timeBeforePolicyCreation))
+	return e2e.GetWithRetry(1*time.Second, 60, checkPolicyCreated(policyName, timeBeforePolicyCreation))
 }
 
 func checkPolicyCreated(policyName string, timeBeforePolicyCreation time.Time) func() error {

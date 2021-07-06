@@ -86,7 +86,7 @@ func GetWithRetry(sleepInterval time.Duration, retryCount int, retryFunc func() 
 		time.Sleep(sleepInterval)
 	}
 
-	return err
+	return fmt.Errorf("operation failed, retries=%v, duration=%v: %v", retryCount, sleepInterval, err)
 }
 
 // DeleteNamespacedResource ...
