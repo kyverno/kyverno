@@ -58,12 +58,9 @@ func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) error {
 				}
 			}
 
-			if policyName == e2ePolicyName {
-				diff := e2eTime.Sub(timeInTimeFormat)
-				if diff < time.Second {
-					if action == "created" {
-						return nil
-					}
+			if policyName == e2ePolicyName && action == "created" {
+				if timeInTimeFormat.After(e2eTime) {
+					return nil
 				}
 			}
 		}

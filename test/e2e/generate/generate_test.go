@@ -360,10 +360,9 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 		By("Creating Generate NetworkPolicy Policy")
 		loc, _ := time.LoadLocation("UTC")
 		timeBeforePolicyCreation := time.Now().In(loc)
-		policy, err := e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
+		_, err := e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 
-		By(fmt.Sprintf("Created %s %s", policy.GetKind(), policy.GetName()))
 		err = commonE2E.PolicyCreated(test.PolicyName, timeBeforePolicyCreation)
 		Expect(err).NotTo(HaveOccurred())
 
