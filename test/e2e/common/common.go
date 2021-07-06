@@ -2,6 +2,7 @@ package common
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"time"
 
@@ -30,29 +31,29 @@ func CallMetrics() (string, error) {
 }
 
 // ProcessMetrics checks the metrics log and identify if the policy is added in cache or not
-func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) (bool, error) {
+func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) error {
 	var action, policyName string
 	var timeInTimeFormat time.Time
 	var err error
 	splitByNewLine := strings.Split(newStr, "\n")
-	for _, lineSplitedByNewLine := range splitByNewLine {
-		if strings.HasPrefix(lineSplitedByNewLine, "kyverno_policy_changes_info{") {
-			splitByComma := strings.Split(lineSplitedByNewLine, ",")
-			for _, lineSplitedByComma := range splitByComma {
-				if strings.HasPrefix(lineSplitedByComma, "policy_change_type=") {
-					splitByQuote := strings.Split(lineSplitedByComma, "\"")
+	for _, lineSplitByNewLine := range splitByNewLine {
+		if strings.HasPrefix(lineSplitByNewLine, "kyverno_policy_changes_info{") {
+			splitByComma := strings.Split(lineSplitByNewLine, ",")
+			for _, lineSplitByComma := range splitByComma {
+				if strings.HasPrefix(lineSplitByComma, "policy_change_type=") {
+					splitByQuote := strings.Split(lineSplitByComma, "\"")
 					action = splitByQuote[1]
 				}
-				if strings.HasPrefix(lineSplitedByComma, "policy_name=") {
-					splitByQuote := strings.Split(lineSplitedByComma, "\"")
+				if strings.HasPrefix(lineSplitByComma, "policy_name=") {
+					splitByQuote := strings.Split(lineSplitByComma, "\"")
 					policyName = splitByQuote[1]
 				}
-				if strings.HasPrefix(lineSplitedByComma, "timestamp=") {
-					splitByQuote := strings.Split(lineSplitedByComma, "\"")
+				if strings.HasPrefix(lineSplitByComma, "timestamp=") {
+					splitByQuote := strings.Split(lineSplitByComma, "\"")
 					layout := "2006-01-02 15:04:05 -0700 MST"
 					timeInTimeFormat, err = time.Parse(layout, splitByQuote[1])
 					if err != nil {
-						return false, err
+						return err
 					}
 				}
 			}
@@ -61,11 +62,33 @@ func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) (bool, erro
 				diff := e2eTime.Sub(timeInTimeFormat)
 				if diff < time.Second {
 					if action == "created" {
-						return true, nil
+						return nil
 					}
 				}
 			}
 		}
 	}
-	return false, nil
+
+	return fmt.Errorf("policy %s not found in metrics %s", e2ePolicyName, newStr)
+}
+
+func PolicyCreated(policyName string, timeBeforePolicyCreation time.Time) error {
+	return e2e.GetWithRetry(1*time.Second, 30, checkPolicyCreated(policyName, timeBeforePolicyCreation))
+}
+
+func checkPolicyCreated(policyName string, timeBeforePolicyCreation time.Time) func() error {
+	return func() error {
+		var metricsString string
+		metricsString, err := CallMetrics()
+		if err != nil {
+			return fmt.Errorf("failed to get metrics: %v", err)
+		}
+
+		err = ProcessMetrics(metricsString, policyName, timeBeforePolicyCreation)
+		if err != nil {
+			return fmt.Errorf("policy not created: %v", err)
+		}
+
+		return nil
+	}
 }

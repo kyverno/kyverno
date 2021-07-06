@@ -59,7 +59,7 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 		By(fmt.Sprintf("Deleting Namespace : %s", nspace))
 		e2eClient.DeleteClusteredResource(nsGVR, nspace) // Clear Namespace
 		e2eClient.DeleteNamespacedResource(dcsmPolGVR, nspace, resource.testResourceName)
-		e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error { // Wait Till Deletion of Namespace
+		e2e.GetWithRetry(1*time.Second, 15, func() error { // Wait Till Deletion of Namespace
 			_, err := e2eClient.GetClusteredResource(nsGVR, nspace)
 			if err != nil {
 				return nil
@@ -71,7 +71,7 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 		By(fmt.Sprintf("Creating Namespace %s", saGVR))
 		_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, LitmusChaosnamespaceYaml)
 		Expect(err).NotTo(HaveOccurred())
-		e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error { // Wait Till Creation of Namespace
+		e2e.GetWithRetry(1*time.Second, 15, func() error { // Wait Till Creation of Namespace
 			_, err := e2eClient.GetClusteredResource(nsGVR, resource.namespace)
 			if err != nil {
 				return err
@@ -101,7 +101,7 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 
 		By(fmt.Sprintf("\nMonitoring status from ChaosResult in %s", nspace))
 
-		e2e.GetWithRetry(time.Duration(5*time.Second), 15, func() error { // Wait Till preparing Chaos engine
+		e2e.GetWithRetry(1*time.Second, 120, func() error { // Wait Till preparing Chaos engine
 			chaosresult, err := e2eClient.GetNamespacedResource(crGVR, nspace, "kind-chaos-pod-cpu-hog")
 			if err != nil {
 				return fmt.Errorf("Unable to fatch ChaosResult: %v", err)
@@ -132,8 +132,8 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 		//CleanUp Resources
 		e2eClient.CleanClusterPolicies(clPolGVR) //Clean Cluster Policy
 		e2eClient.CleanClusterPolicies(saGVR)
-		e2eClient.DeleteClusteredResource(nsGVR, nspace)                  // Clear Namespace
-		e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error { // Wait Till Deletion of Namespace
+		e2eClient.DeleteClusteredResource(nsGVR, nspace)   // Clear Namespace
+		e2e.GetWithRetry(1*time.Second, 15, func() error { // Wait Till Deletion of Namespace
 			_, err := e2eClient.GetClusteredResource(nsGVR, nspace)
 			if err != nil {
 				return nil
