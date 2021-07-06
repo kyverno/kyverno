@@ -227,6 +227,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	for _, resp := range resps {
 		policyName := resp.PolicyResponse.Policy.Name
 		resourceName := resp.PolicyResponse.Resource.Name
+
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {
 			rules = append(rules, rule.Name)
@@ -257,14 +258,18 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 				if rule.Type != utils.Validation.String() {
 					continue
 				}
+				ruleName := strings.ReplaceAll(rule.Name, "autogen-", "")
+				if strings.Contains(rule.Name, "autogen-cronjob") {
+					ruleName = strings.ReplaceAll(rule.Name, "autogen-cronjob-", "")
+				}
 				var result report.PolicyReportResult
-				resultsKey := fmt.Sprintf("%s-%s-%s", info.PolicyName, rule.Name, infoResult.Resource.Name)
+				resultsKey := fmt.Sprintf("%s-%s-%s", info.PolicyName, ruleName, infoResult.Resource.Name)
 				if val, ok := results[resultsKey]; ok {
 					result = val
 				} else {
 					continue
 				}
-				result.Rule = rule.Name
+				result.Rule = ruleName
 				result.Status = report.PolicyStatus(rule.Check)
 				results[resultsKey] = result
 			}
