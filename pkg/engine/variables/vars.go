@@ -44,7 +44,30 @@ func SubstituteAll(log logr.Logger, ctx context.EvalInterface, document interfac
 		return kyverno.Rule{}, err
 	}
 
-	return substituteVars(log, ctx, document)
+	return substituteVars(log, ctx, document, DefaultVariableResolver)
+}
+
+func newPreconditionsVariableResolver(log logr.Logger) VariableResolver {
+	// PreconditionsVariableResolver is used to substitute vars in preconditions.
+	// It returns empty string if error occured during substitution
+	return func(ctx context.EvalInterface, variable string) (interface{}, error) {
+		value, err := DefaultVariableResolver(ctx, variable)
+		if err != nil {
+			log.Info(fmt.Sprintf("Variable \"%s\" is not resolved in preconditions. Considering it as an empty string", variable))
+			return "", nil
+		}
+
+		return value, nil
+	}
+}
+
+func SubstituteAllInPreconditions(log logr.Logger, ctx context.EvalInterface, document interface{}) (_ interface{}, err error) {
+	document, err = substituteReferences(log, document)
+	if err != nil {
+		return kyverno.Rule{}, err
+	}
+
+	return substituteVars(log, ctx, document, newPreconditionsVariableResolver(log))
 }
 
 func SubstituteAllForceMutate(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
@@ -63,7 +86,7 @@ func SubstituteAllForceMutate(log logr.Logger, ctx context.EvalInterface, typedR
 	if ctx == nil {
 		rule = replaceSubstituteVariables(rule)
 	} else {
-		rule, err = substituteVars(log, ctx, rule)
+		rule, err = substituteVars(log, ctx, rule, DefaultVariableResolver)
 		if err != nil {
 			return kyverno.Rule{}, err
 		}
@@ -74,8 +97,8 @@ func SubstituteAllForceMutate(log logr.Logger, ctx context.EvalInterface, typedR
 
 //SubstituteVars replaces the variables with the values defined in the context
 // - if any variable is invalid or has nil value, it is considered as a failed variable substitution
-func substituteVars(log logr.Logger, ctx context.EvalInterface, rule interface{}) (interface{}, error) {
-	return jsonUtils.NewTraversal(rule, substituteVariablesIfAny(log, ctx)).TraverseJSON()
+func substituteVars(log logr.Logger, ctx context.EvalInterface, rule interface{}, vr VariableResolver) (interface{}, error) {
+	return jsonUtils.NewTraversal(rule, substituteVariablesIfAny(log, ctx, vr)).TraverseJSON()
 }
 
 func substituteReferences(log logr.Logger, rule interface{}) (interface{}, error) {
@@ -164,7 +187,15 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 	})
 }
 
-func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUtils.Action {
+//VariableResolver defines the handler function for variable substitution
+type VariableResolver = func(ctx context.EvalInterface, variable string) (interface{}, error)
+
+// DefaultVariableResolver is used in all variable substitutions except preconditions
+func DefaultVariableResolver(ctx context.EvalInterface, variable string) (interface{}, error) {
+	return ctx.Query(variable)
+}
+
+func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr VariableResolver) jsonUtils.Action {
 	return jsonUtils.OnlyForLeafs(func(data *jsonUtils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
 		if !ok {
@@ -187,7 +218,8 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 					variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
 				}
 
-				substitutedVar, err := ctx.Query(variable)
+				substitutedVar, err := vr(ctx, variable)
+
 				if err != nil {
 					switch err.(type) {
 					case context.InvalidVariableErr, gojmespath.NotFoundError:
@@ -354,7 +386,7 @@ func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, typedRule k
 		return typedRule, err
 	}
 
-	rule, err = substituteVars(log, ctx, rule)
+	rule, err = substituteVars(log, ctx, rule, DefaultVariableResolver)
 	if err != nil {
 		return typedRule, err
 	}

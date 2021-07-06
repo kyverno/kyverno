@@ -6,6 +6,7 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -978,9 +979,20 @@ func Test_Eval_Equal_Var_Pass(t *testing.T) {
 		Value:    "temp",
 	}
 
-	if !Evaluate(log.Log, ctx, condition) {
-		t.Error("expected to pass")
-	}
+	conditionJSON, err := json.Marshal(condition)
+	assert.Nil(t, err)
+
+	var conditionMap interface{}
+	err = json.Unmarshal(conditionJSON, &conditionMap)
+	assert.Nil(t, err)
+
+	conditionWithResolvedVars, err := SubstituteAllInPreconditions(log.Log, ctx, conditionMap)
+	conditionJSON, err = json.Marshal(conditionWithResolvedVars)
+	assert.Nil(t, err)
+
+	err = json.Unmarshal(conditionJSON, &condition)
+	assert.Nil(t, err)
+	assert.True(t, Evaluate(log.Log, ctx, condition))
 }
 
 func Test_Eval_Equal_Var_Fail(t *testing.T) {

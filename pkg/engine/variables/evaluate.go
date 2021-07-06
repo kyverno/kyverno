@@ -10,7 +10,7 @@ import (
 //Evaluate evaluates the condition
 func Evaluate(log logr.Logger, ctx context.EvalInterface, condition kyverno.Condition) bool {
 	// get handler for the operator
-	handle := operator.CreateOperatorHandler(log, ctx, condition.Operator, SubstituteAll)
+	handle := operator.CreateOperatorHandler(log, ctx, condition.Operator)
 	if handle == nil {
 		return false
 	}

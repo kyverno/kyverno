@@ -436,7 +436,7 @@ func Test_SubstituteSuccess(t *testing.T) {
 	patternRaw := []byte(`"{{request.object.metadata.annotations.test}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
-	action := substituteVariablesIfAny(log.Log, ctx)
+	action := substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
 	results, err := action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
@@ -460,7 +460,7 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.annotations.test2}}}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
-	action := substituteVariablesIfAny(log.Log, ctx)
+	action := substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
 	results, err := action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
@@ -473,7 +473,7 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 	patternRaw = []byte(`"{{request.object.metadata2.{{request.object.metadata.annotations.test}}}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
-	action = substituteVariablesIfAny(log.Log, ctx)
+	action = substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
 	results, err = action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
@@ -492,7 +492,7 @@ func Test_SubstituteRecursive(t *testing.T) {
 	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.annotations.test}}}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
-	action := substituteVariablesIfAny(log.Log, ctx)
+	action := substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
 	results, err := action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
