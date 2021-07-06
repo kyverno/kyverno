@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-common-labels
+spec:
+  validationFailureAction: enforce
+  rules:
+  - name: check-for-labels
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Both `app` and `owner` labels must be set on all workloads"
+      pattern:
+        metadata:
+          labels:
+            app: "?*"
+            owner: "?*"
