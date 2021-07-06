@@ -50,7 +50,7 @@ func Test_Mutate_Sets(t *testing.T) {
 		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
 
 		// Wait Till Deletion of Namespace
-		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+		e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error {
 			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
 			if err != nil {
 				return nil
@@ -64,7 +64,7 @@ func Test_Mutate_Sets(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Wait Till Creation of Namespace
-		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+		e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error {
 			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
 			if err != nil {
 				return err
@@ -87,7 +87,7 @@ func Test_Mutate_Sets(t *testing.T) {
 
 		// check policy in metrics
 		policySyncBool := false
-		e2e.GetWithRetry(time.Duration(2), 10, func() error {
+		e2e.GetWithRetry(time.Duration(2*time.Second), 10, func() error {
 			metricsString, err := commonE2E.CallMetrics()
 			if err != nil {
 				return err
@@ -108,7 +108,7 @@ func Test_Mutate_Sets(t *testing.T) {
 		// Verify created ConfigMap
 		By(fmt.Sprintf("Verifying ConfigMap in the Namespace : %s", tests.ResourceNamespace))
 		// Wait Till Creation of ConfigMap
-		err = e2e.GetWithRetry(time.Duration(1), 15, func() error {
+		err = e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error {
 			_, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, "target")
 			if err != nil {
 				return err
@@ -130,7 +130,7 @@ func Test_Mutate_Sets(t *testing.T) {
 		// Clear Namespace
 		e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
 		// Wait Till Deletion of Namespace
-		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+		e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error {
 			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
 			if err != nil {
 				return nil
@@ -160,7 +160,7 @@ func Test_Mutate_Ingress(t *testing.T) {
 	e2eClient.DeleteClusteredResource(nsGVR, nspace)
 
 	// Wait Till Deletion of Namespace
-	err = e2e.GetWithRetry(time.Duration(1), 15, func() error {
+	err = e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error {
 		_, err := e2eClient.GetClusteredResource(nsGVR, nspace)
 		if err != nil {
 			return nil
@@ -177,7 +177,7 @@ func Test_Mutate_Ingress(t *testing.T) {
 
 	// check policy in metrics
 	policySyncBool := false
-	e2e.GetWithRetry(time.Duration(2), 10, func() error {
+	e2e.GetWithRetry(time.Duration(2*time.Second), 10, func() error {
 		metricsString, err := commonE2E.CallMetrics()
 		if err != nil {
 			return err
@@ -204,7 +204,7 @@ func Test_Mutate_Ingress(t *testing.T) {
 
 		By(fmt.Sprintf("Verifying Ingress %v in the Namespace : %s", gvr, nspace))
 		var mutatedResource *unstructured.Unstructured
-		err = e2e.GetWithRetry(time.Duration(1), 15, func() error {
+		err = e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error {
 			mutatedResource, err = e2eClient.GetNamespacedResource(gvr, nspace, test.resourceName)
 			if err != nil {
 				return err
