@@ -82,12 +82,10 @@ func Test_Mutate_Sets(t *testing.T) {
 
 		// Create CM Policy
 		By(fmt.Sprintf("\nCreating Mutate ConfigMap Policy in %s", clPolNS))
-		loc, _ := time.LoadLocation("UTC")
-		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = commonE2E.PolicyCreated(tests.PolicyName, timeBeforePolicyCreation)
+		err = commonE2E.PolicyCreated(tests.PolicyName)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Create target CM
@@ -162,12 +160,10 @@ func Test_Mutate_Ingress(t *testing.T) {
 	Expect(err).To(BeNil())
 
 	By(fmt.Sprintf("Creating mutate ClusterPolicy "))
-	loc, _ := time.LoadLocation("UTC")
-	timeBeforePolicyCreation := time.Now().In(loc)
 	_, err = e2eClient.CreateClusteredResourceYaml(clPolGVR, ingressTests.cpol)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = commonE2E.PolicyCreated(ingressTests.policyName, timeBeforePolicyCreation)
+	err = commonE2E.PolicyCreated(ingressTests.policyName)
 	Expect(err).NotTo(HaveOccurred())
 
 	By(fmt.Sprintf("Creating Namespace %s", nspace))

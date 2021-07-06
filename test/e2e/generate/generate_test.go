@@ -86,7 +86,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 			if err != nil {
 				return nil
 			}
-			return errors.New("Deleting Namespace")
+			return fmt.Errorf("failed to delete namespace: %v", err)
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -94,12 +94,10 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 
 		// ======== Create ClusterRole Policy =============
 		By(fmt.Sprintf("Creating Generate Role Policy in %s", clPolNS))
-		loc, _ := time.LoadLocation("UTC")
-		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = commonE2E.PolicyCreated(tests.PolicyName, timeBeforePolicyCreation)
+		err = commonE2E.PolicyCreated(tests.PolicyName)
 		Expect(err).NotTo(HaveOccurred())
 
 		// == If Clone is true Create Source Resources ======
@@ -176,7 +174,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 			if err != nil {
 				return nil
 			}
-			return errors.New("Deleting Namespace")
+			return fmt.Errorf("failed to delete namespace: %v", err)
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -222,18 +220,16 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 			if err != nil {
 				return nil
 			}
-			return errors.New("Deleting Namespace")
+			return fmt.Errorf("failed to delete namespace: %v", err)
 		})
 		Expect(err).NotTo(HaveOccurred())
 
 		// ======== Create Role Policy =============
 		By(fmt.Sprintf("\nCreating Generate Role Policy in %s", clPolNS))
-		loc, _ := time.LoadLocation("UTC")
-		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = commonE2E.PolicyCreated(tests.PolicyName, timeBeforePolicyCreation)
+		err = commonE2E.PolicyCreated(tests.PolicyName)
 		Expect(err).NotTo(HaveOccurred())
 
 		// ============================================
@@ -315,7 +311,7 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 			if err != nil {
 				return nil
 			}
-			return errors.New("Deleting Namespace")
+			return fmt.Errorf("failed to delete namespace: %v", err)
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -358,12 +354,10 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 
 		// ======== Create Generate NetworkPolicy Policy =============
 		By("Creating Generate NetworkPolicy Policy")
-		loc, _ := time.LoadLocation("UTC")
-		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err := e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = commonE2E.PolicyCreated(test.PolicyName, timeBeforePolicyCreation)
+		err = commonE2E.PolicyCreated(test.PolicyName)
 		Expect(err).NotTo(HaveOccurred())
 
 		// ======= Create Namespace ==================
@@ -455,13 +449,11 @@ func Test_Generate_Namespace_Label_Actions(t *testing.T) {
 
 		// ======== Create Generate NetworkPolicy Policy =============
 		By("Creating Generate NetworkPolicy Policy")
-		loc, _ := time.LoadLocation("UTC")
-		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
 
-		err = commonE2E.PolicyCreated(test.GeneratePolicyName, timeBeforePolicyCreation)
+		err = commonE2E.PolicyCreated(test.GeneratePolicyName)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Test: when creating the new namespace without the label, there should not have any generated resource
@@ -651,12 +643,10 @@ func Test_Generate_Synchronize_Flag(t *testing.T) {
 
 		// ======== Create Generate NetworkPolicy Policy =============
 		By("Creating Generate NetworkPolicy Policy")
-		loc, _ := time.LoadLocation("UTC")
-		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = commonE2E.PolicyCreated(test.GeneratePolicyName, timeBeforePolicyCreation)
+		err = commonE2E.PolicyCreated(test.GeneratePolicyName)
 		Expect(err).NotTo(HaveOccurred())
 
 		// ======= Create Namespace ==================
@@ -836,7 +826,7 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 			if err != nil {
 				return nil
 			}
-			return errors.New("Deleting Namespace")
+			return fmt.Errorf("failed to delete namespace: %v", err)
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -850,12 +840,10 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 
 		// ======== Create Generate Policy =============
 		By(fmt.Sprintf("\nCreating Generate Policy in %s", clPolNS))
-		loc, _ := time.LoadLocation("UTC")
-		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = commonE2E.PolicyCreated(tests.PolicyName, timeBeforePolicyCreation)
+		err = commonE2E.PolicyCreated(tests.PolicyName)
 		Expect(err).NotTo(HaveOccurred())
 
 		// ======= Create Namespace ==================
@@ -1000,7 +988,7 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 			if err != nil {
 				return nil
 			}
-			return errors.New("Deleting Namespace")
+			return fmt.Errorf("failed to delete namespace: %v", err)
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1045,7 +1033,7 @@ func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
 			if err != nil {
 				return nil
 			}
-			return errors.New("Deleting Namespace")
+			return fmt.Errorf("failed to delete namespace: %v", err)
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1059,12 +1047,10 @@ func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
 
 		// ======== Create Generate Policy =============
 		By(fmt.Sprintf("\nCreating Generate Policy in %s", clPolNS))
-		loc, _ := time.LoadLocation("UTC")
-		timeBeforePolicyCreation := time.Now().In(loc)
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = commonE2E.PolicyCreated(tests.PolicyName, timeBeforePolicyCreation)
+		err = commonE2E.PolicyCreated(tests.PolicyName)
 		Expect(err).NotTo(HaveOccurred())
 
 		// ======= Create Namespace ==================
@@ -1196,7 +1182,7 @@ func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
 			if err != nil {
 				return nil
 			}
-			return errors.New("Deleting Namespace")
+			return fmt.Errorf("failed to delete namespace: %v", err)
 		})
 		Expect(err).ToNot(HaveOccurred())
 
