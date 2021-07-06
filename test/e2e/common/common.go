@@ -59,6 +59,8 @@ func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) error {
 			}
 
 			if policyName == e2ePolicyName && action == "created" {
+				e2eTime = e2eTime.Round(time.Second)
+				timeInTimeFormat = timeInTimeFormat.Round(time.Second)
 				if timeInTimeFormat.After(e2eTime) || timeInTimeFormat.Equal(e2eTime) {
 					return nil
 				}
