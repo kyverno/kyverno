@@ -157,7 +157,8 @@ func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client *dclie
 				logger.Error(err, "failed to update generate source resource labels")
 				if apierrors.IsConflict(err) {
 					retryCount++
-					continue
+				} else {
+					break
 				}
 			}
 		}
