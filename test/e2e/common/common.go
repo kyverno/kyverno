@@ -59,14 +59,14 @@ func ProcessMetrics(newStr, e2ePolicyName string, e2eTime time.Time) error {
 			}
 
 			if policyName == e2ePolicyName && action == "created" {
-				if timeInTimeFormat.After(e2eTime) {
+				if timeInTimeFormat.After(e2eTime) || timeInTimeFormat.Equal(e2eTime) {
 					return nil
 				}
 			}
 		}
 	}
 
-	return fmt.Errorf("policy %s not found in metrics %s", e2ePolicyName, newStr)
+	return fmt.Errorf("policy %s after %s not found in metrics %s", e2ePolicyName, e2eTime, newStr)
 }
 
 func PolicyCreated(policyName string, timeBeforePolicyCreation time.Time) error {

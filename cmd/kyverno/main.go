@@ -118,10 +118,10 @@ func main() {
 		metricsServerMux = http.NewServeMux()
 		metricsServerMux.Handle("/metrics", promhttp.HandlerFor(promConfig.MetricsRegistry, promhttp.HandlerOpts{Timeout: 10 * time.Second}))
 		metricsAddr := ":" + metricsPort
-		setupLog.Info("Enable exposure of metrics, see details at https://github.com/kyverno/kyverno/wiki/Metrics-Kyverno-on-Kubernetes", "port", metricsPort)
 		go func() {
+			setupLog.Info("enabling metrics service", "address", metricsAddr)
 			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
-				setupLog.Error(err, "Failed to enable exposure of metrics")
+				setupLog.Error(err, "failed to enable metrics service", "address", metricsAddr)
 				os.Exit(1)
 			}
 		}()
