@@ -890,7 +890,7 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 		err = unstructured.SetNestedMap(sourceRes.UnstructuredContent(), element, "data")
 		Expect(err).NotTo(HaveOccurred())
 
-		r, err = e2eClient.UpdateNamespacedResource(cmGVR, tests.CloneNamespace, sourceRes)
+		_, err = e2eClient.UpdateNamespacedResource(cmGVR, tests.CloneNamespace, sourceRes)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
 
