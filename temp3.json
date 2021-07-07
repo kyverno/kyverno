@@ -13,10 +13,20 @@
                     "resourceList": [
                         {
                             "kinds": [
+                                "NetworkPolicy"
+                            ],
+                            "names": [
+                                "something",
+                                "np"
+                            ]
+                        },
+                        {
+                            "kinds": [
                                 "Pod"
                             ],
                             "names": [
-                                "hello-world"
+                                "hello-world",
+                                "foo-*"
                             ]
                         }
                     ]

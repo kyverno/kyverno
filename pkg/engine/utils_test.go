@@ -35,6 +35,15 @@ func TestMatchesResourceDescription(t *testing.T) {
 								"resourceList": [
 									{
 										"kinds": [
+											"NetworkPolicy"
+										],
+										"names": [
+											"something",
+											"np"
+										]
+									},
+									{
+										"kinds": [
 											"Pod"
 										],
 										"names": [

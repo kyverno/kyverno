@@ -185,9 +185,6 @@ func validateResourceWithRule(log logr.Logger, ctx *PolicyContext, rule kyverno.
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
 func matches(logger logr.Logger, rule kyverno.Rule, ctx *PolicyContext) bool {
-	fmt.Println("$$$$")
-	fmt.Println("Hello3")
-	fmt.Println("$$$$")
 	err := MatchesResourceDescription(ctx.NewResource, rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, ctx.NamespaceLabels)
 	if err == nil {
 		return true
