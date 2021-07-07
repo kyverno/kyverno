@@ -499,10 +499,22 @@ func validateResources(rule kyverno.Rule) (string, error) {
 		return fmt.Sprintf("resources.%s", path), err
 	}
 
-	// matched resources
-	if path, err := validateMatchedResourceDescription(rule.MatchResources.ResourceDescription); err != nil {
-		return fmt.Sprintf("match.resources.%s", path), err
+	if len(rule.MatchResources.ResourceList) > 0 && !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) {
+		return "match.", fmt.Errorf("Can't specify resource and resouceList together")
 	}
+
+	if len(rule.MatchResources.ResourceList) > 0 {
+		for _, resource := range rule.MatchResources.ResourceList {
+			if path, err := validateMatchedResourceDescription(resource); err != nil {
+				return fmt.Sprintf("match.resourceList.%s", path), err
+			}
+		}
+	} else {
+		if path, err := validateMatchedResourceDescription(rule.MatchResources.ResourceDescription); err != nil {
+			return fmt.Sprintf("match.resources.%s", path), err
+		}
+	}
+
 	// exclude resources
 	if path, err := validateExcludeResourceDescription(rule.ExcludeResources.ResourceDescription); err != nil {
 		return fmt.Sprintf("exclude.resources.%s", path), err
