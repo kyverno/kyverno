@@ -19,7 +19,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 	}{
 		{
 			Description: "Should fail since resource does not match because of names field",
-			Resource:    []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world"},"spec":{"containers":[{"name":"contName","image":"imgName","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
+			Resource:    []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"woot-yo"},"spec":{"containers":[{"name":"contName","image":"imgName","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
 			Policy: []byte(`{
 				"apiVersion": "kyverno.io/v1",
 				"kind": "ClusterPolicy",
@@ -46,7 +46,8 @@ func TestMatchesResourceDescription(t *testing.T) {
 											"Pod"
 										],
 										"names": [
-											"hello-world"
+											"hello-world",
+											"woot-*"
 										]
 									}
 								]

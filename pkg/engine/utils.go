@@ -270,10 +270,6 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()
 
-	// fmt.Println("$$$")
-	// fmt.Println(rule)
-	// fmt.Println("$$$")
-
 	var reasonsForFailure []error
 
 	if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
@@ -285,6 +281,9 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 		for _, resourceDescription := range rule.MatchResources.ResourceList {
 			if !reflect.DeepEqual(resourceDescription, kyverno.ResourceDescription{}) ||
 				!reflect.DeepEqual(rule.MatchResources.UserInfo, kyverno.UserInfo{}) {
+				// fmt.Println("######")
+				// fmt.Println("CALLED")
+				// fmt.Println("######")
 				matchErrs := doesResourceMatchConditionBlock(resourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
 				// reasonsForFailure = append(reasonsForFailure, matchErrs...)
 				if len(matchErrs) == 0 {
@@ -297,6 +296,9 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 		// checking if resource matches the rule
 		if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) ||
 			!reflect.DeepEqual(rule.MatchResources.UserInfo, kyverno.UserInfo{}) {
+			// fmt.Println("######")
+			// fmt.Println("CALLED")
+			// fmt.Println("######")
 			matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
 			// reasonsForFailure = append(reasonsForFailure, matchErrs...)
 			if len(matchErrs) == 0 {
@@ -305,9 +307,9 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 		} else {
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
 		}
-		fmt.Println("$$$")
-		fmt.Println(onePasses)
-		fmt.Println("$$$")
+		// fmt.Println("$$$")
+		// fmt.Println(onePasses)
+		// fmt.Println("$$$")
 		if !onePasses {
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("none passed"))
 		}
@@ -320,15 +322,6 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 		} else {
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
 		}
-	}
-
-	// checking if resource matches the rule
-	if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) ||
-		!reflect.DeepEqual(rule.MatchResources.UserInfo, kyverno.UserInfo{}) {
-		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
-		reasonsForFailure = append(reasonsForFailure, matchErrs...)
-	} else {
-		reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
 	}
 
 	// checking if resource has been excluded
