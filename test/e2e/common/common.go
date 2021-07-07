@@ -39,6 +39,10 @@ func ProcessMetrics(newStr, e2ePolicyName string) error {
 			continue
 		}
 
+		if !strings.HasSuffix(lineSplitByNewLine, "} 1") {
+			continue
+		}
+
 		splitByComma := strings.Split(lineSplitByNewLine, ",")
 		for _, lineSplitByComma := range splitByComma {
 			if strings.HasPrefix(lineSplitByComma, "policy_name=") {
