@@ -35,6 +35,9 @@ spec:
       {{- with .Values.tolerations }}
       tolerations: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints: {{ tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
       serviceAccountName: {{ template "kyverno.serviceAccountName" . }}
       {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName | quote }}
