@@ -878,7 +878,7 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 		// ======= Update Configmap in default Namespace ========
 		By(fmt.Sprintf("Updating Source Resource(Configmap) in Clone Namespace : %s", tests.CloneNamespace))
 
-		// Get the configmap from default namespace
+		// Update the configmap in default namespace
 		sourceRes, err := e2eClient.GetNamespacedResource(cmGVR, tests.CloneNamespace, tests.ConfigMapName)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sourceRes.GetName()).To(Equal(tests.ConfigMapName))
@@ -887,14 +887,16 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 		element["initial_lives"] = "5"
 
-		_ = unstructured.SetNestedMap(sourceRes.UnstructuredContent(), element, "data")
-		_, err = e2eClient.UpdateNamespacedResource(cmGVR, tests.CloneNamespace, sourceRes)
+		err = unstructured.SetNestedMap(sourceRes.UnstructuredContent(), element, "data")
+		Expect(err).NotTo(HaveOccurred())
+
+		r, err = e2eClient.UpdateNamespacedResource(cmGVR, tests.CloneNamespace, sourceRes)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
 
 		// ======= Verifying Configmap Data Replication in Namespace ========
 		By(fmt.Sprintf("Verifying Configmap Data Replication in the Namespace : %s", tests.ResourceNamespace))
-		err = e2e.GetWithRetry(2*time.Second, 15, func() error {
+		err = e2e.GetWithRetry(1*time.Second, 60, func() error {
 			// get updated configmap in test namespace
 			updatedGenRes, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, tests.ConfigMapName)
 			if err != nil {
@@ -907,7 +909,7 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 				return err
 			}
 			if element["initial_lives"] != "5" {
-				return errors.New("not updated")
+				return fmt.Errorf("config map value not updated, found %v expected [initial_lives=5]", element)
 			}
 
 			return nil
@@ -942,7 +944,7 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 
 		// ======= Verifying Configmap Data in Namespace ========
 		By(fmt.Sprintf("Verifying Configmap Data in the Namespace : %s", tests.ResourceNamespace))
-		err = e2e.GetWithRetry(2*time.Second, 15, func() error {
+		err = e2e.GetWithRetry(1*time.Second, 60, func() error {
 			// get updated configmap in test namespace
 			updatedGenRes, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, tests.ConfigMapName)
 			if err != nil {
@@ -955,7 +957,7 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 				return err
 			}
 			if element["initial_lives"] != "5" {
-				return errors.New("not updated")
+				return fmt.Errorf("config map value not reset, found %v expected [initial_lives=5]", element)
 			}
 
 			return nil
