@@ -18,6 +18,58 @@ func TestMatchesResourceDescription(t *testing.T) {
 		areErrorsExpected bool
 	}{
 		{
+			Description: "Should fail since resource does not match because of names field",
+			Resource:    []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world"},"spec":{"containers":[{"name":"contName","image":"imgName","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
+			Policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "hello-world-policy"
+				},
+				"spec": {
+					"background": false,
+					"rules": [
+						{
+							"name": "hello-world-policy",
+							"match": {
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"names": [
+										"dev-*"
+									]
+								},
+								"resourceList": [
+									{
+										"kinds": [
+											"Pod"
+										],
+										"names": [
+											"hello-world"
+										]
+									}
+								]
+							},
+							"mutate": {
+								"overlay": {
+									"spec": {
+										"containers": [
+											{
+												"(image)": "*",
+												"imagePullPolicy": "IfNotPresent"
+											}
+										]
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			areErrorsExpected: false,
+		},
+		{
 			Description: "Should match pod and not exclude it",
 			AdmissionInfo: kyverno.RequestInfo{
 				ClusterRoles: []string{"admin"},
