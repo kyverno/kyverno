@@ -483,7 +483,7 @@ func Test_Generate_Namespace_Label_Actions(t *testing.T) {
 			}
 			return nil
 		})
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).To(HaveOccurred())
 
 		_, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
 		Expect(err).To(HaveOccurred())
