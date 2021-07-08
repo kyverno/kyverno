@@ -1,6 +1,7 @@
 package mutate
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -9,6 +10,9 @@ import (
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/kustomize/api/filters/patchstrategicmerge"
+	filtersutil "sigs.k8s.io/kustomize/kyaml/filtersutil"
+	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 func TestMergePatch(t *testing.T) {
@@ -145,4 +149,35 @@ func Test_PolicyDeserilize(t *testing.T) {
 	if !assertnew.Equal(t, string(eb), string(out)) {
 		t.FailNow()
 	}
+}
+
+func Test_sample(t *testing.T) {
+	var patch, resource interface{}
+
+	patchRaw := []byte(`{ "key1": "value1", "key2": "value2" }`)
+	resourceRaw := []byte(`{ "key1": "value1" } `)
+
+	var err error
+
+	err = json.Unmarshal(patchRaw, &patch)
+	assert.NilError(t, err)
+
+	err = json.Unmarshal(resourceRaw, &resource)
+	assert.NilError(t, err)
+
+	patchNode := yaml.MustParse(string(patchRaw))
+	//	resourceNode := yaml.MustParse(string(resourceRaw))
+
+	f := patchstrategicmerge.Filter{
+		Patch: patchNode,
+	}
+
+	baseObj := buffer{Buffer: bytes.NewBufferString(string(resourceRaw))}
+	err = filtersutil.ApplyToJSON(f, baseObj)
+	assert.NilError(t, err)
+
+	patchNode.Field("key1").Key.YNode().Value = "key3"
+
+	str := baseObj.String()
+	println(str)
 }

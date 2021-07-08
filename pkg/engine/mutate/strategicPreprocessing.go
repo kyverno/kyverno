@@ -14,7 +14,7 @@ import (
 // https://godoc.org/gopkg.in/yaml.v3#Node
 // A single Node contains Tag to identify it as MappingNode (map[string]interface{}), Sequence ([]interface{}), ScalarNode (string, int, float bool etc.)
 // A parent node having MappingNode keeps the data as <keyNode>, <ValueNode> inside it's Content field and Tag field as "!!map".
-// A parent node having MappingNode keeps the data as array of Node inside Content field and a Tag field as "!!seq".
+// A parent node having Sequence keeps the data as array of Node inside Content field and a Tag field as "!!seq".
 // https://github.com/kubernetes-sigs/kustomize/blob/master/kyaml/yaml/rnode.go
 func preProcessPattern(pattern, resource *yaml.RNode) error {
 	switch pattern.YNode().Kind {
@@ -76,74 +76,74 @@ annotations:
 will remove "+(" and ")" chars from pattern.
 */
 func walkMap(pattern, resource *yaml.RNode) error {
-	sfields, fields, err := getAnchorSortedFields(pattern)
+	var err error
+
+	// 1. Get all conditions from current map.
+	// If at least one condition fails - skip application.
+	// If condition fails in array element - skip this element.
+	conditions, err := getConditions(pattern)
 	if err != nil {
 		return err
 	}
-	sfieldsCopy := make([]string, len(sfields))
-	copy(sfieldsCopy, sfields)
-	for _, key := range sfieldsCopy {
-		if anchor.IsConditionAnchor(key) {
-			// remove anchor node from yaml
-			// In a MappingNode, yaml.Node store <keyNode>:<valueNode> pairs as an array of Node inside Content field,
-			// <valueNode> further can be a MappingNode, SequenceNode or ScalarNode.
-			// for a mapping node with single key value pair then key is in position index 0 and value in position 1 and
-			// the next <keyNode>:<valueNode> pairs in position 2 and 3 respectively.
-			ind := getIndex(key, fields)
-			if ind == -1 {
-				continue
-			}
-			// remove anchor from the map and update fields
-			removeAnchorNode(pattern, ind)
-			sfields = removeKeyFromFields(key, sfields)
-			fields = removeKeyFromFields(key, fields)
 
+	for _, condition := range conditions {
+		conditionKey := removeAnchor(condition)
+		resourceField := resource.Field(conditionKey)
+		if resourceField == nil {
 			continue
 		}
-		if anchor.IsAddingAnchor(key) {
-			ind := getIndex(key, fields)
-			if ind == -1 {
+
+		// err = validate(pattern.Field(condition).Value, resourceField.Value)
+		// if err != nil {
+		// 	return err
+		// }
+	}
+
+	// 2. If all conditions passed, remove them from patch
+	for _, condition := range conditions {
+		_, err = pattern.Pipe(yaml.Clear(condition))
+		if err != nil {
+			return err
+		}
+	}
+
+	// 3. Handle all non-conditional keys
+	fields, err := pattern.Fields()
+	for i, field := range fields {
+
+		// 4. Handle adding anchors
+		if anchor.IsAddingAnchor(field) {
+			key, _ := anchor.RemoveAnchor(field)
+
+			resourceNode := resource.Field(key)
+			if resourceNode != nil {
+				// Resource already has this field.
+				// Delete the field with adding andhor from patch.
+				_, err = pattern.Pipe(yaml.Clear(field))
+				if err != nil {
+					return err
+				}
 				continue
 			}
 
-			// remove anchor tags from value
-			// A MappingNode contains keyNode and Value node
-			// keyNode contains it's key value in it's Value field, So remove anchor tags from Value field
-			pattern.YNode().Content[ind].Value = removeAnchor(key)
-			// If the field exists in resource, then remove the field from pattern
-			_, resFields, err := getAnchorSortedFields(resource)
-			if err != nil {
-				return err
-			}
-			rInd := getIndex(removeAnchor(key), resFields)
-			if rInd != -1 {
-				// remove anchor field from the map and update fields
-				removeAnchorNode(pattern, ind)
-				sfields = removeKeyFromFields(key, sfields)
-				fields = removeKeyFromFields(key, fields)
-			}
+			// Remove anchor wrap from patch field.
+			renameField(field, key, pattern)
 		}
-		noAnchorKey := removeAnchor(key)
-		patternMapNode := pattern.Field(noAnchorKey)
-		resourceMapNode := resource.Field(noAnchorKey)
-		if resourceMapNode != nil {
-			if !patternMapNode.IsNilOrEmpty() {
-				err := preProcessPattern(patternMapNode.Value, resourceMapNode.Value)
-				if err != nil {
-					return err
-				}
-			}
+
+		// 5. Handle non-anchor key
+		// Just go down the pattern and handle other anchors.
+		// If resource element exists, then go one level down.
+		var resourceNode *yaml.RNode
+
+		if r := resource.Field(field); r != nil {
+			resourceNode = r.Value
 		} else {
-			// remove anchors from patterns where there is no specific key exists in resource.
-			// Ex :-
-			// pattern : {"annotations": {"+(add-annotation)":"true" }}
-			// resource : No "annotations" key
-			if hasAnchors(pattern) {
-				err := preProcessPattern(patternMapNode.Value, resource)
-				if err != nil {
-					return err
-				}
-			}
+			resourceNode = nil
+		}
+
+		err := preProcessPattern(pattern.Field(field).Value, resourceNode)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -458,32 +458,20 @@ func processNonAssocSequence(pattern, resource *yaml.RNode) error {
 	return nil
 }
 
-// getAnchorSortedFields - get all the keys from a MappingNode sorted by anchor field
-func getAnchorSortedFields(pattern *yaml.RNode) ([]string, []string, error) {
-	anchors := make([]string, 0)
-	nonAnchors := make([]string, 0)
-	nestedAnchors := make([]string, 0)
+func getConditions(pattern *yaml.RNode) ([]string, error) {
+	conditions := make([]string, 0)
 	fields, err := pattern.Fields()
 	if err != nil {
-		return fields, fields, err
+		return conditions, err
 	}
+
 	for _, key := range fields {
 		if anchor.IsConditionAnchor(key) {
-			anchors = append(anchors, key)
+			conditions = append(conditions, key)
 			continue
 		}
-		patternMapNode := pattern.Field(key)
-
-		if !patternMapNode.IsNilOrEmpty() {
-			if hasAnchors(patternMapNode.Value) {
-				nestedAnchors = append(nestedAnchors, key)
-				continue
-			}
-		}
-		nonAnchors = append(nonAnchors, key)
 	}
-	anchors = append(anchors, nestedAnchors...)
-	return append(anchors, nonAnchors...), fields, nil
+	return conditions, nil
 }
 
 func hasAnchors(pattern *yaml.RNode) bool {
@@ -549,4 +537,35 @@ func getIndexToBeRemoved(patternElements []*yaml.RNode) (removedIndex []int, err
 		}
 	}
 	return
+}
+
+func getAnchorSortedFields(pattern *yaml.RNode) ([]string, []string, error) {
+	anchors := make([]string, 0)
+	nonAnchors := make([]string, 0)
+	nestedAnchors := make([]string, 0)
+	fields, err := pattern.Fields()
+	if err != nil {
+		return fields, fields, err
+	}
+	for _, key := range fields {
+		if anchor.IsConditionAnchor(key) {
+			anchors = append(anchors, key)
+			continue
+		}
+		patternMapNode := pattern.Field(key)
+
+		if !patternMapNode.IsNilOrEmpty() {
+			if hasAnchors(patternMapNode.Value) {
+				nestedAnchors = append(nestedAnchors, key)
+				continue
+			}
+		}
+		nonAnchors = append(nonAnchors, key)
+	}
+	anchors = append(anchors, nestedAnchors...)
+	return append(anchors, nonAnchors...), fields, nil
+}
+
+func renameField(name, newName string, pattern *yaml.RNode) {
+	pattern.Field(name).Key.YNode().Value = newName
 }
