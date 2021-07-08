@@ -21,6 +21,7 @@ spec:
     app: kyverno
   type: {{ .Values.service.type }}
 ---
+{{- if .Values.metricsService.create }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -43,3 +44,4 @@ spec:
   selector: {{ include "kyverno.matchLabels" . | nindent 4 }}
     app: kyverno
   type: {{ .Values.metricsService.type }}
+  {{- end -}}
