@@ -143,6 +143,14 @@ config:
 #  - ""
   # existingConfig: init-config
 
+## Deployment update strategy
+## Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+updateStrategy:
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 40%
+  type: RollingUpdate
+
 service:
   port: 443
   type: ClusterIP

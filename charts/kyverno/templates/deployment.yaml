@@ -10,6 +10,10 @@ spec:
     matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
       app: kyverno
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.updateStrategy }}
+  strategy:
+    {{ toYaml .Values.updateStrategy | nindent 4 | trim }}
+  {{- end }}
   template:
     metadata:
       labels: {{ include "kyverno.labels" . | nindent 8 }}
@@ -110,8 +114,3 @@ spec:
         {{- with .Values.readinessProbe }}
           readinessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
         {{- end }}
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 40%
-      maxSurge: 1
