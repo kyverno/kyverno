@@ -108,12 +108,24 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 		// If a rules match block does not match any kind,
 		// we should only allow such rules to have metadata in its overlay
-		if len(rule.MatchResources.Kinds) == 0 {
-			if !ruleOnlyDealsWithResourceMetaData(rule) {
-				return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-					" the rule does not match an kind")
+		if len(rule.MatchResources.ResourceList) > 0 {
+			for _, resource := range rule.MatchResources.ResourceList {
+				if len(resource.Kinds) == 0 {
+					if !ruleOnlyDealsWithResourceMetaData(rule) {
+						return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+							" the rule does not match an kind")
+					}
+					return fmt.Errorf("at least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+				}
 			}
-			return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+		} else {
+			if len(rule.MatchResources.ResourceDescription.Kinds) == 0 {
+				if !ruleOnlyDealsWithResourceMetaData(rule) {
+					return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+						" the rule does not match an kind")
+				}
+				return fmt.Errorf("at least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+			}
 		}
 
 		// Validate string values in labels
