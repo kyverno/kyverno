@@ -70,7 +70,7 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 
 		mutation := rule.Mutation.DeepCopy()
 
-		if mutation.Overlay != nil {
+		if mutation.Overlay.Raw != nil {
 			overlay := mutation.Overlay
 
 			resource, err = mutateResourceWithOverlay(resource, overlay)

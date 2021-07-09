@@ -9,6 +9,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger) kyvernoRule {
@@ -39,64 +40,52 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		cronJobRule.ExcludeResources.Kinds = []string{engine.PodControllerCronJob}
 	}
 
-	if (jobRule.Mutation != nil) && (jobRule.Mutation.Overlay != nil) {
-		newMutation := &kyverno.Mutation{
-			Overlay: map[string]interface{}{
-				"spec": map[string]interface{}{
-					"jobTemplate": jobRule.Mutation.Overlay,
-				},
+	var JSONValue apiextensions.JSON
+	if (jobRule.Mutation != nil) && (jobRule.Mutation.Overlay.Raw != nil) {
+		JSONValue, _ = kyverno.ConvertInterfaceToV1JSON(map[string]interface{}{
+			"spec": map[string]interface{}{
+				"jobTemplate": jobRule.Mutation.Overlay,
 			},
+		})
+		newMutation := &kyverno.Mutation{
+			Overlay: JSONValue,
 		}
 
 		cronJobRule.Mutation = newMutation.DeepCopy()
 		return *cronJobRule
 	}
 
-	if (jobRule.Mutation != nil) && (jobRule.Mutation.PatchStrategicMerge != nil) {
-		newMutation := &kyverno.Mutation{
-			PatchStrategicMerge: map[string]interface{}{
-				"spec": map[string]interface{}{
-					"jobTemplate": jobRule.Mutation.PatchStrategicMerge,
-				},
+	if (jobRule.Mutation != nil) && (jobRule.Mutation.PatchStrategicMerge.Raw != nil) {
+		JSONValue, _ = kyverno.ConvertInterfaceToV1JSON(map[string]interface{}{
+			"spec": map[string]interface{}{
+				"jobTemplate": jobRule.Mutation.PatchStrategicMerge,
 			},
+		})
+		newMutation := &kyverno.Mutation{
+			PatchStrategicMerge: JSONValue,
 		}
 		cronJobRule.Mutation = newMutation.DeepCopy()
 		return *cronJobRule
 	}
 
-	if (jobRule.Validation != nil) && (jobRule.Validation.Pattern != nil) {
+	if (jobRule.Validation != nil) && (jobRule.Validation.Pattern.Raw != nil) {
+		JSONValue, _ = kyverno.ConvertInterfaceToV1JSON(map[string]interface{}{
+			"spec": map[string]interface{}{
+				"jobTemplate": jobRule.Validation.Pattern,
+			},
+		})
 		newValidate := &kyverno.Validation{
 			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "pattern"),
-			Pattern: map[string]interface{}{
-				"spec": map[string]interface{}{
-					"jobTemplate": jobRule.Validation.Pattern,
-				},
-			},
+			Pattern: JSONValue,
 		}
 		cronJobRule.Validation = newValidate.DeepCopy()
 		return *cronJobRule
 	}
 
-	if (jobRule.Validation != nil) && (jobRule.Validation.AnyPattern != nil) {
-		var patterns []interface{}
-		anyPatterns, err := jobRule.Validation.DeserializeAnyPattern()
-		if err != nil {
-			logger.Error(err, "failed to deserialize anyPattern, expect type array")
-		}
-
-		for _, pattern := range anyPatterns {
-			newPattern := map[string]interface{}{
-				"spec": map[string]interface{}{
-					"jobTemplate": pattern,
-				},
-			}
-
-			patterns = append(patterns, newPattern)
-		}
-
+	if (jobRule.Validation != nil) && (jobRule.Validation.AnyPattern.Raw != nil) {
 		cronJobRule.Validation = &kyverno.Validation{
 			Message:    variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "anyPattern"),
-			AnyPattern: patterns,
+			AnyPattern: jobRule.Validation.AnyPattern,
 		}
 		return *cronJobRule
 	}

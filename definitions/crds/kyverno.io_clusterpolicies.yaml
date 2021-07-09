@@ -330,11 +330,12 @@ spec:
                               type: string
                           type: object
                         data:
+                          allOf:
+                          - x-kubernetes-preserve-unknown-fields: true
                           description: Data provides the resource declaration used
                             to populate each generated resource. At most one of Data
                             or Clone must be specified. If neither are provided, the
                             generated resource will be created with default data only.
-                          x-kubernetes-preserve-unknown-fields: true
                         kind:
                           description: Kind specifies resource kind.
                           type: string
@@ -587,7 +588,6 @@ spec:
                             type: object
                           nullable: true
                           type: array
-                          x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: PatchesJSON6902 is a list of RFC 6902 JSON
                             Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902

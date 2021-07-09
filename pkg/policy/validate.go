@@ -18,7 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/pkg/wildcard"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -434,10 +434,11 @@ func isLabelAndAnnotationsString(rule kyverno.Rule) bool {
 		return true
 	}
 
-	patternMap, ok := rule.Validation.Pattern.(map[string]interface{})
-	if ok {
+	var patternMap map[string]interface{}
+	err := json.Unmarshal(rule.Validation.Pattern.Raw, &patternMap)
+	if err == nil {
 		return checkMetadata(patternMap)
-	} else if rule.Validation.AnyPattern != nil {
+	} else if rule.Validation.AnyPattern.Raw != nil {
 		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 		if err != nil {
 			log.Log.Error(err, "failed to deserialize anyPattern, expect type array")
@@ -458,7 +459,9 @@ func isLabelAndAnnotationsString(rule kyverno.Rule) bool {
 }
 
 func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
-	overlayMap, _ := rule.Mutation.Overlay.(map[string]interface{})
+
+	var overlayMap map[string]interface{}
+	_ = json.Unmarshal(rule.Mutation.Overlay.Raw, &overlayMap)
 	for k := range overlayMap {
 		if k != "metadata" {
 			return false
@@ -471,7 +474,8 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 		}
 	}
 
-	patternMap, _ := rule.Validation.Pattern.(map[string]interface{})
+	var patternMap map[string]interface{}
+	_ = json.Unmarshal(rule.Validation.Pattern.Raw, &overlayMap)
 	for k := range patternMap {
 		if k != "metadata" {
 			return false
@@ -512,13 +516,13 @@ func validateResources(rule kyverno.Rule) (string, error) {
 	}
 
 	//validating the values present under validate.preconditions, if they exist
-	if rule.AnyAllConditions != nil {
+	if rule.AnyAllConditions.Raw != nil {
 		if path, err := validateConditions(rule.AnyAllConditions, "preconditions"); err != nil {
 			return fmt.Sprintf("validate.%s", path), err
 		}
 	}
 	//validating the values present under validate.conditions, if they exist
-	if rule.Validation.Deny != nil && rule.Validation.Deny.AnyAllConditions != nil {
+	if rule.Validation.Deny != nil && rule.Validation.Deny.AnyAllConditions.Raw != nil {
 		if path, err := validateConditions(rule.Validation.Deny.AnyAllConditions, "conditions"); err != nil {
 			return fmt.Sprintf("validate.deny.%s", path), err
 		}
@@ -576,7 +580,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 // validateConditionValues validates whether all the values under the 'value' field of a 'conditions' field
 // are apt with respect to the provided 'condition.key'
 func validateConditionValues(c kyverno.Condition) (string, error) {
-	switch strings.ReplaceAll(c.Key.(string), " ", "") {
+	switch strings.ReplaceAll(c.Key.String(), " ", "") {
 	case "{{request.operation}}":
 		return validateConditionValuesKeyRequestOperation(c)
 	default:
@@ -595,14 +599,14 @@ func validateConditionValuesKeyRequestOperation(c kyverno.Condition) (string, er
 	}
 	switch reflect.TypeOf(c.Value).Kind() {
 	case reflect.String:
-		valueStr := c.Value.(string)
+		valueStr := c.Value.String()
 		// allow templatized values like {{ config-map.data.sample-key }}
 		// because they might be actually pointing to a rightful value in the provided config-map
 		if len(valueStr) >= 4 && valueStr[:2] == "{{" && valueStr[len(valueStr)-2:] == "}}" {
 			return "", nil
 		}
 		if !valuesAllowed[valueStr] {
-			return fmt.Sprintf("value: %s", c.Value.(string)), fmt.Errorf("unknown value '%s' found under the 'value' field. Only the following values are allowed: [CREATE, UPDATE, DELETE, CONNECT]", c.Value.(string))
+			return fmt.Sprintf("value: %s", c.Value.String()), fmt.Errorf("unknown value '%s' found under the 'value' field. Only the following values are allowed: [CREATE, UPDATE, DELETE, CONNECT]", c.Value.String())
 		}
 	case reflect.Slice:
 		values := reflect.ValueOf(c.Value)
