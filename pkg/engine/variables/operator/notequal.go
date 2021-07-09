@@ -2,10 +2,11 @@ package operator
 
 import (
 	"fmt"
-	"github.com/minio/pkg/wildcard"
 	"math"
 	"reflect"
 	"strconv"
+
+	"github.com/minio/pkg/wildcard"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -28,18 +29,26 @@ type NotEqualHandler struct {
 }
 
 //Evaluate evaluates expression with NotEqual Operator
-func (neh NotEqualHandler) Evaluate(key, value interface{}) bool {
+func (neh NotEqualHandler) Evaluate(key, value interface{}, isPreCondition bool) bool {
 	var err error
 	//TODO: decouple variables from evaluation
 	// substitute the variables
 	if key, err = neh.subHandler(neh.log, neh.ctx, key); err != nil {
 		// Failed to resolve the variable
-		neh.log.Error(err, "Failed to resolve variable", "variable", key)
+		if isPreCondition {
+			neh.log.Info("Failed to resolve variable", "info", err.Error(), "variable", key)
+		} else {
+			neh.log.Error(err, "Failed to resolve variable", "variable", key)
+		}
 		return false
 	}
 	if value, err = neh.subHandler(neh.log, neh.ctx, value); err != nil {
 		// Failed to resolve the variable
-		neh.log.Error(err, "Failed to resolve variable", "variable", value)
+		if isPreCondition {
+			neh.log.Info("Failed to resolve variable", "info", err.Error(), "variable", value)
+		} else {
+			neh.log.Error(err, "Failed to resolve variable", "variable", value)
+		}
 		return false
 	}
 	// key and value need to be of same type

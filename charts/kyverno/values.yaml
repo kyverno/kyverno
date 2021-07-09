@@ -160,6 +160,8 @@ service:
   nodePort:
   annotations: {}
 
+topologySpreadConstraints: []
+
 metricsService:
   create: true
   type: ClusterIP

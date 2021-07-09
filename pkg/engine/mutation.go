@@ -83,7 +83,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		}
 		// evaluate pre-conditions
 		// - handle variable substitutions
-		if !variables.EvaluateConditions(logger, ctx, copyConditions) {
+		if !variables.EvaluateConditions(logger, ctx, copyConditions, true) {
 			logger.V(3).Info("resource fails the preconditions")
 			continue
 		}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	gojmespath "github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -114,7 +115,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		}
 
 		// evaluate pre-conditions
-		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditionsCopy) {
+		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditionsCopy, true) {
 			log.V(4).Info("resource fails the preconditions")
 			continue
 		}
@@ -130,7 +131,12 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 			incrementAppliedCount(resp)
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
 
-			log.Error(err, "failed to substitute variables, skip current rule", "rule name", rule.Name)
+			switch err.(type) {
+			case gojmespath.NotFoundError:
+				log.V(2).Info("failed to substitute variables, skip current rule", "info", err.Error(), "rule name", rule.Name)
+			default:
+				log.Error(err, "failed to substitute variables, skip current rule", "rule name", rule.Name)
+			}
 			continue
 		}
 
@@ -148,7 +154,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 				log.V(2).Info("wrongfully configured data", "reason", err.Error())
 				continue
 			}
-			deny := variables.EvaluateConditions(log, ctx.JSONContext, denyConditionsCopy)
+			deny := variables.EvaluateConditions(log, ctx.JSONContext, denyConditionsCopy, false)
 			ruleResp := response.RuleResponse{
 				Name:    rule.Name,
 				Type:    utils.Validation.String(),

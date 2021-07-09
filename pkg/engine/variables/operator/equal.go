@@ -2,10 +2,11 @@ package operator
 
 import (
 	"fmt"
-	"github.com/minio/pkg/wildcard"
 	"math"
 	"reflect"
 	"strconv"
+
+	"github.com/minio/pkg/wildcard"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -28,18 +29,26 @@ type EqualHandler struct {
 }
 
 //Evaluate evaluates expression with Equal Operator
-func (eh EqualHandler) Evaluate(key, value interface{}) bool {
+func (eh EqualHandler) Evaluate(key, value interface{}, isPreCondition bool) bool {
 	var err error
 	//TODO: decouple variables from evaluation
 	// substitute the variables
 	if key, err = eh.subHandler(eh.log, eh.ctx, key); err != nil {
 		// Failed to resolve the variable
-		eh.log.Error(err, "Failed to resolve variable", "variable", key)
+		if isPreCondition {
+			eh.log.Info("Failed to resolve variable", "info", err.Error(), "variable", key)
+		} else {
+			eh.log.Error(err, "Failed to resolve variable", "variable", key)
+		}
 		return false
 	}
 	if value, err = eh.subHandler(eh.log, eh.ctx, value); err != nil {
 		// Failed to resolve the variable
-		eh.log.Error(err, "Failed to resolve variable", "variable", value)
+		if isPreCondition {
+			eh.log.Info("Failed to resolve variable", "info", err.Error(), "variable", value)
+		} else {
+			eh.log.Error(err, "Failed to resolve variable", "variable", value)
+		}
 		return false
 	}
 

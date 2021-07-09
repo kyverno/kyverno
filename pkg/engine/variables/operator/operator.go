@@ -10,7 +10,7 @@ import (
 
 //OperatorHandler provides interface to manage types
 type OperatorHandler interface {
-	Evaluate(key, value interface{}) bool
+	Evaluate(key, value interface{}, isPreCondition bool) bool
 	validateValueWithStringPattern(key string, value interface{}) bool
 	validateValueWithBoolPattern(key bool, value interface{}) bool
 	validateValueWithIntPattern(key int64, value interface{}) bool
