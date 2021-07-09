@@ -443,13 +443,6 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	// Get namespace policies from the cache for the requested resource namespace
 	nsPolicies := ws.pCache.GetPolicyObject(policycache.ValidateEnforce, request.Kind.Kind, request.Namespace)
 	policies = append(policies, nsPolicies...)
-	if len(policies) == 0 {
-		// push admission request to audit handler, this won't block the admission request
-		ws.auditHandler.Add(request.DeepCopy())
-
-		logger.V(4).Info("no enforce validation policies; returning AdmissionResponse.Allowed: true")
-		return &v1beta1.AdmissionResponse{Allowed: true}
-	}
 
 	var roles, clusterRoles []string
 	var err error
@@ -500,6 +493,9 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 			},
 		}
 	}
+
+	// push admission request to audit handler, this won't block the admission request
+	ws.auditHandler.Add(request.DeepCopy())
 
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
