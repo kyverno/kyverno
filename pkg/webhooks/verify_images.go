@@ -1,12 +1,25 @@
 package webhooks
 
 import (
+	"errors"
+	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"k8s.io/api/admission/v1beta1"
 )
+
+
+func (ws *WebhookServer) applyImageVerifyPolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*v1.ClusterPolicy, logger logr.Logger) ([]byte, error) {
+	ok, message, imagePatches := ws.handleVerifyImages(request, policyContext, policies)
+	if !ok {
+		return nil, errors.New(message)
+	}
+
+	logger.V(6).Info("images verified", "patches", string(imagePatches))
+	return imagePatches, nil
+}
 
 func (ws *WebhookServer) handleVerifyImages(request *v1beta1.AdmissionRequest,
 	policyContext *engine.PolicyContext,

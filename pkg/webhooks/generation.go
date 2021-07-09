@@ -35,6 +35,15 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
+
+func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*v1.ClusterPolicy,ts int64, logger logr.Logger) {
+	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
+	triggeredGeneratePoliciesChannel := make(chan []v1.ClusterPolicy, 1)
+	generateEngineResponsesChannel := make(chan []*response.EngineResponse, 1)
+	go ws.handleGenerate(request, policies, policyContext.JSONContext, policyContext.AdmissionInfo, ws.configHandler, ts, &admissionReviewCompletionLatencyChannel, &triggeredGeneratePoliciesChannel, &generateEngineResponsesChannel)
+	go registerAdmissionReviewLatencyMetricGenerate(logger, *ws.promConfig.Metrics, string(request.Operation), ts, &admissionReviewCompletionLatencyChannel, &triggeredGeneratePoliciesChannel, &generateEngineResponsesChannel)
+}
+
 //handleGenerate handles admission-requests for policies with generate rules
 func (ws *WebhookServer) handleGenerate(
 	request *v1beta1.AdmissionRequest,
@@ -48,7 +57,7 @@ func (ws *WebhookServer) handleGenerate(
 	generateEngineResponsesSender *chan []*response.EngineResponse) {
 
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
-	logger.V(4).Info("generate request")
+	logger.V(6).Info("generate request")
 
 	var engineResponses []*response.EngineResponse
 	var triggeredGeneratePolicies []kyverno.ClusterPolicy
@@ -112,7 +121,7 @@ func (ws *WebhookServer) handleGenerate(
 	}
 
 	if request.Operation == v1beta1.Update {
-		ws.handleUpdate(request, policies)
+		ws.handleUpdatesForGenerateRules(request, policies)
 	}
 
 	// sending the admission request latency to other goroutine (reporting the metrics) over the channel
@@ -142,9 +151,9 @@ func (ws *WebhookServer) registerPolicyRuleExecutionLatencyMetricGenerate(logger
 	}
 }
 
-//handleUpdate handles admission-requests for update
-func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy) {
-	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
+//handleUpdatesForGenerateRules handles admission-requests for update
+func (ws *WebhookServer) handleUpdatesForGenerateRules(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy) {
+	logger := ws.log.WithValues("action", "generate", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
 	if err != nil {
 		logger.Error(err, "failed to convert object resource to unstructured format")
@@ -152,16 +161,16 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 
 	resLabels := resource.GetLabels()
 	if resLabels["generate.kyverno.io/clone-policy-name"] != "" {
-		ws.handleUpdateCloneSourceResource(resLabels, logger)
+		ws.handleUpdateGenerateSourceResource(resLabels, logger)
 	}
 
 	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == v1beta1.Update {
-		ws.handleUpdateTargetResource(request, policies, resLabels, logger)
+		ws.handleUpdateGenerateTargetResource(request, policies, resLabels, logger)
 	}
 }
 
-//handleUpdateCloneSourceResource - handles update of clone source for generate policy
-func (ws *WebhookServer) handleUpdateCloneSourceResource(resLabels map[string]string, logger logr.Logger) {
+//handleUpdateGenerateSourceResource - handles update of clone source for generate policy
+func (ws *WebhookServer) handleUpdateGenerateSourceResource(resLabels map[string]string, logger logr.Logger) {
 	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
 	for _, policyName := range policyNames {
 
@@ -169,7 +178,7 @@ func (ws *WebhookServer) handleUpdateCloneSourceResource(resLabels map[string]st
 		_, err := ws.kyvernoClient.KyvernoV1().ClusterPolicies().Get(contextdefault.TODO(), policyName, metav1.GetOptions{})
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
-				logger.V(4).Info("skipping updation of generate request as policy is deleted")
+				logger.V(4).Info("skipping update of generate request as policy is deleted")
 			} else {
 				logger.Error(err, "failed to get generate policy", "Name", policyName)
 			}
@@ -208,8 +217,8 @@ func (ws *WebhookServer) updateAnnotationInGR(gr *v1.GenerateRequest, logger log
 	}
 }
 
-//handleUpdateTargetResource - handles update of target resource for generate policy
-func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRequest, policies []*v1.ClusterPolicy, resLabels map[string]string, logger logr.Logger) {
+//handleUpdateGenerateTargetResource - handles update of target resource for generate policy
+func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.AdmissionRequest, policies []*v1.ClusterPolicy, resLabels map[string]string, logger logr.Logger) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {

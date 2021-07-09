@@ -296,50 +296,83 @@ func writeResponse(rw http.ResponseWriter, admissionReview *v1beta1.AdmissionRev
 
 // resourceMutation mutates resource
 func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	logger := ws.log.WithName("ResourceMutation").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
+	logger := ws.log.WithName("MutateWebhook").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return successResponse(nil)
 	}
 
-	logger.V(6).Info("received an admission request in mutating webhook")
-	admissionRequestTimestamp := time.Now().Unix()
+	logger.V(4).Info("received an admission request in mutating webhook")
+	requestTime := time.Now().Unix()
 
 	mutatePolicies := ws.pCache.GetPolicies(policycache.Mutate, request.Kind.Kind, request.Namespace)
-	generatePolicies := ws.pCache.GetPolicies(policycache.Generate, request.Kind.Kind, "")
-	verifyImagesPolicies := ws.pCache.GetPolicies(policycache.VerifyImages, request.Kind.Kind, "")
+	generatePolicies := ws.pCache.GetPolicies(policycache.Generate, request.Kind.Kind, request.Namespace)
+	verifyImagesPolicies := ws.pCache.GetPolicies(policycache.VerifyImages, request.Kind.Kind, request.Namespace)
 
 	if len(mutatePolicies) == 0 && len(generatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
+		logger.V(4).Info("no policies matched admission request")
+		go ws.handleUpdatesForGenerateRules(request, []*v1.ClusterPolicy{}) // handle generate source resource updates
 		return successResponse(nil)
 	}
 
-	var roles, clusterRoles []string
-	if containsRBACInfo(mutatePolicies, generatePolicies) {
-		var err error
-		if roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler); err != nil {
-			return errorResponse(logger, err, "failed to fetch RBAC information for request")
-		}
+	addRoles := containsRBACInfo(mutatePolicies, generatePolicies)
+	policyContext, err := ws.buildPolicyContext(request, addRoles)
+	if err != nil {
+		logger.Error(err, "failed to build policy context")
+		return failureResponse(err.Error())
 	}
 
+	mutatePatches := ws.applyMutatePolicies(request, policyContext, mutatePolicies, requestTime, logger)
+
+	newRequest := patchRequest(mutatePatches, request, logger)
+	imagePatches, err := ws.applyImageVerifyPolicies(newRequest, policyContext, verifyImagesPolicies, logger)
+	if err != nil {
+		logger.Error(err, "image verification failed")
+		return failureResponse(err.Error())
+	}
+
+	newRequest = patchRequest(imagePatches, newRequest, logger)
+	ws.applyGeneratePolicies(newRequest, policyContext, generatePolicies, requestTime, logger)
+
+	var patches = append(mutatePatches, imagePatches...)
+	return successResponse(patches)
+}
+
+// patchRequest applies patches to the request.Object and returns a new copy of the request
+func patchRequest(patches []byte, request *v1beta1.AdmissionRequest, logger logr.Logger) *v1beta1.AdmissionRequest {
+	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
+	newRequest := request.DeepCopy()
+	newRequest.Object.Raw = patchedResource
+	return newRequest
+}
+
+func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {
 	userRequestInfo := v1.RequestInfo{
-		Roles:             roles,
-		ClusterRoles:      clusterRoles,
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
+	}
+
+	if addRoles {
+		if roles, clusterRoles, err := userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler); err != nil {
+			return nil, errors.Wrap(err, "failed to fetch RBAC information for request")
+		} else {
+			userRequestInfo.Roles = roles
+			userRequestInfo.ClusterRoles = clusterRoles
+		}
 	}
 
 	ctx, err := newVariablesContext(request, &userRequestInfo)
 	if err != nil {
-		return errorResponse(logger, err, "failed to create policy rule context")
+		return nil, errors.Wrap(err, "failed to create policy rule context")
 	}
 
 	// convert RAW to unstructured
 	resource, err := utils.ConvertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 	if err != nil {
-		return errorResponse(logger, err, "failed to convert raw resource to unstructured format")
+		return nil, errors.Wrap(err, "failed to convert raw resource to unstructured format")
 	}
 
 	if err := ctx.AddImageInfo(&resource); err != nil {
-		return errorResponse(logger, err, "failed to add image information to the policy rule context")
+		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
 	}
 
 	policyContext := &engine.PolicyContext{
@@ -356,43 +389,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		policyContext.OldResource = resource
 	}
 
-	// MUTATION
-	var triggeredMutatePolicies []v1.ClusterPolicy
-	var mutateEngineResponses []*response.EngineResponse
-
-	mutatePatches, triggeredMutatePolicies, mutateEngineResponses := ws.handleMutation(request, policyContext, mutatePolicies, admissionRequestTimestamp)
-	logger.V(6).Info("", "generated patches", string(mutatePatches))
-
-	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
-	// registering the kyverno_admission_review_latency_milliseconds metric concurrently
-	go registerAdmissionReviewLatencyMetricMutate(logger, *ws.promConfig.Metrics, string(request.Operation), mutateEngineResponses, triggeredMutatePolicies, admissionReviewLatencyDuration, admissionRequestTimestamp)
-
-	// IMAGE VERIFICATION
-	patchedResource := processResourceWithPatches(mutatePatches, request.Object.Raw, logger)
-	newRequest := request.DeepCopy()
-	newRequest.Object.Raw = patchedResource
-
-	ok, message, imagePatches := ws.handleVerifyImages(newRequest, policyContext, verifyImagesPolicies)
-	if !ok {
-		logger.Info("image verification failed", "reason", message)
-		return failureResponse(message)
-	}
-
-	logger.V(6).Info("images verified", "patches", string(imagePatches))
-
-	// GENERATE
-	patchedResource = processResourceWithPatches(imagePatches, newRequest.Object.Raw, logger)
-	newRequest = request.DeepCopy()
-	newRequest.Object.Raw = patchedResource
-
-	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
-	triggeredGeneratePoliciesChannel := make(chan []v1.ClusterPolicy, 1)
-	generateEngineResponsesChannel := make(chan []*response.EngineResponse, 1)
-	go ws.handleGenerate(newRequest, generatePolicies, ctx, userRequestInfo, ws.configHandler, admissionRequestTimestamp, &admissionReviewCompletionLatencyChannel, &triggeredGeneratePoliciesChannel, &generateEngineResponsesChannel)
-	go registerAdmissionReviewLatencyMetricGenerate(logger, *ws.promConfig.Metrics, string(newRequest.Operation), admissionRequestTimestamp, &admissionReviewCompletionLatencyChannel, &triggeredGeneratePoliciesChannel, &generateEngineResponsesChannel)
-
-	var patches = append(mutatePatches, imagePatches...)
-	return successResponse(patches)
+	return policyContext, nil
 }
 
 func successResponse(patch []byte) *v1beta1.AdmissionResponse {
@@ -463,7 +460,7 @@ func registerAdmissionReviewLatencyMetricGenerate(logger logr.Logger, promMetric
 }
 
 func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
-	logger := ws.log.WithName("Validate").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+	logger := ws.log.WithName("ValidateWebhook").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	if request.Operation == v1beta1.Delete {
 		ws.handleDelete(request)
 	}

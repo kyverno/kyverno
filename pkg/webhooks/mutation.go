@@ -24,6 +24,20 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+
+func (ws *WebhookServer) applyMutatePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*v1.ClusterPolicy, ts int64, logger logr.Logger) []byte {
+	var triggeredMutatePolicies []v1.ClusterPolicy
+	var mutateEngineResponses []*response.EngineResponse
+
+	mutatePatches, triggeredMutatePolicies, mutateEngineResponses := ws.handleMutation(request, policyContext, policies, ts)
+	logger.V(6).Info("", "generated patches", string(mutatePatches))
+
+	admissionReviewLatencyDuration := int64(time.Since(time.Unix(ts, 0)))
+	go registerAdmissionReviewLatencyMetricMutate(logger, *ws.promConfig.Metrics, string(request.Operation), mutateEngineResponses, triggeredMutatePolicies, admissionReviewLatencyDuration, ts)
+
+	return mutatePatches
+}
+
 // handleMutation handles mutating webhook admission request
 // return value: generated patches, triggered policies, engine responses correspdonding to the triggered policies
 func (ws *WebhookServer) handleMutation(

@@ -896,7 +896,7 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 
 		// ======= Verifying Configmap Data Replication in Namespace ========
 		By(fmt.Sprintf("Verifying Configmap Data Replication in the Namespace : %s", tests.ResourceNamespace))
-		err = e2e.GetWithRetry(1*time.Second, 60, func() error {
+		err = e2e.GetWithRetry(1*time.Second, 30, func() error {
 			// get updated configmap in test namespace
 			updatedGenRes, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, tests.ConfigMapName)
 			if err != nil {
@@ -909,7 +909,7 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 				return err
 			}
 			if element["initial_lives"] != "5" {
-				return fmt.Errorf("config map value not updated, found %v expected [initial_lives=5]", element)
+				return fmt.Errorf("config map value not updated, found %v expected map[initial_lives:5]", element)
 			}
 
 			return nil
@@ -944,7 +944,7 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 
 		// ======= Verifying Configmap Data in Namespace ========
 		By(fmt.Sprintf("Verifying Configmap Data in the Namespace : %s", tests.ResourceNamespace))
-		err = e2e.GetWithRetry(1*time.Second, 60, func() error {
+		err = e2e.GetWithRetry(1*time.Second, 30, func() error {
 			// get updated configmap in test namespace
 			updatedGenRes, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, tests.ConfigMapName)
 			if err != nil {
@@ -957,7 +957,7 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 				return err
 			}
 			if element["initial_lives"] != "5" {
-				return fmt.Errorf("config map value not reset, found %v expected [initial_lives=5]", element)
+				return fmt.Errorf("config map value not reset, found %v expected map[initial_lives:5]", element)
 			}
 
 			return nil
