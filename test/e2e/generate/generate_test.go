@@ -1140,15 +1140,15 @@ func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
 
 		// test: the generated resource is not deleted after the source is deleted
 		//=========== Delete the Clone Source Resource ============
-		By(fmt.Sprintf("Delete the clone source resource: %s", tests.ConfigMapName))
+		By(fmt.Sprintf("Delete the clone source resource: %s/%s", tests.CloneNamespace, tests.ConfigMapName))
 
 		err = e2eClient.DeleteNamespacedResource(cmGVR, tests.CloneNamespace, tests.ConfigMapName)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Wait till policy is deleted
-		err = e2e.GetWithRetry(1*time.Second, 60, func() error {
+		err = e2e.GetWithRetry(1*time.Second, 30, func() error {
 			_, err := e2eClient.GetNamespacedResource(cmGVR, tests.CloneNamespace, tests.ConfigMapName)
-			if err != nil {
+			if err == nil {
 				return errors.New("configmap not deleted")
 			}
 			return nil
