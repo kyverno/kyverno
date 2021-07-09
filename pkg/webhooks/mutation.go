@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-
 func (ws *WebhookServer) applyMutatePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*v1.ClusterPolicy, ts int64, logger logr.Logger) []byte {
 	var triggeredMutatePolicies []v1.ClusterPolicy
 	var mutateEngineResponses []*response.EngineResponse

@@ -10,7 +10,6 @@ import (
 	"k8s.io/api/admission/v1beta1"
 )
 
-
 func (ws *WebhookServer) applyImageVerifyPolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*v1.ClusterPolicy, logger logr.Logger) ([]byte, error) {
 	ok, message, imagePatches := ws.handleVerifyImages(request, policyContext, policies)
 	if !ok {

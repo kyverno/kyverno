@@ -35,8 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-
-func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*v1.ClusterPolicy,ts int64, logger logr.Logger) {
+func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*v1.ClusterPolicy, ts int64, logger logr.Logger) {
 	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
 	triggeredGeneratePoliciesChannel := make(chan []v1.ClusterPolicy, 1)
 	generateEngineResponsesChannel := make(chan []*response.EngineResponse, 1)
