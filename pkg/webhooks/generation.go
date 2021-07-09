@@ -152,6 +152,10 @@ func (ws *WebhookServer) registerPolicyRuleExecutionLatencyMetricGenerate(logger
 
 //handleUpdatesForGenerateRules handles admission-requests for update
 func (ws *WebhookServer) handleUpdatesForGenerateRules(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy) {
+	if request.Operation != v1beta1.Update {
+		return
+	}
+
 	logger := ws.log.WithValues("action", "generate", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
 	if err != nil {

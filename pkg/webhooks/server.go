@@ -311,7 +311,11 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 
 	if len(mutatePolicies) == 0 && len(generatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
 		logger.V(4).Info("no policies matched admission request")
-		go ws.handleUpdatesForGenerateRules(request, []*v1.ClusterPolicy{}) // handle generate source resource updates
+		if request.Operation == v1beta1.Update {
+			// handle generate source resource updates
+			go ws.handleUpdatesForGenerateRules(request, []*v1.ClusterPolicy{})
+		}
+
 		return successResponse(nil)
 	}
 
