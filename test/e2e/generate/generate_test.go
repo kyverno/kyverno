@@ -1146,10 +1146,10 @@ func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Wait till policy is deleted
-		err = e2e.GetWithRetry(2*time.Second, 10, func() error {
+		err = e2e.GetWithRetry(1*time.Second, 60, func() error {
 			_, err := e2eClient.GetNamespacedResource(cmGVR, tests.CloneNamespace, tests.ConfigMapName)
 			if err != nil {
-				return errors.New("configmap still exists")
+				return errors.New("configmap not deleted")
 			}
 			return nil
 		})
