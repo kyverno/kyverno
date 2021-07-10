@@ -338,12 +338,17 @@ func copyConditions(original apiextensions.JSON) (interface{}, error) {
 }
 
 // excludeResource checks if the resource has ownerRef set
-func excludeResource(resource unstructured.Unstructured) bool {
+func excludeResource(podControllers string, resource unstructured.Unstructured) bool {
 	kind := resource.GetKind()
+	hasOwner := false
 	if kind == "Pod" || kind == "Job" {
-		if len(resource.GetOwnerReferences()) > 0 {
-			return true
+		for _, owner := range resource.GetOwnerReferences() {
+			hasOwner = true
+			if owner.Kind != "ReplicaSet" && !strings.Contains(podControllers, owner.Kind) {
+				return false
+			}
 		}
+		return hasOwner
 	}
 
 	return false
@@ -353,14 +358,17 @@ func excludeResource(resource unstructured.Unstructured) bool {
 // - if the policy has auto-gen annotation && resource == Pod
 // - if the auto-gen contains cronJob && resource == Job
 func ManagedPodResource(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) bool {
-	if policy.HasAutoGenAnnotation() && excludeResource(resource) {
+	podControllers, ok := policy.GetAnnotations()[PodControllersAnnotation]
+	if !ok || strings.ToLower(podControllers) == "none" {
+		return false
+	}
+
+	if excludeResource(podControllers, resource) {
 		return true
 	}
 
-	if podControllers, ok := policy.GetAnnotations()[PodControllersAnnotation]; ok {
-		if strings.Contains(podControllers, "CronJob") && excludeResource(resource) {
-			return true
-		}
+	if strings.Contains(podControllers, "CronJob") && excludeResource(podControllers, resource) {
+		return true
 	}
 
 	return false
