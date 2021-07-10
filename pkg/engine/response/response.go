@@ -25,7 +25,7 @@ type PolicyResponse struct {
 	PolicyStats `json:",inline"`
 	// rule response
 	Rules []RuleResponse `json:"rules"`
-	// ValidationFailureAction: audit(default if not set),enforce
+	// ValidationFailureAction: audit (default) or enforce
 	ValidationFailureAction string
 }
 

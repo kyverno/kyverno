@@ -20,7 +20,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
 
       - name: Cache Go modules
         uses: actions/cache@v1
@@ -60,7 +60,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
 
       - name: Cache Go modules
         uses: actions/cache@v1
@@ -93,7 +93,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
 
       - name: Cache Go modules
         uses: actions/cache@v1
@@ -126,7 +126,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
 
       - name: Cache Go modules
         uses: actions/cache@v1
@@ -159,7 +159,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
 
       - name: Cache Go modules
         uses: actions/cache@v1
@@ -172,7 +172,7 @@ jobs:
       - name: Kyverno unit test
         run: |
           export PROJECT_PATH=$(pwd)
-          make test-all
+          make test-unit
 
   helm-tests:
     runs-on: ubuntu-latest

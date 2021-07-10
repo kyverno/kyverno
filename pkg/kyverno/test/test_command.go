@@ -321,34 +321,41 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		os.Exit(1)
 	}
+
 	mutatedPolicies, err := common.MutatePolices(policies)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to mutate policy", err)
 		}
 	}
+
 	resources, err := common.GetResourceAccordingToResourcePath(fs, fullResourcePath, false, mutatedPolicies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		os.Exit(1)
 	}
+
 	msgPolicies := "1 policy"
 	if len(mutatedPolicies) > 1 {
 		msgPolicies = fmt.Sprintf("%d policies", len(policies))
 	}
+
 	msgResources := "1 resource"
 	if len(resources) > 1 {
 		msgResources = fmt.Sprintf("%d resources", len(resources))
 	}
+
 	if len(mutatedPolicies) > 0 && len(resources) > 0 {
 		fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
 	}
+
 	for _, policy := range mutatedPolicies {
 		err := policy2.Validate(policy, nil, true, openAPIController)
 		if err != nil {
-			log.Log.V(3).Info(fmt.Sprintf("skipping policy %v as it is not valid", policy.Name), "error", err)
+			log.Log.Error(err, "skipping invalid policy", "name", policy.Name)
 			continue
 		}
+
 		matches := common.PolicyHasVariables(*policy)
 		variable := common.RemoveDuplicateVariables(matches)
 		if len(matches) > 0 && variablesString == "" && values.Variables == "" {

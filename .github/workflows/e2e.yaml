@@ -28,7 +28,7 @@ jobs:
       - name: Set up Go 
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
 
       - name: Set up Helm
         uses: azure/setup-helm@v1
@@ -48,7 +48,7 @@ jobs:
 
       - name: Test Policy
         run: |
-          make run_testcmd_policy
+          make test-cmd
       
       - name: gofmt check
         run: |

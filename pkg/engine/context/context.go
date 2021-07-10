@@ -46,6 +46,7 @@ type Context struct {
 	jsonRaw           []byte
 	jsonRawCheckpoint []byte
 	builtInVars       []string
+	images            *Images
 	log               logr.Logger
 }
 
@@ -222,20 +223,28 @@ func (ctx *Context) AddImageInfo(resource *unstructured.Unstructured) error {
 		return nil
 	}
 
-	resourceImg := newResourceImage(initContainersImgs, containersImgs)
-
-	images := struct {
-		Images interface{} `json:"images"`
-	}{
-		Images: resourceImg,
+	images := newImages(initContainersImgs, containersImgs)
+	if images == nil {
+		return nil
 	}
 
-	objRaw, err := json.Marshal(images)
+	ctx.images = images
+	imagesTag := struct {
+		Images interface{} `json:"images"`
+	}{
+		Images: images,
+	}
+
+	objRaw, err := json.Marshal(imagesTag)
 	if err != nil {
 		return err
 	}
 
 	return ctx.AddJSON(objRaw)
+}
+
+func (ctx *Context) ImageInfo() *Images {
+	return ctx.images
 }
 
 // Checkpoint creates a copy of the internal state.

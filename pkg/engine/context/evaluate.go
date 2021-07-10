@@ -42,9 +42,13 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 
 	result, err := queryPath.Search(data)
 	if err != nil {
-		ctx.log.Error(err, "failed to search query", "query", query)
+		if !strings.HasPrefix(err.Error(), "Unknown key") {
+			ctx.log.Error(err, "JMESPath search failed", "query", query)
+		}
+
 		return emptyResult, err
 	}
+
 	return result, nil
 }
 

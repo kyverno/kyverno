@@ -26,8 +26,10 @@ import (
 )
 
 // ReportChangeRequestLister helps list ReportChangeRequests.
+// All objects returned here must be treated as read-only.
 type ReportChangeRequestLister interface {
 	// List lists all ReportChangeRequests in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.ReportChangeRequest, err error)
 	// ReportChangeRequests returns an object that can list and get ReportChangeRequests.
 	ReportChangeRequests(namespace string) ReportChangeRequestNamespaceLister
@@ -58,10 +60,13 @@ func (s *reportChangeRequestLister) ReportChangeRequests(namespace string) Repor
 }
 
 // ReportChangeRequestNamespaceLister helps list and get ReportChangeRequests.
+// All objects returned here must be treated as read-only.
 type ReportChangeRequestNamespaceLister interface {
 	// List lists all ReportChangeRequests in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.ReportChangeRequest, err error)
 	// Get retrieves the ReportChangeRequest from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.ReportChangeRequest, error)
 	ReportChangeRequestNamespaceListerExpansion
 }

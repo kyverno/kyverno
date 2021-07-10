@@ -1,8 +1,12 @@
 package webhooks
 
 import (
+	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/utils"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -153,12 +157,11 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	// time at which the corresponding the admission request's processing got initiated
 	admissionRequestTimestamp := time.Now().Unix()
 	logger := h.log.WithName("process")
-	policies := h.pCache.GetPolicyObject(policycache.ValidateAudit, request.Kind.Kind, "")
-	// Get namespace policies from the cache for the requested resource namespace
-	nsPolicies := h.pCache.GetPolicyObject(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
-	policies = append(policies, nsPolicies...)
+
+	policies := h.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
+
 	// getRoleRef only if policy has roles/clusterroles defined
-	if containRBACInfo(policies) {
+	if containsRBACInfo(policies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(h.rbLister, h.crbLister, request, h.configHandler)
 		if err != nil {
 			logger.Error(err, "failed to get RBAC information for request")
@@ -172,7 +175,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 
 	ctx, err := newVariablesContext(request, &userRequestInfo)
 	if err != nil {
-		logger.Error(err, "unable to build variable context")
+		return errors.Wrap(err, "unable to build variable context")
 	}
 
 	namespaceLabels := make(map[string]string)
@@ -180,7 +183,34 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 
-	HandleValidation(h.promConfig, request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, h.client, namespaceLabels, admissionRequestTimestamp)
+	newResource, oldResource, err := utils.ExtractResources(nil, request)
+	if err != nil {
+		return errors.Wrap(err, "failed create parse resource")
+	}
+
+	if err := ctx.AddImageInfo(&newResource); err != nil {
+		return errors.Wrap(err, "failed add image information to policy rule context\"")
+	}
+
+	policyContext := &engine.PolicyContext{
+		NewResource:         newResource,
+		OldResource:         oldResource,
+		AdmissionInfo:       userRequestInfo,
+		ExcludeGroupRole:    h.configHandler.GetExcludeGroupRole(),
+		ExcludeResourceFunc: h.configHandler.ToFilter,
+		ResourceCache:       h.resCache,
+		JSONContext:         ctx,
+		Client:              h.client,
+	}
+
+	vh := &validationHandler{
+		log:            h.log,
+		statusListener: h.statusListener,
+		eventGen:       h.eventGen,
+		prGenerator:    h.prGenerator,
+	}
+
+	vh.handleValidation(h.promConfig, request, policies, policyContext, namespaceLabels, admissionRequestTimestamp)
 	return nil
 }
 

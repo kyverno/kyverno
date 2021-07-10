@@ -633,7 +633,7 @@ func validateUniqueRuleName(p kyverno.ClusterPolicy) (string, error) {
 
 // validateRuleType checks only one type of rule is defined per rule
 func validateRuleType(r kyverno.Rule) error {
-	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate()}
+	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate(), r.HasVerifyImages()}
 
 	operationCount := func() int {
 		count := 0
@@ -646,9 +646,9 @@ func validateRuleType(r kyverno.Rule) error {
 	}()
 
 	if operationCount == 0 {
-		return fmt.Errorf("no operation defined in the rule '%s'.(supported operations: mutation,validation,generation)", r.Name)
+		return fmt.Errorf("no operation defined in the rule '%s'.(supported operations: mutate,validate,generate,verifyImages)", r.Name)
 	} else if operationCount != 1 {
-		return fmt.Errorf("multiple operations defined in the rule '%s', only one type of operation is allowed per rule", r.Name)
+		return fmt.Errorf("multiple operations defined in the rule '%s', only one operation (mutate,validate,generate,verifyImages) is allowed per rule", r.Name)
 	}
 	return nil
 }

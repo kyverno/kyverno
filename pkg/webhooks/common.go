@@ -34,6 +34,7 @@ func toBlockResource(engineReponses []*response.EngineResponse, log logr.Logger)
 			return true
 		}
 	}
+
 	log.V(4).Info("spec.ValidationFailureAction set to audit for all applicable policies, won't block resource operation")
 	return false
 }
@@ -50,8 +51,8 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 					ruleToReason[rule.Name] = rule.Message
 				}
 			}
-			resourceName = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
 
+			resourceName = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
 			policyToRule[er.PolicyResponse.Policy.Name] = ruleToReason
 		}
 	}
@@ -107,10 +108,12 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 		log.Error(err, "failed to patch resource:", "patch", string(patch), "resource", string(resource))
 		return nil
 	}
+
+	log.V(6).Info("", "patchedResource", string(resource))
 	return resource
 }
 
-func containRBACInfo(policies ...[]*kyverno.ClusterPolicy) bool {
+func containsRBACInfo(policies ...[]*kyverno.ClusterPolicy) bool {
 	for _, policySlice := range policies {
 		for _, policy := range policySlice {
 			for _, rule := range policy.Spec.Rules {

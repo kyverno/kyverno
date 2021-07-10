@@ -113,6 +113,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 			log.V(2).Info("wrongfully configured data", "reason", err.Error())
 			continue
 		}
+
 		// evaluate pre-conditions
 		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditionsCopy, true) {
 			log.V(4).Info("resource fails the preconditions")
