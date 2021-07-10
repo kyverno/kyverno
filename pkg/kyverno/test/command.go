@@ -81,6 +81,7 @@ type TestResults struct {
 	Rule     string              `json:"rule"`
 	Status   report.PolicyStatus `json:"status"`
 	Resource string              `json:"resource"`
+	Kind     string              `json:"kind"`
 }
 
 type ReportResult struct {
