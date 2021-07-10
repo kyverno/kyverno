@@ -77,11 +77,12 @@ type SkippedPolicy struct {
 }
 
 type TestResults struct {
-	Policy   string              `json:"policy"`
-	Rule     string              `json:"rule"`
-	Status   report.PolicyStatus `json:"status"`
-	Resource string              `json:"resource"`
-	Kind     string              `json:"kind"`
+	Policy    string              `json:"policy"`
+	Rule      string              `json:"rule"`
+	Status    report.PolicyStatus `json:"status"`
+	Resource  string              `json:"resource"`
+	Kind      string              `json:"kind"`
+	Namespace string              `json:"namespace"`
 }
 
 type ReportResult struct {
