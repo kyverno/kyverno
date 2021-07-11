@@ -268,13 +268,34 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 		rule.MatchResources.UserInfo = kyverno.UserInfo{}
 	}
 
-	// checking if resource matches the rule
-	if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) ||
-		!reflect.DeepEqual(rule.MatchResources.UserInfo, kyverno.UserInfo{}) {
-		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
-		reasonsForFailure = append(reasonsForFailure, matchErrs...)
+	// checking if resources matche the rule
+	if len(rule.MatchResources.ResourceList) > 0 {
+		matchFound := false
+		for _, resourceDescription := range rule.MatchResources.ResourceList {
+			if !reflect.DeepEqual(resourceDescription, kyverno.ResourceDescription{}) ||
+				!reflect.DeepEqual(rule.MatchResources.UserInfo, kyverno.UserInfo{}) {
+				matchErrs := doesResourceMatchConditionBlock(resourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
+				if len(matchErrs) == 0 {
+					matchFound = true
+					break
+				}
+			} else {
+				reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
+				break
+			}
+		}
+		if !matchFound {
+			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource didn't match any resources specified in resourceList"))
+		}
 	} else {
-		reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
+		// checking if a resource matches the rule
+		if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) ||
+			!reflect.DeepEqual(rule.MatchResources.UserInfo, kyverno.UserInfo{}) {
+			matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
+			reasonsForFailure = append(reasonsForFailure, matchErrs...)
+		} else {
+			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
+		}
 	}
 
 	// checking if resource has been excluded

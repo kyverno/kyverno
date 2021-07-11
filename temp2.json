@@ -1,0 +1,37 @@
+{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+        "name": "hello-world-policy"
+    },
+    "spec": {
+        "background": false,
+        "rules": [
+            {
+                "name": "hello-world-policy",
+                "match": {
+                    "resources": {
+                        "kinds": [
+                            "Pod"
+                        ],
+                        "names": [
+                            "dev-*"
+                        ]
+                    }
+                },
+                "mutate": {
+                    "overlay": {
+                        "spec": {
+                            "containers": [
+                                {
+                                    "(image)": "*",
+                                    "imagePullPolicy": "IfNotPresent"
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        ]
+    }
+}
