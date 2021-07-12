@@ -136,8 +136,7 @@ func validateBackgroundModeVars(ctx context.EvalInterface, document apiextension
 	if err != nil {
 		return err
 	}
-	fmt.Println("jsonInterface: ", jsonInterface)
-	fmt.Println("variables.ValidateBackgroundModeVars..............")
+
 	_, err = variables.ValidateBackgroundModeVars(log.Log, ctx, jsonInterface)
 	return err
 }

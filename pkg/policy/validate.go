@@ -27,7 +27,7 @@ import (
 // - One operation per rule
 // - ResourceDescription mandatory checks
 func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
-	fmt.Println("--------Validate----------")
+
 	p := *policy
 	if len(common.PolicyHasVariables(p)) > 0 {
 		err := common.PolicyHasNonAllowedVariables(p)
