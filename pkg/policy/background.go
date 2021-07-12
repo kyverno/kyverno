@@ -14,7 +14,7 @@ import (
 )
 
 //ContainsVariablesOtherThanObject returns error if variable that does not start from request.object
-func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
+func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy, mock bool) error {
 	var err error
 	for idx, rule := range policy.Spec.Rules {
 		if path := userInfoDefined(rule.MatchResources.UserInfo); path != "" {
@@ -37,12 +37,15 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 				ctx.AddBuiltInVars(contextEntry.Name)
 			}
 		}
-		err = validateBackgroundModeVars(ctx, rule)
-		if err != nil {
-			return err
-		}
-		if rule, err = variables.SubstituteAllInRule(log.Log, ctx, rule); !checkNotFoundErr(err) {
-			return fmt.Errorf("variable substitution failed for rule %s: %s", rule.Name, err.Error())
+
+		if !mock {
+			err = validateBackgroundModeVars(ctx, rule)
+			if err != nil {
+				return err
+			}
+			if rule, err = variables.SubstituteAllInRule(log.Log, ctx, rule); !checkNotFoundErr(err) {
+				return fmt.Errorf("variable substitution failed for rule %s: %s", rule.Name, err.Error())
+			}
 		}
 
 		if rule.AnyAllConditions != nil {
@@ -133,6 +136,8 @@ func validateBackgroundModeVars(ctx context.EvalInterface, document apiextension
 	if err != nil {
 		return err
 	}
+	fmt.Println("jsonInterface: ", jsonInterface)
+	fmt.Println("variables.ValidateBackgroundModeVars..............")
 	_, err = variables.ValidateBackgroundModeVars(log.Log, ctx, jsonInterface)
 	return err
 }

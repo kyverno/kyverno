@@ -189,7 +189,7 @@ func (pc *PolicyController) canBackgroundProcess(p *kyverno.ClusterPolicy) bool 
 		return false
 	}
 
-	if err := ContainsVariablesOtherThanObject(*p); err != nil {
+	if err := ContainsVariablesOtherThanObject(*p, false); err != nil {
 		logger.V(4).Info("policy cannot be processed in the background")
 		return false
 	}

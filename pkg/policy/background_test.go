@@ -69,7 +69,7 @@ func Test_Validation_valid_backgroundPolicy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(policy)
+	err = ContainsVariablesOtherThanObject(policy, false)
 	assert.NilError(t, err)
 }
 
@@ -132,6 +132,6 @@ func Test_Validation_invalid_backgroundPolicy(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
-	err = ContainsVariablesOtherThanObject(policy)
+	err = ContainsVariablesOtherThanObject(policy, false)
 	assert.Assert(t, strings.Contains(err.Error(), "variable serviceAccountName cannot be used, allowed variables: [request.object request.namespace images mycm]"))
 }

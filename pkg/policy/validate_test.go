@@ -833,7 +833,7 @@ func Test_BackGroundUserInfo_match_roles(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = ContainsVariablesOtherThanObject(*policy, false)
 	assert.Equal(t, err.Error(), "invalid variable used at path: spec/rules[0]/match/roles")
 }
 
@@ -865,7 +865,7 @@ func Test_BackGroundUserInfo_match_clusterRoles(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = ContainsVariablesOtherThanObject(*policy, false)
 
 	assert.Equal(t, err.Error(), "invalid variable used at path: spec/rules[0]/match/clusterRoles")
 }
@@ -901,7 +901,7 @@ func Test_BackGroundUserInfo_match_subjects(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = ContainsVariablesOtherThanObject(*policy, false)
 
 	assert.Equal(t, err.Error(), "invalid variable used at path: spec/rules[0]/match/subjects")
 }
@@ -933,7 +933,7 @@ func Test_BackGroundUserInfo_mutate_overlay1(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = ContainsVariablesOtherThanObject(*policy, false)
 	assert.Assert(t, err != nil)
 }
 
@@ -964,7 +964,7 @@ func Test_BackGroundUserInfo_mutate_overlay2(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = ContainsVariablesOtherThanObject(*policy, false)
 	assert.Assert(t, err != nil)
 }
 
@@ -995,7 +995,7 @@ func Test_BackGroundUserInfo_validate_pattern(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = ContainsVariablesOtherThanObject(*policy, false)
 	assert.Assert(t, err != nil, err)
 }
 
@@ -1030,7 +1030,7 @@ func Test_BackGroundUserInfo_validate_anyPattern(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = ContainsVariablesOtherThanObject(*policy, false)
 	assert.Assert(t, err != nil)
 }
 
@@ -1065,7 +1065,7 @@ func Test_BackGroundUserInfo_validate_anyPattern_multiple_var(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = ContainsVariablesOtherThanObject(*policy, false)
 	assert.Assert(t, err != nil)
 }
 
@@ -1100,7 +1100,7 @@ func Test_BackGroundUserInfo_validate_anyPattern_serviceAccount(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = ContainsVariablesOtherThanObject(*policy, false)
 	assert.Assert(t, err != nil)
 }
 
