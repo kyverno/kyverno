@@ -49,27 +49,30 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy, mock bool) e
 		}
 
 		if rule.AnyAllConditions != nil {
-			if err = validatePreConditions(idx, ctx, rule.AnyAllConditions); !checkNotFoundErr(err) {
+			if err = validatePreConditions(idx, ctx, rule.AnyAllConditions, mock); !checkNotFoundErr(err) {
 				return err
 			}
 		}
 
 		if rule.Validation.Deny != nil {
-			if err = validateDenyConditions(idx, ctx, rule.Validation.Deny.AnyAllConditions); !checkNotFoundErr(err) {
+			if err = validateDenyConditions(idx, ctx, rule.Validation.Deny.AnyAllConditions, mock); !checkNotFoundErr(err) {
 				return err
 			}
 		}
+
 	}
 
 	return nil
 }
 
-func validatePreConditions(idx int, ctx context.EvalInterface, anyAllConditions apiextensions.JSON) error {
+func validatePreConditions(idx int, ctx context.EvalInterface, anyAllConditions apiextensions.JSON, mock bool) error {
 	var err error
 
-	anyAllConditions, err = substituteVarsInJSON(ctx, anyAllConditions)
-	if err != nil {
-		return err
+	if !mock {
+		anyAllConditions, err = substituteVarsInJSON(ctx, anyAllConditions)
+		if err != nil {
+			return err
+		}
 	}
 
 	_, err = utils.ApiextensionsJsonToKyvernoConditions(anyAllConditions)
@@ -80,12 +83,14 @@ func validatePreConditions(idx int, ctx context.EvalInterface, anyAllConditions 
 	return nil
 }
 
-func validateDenyConditions(idx int, ctx context.EvalInterface, denyConditions apiextensions.JSON) error {
+func validateDenyConditions(idx int, ctx context.EvalInterface, denyConditions apiextensions.JSON, mock bool) error {
 	var err error
 
-	denyConditions, err = substituteVarsInJSON(ctx, denyConditions)
-	if err != nil {
-		return err
+	if !mock {
+		denyConditions, err = substituteVarsInJSON(ctx, denyConditions)
+		if err != nil {
+			return err
+		}
 	}
 
 	_, err = utils.ApiextensionsJsonToKyvernoConditions(denyConditions)
