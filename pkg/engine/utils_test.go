@@ -53,7 +53,44 @@ func TestMatchesResourceDescription(t *testing.T) {
 					]
 				}
 			}`),
-			Policy:            []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"hello-world-policy"},"spec":{"background":false,"rules":[{"name":"hello-world-policy","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"name":"hello-world"},"clusterRoles":["system:node"]},"mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}]}}`),
+			Policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "test-policy"
+				},
+				"spec": {
+					"background": false,
+					"rules": [
+						{
+							"name": "test-rule",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											]
+										}
+									}
+								]
+							},
+							"mutate": {
+								"overlay": {
+									"spec": {
+										"containers": [
+											{
+												"(image)": "*",
+												"imagePullPolicy": "IfNotPresent"
+											}
+										]
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
 			areErrorsExpected: false,
 		},
 		{

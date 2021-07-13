@@ -220,12 +220,13 @@ const (
 // which a policy rule is applicable.
 type MatchResources struct {
 	// Any allows specifying resources which will be ORed
+	// And and All are basically an array of what was earlier just the match block
 	// +optional
-	Any AnyAll `json:"any,omitempty" yaml:"any,omitempty"`
+	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
 
 	// All allows specifying resources which will be ANDed
 	// +optional
-	All AnyAll `json:"all,omitempty" yaml:"all,omitempty"`
+	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
 
 	// UserInfo contains information about the user performing the operation.
 	// +optional
@@ -242,11 +243,11 @@ type MatchResources struct {
 type ExcludeResources struct {
 	// Any allows specifying resources which will be ORed
 	// +optional
-	Any AnyAll `json:"any,omitempty" yaml:"any,omitempty"`
+	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
 
 	// All allows specifying resources which will be ANDed
 	// +optional
-	All AnyAll `json:"all,omitempty" yaml:"all,omitempty"`
+	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
 
 	// UserInfo contains information about the user performing the operation.
 	// +optional
@@ -257,8 +258,8 @@ type ExcludeResources struct {
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
-// AnyAll allow users to "AND" or "OR" between resources
-type AnyAll []struct {
+// ResourceFilters allow users to "AND" or "OR" between resources
+type ResourceFilters []struct {
 	// UserInfo contains information about the user performing the operation.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
