@@ -265,7 +265,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	var reasonsForFailure []error
 
 	if len(rule.MatchResources.Any) > 0 {
-
+		fmt.Println("Went here")
 		noneMatch := true
 		for _, rmr := range rule.MatchResources.Any {
 
@@ -289,6 +289,8 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("no resource matched"))
 		}
 	} else if len(rule.MatchResources.All) > 0 {
+		fmt.Println("Went here 2")
+
 		for _, rmr := range rule.MatchResources.All {
 			if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
 				rmr.UserInfo = kyverno.UserInfo{}
