@@ -8,6 +8,7 @@ import (
 
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_preProcessStrategicMergePatch(t *testing.T) {
@@ -17,7 +18,7 @@ func Test_preProcessStrategicMergePatch(t *testing.T) {
 
 	expected := `{"metadata": {"annotations": {"annotation2":"atest2"}, "labels": {}},"spec": {"containers": [{"command": ["ls", "ll"], "imagePullPolicy": "Always", "name": "nginx"},{"command": ["ls"], "imagePullPolicy": "Always", "name": "busybox"}]}}`
 
-	preProcessedPolicy, err := preProcessStrategicMergePatch(string(rawPolicy), string(rawResource))
+	preProcessedPolicy, err := preProcessStrategicMergePatch(log.Log, string(rawPolicy), string(rawResource))
 	assert.NilError(t, err)
 	output, err := preProcessedPolicy.String()
 	assert.NilError(t, err)
@@ -87,7 +88,7 @@ func Test_preProcessStrategicMergePatch_Deployment(t *testing.T) {
 
 	expected := `"spec":{"template":{"spec":{"containers":[{"resources":{"limits":{"memory":"300Mi"}},"name":"nginx"}]}}}`
 
-	preProcessedPolicy, err := preProcessStrategicMergePatch(string(rawPolicy), string(rawResource))
+	preProcessedPolicy, err := preProcessStrategicMergePatch(log.Log, string(rawPolicy), string(rawResource))
 	assert.NilError(t, err)
 	output, err := preProcessedPolicy.String()
 	assert.NilError(t, err)
@@ -114,7 +115,7 @@ func Test_preProcessStrategicMergePatch_AnnotationMap(t *testing.T) {
 
 	expected := `{"metadata":{"annotations":{}}}`
 
-	preProcessedPolicy, err := preProcessStrategicMergePatch(string(rawPolicy), string(rawResource))
+	preProcessedPolicy, err := preProcessStrategicMergePatch(log.Log, string(rawPolicy), string(rawResource))
 	assert.NilError(t, err)
 	output, err := preProcessedPolicy.String()
 	assert.NilError(t, err)
@@ -132,7 +133,7 @@ func Test_preProcessStrategicMergePatch_Annotation(t *testing.T) {
 
 	expected := `{"metadata":{"annotations":{}},"spec":{"volumes":[{"name":"cache-volume"}]}}`
 
-	preProcessedPolicy, err := preProcessStrategicMergePatch(string(rawPolicy), string(rawResource))
+	preProcessedPolicy, err := preProcessStrategicMergePatch(log.Log, string(rawPolicy), string(rawResource))
 	assert.NilError(t, err)
 	output, err := preProcessedPolicy.String()
 	assert.NilError(t, err)
@@ -149,7 +150,7 @@ func Test_preProcessStrategicMergePatch_BlankAnnotation(t *testing.T) {
 
 	expected := `{"metadata":{"annotations":{"cluster-autoscaler.kubernetes.io/safe-to-evict":true},"labels":{"add-labels":"add"}},"spec":{"volumes":[{"name":"cache-volume"}]}}`
 
-	preProcessedPolicy, err := preProcessStrategicMergePatch(string(rawPolicy), string(rawResource))
+	preProcessedPolicy, err := preProcessStrategicMergePatch(log.Log, string(rawPolicy), string(rawResource))
 	assert.NilError(t, err)
 	output, err := preProcessedPolicy.String()
 	assert.NilError(t, err)
@@ -194,7 +195,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 	}
 
 	for i, test := range testCases {
-		preProcessedPolicy, err := preProcessStrategicMergePatch(string(test.rawPolicy), string(test.rawResource))
+		preProcessedPolicy, err := preProcessStrategicMergePatch(log.Log, string(test.rawPolicy), string(test.rawResource))
 		assert.NilError(t, err)
 
 		output, err := preProcessedPolicy.String()

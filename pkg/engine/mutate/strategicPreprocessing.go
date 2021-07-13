@@ -1,10 +1,49 @@
 package mutate
 
 import (
+	"encoding/json"
+
+	"github.com/go-logr/logr"
 	anchor "github.com/kyverno/kyverno/pkg/engine/anchor/common"
+	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/minio/pkg/wildcard"
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
+
+func convertRNodeToInterface(document *yaml.RNode) (interface{}, error) {
+	rawDocument, err := document.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	var documentInterface interface{}
+
+	err = json.Unmarshal(rawDocument, &documentInterface)
+	if err != nil {
+		return nil, err
+	}
+
+	return documentInterface, nil
+}
+
+func checkConditionAnchor(logger logr.Logger, pattern *yaml.RNode, resource *yaml.RNode) error {
+	patternInterface, err := convertRNodeToInterface(pattern)
+	if err != nil {
+		return err
+	}
+
+	resourceInterface, err := convertRNodeToInterface(resource)
+	if err != nil {
+		return err
+	}
+
+	_, err = validate.ValidateResourceWithPattern(logger, resourceInterface, patternInterface)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 // preProcessPattern - Dynamically preProcess the yaml
 // 1> For conditional anchor remove anchors from the pattern.
@@ -16,15 +55,15 @@ import (
 // A parent node having MappingNode keeps the data as <keyNode>, <ValueNode> inside it's Content field and Tag field as "!!map".
 // A parent node having Sequence keeps the data as array of Node inside Content field and a Tag field as "!!seq".
 // https://github.com/kubernetes-sigs/kustomize/blob/master/kyaml/yaml/rnode.go
-func preProcessPattern(pattern, resource *yaml.RNode) error {
+func preProcessPattern(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	switch pattern.YNode().Kind {
 	case yaml.MappingNode:
-		err := walkMap(pattern, resource)
+		err := walkMap(logger, pattern, resource)
 		if err != nil {
 			return err
 		}
 	case yaml.SequenceNode:
-		err := walkArray(pattern, resource)
+		err := walkArray(logger, pattern, resource)
 		if err != nil {
 			return err
 		}
@@ -75,7 +114,7 @@ annotations:
  - "+(annotation1)": "atest1"
 will remove "+(" and ")" chars from pattern.
 */
-func walkMap(pattern, resource *yaml.RNode) error {
+func walkMap(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	var err error
 
 	// 1. Get all conditions from current map.
@@ -93,10 +132,10 @@ func walkMap(pattern, resource *yaml.RNode) error {
 			continue
 		}
 
-		// err = validate(pattern.Field(condition).Value, resourceField.Value)
-		// if err != nil {
-		// 	return err
-		// }
+		err = checkConditionAnchor(logger, pattern.Field(condition).Value, resourceField.Value)
+		if err != nil {
+			return err
+		}
 	}
 
 	// 2. If all conditions passed, remove them from patch
@@ -109,7 +148,7 @@ func walkMap(pattern, resource *yaml.RNode) error {
 
 	// 3. Handle all non-conditional keys
 	fields, err := pattern.Fields()
-	for i, field := range fields {
+	for _, field := range fields {
 
 		// 4. Handle adding anchors
 		if anchor.IsAddingAnchor(field) {
@@ -138,10 +177,13 @@ func walkMap(pattern, resource *yaml.RNode) error {
 		if r := resource.Field(field); r != nil {
 			resourceNode = r.Value
 		} else {
+			// In case if we have pattern, but not corresponding resource part,
+			// just walk down and remove all anchors. nil here indicates that
+			// resourceNode is empty
 			resourceNode = nil
 		}
 
-		err := preProcessPattern(pattern.Field(field).Value, resourceNode)
+		err := preProcessPattern(logger, pattern.Field(field).Value, resourceNode)
 		if err != nil {
 			return err
 		}
@@ -152,17 +194,17 @@ func walkMap(pattern, resource *yaml.RNode) error {
 // walkArray - walk through array elements
 // 1> processNonAssocSequence - process array of basic types. Ex:- {command: ["ls", "ls -l"]}
 // 2> processAssocSequence - process array having MappingNode. like containers, volumes etc.
-func walkArray(pattern, resource *yaml.RNode) error {
-	pafs, err := pattern.Elements()
+func walkArray(logger logr.Logger, pattern, resource *yaml.RNode) error {
+	elements, err := pattern.Elements()
 	if err != nil {
 		return err
 	}
-	if len(pafs) == 0 {
+	if len(elements) == 0 {
 		return nil
 	}
-	switch pafs[0].YNode().Kind {
+	switch elements[0].YNode().Kind {
 	case yaml.MappingNode:
-		return processAssocSequence(pattern, resource)
+		return processAssocSequence(logger, pattern, resource)
 	case yaml.ScalarNode:
 		return processNonAssocSequence(pattern, resource)
 	}
@@ -201,7 +243,7 @@ func walkArray(pattern, resource *yaml.RNode) error {
 	kustomize uses name field to match resource for processing. So if containers doesn't contains name field then it will be skipped.
 	So if a conditional anchor image matches resource then remove "(image)" field from yaml and add the matching names from the resource.
 */
-func processAssocSequence(pattern, resource *yaml.RNode) error {
+func processAssocSequence(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	patternElements, err := pattern.Elements()
 	if err != nil {
 		return err
@@ -219,10 +261,10 @@ func processAssocSequence(pattern, resource *yaml.RNode) error {
 	if err != nil {
 		return err
 	}
-	return preProcessArrayPattern(pattern, resource)
+	return preProcessArrayPattern(logger, pattern, resource)
 }
 
-func preProcessArrayPattern(pattern, resource *yaml.RNode) error {
+func preProcessArrayPattern(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	patternElements, err := pattern.Elements()
 	if err != nil {
 		return err
@@ -246,7 +288,7 @@ func preProcessArrayPattern(pattern, resource *yaml.RNode) error {
 						return err
 					}
 					if patternNameValue == resourceNameValue {
-						err := preProcessPattern(patternElement, resourceElement)
+						err := preProcessPattern(logger, patternElement, resourceElement)
 						if err != nil {
 							return err
 						}
@@ -426,22 +468,25 @@ func processAnchorMap(pattern, resource, arrayPattern *yaml.RNode) error {
 }
 
 func processNonAssocSequence(pattern, resource *yaml.RNode) error {
-	pafs, err := pattern.Elements()
+	patternElements, err := pattern.Elements()
 	if err != nil {
 		return err
 	}
-	rafs, err := resource.Elements()
+
+	resourceElements, err := resource.Elements()
 	if err != nil {
 		return err
 	}
-	for _, sa := range rafs {
-		des, err := sa.String()
+
+	for _, resourceElement := range resourceElements {
+		des, err := resourceElement.String()
 		if err != nil {
 			return err
 		}
+
 		ok := false
-		for _, ra := range pafs {
-			src, err := ra.String()
+		for _, patternElement := range patternElements {
+			src, err := patternElement.String()
 			if err != nil {
 				return err
 			}
@@ -451,9 +496,8 @@ func processNonAssocSequence(pattern, resource *yaml.RNode) error {
 			}
 		}
 		if !ok {
-			pattern.YNode().Content = append(pattern.YNode().Content, sa.YNode())
+			pattern.YNode().Content = append(pattern.YNode().Content, resourceElement.YNode())
 		}
-
 	}
 	return nil
 }
