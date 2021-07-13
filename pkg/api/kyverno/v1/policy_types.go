@@ -219,18 +219,59 @@ const (
 // MatchResources is used to specify resource and admission review request data for
 // which a policy rule is applicable.
 type MatchResources struct {
+	// Any allows specifying resources which will be ORed
+	// +optional
+	Any `json:"any,omitempty" yaml:"any,omitempty"`
+
+	// All allows specifying resources which will be ANDed
+	// +optional
+	All `json:"all,omitempty" yaml:"all,omitempty"`
+
 	// UserInfo contains information about the user performing the operation.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
 	// Requires at least one tag to be specified when under MatchResources.
+	// +optional
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
 // ExcludeResources specifies resource and admission review request data for
 // which a policy rule is not applicable.
 type ExcludeResources struct {
+	// Any allows specifying resources which will be ORed
+	// +optional
+	Any `json:"any,omitempty" yaml:"any,omitempty"`
+
+	// All allows specifying resources which will be ANDed
+	// +optional
+	All `json:"all,omitempty" yaml:"all,omitempty"`
+
+	// UserInfo contains information about the user performing the operation.
+	// +optional
+	UserInfo `json:",omitempty" yaml:",omitempty"`
+
+	// ResourceDescription contains information about the resource being created or modified.
+	// +optional
+	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
+}
+
+// Any allows "ORing" between resources
+type Any struct {
+	// MatchExcludeResources contains information about the resource to be matched.
+	MatchExcludeResources `json:",omitempty" yaml:",omitempty"`
+}
+
+// All allows "ANDing" between resources
+type All struct {
+	// MatchExcludeResources contains information about the resource to be matched.
+	MatchExcludeResources `json:",omitempty" yaml:",omitempty"`
+}
+
+type MatchExcludeResources []MatchExcludeResource
+
+type MatchExcludeResource struct {
 	// UserInfo contains information about the user performing the operation.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
