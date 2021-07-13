@@ -221,11 +221,11 @@ const (
 type MatchResources struct {
 	// Any allows specifying resources which will be ORed
 	// +optional
-	Any `json:"any,omitempty" yaml:"any,omitempty"`
+	Any AnyAll `json:"any,omitempty" yaml:"any,omitempty"`
 
 	// All allows specifying resources which will be ANDed
 	// +optional
-	All `json:"all,omitempty" yaml:"all,omitempty"`
+	All AnyAll `json:"all,omitempty" yaml:"all,omitempty"`
 
 	// UserInfo contains information about the user performing the operation.
 	// +optional
@@ -242,11 +242,11 @@ type MatchResources struct {
 type ExcludeResources struct {
 	// Any allows specifying resources which will be ORed
 	// +optional
-	Any `json:"any,omitempty" yaml:"any,omitempty"`
+	Any AnyAll `json:"any,omitempty" yaml:"any,omitempty"`
 
 	// All allows specifying resources which will be ANDed
 	// +optional
-	All `json:"all,omitempty" yaml:"all,omitempty"`
+	All AnyAll `json:"all,omitempty" yaml:"all,omitempty"`
 
 	// UserInfo contains information about the user performing the operation.
 	// +optional
@@ -257,18 +257,8 @@ type ExcludeResources struct {
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
-// Any allows "ORing" between resources
-type Any []struct {
-	// UserInfo contains information about the user performing the operation.
-	// +optional
-	UserInfo `json:",omitempty" yaml:",omitempty"`
-
-	// ResourceDescription contains information about the resource being created or modified.
-	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
-}
-
-// All allows "ANDing" between resources
-type All []struct {
+// AnyAll allow users to "AND" or "OR" between resources
+type AnyAll []struct {
 	// UserInfo contains information about the user performing the operation.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
