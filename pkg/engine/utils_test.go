@@ -28,7 +28,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 				"kind": "Pod",
 				"metadata": {
 					"name": "dev",
-					"namespace" : "lol"
+					"namespace" : "prod"
 				},
 				"spec": {
 					"containers": [
@@ -81,6 +81,106 @@ func TestMatchesResourceDescription(t *testing.T) {
 												"Pod"
 											],
 											"namespaces" : ["prod"]
+										}
+									}
+								]
+							},
+							"mutate": {
+								"overlay": {
+									"spec": {
+										"containers": [
+											{
+												"(image)": "*",
+												"imagePullPolicy": "IfNotPresent"
+											}
+										]
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			areErrorsExpected: false,
+		},
+		{
+			Description: "Should match pod and not exclude it",
+			AdmissionInfo: kyverno.RequestInfo{
+				ClusterRoles: []string{"admin"},
+			},
+			Resource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+					"name": "abc",
+					"namespace" : "lol"
+				},
+				"spec": {
+					"containers": [
+						{
+							"name": "cont-name",
+							"image": "cont-img",
+							"ports": [
+								{
+									"containerPort": 81
+								}
+							],
+							"resources": {
+								"limits": {
+									"memory": "30Mi",
+									"cpu": "0.2"
+								},
+								"requests": {
+									"memory": "20Mi",
+									"cpu": "0.1"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			Policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "test-policy"
+				},
+				"spec": {
+					"background": false,
+					"rules": [
+						{
+							"name": "test-rule",
+							"match": {
+								"all": [
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											]
+										}
+									}
+								]
+							},
+							"exclude": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"names": [
+												"dev"
+											]
+										}
+									},
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"namespaces": [
+												"prod"
+											]
 										}
 									}
 								]
