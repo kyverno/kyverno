@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -67,7 +66,6 @@ type Controller struct {
 	//TODO: list of generic informers
 	// only support Namespaces for re-evaluation on resource updates
 	nsInformer           informers.GenericInformer
-	policyStatusListener policystatus.Listener
 	log                  logr.Logger
 
 	Config   config.Interface
@@ -83,7 +81,6 @@ func NewController(
 	grInformer kyvernoinformer.GenerateRequestInformer,
 	eventGen event.Interface,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
-	policyStatus policystatus.Listener,
 	log logr.Logger,
 	dynamicConfig config.Interface,
 	resourceCache resourcecache.ResourceCache,
@@ -97,7 +94,6 @@ func NewController(
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
 		dynamicInformer:      dynamicInformer,
 		log:                  log,
-		policyStatusListener: policyStatus,
 		Config:               dynamicConfig,
 		resCache:             resourceCache,
 	}

@@ -4,8 +4,6 @@ import (
 	contextdefault "context"
 	"encoding/json"
 	"fmt"
-	"reflect"
-	"sort"
 	"strings"
 	"time"
 
@@ -93,15 +91,6 @@ func (ws *WebhookServer) handleGenerate(
 				rules = append(rules, rule)
 			}
 
-			if len(rules) > 0 {
-				engineResponse.PolicyResponse.Rules = rules
-				// some generate rules do apply to the resource
-				engineResponses = append(engineResponses, engineResponse)
-				triggeredGeneratePolicies = append(triggeredGeneratePolicies, *policy)
-				ws.statusListener.Update(generateStats{
-					resp: engineResponse,
-				})
-			}
 			// registering the kyverno_policy_rule_results_info metric concurrently
 			go ws.registerPolicyRuleResultsMetricGeneration(logger, string(request.Operation), *policy, *engineResponse, admissionRequestTimestamp)
 
@@ -449,76 +438,6 @@ func transform(userRequestInfo kyverno.RequestInfo, er *response.EngineResponse)
 	}
 
 	return gr
-}
-
-type generateStats struct {
-	resp *response.EngineResponse
-}
-
-func (gs generateStats) PolicyName() string {
-	return gs.resp.PolicyResponse.Policy.Name
-}
-
-func (gs generateStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {
-	if reflect.DeepEqual(response.EngineResponse{}, gs.resp) {
-		return status
-	}
-
-	var nameToRule = make(map[string]v1.RuleStats)
-	for _, rule := range status.Rules {
-		nameToRule[rule.Name] = rule
-	}
-
-	for _, rule := range gs.resp.PolicyResponse.Rules {
-		ruleStat := nameToRule[rule.Name]
-		ruleStat.Name = rule.Name
-
-		averageOver := int64(ruleStat.AppliedCount + ruleStat.FailedCount)
-		ruleStat.ExecutionTime = updateAverageTime(
-			rule.ProcessingTime,
-			ruleStat.ExecutionTime,
-			averageOver).String()
-
-		if rule.Success {
-			status.RulesAppliedCount++
-			ruleStat.AppliedCount++
-		} else {
-			status.RulesFailedCount++
-			ruleStat.FailedCount++
-		}
-
-		nameToRule[rule.Name] = ruleStat
-	}
-
-	var policyAverageExecutionTime time.Duration
-	var ruleStats = make([]v1.RuleStats, 0, len(nameToRule))
-	for _, ruleStat := range nameToRule {
-		executionTime, err := time.ParseDuration(ruleStat.ExecutionTime)
-		if err == nil {
-			policyAverageExecutionTime += executionTime
-		}
-		ruleStats = append(ruleStats, ruleStat)
-	}
-
-	sort.Slice(ruleStats, func(i, j int) bool {
-		return ruleStats[i].Name < ruleStats[j].Name
-	})
-
-	status.AvgExecutionTime = policyAverageExecutionTime.String()
-	status.Rules = ruleStats
-
-	return status
-}
-
-func updateAverageTime(newTime time.Duration, oldAverageTimeString string, averageOver int64) time.Duration {
-	if averageOver == 0 {
-		return newTime
-	}
-	oldAverageExecutionTime, _ := time.ParseDuration(oldAverageTimeString)
-	numerator := (oldAverageExecutionTime.Nanoseconds() * averageOver) + newTime.Nanoseconds()
-	denominator := averageOver + 1
-	newAverageTimeInNanoSeconds := numerator / denominator
-	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }
 
 type generateRequestResponse struct {
