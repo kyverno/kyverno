@@ -5,6 +5,11 @@ on:
       - 'main'
     paths:
       - 'charts/kyverno/Chart.yaml'
+  pull_request:
+    branches:
+      - 'main'
+    paths:
+      - 'charts/kyverno/Chart.yaml'
 
 jobs:
   create-release:

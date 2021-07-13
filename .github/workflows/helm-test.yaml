@@ -14,7 +14,6 @@ on:
 jobs:
   helm-tests:
     runs-on: ubuntu-latest
-    needs: pre-checks
     steps:
       - name: Checkout
         uses: actions/checkout@v2
