@@ -268,7 +268,7 @@ type Any []struct {
 }
 
 // All allows "ANDing" between resources
-type All struct {
+type All []struct {
 	// UserInfo contains information about the user performing the operation.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
