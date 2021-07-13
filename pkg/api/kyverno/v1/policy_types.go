@@ -258,26 +258,22 @@ type ExcludeResources struct {
 }
 
 // Any allows "ORing" between resources
-type Any struct {
-	// MatchExcludeResources contains information about the resource to be matched.
-	MatchExcludeResources `json:",omitempty" yaml:",omitempty"`
-}
-
-// All allows "ANDing" between resources
-type All struct {
-	// MatchExcludeResources contains information about the resource to be matched.
-	MatchExcludeResources `json:",omitempty" yaml:",omitempty"`
-}
-
-type MatchExcludeResources []MatchExcludeResource
-
-type MatchExcludeResource struct {
+type Any []struct {
 	// UserInfo contains information about the user performing the operation.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
+	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
+}
+
+// All allows "ANDing" between resources
+type All struct {
+	// UserInfo contains information about the user performing the operation.
 	// +optional
+	UserInfo `json:",omitempty" yaml:",omitempty"`
+
+	// ResourceDescription contains information about the resource being created or modified.
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
