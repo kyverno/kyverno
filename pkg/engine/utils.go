@@ -265,9 +265,11 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	var reasonsForFailure []error
 
 	if len(rule.MatchResources.Any) > 0 {
+
 		noneMatch := true
-		allExluded := true
-		for _, rmr := range rule.MatchResources.All {
+		for _, rmr := range rule.MatchResources.Any {
+
+			fmt.Println(rmr)
 			if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
 				rmr.UserInfo = kyverno.UserInfo{}
 			}
@@ -282,23 +284,10 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 			} else {
 				reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
 			}
-
-			// checking if resource has been excluded
-			if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) ||
-				!reflect.DeepEqual(rule.ExcludeResources.UserInfo, kyverno.UserInfo{}) {
-				excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
-				if excludeErrs != nil {
-					allExluded = false
-				}
-			}
 		}
 		if noneMatch {
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("no resource matched"))
 		}
-		if allExluded {
-			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("all resources excluded"))
-		}
-
 	} else if len(rule.MatchResources.All) > 0 {
 		for _, rmr := range rule.MatchResources.All {
 			if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
@@ -312,15 +301,6 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 				reasonsForFailure = append(reasonsForFailure, matchErrs...)
 			} else {
 				reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
-			}
-
-			// checking if resource has been excluded
-			if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) ||
-				!reflect.DeepEqual(rule.ExcludeResources.UserInfo, kyverno.UserInfo{}) {
-				excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
-				if excludeErrs == nil {
-					reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded"))
-				}
 			}
 		}
 	} else {
@@ -336,14 +316,14 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 		} else {
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
 		}
+	}
 
-		// checking if resource has been excluded
-		if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) ||
-			!reflect.DeepEqual(rule.ExcludeResources.UserInfo, kyverno.UserInfo{}) {
-			excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
-			if excludeErrs == nil {
-				reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded"))
-			}
+	// checking if resource has been excluded
+	if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) ||
+		!reflect.DeepEqual(rule.ExcludeResources.UserInfo, kyverno.UserInfo{}) {
+		excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
+		if excludeErrs == nil {
+			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded"))
 		}
 	}
 

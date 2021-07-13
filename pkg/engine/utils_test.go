@@ -27,7 +27,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 				"apiVersion": "v1",
 				"kind": "Pod",
 				"metadata": {
-					"name": "dev"
+					"name": "abc"
 				},
 				"spec": {
 					"containers": [
@@ -70,7 +70,16 @@ func TestMatchesResourceDescription(t *testing.T) {
 										"resources": {
 											"kinds": [
 												"Pod"
-											]
+											],
+											"names" : ["dev"]
+										}
+									},
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"names" : ["prod"]
 										}
 									}
 								]
