@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	gojmespath "github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -71,7 +72,11 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 		policyContext.JSONContext.Restore()
 		if err := LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
-			logger.Error(err, "failed to load context")
+			if _, ok := err.(gojmespath.NotFoundError); ok {
+				logger.V(3).Info("failed to load context", "reason", err.Error())
+			} else {
+				logger.Error(err, "failed to load context")
+			}
 			continue
 		}
 
