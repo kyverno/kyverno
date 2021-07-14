@@ -3595,7 +3595,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: ghcr.io/kyverno/kyverno:cosign-demo-v1
+        image: ghcr.io/kyverno/kyverno:latest
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 2
