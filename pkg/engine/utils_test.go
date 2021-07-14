@@ -27,7 +27,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 				"apiVersion": "v1",
 				"kind": "Pod",
 				"metadata": {
-					"name": "dev",
+					"name": "abc",
 					"namespace" : "prod"
 				},
 				"spec": {
@@ -66,7 +66,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 						{
 							"name": "test-rule",
 							"match": {
-								"all": [
+								"any": [
 									{
 										"resources": {
 											"kinds": [
@@ -112,7 +112,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 				"apiVersion": "v1",
 				"kind": "Pod",
 				"metadata": {
-					"name": "abc",
+					"name": "dev",
 					"namespace" : "lol"
 				},
 				"spec": {
@@ -162,7 +162,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 								]
 							},
 							"exclude": {
-								"any": [
+								"all": [
 									{
 										"resources": {
 											"kinds": [

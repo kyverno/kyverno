@@ -266,8 +266,9 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 
 	if len(rule.MatchResources.Any) > 0 {
 		// inlcude object if ANY of the criterias match
+		// is one matched then break from loop
 		fmt.Println("Went here")
-		noneMatch := true
+		oneMatched := false
 		for _, rmr := range rule.MatchResources.Any {
 
 			fmt.Println(rmr)
@@ -280,13 +281,14 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 				!reflect.DeepEqual(rmr.UserInfo, kyverno.UserInfo{}) {
 				matchErrs := doesResourceMatchConditionBlock(rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
 				if len(matchErrs) == 0 {
-					noneMatch = false
+					oneMatched = true
+					break
 				}
 			} else {
 				reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
 			}
 		}
-		if noneMatch {
+		if !oneMatched {
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("no resource matched"))
 		}
 	} else if len(rule.MatchResources.All) > 0 {
