@@ -23,6 +23,191 @@ func TestMatchesResourceDescription(t *testing.T) {
 			AdmissionInfo: kyverno.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
+			Resource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+					"name": "abc",
+					"namespace" : "prod"
+				},
+				"spec": {
+					"containers": [
+						{
+							"name": "cont-name",
+							"image": "cont-img",
+							"ports": [
+								{
+									"containerPort": 81
+								}
+							],
+							"resources": {
+								"limits": {
+									"memory": "30Mi",
+									"cpu": "0.2"
+								},
+								"requests": {
+									"memory": "20Mi",
+									"cpu": "0.1"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			Policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "test-policy"
+				},
+				"spec": {
+					"background": false,
+					"rules": [
+						{
+							"name": "test-rule",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"names" : ["dev"]
+										}
+									},
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"namespaces" : ["prod"]
+										}
+									}
+								]
+							},
+							"mutate": {
+								"overlay": {
+									"spec": {
+										"containers": [
+											{
+												"(image)": "*",
+												"imagePullPolicy": "IfNotPresent"
+											}
+										]
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			areErrorsExpected: false,
+		},
+		{
+			Description: "Should match pod and not exclude it",
+			AdmissionInfo: kyverno.RequestInfo{
+				ClusterRoles: []string{"admin"},
+			},
+			Resource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+					"name": "dev",
+					"namespace" : "lol"
+				},
+				"spec": {
+					"containers": [
+						{
+							"name": "cont-name",
+							"image": "cont-img",
+							"ports": [
+								{
+									"containerPort": 81
+								}
+							],
+							"resources": {
+								"limits": {
+									"memory": "30Mi",
+									"cpu": "0.2"
+								},
+								"requests": {
+									"memory": "20Mi",
+									"cpu": "0.1"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			Policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "test-policy"
+				},
+				"spec": {
+					"background": false,
+					"rules": [
+						{
+							"name": "test-rule",
+							"match": {
+								"all": [
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											]
+										}
+									}
+								]
+							},
+							"exclude": {
+								"all": [
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"names": [
+												"dev"
+											]
+										}
+									},
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"namespaces": [
+												"prod"
+											]
+										}
+									}
+								]
+							},
+							"mutate": {
+								"overlay": {
+									"spec": {
+										"containers": [
+											{
+												"(image)": "*",
+												"imagePullPolicy": "IfNotPresent"
+											}
+										]
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			areErrorsExpected: false,
+		},
+		{
+			Description: "Should match pod and not exclude it",
+			AdmissionInfo: kyverno.RequestInfo{
+				ClusterRoles: []string{"admin"},
+			},
 			Resource:          []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
 			Policy:            []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"hello-world-policy"},"spec":{"background":false,"rules":[{"name":"hello-world-policy","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"name":"hello-world"},"clusterRoles":["system:node"]},"mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}]}}`),
 			areErrorsExpected: false,

@@ -220,24 +220,52 @@ const (
 // MatchResources is used to specify resource and admission review request data for
 // which a policy rule is applicable.
 type MatchResources struct {
+	// Any allows specifying resources which will be ORed
+	// And and All are basically an array of what was earlier just the match block
+	// +optional
+	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
+
+	// All allows specifying resources which will be ANDed
+	// +optional
+	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
+
 	// UserInfo contains information about the user performing the operation.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
 	// Requires at least one tag to be specified when under MatchResources.
+	// +optional
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
 // ExcludeResources specifies resource and admission review request data for
 // which a policy rule is not applicable.
 type ExcludeResources struct {
+	// Any allows specifying resources which will be ORed
+	// +optional
+	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
+
+	// All allows specifying resources which will be ANDed
+	// +optional
+	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
+
 	// UserInfo contains information about the user performing the operation.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
 	// +optional
+	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
+}
+
+// ResourceFilters allow users to "AND" or "OR" between resources
+type ResourceFilters []struct {
+	// UserInfo contains information about the user performing the operation.
+	// +optional
+	UserInfo `json:",omitempty" yaml:",omitempty"`
+
+	// ResourceDescription contains information about the resource being created or modified.
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
