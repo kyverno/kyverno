@@ -120,7 +120,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 
 		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
-			return fmt.Errorf("wildcards are not accepted in a kind block. at least one resource kind must be specified in a kind block")
+			return fmt.Errorf("wildcards (*) are currently not supported in the match.resources.kinds field. at least one resource kind must be specified in a kind block.")
 		}
 
 		// Validate string values in labels
