@@ -1,0 +1,21 @@
+name: helm-release
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'charts/kyverno/Chart.yaml'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Helm
+        uses: azure/setup-helm@v1
+        with:
+          version: v3.4.0
+
+      - name: Run chart-releaser
+        uses: stefanprodan/helm-gh-pages@v1.4.1
+        with:
+          token: "${{ secrets.GITHUB_TOKEN }}"
