@@ -65,8 +65,8 @@ type Controller struct {
 
 	//TODO: list of generic informers
 	// only support Namespaces for re-evaluation on resource updates
-	nsInformer           informers.GenericInformer
-	log                  logr.Logger
+	nsInformer informers.GenericInformer
+	log        logr.Logger
 
 	Config   config.Interface
 	resCache resourcecache.ResourceCache
@@ -87,15 +87,15 @@ func NewController(
 ) (*Controller, error) {
 
 	c := Controller{
-		client:               client,
-		kyvernoClient:        kyvernoClient,
-		policyInformer:       policyInformer,
-		eventGen:             eventGen,
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
-		dynamicInformer:      dynamicInformer,
-		log:                  log,
-		Config:               dynamicConfig,
-		resCache:             resourceCache,
+		client:          client,
+		kyvernoClient:   kyvernoClient,
+		policyInformer:  policyInformer,
+		eventGen:        eventGen,
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
+		dynamicInformer: dynamicInformer,
+		log:             log,
+		Config:          dynamicConfig,
+		resCache:        resourceCache,
 	}
 
 	c.statusControl = StatusControl{client: kyvernoClient}

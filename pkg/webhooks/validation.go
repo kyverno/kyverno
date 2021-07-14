@@ -20,9 +20,9 @@ import (
 )
 
 type validationHandler struct {
-	log            logr.Logger
-	eventGen       event.Interface
-	prGenerator    policyreport.GeneratorInterface
+	log         logr.Logger
+	eventGen    event.Interface
+	prGenerator policyreport.GeneratorInterface
 }
 
 // handleValidation handles validating webhook admission request

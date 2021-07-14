@@ -46,11 +46,11 @@ type AuditHandler interface {
 }
 
 type auditHandler struct {
-	client         *client.Client
-	queue          workqueue.RateLimitingInterface
-	pCache         policycache.Interface
-	eventGen       event.Interface
-	prGenerator    policyreport.GeneratorInterface
+	client      *client.Client
+	queue       workqueue.RateLimitingInterface
+	pCache      policycache.Interface
+	eventGen    event.Interface
+	prGenerator policyreport.GeneratorInterface
 
 	rbLister       rbaclister.RoleBindingLister
 	rbSynced       cache.InformerSynced
@@ -200,9 +200,9 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	}
 
 	vh := &validationHandler{
-		log:            h.log,
-		eventGen:       h.eventGen,
-		prGenerator:    h.prGenerator,
+		log:         h.log,
+		eventGen:    h.eventGen,
+		prGenerator: h.prGenerator,
 	}
 
 	vh.handleValidation(h.promConfig, request, policies, policyContext, namespaceLabels, admissionRequestTimestamp)

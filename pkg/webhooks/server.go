@@ -522,9 +522,9 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	}
 
 	vh := &validationHandler{
-		log:            ws.log,
-		eventGen:       ws.eventGen,
-		prGenerator:    ws.prGenerator,
+		log:         ws.log,
+		eventGen:    ws.eventGen,
+		prGenerator: ws.prGenerator,
 	}
 
 	ok, msg := vh.handleValidation(ws.promConfig, request, policies, policyContext, namespaceLabels, admissionRequestTimestamp)
