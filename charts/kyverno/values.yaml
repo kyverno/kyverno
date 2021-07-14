@@ -48,7 +48,10 @@ podAnnotations: {}
 
 podSecurityContext: {}
 
-affinity: {}
+# By default this will make sure two pods don't end up on the same node
+# Changing this to a region would allow you to spread pods across regions
+antiAffinityTopologyKey: "kubernetes.io/hostname"
+
 nodeSelector: {}
 tolerations: []
 
