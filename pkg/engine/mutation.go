@@ -73,7 +73,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		policyContext.JSONContext.Restore()
 		if err := LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
 			if _, ok := err.(gojmespath.NotFoundError); ok {
-				logger.Info("failed to load context", "reason", err.Error())
+				logger.V(3).Info("failed to load context", "reason", err.Error())
 			} else {
 				logger.Error(err, "failed to load context")
 			}

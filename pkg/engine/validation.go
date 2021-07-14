@@ -102,7 +102,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		ctx.JSONContext.Restore()
 		if err := LoadContext(log, rule.Context, ctx.ResourceCache, ctx, rule.Name); err != nil {
 			if _, ok := err.(gojmespath.NotFoundError); ok {
-				log.V(2).Info("failed to load context", "reason", err.Error())
+				log.V(3).Info("failed to load context", "reason", err.Error())
 			} else {
 				log.Error(err, "failed to load context")
 			}
