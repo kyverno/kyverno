@@ -29,7 +29,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	userinfo "github.com/kyverno/kyverno/pkg/userinfo"
@@ -97,9 +96,6 @@ type WebhookServer struct {
 	// webhook registration client
 	webhookRegister *webhookconfig.Register
 
-	// API to send policy stats for aggregation
-	statusListener policystatus.Listener
-
 	// helpers to validate against current loaded configuration
 	configHandler config.Interface
 
@@ -151,7 +147,6 @@ func NewWebhookServer(
 	pCache policycache.Interface,
 	webhookRegistrationClient *webhookconfig.Register,
 	webhookMonitor *webhookconfig.Monitor,
-	statusSync policystatus.Listener,
 	configHandler config.Interface,
 	prGenerator policyreport.GeneratorInterface,
 	grGenerator *webhookgenerate.Generator,
@@ -196,7 +191,6 @@ func NewWebhookServer(
 		eventGen:          eventGen,
 		pCache:            pCache,
 		webhookRegister:   webhookRegistrationClient,
-		statusListener:    statusSync,
 		configHandler:     configHandler,
 		cleanUp:           cleanUp,
 		webhookMonitor:    webhookMonitor,
@@ -528,33 +522,21 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	}
 
 	vh := &validationHandler{
-		log:            ws.log,
-		statusListener: ws.statusListener,
-		eventGen:       ws.eventGen,
-		prGenerator:    ws.prGenerator,
+		log:         ws.log,
+		eventGen:    ws.eventGen,
+		prGenerator: ws.prGenerator,
 	}
 
 	ok, msg := vh.handleValidation(ws.promConfig, request, policies, policyContext, namespaceLabels, admissionRequestTimestamp)
 	if !ok {
 		logger.Info("admission request denied")
-		return &v1beta1.AdmissionResponse{
-			Allowed: false,
-			Result: &metav1.Status{
-				Status:  "Failure",
-				Message: msg,
-			},
-		}
+		return failureResponse(msg)
 	}
 
 	// push admission request to audit handler, this won't block the admission request
 	ws.auditHandler.Add(request.DeepCopy())
 
-	return &v1beta1.AdmissionResponse{
-		Allowed: true,
-		Result: &metav1.Status{
-			Status: "Success",
-		},
-	}
+	return successResponse(nil)
 }
 
 // RunAsync TLS server in separate thread and returns control immediately

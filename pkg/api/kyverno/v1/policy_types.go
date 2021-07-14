@@ -32,6 +32,7 @@ type Policy struct {
 
 	// Status contains policy runtime information.
 	// +optional
+	// Deprecated. Policy metrics are available via the metrics endpoint
 	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
@@ -434,6 +435,8 @@ type CloneFrom struct {
 }
 
 // PolicyStatus mostly contains runtime information related to policy execution.
+// Deprecated. Policy metrics are now available via the "/metrics" endpoint.
+// See: https://kyverno.io/docs/monitoring-kyverno-with-prometheus-metrics/
 type PolicyStatus struct {
 	// AvgExecutionTime is the average time taken to process the policy rules on a resource.
 	// +optional
@@ -469,6 +472,8 @@ type PolicyStatus struct {
 }
 
 // RuleStats provides statistics for an individual rule within a policy.
+// Deprecated. Policy metrics are now available via the "/metrics" endpoint.
+// See: https://kyverno.io/docs/monitoring-kyverno-with-prometheus-metrics/
 type RuleStats struct {
 	// Name is the rule name.
 	Name string `json:"ruleName" yaml:"ruleName"`

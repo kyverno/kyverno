@@ -2,14 +2,11 @@ package webhooks
 
 import (
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/policystatus"
 	"reflect"
-	"sort"
 	"time"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -23,10 +20,9 @@ import (
 )
 
 type validationHandler struct {
-	log            logr.Logger
-	statusListener policystatus.Listener
-	eventGen       event.Interface
-	prGenerator    policyreport.GeneratorInterface
+	log         logr.Logger
+	eventGen    event.Interface
+	prGenerator policyreport.GeneratorInterface
 }
 
 // handleValidation handles validating webhook admission request
@@ -78,11 +74,6 @@ func (v *validationHandler) handleValidation(
 
 		engineResponses = append(engineResponses, engineResponse)
 		triggeredPolicies = append(triggeredPolicies, *policy)
-		v.statusListener.Update(validateStats{
-			resp:      engineResponse,
-			namespace: policy.Namespace,
-		})
-
 		if !engineResponse.IsSuccessful() {
 			logger.V(2).Info("validation failed", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
 			continue
@@ -184,72 +175,4 @@ func buildDeletionPrInfo(oldR unstructured.Unstructured) policyreport.Info {
 			}},
 		},
 	}
-}
-
-type validateStats struct {
-	resp      *response.EngineResponse
-	namespace string
-}
-
-func (vs validateStats) PolicyName() string {
-	if vs.namespace == "" {
-		return vs.resp.PolicyResponse.Policy.Name
-	}
-	return vs.namespace + "/" + vs.resp.PolicyResponse.Policy.Name
-
-}
-
-func (vs validateStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {
-	if reflect.DeepEqual(response.EngineResponse{}, vs.resp) {
-		return status
-	}
-
-	var nameToRule = make(map[string]v1.RuleStats)
-	for _, rule := range status.Rules {
-		nameToRule[rule.Name] = rule
-	}
-
-	for _, rule := range vs.resp.PolicyResponse.Rules {
-		ruleStat := nameToRule[rule.Name]
-		ruleStat.Name = rule.Name
-
-		averageOver := int64(ruleStat.AppliedCount + ruleStat.FailedCount)
-		ruleStat.ExecutionTime = updateAverageTime(
-			rule.ProcessingTime,
-			ruleStat.ExecutionTime,
-			averageOver).String()
-
-		if rule.Success {
-			status.RulesAppliedCount++
-			ruleStat.AppliedCount++
-		} else {
-			status.RulesFailedCount++
-			ruleStat.FailedCount++
-			if vs.resp.PolicyResponse.ValidationFailureAction == "enforce" {
-				status.ResourcesBlockedCount++
-				ruleStat.ResourcesBlockedCount++
-			}
-		}
-
-		nameToRule[rule.Name] = ruleStat
-	}
-
-	var policyAverageExecutionTime time.Duration
-	var ruleStats = make([]v1.RuleStats, 0, len(nameToRule))
-	for _, ruleStat := range nameToRule {
-		executionTime, err := time.ParseDuration(ruleStat.ExecutionTime)
-		if err == nil {
-			policyAverageExecutionTime += executionTime
-		}
-		ruleStats = append(ruleStats, ruleStat)
-	}
-
-	sort.Slice(ruleStats, func(i, j int) bool {
-		return ruleStats[i].Name < ruleStats[j].Name
-	})
-
-	status.AvgExecutionTime = policyAverageExecutionTime.String()
-	status.Rules = ruleStats
-
-	return status
 }
