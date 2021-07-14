@@ -91,6 +91,13 @@ func (ws *WebhookServer) handleGenerate(
 				rules = append(rules, rule)
 			}
 
+			if len(rules) > 0 {
+				engineResponse.PolicyResponse.Rules = rules
+				// some generate rules do apply to the resource
+				engineResponses = append(engineResponses, engineResponse)
+				triggeredGeneratePolicies = append(triggeredGeneratePolicies, *policy)
+			}
+
 			// registering the kyverno_policy_rule_results_info metric concurrently
 			go ws.registerPolicyRuleResultsMetricGeneration(logger, string(request.Operation), *policy, *engineResponse, admissionRequestTimestamp)
 

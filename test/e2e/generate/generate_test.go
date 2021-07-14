@@ -132,22 +132,19 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		By("Verifying ClusterRole")
 
 		// Wait Till Creation of ClusterRole
-		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
+		err = e2e.GetWithRetry(1*time.Second, 30, func() error {
 			_, err := e2eClient.GetClusteredResource(crGVR, tests.ClusterRoleName)
 			if err != nil {
 				return err
 			}
 			return nil
 		})
-
-		rRes, err := e2eClient.GetClusteredResource(crGVR, tests.ClusterRoleName)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(rRes.GetName()).To(Equal(tests.ClusterRoleName))
 		// ============================================
 
 		// ======= Verify ClusterRoleBinding Creation ========
 		By("Verifying ClusterRoleBinding")
-		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
+		err = e2e.GetWithRetry(1*time.Second, 30, func() error {
 			_, err := e2eClient.GetClusteredResource(crbGVR, tests.ClusterRoleBindingName)
 			if err != nil {
 				return err
@@ -159,7 +156,6 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		rbRes, err := e2eClient.GetClusteredResource(crbGVR, tests.ClusterRoleBindingName)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rbRes.GetName()).To(Equal(tests.ClusterRoleBindingName))
-
 		// ============================================
 
 		// ======= CleanUp Resources =====
