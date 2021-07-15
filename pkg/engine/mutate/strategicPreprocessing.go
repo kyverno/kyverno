@@ -33,6 +33,14 @@ func NewConditionError(err error) error {
 // A parent node having Sequence keeps the data as array of Node inside Content field and a Tag field as "!!seq".
 // https://github.com/kubernetes-sigs/kustomize/blob/master/kyaml/yaml/rnode.go
 func preProcessPattern(logger logr.Logger, pattern, resource *yaml.RNode) error {
+	err := preProcessRecursive(logger, pattern, resource)
+	if err != nil {
+		return err
+	}
+	return deleteConditionElements(pattern)
+}
+
+func preProcessRecursive(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	switch pattern.YNode().Kind {
 	case yaml.MappingNode:
 		return walkMap(logger, pattern, resource)
@@ -40,7 +48,7 @@ func preProcessPattern(logger logr.Logger, pattern, resource *yaml.RNode) error 
 		return walkArray(logger, pattern, resource)
 	}
 
-	return deleteConditionElements(pattern)
+	return nil
 }
 
 // walkMap - walk through the MappingNode
@@ -74,7 +82,7 @@ func walkMap(logger logr.Logger, pattern, resource *yaml.RNode) error {
 			resourceNode = resource.Field(field).Value
 		}
 
-		err := preProcessPattern(logger, pattern.Field(field).Value, resourceNode)
+		err := preProcessRecursive(logger, pattern.Field(field).Value, resourceNode)
 		if err != nil {
 			return err
 		}
@@ -84,8 +92,6 @@ func walkMap(logger logr.Logger, pattern, resource *yaml.RNode) error {
 }
 
 // walkArray - walk through array elements
-// 1> processNonAssocSequence - process array of basic types. Ex:- {command: ["ls", "ls -l"]}
-// 2> processAssocSequence - process array having MappingNode. like containers, volumes etc.
 func walkArray(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	elements, err := pattern.Elements()
 	if err != nil {
@@ -97,45 +103,17 @@ func walkArray(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	}
 
 	if elements[0].YNode().Kind == yaml.MappingNode {
-		return processSequenceOfMaps(logger, pattern, resource)
+		return processListOfMaps(logger, pattern, resource)
 	}
 
 	return nil
 }
 
-// processSequenceOfMaps - process arrays
+// processListOfMaps - process arrays
 // in many cases like containers, volumes kustomize uses name field to match resource for processing
-// 1> If any conditional anchor match resource field and if the pattern doesn't contain "name" field and
-// 		resource contains "name" field then copy the name field from resource to pattern.
-// 2> If the resource doesn't contain "name" field then just remove anchor field from yaml.
-/*
-  Policy:
-		"spec": {
-			"containers": [{
-			"(image)": "*:latest",
-			"imagePullPolicy": "Always"
-		}]}
-
-  Resource:
-	    "spec": {
-			"containers": [
-				{
-				"name": "nginx",
-				"image": "nginx:latest",
-				"imagePullPolicy": "Never"
-				}]
-		}
-	After Preprocessing:
-		"spec": {
-			"containers": [{
-			"name": "nginx",
-			"imagePullPolicy": "Always"
-		}]}
-
-	kustomize uses name field to match resource for processing. So if containers doesn't contains name field then it will be skipped.
-	So if a conditional anchor image matches resource then remove "(image)" field from yaml and add the matching names from the resource.
-*/
-func processSequenceOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error {
+// If any conditional anchor match resource field and if the pattern doesn't contain "name" field and
+// resource contains "name" field, then copy the name field from resource to pattern.
+func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	patternElements, err := pattern.Elements()
 	if err != nil {
 		return err
@@ -150,7 +128,7 @@ func processSequenceOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) er
 		// If pattern has conditions, look for matching elements and process them
 		if hasAnchors(patternElement) {
 			for _, resourceElement := range resourceElements {
-				err := preProcessPattern(logger, patternElement, resourceElement)
+				err := preProcessRecursive(logger, patternElement, resourceElement)
 				if err != nil {
 					if _, ok := err.(ConditionError); ok {
 						// Skip element, if condition has failed
@@ -191,43 +169,6 @@ func processSequenceOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) er
 	return nil
 }
 
-// processAnchorMap - process arrays
-// in many cases like containers, volumes kustomize uses name field to match resource for processing
-// 1> If any conditional anchor match resource field and if the pattern doesn't contains "name" field and
-// 		resource contains "name" field then copy the name field from resource to pattern.
-// 2> If the resource doesn't contains "name" field then just remove anchor field from yaml.
-/*
-  Policy:
-		"spec": {
-			"containers": [{
-			"(image)": "*:latest",
-			"imagePullPolicy": "Always"
-		}]}
-
-  Resource:
-	    "spec": {
-			"containers": [
-				{
-				"name": "nginx",
-				"image": "nginx:latest",
-				"imagePullPolicy": "Never"
-				}]
-		}
-	After Preprocessing:
-		"spec": {
-			"containers": [{
-			"(image)": "*:latest",
-			"imagePullPolicy": "Always"
-		},
-		{
-			"name": "nginx",
-			"imagePullPolicy": "Always"
-		}]}
-
-	kustomize uses name field to match resource for processing. So if containers doesn't contains name field then it will be skipped.
-	So if a conditional anchor image matches resouce then remove "(image)" field from yaml and add the matching names from the resource.
-*/
-
 // validateConditions checks all conditions from current map.
 // If at least one condition fails, return error.
 // If caller handles list of maps and gets an error, it must skip element.
@@ -245,14 +186,6 @@ func validateConditions(logger logr.Logger, pattern, resource *yaml.RNode) error
 		}
 
 		err = checkCondition(logger, pattern.Field(condition).Value, resource.Field(conditionKey).Value)
-		if err != nil {
-			return err
-		}
-	}
-
-	// If conditions passed, remove them from the pattern
-	for _, condition := range conditions {
-		err = pattern.PipeE(yaml.Clear(condition))
 		if err != nil {
 			return err
 		}
