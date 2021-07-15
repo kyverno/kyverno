@@ -1,0 +1,33 @@
+{{- if .Values.serviceMonitor.enabled }}
+
+{{- if not (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") -}}
+    {{- fail "Prometheus is not installed" }}
+{{ end }}
+
+apiVersion: "monitoring.coreos.com/v1"
+kind: ServiceMonitor
+metadata:
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
+{{- if .Values.serviceMonitor.additionalLabels }}
+{{ toYaml .Values.serviceMonitor.additionalLabels | indent 4 }}
+{{- end }}
+  name: {{ template "kyverno.serviceName" . }}-service-monitor
+  namespace: {{ template "kyverno.namespace" . }}
+spec:
+  selector:
+    matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
+      app: kyverno
+  namespaceSelector:
+    matchNames:
+    - {{ template "kyverno.namespace" . }}
+  endpoints:
+  - port: metrics-port
+    interval: {{ .Values.serviceMonitor.interval }}
+    scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+  {{- if .Values.serviceMonitor.secure }}
+    scheme: https
+    tlsConfig:
+      {{- toYaml .Values.serviceMonitor.tlsConfig | nindent 8 }}
+    {{- end }}
+{{- end }}

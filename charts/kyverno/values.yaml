@@ -175,6 +175,22 @@ metricsService:
   ##
   annotations: {}
 
+# Service Monitor to collect Prometheus Metrics
+serviceMonitor:
+  enabled: false
+  # Additional labels
+  additionalLabels:
+    # key: value
+
+  # Interval to scrape metrics
+  interval: 30s
+  # Timeout if metrics can't be retrieved in given time interval
+  scrapeTimeout: 25s
+  # Is TLS required for endpoint
+  secure: false
+  # TLS Configuration for endpoint
+  tlsConfig: {}
+
 # Kyverno requires a certificate key pair and corresponding certificate authority
 # to properly register its webhooks. This can be done in one of 3 ways:
 # 1) Use kube-controller-manager to generate a CA-signed certificate (preferred)
