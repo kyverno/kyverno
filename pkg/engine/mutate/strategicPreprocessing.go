@@ -100,6 +100,13 @@ func walkMap(pattern, resource *yaml.RNode) error {
 
 			continue
 		}
+		if anchor.IsEqualityAnchor(key) {
+			err := processEqualityAnchor(key, fields, pattern, resource)
+			if err != nil {
+				return err
+			}
+			continue
+		}
 		if anchor.IsAddingAnchor(key) {
 			ind := getIndex(key, fields)
 			if ind == -1 {
@@ -299,23 +306,100 @@ func removeAnchorElements(pattern *yaml.RNode) error {
 }
 
 func processAnchorSequence(pattern, resource, arrayPattern *yaml.RNode) error {
-	resourceElements, err := resource.Elements()
-	if err != nil {
-		return err
-	}
 	switch pattern.YNode().Kind {
 	case yaml.MappingNode:
+		resourceElements, err := resource.Elements()
+		if err != nil {
+			return err
+		}
 		for _, resourceElement := range resourceElements {
-			err := processAnchorMap(pattern, resourceElement, arrayPattern)
+			err := processConditionAnchorMap(pattern, resourceElement, arrayPattern)
 			if err != nil {
 				return err
+			}
+		}
+
+		sfields, fields, err := getAnchorSortedFields(pattern)
+		if err != nil {
+			return err
+		}
+		for _, key := range sfields {
+			if anchor.IsEqualityAnchor(key) {
+				err := processEqualityAnchor(key, fields, pattern, resource)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
 	return nil
 }
 
-// processAnchorMap - process arrays
+func processEqualityAnchor(AnchorKey string, fields []string, pattern, resource *yaml.RNode) error {
+	ind := getIndex(AnchorKey, fields)
+	if ind == -1 {
+		return nil
+	}
+
+	// remove anchor tags from value
+	// A MappingNode contains keyNode and Value node
+	// keyNode contains it's key value in it's Value field, So remove anchor tags from Value field
+	key := removeAnchor(AnchorKey)
+	pattern.YNode().Content[ind].Value = key
+
+	switch resource.YNode().Kind {
+	case yaml.MappingNode:
+		// If a key value exists in the resource, then we continue processing
+		if res := resource.Field(key); res != nil {
+			err := processAddingNameToCurrentNode(pattern, resource)
+			if err != nil {
+				return err
+			}
+			err = preProcessPattern(pattern, resource)
+			if err != nil {
+				return err
+			}
+		}
+	case yaml.SequenceNode:
+		// RNodes contains nodes that we have bypassed.
+		var RNodes []*yaml.Node
+
+		resourceElements, err := resource.Elements()
+		if err != nil {
+			return err
+		}
+
+		for _, resourceElement := range resourceElements {
+			// If a key value exists in the resource, then we continue processing
+			if res := resourceElement.Field(key); res != nil {
+				copyPattern := pattern.Copy()
+				err := preProcessPattern(copyPattern, resourceElement)
+				if err != nil {
+					return err
+				}
+				err = processAddingNameToCurrentNode(copyPattern, resourceElement)
+				if err != nil {
+					return err
+				}
+				RNodes = append(RNodes, copyPattern.YNode().Content...)
+			}
+		}
+		// Replacing the current node with the bypassed nodes
+		pattern.YNode().Content = RNodes
+	}
+	return nil
+}
+
+// processAddingNameToCurrentNode adds a name field to an existing node for future processing K8S strategicMergePatch
+func processAddingNameToCurrentNode(pattern, resource *yaml.RNode) error {
+	fieldResource := resource.Field("name")
+	if fieldResource != nil {
+		pattern.YNode().Content = append(pattern.YNode().Content, fieldResource.Key.YNode(), fieldResource.Value.YNode())
+	}
+	return nil
+}
+
+// processConditionAnchorMap - process arrays
 // in many cases like containers, volumes kustomize uses name field to match resource for processing
 // 1> If any conditional anchor match resource field and if the pattern doesn't contains "name" field and
 // 		resource contains "name" field then copy the name field from resource to pattern.
@@ -351,7 +435,7 @@ func processAnchorSequence(pattern, resource, arrayPattern *yaml.RNode) error {
 	kustomize uses name field to match resource for processing. So if containers doesn't contains name field then it will be skipped.
 	So if a conditional anchor image matches resouce then remove "(image)" field from yaml and add the matching names from the resource.
 */
-func processAnchorMap(pattern, resource, arrayPattern *yaml.RNode) error {
+func processConditionAnchorMap(pattern, resource, arrayPattern *yaml.RNode) error {
 	sfields, fields, err := getAnchorSortedFields(pattern)
 	if err != nil {
 		return err
@@ -468,7 +552,7 @@ func getAnchorSortedFields(pattern *yaml.RNode) ([]string, []string, error) {
 		return fields, fields, err
 	}
 	for _, key := range fields {
-		if anchor.IsConditionAnchor(key) {
+		if anchor.IsConditionAnchor(key) || anchor.IsEqualityAnchor(key) {
 			anchors = append(anchors, key)
 			continue
 		}
@@ -494,8 +578,7 @@ func hasAnchors(pattern *yaml.RNode) bool {
 			return false
 		}
 		for _, key := range fields {
-
-			if anchor.IsConditionAnchor(key) || anchor.IsAddingAnchor(key) {
+			if anchor.IsEqualityAnchor(key) || anchor.IsAddingAnchor(key) || anchor.IsConditionAnchor(key) {
 				return true
 			}
 			patternMapNode := pattern.Field(key)
@@ -541,7 +624,7 @@ func getIndexToBeRemoved(patternElements []*yaml.RNode) (removedIndex []int, err
 				return nil, err
 			}
 			for _, key := range sfields {
-				if anchor.IsConditionAnchor(key) {
+				if anchor.IsConditionAnchor(key) || anchor.IsEqualityAnchor(key) {
 					removedIndex = append(removedIndex, index)
 					break
 				}
