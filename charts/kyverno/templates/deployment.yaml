@@ -9,6 +9,10 @@ spec:
   selector:
     matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.updateStrategy }}
+  strategy:
+    {{ toYaml .Values.updateStrategy | nindent 4 | trim }}
+  {{- end }}
   template:
     metadata:
       labels: {{ include "kyverno.labels" . | nindent 8 }}
