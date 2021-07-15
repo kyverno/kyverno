@@ -99,6 +99,12 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		return nil, err
 	}
 
+	// ignorning pre conditions because they were taken care
+	// while adding generate request
+	for idx := range policyObj.Spec.Rules {
+		policyObj.Spec.Rules[idx].AnyAllConditions = nil
+	}
+
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
 		logger.Error(err, "failed to marshal resource")
