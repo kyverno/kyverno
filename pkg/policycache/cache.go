@@ -118,57 +118,172 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 
 	for _, rule := range policy.Spec.Rules {
 
-		for _, gvk := range rule.MatchResources.Kinds {
-			_, kind := common.GetKindFromGVK(gvk)
-			_, ok := m.kindDataMap[kind]
-			if !ok {
-				m.kindDataMap[kind] = make(map[PolicyType][]string)
-			}
+		if len(rule.MatchResources.Any) > 0 {
+			for _, rmr := range rule.MatchResources.Any {
+				for _, gvk := range rmr.Kinds {
+					_, kind := common.GetKindFromGVK(gvk)
+					_, ok := m.kindDataMap[kind]
+					if !ok {
+						m.kindDataMap[kind] = make(map[PolicyType][]string)
+					}
 
-			if rule.HasMutate() {
-				if !mutateMap[kind+"/"+pName] {
-					mutateMap[kind+"/"+pName] = true
-					mutatePolicy := m.kindDataMap[kind][Mutate]
-					m.kindDataMap[kind][Mutate] = append(mutatePolicy, pName)
+					if rule.HasMutate() {
+						if !mutateMap[kind+"/"+pName] {
+							mutateMap[kind+"/"+pName] = true
+							mutatePolicy := m.kindDataMap[kind][Mutate]
+							m.kindDataMap[kind][Mutate] = append(mutatePolicy, pName)
+						}
+						continue
+					}
+
+					if rule.HasValidate() {
+						if enforcePolicy {
+							if !validateEnforceMap[kind+"/"+pName] {
+								validateEnforceMap[kind+"/"+pName] = true
+								validatePolicy := m.kindDataMap[kind][ValidateEnforce]
+								m.kindDataMap[kind][ValidateEnforce] = append(validatePolicy, pName)
+							}
+							continue
+						}
+
+						// ValidateAudit
+						if !validateAuditMap[kind+"/"+pName] {
+							validateAuditMap[kind+"/"+pName] = true
+							validatePolicy := m.kindDataMap[kind][ValidateAudit]
+							m.kindDataMap[kind][ValidateAudit] = append(validatePolicy, pName)
+						}
+						continue
+					}
+
+					if rule.HasGenerate() {
+						if !generateMap[kind+"/"+pName] {
+							generateMap[kind+"/"+pName] = true
+							generatePolicy := m.kindDataMap[kind][Generate]
+							m.kindDataMap[kind][Generate] = append(generatePolicy, pName)
+						}
+						continue
+					}
+
+					if rule.HasVerifyImages() {
+						if !imageVerifyMap[kind+"/"+pName] {
+							imageVerifyMap[kind+"/"+pName] = true
+							imageVerifyMapPolicy := m.kindDataMap[kind][VerifyImages]
+							m.kindDataMap[kind][VerifyImages] = append(imageVerifyMapPolicy, pName)
+						}
+						continue
+					}
 				}
-				continue
 			}
 
-			if rule.HasValidate() {
-				if enforcePolicy {
-					if !validateEnforceMap[kind+"/"+pName] {
-						validateEnforceMap[kind+"/"+pName] = true
-						validatePolicy := m.kindDataMap[kind][ValidateEnforce]
-						m.kindDataMap[kind][ValidateEnforce] = append(validatePolicy, pName)
+		} else if len(rule.MatchResources.All) > 0 {
+			for _, rmr := range rule.MatchResources.All {
+				for _, gvk := range rmr.Kinds {
+					_, kind := common.GetKindFromGVK(gvk)
+					_, ok := m.kindDataMap[kind]
+					if !ok {
+						m.kindDataMap[kind] = make(map[PolicyType][]string)
+					}
+
+					if rule.HasMutate() {
+						if !mutateMap[kind+"/"+pName] {
+							mutateMap[kind+"/"+pName] = true
+							mutatePolicy := m.kindDataMap[kind][Mutate]
+							m.kindDataMap[kind][Mutate] = append(mutatePolicy, pName)
+						}
+						continue
+					}
+
+					if rule.HasValidate() {
+						if enforcePolicy {
+							if !validateEnforceMap[kind+"/"+pName] {
+								validateEnforceMap[kind+"/"+pName] = true
+								validatePolicy := m.kindDataMap[kind][ValidateEnforce]
+								m.kindDataMap[kind][ValidateEnforce] = append(validatePolicy, pName)
+							}
+							continue
+						}
+
+						// ValidateAudit
+						if !validateAuditMap[kind+"/"+pName] {
+							validateAuditMap[kind+"/"+pName] = true
+							validatePolicy := m.kindDataMap[kind][ValidateAudit]
+							m.kindDataMap[kind][ValidateAudit] = append(validatePolicy, pName)
+						}
+						continue
+					}
+
+					if rule.HasGenerate() {
+						if !generateMap[kind+"/"+pName] {
+							generateMap[kind+"/"+pName] = true
+							generatePolicy := m.kindDataMap[kind][Generate]
+							m.kindDataMap[kind][Generate] = append(generatePolicy, pName)
+						}
+						continue
+					}
+
+					if rule.HasVerifyImages() {
+						if !imageVerifyMap[kind+"/"+pName] {
+							imageVerifyMap[kind+"/"+pName] = true
+							imageVerifyMapPolicy := m.kindDataMap[kind][VerifyImages]
+							m.kindDataMap[kind][VerifyImages] = append(imageVerifyMapPolicy, pName)
+						}
+						continue
+					}
+				}
+			}
+		} else {
+			for _, gvk := range rule.MatchResources.Kinds {
+				_, kind := common.GetKindFromGVK(gvk)
+				_, ok := m.kindDataMap[kind]
+				if !ok {
+					m.kindDataMap[kind] = make(map[PolicyType][]string)
+				}
+
+				if rule.HasMutate() {
+					if !mutateMap[kind+"/"+pName] {
+						mutateMap[kind+"/"+pName] = true
+						mutatePolicy := m.kindDataMap[kind][Mutate]
+						m.kindDataMap[kind][Mutate] = append(mutatePolicy, pName)
 					}
 					continue
 				}
 
-				// ValidateAudit
-				if !validateAuditMap[kind+"/"+pName] {
-					validateAuditMap[kind+"/"+pName] = true
-					validatePolicy := m.kindDataMap[kind][ValidateAudit]
-					m.kindDataMap[kind][ValidateAudit] = append(validatePolicy, pName)
-				}
-				continue
-			}
+				if rule.HasValidate() {
+					if enforcePolicy {
+						if !validateEnforceMap[kind+"/"+pName] {
+							validateEnforceMap[kind+"/"+pName] = true
+							validatePolicy := m.kindDataMap[kind][ValidateEnforce]
+							m.kindDataMap[kind][ValidateEnforce] = append(validatePolicy, pName)
+						}
+						continue
+					}
 
-			if rule.HasGenerate() {
-				if !generateMap[kind+"/"+pName] {
-					generateMap[kind+"/"+pName] = true
-					generatePolicy := m.kindDataMap[kind][Generate]
-					m.kindDataMap[kind][Generate] = append(generatePolicy, pName)
+					// ValidateAudit
+					if !validateAuditMap[kind+"/"+pName] {
+						validateAuditMap[kind+"/"+pName] = true
+						validatePolicy := m.kindDataMap[kind][ValidateAudit]
+						m.kindDataMap[kind][ValidateAudit] = append(validatePolicy, pName)
+					}
+					continue
 				}
-				continue
-			}
 
-			if rule.HasVerifyImages() {
-				if !imageVerifyMap[kind+"/"+pName] {
-					imageVerifyMap[kind+"/"+pName] = true
-					imageVerifyMapPolicy := m.kindDataMap[kind][VerifyImages]
-					m.kindDataMap[kind][VerifyImages] = append(imageVerifyMapPolicy, pName)
+				if rule.HasGenerate() {
+					if !generateMap[kind+"/"+pName] {
+						generateMap[kind+"/"+pName] = true
+						generatePolicy := m.kindDataMap[kind][Generate]
+						m.kindDataMap[kind][Generate] = append(generatePolicy, pName)
+					}
+					continue
 				}
-				continue
+
+				if rule.HasVerifyImages() {
+					if !imageVerifyMap[kind+"/"+pName] {
+						imageVerifyMap[kind+"/"+pName] = true
+						imageVerifyMapPolicy := m.kindDataMap[kind][VerifyImages]
+						m.kindDataMap[kind][VerifyImages] = append(imageVerifyMapPolicy, pName)
+					}
+					continue
+				}
 			}
 		}
 	}
@@ -207,26 +322,73 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 	}
 
 	for _, rule := range policy.Spec.Rules {
-		for _, gvk := range rule.MatchResources.Kinds {
-			_, kind := common.GetKindFromGVK(gvk)
-			dataMap := m.kindDataMap[kind]
-			for policyType, policies := range dataMap {
-				var newPolicies []string
-				for _, p := range policies {
-					if p == pName {
-						continue
-					}
-					newPolicies = append(newPolicies, p)
-				}
-				m.kindDataMap[kind][policyType] = newPolicies
-			}
-			for _, nameCache := range m.nameCacheMap {
-				if ok := nameCache[kind+"/"+pName]; ok {
-					delete(nameCache, kind+"/"+pName)
-				}
-			}
 
+		if len(rule.MatchResources.Any) > 0 {
+			for _, rmr := range rule.MatchResources.Any {
+				for _, gvk := range rmr.Kinds {
+					_, kind := common.GetKindFromGVK(gvk)
+					dataMap := m.kindDataMap[kind]
+					for policyType, policies := range dataMap {
+						var newPolicies []string
+						for _, p := range policies {
+							if p == pName {
+								continue
+							}
+							newPolicies = append(newPolicies, p)
+						}
+						m.kindDataMap[kind][policyType] = newPolicies
+					}
+					for _, nameCache := range m.nameCacheMap {
+						if ok := nameCache[kind+"/"+pName]; ok {
+							delete(nameCache, kind+"/"+pName)
+						}
+					}
+				}
+			}
+		} else if len(rule.MatchResources.All) > 0 {
+			for _, rmr := range rule.MatchResources.All {
+				for _, gvk := range rmr.Kinds {
+					_, kind := common.GetKindFromGVK(gvk)
+					dataMap := m.kindDataMap[kind]
+					for policyType, policies := range dataMap {
+						var newPolicies []string
+						for _, p := range policies {
+							if p == pName {
+								continue
+							}
+							newPolicies = append(newPolicies, p)
+						}
+						m.kindDataMap[kind][policyType] = newPolicies
+					}
+					for _, nameCache := range m.nameCacheMap {
+						if ok := nameCache[kind+"/"+pName]; ok {
+							delete(nameCache, kind+"/"+pName)
+						}
+					}
+				}
+			}
+		} else {
+			for _, gvk := range rule.MatchResources.Kinds {
+				_, kind := common.GetKindFromGVK(gvk)
+				dataMap := m.kindDataMap[kind]
+				for policyType, policies := range dataMap {
+					var newPolicies []string
+					for _, p := range policies {
+						if p == pName {
+							continue
+						}
+						newPolicies = append(newPolicies, p)
+					}
+					m.kindDataMap[kind][policyType] = newPolicies
+				}
+				for _, nameCache := range m.nameCacheMap {
+					if ok := nameCache[kind+"/"+pName]; ok {
+						delete(nameCache, kind+"/"+pName)
+					}
+				}
+			}
 		}
+
 	}
 }
 func (m *policyCache) getPolicyObject(key PolicyType, gvk string, nspace string) (policyObject []*kyverno.ClusterPolicy) {

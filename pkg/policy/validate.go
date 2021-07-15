@@ -109,14 +109,36 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			return err
 		}
 
-		// If a rules match block does not match any kind,
-		// we should only allow such rules to have metadata in its overlay
-		if len(rule.MatchResources.Kinds) == 0 {
-			if !ruleOnlyDealsWithResourceMetaData(rule) {
-				return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-					" the rule does not match an kind")
+		// If a rule's match block does not match any kind,
+		// we should only allow it to have metadata in its overlay
+		if len(rule.MatchResources.Any) > 0 {
+			for _, rmr := range rule.MatchResources.Any {
+				if len(rmr.Kinds) == 0 {
+					if !ruleOnlyDealsWithResourceMetaData(rule) {
+						return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+							" the rule does not match an kind")
+					}
+					return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+				}
 			}
-			return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+		} else if len(rule.MatchResources.All) > 0 {
+			for _, rmr := range rule.MatchResources.All {
+				if len(rmr.Kinds) == 0 {
+					if !ruleOnlyDealsWithResourceMetaData(rule) {
+						return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+							" the rule does not match an kind")
+					}
+					return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+				}
+			}
+		} else {
+			if len(rule.MatchResources.Kinds) == 0 {
+				if !ruleOnlyDealsWithResourceMetaData(rule) {
+					return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+						" the rule does not match an kind")
+				}
+				return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+			}
 		}
 
 		// Validate string values in labels
@@ -502,13 +524,54 @@ func validateResources(rule kyverno.Rule) (string, error) {
 		return fmt.Sprintf("resources.%s", path), err
 	}
 
-	// matched resources
-	if path, err := validateMatchedResourceDescription(rule.MatchResources.ResourceDescription); err != nil {
-		return fmt.Sprintf("match.resources.%s", path), err
+	if (len(rule.MatchResources.Any) > 0 || len(rule.MatchResources.All) > 0) && !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) {
+		return "match.", fmt.Errorf("Can't specify any/all together with match resources")
 	}
-	// exclude resources
-	if path, err := validateExcludeResourceDescription(rule.ExcludeResources.ResourceDescription); err != nil {
-		return fmt.Sprintf("exclude.resources.%s", path), err
+
+	if (len(rule.ExcludeResources.Any) > 0 || len(rule.ExcludeResources.All) > 0) && !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) {
+		return "exclude.", fmt.Errorf("Can't specify any/all together with exclude resources")
+	}
+
+	if len(rule.MatchResources.Any) > 0 {
+		for _, rmr := range rule.MatchResources.Any {
+			// matched resources
+			if path, err := validateMatchedResourceDescription(rmr.ResourceDescription); err != nil {
+				return fmt.Sprintf("match.resources.%s", path), err
+			}
+		}
+	} else if len(rule.MatchResources.All) > 0 {
+		for _, rmr := range rule.MatchResources.All {
+			// matched resources
+			if path, err := validateMatchedResourceDescription(rmr.ResourceDescription); err != nil {
+				return fmt.Sprintf("match.resources.%s", path), err
+			}
+		}
+	} else {
+		// matched resources
+		if path, err := validateMatchedResourceDescription(rule.MatchResources.ResourceDescription); err != nil {
+			return fmt.Sprintf("match.resources.%s", path), err
+		}
+	}
+
+	if len(rule.ExcludeResources.Any) > 0 {
+		for _, rmr := range rule.ExcludeResources.Any {
+			// exclude resources
+			if path, err := validateExcludeResourceDescription(rmr.ResourceDescription); err != nil {
+				return fmt.Sprintf("exclude.resources.%s", path), err
+			}
+		}
+	} else if len(rule.MatchResources.All) > 0 {
+		for _, rmr := range rule.ExcludeResources.All {
+			// exclude resources
+			if path, err := validateExcludeResourceDescription(rmr.ResourceDescription); err != nil {
+				return fmt.Sprintf("exclude.resources.%s", path), err
+			}
+		}
+	} else {
+		// exclude resources
+		if path, err := validateExcludeResourceDescription(rule.ExcludeResources.ResourceDescription); err != nil {
+			return fmt.Sprintf("exclude.resources.%s", path), err
+		}
 	}
 
 	//validating the values present under validate.preconditions, if they exist

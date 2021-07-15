@@ -258,8 +258,10 @@ type ExcludeResources struct {
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
+type ResourceFilters []ResourceFilter
+
 // ResourceFilters allow users to "AND" or "OR" between resources
-type ResourceFilters []struct {
+type ResourceFilter struct {
 	// UserInfo contains information about the user performing the operation.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
