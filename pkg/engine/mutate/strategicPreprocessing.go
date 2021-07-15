@@ -2,47 +2,24 @@ package mutate
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	anchor "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
-	"github.com/minio/pkg/wildcard"
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
-func convertRNodeToInterface(document *yaml.RNode) (interface{}, error) {
-	rawDocument, err := document.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-
-	var documentInterface interface{}
-
-	err = json.Unmarshal(rawDocument, &documentInterface)
-	if err != nil {
-		return nil, err
-	}
-
-	return documentInterface, nil
+type ConditionError struct {
+	errorChain error
 }
 
-func checkConditionAnchor(logger logr.Logger, pattern *yaml.RNode, resource *yaml.RNode) error {
-	patternInterface, err := convertRNodeToInterface(pattern)
-	if err != nil {
-		return err
-	}
+func (ce ConditionError) Error() string {
+	return fmt.Sprintf("Condition failed: %s", ce.errorChain.Error())
+}
 
-	resourceInterface, err := convertRNodeToInterface(resource)
-	if err != nil {
-		return err
-	}
-
-	_, err = validate.ValidateResourceWithPattern(logger, resourceInterface, patternInterface)
-	if err != nil {
-		return err
-	}
-
-	return nil
+func NewConditionError(err error) error {
+	return ConditionError{err}
 }
 
 // preProcessPattern - Dynamically preProcess the yaml
@@ -58,129 +35,43 @@ func checkConditionAnchor(logger logr.Logger, pattern *yaml.RNode, resource *yam
 func preProcessPattern(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	switch pattern.YNode().Kind {
 	case yaml.MappingNode:
-		err := walkMap(logger, pattern, resource)
-		if err != nil {
-			return err
-		}
+		return walkMap(logger, pattern, resource)
 	case yaml.SequenceNode:
-		err := walkArray(logger, pattern, resource)
-		if err != nil {
-			return err
-		}
-	case yaml.ScalarNode:
-		if pattern.YNode().Value != resource.YNode().Value {
-			if wildcard.Match(pattern.YNode().Value, resource.YNode().Value) {
-			}
-		}
+		return walkArray(logger, pattern, resource)
 	}
-	return nil
-}
 
-// getIndex - get the index of the key from the fields.
-var getIndex = func(k string, list []string) int {
-	for i, v := range list {
-		if v == k {
-			return 2 * i
-		}
-	}
-	return -1
-}
-
-// removeAnchorNode - removes anchor nodes from yaml
-func removeAnchorNode(targetNode *yaml.RNode, index int) {
-	targetNode.YNode().Content = append(targetNode.YNode().Content[:index], targetNode.YNode().Content[index+2:]...)
-}
-
-func removeKeyFromFields(key string, fields []string) []string {
-	for i, v := range fields {
-		if v == key {
-			return append(fields[:i], fields[i+1:]...)
-		}
-	}
-	return fields
+	return deleteConditionElements(pattern)
 }
 
 // walkMap - walk through the MappingNode
-/* 1> For conditional anchor remove anchors from the pattern, patchStrategicMerge will add the anchors as a new patch,
-so it is necessary to remove the anchor mapsfrom the pattern before calling patchStrategicMerge.
-| (volumes):
-| - (hostPath):
-|   path: "/var/run/docker.sock"
-walkMap will remove the node containing (volumes) from the yaml
-*/
-
-/* 2> For Adding anchors remove anchor tags.
-annotations:
- - "+(annotation1)": "atest1"
-will remove "+(" and ")" chars from pattern.
-*/
 func walkMap(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	var err error
 
-	// 1. Get all conditions from current map.
-	// If at least one condition fails - skip application.
-	// If condition fails in array element - skip this element.
-	conditions, err := getConditions(pattern)
+	err = validateConditions(logger, pattern, resource)
+	if err != nil {
+		return nil
+	}
+
+	err = handleAddings(logger, pattern, resource)
+	if err != nil {
+		return nil
+	}
+
+	fields, err := pattern.Fields()
 	if err != nil {
 		return err
 	}
 
-	for _, condition := range conditions {
-		conditionKey := removeAnchor(condition)
-		resourceField := resource.Field(conditionKey)
-		if resourceField == nil {
-			continue
-		}
-
-		err = checkConditionAnchor(logger, pattern.Field(condition).Value, resourceField.Value)
-		if err != nil {
-			return err
-		}
-	}
-
-	// 2. If all conditions passed, remove them from patch
-	for _, condition := range conditions {
-		_, err = pattern.Pipe(yaml.Clear(condition))
-		if err != nil {
-			return err
-		}
-	}
-
-	// 3. Handle all non-conditional keys
-	fields, err := pattern.Fields()
 	for _, field := range fields {
-
-		// 4. Handle adding anchors
-		if anchor.IsAddingAnchor(field) {
-			key, _ := anchor.RemoveAnchor(field)
-
-			resourceNode := resource.Field(key)
-			if resourceNode != nil {
-				// Resource already has this field.
-				// Delete the field with adding andhor from patch.
-				_, err = pattern.Pipe(yaml.Clear(field))
-				if err != nil {
-					return err
-				}
-				continue
-			}
-
-			// Remove anchor wrap from patch field.
-			renameField(field, key, pattern)
-		}
-
-		// 5. Handle non-anchor key
-		// Just go down the pattern and handle other anchors.
-		// If resource element exists, then go one level down.
 		var resourceNode *yaml.RNode
 
-		if r := resource.Field(field); r != nil {
-			resourceNode = r.Value
-		} else {
+		if resource == nil || resource.Field(field) == nil {
 			// In case if we have pattern, but not corresponding resource part,
 			// just walk down and remove all anchors. nil here indicates that
 			// resourceNode is empty
 			resourceNode = nil
+		} else {
+			resourceNode = resource.Field(field).Value
 		}
 
 		err := preProcessPattern(logger, pattern.Field(field).Value, resourceNode)
@@ -188,6 +79,7 @@ func walkMap(logger logr.Logger, pattern, resource *yaml.RNode) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -199,23 +91,23 @@ func walkArray(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	if err != nil {
 		return err
 	}
+
 	if len(elements) == 0 {
 		return nil
 	}
-	switch elements[0].YNode().Kind {
-	case yaml.MappingNode:
-		return processAssocSequence(logger, pattern, resource)
-	case yaml.ScalarNode:
-		return processNonAssocSequence(pattern, resource)
+
+	if elements[0].YNode().Kind == yaml.MappingNode {
+		return processSequenceOfMaps(logger, pattern, resource)
 	}
+
 	return nil
 }
 
-// processAssocSequence - process arrays
+// processSequenceOfMaps - process arrays
 // in many cases like containers, volumes kustomize uses name field to match resource for processing
-// 1> If any conditional anchor match resource field and if the pattern doesn't contains "name" field and
+// 1> If any conditional anchor match resource field and if the pattern doesn't contain "name" field and
 // 		resource contains "name" field then copy the name field from resource to pattern.
-// 2> If the resource doesn't contains "name" field then just remove anchor field from yaml.
+// 2> If the resource doesn't contain "name" field then just remove anchor field from yaml.
 /*
   Policy:
 		"spec": {
@@ -243,117 +135,59 @@ func walkArray(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	kustomize uses name field to match resource for processing. So if containers doesn't contains name field then it will be skipped.
 	So if a conditional anchor image matches resource then remove "(image)" field from yaml and add the matching names from the resource.
 */
-func processAssocSequence(logger logr.Logger, pattern, resource *yaml.RNode) error {
+func processSequenceOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	patternElements, err := pattern.Elements()
 	if err != nil {
 		return err
 	}
-	for _, patternElement := range patternElements {
-		if hasAnchors(patternElement) {
-			err := processAnchorSequence(patternElement, resource, pattern)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	// remove the elements with anchors
-	err = removeAnchorElements(pattern)
-	if err != nil {
-		return err
-	}
-	return preProcessArrayPattern(logger, pattern, resource)
-}
 
-func preProcessArrayPattern(logger logr.Logger, pattern, resource *yaml.RNode) error {
-	patternElements, err := pattern.Elements()
-	if err != nil {
-		return err
-	}
 	resourceElements, err := resource.Elements()
 	if err != nil {
 		return err
 	}
+
 	for _, patternElement := range patternElements {
-		patternNameField := patternElement.Field("name")
-		if patternNameField != nil {
-			patternNameValue, err := patternNameField.Value.String()
-			if err != nil {
-				return err
-			}
+		// If pattern has conditions, look for matching elements and process them
+		if hasAnchors(patternElement) {
 			for _, resourceElement := range resourceElements {
-				resourceNameField := resourceElement.Field("name")
-				if resourceNameField != nil {
-					resourceNameValue, err := resourceNameField.Value.String()
+				err := preProcessPattern(logger, patternElement, resourceElement)
+				if err != nil {
+					if _, ok := err.(ConditionError); ok {
+						// Skip element, if condition has failed
+						continue
+					}
+
+					return err
+				} else {
+					// If condition is satisfied, create new pattern list element based on patternElement
+					// but related with current resource element by name.
+					// Resource element must have name. Without name kustomize won't be able to update this element.
+					// In case if element does not have name, skip it.
+					resourceElementName := resourceElement.Field("name")
+					if resourceElementName.IsNilOrEmpty() {
+						continue
+					}
+
+					newNode := patternElement.Copy()
+					err := deleteConditionsFromNestedMaps(newNode)
 					if err != nil {
 						return err
 					}
-					if patternNameValue == resourceNameValue {
-						err := preProcessPattern(logger, patternElement, resourceElement)
-						if err != nil {
-							return err
-						}
+
+					err = newNode.PipeE(yaml.SetField("name", resourceElementName.Value))
+					if err != nil {
+						return err
+					}
+
+					err = pattern.PipeE(yaml.Append(newNode.YNode()))
+					if err != nil {
+						return err
 					}
 				}
 			}
 		}
 	}
-	return nil
-}
 
-/*
-	removeAnchorSequence :- removes element containing conditional anchor
-
-	Pattern:
-		"spec": {
-			"containers": [{
-			"(image)": "*:latest",
-			"imagePullPolicy": "Always"
-		},
-		{
-			"name": "nginx",
-			"imagePullPolicy": "Always"
-		}]}
-	After Removing Conditional Sequence:
-		"spec": {
-			"containers": [{
-			"name": "nginx",
-			"imagePullPolicy": "Always"
-		}]}
-*/
-func removeAnchorElements(pattern *yaml.RNode) error {
-	patternElements, err := pattern.Elements()
-	if err != nil {
-		return err
-	}
-
-	removedIndex, err := getIndexToBeRemoved(patternElements)
-	if err != nil {
-		return err
-	}
-
-	if len(removedIndex) == 0 {
-		return nil
-	}
-
-	preservedPatterns := removeByIndex(pattern, removedIndex)
-	pattern.YNode().Content = preservedPatterns
-	return nil
-}
-
-func processAnchorSequence(pattern, resource, arrayPattern *yaml.RNode) error {
-	resourceElements, err := resource.Elements()
-	if err != nil {
-		return err
-	}
-	switch pattern.YNode().Kind {
-	case yaml.MappingNode:
-		for _, resourceElement := range resourceElements {
-			err := processAnchorMap(pattern, resourceElement, arrayPattern)
-			if err != nil {
-				return err
-			}
-		}
-	}
 	return nil
 }
 
@@ -393,223 +227,229 @@ func processAnchorSequence(pattern, resource, arrayPattern *yaml.RNode) error {
 	kustomize uses name field to match resource for processing. So if containers doesn't contains name field then it will be skipped.
 	So if a conditional anchor image matches resouce then remove "(image)" field from yaml and add the matching names from the resource.
 */
-func processAnchorMap(pattern, resource, arrayPattern *yaml.RNode) error {
-	sfields, fields, err := getAnchorSortedFields(pattern)
+
+// validateConditions checks all conditions from current map.
+// If at least one condition fails, return error.
+// If caller handles list of maps and gets an error, it must skip element.
+// If caller handles map, it must stop processing and skip entire rule.
+func validateConditions(logger logr.Logger, pattern, resource *yaml.RNode) error {
+	conditions, err := filterKeys(pattern, anchor.IsConditionAnchor)
 	if err != nil {
 		return err
 	}
-	for _, key := range sfields {
-		if anchor.IsConditionAnchor(key) {
-			_, efields, err := getAnchorSortedFields(resource)
-			if err != nil {
-				return err
-			}
-			noAnchorKey := removeAnchor(key)
-			eind := getIndex("name", efields)
-			if eind != -1 && getIndex("name", fields) == -1 {
-				patternMapNode := pattern.Field(key)
-				resourceMapNode := resource.Field(noAnchorKey)
-				if resourceMapNode != nil {
-					pval, err := patternMapNode.Value.String()
-					if err != nil {
-						return err
-					}
-					eval, err := resourceMapNode.Value.String()
-					if err != nil {
-						return err
-					}
-					if wildcard.Match(pval, eval) {
-						newNodeString, err := pattern.String()
-						if err != nil {
-							return err
-						}
-						newNode, err := yaml.Parse(newNodeString)
-						if err != nil {
-							return err
-						}
-						for i, ekey := range efields {
-							if ekey == noAnchorKey {
-								pind := getIndex(key, fields)
-								if pind == -1 {
-									continue
-								}
-								removeAnchorNode(newNode, pind)
-								sfields = removeKeyFromFields(key, sfields)
-								fields = removeKeyFromFields(key, fields)
 
-								if ekey == "name" {
-									newNode.YNode().Content = append(newNode.YNode().Content, resource.YNode().Content[2*i])
-									newNode.YNode().Content = append(newNode.YNode().Content, resource.YNode().Content[2*i+1])
-								}
-
-							} else if ekey == "name" {
-								newNode.YNode().Content = append(newNode.YNode().Content, resource.YNode().Content[2*i])
-								newNode.YNode().Content = append(newNode.YNode().Content, resource.YNode().Content[2*i+1])
-							}
-						}
-						arrayPattern.YNode().Content = append(arrayPattern.YNode().Content, newNode.YNode())
-					}
-				}
-
-			} else {
-				ind := getIndex(key, fields)
-				if ind == -1 {
-					continue
-				}
-				removeAnchorNode(pattern, ind)
-				sfields = removeKeyFromFields(key, sfields)
-				fields = removeKeyFromFields(key, fields)
-
-			}
+	for _, condition := range conditions {
+		conditionKey := removeAnchor(condition)
+		if resource == nil || resource.Field(conditionKey) == nil {
 			continue
 		}
-	}
-	return nil
-}
 
-func processNonAssocSequence(pattern, resource *yaml.RNode) error {
-	patternElements, err := pattern.Elements()
-	if err != nil {
-		return err
-	}
-
-	resourceElements, err := resource.Elements()
-	if err != nil {
-		return err
-	}
-
-	for _, resourceElement := range resourceElements {
-		des, err := resourceElement.String()
+		err = checkCondition(logger, pattern.Field(condition).Value, resource.Field(conditionKey).Value)
 		if err != nil {
 			return err
 		}
+	}
 
-		ok := false
-		for _, patternElement := range patternElements {
-			src, err := patternElement.String()
-			if err != nil {
-				return err
-			}
-			if des == src {
-				ok = true
-				break
-			}
-		}
-		if !ok {
-			pattern.YNode().Content = append(pattern.YNode().Content, resourceElement.YNode())
+	// If conditions passed, remove them from the pattern
+	for _, condition := range conditions {
+		err = pattern.PipeE(yaml.Clear(condition))
+		if err != nil {
+			return err
 		}
 	}
+
 	return nil
 }
 
-func getConditions(pattern *yaml.RNode) ([]string, error) {
-	conditions := make([]string, 0)
+// handleAddings handles adding anchors.
+// Remove anchor from pattern, if field already exists.
+// Remove anchor wrapping from key, if field does not exist in the resource.
+func handleAddings(logger logr.Logger, pattern, resource *yaml.RNode) error {
+	addings, err := filterKeys(pattern, anchor.IsAddingAnchor)
+	if err != nil {
+		return nil
+	}
+
+	for _, adding := range addings {
+		key, _ := anchor.RemoveAnchor(adding)
+		if resource != nil && resource.Field(key) != nil {
+			// Resource already has this field.
+			// Delete the field with adding anchor from patch.
+			err = pattern.PipeE(yaml.Clear(adding))
+			if err != nil {
+				return err
+			}
+			continue
+		}
+
+		// Remove anchor wrap from patch field.
+		renameField(adding, key, pattern)
+	}
+
+	return nil
+}
+
+func filterKeys(pattern *yaml.RNode, condition func(string) bool) ([]string, error) {
+	keys := make([]string, 0)
 	fields, err := pattern.Fields()
 	if err != nil {
-		return conditions, err
+		return keys, err
 	}
 
 	for _, key := range fields {
-		if anchor.IsConditionAnchor(key) {
-			conditions = append(conditions, key)
+		if condition(key) {
+			keys = append(keys, key)
 			continue
 		}
 	}
-	return conditions, nil
+	return keys, nil
 }
 
 func hasAnchors(pattern *yaml.RNode) bool {
-	switch pattern.YNode().Kind {
-	case yaml.MappingNode:
+	if yaml.MappingNode == pattern.YNode().Kind {
 		fields, err := pattern.Fields()
 		if err != nil {
 			return false
 		}
-		for _, key := range fields {
 
+		for _, key := range fields {
 			if anchor.IsConditionAnchor(key) || anchor.IsAddingAnchor(key) {
 				return true
 			}
-			patternMapNode := pattern.Field(key)
-			if !patternMapNode.IsNilOrEmpty() {
-				if hasAnchors(patternMapNode.Value) {
+
+			patternNode := pattern.Field(key)
+			if !patternNode.IsNilOrEmpty() {
+				if hasAnchors(patternNode.Value) {
 					return true
 				}
 			}
 		}
-	case yaml.SequenceNode:
-		pafs, err := pattern.Elements()
-		if err != nil {
-			return false
-		}
-		for _, pa := range pafs {
-			if hasAnchors(pa) {
-				return true
-			}
-		}
 	}
+
 	return false
 }
 
-func removeByIndex(pattern *yaml.RNode, removedIndex []int) []*yaml.Node {
-	preservedPatterns := make([]*yaml.Node, 0)
-	i := 0
-	for index := 0; index < (len(pattern.YNode().Content)); index++ {
-		if i < len(removedIndex) && index == removedIndex[i] {
-			i++
-			continue
-		}
-
-		preservedPatterns = append(preservedPatterns, pattern.YNode().Content[index])
+func renameField(name, newName string, pattern *yaml.RNode) {
+	field := pattern.Field(name)
+	if field == nil {
+		return
 	}
-	return preservedPatterns
+
+	field.Key.YNode().Value = newName
 }
 
-func getIndexToBeRemoved(patternElements []*yaml.RNode) (removedIndex []int, err error) {
-	for index, patternElement := range patternElements {
-		if hasAnchors(patternElement) {
-			sfields, _, err := getAnchorSortedFields(patternElement)
+func convertRNodeToInterface(document *yaml.RNode) (interface{}, error) {
+	if document.YNode().Kind == yaml.ScalarNode {
+		return document.YNode().Value, nil
+	}
+
+	rawDocument, err := document.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	var documentInterface interface{}
+
+	err = json.Unmarshal(rawDocument, &documentInterface)
+	if err != nil {
+		return nil, err
+	}
+
+	return documentInterface, nil
+}
+
+func checkCondition(logger logr.Logger, pattern *yaml.RNode, resource *yaml.RNode) error {
+	patternInterface, err := convertRNodeToInterface(pattern)
+	if err != nil {
+		return err
+	}
+
+	resourceInterface, err := convertRNodeToInterface(resource)
+	if err != nil {
+		return err
+	}
+
+	_, err = validate.ValidateResourceWithPattern(logger, resourceInterface, patternInterface)
+	if err != nil {
+		return NewConditionError(err)
+	}
+
+	return nil
+}
+
+func deleteConditionsFromNestedMaps(pattern *yaml.RNode) error {
+	if pattern.YNode().Kind != yaml.MappingNode {
+		return nil
+	}
+
+	fields, err := pattern.Fields()
+	if err != nil {
+		return err
+	}
+
+	for _, field := range fields {
+		if anchor.IsConditionAnchor(field) {
+			err = pattern.PipeE(yaml.Clear(field))
 			if err != nil {
-				return nil, err
+				return err
 			}
-			for _, key := range sfields {
-				if anchor.IsConditionAnchor(key) {
-					removedIndex = append(removedIndex, index)
-					break
+		} else {
+			child := pattern.Field(field).Value
+			if child != nil {
+				err = deleteConditionsFromNestedMaps(child)
+				if err != nil {
+					return err
 				}
 			}
 		}
 	}
-	return
+
+	return nil
 }
 
-func getAnchorSortedFields(pattern *yaml.RNode) ([]string, []string, error) {
-	anchors := make([]string, 0)
-	nonAnchors := make([]string, 0)
-	nestedAnchors := make([]string, 0)
-	fields, err := pattern.Fields()
-	if err != nil {
-		return fields, fields, err
-	}
-	for _, key := range fields {
-		if anchor.IsConditionAnchor(key) {
-			anchors = append(anchors, key)
-			continue
+func deleteConditionElements(pattern *yaml.RNode) error {
+	switch pattern.YNode().Kind {
+	case yaml.MappingNode:
+		fields, err := pattern.Fields()
+		if err != nil {
+			return err
 		}
-		patternMapNode := pattern.Field(key)
 
-		if !patternMapNode.IsNilOrEmpty() {
-			if hasAnchors(patternMapNode.Value) {
-				nestedAnchors = append(nestedAnchors, key)
-				continue
+		for _, field := range fields {
+			if anchor.IsConditionAnchor(field) {
+				err = pattern.PipeE(yaml.Clear(field))
+				if err != nil {
+					return err
+				}
+			} else {
+				child := pattern.Field(field).Value
+				if child != nil {
+					err = deleteConditionElements(child)
+					if err != nil {
+						return err
+					}
+				}
 			}
 		}
-		nonAnchors = append(nonAnchors, key)
+	case yaml.SequenceNode:
+		elements, err := pattern.Elements()
+		if err != nil {
+			return err
+		}
+
+		for i, element := range elements {
+			if hasAnchors(element) {
+				deleteListElement(pattern, i)
+			} else {
+				deleteConditionElements(element)
+			}
+		}
 	}
-	anchors = append(anchors, nestedAnchors...)
-	return append(anchors, nonAnchors...), fields, nil
+
+	return nil
 }
 
-func renameField(name, newName string, pattern *yaml.RNode) {
-	pattern.Field(name).Key.YNode().Value = newName
+func deleteListElement(list *yaml.RNode, i int) {
+	content := list.YNode().Content
+	list.YNode().Content = append(content[:i], content[i+1:]...)
 }

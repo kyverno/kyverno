@@ -6,9 +6,11 @@ import (
 	"strings"
 	"testing"
 
+	anchor "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 func Test_preProcessStrategicMergePatch(t *testing.T) {
@@ -205,4 +207,164 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 			strings.ReplaceAll(string(test.expected), " ", ""), strings.ReplaceAll(re.ReplaceAllString(output, ""), " ", ""),
 			fmt.Sprintf("test %v fails", i))
 	}
+}
+
+func Test_FilterKeys_NoConditions(t *testing.T) {
+	patternRaw := []byte(`{
+		"key1": "value1",
+		"key2": "value2" 
+	}`)
+
+	pattern := yaml.MustParse(string(patternRaw))
+	conditions, err := filterKeys(pattern, anchor.IsConditionAnchor)
+
+	assert.NilError(t, err)
+	assert.Equal(t, len(conditions), 0)
+}
+
+func Test_FilterKeys_ConditionsArePresent(t *testing.T) {
+	patternRaw := []byte(`{
+		"key1": "value1",
+		"(key2)": "value2",
+		"(key3)": "value3"
+	}`)
+
+	pattern := yaml.MustParse(string(patternRaw))
+	conditions, err := filterKeys(pattern, anchor.IsConditionAnchor)
+
+	assert.NilError(t, err)
+	assert.Equal(t, len(conditions), 2)
+	assert.Equal(t, conditions[0], "(key2)")
+	assert.Equal(t, conditions[1], "(key3)")
+}
+
+func Test_FilterKeys_EmptyList(t *testing.T) {
+	patternRaw := []byte(`{}`)
+	pattern := yaml.MustParse(string(patternRaw))
+	conditions, err := filterKeys(pattern, anchor.IsConditionAnchor)
+
+	assert.NilError(t, err)
+	assert.Equal(t, len(conditions), 0)
+}
+
+func Test_CheckConditionAnchor_Matches(t *testing.T) {
+	patternRaw := []byte(`{ "key1": "value*" }`)
+	resourceRaw := []byte(`{ "key1": "value1" }`)
+
+	pattern := yaml.MustParse(string(patternRaw))
+	resource := yaml.MustParse(string(resourceRaw))
+
+	err := checkCondition(log.Log, pattern, resource)
+	assert.NilError(t, err)
+}
+
+func Test_CheckConditionAnchor_DoesNotMatch(t *testing.T) {
+	patternRaw := []byte(`{ "key1": "value*" }`)
+	resourceRaw := []byte(`{ "key1": "sample" }`)
+
+	pattern := yaml.MustParse(string(patternRaw))
+	resource := yaml.MustParse(string(resourceRaw))
+
+	err := checkCondition(log.Log, pattern, resource)
+	assert.Error(t, err, "Validation rule failed at '/key1/' to validate value 'sample' with pattern 'value*'")
+}
+
+func Test_ValidateConditions_MapWithOneCondition_Matches(t *testing.T) {
+	patternRaw := []byte(`{
+		"(key1)": "value*",
+		"key2": "value2"
+	}`)
+
+	resourceRaw := []byte(`{
+		"key1": "value1",
+		"key2": "sample"
+	}`)
+
+	pattern := yaml.MustParse(string(patternRaw))
+	resource := yaml.MustParse(string(resourceRaw))
+
+	err := validateConditions(log.Log, pattern, resource)
+	assert.NilError(t, err)
+}
+
+func Test_ValidateConditions_MapWithOneCondition_DoesNotMatch(t *testing.T) {
+	patternRaw := []byte(`{
+		"(key1)": "value*",
+		"key2": "value2"
+	}`)
+
+	resourceRaw := []byte(`{
+		"key1": "text",
+		"key2": "sample"
+	}`)
+
+	pattern := yaml.MustParse(string(patternRaw))
+	resource := yaml.MustParse(string(resourceRaw))
+
+	err := validateConditions(log.Log, pattern, resource)
+	_, ok := err.(ConditionError)
+	assert.Assert(t, ok)
+}
+
+func Test_RenameField(t *testing.T) {
+	patternRaw := []byte(`{
+		"+(key1)": "value",
+	}`)
+
+	pattern := yaml.MustParse(string(patternRaw))
+	renameField("+(key1)", "key1", pattern)
+
+	actual := pattern.Field("key1").Value.YNode().Value
+	expected := "value"
+
+	fields, err := pattern.Fields()
+	assert.NilError(t, err)
+
+	assert.Equal(t, len(fields), 1)
+	assert.Equal(t, actual, expected)
+}
+
+func Test_RenameField_NonExisting(t *testing.T) {
+	patternRaw := []byte(`{
+		"+(key1)": "value",
+	}`)
+
+	pattern := yaml.MustParse(string(patternRaw))
+	renameField("non_existing_field", "key1", pattern)
+
+	actual := pattern.Field("+(key1)").Value.YNode().Value
+	expected := "value"
+
+	fields, err := pattern.Fields()
+	assert.NilError(t, err)
+
+	assert.Equal(t, len(fields), 1)
+	assert.Equal(t, actual, expected)
+}
+
+func Test_deleteRNode(t *testing.T) {
+	patternRaw := []byte(`{
+		"list": [
+			"first": {
+				"a": "b"
+			},
+			"second": {
+				"a": "b"
+			},
+			"third": {
+				"a": "b"
+			},
+		],
+	}`)
+
+	pattern := yaml.MustParse(string(patternRaw))
+	list := pattern.Field("list").Value
+	elements, err := list.Elements()
+	assert.NilError(t, err)
+
+	assert.Equal(t, len(elements), 3)
+	deleteListElement(list, 0)
+
+	elements, err = list.Elements()
+	assert.Equal(t, len(elements), 2)
 }
