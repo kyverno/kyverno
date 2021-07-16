@@ -57,12 +57,12 @@ func walkMap(logger logr.Logger, pattern, resource *yaml.RNode) error {
 
 	err = validateConditions(logger, pattern, resource)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	err = handleAddings(logger, pattern, resource)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	fields, err := pattern.Fields()
@@ -200,7 +200,7 @@ func validateConditions(logger logr.Logger, pattern, resource *yaml.RNode) error
 func handleAddings(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	addings, err := filterKeys(pattern, anchor.IsAddingAnchor)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	for _, adding := range addings {
