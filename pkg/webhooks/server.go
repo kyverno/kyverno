@@ -25,7 +25,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	admissionReviewLatency "github.com/kyverno/kyverno/pkg/metrics/admissionreviewlatency"
+	admissionRequests "github.com/kyverno/kyverno/pkg/metrics/admissionrequests"
+	admissionReviewDuration "github.com/kyverno/kyverno/pkg/metrics/admissionreviewduration"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -428,32 +429,53 @@ func failureResponse(message string) *v1beta1.AdmissionResponse {
 	}
 }
 
-func registerAdmissionReviewLatencyMetricMutate(logger logr.Logger, promMetrics metrics.PromMetrics, requestOperation string, engineResponses []*response.EngineResponse, triggeredPolicies []v1.ClusterPolicy, admissionReviewLatencyDuration int64, admissionRequestTimestamp int64) {
-	resourceRequestOperationPromAlias, err := admissionReviewLatency.ParseResourceRequestOperation(requestOperation)
+func registerAdmissionReviewDurationMetricMutate(logger logr.Logger, promMetrics metrics.PromMetrics, requestOperation string, engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64) {
+	resourceRequestOperationPromAlias, err := admissionReviewDuration.ParseResourceRequestOperation(requestOperation)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
+		logger.Error(err, "error occurred while registering kyverno_admission_review_duration_seconds metrics")
 	}
-	if err := admissionReviewLatency.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, triggeredPolicies, admissionReviewLatencyDuration, resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
+	if err := admissionReviewDuration.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, admissionReviewLatencyDuration, resourceRequestOperationPromAlias); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_admission_review_duration_seconds metrics")
 	}
 }
 
-func registerAdmissionReviewLatencyMetricGenerate(logger logr.Logger, promMetrics metrics.PromMetrics, requestOperation string, admissionRequestTimestamp int64, latencyReceiver *chan int64, triggeredGeneratePoliciesReceiver *chan []v1.ClusterPolicy, engineResponsesReceiver *chan []*response.EngineResponse) {
+func registerAdmissionRequestsMetricMutate(logger logr.Logger, promMetrics metrics.PromMetrics, requestOperation string, engineResponses []*response.EngineResponse) {
+	resourceRequestOperationPromAlias, err := admissionReviewDuration.ParseResourceRequestOperation(requestOperation)
+	if err != nil {
+		logger.Error(err, "error occurred while registering kyverno_admission_requests_total metrics")
+	}
+	if err := admissionRequests.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, resourceRequestOperationPromAlias); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_admission_requests_total metrics")
+	}
+}
+
+func registerAdmissionReviewDurationMetricGenerate(logger logr.Logger, promMetrics metrics.PromMetrics, requestOperation string, latencyReceiver *chan int64, engineResponsesReceiver *chan []*response.EngineResponse) {
 	defer close(*latencyReceiver)
-	defer close(*triggeredGeneratePoliciesReceiver)
 	defer close(*engineResponsesReceiver)
 
-	triggeredPolicies := <-(*triggeredGeneratePoliciesReceiver)
 	engineResponses := <-(*engineResponsesReceiver)
 
-	resourceRequestOperationPromAlias, err := admissionReviewLatency.ParseResourceRequestOperation(requestOperation)
+	resourceRequestOperationPromAlias, err := admissionReviewDuration.ParseResourceRequestOperation(requestOperation)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
+		logger.Error(err, "error occurred while registering kyverno_admission_review_duration_seconds metrics")
 	}
 	// this goroutine will keep on waiting here till it doesn't receive the admission review latency int64 from the other goroutine i.e. ws.HandleGenerate
 	admissionReviewLatencyDuration := <-(*latencyReceiver)
-	if err := admissionReviewLatency.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, triggeredPolicies, admissionReviewLatencyDuration, resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_review_latency_milliseconds metrics")
+	if err := admissionReviewDuration.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, admissionReviewLatencyDuration, resourceRequestOperationPromAlias); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_admission_review_duration_seconds metrics")
+	}
+}
+
+func registerAdmissionRequestsMetricGenerate(logger logr.Logger, promMetrics metrics.PromMetrics, requestOperation string, engineResponsesReceiver *chan []*response.EngineResponse) {
+	defer close(*engineResponsesReceiver)
+	engineResponses := <-(*engineResponsesReceiver)
+
+	resourceRequestOperationPromAlias, err := admissionReviewDuration.ParseResourceRequestOperation(requestOperation)
+	if err != nil {
+		logger.Error(err, "error occurred while registering kyverno_admission_requests_total metrics")
+	}
+	if err := admissionRequests.ParsePromMetrics(promMetrics).ProcessEngineResponses(engineResponses, resourceRequestOperationPromAlias); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_admission_requests_total metrics")
 	}
 }
 

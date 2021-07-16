@@ -224,34 +224,34 @@ func (pc *PolicyController) registerPolicyRuleInfoMetricDeletePolicy(logger logr
 	}
 }
 
-func (pc *PolicyController) registerPolicyChangesMetricAddPolicy(logger logr.Logger, p *kyverno.ClusterPolicy, policyChangeTimestamp int64) {
-	err := policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(p, policyChangesMetric.PolicyCreated, policyChangeTimestamp)
+func (pc *PolicyController) registerPolicyChangesMetricAddPolicy(logger logr.Logger, p *kyverno.ClusterPolicy) {
+	err := policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(p, policyChangesMetric.PolicyCreated)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_changes_info metrics for the above policy's creation", "name", p.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_changes_total metrics for the above policy's creation", "name", p.Name)
 	}
 }
 
-func (pc *PolicyController) registerPolicyChangesMetricUpdatePolicy(logger logr.Logger, oldP, curP *kyverno.ClusterPolicy, policyChangeTimestamp int64) {
+func (pc *PolicyController) registerPolicyChangesMetricUpdatePolicy(logger logr.Logger, oldP, curP *kyverno.ClusterPolicy) {
 	if reflect.DeepEqual((*oldP).Spec, (*curP).Spec) {
 		return
 	}
-	err := policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(oldP, policyChangesMetric.PolicyUpdated, policyChangeTimestamp)
+	err := policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(oldP, policyChangesMetric.PolicyUpdated)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_changes_info metrics for the above policy's updation", "name", oldP.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_changes_total metrics for the above policy's updation", "name", oldP.Name)
 	}
-	// curP will require a new kyverno_policy_changes_info metric if the above update involved change in the following fields:
+	// curP will require a new kyverno_policy_changes_total metric if the above update involved change in the following fields:
 	if curP.Spec.Background != oldP.Spec.Background || curP.Spec.ValidationFailureAction != oldP.Spec.ValidationFailureAction {
-		err = policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(curP, policyChangesMetric.PolicyUpdated, policyChangeTimestamp)
+		err = policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(curP, policyChangesMetric.PolicyUpdated)
 		if err != nil {
-			logger.Error(err, "error occurred while registering kyverno_policy_changes_info metrics for the above policy's updation", "name", curP.Name)
+			logger.Error(err, "error occurred while registering kyverno_policy_changes_total metrics for the above policy's updation", "name", curP.Name)
 		}
 	}
 }
 
-func (pc *PolicyController) registerPolicyChangesMetricDeletePolicy(logger logr.Logger, p *kyverno.ClusterPolicy, policyChangeTimestamp int64) {
-	err := policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(p, policyChangesMetric.PolicyDeleted, policyChangeTimestamp)
+func (pc *PolicyController) registerPolicyChangesMetricDeletePolicy(logger logr.Logger, p *kyverno.ClusterPolicy) {
+	err := policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(p, policyChangesMetric.PolicyDeleted)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_changes_info metrics for the above policy's deletion", "name", p.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_changes_total metrics for the above policy's deletion", "name", p.Name)
 	}
 }
 
@@ -263,8 +263,8 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 
 	// register kyverno_policy_rule_info_total metric concurrently
 	go pc.registerPolicyRuleInfoMetricAddPolicy(logger, p)
-	// register kyverno_policy_changes_info metric concurrently
-	go pc.registerPolicyChangesMetricAddPolicy(logger, p, time.Now().Unix())
+	// register kyverno_policy_changes_total metric concurrently
+	go pc.registerPolicyChangesMetricAddPolicy(logger, p)
 
 	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
 		pol, _ := common.MutatePolicy(p, logger)
@@ -290,8 +290,8 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 
 	// register kyverno_policy_rule_info_total metric concurrently
 	go pc.registerPolicyRuleInfoMetricUpdatePolicy(logger, oldP, curP)
-	// register kyverno_policy_changes_info metric concurrently
-	go pc.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP, time.Now().Unix())
+	// register kyverno_policy_changes_total metric concurrently
+	go pc.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP)
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
 		pol, _ := common.MutatePolicy(curP, logger)
@@ -335,8 +335,8 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 
 	// register kyverno_policy_rule_info_total metric concurrently
 	go pc.registerPolicyRuleInfoMetricDeletePolicy(logger, p)
-	// register kyverno_policy_changes_info metric concurrently
-	go pc.registerPolicyChangesMetricDeletePolicy(logger, p, time.Now().Unix())
+	// register kyverno_policy_changes_total metric concurrently
+	go pc.registerPolicyChangesMetricDeletePolicy(logger, p)
 
 	logger.Info("policy deleted", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
 
@@ -380,34 +380,34 @@ func (pc *PolicyController) registerPolicyRuleInfoMetricDeleteNsPolicy(logger lo
 	}
 }
 
-func (pc *PolicyController) registerPolicyChangesMetricAddNsPolicy(logger logr.Logger, p *kyverno.Policy, policyChangeTimestamp int64) {
-	err := policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(p, policyChangesMetric.PolicyCreated, policyChangeTimestamp)
+func (pc *PolicyController) registerPolicyChangesMetricAddNsPolicy(logger logr.Logger, p *kyverno.Policy) {
+	err := policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(p, policyChangesMetric.PolicyCreated)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_changes_info metrics for the above policy's creation", "name", p.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_changes_total metrics for the above policy's creation", "name", p.Name)
 	}
 }
 
-func (pc *PolicyController) registerPolicyChangesMetricUpdateNsPolicy(logger logr.Logger, oldP, curP *kyverno.Policy, policyChangeTimestamp int64) {
+func (pc *PolicyController) registerPolicyChangesMetricUpdateNsPolicy(logger logr.Logger, oldP, curP *kyverno.Policy) {
 	if reflect.DeepEqual((*oldP).Spec, (*curP).Spec) {
 		return
 	}
-	err := policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(oldP, policyChangesMetric.PolicyUpdated, policyChangeTimestamp)
+	err := policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(oldP, policyChangesMetric.PolicyUpdated)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_changes_info metrics for the above policy's updation", "name", oldP.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_changes_total metrics for the above policy's updation", "name", oldP.Name)
 	}
-	// curP will require a new kyverno_policy_changes_info metric if the above update involved change in the following fields:
+	// curP will require a new kyverno_policy_changes_total metric if the above update involved change in the following fields:
 	if curP.Spec.Background != oldP.Spec.Background || curP.Spec.ValidationFailureAction != oldP.Spec.ValidationFailureAction {
-		err = policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(curP, policyChangesMetric.PolicyUpdated, policyChangeTimestamp)
+		err = policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(curP, policyChangesMetric.PolicyUpdated)
 		if err != nil {
-			logger.Error(err, "error occurred while registering kyverno_policy_changes_info metrics for the above policy's updation", "name", curP.Name)
+			logger.Error(err, "error occurred while registering kyverno_policy_changes_total metrics for the above policy's updation", "name", curP.Name)
 		}
 	}
 }
 
-func (pc *PolicyController) registerPolicyChangesMetricDeleteNsPolicy(logger logr.Logger, p *kyverno.Policy, policyChangeTimestamp int64) {
-	err := policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(p, policyChangesMetric.PolicyDeleted, policyChangeTimestamp)
+func (pc *PolicyController) registerPolicyChangesMetricDeleteNsPolicy(logger logr.Logger, p *kyverno.Policy) {
+	err := policyChangesMetric.ParsePromMetrics(*pc.promConfig.Metrics).RegisterPolicy(p, policyChangesMetric.PolicyDeleted)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_changes_info metrics for the above policy's deletion", "name", p.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_changes_total metrics for the above policy's deletion", "name", p.Name)
 	}
 }
 
@@ -417,8 +417,8 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 
 	// register kyverno_policy_rule_info_total metric concurrently
 	go pc.registerPolicyRuleInfoMetricAddNsPolicy(logger, p)
-	// register kyverno_policy_changes_info metric concurrently
-	go pc.registerPolicyChangesMetricAddNsPolicy(logger, p, time.Now().Unix())
+	// register kyverno_policy_changes_total metric concurrently
+	go pc.registerPolicyChangesMetricAddNsPolicy(logger, p)
 
 	logger.Info("policy created", "uid", p.UID, "kind", "Policy", "name", p.Name, "namespaces", p.Namespace)
 
@@ -445,8 +445,8 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 
 	// register kyverno_policy_rule_info_total metric concurrently
 	go pc.registerPolicyRuleInfoMetricUpdateNsPolicy(logger, oldP, curP)
-	// register kyverno_policy_changes_info metric concurrently
-	go pc.registerPolicyChangesMetricUpdateNsPolicy(logger, oldP, curP, time.Now().Unix())
+	// register kyverno_policy_changes_total metric concurrently
+	go pc.registerPolicyChangesMetricUpdateNsPolicy(logger, oldP, curP)
 
 	ncurP := ConvertPolicyToClusterPolicy(curP)
 
@@ -492,8 +492,8 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 
 	// register kyverno_policy_rule_info_total metric concurrently
 	go pc.registerPolicyRuleInfoMetricDeleteNsPolicy(logger, p)
-	// register kyverno_policy_changes_info metric concurrently
-	go pc.registerPolicyChangesMetricDeleteNsPolicy(logger, p, time.Now().Unix())
+	// register kyverno_policy_changes_total metric concurrently
+	go pc.registerPolicyChangesMetricDeleteNsPolicy(logger, p)
 
 	logger.Info("policy deleted event", "uid", p.UID, "kind", "Policy", "policy_name", p.Name, "namespaces", p.Namespace)
 
@@ -640,7 +640,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	}
 
 	updateGR(pc.kyvernoClient, policy.Name, grList, logger)
-	pc.processExistingResources(policy, startTime.Unix())
+	pc.processExistingResources(policy)
 	return nil
 }
 

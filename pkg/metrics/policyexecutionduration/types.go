@@ -1,4 +1,4 @@
-package admissionreviewlatency
+package policyexecutionduration
 
 import (
 	"github.com/kyverno/kyverno/pkg/metrics"

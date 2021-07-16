@@ -2,7 +2,6 @@ package policychanges
 
 import (
 	"fmt"
-	"time"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -15,7 +14,6 @@ func (pm PromMetrics) registerPolicyChangesMetric(
 	policyBackgroundMode metrics.PolicyBackgroundMode,
 	policyNamespace, policyName string,
 	policyChangeType PolicyChangeType,
-	policyChangeTimestamp int64,
 ) error {
 	if policyType == metrics.Cluster {
 		policyNamespace = "-"
@@ -27,12 +25,11 @@ func (pm PromMetrics) registerPolicyChangesMetric(
 		"policy_namespace":       policyNamespace,
 		"policy_name":            policyName,
 		"policy_change_type":     string(policyChangeType),
-		"timestamp":              fmt.Sprintf("%+v", time.Unix(policyChangeTimestamp, 0)),
-	}).Set(1)
+	}).Inc()
 	return nil
 }
 
-func (pm PromMetrics) RegisterPolicy(policy interface{}, policyChangeType PolicyChangeType, policyChangeTimestamp int64) error {
+func (pm PromMetrics) RegisterPolicy(policy interface{}, policyChangeType PolicyChangeType) error {
 	switch inputPolicy := policy.(type) {
 	case *kyverno.ClusterPolicy:
 		policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.ValidationFailureAction)
@@ -43,7 +40,7 @@ func (pm PromMetrics) RegisterPolicy(policy interface{}, policyChangeType Policy
 		policyType := metrics.Cluster
 		policyNamespace := "" // doesn't matter for cluster policy
 		policyName := inputPolicy.ObjectMeta.Name
-		if err = pm.registerPolicyChangesMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, policyChangeType, policyChangeTimestamp); err != nil {
+		if err = pm.registerPolicyChangesMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, policyChangeType); err != nil {
 			return err
 		}
 		return nil
@@ -56,7 +53,7 @@ func (pm PromMetrics) RegisterPolicy(policy interface{}, policyChangeType Policy
 		policyType := metrics.Namespaced
 		policyNamespace := inputPolicy.ObjectMeta.Namespace
 		policyName := inputPolicy.ObjectMeta.Name
-		if err = pm.registerPolicyChangesMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, policyChangeType, policyChangeTimestamp); err != nil {
+		if err = pm.registerPolicyChangesMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, policyChangeType); err != nil {
 			return err
 		}
 		return nil

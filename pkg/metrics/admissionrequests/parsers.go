@@ -1,4 +1,4 @@
-package admissionreviewlatency
+package admissionrequests
 
 import (
 	"fmt"

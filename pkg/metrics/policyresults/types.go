@@ -1,4 +1,4 @@
-package policyruleexecutionlatency
+package policyresults
 
 import (
 	"github.com/kyverno/kyverno/pkg/metrics"
