@@ -370,6 +370,26 @@ func deleteConditionElements(pattern *yaml.RNode) error {
 			return err
 		}
 
+		// In this case we have no resource elements that matched the condition.
+		// Just create dummy element with empty name so list must not be deleted.
+		if len(elements) == 1 {
+			element := elements[0]
+			if hasAnchors(element) {
+				deleteListElement(pattern, 0)
+				dummy, err := yaml.Parse(`{ "name": "" }`)
+				if err != nil {
+					return err
+				}
+
+				err = pattern.PipeE(yaml.Append(dummy.YNode()))
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
+		}
+
 		for i, element := range elements {
 			if hasAnchors(element) {
 				deleteListElement(pattern, i)
