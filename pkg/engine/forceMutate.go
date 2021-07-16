@@ -88,6 +88,14 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 			}
 		}
 
+		if rule.Mutation.PatchStrategicMerge != nil {
+			var resp response.RuleResponse
+			resp, resource = mutate.ProcessStrategicMergePatch(rule.Name, rule.Mutation.PatchStrategicMerge, resource, logger.WithValues("rule", rule.Name))
+			if !resp.Success {
+				return unstructured.Unstructured{}, fmt.Errorf(resp.Message)
+			}
+		}
+
 		if rule.Mutation.PatchesJSON6902 != "" {
 			var resp response.RuleResponse
 			jsonPatches, err := yaml.YAMLToJSON([]byte(rule.Mutation.PatchesJSON6902))

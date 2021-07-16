@@ -254,3 +254,89 @@ func Test_ForceMutateSubstituteVarsWithPatchesJson6902(t *testing.T) {
 
 	assert.DeepEqual(t, expectedResource.UnstructuredContent(), mutatedResource.UnstructuredContent())
 }
+
+func Test_ForceMutateSubstituteVarsWithPatchStrategicMerge(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "strategic-merge-patch"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "set-image-pull-policy-add-command",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ]
+				}
+			  },
+			  "mutate": {
+					"patchStrategicMerge": {
+					  "spec": {
+						"volumes": [
+						  {
+							"emptyDir": {
+							  "medium": "Memory"
+							},
+							"name": "cache-volume"
+						  }
+						]
+					  }
+					}
+			  }
+			}
+		  ]
+		}
+	  }
+`)
+
+	rawResource := []byte(`
+{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {
+		"name": "check-root-user"
+	},
+	"spec": {
+		"volumes": [
+			{
+				"name": "cache-volume",
+				"emptyDir": { }
+			  },
+			  {
+				"name": "cache-volume2",
+				"emptyDir": {
+				  "medium": "Memory"
+				}
+			  }
+		]
+	}
+}
+`)
+
+	expectedRawResource := []byte(`
+	{"apiVersion":"v1","kind":"Pod","metadata":{"name":"check-root-user"},"spec":{"volumes":[{"emptyDir":{"medium":"Memory"},"name":"cache-volume"},{"emptyDir":{"medium":"Memory"},"name":"cache-volume2"}]}}
+	  `)
+
+	var expectedResource interface{}
+	assert.NilError(t, json.Unmarshal(expectedRawResource, &expectedResource))
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	ctx := context.NewContext()
+	err = ctx.AddResource(rawResource)
+	assert.NilError(t, err)
+
+	mutatedResource, err := ForceMutate(ctx, policy, *resourceUnstructured)
+	assert.NilError(t, err)
+
+	assert.DeepEqual(t, expectedResource, mutatedResource.UnstructuredContent())
+}

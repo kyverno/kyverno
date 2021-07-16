@@ -7,11 +7,12 @@ import (
 	"github.com/mattbaird/jsonpatch"
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_GeneratePatches(t *testing.T) {
 
-	out, err := strategicMergePatch(string(baseBytes), string(overlayBytes))
+	out, err := strategicMergePatch(log.Log, string(baseBytes), string(overlayBytes))
 	assert.NilError(t, err)
 
 	expectedPatches := map[string]bool{

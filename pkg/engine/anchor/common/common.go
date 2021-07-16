@@ -63,6 +63,12 @@ func IsExistenceAnchor(str string) bool {
 	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
 }
 
+// IsNonAnchor checks that key does not have any anchor
+func IsNonAnchor(str string) bool {
+	key, _ := RemoveAnchor(str)
+	return str == key
+}
+
 // RemoveAnchor remove anchor from the given key. It returns
 // the anchor-free tag value and the prefix of the anchor.
 func RemoveAnchor(key string) (string, string) {

@@ -15,10 +15,10 @@ import (
 
 // ValidateResourceWithPattern is a start of element-by-element validation process
 // It assumes that validation is started from root, so "/" is passed
-func ValidateResourceWithPattern(log logr.Logger, resource, pattern interface{}) (string, error) {
+func ValidateResourceWithPattern(logger logr.Logger, resource, pattern interface{}) (string, error) {
 	// newAnchorMap - to check anchor key has values
 	ac := common.NewAnchorMap()
-	elemPath, err := validateResourceElement(log, resource, pattern, pattern, "/", ac)
+	elemPath, err := validateResourceElement(logger, resource, pattern, pattern, "/", ac)
 	if err != nil {
 		if common.IsConditionalAnchorError(err.Error()) {
 			return "", nil
