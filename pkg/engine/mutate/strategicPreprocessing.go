@@ -394,7 +394,10 @@ func deleteConditionElements(pattern *yaml.RNode) error {
 			if hasAnchors(element) {
 				deleteListElement(pattern, i)
 			} else {
-				deleteConditionElements(element)
+				err = deleteConditionElements(element)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
