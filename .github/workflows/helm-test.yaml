@@ -29,4 +29,4 @@ jobs:
         uses: helm/chart-testing-action@v2.0.1
 
       - name: Run chart-testing (lint)
-        run: ct lint --target-branch=main --check-version-increment=true
+        run: ct lint --target-branch=main --check-version-increment=false
