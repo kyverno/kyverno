@@ -25,3 +25,4 @@ jobs:
         uses: stefanprodan/helm-gh-pages@v1.4.1
         with:
           token: "${{ secrets.GITHUB_TOKEN }}"
+          linting: off
