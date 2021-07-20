@@ -276,7 +276,7 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 			path, err := validate.ValidateResourceWithPattern(logger, resource.Object, pattern)
 			if err != nil {
 				logger.V(4).Info("validation rule failed", "anyPattern[%d]", idx, "path", path)
-				patternErr := fmt.Errorf("rule %s[%d] failed at path %s.", rule.Name, idx, path)
+				patternErr := fmt.Errorf("Rule %s[%d] failed at path %s.", rule.Name, idx, path)
 				failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
 			}
 

@@ -2357,7 +2357,7 @@ func TestValidate_metadata_fail_anyPattern(t *testing.T) {
 	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	assert.Assert(t, !er.IsSuccessful())
 
-	msgs := []string{"validation error: Cannot use Flux v1 annotation. rule block-flux-v1[0] failed at path /metadata/annotations/fluxcd.io/foo/."}
+	msgs := []string{"validation error: Cannot use Flux v1 annotation. Rule block-flux-v1[0] failed at path /metadata/annotations/fluxcd.io/foo/."}
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
