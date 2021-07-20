@@ -5,6 +5,7 @@ on:
       - 'main'
     paths:
       - 'charts/kyverno/Chart.yaml'
+      - '.github/workflows/helm-release.yaml'
 
 jobs:
   create-release:
