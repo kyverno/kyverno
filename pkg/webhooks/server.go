@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/kyverno/kyverno/pkg/engine"
-
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -20,8 +18,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/engine"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -373,6 +373,10 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
 	}
 
+	if err := mutateResourceWithImageInfo(request.Object.Raw, ctx); err != nil {
+		ws.log.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
+	}
+
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
 		AdmissionInfo:       userRequestInfo,
@@ -622,4 +626,32 @@ func newVariablesContext(request *v1beta1.AdmissionRequest, userRequestInfo *v1.
 	}
 
 	return ctx, nil
+}
+
+func mutateResourceWithImageInfo(raw []byte, ctx *enginectx.Context) error {
+	images := ctx.ImageInfo()
+	if images == nil {
+		return nil
+	}
+
+	var patches [][]byte
+	for _, info := range images.Containers {
+		patches = append(patches, buildJSONPatch("replace", info.JSONPath, info.String()))
+	}
+
+	for _, info := range images.InitContainers {
+		patches = append(patches, buildJSONPatch("replace", info.JSONPath, info.String()))
+	}
+
+	patchedResource, err := engineutils.ApplyPatches(raw, patches)
+	if err != nil {
+		return err
+	}
+
+	return ctx.AddResource(patchedResource)
+}
+
+func buildJSONPatch(op, path, value string) []byte {
+	p := fmt.Sprintf(`{ "op": "%s", "path": "%s", "value":"%s" }`, op, path, value)
+	return []byte(p)
 }
