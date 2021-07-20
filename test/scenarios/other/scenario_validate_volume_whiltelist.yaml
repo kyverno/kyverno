@@ -17,5 +17,5 @@ expected:
       rules:
         - name: validate-volumes-whitelist
           type: Validation
-          message: "validation error: Volumes white list. Rule validate-volumes-whitelist[0] failed at path /spec/volumes/0/. Rule validate-volumes-whitelist[1] failed at path /spec/volumes/0/"
+          message: "validation error: Volumes white list. Rule validate-volumes-whitelist[0] failed at path /spec/volumes/0/. Rule validate-volumes-whitelist[1] failed at path /spec/volumes/0/,"
           success: true
