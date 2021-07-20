@@ -93,7 +93,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		// =====================================================
 
 		// ======== Create ClusterRole Policy =============
-		By(fmt.Sprintf("Creating Generate Role Policy in %s", clPolNS))
+		By(fmt.Sprintf("Creating Generate Role Policy: %s", tests.PolicyName))
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 
