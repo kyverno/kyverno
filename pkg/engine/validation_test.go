@@ -2,7 +2,6 @@ package engine
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -2360,7 +2359,6 @@ func TestValidate_metadata_fail_anyPattern(t *testing.T) {
 
 	msgs := []string{"validation error: Cannot use Flux v1 annotation. rule block-flux-v1[0] failed at path /metadata/annotations/fluxcd.io/foo/."}
 	for index, r := range er.PolicyResponse.Rules {
-		fmt.Println("r.Message", r.Message)
 		assert.Equal(t, r.Message, msgs[index])
 	}
 }
