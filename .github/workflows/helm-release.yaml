@@ -5,6 +5,7 @@ on:
       - 'main'
     paths:
       - 'charts/kyverno/Chart.yaml'
+      - '.github/workflows/helm-release.yaml'
 
 jobs:
   create-release:
@@ -18,7 +19,7 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v1
         with:
-          version: v3.4.0
+          version: v3.4.1
 
       - name: Run chart-releaser
         uses: stefanprodan/helm-gh-pages@v1.4.1
