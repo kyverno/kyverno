@@ -262,11 +262,9 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 		resp.Message = fmt.Sprintf("validation rule '%s' passed.", rule.Name)
 		return resp
 	}
-
 	if validationRule.AnyPattern != nil {
 		var failedAnyPatternsErrors []error
 		var err error
-
 		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 		if err != nil {
 			resp.Success = false
@@ -276,17 +274,13 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 
 		for idx, pattern := range anyPatterns {
 			path, err := validate.ValidateResourceWithPattern(logger, resource.Object, pattern)
-			if err == nil {
-				resp.Success = true
-				resp.Message = fmt.Sprintf("validation rule '%s' anyPattern[%d] passed.", rule.Name, idx)
-				return resp
+			if err != nil {
+				logger.V(4).Info("validation rule failed", "anyPattern[%d]", idx, "path", path)
+				patternErr := fmt.Errorf("rule %s[%d] failed at path %s.", rule.Name, idx, path)
+				failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
 			}
 
-			logger.V(4).Info("validation rule failed", "anyPattern[%d]", idx, "path", path)
-			patternErr := fmt.Errorf("Rule %s[%d] failed at path %s.", rule.Name, idx, path)
-			failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
 		}
-
 		// Any Pattern validation errors
 		if len(failedAnyPatternsErrors) > 0 {
 			var errorStr []string
@@ -298,6 +292,10 @@ func validatePatterns(log logr.Logger, ctx context.EvalInterface, resource unstr
 
 			resp.Success = false
 			resp.Message = buildAnyPatternErrorMessage(rule, errorStr)
+			return resp
+		} else {
+			resp.Success = true
+			resp.Message = fmt.Sprintf("validation rule '%s' anyPattern passed.", rule.Name)
 			return resp
 		}
 	}

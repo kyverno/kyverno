@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -2241,4 +2242,245 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 		assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, !er.IsSuccessful())
+}
+
+func TestValidate_metadata_fail_anyPattern(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "restrict-annotations",
+		  "annotations": {
+			"policies.kyverno.io/title": "Restrict Annotations",
+			"policies.kyverno.io/category": "Sample",
+			"policies.kyverno.io/description": "This example policy prevents the use of an annotation beginning with a common key name (in this case \"fluxcd.io/\"). This can be useful to ensure users either don't set reserved annotations or to force them to use a newer version of an annotation.",
+			"pod-policies.kyverno.io/autogen-controllers": "None"
+		  }
+		},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "block-flux-v1",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment",
+					"CronJob",
+					"Job",
+					"StatefulSet",
+					"DaemonSet",
+					"Pod"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "Cannot use Flux v1 annotation.",
+				"anyPattern": [
+				  {
+					"metadata": {
+					  "=(annotations)": {
+						"X(fluxcd.io/*)": "*?"
+					  }
+					}
+				  },
+				  {
+					"metadata": {
+					  "=(annotations)": {
+						"X(flux.weave.works/*)": "*?"
+					  }
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	rawResource := []byte(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+		  "name": "kyvernodeploy",
+		  "labels": {
+			"blog": "forward"
+		  },
+		  "annotations": {
+			"fluxcd.io/foo": "bar"
+		  }
+		},
+		"spec": {
+		  "replicas": 1,
+		  "selector": {
+			"matchLabels": {
+			  "blog": "forward"
+			}
+		  },
+		  "template": {
+			"metadata": {
+			  "labels": {
+				"blog": "forward"
+			  }
+			},
+			"spec": {
+			  "containers": [
+				{
+				  "name": "busybox-harbor",
+				  "image": "busybox:1.28",
+				  "command": [
+					"sleep",
+					"9999"
+				  ],
+				  "resources": {
+					"requests": {
+					  "memory": "100Mi",
+					  "cpu": "100m"
+					},
+					"limits": {
+					  "memory": "200Mi"
+					}
+				  }
+				}
+			  ]
+			}
+		  }
+		}
+	  }`)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	assert.Assert(t, !er.IsSuccessful())
+
+	msgs := []string{"validation error: Cannot use Flux v1 annotation. rule block-flux-v1[0] failed at path /metadata/annotations/fluxcd.io/foo/."}
+	for index, r := range er.PolicyResponse.Rules {
+		fmt.Println("r.Message", r.Message)
+		assert.Equal(t, r.Message, msgs[index])
+	}
+}
+
+func TestValidate_metadata_pass_anyPattern(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "restrict-annotations",
+		  "annotations": {
+			"policies.kyverno.io/title": "Restrict Annotations",
+			"policies.kyverno.io/category": "Sample",
+			"policies.kyverno.io/description": "This example policy prevents the use of an annotation beginning with a common key name (in this case \"fluxcd.io/\"). This can be useful to ensure users either don't set reserved annotations or to force them to use a newer version of an annotation.",
+			"pod-policies.kyverno.io/autogen-controllers": "None"
+		  }
+		},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "block-flux-v1",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment",
+					"CronJob",
+					"Job",
+					"StatefulSet",
+					"DaemonSet",
+					"Pod"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "Cannot use Flux v1 annotation.",
+				"anyPattern": [
+				  {
+					"metadata": {
+					  "=(annotations)": {
+						"X(fluxcd.io/*)": "*?"
+					  }
+					}
+				  },
+				  {
+					"metadata": {
+					  "=(annotations)": {
+						"X(flux.weave.works/*)": "*?"
+					  }
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	rawResource := []byte(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+		  "name": "kyvernodeploy",
+		  "labels": {
+			"blog": "forward"
+		  },
+		  "annotations": {
+			"test.co/foo": "bar"
+		  }
+		},
+		"spec": {
+		  "replicas": 1,
+		  "selector": {
+			"matchLabels": {
+			  "blog": "forward"
+			}
+		  },
+		  "template": {
+			"metadata": {
+			  "labels": {
+				"blog": "forward"
+			  }
+			},
+			"spec": {
+			  "containers": [
+				{
+				  "name": "busybox-harbor",
+				  "image": "busybox:1.28",
+				  "command": [
+					"sleep",
+					"9999"
+				  ],
+				  "resources": {
+					"requests": {
+					  "memory": "100Mi",
+					  "cpu": "100m"
+					},
+					"limits": {
+					  "memory": "200Mi"
+					}
+				  }
+				}
+			  ]
+			}
+		  }
+		}
+	  }`)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	msgs := []string{"validation rule 'block-flux-v1' anyPattern passed."}
+
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
 }
