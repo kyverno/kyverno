@@ -1,10 +1,13 @@
 package utils
 
 import (
+	"fmt"
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strconv"
+	"strings"
 )
 
 //RuleType defines the type for rule
@@ -106,4 +109,29 @@ func GetAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{}
 	}
 
 	return result
+}
+
+func JsonPointerToJMESPath(jsonPointer string) string {
+	var sb strings.Builder
+	tokens := strings.Split(jsonPointer, "/")
+	i := 0
+	for _, t := range tokens {
+		if t == ""{
+			continue
+		}
+
+		if _, err := strconv.Atoi(t); err == nil {
+			sb.WriteString(fmt.Sprintf("[%s]", t))
+			continue
+		}
+
+		if i > 0 {
+			sb.WriteString(".")
+		}
+
+		sb.WriteString(t)
+		i++
+	}
+
+	return sb.String()
 }
