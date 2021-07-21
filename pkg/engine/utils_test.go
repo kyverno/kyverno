@@ -19,7 +19,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		areErrorsExpected bool
 	}{
 		{
-			Description: "Should match pod and not exclude it",
+			Description: "Match Any matches the Pod",
 			AdmissionInfo: kyverno.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
@@ -104,7 +104,262 @@ func TestMatchesResourceDescription(t *testing.T) {
 			areErrorsExpected: false,
 		},
 		{
-			Description: "Should match pod and not exclude it",
+			Description: "Match Any does not match the Pod",
+			AdmissionInfo: kyverno.RequestInfo{
+				ClusterRoles: []string{"admin"},
+			},
+			Resource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+					"name": "abc",
+					"namespace" : "default"
+				},
+				"spec": {
+					"containers": [
+						{
+							"name": "cont-name",
+							"image": "cont-img",
+							"ports": [
+								{
+									"containerPort": 81
+								}
+							],
+							"resources": {
+								"limits": {
+									"memory": "30Mi",
+									"cpu": "0.2"
+								},
+								"requests": {
+									"memory": "20Mi",
+									"cpu": "0.1"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			Policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "test-policy"
+				},
+				"spec": {
+					"background": false,
+					"rules": [
+						{
+							"name": "test-rule",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"names" : ["dev"]
+										}
+									},
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"namespaces" : ["prod"]
+										}
+									}
+								]
+							},
+							"mutate": {
+								"overlay": {
+									"spec": {
+										"containers": [
+											{
+												"(image)": "*",
+												"imagePullPolicy": "IfNotPresent"
+											}
+										]
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			areErrorsExpected: true,
+		},
+		{
+			Description: "Match All matches the Pod",
+			AdmissionInfo: kyverno.RequestInfo{
+				ClusterRoles: []string{"admin"},
+			},
+			Resource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+					"name": "abc",
+					"namespace" : "prod"
+				},
+				"spec": {
+					"containers": [
+						{
+							"name": "cont-name",
+							"image": "cont-img",
+							"ports": [
+								{
+									"containerPort": 81
+								}
+							],
+							"resources": {
+								"limits": {
+									"memory": "30Mi",
+									"cpu": "0.2"
+								},
+								"requests": {
+									"memory": "20Mi",
+									"cpu": "0.1"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			Policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "test-policy"
+				},
+				"spec": {
+					"background": false,
+					"rules": [
+						{
+							"name": "test-rule",
+							"match": {
+								"all": [
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"names" : ["abc"]
+										}
+									},
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"namespaces" : ["prod"]
+										}
+									}
+								]
+							},
+							"mutate": {
+								"overlay": {
+									"spec": {
+										"containers": [
+											{
+												"(image)": "*",
+												"imagePullPolicy": "IfNotPresent"
+											}
+										]
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			areErrorsExpected: false,
+		},
+		{
+			Description: "Match All does not match the Pod",
+			AdmissionInfo: kyverno.RequestInfo{
+				ClusterRoles: []string{"admin"},
+			},
+			Resource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+					"name": "abc",
+					"namespace" : "prod"
+				},
+				"spec": {
+					"containers": [
+						{
+							"name": "cont-name",
+							"image": "cont-img",
+							"ports": [
+								{
+									"containerPort": 81
+								}
+							],
+							"resources": {
+								"limits": {
+									"memory": "30Mi",
+									"cpu": "0.2"
+								},
+								"requests": {
+									"memory": "20Mi",
+									"cpu": "0.1"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			Policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "test-policy"
+				},
+				"spec": {
+					"background": false,
+					"rules": [
+						{
+							"name": "test-rule",
+							"match": {
+								"all": [
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"names" : ["xyz"]
+										}
+									},
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"namespaces" : ["prod"]
+										}
+									}
+								]
+							},
+							"mutate": {
+								"overlay": {
+									"spec": {
+										"containers": [
+											{
+												"(image)": "*",
+												"imagePullPolicy": "IfNotPresent"
+											}
+										]
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			areErrorsExpected: true,
+		},
+		{
+			Description: "Exclude Any excludes the Pod",
 			AdmissionInfo: kyverno.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
@@ -113,7 +368,207 @@ func TestMatchesResourceDescription(t *testing.T) {
 				"kind": "Pod",
 				"metadata": {
 					"name": "dev",
-					"namespace" : "lol"
+					"namespace" : "prod"
+				},
+				"spec": {
+					"containers": [
+						{
+							"name": "cont-name",
+							"image": "cont-img",
+							"ports": [
+								{
+									"containerPort": 81
+								}
+							],
+							"resources": {
+								"limits": {
+									"memory": "30Mi",
+									"cpu": "0.2"
+								},
+								"requests": {
+									"memory": "20Mi",
+									"cpu": "0.1"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			Policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "test-policy"
+				},
+				"spec": {
+					"background": false,
+					"rules": [
+						{
+							"name": "test-rule",
+							"match": {
+								"all": [
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											]
+										}
+									}
+								]
+							},
+							"exclude": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"names": [
+												"dev"
+											]
+										}
+									},
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"namespaces": [
+												"default"
+											]
+										}
+									}
+								]
+							},
+							"mutate": {
+								"overlay": {
+									"spec": {
+										"containers": [
+											{
+												"(image)": "*",
+												"imagePullPolicy": "IfNotPresent"
+											}
+										]
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			areErrorsExpected: true,
+		},
+		{
+			Description: "Exclude Any does not exclude the Pod",
+			AdmissionInfo: kyverno.RequestInfo{
+				ClusterRoles: []string{"admin"},
+			},
+			Resource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+					"name": "abc",
+					"namespace" : "prod"
+				},
+				"spec": {
+					"containers": [
+						{
+							"name": "cont-name",
+							"image": "cont-img",
+							"ports": [
+								{
+									"containerPort": 81
+								}
+							],
+							"resources": {
+								"limits": {
+									"memory": "30Mi",
+									"cpu": "0.2"
+								},
+								"requests": {
+									"memory": "20Mi",
+									"cpu": "0.1"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			Policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "test-policy"
+				},
+				"spec": {
+					"background": false,
+					"rules": [
+						{
+							"name": "test-rule",
+							"match": {
+								"all": [
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											]
+										}
+									}
+								]
+							},
+							"exclude": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"names": [
+												"dev"
+											]
+										}
+									},
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"namespaces": [
+												"default"
+											]
+										}
+									}
+								]
+							},
+							"mutate": {
+								"overlay": {
+									"spec": {
+										"containers": [
+											{
+												"(image)": "*",
+												"imagePullPolicy": "IfNotPresent"
+											}
+										]
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			areErrorsExpected: false,
+		},
+		{
+			Description: "Exclude All excludes the Pod",
+			AdmissionInfo: kyverno.RequestInfo{
+				ClusterRoles: []string{"admin"},
+			},
+			Resource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+					"name": "dev",
+					"namespace" : "prod"
 				},
 				"spec": {
 					"containers": [
@@ -180,6 +635,106 @@ func TestMatchesResourceDescription(t *testing.T) {
 											],
 											"namespaces": [
 												"prod"
+											]
+										}
+									}
+								]
+							},
+							"mutate": {
+								"overlay": {
+									"spec": {
+										"containers": [
+											{
+												"(image)": "*",
+												"imagePullPolicy": "IfNotPresent"
+											}
+										]
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			areErrorsExpected: true,
+		},
+		{
+			Description: "Exclude All does not exclude the Pod",
+			AdmissionInfo: kyverno.RequestInfo{
+				ClusterRoles: []string{"admin"},
+			},
+			Resource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+					"name": "abc",
+					"namespace" : "prod"
+				},
+				"spec": {
+					"containers": [
+						{
+							"name": "cont-name",
+							"image": "cont-img",
+							"ports": [
+								{
+									"containerPort": 81
+								}
+							],
+							"resources": {
+								"limits": {
+									"memory": "30Mi",
+									"cpu": "0.2"
+								},
+								"requests": {
+									"memory": "20Mi",
+									"cpu": "0.1"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			Policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "test-policy"
+				},
+				"spec": {
+					"background": false,
+					"rules": [
+						{
+							"name": "test-rule",
+							"match": {
+								"all": [
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											]
+										}
+									}
+								]
+							},
+							"exclude": {
+								"all": [
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"names": [
+												"abc"
+											]
+										}
+									},
+									{
+										"resources": {
+											"kinds": [
+												"Pod"
+											],
+											"namespaces": [
+												"default"
 											]
 										}
 									}

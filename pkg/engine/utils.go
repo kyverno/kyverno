@@ -266,12 +266,9 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 
 	if len(rule.MatchResources.Any) > 0 {
 		// inlcude object if ANY of the criterias match
-		// is one matched then break from loop
-		fmt.Println("Went here")
+		// so if one matches then break from loop
 		oneMatched := false
 		for _, rmr := range rule.MatchResources.Any {
-
-			fmt.Println(rmr)
 			if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
 				rmr.UserInfo = kyverno.UserInfo{}
 			}
@@ -288,13 +285,12 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 				reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
 			}
 		}
+
 		if !oneMatched {
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("no resource matched"))
 		}
 	} else if len(rule.MatchResources.All) > 0 {
 		// include object if ALL of the criterias match
-		fmt.Println("Went here 2")
-
 		for _, rmr := range rule.MatchResources.All {
 			if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
 				rmr.UserInfo = kyverno.UserInfo{}
@@ -327,13 +323,13 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 
 	if len(rule.ExcludeResources.Any) > 0 {
 		// exclude the object if ANY of the criterias match
-		fmt.Println("Went here 3")
-		for _, rmr := range rule.ExcludeResources.Any {
+		for _, rer := range rule.ExcludeResources.Any {
 			// checking if resource matches the rule
-			if !reflect.DeepEqual(rmr.ResourceDescription, kyverno.ResourceDescription{}) ||
-				!reflect.DeepEqual(rmr.UserInfo, kyverno.UserInfo{}) {
-				matchErrs := doesResourceMatchConditionBlock(rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
-				if len(matchErrs) == 0 {
+			if !reflect.DeepEqual(rer.ResourceDescription, kyverno.ResourceDescription{}) ||
+				!reflect.DeepEqual(rer.UserInfo, kyverno.UserInfo{}) {
+				excludeErrs := doesResourceMatchConditionBlock(rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
+				// it was a match so we want to exclude it
+				if len(excludeErrs) == 0 {
 					reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded since any one of the criterias excluded it"))
 				}
 			} else {
@@ -342,21 +338,21 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 		}
 	} else if len(rule.ExcludeResources.All) > 0 {
 		// exlcude the object if ALL the criterias match
-		fmt.Println("Went here 4")
-		exludedByAll := true
-		for _, rmr := range rule.ExcludeResources.All {
+		excludedByAll := true
+		for _, rer := range rule.ExcludeResources.All {
 
 			// checking if resource has been excluded
-			if !reflect.DeepEqual(rmr.ResourceDescription, kyverno.ResourceDescription{}) ||
-				!reflect.DeepEqual(rmr.UserInfo, kyverno.UserInfo{}) {
-				excludeErrs := doesResourceMatchConditionBlock(rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
+			if !reflect.DeepEqual(rer.ResourceDescription, kyverno.ResourceDescription{}) ||
+				!reflect.DeepEqual(rer.UserInfo, kyverno.UserInfo{}) {
+				excludeErrs := doesResourceMatchConditionBlock(rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
 				// we got errors implying it didn't match an exlude criteria
-				if excludeErrs != nil {
-					exludedByAll = false
+				if len(excludeErrs) != 0 {
+					excludedByAll = false
+					break
 				}
 			}
 		}
-		if exludedByAll {
+		if excludedByAll {
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded since the combination of all criterias exclude it"))
 		}
 	} else {
@@ -364,7 +360,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 		if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) ||
 			!reflect.DeepEqual(rule.ExcludeResources.UserInfo, kyverno.UserInfo{}) {
 			excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
-			if excludeErrs == nil {
+			if len(excludeErrs) == 0 {
 				reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded"))
 			}
 		}

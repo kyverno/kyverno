@@ -220,7 +220,6 @@ const (
 // which a policy rule is applicable.
 type MatchResources struct {
 	// Any allows specifying resources which will be ORed
-	// And and All are basically an array of what was earlier just the match block
 	// +optional
 	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
 
