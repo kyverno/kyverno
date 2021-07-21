@@ -393,6 +393,9 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
 		for _, kvpair := range kvpairs {
 			kvs := strings.Split(strings.Trim(kvpair, " "), "=")
+			if strings.Contains(kvs[0], "request.object") {
+				return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("variable request.object.* is handled by kyverno, no need to pass it", err)
+			}
 			variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
 		}
 	}
