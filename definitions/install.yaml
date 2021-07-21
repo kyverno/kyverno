@@ -1025,8 +1025,7 @@ spec:
                           type: array
                         any:
                           description: Any allows specifying resources which will
-                            be ORed And and All are basically an array of what was
-                            earlier just the match block
+                            be ORed
                           items:
                             description: ResourceFilters allow users to "AND" or "OR"
                               between resources
@@ -3521,8 +3520,7 @@ spec:
                           type: array
                         any:
                           description: Any allows specifying resources which will
-                            be ORed And and All are basically an array of what was
-                            earlier just the match block
+                            be ORed
                           items:
                             description: ResourceFilters allow users to "AND" or "OR"
                               between resources
