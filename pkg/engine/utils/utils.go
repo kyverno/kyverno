@@ -116,7 +116,7 @@ func JsonPointerToJMESPath(jsonPointer string) string {
 	tokens := strings.Split(jsonPointer, "/")
 	i := 0
 	for _, t := range tokens {
-		if t == ""{
+		if t == "" {
 			continue
 		}
 

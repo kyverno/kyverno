@@ -66,11 +66,10 @@ func (ctx *Context) isBuiltInVariable(variable string) bool {
 	return false
 }
 
-
 func (ctx *Context) HasChanged(jmespath string) (bool, error) {
 	objData, err := ctx.Query("request.object." + jmespath)
 	if err != nil {
-		return false, errors.Wrap(err,"failed to query request.object")
+		return false, errors.Wrap(err, "failed to query request.object")
 	}
 
 	if objData == nil {
@@ -79,7 +78,7 @@ func (ctx *Context) HasChanged(jmespath string) (bool, error) {
 
 	oldObjData, err := ctx.Query("request.oldObject." + jmespath)
 	if err != nil {
-		return false, errors.Wrap(err,"failed to query request.object")
+		return false, errors.Wrap(err, "failed to query request.object")
 	}
 
 	if oldObjData == nil {
@@ -92,4 +91,3 @@ func (ctx *Context) HasChanged(jmespath string) (bool, error) {
 
 	return true, nil
 }
-
