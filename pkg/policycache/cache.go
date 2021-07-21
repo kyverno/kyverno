@@ -388,9 +388,9 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 				}
 			}
 		}
-
 	}
 }
+
 func (m *policyCache) getPolicyObject(key PolicyType, gvk string, nspace string) (policyObject []*kyverno.ClusterPolicy) {
 	_, kind := common.GetKindFromGVK(gvk)
 	policyNames := m.pMap.get(key, kind, nspace)
