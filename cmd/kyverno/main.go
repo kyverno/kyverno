@@ -4,12 +4,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/kyverno/kyverno/pkg/cosign"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/kyverno/kyverno/pkg/cosign"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	kubeinformers "k8s.io/client-go/informers"

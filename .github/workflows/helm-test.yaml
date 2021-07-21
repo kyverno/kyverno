@@ -1,15 +1,11 @@
 name: helm-test
 on:
-  push:
-    branches:
-      - 'main'
-    paths:
-      - 'charts/kyverno/**'
   pull_request:
     branches:
       - 'main'
     paths:
       - 'charts/kyverno/**'
+      - '.github/workflows/helm-test.yaml'
 
 jobs:
   helm-tests:
@@ -29,4 +25,4 @@ jobs:
         uses: helm/chart-testing-action@v2.0.1
 
       - name: Run chart-testing (lint)
-        run: ct lint --target-branch=main --check-version-increment=true
+        run: ct lint --target-branch=main --check-version-increment=false
