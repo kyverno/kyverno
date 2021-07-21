@@ -1,15 +1,11 @@
 name: helm-test
 on:
-  push:
-    branches:
-      - 'main'
-    paths:
-      - 'charts/kyverno/**'
   pull_request:
     branches:
       - 'main'
     paths:
       - 'charts/kyverno/**'
+      - '.github/workflows/helm-test.yaml'
 
 jobs:
   helm-tests:
