@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"encoding/json"
 	"fmt"
+	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
@@ -13,6 +14,7 @@ import (
 	"github.com/sigstore/cosign/pkg/cosign"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"k8s.io/client-go/kubernetes"
+	"strings"
 )
 
 // Initialize loads the image pull secrets and initializes the default auth method for container registry API calls
@@ -54,6 +56,14 @@ func Verify(imageRef string, key []byte, log logr.Logger) (digest string, err er
 
 	verified, err := cosign.Verify(context.Background(), ref, cosignOpts, "https://rekor.sigstore.dev")
 	if err != nil {
+		msg := err.Error()
+		logger.Info("image verification failed", "error", msg)
+		if strings.Contains(msg, "NAME_UNKNOWN: repository name not known to registry") {
+			return "", fmt.Errorf("signature not found")
+		} else if strings.Contains(msg, "no matching signatures") {
+			return "", fmt.Errorf("invalid signature")
+		}
+
 		return "", errors.Wrap(err, "failed to verify image")
 	}
 

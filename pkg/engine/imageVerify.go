@@ -27,7 +27,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 		"kind", patchedResource.GetKind(), "namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
 
 	if ManagedPodResource(policy, patchedResource) {
-		logger.V(4).Info("container images for pods managed by workload controllers are already verified", "policy", policy.GetName())
+		logger.V(4).Info("images for resources managed by workload controllers are already verified", "policy", policy.GetName())
 		resp.PatchedResource = patchedResource
 		return
 	}
@@ -53,20 +53,27 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 
 		policyContext.JSONContext.Restore()
 		for _, imageVerify := range rule.VerifyImages {
-			verifyAndPatchImages(logger, &rule, imageVerify, images.Containers, resp)
-			verifyAndPatchImages(logger, &rule, imageVerify, images.InitContainers, resp)
+			verifyAndPatchImages(logger, policyContext, &rule, imageVerify, images.Containers, resp)
+			verifyAndPatchImages(logger, policyContext, &rule, imageVerify, images.InitContainers, resp)
 		}
 	}
 
 	return
 }
 
-func verifyAndPatchImages(logger logr.Logger, rule *v1.Rule, imageVerify *v1.ImageVerification, images map[string]*context.ImageInfo, resp *response.EngineResponse) {
+func verifyAndPatchImages(logger logr.Logger, policyContext *PolicyContext, rule *v1.Rule, imageVerify *v1.ImageVerification, images map[string]*context.ImageInfo, resp *response.EngineResponse) {
 	imagePattern := imageVerify.Image
 	key := imageVerify.Key
 
 	for _, imageInfo := range images {
 		image := imageInfo.String()
+		jmespath := utils.JsonPointerToJMESPath(imageInfo.JSONPointer)
+		changed, err := policyContext.JSONContext.HasChanged(jmespath)
+		if err == nil && !changed {
+			logger.V(4).Info("no change in image, skipping check", "image", image)
+			continue
+		}
+
 		if !wildcard.Match(imagePattern, image) {
 			logger.V(4).Info("image does not match pattern", "image", image, "pattern", imagePattern)
 			continue
@@ -95,7 +102,7 @@ func verifyAndPatchImages(logger logr.Logger, rule *v1.Rule, imageVerify *v1.Ima
 			if imageInfo.Digest == "" {
 				patch, err := makeAddDigestPatch(imageInfo, digest)
 				if err != nil {
-					logger.Error(err, "failed to patch image with digest", "image", imageInfo.String(), "jsonPath", imageInfo.JSONPath)
+					logger.Error(err, "failed to patch image with digest", "image", imageInfo.String(), "jsonPath", imageInfo.JSONPointer)
 				} else {
 					logger.V(4).Info("patching verified image with digest", "patch", string(patch))
 					ruleResp.Patches = [][]byte{patch}
@@ -110,7 +117,7 @@ func verifyAndPatchImages(logger logr.Logger, rule *v1.Rule, imageVerify *v1.Ima
 func makeAddDigestPatch(imageInfo *context.ImageInfo, digest string) ([]byte, error) {
 	var patch = make(map[string]interface{})
 	patch["op"] = "replace"
-	patch["path"] = imageInfo.JSONPath
+	patch["path"] = imageInfo.JSONPointer
 	patch["value"] = imageInfo.String() + "@" + digest
 	return json.Marshal(patch)
 }

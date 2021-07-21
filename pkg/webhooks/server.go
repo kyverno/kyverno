@@ -636,11 +636,11 @@ func mutateResourceWithImageInfo(raw []byte, ctx *enginectx.Context) error {
 
 	var patches [][]byte
 	for _, info := range images.Containers {
-		patches = append(patches, buildJSONPatch("replace", info.JSONPath, info.String()))
+		patches = append(patches, buildJSONPatch("replace", info.JSONPointer, info.String()))
 	}
 
 	for _, info := range images.InitContainers {
-		patches = append(patches, buildJSONPatch("replace", info.JSONPath, info.String()))
+		patches = append(patches, buildJSONPatch("replace", info.JSONPointer, info.String()))
 	}
 
 	patchedResource, err := engineutils.ApplyPatches(raw, patches)

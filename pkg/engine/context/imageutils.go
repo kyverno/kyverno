@@ -27,8 +27,8 @@ type ImageInfo struct {
 	// Digest is the image digest portion e.g. `sha256:128c6e3534b842a2eec139999b8ce8aa9a2af9907e2b9269550809d18cd832a3`
 	Digest string `json:"digest,omitempty"`
 
-	// JSONPath is full JSON path to this image e.g. `/spec/containers/0/image`
-	JSONPath string `json:"jsonPath,omitempty"`
+	// JSONPointer is full JSON path to this image e.g. `/spec/containers/0/image`
+	JSONPointer string `json:"jsonPath,omitempty"`
 }
 
 func (i *ImageInfo) String() string {
@@ -144,7 +144,7 @@ func convertToImageInfo(containers []interface{}, jsonPath string) (images []*Co
 	return images, errors.Errorf("%s", strings.Join(errs, ";"))
 }
 
-func newImageInfo(image, jsonPath string) (*ImageInfo, error) {
+func newImageInfo(image, jsonPointer string) (*ImageInfo, error) {
 	image = addDefaultDomain(image)
 	ref, err := reference.Parse(image)
 	if err != nil {
@@ -172,12 +172,12 @@ func newImageInfo(image, jsonPath string) (*ImageInfo, error) {
 	}
 
 	return &ImageInfo{
-		Registry: registry,
-		Name:     name,
-		Path:     path,
-		Tag:      tag,
-		Digest:   digest,
-		JSONPath: jsonPath,
+		Registry:    registry,
+		Name:        name,
+		Path:        path,
+		Tag:         tag,
+		Digest:      digest,
+		JSONPointer: jsonPointer,
 	}, nil
 }
 
