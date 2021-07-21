@@ -366,14 +366,16 @@ func IsInputFromPipe() bool {
 	return fileInfo.Mode()&os.ModeCharDevice == 0
 }
 
-// RemoveDuplicateVariables - remove duplicate variables
-func RemoveDuplicateVariables(matches [][]string) string {
+// RemoveDuplicateAndObjectVariables - remove duplicate variables
+func RemoveDuplicateAndObjectVariables(matches [][]string) string {
 	var variableStr string
 	for _, m := range matches {
 		for _, v := range m {
 			foundVariable := strings.Contains(variableStr, v)
 			if !foundVariable {
-				variableStr = variableStr + " " + v
+				if !strings.Contains(v, "request.object") {
+					variableStr = variableStr + " " + v
+				}
 			}
 		}
 	}
@@ -510,6 +512,16 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	log.Log.V(3).Info("applying policy on resource", "policy", policy.Name, "resource", resPath)
 
 	ctx := context.NewContext()
+	resourceRaw, err := resource.MarshalJSON()
+	if err != nil {
+		log.Log.Error(err, "failed to marshal resource")
+	}
+
+	err = ctx.AddResource(resourceRaw)
+	if err != nil {
+		log.Log.Error(err, "failed to load resource in context")
+	}
+
 	for key, value := range variables {
 		jsonData := pkgcommon.VariableToJSON(key, value)
 		ctx.AddJSON(jsonData)

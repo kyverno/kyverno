@@ -263,7 +263,9 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		}
 
 		matches := common.PolicyHasVariables(*policy)
-		variable := common.RemoveDuplicateVariables(matches)
+		variable := common.RemoveDuplicateAndObjectVariables(matches)
+
+		// TODO: check for request.object variable in variable in value file and warn the user
 
 		if len(matches) > 0 && variablesString == "" && valuesFile == "" {
 			rc.skip++
@@ -288,7 +290,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				thisPolicyResourceValues[k] = v
 			}
 
-			if len(common.PolicyHasVariables(*policy)) > 0 && len(thisPolicyResourceValues) == 0 && len(store.GetContext().Policies) == 0 {
+			if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && len(store.GetContext().Policies) == 0 {
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 			}
 

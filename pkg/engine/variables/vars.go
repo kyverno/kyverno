@@ -182,6 +182,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface) jsonUt
 					variable = strings.Replace(variable, "@", fmt.Sprintf("request.object.%s", getJMESPath(data.Path)), -1)
 				}
 
+				// TODO: do not change request.object to request.oldObject in case of CLI
 				operation, err := ctx.Query("request.operation")
 				if err == nil && operation == "DELETE" {
 					variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
