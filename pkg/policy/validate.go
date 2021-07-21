@@ -210,420 +210,134 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 	}
 
 	excludeRoles := make(map[string]bool)
-	if len(rule.ExcludeResources.Any) > 0 {
-		for _, rer := range rule.ExcludeResources.Any {
-			for _, role := range rer.UserInfo.Roles {
-				excludeRoles[role] = true
-			}
-		}
-	} else if len(rule.ExcludeResources.All) > 0 {
-		for _, rer := range rule.ExcludeResources.All {
-			for _, role := range rer.UserInfo.Roles {
-				excludeRoles[role] = true
-			}
-		}
-	} else {
-		for _, role := range rule.ExcludeResources.UserInfo.Roles {
-			excludeRoles[role] = true
-		}
+	for _, role := range rule.ExcludeResources.UserInfo.Roles {
+		excludeRoles[role] = true
 	}
 
 	excludeClusterRoles := make(map[string]bool)
-	if len(rule.ExcludeResources.Any) > 0 {
-		for _, rer := range rule.ExcludeResources.Any {
-			for _, clusterRoles := range rer.UserInfo.ClusterRoles {
-				excludeClusterRoles[clusterRoles] = true
-			}
-		}
-	} else if len(rule.ExcludeResources.All) > 0 {
-		for _, rer := range rule.ExcludeResources.All {
-			for _, clusterRoles := range rer.UserInfo.ClusterRoles {
-				excludeClusterRoles[clusterRoles] = true
-			}
-		}
-	} else {
-		for _, clusterRoles := range rule.ExcludeResources.UserInfo.ClusterRoles {
-			excludeClusterRoles[clusterRoles] = true
-		}
+	for _, clusterRoles := range rule.ExcludeResources.UserInfo.ClusterRoles {
+		excludeClusterRoles[clusterRoles] = true
 	}
 
 	excludeSubjects := make(map[string]bool)
-	if len(rule.ExcludeResources.Any) > 0 {
-		for _, rer := range rule.ExcludeResources.Any {
-			for _, subject := range rer.UserInfo.Subjects {
-				subjectRaw, _ := json.Marshal(subject)
-				excludeSubjects[string(subjectRaw)] = true
-			}
-		}
-	} else if len(rule.ExcludeResources.All) > 0 {
-		for _, rer := range rule.ExcludeResources.All {
-			for _, subject := range rer.UserInfo.Subjects {
-				subjectRaw, _ := json.Marshal(subject)
-				excludeSubjects[string(subjectRaw)] = true
-			}
-		}
-	} else {
-		for _, subject := range rule.ExcludeResources.UserInfo.Subjects {
-			subjectRaw, _ := json.Marshal(subject)
-			excludeSubjects[string(subjectRaw)] = true
-		}
+	for _, subject := range rule.ExcludeResources.UserInfo.Subjects {
+		subjectRaw, _ := json.Marshal(subject)
+		excludeSubjects[string(subjectRaw)] = true
 	}
 
 	excludeKinds := make(map[string]bool)
-	if len(rule.ExcludeResources.Any) > 0 {
-		for _, rer := range rule.ExcludeResources.Any {
-			for _, kind := range rer.ResourceDescription.Kinds {
-				excludeKinds[kind] = true
-			}
-		}
-	} else if len(rule.ExcludeResources.All) > 0 {
-		for _, rer := range rule.ExcludeResources.All {
-			for _, kind := range rer.ResourceDescription.Kinds {
-				excludeKinds[kind] = true
-			}
-		}
-	} else {
-		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-			excludeKinds[kind] = true
-		}
+	for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
+		excludeKinds[kind] = true
 	}
 
 	excludeNamespaces := make(map[string]bool)
-	if len(rule.ExcludeResources.Any) > 0 {
-		for _, rer := range rule.ExcludeResources.Any {
-			for _, namespace := range rer.ResourceDescription.Namespaces {
-				excludeNamespaces[namespace] = true
-			}
-		}
-	} else if len(rule.ExcludeResources.All) > 0 {
-		for _, rer := range rule.ExcludeResources.All {
-			for _, namespace := range rer.ResourceDescription.Namespaces {
-				excludeNamespaces[namespace] = true
-			}
-		}
-	} else {
-		for _, namespace := range rule.ExcludeResources.ResourceDescription.Namespaces {
-			excludeNamespaces[namespace] = true
-		}
+	for _, namespace := range rule.ExcludeResources.ResourceDescription.Namespaces {
+		excludeNamespaces[namespace] = true
 	}
 
 	excludeSelectorMatchExpressions := make(map[string]bool)
-	if len(rule.ExcludeResources.Any) > 0 {
-		for _, rer := range rule.ExcludeResources.Any {
-			if rer.ResourceDescription.Selector != nil {
-				for _, matchExpression := range rer.ResourceDescription.Selector.MatchExpressions {
-					matchExpressionRaw, _ := json.Marshal(matchExpression)
-					excludeSelectorMatchExpressions[string(matchExpressionRaw)] = true
-				}
-			}
-		}
-	} else if len(rule.ExcludeResources.All) > 0 {
-		for _, rer := range rule.ExcludeResources.All {
-			if rer.ResourceDescription.Selector != nil {
-				for _, matchExpression := range rer.ResourceDescription.Selector.MatchExpressions {
-					matchExpressionRaw, _ := json.Marshal(matchExpression)
-					excludeSelectorMatchExpressions[string(matchExpressionRaw)] = true
-				}
-			}
-		}
-	} else {
-		if rule.ExcludeResources.ResourceDescription.Selector != nil {
-			for _, matchExpression := range rule.ExcludeResources.ResourceDescription.Selector.MatchExpressions {
-				matchExpressionRaw, _ := json.Marshal(matchExpression)
-				excludeSelectorMatchExpressions[string(matchExpressionRaw)] = true
-			}
+	if rule.ExcludeResources.ResourceDescription.Selector != nil {
+		for _, matchExpression := range rule.ExcludeResources.ResourceDescription.Selector.MatchExpressions {
+			matchExpressionRaw, _ := json.Marshal(matchExpression)
+			excludeSelectorMatchExpressions[string(matchExpressionRaw)] = true
 		}
 	}
 
 	excludeNamespaceSelectorMatchExpressions := make(map[string]bool)
-	if len(rule.ExcludeResources.Any) > 0 {
-		for _, rer := range rule.ExcludeResources.Any {
-			if rer.ResourceDescription.NamespaceSelector != nil {
-				for _, matchExpression := range rer.ResourceDescription.NamespaceSelector.MatchExpressions {
-					matchExpressionRaw, _ := json.Marshal(matchExpression)
-					excludeNamespaceSelectorMatchExpressions[string(matchExpressionRaw)] = true
-				}
-			}
-		}
-	} else if len(rule.ExcludeResources.All) > 0 {
-		for _, rer := range rule.ExcludeResources.All {
-			if rer.ResourceDescription.NamespaceSelector != nil {
-				for _, matchExpression := range rer.ResourceDescription.NamespaceSelector.MatchExpressions {
-					matchExpressionRaw, _ := json.Marshal(matchExpression)
-					excludeNamespaceSelectorMatchExpressions[string(matchExpressionRaw)] = true
-				}
-			}
-		}
-	} else {
-		if rule.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
-			for _, matchExpression := range rule.ExcludeResources.ResourceDescription.NamespaceSelector.MatchExpressions {
-				matchExpressionRaw, _ := json.Marshal(matchExpression)
-				excludeNamespaceSelectorMatchExpressions[string(matchExpressionRaw)] = true
-			}
+	if rule.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
+		for _, matchExpression := range rule.ExcludeResources.ResourceDescription.NamespaceSelector.MatchExpressions {
+			matchExpressionRaw, _ := json.Marshal(matchExpression)
+			excludeNamespaceSelectorMatchExpressions[string(matchExpressionRaw)] = true
 		}
 	}
 
 	if len(excludeRoles) > 0 {
-		if len(rule.MatchResources.Any) > 0 {
-			for _, rmr := range rule.MatchResources.Any {
-				if len(rmr.UserInfo.Roles) == 0 {
-					return false
-				}
+		if len(rule.MatchResources.UserInfo.Roles) == 0 {
+			return false
+		}
 
-				for _, role := range rmr.UserInfo.Roles {
-					if !excludeRoles[role] {
-						return false
-					}
-				}
-			}
-		} else if len(rule.MatchResources.All) > 0 {
-			for _, rmr := range rule.MatchResources.All {
-				if len(rmr.UserInfo.Roles) == 0 {
-					return false
-				}
-
-				for _, role := range rmr.UserInfo.Roles {
-					if !excludeRoles[role] {
-						return false
-					}
-				}
-			}
-		} else {
-			if len(rule.MatchResources.UserInfo.Roles) == 0 {
+		for _, role := range rule.MatchResources.UserInfo.Roles {
+			if !excludeRoles[role] {
 				return false
-			}
-
-			for _, role := range rule.MatchResources.UserInfo.Roles {
-				if !excludeRoles[role] {
-					return false
-				}
 			}
 		}
 	}
 
 	if len(excludeClusterRoles) > 0 {
-		if len(rule.MatchResources.Any) > 0 {
-			for _, rmr := range rule.MatchResources.Any {
-				if len(rmr.UserInfo.ClusterRoles) == 0 {
-					return false
-				}
+		if len(rule.MatchResources.UserInfo.ClusterRoles) == 0 {
+			return false
+		}
 
-				for _, clusterRole := range rmr.UserInfo.ClusterRoles {
-					if !excludeClusterRoles[clusterRole] {
-						return false
-					}
-				}
-			}
-		} else if len(rule.MatchResources.All) > 0 {
-			for _, rmr := range rule.MatchResources.All {
-				if len(rmr.UserInfo.ClusterRoles) == 0 {
-					return false
-				}
-
-				for _, clusterRole := range rmr.UserInfo.ClusterRoles {
-					if !excludeClusterRoles[clusterRole] {
-						return false
-					}
-				}
-			}
-		} else {
-			if len(rule.MatchResources.UserInfo.ClusterRoles) == 0 {
+		for _, clusterRole := range rule.MatchResources.UserInfo.ClusterRoles {
+			if !excludeClusterRoles[clusterRole] {
 				return false
-			}
-
-			for _, clusterRole := range rule.MatchResources.UserInfo.ClusterRoles {
-				if !excludeClusterRoles[clusterRole] {
-					return false
-				}
 			}
 		}
 	}
 
 	if len(excludeSubjects) > 0 {
-		if len(rule.MatchResources.Any) > 0 {
-			for _, rmr := range rule.MatchResources.Any {
-				if len(rmr.UserInfo.Subjects) == 0 {
-					return false
-				}
-
-				for _, subject := range rmr.UserInfo.Subjects {
-					subjectRaw, _ := json.Marshal(subject)
-					if !excludeSubjects[string(subjectRaw)] {
-						return false
-					}
-				}
-			}
-		} else if len(rule.MatchResources.All) > 0 {
-			for _, rmr := range rule.MatchResources.All {
-				if len(rmr.UserInfo.Subjects) == 0 {
-					return false
-				}
-
-				for _, subject := range rmr.UserInfo.Subjects {
-					subjectRaw, _ := json.Marshal(subject)
-					if !excludeSubjects[string(subjectRaw)] {
-						return false
-					}
-				}
-			}
-		} else {
-			if len(rule.MatchResources.UserInfo.Subjects) == 0 {
-				return false
-			}
-
-			for _, subject := range rule.MatchResources.UserInfo.Subjects {
-				subjectRaw, _ := json.Marshal(subject)
-				if !excludeSubjects[string(subjectRaw)] {
-					return false
-				}
-			}
+		if len(rule.MatchResources.UserInfo.Subjects) == 0 {
+			return false
 		}
 
+		for _, subject := range rule.MatchResources.UserInfo.Subjects {
+			subjectRaw, _ := json.Marshal(subject)
+			if !excludeSubjects[string(subjectRaw)] {
+				return false
+			}
+		}
 	}
 
-	if len(rule.MatchResources.All) > 0 || len(rule.MatchResources.Any) > 0 || len(rule.ExcludeResources.All) > 0 || len(rule.ExcludeResources.Any) > 0 {
-		var mrnames []string
-		for _, rmr := range rule.MatchResources.Any {
-			mrnames = append(mrnames, rmr.ResourceDescription.Name)
-			mrnames = append(mrnames, rmr.ResourceDescription.Names...)
-		}
-		for _, rmr := range rule.MatchResources.All {
-			mrnames = append(mrnames, rmr.ResourceDescription.Name)
-			mrnames = append(mrnames, rmr.ResourceDescription.Names...)
-		}
-		if rule.MatchResources.ResourceDescription.Name != "" {
-			mrnames = append(mrnames, rule.MatchResources.ResourceDescription.Name)
-		}
-		var ernames []string
-		for _, rmr := range rule.ExcludeResources.Any {
-			ernames = append(ernames, rmr.ResourceDescription.Name)
-			ernames = append(ernames, rmr.ResourceDescription.Names...)
-		}
-		for _, rmr := range rule.ExcludeResources.All {
-			ernames = append(ernames, rmr.ResourceDescription.Name)
-			ernames = append(ernames, rmr.ResourceDescription.Names...)
-		}
-		if rule.ExcludeResources.ResourceDescription.Name != "" {
-			mrnames = append(mrnames, rule.ExcludeResources.ResourceDescription.Name)
-		}
-		if len(ernames) == 0 || len(mrnames) == 0 {
+	if rule.ExcludeResources.ResourceDescription.Name != "" {
+		if !wildcard.Match(rule.ExcludeResources.ResourceDescription.Name, rule.MatchResources.ResourceDescription.Name) {
 			return false
 		}
-		for _, ername := range ernames {
-			for _, mrname := range mrnames {
-				if !wildcard.Match(ername, mrname) {
-					return false
-				}
-			}
-		}
+	}
 
-	} else {
-		if rule.ExcludeResources.ResourceDescription.Name != "" {
-			if !wildcard.Match(rule.ExcludeResources.ResourceDescription.Name, rule.MatchResources.ResourceDescription.Name) {
-				return false
-			}
-		}
+	if len(rule.ExcludeResources.ResourceDescription.Names) > 0 {
+		excludeSlice := rule.ExcludeResources.ResourceDescription.Names
+		matchSlice := rule.MatchResources.ResourceDescription.Names
 
-		if len(rule.ExcludeResources.ResourceDescription.Names) > 0 {
-			excludeSlice := rule.ExcludeResources.ResourceDescription.Names
-			matchSlice := rule.MatchResources.ResourceDescription.Names
-
-			// if exclude block has something and match doesn't it means we
-			// have a non empty set
-			if len(rule.MatchResources.ResourceDescription.Names) == 0 {
-				return false
-			}
-
-			// if *any* name in match and exclude conflicts
-			// we want user to fix that
-			for _, matchName := range matchSlice {
-				for _, excludeName := range excludeSlice {
-					if wildcard.Match(excludeName, matchName) {
-						return true
-					}
-				}
-			}
+		// if exclude block has something and match doesn't it means we
+		// have a non empty set
+		if len(rule.MatchResources.ResourceDescription.Names) == 0 {
 			return false
 		}
 
+		// if *any* name in match and exclude conflicts
+		// we want user to fix that
+		for _, matchName := range matchSlice {
+			for _, excludeName := range excludeSlice {
+				if wildcard.Match(excludeName, matchName) {
+					return true
+				}
+			}
+		}
+		return false
 	}
 
 	if len(excludeNamespaces) > 0 {
-		if len(rule.MatchResources.Any) > 0 {
-			for _, rmr := range rule.MatchResources.Any {
-				if len(rmr.ResourceDescription.Namespaces) == 0 {
-					return false
-				}
-
-				for _, namespace := range rmr.ResourceDescription.Namespaces {
-					if !excludeNamespaces[namespace] {
-						return false
-					}
-				}
-			}
-		} else if len(rule.MatchResources.All) > 0 {
-			for _, rmr := range rule.MatchResources.All {
-				if len(rmr.ResourceDescription.Namespaces) == 0 {
-					return false
-				}
-
-				for _, namespace := range rmr.ResourceDescription.Namespaces {
-					if !excludeNamespaces[namespace] {
-						return false
-					}
-				}
-			}
-		} else {
-			if len(rule.MatchResources.ResourceDescription.Namespaces) == 0 {
-				return false
-			}
-
-			for _, namespace := range rule.MatchResources.ResourceDescription.Namespaces {
-				if !excludeNamespaces[namespace] {
-					return false
-				}
-			}
+		if len(rule.MatchResources.ResourceDescription.Namespaces) == 0 {
+			return false
 		}
 
+		for _, namespace := range rule.MatchResources.ResourceDescription.Namespaces {
+			if !excludeNamespaces[namespace] {
+				return false
+			}
+		}
 	}
 
 	if len(excludeKinds) > 0 {
-		if len(rule.MatchResources.Any) > 0 {
-			for _, rmr := range rule.MatchResources.Any {
-				if len(rmr.ResourceDescription.Kinds) == 0 {
-					return false
-				}
-
-				for _, kind := range rmr.ResourceDescription.Kinds {
-					if !excludeKinds[kind] {
-						return false
-					}
-				}
-			}
-		} else if len(rule.MatchResources.All) > 0 {
-			for _, rmr := range rule.MatchResources.All {
-				if len(rmr.ResourceDescription.Kinds) == 0 {
-					return false
-				}
-
-				for _, kind := range rmr.ResourceDescription.Kinds {
-					if !excludeKinds[kind] {
-						return false
-					}
-				}
-			}
-		} else {
-			if len(rule.MatchResources.ResourceDescription.Kinds) == 0 {
-				return false
-			}
-
-			for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
-				if !excludeKinds[kind] {
-					return false
-				}
-			}
+		if len(rule.MatchResources.ResourceDescription.Kinds) == 0 {
+			return false
 		}
 
+		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
+			if !excludeKinds[kind] {
+				return false
+			}
+		}
 	}
 
 	if rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector != nil {
