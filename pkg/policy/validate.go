@@ -205,6 +205,22 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 // returns true if it is an empty set
 func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 
+	if len(rule.MatchResources.All) > 0 || len(rule.ExcludeResources.All) > 0 {
+		return false
+	}
+
+	// if both have any then no resource should be common
+	if len(rule.MatchResources.Any) > 0 && len(rule.ExcludeResources.Any) > 0 {
+		for _, rmr := range rule.MatchResources.Any {
+			for _, rer := range rule.ExcludeResources.Any {
+				if reflect.DeepEqual(rmr, rer) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
 	if reflect.DeepEqual(rule.ExcludeResources, kyverno.ExcludeResources{}) {
 		return false
 	}
