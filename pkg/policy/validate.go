@@ -139,7 +139,6 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 				}
 				return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
 			}
-			return fmt.Errorf("at least one element must be specified in a kind block. the kind attribute is mandatory when working with the resources element")
 		}
 
 		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
