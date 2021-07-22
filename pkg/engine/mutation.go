@@ -131,7 +131,10 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			logger.V(4).Info("mutate rule applied successfully", "ruleName", rule.Name)
 		}
 
-		ctx.AddResourceAsObject(patchedResource.Object)
+		if err := ctx.AddResourceAsObject(patchedResource.Object); err != nil {
+			logger.Error(err, "failed to update resource in the JSON context")
+		}
+
 		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 		incrementAppliedRuleCount(resp)
 	}
