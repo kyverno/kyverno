@@ -394,11 +394,12 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		for _, kvpair := range kvpairs {
 			kvs := strings.Split(strings.Trim(kvpair, " "), "=")
 			if strings.Contains(kvs[0], "request.object") {
-				return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("variable request.object.* is handled by kyverno, no need to pass it", err)
+				return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("variable request.object.* is handled by kyverno. please do not pass value for request.object variables ", err)
 			}
 			variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
 		}
 	}
+
 	if valuesFile != "" {
 		if isGit {
 			filep, err := fs.Open(filepath.Join(policyResourcePath, valuesFile))
@@ -427,6 +428,11 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		for _, p := range values.Policies {
 			resourceMap := make(map[string]Resource)
 			for _, r := range p.Resources {
+				for variableInFile, _ := range r.Values {
+					if strings.Contains(variableInFile, "request.object") {
+						return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("variable request.object.* is handled by kyverno. please do not pass value for request.object variables ", err)
+					}
+				}
 				resourceMap[r.Name] = r
 			}
 			valuesMapResource[p.Name] = resourceMap
