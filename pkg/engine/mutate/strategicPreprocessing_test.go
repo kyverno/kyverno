@@ -2,7 +2,6 @@ package mutate
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	anchor "github.com/kyverno/kyverno/pkg/engine/anchor/common"
@@ -21,7 +20,6 @@ func areEqualJSONs(t *testing.T, s1, s2 []byte) {
 
 	err = json.Unmarshal(s2, &o2)
 	assert.NilError(t, err)
-
 	assert.DeepEqual(t, o1, o2)
 }
 
@@ -31,6 +29,29 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 		rawResource   []byte
 		expectedPatch []byte
 	}{
+		{
+			rawPolicy: []byte(`{
+				"metadata": null
+			  }`),
+			rawResource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+				  "name": "hello"
+				},
+				"spec": {
+				  "containers": [
+					{
+					  "name": "hello",
+					  "image": "busybox"
+					}
+				  ]
+				}
+			  }`),
+			expectedPatch: []byte(`{
+				"metadata": null
+			  }`),
+		},
 		{
 			rawPolicy: []byte(`{
 				"spec": {
@@ -392,9 +413,6 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 				}
 			  }`),
 			expectedPatch: []byte(`{
-				"metadata": {
-				  "annotations": {}
-				},
 				"spec": {
 				  "volumes": [
 					{
@@ -436,11 +454,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 				  "namespace": "default"
 				}
 			  }`),
-			expectedPatch: []byte(`{
-				"metadata": {
-				  "annotations": {}
-				}
-			  }`),
+			expectedPatch: []byte(`{}`),
 		},
 		{
 			rawPolicy: []byte(`{
@@ -618,6 +632,60 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 		{
 			rawPolicy: []byte(`{
 				"metadata": {
+					"annotations": {
+						"+(annotation1)": "atest1",
+				  	}
+				}
+			}`),
+			rawResource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+					"annotations": {
+						"annotation1": "atest2"
+				  	},
+				  	"labels": {
+						"label1": "test2",
+						"label2": "test2"
+				  	},
+				  	"name": "check-root-user"
+				}
+			}`),
+			expectedPatch: []byte(`{}`),
+		},
+		{
+			rawPolicy: []byte(`{
+				"metadata": {
+					"annotations": {
+						"annotation1": null
+				  	}
+				}
+			}`),
+			rawResource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+					"annotations": {
+						"annotation1": "atest2"
+				  	},
+				  	"labels": {
+						"label1": "test2",
+						"label2": "test2"
+				  	},
+				  	"name": "check-root-user"
+				}
+			}`),
+			expectedPatch: []byte(`{
+				"metadata": {
+					"annotations": {
+						"annotation1": null
+				  	}
+				}
+			}`),
+		},
+		{
+			rawPolicy: []byte(`{
+				"metadata": {
 					"labels": {
 						"(key1)": "value1",
 					}
@@ -655,7 +723,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 				"spec": {
 				  "containers": [
 					{
-						"name": "hello",
+						"name": "busybox",
 						"image": "gcr.io/google-containers/busybox:latest"
 					}
 				  ],
@@ -669,7 +737,8 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 		},
 	}
 
-	for _, test := range testCases {
+	for i, test := range testCases {
+		t.Logf("Running test %d...", i+1)
 		preProcessedPolicy, err := preProcessStrategicMergePatch(log.Log, string(test.rawPolicy), string(test.rawResource))
 		assert.NilError(t, err)
 
@@ -868,8 +937,7 @@ func Test_DeleteConditions(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, len(containers), 2)
 
-	err = deleteConditionElements(pattern)
-	fmt.Println(pattern.String())
+	_, err = deleteAnchors(pattern)
 	assert.NilError(t, err)
 
 	containers, err = pattern.Field("spec").Value.Field("containers").Value.Elements()

@@ -37,6 +37,7 @@ func preProcessPattern(logger logr.Logger, pattern, resource *yaml.RNode) error 
 	if err != nil {
 		return err
 	}
+
 	return deleteConditionElements(pattern)
 }
 
@@ -341,68 +342,115 @@ func deleteConditionsFromNestedMaps(pattern *yaml.RNode) error {
 }
 
 func deleteConditionElements(pattern *yaml.RNode) error {
-	switch pattern.YNode().Kind {
-	case yaml.MappingNode:
-		fields, err := pattern.Fields()
+	fields, err := pattern.Fields()
+	if err != nil {
+		return err
+	}
+
+	for _, field := range fields {
+		ok, err := deleteAnchors(pattern.Field(field).Value)
 		if err != nil {
 			return err
 		}
-
-		for _, field := range fields {
-			if anchor.IsConditionAnchor(field) {
-				err = pattern.PipeE(yaml.Clear(field))
-				if err != nil {
-					return err
-				}
-			} else {
-				child := pattern.Field(field).Value
-				if child != nil {
-					err = deleteConditionElements(child)
-					if err != nil {
-						return err
-					}
-				}
-			}
-		}
-	case yaml.SequenceNode:
-		elements, err := pattern.Elements()
-		if err != nil {
-			return err
-		}
-
-		// In this case we have no resource elements that matched the condition.
-		// Just create dummy element with empty name so list must not be deleted.
-		if len(elements) == 1 {
-			element := elements[0]
-			if hasAnchors(element) {
-				deleteListElement(pattern, 0)
-				dummy, err := yaml.Parse(`{ "name": "" }`)
-				if err != nil {
-					return err
-				}
-
-				err = pattern.PipeE(yaml.Append(dummy.YNode()))
-				if err != nil {
-					return err
-				}
-			}
-
-			return nil
-		}
-
-		for i, element := range elements {
-			if hasAnchors(element) {
-				deleteListElement(pattern, i)
-			} else {
-				err = deleteConditionElements(element)
-				if err != nil {
-					return err
-				}
+		if ok {
+			err = pattern.PipeE(yaml.Clear(field))
+			if err != nil {
+				return err
 			}
 		}
 	}
 
 	return nil
+}
+
+// deleteAnchors deletes all the anchors and returns true,
+// if this node must be deleted from patch.
+// Node is considered to be deleted, if there were only
+// anchors elemets. After anchors elements are removed,
+// we have patch with nil values which could cause
+// unnecessary resource elements deletion.
+func deleteAnchors(node *yaml.RNode) (bool, error) {
+	switch node.YNode().Kind {
+	case yaml.MappingNode:
+		return deleteAnchorsInMap(node)
+	case yaml.SequenceNode:
+		return deleteAnchorsInList(node)
+	}
+
+	return false, nil
+}
+
+func deleteAnchorsInMap(node *yaml.RNode) (bool, error) {
+	conditions, err := filterKeys(node, anchor.IsConditionAnchor)
+	if err != nil {
+		return false, err
+	}
+
+	// Remove all conditions first.
+	for _, condition := range conditions {
+		err = node.PipeE(yaml.Clear(condition))
+		if err != nil {
+			return false, err
+		}
+	}
+
+	fields, err := node.Fields()
+	if err != nil {
+		return false, err
+	}
+
+	// Go further through the map elements.
+	for _, field := range fields {
+		ok, err := deleteAnchors(node.Field(field).Value)
+		if err != nil {
+			return false, err
+		}
+
+		// If we have at least one element without annchor,
+		// then we don't need to delete this element.
+		if !ok {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+func deleteAnchorsInList(node *yaml.RNode) (bool, error) {
+	elements, err := node.Elements()
+	if err != nil {
+		return false, err
+	}
+
+	for i, element := range elements {
+		if hasAnchors(element) {
+			deleteListElement(node, i)
+		} else {
+			// This element also could have some conditions
+			// inside sub-arrays. Delete them too.
+
+			ok, err := deleteAnchors(element)
+			if err != nil {
+				return false, err
+			}
+			if err != nil {
+				return false, err
+			}
+			if ok {
+				deleteListElement(node, i)
+			}
+		}
+	}
+
+	elements, err = node.Elements()
+	if err != nil {
+		return false, err
+	}
+	if len(elements) == 0 {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func deleteListElement(list *yaml.RNode, i int) {
