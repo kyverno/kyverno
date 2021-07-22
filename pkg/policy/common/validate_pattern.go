@@ -31,16 +31,20 @@ func validateMap(patternMap map[string]interface{}, path string, supportedAnchor
 		// single char ()
 		re, err := regexp.Compile(`^.?\(.+\)$`)
 		if err != nil {
-			return path + "/" + key, fmt.Errorf("Unable to parse the field %s: %v", key, err)
+			return path + "/" + key, fmt.Errorf("unable to parse the field %s: %v", key, err)
 		}
-
 		matched := re.MatchString(key)
 		// check the type of anchor
 		if matched {
 			// some type of anchor
 			// check if valid anchor
 			if !checkAnchors(key, supportedAnchors) {
-				return path + "/" + key, fmt.Errorf("Unsupported anchor %s", key)
+				return path + "/" + key, fmt.Errorf("unsupported anchor %s", key)
+			}
+			if commonAnchors.IsNegationAnchor(key) {
+				if value != "null" {
+					return path + "/" + key, fmt.Errorf("negation anchor should have value null")
+				}
 			}
 
 			// addition check for existence anchor
