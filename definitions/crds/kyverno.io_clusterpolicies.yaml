@@ -1547,8 +1547,9 @@ spec:
               ruleStatus:
                 description: Rules provides per rule statistics
                 items:
-                  description: RuleStats provides statistics for an individual rule
-                    within a policy.
+                  description: 'RuleStats provides statistics for an individual rule
+                    within a policy. Deprecated. Policy metrics are now available
+                    via the "/metrics" endpoint. See: https://kyverno.io/docs/monitoring-kyverno-with-prometheus-metrics/'
                   properties:
                     appliedCount:
                       description: AppliedCount is the total number of times this
