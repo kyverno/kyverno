@@ -258,14 +258,12 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		err := policy2.Validate(policy, nil, true, openAPIController)
 		if err != nil {
 			rc.skip += len(resources)
-			log.Log.V(3).Info(fmt.Sprintf("1skipping policy %v as it is not valid", policy.Name), "error", err)
+			log.Log.V(3).Info(fmt.Sprintf("skipping policy %v as it is not valid", policy.Name), "error", err)
 			continue
 		}
 
 		matches := common.PolicyHasVariables(*policy)
 		variable := common.RemoveDuplicateAndObjectVariables(matches)
-
-		// TODO: check for request.object variable in variable in value file and warn the user
 
 		if len(variable) > 0 && variablesString == "" && valuesFile == "" {
 			rc.skip++
@@ -275,7 +273,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				Variable: variable,
 			}
 			skippedPolicies = append(skippedPolicies, skipPolicy)
-			log.Log.V(3).Info(fmt.Sprintf("2skipping policy %s", policy.Name), "error", fmt.Sprintf("policy have variable - %s", variable))
+			log.Log.V(3).Info(fmt.Sprintf("skipping policy %s", policy.Name), "error", fmt.Sprintf("policy have variable - %s", variable))
 			continue
 		}
 
