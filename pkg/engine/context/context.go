@@ -143,6 +143,25 @@ func (ctx *Context) AddResource(dataRaw []byte) error {
 	return ctx.AddJSON(objRaw)
 }
 
+func (ctx *Context) AddResourceAsObject(data interface{}) error {
+	modifiedResource := struct {
+		Request interface{} `json:"request"`
+	}{
+		Request: struct {
+			Object interface{} `json:"object"`
+		}{
+			Object: data,
+		},
+	}
+
+	objRaw, err := json.Marshal(modifiedResource)
+	if err != nil {
+		ctx.log.Error(err, "failed to marshal the resource")
+		return err
+	}
+	return ctx.AddJSON(objRaw)
+}
+
 //AddUserInfo adds userInfo at path request.userInfo
 func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 	modifiedResource := struct {

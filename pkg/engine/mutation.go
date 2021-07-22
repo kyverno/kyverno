@@ -70,7 +70,18 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 		logger.V(3).Info("matched mutate rule")
 
+		// Restore() is meant for restoring context loaded from external lookup (APIServer & ConfigMap)
+		// while we need to keep updated resource in the JSON context as rules can be chained
+		resource, err := policyContext.JSONContext.Query("request.object")
 		policyContext.JSONContext.Restore()
+		if err == nil && resource != nil {
+			if err := ctx.AddResourceAsObject(resource.(map[string]interface{})); err != nil {
+				logger.WithName("RestoreContext").Error(err, "unable to update resource object")
+			}
+		} else {
+			logger.WithName("RestoreContext").Error(err, "failed to quey resource object")
+		}
+
 		if err := LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
 			if _, ok := err.(gojmespath.NotFoundError); ok {
 				logger.V(3).Info("failed to load context", "reason", err.Error())
@@ -93,7 +104,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			continue
 		}
 
-		if rule, err = variables.SubstituteAllInRule(logger, policyContext.JSONContext, rule); err != nil {
+		if rule, err = variables.SubstituteAllInRule(logger, ctx, rule); err != nil {
 			ruleResp := response.RuleResponse{
 				Name:    rule.Name,
 				Type:    utils.Validation.String(),
@@ -120,6 +131,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			logger.V(4).Info("mutate rule applied successfully", "ruleName", rule.Name)
 		}
 
+		ctx.AddResourceAsObject(patchedResource.Object)
 		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
 		incrementAppliedRuleCount(resp)
 	}
