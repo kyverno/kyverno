@@ -3,7 +3,6 @@ package webhooks
 import (
 	"fmt"
 	"reflect"
-	"sort"
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/common"
@@ -150,10 +149,6 @@ func (ws *WebhookServer) applyMutation(request *v1beta1.AdmissionRequest, policy
 	engineResponse := engine.Mutate(policyContext)
 	policyPatches := engineResponse.GetPatches()
 
-	if engineResponse.PolicyResponse.RulesAppliedCount > 0 && len(policyPatches) > 0 {
-		ws.statusListener.Update(mutateStats{resp: engineResponse, namespace: policyContext.Policy.Namespace})
-	}
-
 	if !engineResponse.IsSuccessful() && len(engineResponse.GetFailedRules()) > 0 {
 		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy.Name, engineResponse.GetFailedRules())
 	}
@@ -184,69 +179,4 @@ func (ws *WebhookServer) registerPolicyRuleExecutionLatencyMetricMutate(logger l
 	if err := policyRuleExecutionLatency.ParsePromMetrics(*ws.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_rule_execution_latency_milliseconds metrics for the above policy", "name", policy.Name)
 	}
-}
-
-type mutateStats struct {
-	resp      *response.EngineResponse
-	namespace string
-}
-
-func (ms mutateStats) PolicyName() string {
-	if ms.namespace == "" {
-		return ms.resp.PolicyResponse.Policy.Name
-	}
-	return ms.namespace + "/" + ms.resp.PolicyResponse.Policy.Name
-}
-
-func (ms mutateStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {
-	if reflect.DeepEqual(response.EngineResponse{}, ms.resp) {
-		return status
-	}
-
-	var nameToRule = make(map[string]v1.RuleStats)
-	for _, rule := range status.Rules {
-		nameToRule[rule.Name] = rule
-	}
-
-	for _, rule := range ms.resp.PolicyResponse.Rules {
-		ruleStat := nameToRule[rule.Name]
-		ruleStat.Name = rule.Name
-
-		averageOver := int64(ruleStat.AppliedCount + ruleStat.FailedCount)
-		ruleStat.ExecutionTime = updateAverageTime(
-			rule.ProcessingTime,
-			ruleStat.ExecutionTime,
-			averageOver).String()
-
-		if rule.Success {
-			status.RulesAppliedCount++
-			status.ResourcesMutatedCount++
-			ruleStat.AppliedCount++
-			ruleStat.ResourcesMutatedCount++
-		} else {
-			status.RulesFailedCount++
-			ruleStat.FailedCount++
-		}
-
-		nameToRule[rule.Name] = ruleStat
-	}
-
-	var policyAverageExecutionTime time.Duration
-	var ruleStats = make([]v1.RuleStats, 0, len(nameToRule))
-	for _, ruleStat := range nameToRule {
-		executionTime, err := time.ParseDuration(ruleStat.ExecutionTime)
-		if err == nil {
-			policyAverageExecutionTime += executionTime
-		}
-		ruleStats = append(ruleStats, ruleStat)
-	}
-
-	sort.Slice(ruleStats, func(i, j int) bool {
-		return ruleStats[i].Name < ruleStats[j].Name
-	})
-
-	status.AvgExecutionTime = policyAverageExecutionTime.String()
-	status.Rules = ruleStats
-
-	return status
 }

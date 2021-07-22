@@ -111,7 +111,7 @@ func (wrc *Register) constructDefaultDebugValidatingWebhookConfig(caData []byte)
 				[]string{"*/*"},
 				"*",
 				"*",
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
+				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete, admregapi.Connect},
 			),
 		},
 	}
@@ -135,7 +135,7 @@ func (wrc *Register) constructDefaultValidatingWebhookConfig(caData []byte) *adm
 				[]string{"*/*"},
 				"*",
 				"*",
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
+				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete, admregapi.Connect},
 			),
 		},
 	}

@@ -243,53 +243,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 		}
 	}
 
-	if gr.Status.State == "" && len(genResources) > 0 {
-		log.V(4).Info("updating policy status", "policy", policy.Name, "data", ruleNameToProcessingTime)
-		c.policyStatusListener.Update(generateSyncStats{
-			policyName:               policy.Name,
-			ruleNameToProcessingTime: ruleNameToProcessingTime,
-		})
-	}
-
 	return genResources, nil
-}
-
-type generateSyncStats struct {
-	policyName               string
-	ruleNameToProcessingTime map[string]time.Duration
-}
-
-func (vc generateSyncStats) PolicyName() string {
-	return vc.policyName
-}
-
-func (vc generateSyncStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {
-
-	for i := range status.Rules {
-		if executionTime, exist := vc.ruleNameToProcessingTime[status.Rules[i].Name]; exist {
-			status.ResourcesGeneratedCount++
-			status.Rules[i].ResourcesGeneratedCount++
-			averageOver := int64(status.Rules[i].AppliedCount + status.Rules[i].FailedCount)
-			status.Rules[i].ExecutionTime = updateGenerateExecutionTime(
-				executionTime,
-				status.Rules[i].ExecutionTime,
-				averageOver,
-			).String()
-		}
-	}
-
-	return status
-}
-
-func updateGenerateExecutionTime(newTime time.Duration, oldAverageTimeString string, averageOver int64) time.Duration {
-	if averageOver == 0 {
-		return newTime
-	}
-	oldAverageExecutionTime, _ := time.ParseDuration(oldAverageTimeString)
-	numerator := (oldAverageExecutionTime.Nanoseconds() * averageOver) + newTime.Nanoseconds()
-	denominator := averageOver
-	newAverageTimeInNanoSeconds := numerator / denominator
-	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }
 
 func getResourceInfo(object map[string]interface{}) (kind, name, namespace, apiversion string, err error) {

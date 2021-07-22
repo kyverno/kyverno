@@ -17,6 +17,9 @@ import (
 //Interface to manage context operations
 type Interface interface {
 
+	// AddRequest marshals and adds the admission request to the context
+	AddRequest(request *v1beta1.AdmissionRequest) error
+
 	// AddJSON  merges the json with context
 	AddJSON(dataRaw []byte) error
 
@@ -35,9 +38,17 @@ type Interface interface {
 	EvalInterface
 }
 
-//EvalInterface ... to evaluate
+//EvalInterface is used to query and inspect context data
 type EvalInterface interface {
+
+	// Query accepts a JMESPath expression and returns matching data
 	Query(query string) (interface{}, error)
+
+	// HasChanged accepts a JMESPath expression and compares matching data in the
+	// request.object and request.oldObject context fields. If the data has changed
+	// it return `true`. If the data has not changed it returns false. If either
+	// request.object or request.oldObject are not found, an error is returned.
+	HasChanged(jmespath string) (bool, error)
 }
 
 //Context stores the data resources as JSON
@@ -100,6 +111,7 @@ func (ctx *Context) AddRequest(request *v1beta1.AdmissionRequest) error {
 		ctx.log.Error(err, "failed to marshal the request")
 		return err
 	}
+
 	return ctx.AddJSON(objRaw)
 }
 

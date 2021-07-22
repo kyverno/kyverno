@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/kyverno/kyverno/pkg/engine"
-
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -20,8 +18,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/engine"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -29,7 +29,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	userinfo "github.com/kyverno/kyverno/pkg/userinfo"
@@ -97,9 +96,6 @@ type WebhookServer struct {
 	// webhook registration client
 	webhookRegister *webhookconfig.Register
 
-	// API to send policy stats for aggregation
-	statusListener policystatus.Listener
-
 	// helpers to validate against current loaded configuration
 	configHandler config.Interface
 
@@ -151,7 +147,6 @@ func NewWebhookServer(
 	pCache policycache.Interface,
 	webhookRegistrationClient *webhookconfig.Register,
 	webhookMonitor *webhookconfig.Monitor,
-	statusSync policystatus.Listener,
 	configHandler config.Interface,
 	prGenerator policyreport.GeneratorInterface,
 	grGenerator *webhookgenerate.Generator,
@@ -196,7 +191,6 @@ func NewWebhookServer(
 		eventGen:          eventGen,
 		pCache:            pCache,
 		webhookRegister:   webhookRegistrationClient,
-		statusListener:    statusSync,
 		configHandler:     configHandler,
 		cleanUp:           cleanUp,
 		webhookMonitor:    webhookMonitor,
@@ -379,6 +373,10 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
 	}
 
+	if err := mutateResourceWithImageInfo(request.Object.Raw, ctx); err != nil {
+		ws.log.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
+	}
+
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
 		AdmissionInfo:       userRequestInfo,
@@ -528,33 +526,21 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	}
 
 	vh := &validationHandler{
-		log:            ws.log,
-		statusListener: ws.statusListener,
-		eventGen:       ws.eventGen,
-		prGenerator:    ws.prGenerator,
+		log:         ws.log,
+		eventGen:    ws.eventGen,
+		prGenerator: ws.prGenerator,
 	}
 
 	ok, msg := vh.handleValidation(ws.promConfig, request, policies, policyContext, namespaceLabels, admissionRequestTimestamp)
 	if !ok {
 		logger.Info("admission request denied")
-		return &v1beta1.AdmissionResponse{
-			Allowed: false,
-			Result: &metav1.Status{
-				Status:  "Failure",
-				Message: msg,
-			},
-		}
+		return failureResponse(msg)
 	}
 
 	// push admission request to audit handler, this won't block the admission request
 	ws.auditHandler.Add(request.DeepCopy())
 
-	return &v1beta1.AdmissionResponse{
-		Allowed: true,
-		Result: &metav1.Status{
-			Status: "Success",
-		},
-	}
+	return successResponse(nil)
 }
 
 // RunAsync TLS server in separate thread and returns control immediately
@@ -640,4 +626,32 @@ func newVariablesContext(request *v1beta1.AdmissionRequest, userRequestInfo *v1.
 	}
 
 	return ctx, nil
+}
+
+func mutateResourceWithImageInfo(raw []byte, ctx *enginectx.Context) error {
+	images := ctx.ImageInfo()
+	if images == nil {
+		return nil
+	}
+
+	var patches [][]byte
+	for _, info := range images.Containers {
+		patches = append(patches, buildJSONPatch("replace", info.JSONPointer, info.String()))
+	}
+
+	for _, info := range images.InitContainers {
+		patches = append(patches, buildJSONPatch("replace", info.JSONPointer, info.String()))
+	}
+
+	patchedResource, err := engineutils.ApplyPatches(raw, patches)
+	if err != nil {
+		return err
+	}
+
+	return ctx.AddResource(patchedResource)
+}
+
+func buildJSONPatch(op, path, value string) []byte {
+	p := fmt.Sprintf(`{ "op": "%s", "path": "%s", "value":"%s" }`, op, path, value)
+	return []byte(p)
 }

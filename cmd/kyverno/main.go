@@ -4,12 +4,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/kyverno/kyverno/pkg/cosign"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/kyverno/kyverno/pkg/cosign"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	kubeinformers "k8s.io/client-go/informers"
@@ -32,7 +33,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/signal"
 	ktls "github.com/kyverno/kyverno/pkg/tls"
@@ -195,12 +195,6 @@ func main() {
 		rCache,
 		log.Log.WithName("EventGenerator"))
 
-	// Policy Status Handler - deals with all logic related to policy status
-	statusSync := policystatus.NewSync(
-		pclient,
-		pInformer.Kyverno().V1().ClusterPolicies().Lister(),
-		pInformer.Kyverno().V1().Policies().Lister())
-
 	// POLICY Report GENERATOR
 	reportReqGen := policyreport.NewReportChangeRequestGenerator(pclient,
 		client,
@@ -208,7 +202,6 @@ func main() {
 		pInformer.Kyverno().V1alpha1().ClusterReportChangeRequests(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
-		statusSync.Listener,
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
 
@@ -300,7 +293,6 @@ func main() {
 		pInformer.Kyverno().V1().GenerateRequests(),
 		eventGenerator,
 		kubedynamicInformer,
-		statusSync.Listener,
 		log.Log.WithName("GenerateController"),
 		configData,
 		rCache,
@@ -335,7 +327,6 @@ func main() {
 	auditHandler := webhooks.NewValidateAuditHandler(
 		pCacheController.Cache,
 		eventGenerator,
-		statusSync.Listener,
 		reportReqGen,
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
@@ -429,7 +420,6 @@ func main() {
 		pCacheController.Cache,
 		webhookCfg,
 		webhookMonitor,
-		statusSync.Listener,
 		configData,
 		reportReqGen,
 		grgen,
@@ -474,7 +464,7 @@ func main() {
 
 	le, err := leaderelection.New("kyverno", config.KyvernoNamespace, kubeClientLeaderElection, run, stop, log.Log.WithName("kyverno/LeaderElection"))
 	if err != nil {
-		setupLog.Error(err, "failed to elector leader")
+		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
 	}
 
@@ -486,7 +476,6 @@ func main() {
 	go configData.Run(stopCh)
 	go eventGenerator.Run(3, stopCh)
 	go grgen.Run(10, stopCh)
-	go statusSync.Run(1, stopCh)
 	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)
 	if !debug {

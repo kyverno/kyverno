@@ -247,13 +247,13 @@ func (g *ReportGenerator) processNextWorkItem() bool {
 		return true
 	}
 
-	err := g.syncHandler(keyStr)
-	g.handleErr(err, key)
+	aggregatedRequests, err := g.syncHandler(keyStr)
+	g.handleErr(err, key, aggregatedRequests)
 
 	return true
 }
 
-func (g *ReportGenerator) handleErr(err error, key interface{}) {
+func (g *ReportGenerator) handleErr(err error, key interface{}, aggregatedRequests interface{}) {
 	logger := g.log
 	if err == nil {
 		g.queue.Forget(key)
@@ -269,11 +269,15 @@ func (g *ReportGenerator) handleErr(err error, key interface{}) {
 
 	logger.Error(err, "failed to process policy report", "key", key)
 	g.queue.Forget(key)
+
+	if aggregatedRequests != nil {
+		g.cleanupReportRequests(aggregatedRequests)
+	}
 }
 
 // syncHandler reconciles clusterPolicyReport if namespace == ""
 // otherwise it updates policyReport
-func (g *ReportGenerator) syncHandler(key string) error {
+func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{}, err error) {
 	g.log.V(4).Info("syncing policy report", "key", key)
 
 	if policy, rule, ok := isDeletedPolicyKey(key); ok {
@@ -283,24 +287,24 @@ func (g *ReportGenerator) syncHandler(key string) error {
 	namespace := key
 	new, aggregatedRequests, err := g.aggregateReports(namespace)
 	if err != nil {
-		return fmt.Errorf("failed to aggregate reportChangeRequest results %v", err)
+		return aggregatedRequests, fmt.Errorf("failed to aggregate reportChangeRequest results %v", err)
 	}
 
 	var old interface{}
 	if old, err = g.createReportIfNotPresent(namespace, new, aggregatedRequests); err != nil {
-		return err
+		return aggregatedRequests, err
 	}
 	if old == nil {
 		g.cleanupReportRequests(aggregatedRequests)
-		return nil
+		return nil, nil
 	}
 
 	if err := g.updateReport(old, new, aggregatedRequests); err != nil {
-		return err
+		return aggregatedRequests, err
 	}
 
 	g.cleanupReportRequests(aggregatedRequests)
-	return nil
+	return nil, nil
 }
 
 // createReportIfNotPresent creates cluster / policyReport if not present
@@ -362,13 +366,13 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstru
 	return report, nil
 }
 
-func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName string) error {
+func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName string) (aggregatedRequests interface{}, err error) {
 	if err := g.removeFromClusterPolicyReport(policyName, ruleName); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := g.removeFromPolicyReport(policyName, ruleName); err != nil {
-		return err
+		return nil, err
 	}
 
 	labelset := labels.Set(map[string]string{deletedLabelPolicy: policyName})
@@ -378,13 +382,13 @@ func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName strin
 			deletedLabelRule:   ruleName,
 		})
 	}
-	aggregatedRequests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).List(labels.SelectorFromSet(labelset))
+	aggregatedRequests, err = g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).List(labels.SelectorFromSet(labelset))
 	if err != nil {
-		return err
+		return aggregatedRequests, err
 	}
 
 	g.cleanupReportRequests(aggregatedRequests)
-	return nil
+	return nil, nil
 }
 
 func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName string) error {

@@ -90,7 +90,7 @@ func (m *certManager) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 func (m *certManager) InitTLSPemPair() {
 	_, err := m.renewer.InitTLSPemPair()
 	if err != nil {
-		m.log.Error(err, "initialaztion error")
+		m.log.Error(err, "initialization error")
 		os.Exit(1)
 	}
 }

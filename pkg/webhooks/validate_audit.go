@@ -18,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"k8s.io/api/admission/v1beta1"
@@ -47,12 +46,11 @@ type AuditHandler interface {
 }
 
 type auditHandler struct {
-	client         *client.Client
-	queue          workqueue.RateLimitingInterface
-	pCache         policycache.Interface
-	eventGen       event.Interface
-	statusListener policystatus.Listener
-	prGenerator    policyreport.GeneratorInterface
+	client      *client.Client
+	queue       workqueue.RateLimitingInterface
+	pCache      policycache.Interface
+	eventGen    event.Interface
+	prGenerator policyreport.GeneratorInterface
 
 	rbLister       rbaclister.RoleBindingLister
 	rbSynced       cache.InformerSynced
@@ -70,7 +68,6 @@ type auditHandler struct {
 // NewValidateAuditHandler returns a new instance of audit policy handler
 func NewValidateAuditHandler(pCache policycache.Interface,
 	eventGen event.Interface,
-	statusListener policystatus.Listener,
 	prGenerator policyreport.GeneratorInterface,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
@@ -85,7 +82,6 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		pCache:         pCache,
 		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		eventGen:       eventGen,
-		statusListener: statusListener,
 		rbLister:       rbInformer.Lister(),
 		rbSynced:       rbInformer.Informer().HasSynced,
 		crbLister:      crbInformer.Lister(),
@@ -204,10 +200,9 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	}
 
 	vh := &validationHandler{
-		log:            h.log,
-		statusListener: h.statusListener,
-		eventGen:       h.eventGen,
-		prGenerator:    h.prGenerator,
+		log:         h.log,
+		eventGen:    h.eventGen,
+		prGenerator: h.prGenerator,
 	}
 
 	vh.handleValidation(h.promConfig, request, policies, policyContext, namespaceLabels, admissionRequestTimestamp)
