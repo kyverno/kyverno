@@ -428,7 +428,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		for _, p := range values.Policies {
 			resourceMap := make(map[string]Resource)
 			for _, r := range p.Resources {
-				for variableInFile, _ := range r.Values {
+				for variableInFile := range r.Values {
 					if strings.Contains(variableInFile, "request.object") {
 						return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("variable request.object.* is handled by kyverno. please do not pass value for request.object variables ", err)
 					}
