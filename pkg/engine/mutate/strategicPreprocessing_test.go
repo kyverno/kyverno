@@ -615,6 +615,58 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 				}
 			  }`),
 		},
+		{
+			rawPolicy: []byte(`{
+				"metadata": {
+					"labels": {
+						"(key1)": "value1",
+					}
+				},
+				"spec": {
+				  "containers": [
+					{
+					  "name": "busybox",
+					  "image": "gcr.io/google-containers/busybox:latest"
+					}
+				  ],
+				  "imagePullSecrets": [
+					{
+					  "name": "regcred"
+					}
+				  ]
+				}
+			  }`),
+			rawResource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+				  "name": "hello"
+				},
+				"spec": {
+				  "containers": [
+					{
+					  "name": "hello",
+					  "image": "busybox"
+					}
+				  ]
+				}
+			  }`),
+			expectedPatch: []byte(`{
+				"spec": {
+				  "containers": [
+					{
+						"name": "hello",
+						"image": "gcr.io/google-containers/busybox:latest"
+					}
+				  ],
+				  "imagePullSecrets": [
+					{
+					  "name": "regcred"
+					}
+				  ]
+				}
+			  }`),
+		},
 	}
 
 	for _, test := range testCases {

@@ -45,7 +45,7 @@ func preProcessRecursive(logger logr.Logger, pattern, resource *yaml.RNode) erro
 	case yaml.MappingNode:
 		return walkMap(logger, pattern, resource)
 	case yaml.SequenceNode:
-		return walkArray(logger, pattern, resource)
+		return walkList(logger, pattern, resource)
 	}
 
 	return nil
@@ -91,8 +91,8 @@ func walkMap(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	return nil
 }
 
-// walkArray - walk through array elements
-func walkArray(logger logr.Logger, pattern, resource *yaml.RNode) error {
+// walkList - walk through array elements
+func walkList(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	elements, err := pattern.Elements()
 	if err != nil {
 		return err
