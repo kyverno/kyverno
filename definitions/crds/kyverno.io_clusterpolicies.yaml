@@ -322,12 +322,11 @@ spec:
                               type: string
                           type: object
                         data:
-                          allOf:
-                          - x-kubernetes-preserve-unknown-fields: true
                           description: Data provides the resource declaration used
                             to populate each generated resource. At most one of Data
                             or Clone must be specified. If neither are provided, the
                             generated resource will be created with default data only.
+                          x-kubernetes-preserve-unknown-fields: true
                         kind:
                           description: Kind specifies resource kind.
                           type: string
