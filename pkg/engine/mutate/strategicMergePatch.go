@@ -65,7 +65,7 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 		resp.Message = fmt.Sprintf("failed to process patchStrategicMerge: %v", err)
 		return resp, resource
 	}
-	patchedBytes, err := strategicMergePatch(string(base), string(overlayBytes))
+	patchedBytes, err := strategicMergePatch(logger, string(base), string(overlayBytes))
 	if err != nil {
 		log.Error(err, "failed to apply patchStrategicMerge")
 		msg := fmt.Sprintf("failed to apply patchStrategicMerge: %v", err)
@@ -103,9 +103,8 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 	return resp, patchedResource
 }
 
-func strategicMergePatch(base, overlay string) ([]byte, error) {
-
-	preprocessedYaml, err := preProcessStrategicMergePatch(overlay, base)
+func strategicMergePatch(logger logr.Logger, base, overlay string) ([]byte, error) {
+	preprocessedYaml, err := preProcessStrategicMergePatch(logger, overlay, base)
 	if err != nil {
 		return []byte{}, fmt.Errorf("failed to preProcess rule: %+v", err)
 	}
@@ -120,9 +119,9 @@ func strategicMergePatch(base, overlay string) ([]byte, error) {
 	return baseObj.Bytes(), err
 }
 
-func preProcessStrategicMergePatch(pattern, resource string) (*yaml.RNode, error) {
+func preProcessStrategicMergePatch(logger logr.Logger, pattern, resource string) (*yaml.RNode, error) {
 	patternNode := yaml.MustParse(pattern)
 	resourceNode := yaml.MustParse(resource)
-	err := preProcessPattern(patternNode, resourceNode)
+	err := preProcessPattern(logger, patternNode, resourceNode)
 	return patternNode, err
 }
