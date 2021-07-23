@@ -358,7 +358,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 
 		matches := common.PolicyHasVariables(*policy)
 		variable := common.RemoveDuplicateAndObjectVariables(matches)
-		if len(matches) > 0 && variablesString == "" && values.Variables == "" {
+		if len(variable) > 0 && variablesString == "" && values.Variables == "" {
 			skipPolicy := SkippedPolicy{
 				Name:     policy.GetName(),
 				Rules:    policy.Spec.Rules,
@@ -385,7 +385,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			if len(valuesMap[policy.GetName()]) != 0 && !reflect.DeepEqual(valuesMap[policy.GetName()][resource.GetName()], Resource{}) {
 				thisPolicyResourceValues = valuesMap[policy.GetName()][resource.GetName()].Values
 			}
-			if len(common.PolicyHasVariables(*policy)) > 0 && len(thisPolicyResourceValues) == 0 {
+			if len(variable) > 0 && len(thisPolicyResourceValues) == 0 {
 				return sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 			}
 
