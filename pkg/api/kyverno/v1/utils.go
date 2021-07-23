@@ -151,7 +151,7 @@ func (cond *Condition) DeepCopyInto(out *Condition) {
 }
 func (in *Deny) DeepCopyInto(out *Deny) {
 	*out = *in
-	if in.AnyAllConditions != nil {
+	if in.AnyAllConditions.Raw != nil {
 		out.AnyAllConditions = in.AnyAllConditions
 	}
 }
@@ -166,7 +166,7 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 	}
 	in.MatchResources.DeepCopyInto(&out.MatchResources)
 	in.ExcludeResources.DeepCopyInto(&out.ExcludeResources)
-	if in.AnyAllConditions != nil {
+	if in.AnyAllConditions.Raw != nil {
 		out.AnyAllConditions = in.AnyAllConditions
 	}
 	in.Mutation.DeepCopyInto(&out.Mutation)
