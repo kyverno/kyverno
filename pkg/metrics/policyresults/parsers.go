@@ -1,4 +1,4 @@
-package policyruleexecutionlatency
+package policyresults
 
 import (
 	"fmt"

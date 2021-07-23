@@ -10,11 +10,12 @@ type PromConfig struct {
 }
 
 type PromMetrics struct {
-	PolicyRuleResults          *prom.GaugeVec
-	PolicyRuleInfo             *prom.GaugeVec
-	PolicyChanges              *prom.GaugeVec
-	PolicyRuleExecutionLatency *prom.GaugeVec
-	AdmissionReviewLatency     *prom.GaugeVec
+	PolicyResults           *prom.CounterVec
+	PolicyRuleInfo          *prom.GaugeVec
+	PolicyChanges           *prom.CounterVec
+	PolicyExecutionDuration *prom.HistogramVec
+	AdmissionReviewDuration *prom.HistogramVec
+	AdmissionRequests       *prom.CounterVec
 }
 
 func NewPromConfig() *PromConfig {
@@ -22,18 +23,17 @@ func NewPromConfig() *PromConfig {
 
 	pc.MetricsRegistry = prom.NewRegistry()
 
-	policyRuleResultsLabels := []string{
+	policyResultsLabels := []string{
 		"policy_validation_mode", "policy_type", "policy_background_mode", "policy_name", "policy_namespace",
 		"resource_name", "resource_kind", "resource_namespace", "resource_request_operation",
-		"rule_name", "rule_result", "rule_type", "rule_execution_cause", "rule_response",
-		"main_request_trigger_timestamp", "policy_execution_timestamp", "rule_execution_timestamp",
+		"rule_name", "rule_result", "rule_type", "rule_execution_cause",
 	}
-	policyRuleResultsMetric := prom.NewGaugeVec(
-		prom.GaugeOpts{
-			Name: "kyverno_policy_rule_results_info",
+	policyResultsMetric := prom.NewCounterVec(
+		prom.CounterOpts{
+			Name: "kyverno_policy_results_total",
 			Help: "can be used to track the results associated with the policies applied in the user’s cluster, at the level from rule to policy to admission requests.",
 		},
-		policyRuleResultsLabels,
+		policyResultsLabels,
 	)
 
 	policyRuleInfoLabels := []string{
@@ -48,57 +48,66 @@ func NewPromConfig() *PromConfig {
 	)
 
 	policyChangesLabels := []string{
-		"policy_validation_mode", "policy_type", "policy_background_mode", "policy_namespace", "policy_name", "policy_change_type", "timestamp",
+		"policy_validation_mode", "policy_type", "policy_background_mode", "policy_namespace", "policy_name", "policy_change_type",
 	}
-	policyChangesMetric := prom.NewGaugeVec(
-		prom.GaugeOpts{
-			Name: "kyverno_policy_changes_info",
-			Help: "can be used to track all the Kyverno policies which have been created, updated or deleted.",
+	policyChangesMetric := prom.NewCounterVec(
+		prom.CounterOpts{
+			Name: "kyverno_policy_changes_total",
+			Help: "can be used to track all the changes associated with the Kyverno policies present on the cluster such as creation, updates and deletions.",
 		},
 		policyChangesLabels,
 	)
 
-	policyRuleExecutionLatencyLabels := []string{
+	policyExecutionDurationLabels := []string{
 		"policy_validation_mode", "policy_type", "policy_background_mode", "policy_name", "policy_namespace",
 		"resource_name", "resource_kind", "resource_namespace", "resource_request_operation",
-		"rule_name", "rule_result", "rule_type", "rule_execution_cause", "rule_response", "generate_rule_latency_type",
-		"main_request_trigger_timestamp", "policy_execution_timestamp", "rule_execution_timestamp",
+		"rule_name", "rule_result", "rule_type", "rule_execution_cause", "generate_rule_latency_type",
 	}
-	policyRuleExecutionLatencyMetric := prom.NewGaugeVec(
-		prom.GaugeOpts{
-			Name: "kyverno_policy_rule_execution_latency_milliseconds",
-			Help: "can be used to track the latencies (in milliseconds) associated with the execution/processing of the individual rules under Kyverno policies whenever they evaluate incoming resource requests.",
+	policyExecutionDurationMetric := prom.NewHistogramVec(
+		prom.HistogramOpts{
+			Name: "kyverno_policy_execution_duration_seconds",
+			Help: "can be used to track the latencies (in seconds) associated with the execution/processing of the individual rules under Kyverno policies whenever they evaluate incoming resource requests.",
 		},
-		policyRuleExecutionLatencyLabels,
+		policyExecutionDurationLabels,
 	)
 
-	admissionReviewLatency := []string{
-		"cluster_policies_count", "namespaced_policies_count",
-		"validate_rules_count", "mutate_rules_count", "generate_rules_count",
+	admissionReviewDurationLabels := []string{
 		"resource_name", "resource_kind", "resource_namespace", "resource_request_operation",
-		"admission_request_timestamp",
 	}
-	admissionReviewLatencyMetric := prom.NewGaugeVec(
-		prom.GaugeOpts{
-			Name: "kyverno_admission_review_latency_milliseconds",
-			Help: "can be used to track the latencies associated with the entire individual admission review. For example, if an incoming request trigger, say, five policies, this metric will track the e2e latency associated with the execution of all those policies.",
+	admissionReviewDurationMetric := prom.NewHistogramVec(
+		prom.HistogramOpts{
+			Name: "kyverno_admission_review_duration_seconds",
+			Help: "can be used to track the latencies (in seconds) associated with the entire individual admission review. For example, if an incoming request trigger, say, five policies, this metric will track the e2e latency associated with the execution of all those policies.",
 		},
-		admissionReviewLatency,
+		admissionReviewDurationLabels,
+	)
+
+	admissionRequestsLabels := []string{
+		"resource_name", "resource_kind", "resource_namespace", "resource_request_operation",
+	}
+	admissionRequestsMetric := prom.NewCounterVec(
+		prom.CounterOpts{
+			Name: "kyverno_admission_requests_total",
+			Help: "can be used to track the number of admission requests encountered by Kyverno in the cluster.",
+		},
+		admissionRequestsLabels,
 	)
 
 	pc.Metrics = &PromMetrics{
-		PolicyRuleResults:          policyRuleResultsMetric,
-		PolicyRuleInfo:             policyRuleInfoMetric,
-		PolicyChanges:              policyChangesMetric,
-		PolicyRuleExecutionLatency: policyRuleExecutionLatencyMetric,
-		AdmissionReviewLatency:     admissionReviewLatencyMetric,
+		PolicyResults:           policyResultsMetric,
+		PolicyRuleInfo:          policyRuleInfoMetric,
+		PolicyChanges:           policyChangesMetric,
+		PolicyExecutionDuration: policyExecutionDurationMetric,
+		AdmissionReviewDuration: admissionReviewDurationMetric,
+		AdmissionRequests:       admissionRequestsMetric,
 	}
 
-	pc.MetricsRegistry.MustRegister(pc.Metrics.PolicyRuleResults)
+	pc.MetricsRegistry.MustRegister(pc.Metrics.PolicyResults)
 	pc.MetricsRegistry.MustRegister(pc.Metrics.PolicyRuleInfo)
 	pc.MetricsRegistry.MustRegister(pc.Metrics.PolicyChanges)
-	pc.MetricsRegistry.MustRegister(pc.Metrics.PolicyRuleExecutionLatency)
-	pc.MetricsRegistry.MustRegister(pc.Metrics.AdmissionReviewLatency)
+	pc.MetricsRegistry.MustRegister(pc.Metrics.PolicyExecutionDuration)
+	pc.MetricsRegistry.MustRegister(pc.Metrics.AdmissionReviewDuration)
+	pc.MetricsRegistry.MustRegister(pc.Metrics.AdmissionRequests)
 
 	return pc
 }

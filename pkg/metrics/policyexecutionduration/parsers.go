@@ -1,7 +1,8 @@
-package policyruleresults
+package policyexecutionduration
 
 import (
 	"fmt"
+
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
 )
