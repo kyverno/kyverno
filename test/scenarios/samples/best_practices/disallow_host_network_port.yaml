@@ -5,7 +5,9 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: disallow-host-network-port
+      policy:
+        namespace: ''
+        name: disallow-host-network-port
       resource:
         kind: Pod
         apiVersion: v1

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	gojmespath "github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -41,7 +42,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	defer endMutateResultResponse(logger, resp, startTime)
 
 	if ManagedPodResource(policy, patchedResource) {
-		logger.V(5).Info("skip applying policy as direct changes to pods managed by workload controllers are not allowed", "policy", policy.GetName())
+		logger.V(5).Info("changes to pods managed by workload controllers are not permitted", "policy", policy.GetName())
 		resp.PatchedResource = patchedResource
 		return
 	}
@@ -50,15 +51,13 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	defer policyContext.JSONContext.Restore()
 
 	for _, rule := range policy.Spec.Rules {
-		var ruleResponse response.RuleResponse
-		logger := logger.WithValues("rule", rule.Name)
 		if !rule.HasMutate() {
 			continue
 		}
 
-		// check if the resource satisfies the filter conditions defined in the rule
-		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
-		// don't satisfy a policy rule resource description
+		var ruleResponse response.RuleResponse
+		logger := logger.WithValues("rule", rule.Name)
+
 		excludeResource := []string{}
 		if len(policyContext.ExcludeGroupRole) > 0 {
 			excludeResource = policyContext.ExcludeGroupRole
@@ -73,7 +72,11 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 		policyContext.JSONContext.Restore()
 		if err := LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
-			logger.Error(err, "failed to load context")
+			if _, ok := err.(gojmespath.NotFoundError); ok {
+				logger.V(3).Info("failed to load context", "reason", err.Error())
+			} else {
+				logger.Error(err, "failed to load context")
+			}
 			continue
 		}
 
@@ -85,7 +88,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		}
 		// evaluate pre-conditions
 		// - handle variable substitutions
-		if !variables.EvaluateConditions(logger, ctx, copyConditions) {
+		if !variables.EvaluateConditions(logger, ctx, copyConditions, true) {
 			logger.V(3).Info("resource fails the preconditions")
 			continue
 		}
@@ -134,7 +137,8 @@ func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.Clu
 		return
 	}
 
-	resp.PolicyResponse.Policy = policy.Name
+	resp.PolicyResponse.Policy.Name = policy.GetName()
+	resp.PolicyResponse.Policy.Namespace = policy.GetNamespace()
 	resp.PolicyResponse.Resource.Name = resource.GetName()
 	resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
 	resp.PolicyResponse.Resource.Kind = resource.GetKind()

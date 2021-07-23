@@ -9,7 +9,9 @@ expected:
         kind: ResourceQuota
         namespace: test-namespace-quota
     policyresponse:
-      policy: add-ns-quota
+      policy:
+        namespace: ''
+        name: add-ns-quota
       resource:
         kind: Namespace
         apiVersion: v1

@@ -1,10 +1,11 @@
 package metrics
 
 import (
-	"github.com/kyverno/kyverno/test/e2e"
-	. "github.com/onsi/gomega"
 	"os"
 	"testing"
+
+	"github.com/kyverno/kyverno/test/e2e"
+	. "github.com/onsi/gomega"
 )
 
 func Test_MetricsServerAvailability(t *testing.T) {
@@ -12,6 +13,7 @@ func Test_MetricsServerAvailability(t *testing.T) {
 	if os.Getenv("E2E") == "" {
 		t.Skip("Skipping E2E Test")
 	}
+
 	requestObj := e2e.APIRequest{
 		URL:  "http://localhost:8000/metrics",
 		Type: "GET",

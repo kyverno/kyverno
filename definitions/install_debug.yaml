@@ -112,6 +112,11 @@ spec:
                             name:
                               description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               type: string
+                            names:
+                              description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                              items:
+                                type: string
+                              type: array
                             namespaceSelector:
                               description: 'NamespaceSelector is a label selector for the resource namespace. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character).Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
                               properties:
@@ -262,6 +267,11 @@ spec:
                             name:
                               description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               type: string
+                            names:
+                              description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                              items:
+                                type: string
+                              type: array
                             namespaceSelector:
                               description: 'NamespaceSelector is a label selector for the resource namespace. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character).Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
                               properties:
@@ -392,7 +402,7 @@ spec:
                       maxLength: 63
                       type: string
                     preconditions:
-                      description: AnyAllConditions enable variable-based conditional rule execution. This is useful for finer control of when an rule is applied. A condition can reference object data using JMESPath notation. This too can be made to happen in a logical-manner where in some situation all the conditions need to pass and in some other situation, atleast one condition is enough to pass. For the sake of backwards compatibility, it can be populated with []kyverno.Condition.
+                      description: 'Preconditions are used to determine if a policy rule should be applied by evaluating a set of conditions. The declaration can contain nested `any` or `all` statements. A direct list of conditions (without `any` or `all` statements is supported for backwards compatibility but will be deprecated in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                       x-kubernetes-preserve-unknown-fields: true
                     validate:
                       description: Validation is used to validate matching resources.
@@ -401,10 +411,10 @@ spec:
                           description: AnyPattern specifies list of validation patterns. At least one of the patterns must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
                         deny:
-                          description: Deny defines conditions to fail the validation rule.
+                          description: Deny defines conditions used to pass or fail a validation rule.
                           properties:
                             conditions:
-                              description: specifies the set of conditions to deny in a logical manner For the sake of backwards compatibility, it can be populated with []kyverno.Condition.
+                              description: 'Multiple conditions can be declared under an `any` or `all` statement. A direct list of conditions (without `any` or `all` statements) is also supported for backwards compatibility but will be deprecated in the next major release. See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
                         message:
@@ -414,6 +424,19 @@ spec:
                           description: Pattern specifies an overlay-style pattern used to check resources.
                           x-kubernetes-preserve-unknown-fields: true
                       type: object
+                    verifyImages:
+                      description: VerifyImages is used to verify image signatures and mutate them to add a digest
+                      items:
+                        description: ImageVerification validates that images that match the specified pattern are signed with the supplied public key. Once the image is verified it is mutated to include the SHA digest retrieved during the registration.
+                        properties:
+                          image:
+                            description: 'Image is the image name consisting of the registry address, repository, image, and tag. Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                            type: string
+                          key:
+                            description: Key is the PEM encoded public key that the image is signed with.
+                            type: string
+                        type: object
+                      type: array
                   type: object
                 type: array
               validationFailureAction:
@@ -1188,7 +1211,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: Spec defines policy behaviors and contains one or rules.
+            description: Spec defines policy behaviors and contains one or more rules.
             properties:
               background:
                 description: Background controls if rules are applied to existing resources during a background scan. Optional. Default value is "true". The value must be set to "false" if the policy rule uses variables that are only available in the admission review request (e.g. user name).
@@ -1256,6 +1279,11 @@ spec:
                             name:
                               description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               type: string
+                            names:
+                              description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                              items:
+                                type: string
+                              type: array
                             namespaceSelector:
                               description: 'NamespaceSelector is a label selector for the resource namespace. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character).Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
                               properties:
@@ -1406,6 +1434,11 @@ spec:
                             name:
                               description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               type: string
+                            names:
+                              description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                              items:
+                                type: string
+                              type: array
                             namespaceSelector:
                               description: 'NamespaceSelector is a label selector for the resource namespace. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character).Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
                               properties:
@@ -1536,7 +1569,7 @@ spec:
                       maxLength: 63
                       type: string
                     preconditions:
-                      description: AnyAllConditions enable variable-based conditional rule execution. This is useful for finer control of when an rule is applied. A condition can reference object data using JMESPath notation. This too can be made to happen in a logical-manner where in some situation all the conditions need to pass and in some other situation, atleast one condition is enough to pass. For the sake of backwards compatibility, it can be populated with []kyverno.Condition.
+                      description: 'Preconditions are used to determine if a policy rule should be applied by evaluating a set of conditions. The declaration can contain nested `any` or `all` statements. A direct list of conditions (without `any` or `all` statements is supported for backwards compatibility but will be deprecated in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                       x-kubernetes-preserve-unknown-fields: true
                     validate:
                       description: Validation is used to validate matching resources.
@@ -1545,10 +1578,10 @@ spec:
                           description: AnyPattern specifies list of validation patterns. At least one of the patterns must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
                         deny:
-                          description: Deny defines conditions to fail the validation rule.
+                          description: Deny defines conditions used to pass or fail a validation rule.
                           properties:
                             conditions:
-                              description: specifies the set of conditions to deny in a logical manner For the sake of backwards compatibility, it can be populated with []kyverno.Condition.
+                              description: 'Multiple conditions can be declared under an `any` or `all` statement. A direct list of conditions (without `any` or `all` statements) is also supported for backwards compatibility but will be deprecated in the next major release. See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
                         message:
@@ -1558,6 +1591,19 @@ spec:
                           description: Pattern specifies an overlay-style pattern used to check resources.
                           x-kubernetes-preserve-unknown-fields: true
                       type: object
+                    verifyImages:
+                      description: VerifyImages is used to verify image signatures and mutate them to add a digest
+                      items:
+                        description: ImageVerification validates that images that match the specified pattern are signed with the supplied public key. Once the image is verified it is mutated to include the SHA digest retrieved during the registration.
+                        properties:
+                          image:
+                            description: 'Image is the image name consisting of the registry address, repository, image, and tag. Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                            type: string
+                          key:
+                            description: Key is the PEM encoded public key that the image is signed with.
+                            type: string
+                        type: object
+                      type: array
                   type: object
                 type: array
               validationFailureAction:
@@ -2216,6 +2262,7 @@ rules:
   - patch
   - update
   - watch
+  - deletecollection
 - apiGroups:
   - apiextensions.k8s.io
   resources:
@@ -2446,6 +2493,7 @@ subjects:
 apiVersion: v1
 data:
   excludeGroupRole: system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler
+  generateSuccessEvents: "false"
   resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]'
 kind: ConfigMap
 metadata:
@@ -2466,6 +2514,19 @@ spec:
   - name: https
     port: 443
     targetPort: https
+  selector:
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: kyverno
+  name: kyverno-svc-metrics
+  namespace: kyverno
+spec:
+  ports:
   - name: metrics-port
     port: 8000
     targetPort: metrics-port

@@ -152,7 +152,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		if !r.Success {
 			logger.V(4).Info("querying all generate requests")
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
-				"generate.kyverno.io/policy-name":        engineResponse.PolicyResponse.Policy,
+				"generate.kyverno.io/policy-name":        engineResponse.PolicyResponse.Policy.Name,
 				"generate.kyverno.io/resource-name":      engineResponse.PolicyResponse.Resource.Name,
 				"generate.kyverno.io/resource-kind":      engineResponse.PolicyResponse.Resource.Kind,
 				"generate.kyverno.io/resource-namespace": engineResponse.PolicyResponse.Resource.Namespace,
@@ -235,7 +235,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy.Name, gr)
 			if err != nil {
 				log.Error(err, "failed to apply generate rule", "policy", policy.Name,
-					"rule", rule.Name, "resource", resource.GetName())
+					"rule", rule.Name, "resource", resource.GetName(), "suggestion", "users need to grant Kyverno's service account additional privileges")
 				return nil, err
 			}
 			ruleNameToProcessingTime[rule.Name] = time.Since(startTime)
@@ -243,53 +243,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 		}
 	}
 
-	if gr.Status.State == "" && len(genResources) > 0 {
-		log.V(4).Info("updating policy status", "policy", policy.Name, "data", ruleNameToProcessingTime)
-		c.policyStatusListener.Update(generateSyncStats{
-			policyName:               policy.Name,
-			ruleNameToProcessingTime: ruleNameToProcessingTime,
-		})
-	}
-
 	return genResources, nil
-}
-
-type generateSyncStats struct {
-	policyName               string
-	ruleNameToProcessingTime map[string]time.Duration
-}
-
-func (vc generateSyncStats) PolicyName() string {
-	return vc.policyName
-}
-
-func (vc generateSyncStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {
-
-	for i := range status.Rules {
-		if executionTime, exist := vc.ruleNameToProcessingTime[status.Rules[i].Name]; exist {
-			status.ResourcesGeneratedCount++
-			status.Rules[i].ResourcesGeneratedCount++
-			averageOver := int64(status.Rules[i].AppliedCount + status.Rules[i].FailedCount)
-			status.Rules[i].ExecutionTime = updateGenerateExecutionTime(
-				executionTime,
-				status.Rules[i].ExecutionTime,
-				averageOver,
-			).String()
-		}
-	}
-
-	return status
-}
-
-func updateGenerateExecutionTime(newTime time.Duration, oldAverageTimeString string, averageOver int64) time.Duration {
-	if averageOver == 0 {
-		return newTime
-	}
-	oldAverageExecutionTime, _ := time.ParseDuration(oldAverageTimeString)
-	numerator := (oldAverageExecutionTime.Nanoseconds() * averageOver) + newTime.Nanoseconds()
-	denominator := averageOver
-	newAverageTimeInNanoSeconds := numerator / denominator
-	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }
 
 func getResourceInfo(object map[string]interface{}) (kind, name, namespace, apiversion string, err error) {
@@ -361,7 +315,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	logger.V(3).Info("applying generate rule", "mode", mode)
 
 	if rdata == nil && mode == Update {
-		logger.V(4).Info("no changes required for target resource")
+		logger.V(4).Info("no changes required for generate target resource")
 		return newGenResource, nil
 	}
 
@@ -402,7 +356,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 			return noGenResource, err
 		}
 
-		logger.V(2).Info("generated target resource")
+		logger.V(2).Info("created generate target resource")
 
 	} else if mode == Update {
 		if rule.Generation.Synchronize {
@@ -418,7 +372,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 			logger.Error(err, "failed to update resource")
 			return noGenResource, err
 		}
-		logger.V(2).Info("updated target resource")
+		logger.V(2).Info("updated generate target resource")
 	}
 
 	return newGenResource, nil

@@ -86,7 +86,7 @@ func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCont
 
 	results, err := applyJMESPath(path.(string), jsonData)
 	if err != nil {
-		return fmt.Errorf("failed to apply JMESPath for context entry %v: %v", entry, err)
+		return err
 	}
 
 	contextNamedData := make(map[string]interface{})

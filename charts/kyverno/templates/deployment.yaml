@@ -8,7 +8,6 @@ metadata:
 spec:
   selector:
     matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
-      app: kyverno
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
@@ -35,6 +34,9 @@ spec:
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations: {{ tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ template "kyverno.serviceAccountName" . }}
       {{- if .Values.priorityClassName }}
@@ -66,9 +68,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          {{- with .Values.envVars }}
-          env:
-            {{- toYaml . | nindent 14 }}
+          {{- with .Values.envVarsInit }}
+          {{- toYaml . | nindent 10 }}
           {{- end }}
       containers:
         - name: kyverno
@@ -94,7 +95,7 @@ spec:
             protocol: TCP
           - containerPort: 8000
             name: metrics-port
-            protocol: TCP  
+            protocol: TCP
           env:
           - name: INIT_CONFIG
             value: {{ template "kyverno.configMapName" . }}
@@ -104,6 +105,11 @@ spec:
                 fieldPath: metadata.namespace
           - name: KYVERNO_SVC
             value: {{ template "kyverno.serviceName" . }}
+          {{- with .Values.envVars }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          - name: KYVERNO_DEPLOYMENT
+            value: {{ template "kyverno.fullname" . }}
         {{- with .Values.livenessProbe }}
           livenessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
         {{- end }}

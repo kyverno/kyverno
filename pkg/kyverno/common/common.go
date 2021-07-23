@@ -21,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/policymutation"
@@ -69,7 +70,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 			err      error
 		)
 
-		isHttpPath := strings.Contains(path, "http")
+		isHttpPath := IsHttpRegex.MatchString(path)
 
 		// path clean and retrieving file info can be possible if it's not an HTTP URL
 		if !isHttpPath {
@@ -157,25 +158,92 @@ func PolicyHasVariables(policy v1.ClusterPolicy) [][]string {
 	return matches
 }
 
-// PolicyHasNonAllowedVariables - checks for unexpected variables in the policy
-func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) bool {
-	policyRaw, _ := json.Marshal(policy)
+// for now forbidden sections are match, exclude and
+func ruleForbiddenSectionsHaveVariables(rule v1.Rule) error {
+	var err error
 
-	matchesAll := RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
-	matchesAllowed := AllowedVariables.FindAllStringSubmatch(string(policyRaw), -1)
-
-	if len(matchesAll) > len(matchesAllowed) {
-		// If rules contains Context then skip this validation
-		for _, rule := range policy.Spec.Rules {
-			if len(rule.Context) > 0 {
-				return false
-			}
-		}
-
-		return true
+	err = JSONPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
+	if err != nil {
+		return fmt.Errorf("Rule \"%s\" should not have variables in patchesJSON6902 path section", rule.Name)
 	}
 
-	return false
+	err = objectHasVariables(rule.ExcludeResources)
+	if err != nil {
+		return fmt.Errorf("Rule \"%s\" should not have variables in exclude section", rule.Name)
+	}
+
+	err = objectHasVariables(rule.MatchResources)
+	if err != nil {
+		return fmt.Errorf("Rule \"%s\" should not have variables in match section", rule.Name)
+	}
+
+	return nil
+}
+
+func JSONPatchPathHasVariables(patch string) error {
+	jsonPatch, err := yaml.ToJSON([]byte(patch))
+	if err != nil {
+		return err
+	}
+
+	decodedPatch, err := jsonpatch.DecodePatch(jsonPatch)
+	if err != nil {
+		return err
+	}
+
+	for _, operation := range decodedPatch {
+		path, err := operation.Path()
+		if err != nil {
+			return err
+		}
+
+		vars := variables.RegexVariables.FindAllString(path, -1)
+		if len(vars) > 0 {
+			return fmt.Errorf("Operation \"%s\" has forbidden variables", operation.Kind())
+		}
+	}
+
+	return nil
+}
+
+func objectHasVariables(object interface{}) error {
+	var err error
+	objectJSON, err := json.Marshal(object)
+	if err != nil {
+		return err
+	}
+
+	if len(RegexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
+		return fmt.Errorf("Object has forbidden variables")
+	}
+
+	return nil
+}
+
+// PolicyHasNonAllowedVariables - checks for unexpected variables in the policy
+func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) error {
+	for _, rule := range policy.Spec.Rules {
+		var err error
+
+		ruleJSON, err := json.Marshal(rule)
+		if err != nil {
+			return err
+		}
+
+		err = ruleForbiddenSectionsHaveVariables(rule)
+		if err != nil {
+			return err
+		}
+
+		matchesAll := RegexVariables.FindAllStringSubmatch(string(ruleJSON), -1)
+		matchesAllowed := AllowedVariables.FindAllStringSubmatch(string(ruleJSON), -1)
+
+		if (len(matchesAll) > len(matchesAllowed)) && len(rule.Context) == 0 {
+			return fmt.Errorf("Rule \"%s\" has forbidden variables. Allowed variables are: {{request.*}}, {{serviceAccountName}}, {{serviceAccountNamespace}}, {{@}} and ones defined by the context", rule.Name)
+		}
+	}
+
+	return nil
 }
 
 // MutatePolicy - applies mutation to a policy
@@ -312,7 +380,7 @@ func RemoveDuplicateVariables(matches [][]string) string {
 	return variableStr
 }
 
-func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyresoucePath string) (map[string]string, map[string]map[string]Resource, map[string]map[string]string, error) {
+func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyResourcePath string) (map[string]string, map[string]map[string]Resource, map[string]map[string]string, error) {
 	valuesMapResource := make(map[string]map[string]Resource)
 	valuesMapRule := make(map[string]map[string]Rule)
 	namespaceSelectorMap := make(map[string]map[string]string)
@@ -328,13 +396,13 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 	}
 	if valuesFile != "" {
 		if isGit {
-			filep, err := fs.Open(filepath.Join(policyresoucePath, valuesFile))
+			filep, err := fs.Open(filepath.Join(policyResourcePath, valuesFile))
 			if err != nil {
 				fmt.Printf("Unable to open variable file: %s. error: %s", valuesFile, err)
 			}
 			yamlFile, err = ioutil.ReadAll(filep)
 		} else {
-			yamlFile, err = ioutil.ReadFile(filepath.Join(policyresoucePath, valuesFile))
+			yamlFile, err = ioutil.ReadFile(filepath.Join(policyResourcePath, valuesFile))
 		}
 
 		if err != nil {
@@ -548,7 +616,7 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 	yaml = yaml + ("\n---\n\n")
 
 	if !mutateLogPathIsDir {
-		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/command.go
+		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
 		f, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0644)
 	} else {
 		f, err = os.OpenFile(mutateLogPath+"/"+fileName+".yaml", os.O_CREATE|os.O_WRONLY, 0644)
@@ -569,11 +637,11 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 }
 
 // GetPoliciesFromPaths - get policies according to the resource path
-func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyresoucePath string) (policies []*v1.ClusterPolicy, err error) {
+func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyResourcePath string) (policies []*v1.ClusterPolicy, err error) {
 	var errors []error
 	if isGit {
 		for _, pp := range dirPath {
-			filep, err := fs.Open(filepath.Join(policyresoucePath, pp))
+			filep, err := fs.Open(filepath.Join(policyResourcePath, pp))
 			if err != nil {
 				fmt.Printf("Error: file not available with path %s: %v", filep.Name(), err.Error())
 				continue
@@ -632,9 +700,9 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
-	cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string, policyReport bool, isGit bool, policyresoucePath string) (resources []*unstructured.Unstructured, err error) {
+	cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string, policyReport bool, isGit bool, policyResourcePath string) (resources []*unstructured.Unstructured, err error) {
 	if isGit {
-		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyresoucePath)
+		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyResourcePath)
 		if err != nil {
 			return nil, sanitizederror.NewWithError("failed to extract the resources", err)
 		}

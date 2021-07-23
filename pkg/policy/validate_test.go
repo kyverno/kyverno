@@ -1369,3 +1369,47 @@ func Test_Validate_ApiCall(t *testing.T) {
 		}
 	}
 }
+func Test_Wildcards_Kind(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "require-labels"
+		},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "rules": [
+			{
+			  "name": "check-for-labels",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"*"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "label 'app.kubernetes.io/name' is required",
+				"pattern": {
+				  "metadata": {
+					"labels": {
+					  "app.kubernetes.io/name": "?*"
+					}
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }
+	`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openAPIController, _ := openapi.NewOpenAPIController()
+	err = Validate(policy, nil, true, openAPIController)
+	assert.Assert(t, err != nil)
+}

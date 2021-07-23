@@ -7,6 +7,7 @@ metadata:
   annotations:
     "helm.sh/hook": test
 spec:
+  restartPolicy: Never
   containers:
     - name: wget
       image: busybox
@@ -15,4 +16,10 @@ spec:
         - -c
         - |
           sleep 20 ; wget -O- -S --no-check-certificate https://{{ template "kyverno.serviceName" . }}:{{ .Values.service.port }}/health/liveness
-  restartPolicy: Never
+    - name: wget-metrics
+      image: busybox
+      command:
+        - /bin/sh
+        - -c
+        - |
+          sleep 20 ; wget -O- -S --no-check-certificate http://{{ template "kyverno.serviceName" . }}-metrics:{{ .Values.metricsService.port }}/metrics

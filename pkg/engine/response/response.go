@@ -17,16 +17,22 @@ type EngineResponse struct {
 
 //PolicyResponse policy application response
 type PolicyResponse struct {
-	// policy name
-	Policy string `json:"policy"`
+	// policy details
+	Policy PolicySpec `json:"policy"`
 	// resource details
 	Resource ResourceSpec `json:"resource"`
 	// policy statistics
 	PolicyStats `json:",inline"`
 	// rule response
 	Rules []RuleResponse `json:"rules"`
-	// ValidationFailureAction: audit(default if not set),enforce
+	// ValidationFailureAction: audit (default) or enforce
 	ValidationFailureAction string
+}
+
+//PolicySpec policy
+type PolicySpec struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
 }
 
 //ResourceSpec resource action applied on
@@ -89,6 +95,16 @@ type RuleStats struct {
 func (er EngineResponse) IsSuccessful() bool {
 	for _, r := range er.PolicyResponse.Rules {
 		if !r.Success {
+			return false
+		}
+	}
+	return true
+}
+
+//IsFailed checks if any rule has succeeded or not
+func (er EngineResponse) IsFailed() bool {
+	for _, r := range er.PolicyResponse.Rules {
+		if r.Success {
 			return false
 		}
 	}

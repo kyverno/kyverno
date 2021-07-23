@@ -16,7 +16,7 @@ func newPolicyResponse(policy, rule string, patchesStr []string, success bool) r
 	}
 
 	return response.PolicyResponse{
-		Policy: policy,
+		Policy: response.PolicySpec{Name: policy},
 		Rules: []response.RuleResponse{
 			{
 				Name:    rule,

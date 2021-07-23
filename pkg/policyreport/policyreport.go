@@ -9,15 +9,22 @@ import (
 	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	changerequestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	policyreportlister "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type PolicyReportEraser interface {
+	CleanupReportChangeRequests(cleanup CleanupReportChangeRequests) error
 	EraseResultsEntries(erase EraseResultsEntries) error
 }
 
+type CleanupReportChangeRequests = func(pclient *kyvernoclient.Clientset, rcrLister changerequestlister.ReportChangeRequestLister, crcrLister changerequestlister.ClusterReportChangeRequestLister) error
 type EraseResultsEntries = func(pclient *kyvernoclient.Clientset, reportLister policyreportlister.PolicyReportLister, clusterReportLister policyreportlister.ClusterPolicyReportLister) error
+
+func (g *ReportGenerator) CleanupReportChangeRequests(cleanup CleanupReportChangeRequests) error {
+	return cleanup(g.pclient, g.reportChangeRequestLister, g.clusterReportChangeRequestLister)
+}
 
 func (g *ReportGenerator) EraseResultsEntries(erase EraseResultsEntries) error {
 	return erase(g.pclient, g.reportLister, g.clusterReportLister)

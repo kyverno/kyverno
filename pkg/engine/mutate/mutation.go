@@ -19,7 +19,7 @@ func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResou
 
 	switch {
 	case isPatchStrategicMerge(mutate):
-		return newpatchStrategicMergeHandler(ruleName, mutate, patchedResource, context, logger)
+		return newPatchStrategicMergeHandler(ruleName, mutate, patchedResource, context, logger)
 	case isPatchesJSON6902(mutate):
 		return newPatchesJSON6902Handler(ruleName, mutate, patchedResource, logger)
 	case isOverlay(mutate):
@@ -27,9 +27,9 @@ func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResou
 		mutate.PatchStrategicMerge = mutate.Overlay
 		var a []byte
 		mutate.Overlay.Raw = a
-		return newpatchStrategicMergeHandler(ruleName, mutate, patchedResource, context, logger)
+		return newPatchStrategicMergeHandler(ruleName, mutate, patchedResource, context, logger)
 	case isPatches(mutate):
-		return newpatchesHandler(ruleName, mutate, patchedResource, context, logger)
+		return newPatchesHandler(ruleName, mutate, patchedResource, context, logger)
 	default:
 		return newEmptyHandler(patchedResource)
 	}
@@ -44,7 +44,7 @@ type patchStrategicMergeHandler struct {
 	logger          logr.Logger
 }
 
-func newpatchStrategicMergeHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
+func newPatchStrategicMergeHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
 	return patchStrategicMergeHandler{
 		ruleName:        ruleName,
 		mutation:        mutate,
@@ -123,7 +123,7 @@ type patchesHandler struct {
 	logger          logr.Logger
 }
 
-func newpatchesHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
+func newPatchesHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
 	return patchesHandler{
 		ruleName:        ruleName,
 		mutation:        mutate,

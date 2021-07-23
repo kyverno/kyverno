@@ -2,10 +2,11 @@ package policychanges
 
 import (
 	"fmt"
+	"time"
+
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	prom "github.com/prometheus/client_golang/prometheus"
-	"time"
 )
 
 func (pm PromMetrics) registerPolicyChangesMetric(
@@ -38,7 +39,7 @@ func (pm PromMetrics) RegisterPolicy(policy interface{}, policyChangeType Policy
 		if err != nil {
 			return err
 		}
-		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(*inputPolicy.Spec.Background)
+		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy.Spec.Background)
 		policyType := metrics.Cluster
 		policyNamespace := "" // doesn't matter for cluster policy
 		policyName := inputPolicy.ObjectMeta.Name
@@ -51,7 +52,7 @@ func (pm PromMetrics) RegisterPolicy(policy interface{}, policyChangeType Policy
 		if err != nil {
 			return err
 		}
-		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(*inputPolicy.Spec.Background)
+		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy.Spec.Background)
 		policyType := metrics.Namespaced
 		policyNamespace := inputPolicy.ObjectMeta.Namespace
 		policyName := inputPolicy.ObjectMeta.Name

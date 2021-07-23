@@ -341,7 +341,7 @@ func printReportOrViolation(policyReport bool, validateEngineResponses []*respon
 		resps := buildPolicyReports(validateEngineResponses, skippedPolicies)
 		if len(resps) > 0 || resourcesLen == 0 {
 			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
-			report, _ := generateCLIraw(resps)
+			report, _ := generateCLIRaw(resps)
 			yamlReport, _ := yaml1.Marshal(report)
 			fmt.Println(string(yamlReport))
 		} else {

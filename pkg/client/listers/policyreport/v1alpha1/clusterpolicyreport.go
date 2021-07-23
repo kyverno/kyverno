@@ -26,10 +26,13 @@ import (
 )
 
 // ClusterPolicyReportLister helps list ClusterPolicyReports.
+// All objects returned here must be treated as read-only.
 type ClusterPolicyReportLister interface {
 	// List lists all ClusterPolicyReports in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.ClusterPolicyReport, err error)
 	// Get retrieves the ClusterPolicyReport from the index for a given name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.ClusterPolicyReport, error)
 	ClusterPolicyReportListerExpansion
 }

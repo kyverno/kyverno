@@ -9,7 +9,6 @@ import (
 )
 
 func failedEvents(err error, gr kyverno.GenerateRequest, resource unstructured.Unstructured) []event.Info {
-
 	re := event.Info{}
 	re.Kind = resource.GetKind()
 	re.Namespace = resource.GetNamespace()

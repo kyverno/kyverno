@@ -3,10 +3,13 @@ package common
 import (
 	"encoding/json"
 	"fmt"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
@@ -135,4 +138,66 @@ func RetryFunc(retryInterval, timeout time.Duration, run func() error, logger lo
 		}
 		return nil
 	}
+}
+
+func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client *dclient.Client, pName string, logger logr.Logger) bool {
+	generatePolicyWithClone := false
+	for _, rule := range rules {
+		if rule.Generation.Clone.Name == "" {
+			continue
+		}
+
+		logger.V(4).Info("generate policy with clone, remove policy name from label of source resource")
+		generatePolicyWithClone = true
+
+		retryCount := 0
+		for retryCount < 5 {
+			err := updateSourceResource(pName, rule, client, logger)
+			if err != nil {
+				logger.Error(err, "failed to update generate source resource labels")
+				if apierrors.IsConflict(err) {
+					retryCount++
+				} else {
+					break
+				}
+			}
+		}
+	}
+
+	return generatePolicyWithClone
+}
+
+func updateSourceResource(pName string, rule kyverno.Rule, client *dclient.Client, log logr.Logger) error {
+	obj, err := client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+	if err != nil {
+		return errors.Wrapf(err, "source resource %s/%s/%s not found", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+	}
+
+	update := false
+	labels := obj.GetLabels()
+	update, labels = removePolicyFromLabels(pName, labels)
+	if update {
+		return nil
+	}
+
+	obj.SetLabels(labels)
+	_, err = client.UpdateResource(obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
+	return err
+}
+
+func removePolicyFromLabels(pName string, labels map[string]string) (bool, map[string]string) {
+	if len(labels) == 0 {
+		return false, labels
+	}
+
+	if labels["generate.kyverno.io/clone-policy-name"] != "" {
+		policyNames := labels["generate.kyverno.io/clone-policy-name"]
+		if strings.Contains(policyNames, pName) {
+			updatedPolicyNames := strings.Replace(policyNames, pName, "", -1)
+			labels["generate.kyverno.io/clone-policy-name"] = updatedPolicyNames
+			return true, labels
+		}
+	}
+
+	return false, labels
 }

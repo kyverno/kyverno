@@ -10,7 +10,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/utils"
-	"github.com/minio/minio/pkg/wildcard"
+	"github.com/minio/pkg/wildcard"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -132,6 +132,19 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	if conditionBlock.Name != "" {
 		if !checkName(conditionBlock.Name, resource.GetName()) {
 			errs = append(errs, fmt.Errorf("name does not match"))
+		}
+	}
+
+	if len(conditionBlock.Names) > 0 {
+		noneMatch := true
+		for i := range conditionBlock.Names {
+			if checkName(conditionBlock.Names[i], resource.GetName()) {
+				noneMatch = false
+				break
+			}
+		}
+		if noneMatch {
+			errs = append(errs, fmt.Errorf("none of the names match"))
 		}
 	}
 
@@ -325,12 +338,17 @@ func copyConditions(original apiextensions.JSON) (interface{}, error) {
 }
 
 // excludeResource checks if the resource has ownerRef set
-func excludeResource(resource unstructured.Unstructured) bool {
+func excludeResource(podControllers string, resource unstructured.Unstructured) bool {
 	kind := resource.GetKind()
+	hasOwner := false
 	if kind == "Pod" || kind == "Job" {
-		if len(resource.GetOwnerReferences()) > 0 {
-			return true
+		for _, owner := range resource.GetOwnerReferences() {
+			hasOwner = true
+			if owner.Kind != "ReplicaSet" && !strings.Contains(podControllers, owner.Kind) {
+				return false
+			}
 		}
+		return hasOwner
 	}
 
 	return false
@@ -340,14 +358,17 @@ func excludeResource(resource unstructured.Unstructured) bool {
 // - if the policy has auto-gen annotation && resource == Pod
 // - if the auto-gen contains cronJob && resource == Job
 func ManagedPodResource(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) bool {
-	if policy.HasAutoGenAnnotation() && excludeResource(resource) {
+	podControllers, ok := policy.GetAnnotations()[PodControllersAnnotation]
+	if !ok || strings.ToLower(podControllers) == "none" {
+		return false
+	}
+
+	if excludeResource(podControllers, resource) {
 		return true
 	}
 
-	if podControllers, ok := policy.GetAnnotations()[PodControllersAnnotation]; ok {
-		if strings.Contains(podControllers, "CronJob") && excludeResource(resource) {
-			return true
-		}
+	if strings.Contains(podControllers, "CronJob") && excludeResource(podControllers, resource) {
+		return true
 	}
 
 	return false

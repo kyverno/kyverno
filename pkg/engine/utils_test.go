@@ -6,6 +6,7 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -39,6 +40,30 @@ func TestMatchesResourceDescription(t *testing.T) {
 			Description:       "Should not fail if in sync mode, if admission info is empty it should still match resources with specific clusterRoles",
 			Resource:          []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
 			Policy:            []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"hello-world-policy"},"spec":{"background":false,"rules":[{"name":"hello-world-policy","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"name":"hello-world"},"clusterRoles":["system:node"]},"mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}]}}`),
+			areErrorsExpected: false,
+		},
+		{
+			Description:       "Should fail since resource does not match because of names field",
+			Resource:          []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
+			Policy:            []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"hello-world-policy"},"spec":{"background":false,"rules":[{"name":"hello-world-policy","match":{"resources":{"kinds":["Pod"],"names": ["dev-*"]},"clusterRoles":["system:node"]},"mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}]}}`),
+			areErrorsExpected: true,
+		},
+		{
+			Description:       "Should pass since resource matches a name in the names field",
+			Resource:          []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
+			Policy:            []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"hello-world-policy"},"spec":{"background":false,"rules":[{"name":"hello-world-policy","match":{"resources":{"kinds":["Pod"],"names": ["dev-*","hello-world"]},"clusterRoles":["system:node"]},"mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}]}}`),
+			areErrorsExpected: false,
+		},
+		{
+			Description:       "Should fail since resource gets excluded because of the names field",
+			Resource:          []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
+			Policy:            []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"hello-world-policy"},"spec":{"background":false,"rules":[{"name":"hello-world-policy","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"names": ["dev-*","hello-*"]}},"mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}]}}`),
+			areErrorsExpected: true,
+		},
+		{
+			Description:       "Should pass since resource does not get excluded because of the names field",
+			Resource:          []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"bye-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
+			Policy:            []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"hello-world-policy"},"spec":{"background":false,"rules":[{"name":"hello-world-policy","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"names": ["dev-*","hello-*"]}},"mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}]}}`),
 			areErrorsExpected: false,
 		},
 		{
@@ -595,5 +620,73 @@ func testAnnotationMatch(t *testing.T, policy map[string]string, resource map[st
 	res := checkAnnotations(policy, resource)
 	if res != match {
 		t.Errorf("annotations %v -> labels %v: expected %v received %v", policy, resource, match, res)
+	}
+}
+
+func TestManagedPodResource(t *testing.T) {
+	testCases := []struct {
+		name           string
+		policy         []byte
+		resource       []byte
+		expectedResult bool
+	}{
+		{
+			name:           "disable-autogen-pod-without-owner",
+			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "none"}}}`),
+			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test"}}`),
+			expectedResult: false,
+		},
+		{
+			name:           "disable-autogen-pod-with-owner",
+			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "none"}}}`),
+			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Deployment"}]}}`),
+			expectedResult: false,
+		},
+		{
+			name:           "disable-autogen",
+			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod"}}`),
+			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Deployment"}]}}`),
+			expectedResult: false,
+		},
+		{
+			name:           "enable-autogen-pod-without-owner",
+			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment"}}}`),
+			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test"}}`),
+			expectedResult: false,
+		},
+		{
+			name:           "enable-autogen-pod-with-matched-owner",
+			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment"}}}`),
+			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Deployment"}]}}`),
+			expectedResult: true,
+		},
+		{
+			name:           "enable-autogen-pod-with-unmatched-owner",
+			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment"}}}`),
+			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Challenge"}]}}`),
+			expectedResult: false,
+		},
+		{
+			name:           "enable-autogen-pod-with-owner-rs",
+			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment,StatefulSet"}}}`),
+			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "ReplicaSet"}]}}`),
+			expectedResult: true,
+		},
+		{
+			name:           "enable-autogen-pod-with-multiple-owners",
+			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment,StatefulSet"}}}`),
+			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Deployment"},{"kind": "Challenge"}]}}`),
+			expectedResult: false,
+		},
+	}
+
+	for i, tc := range testCases {
+		var policy kyverno.ClusterPolicy
+		err := json.Unmarshal(tc.policy, &policy)
+		assert.Assert(t, err == nil, "Test %d/%s invalid policy raw: %v", i+1, tc.name, err)
+
+		resource, _ := utils.ConvertToUnstructured(tc.resource)
+		res := ManagedPodResource(policy, *resource)
+		assert.Equal(t, res, tc.expectedResult, "test %d/%s failed, expect %v, got %v", i+1, tc.name, tc.expectedResult, res)
 	}
 }

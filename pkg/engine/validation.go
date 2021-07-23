@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	gojmespath "github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -60,7 +61,8 @@ func buildResponse(logger logr.Logger, ctx *PolicyContext, resp *response.Engine
 		resp.PatchedResource = resource
 	}
 
-	resp.PolicyResponse.Policy = ctx.Policy.Name
+	resp.PolicyResponse.Policy.Name = ctx.Policy.GetName()
+	resp.PolicyResponse.Policy.Namespace = ctx.Policy.GetNamespace()
 	resp.PolicyResponse.Resource.Name = resp.PatchedResource.GetName()
 	resp.PolicyResponse.Resource.Namespace = resp.PatchedResource.GetNamespace()
 	resp.PolicyResponse.Resource.Kind = resp.PatchedResource.GetKind()
@@ -99,7 +101,11 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 
 		ctx.JSONContext.Restore()
 		if err := LoadContext(log, rule.Context, ctx.ResourceCache, ctx, rule.Name); err != nil {
-			log.Error(err, "failed to load context")
+			if _, ok := err.(gojmespath.NotFoundError); ok {
+				log.V(3).Info("failed to load context", "reason", err.Error())
+			} else {
+				log.Error(err, "failed to load context")
+			}
 			continue
 		}
 
@@ -111,8 +117,9 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 			log.V(2).Info("wrongfully configured data", "reason", err.Error())
 			continue
 		}
+
 		// evaluate pre-conditions
-		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditionsCopy) {
+		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditionsCopy, true) {
 			log.V(4).Info("resource fails the preconditions")
 			continue
 		}
@@ -128,7 +135,12 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 			incrementAppliedCount(resp)
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
 
-			log.Error(err, "failed to substitute variables, skip current rule", "rule name", rule.Name)
+			switch err.(type) {
+			case gojmespath.NotFoundError:
+				log.V(2).Info("failed to substitute variables, skip current rule", "info", err.Error(), "rule name", rule.Name)
+			default:
+				log.Error(err, "failed to substitute variables, skip current rule", "rule name", rule.Name)
+			}
 			continue
 		}
 
@@ -146,7 +158,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 				log.V(2).Info("wrongfully configured data", "reason", err.Error())
 				continue
 			}
-			deny := variables.EvaluateConditions(log, ctx.JSONContext, denyConditionsCopy)
+			deny := variables.EvaluateConditions(log, ctx.JSONContext, denyConditionsCopy, false)
 			ruleResp := response.RuleResponse{
 				Name:    rule.Name,
 				Type:    utils.Validation.String(),

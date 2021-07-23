@@ -25,7 +25,10 @@ func filterRules(policyContext *PolicyContext, startTime time.Time) *response.En
 	apiVersion := policyContext.NewResource.GetAPIVersion()
 	resp := &response.EngineResponse{
 		PolicyResponse: response.PolicyResponse{
-			Policy: policyContext.Policy.Name,
+			Policy: response.PolicySpec{
+				Name:      policyContext.Policy.GetName(),
+				Namespace: policyContext.Policy.GetNamespace(),
+			},
 			PolicyStats: response.PolicyStats{
 				PolicyExecutionTimestamp: startTime.Unix(),
 			},
@@ -105,7 +108,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	}
 
 	// evaluate pre-conditions
-	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
+	if !variables.EvaluateConditions(logger, ctx, copyConditions, true) {
 		logger.V(4).Info("preconditions not satisfied, skipping rule", "rule", rule.Name)
 		return nil
 	}

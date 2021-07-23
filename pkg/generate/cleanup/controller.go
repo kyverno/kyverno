@@ -10,10 +10,12 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic/dynamicinformer"
@@ -139,14 +141,37 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	// clean up the GR
 	// Get the corresponding GR
 	// get the list of GR for the current Policy version
-	grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(p.Name)
+	rules := p.Spec.Rules
+
+	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, c.client, p.GetName(), logger)
+
+	// get the generated resource name from generate request for log
+	selector := labels.SelectorFromSet(labels.Set(map[string]string{
+		"generate.kyverno.io/policy-name": p.Name,
+	}))
+
+	grList, err := c.grLister.List(selector)
 	if err != nil {
-		logger.Error(err, "failed to generate request CR for the policy", "name", p.Name)
+		logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
 		return
 	}
 
-	for _, gr := range grs {
-		c.addGR(gr)
+	for _, gr := range grList {
+		for _, generatedResource := range gr.Status.GeneratedResources {
+			logger.V(4).Info("retaining resource", "apiVersion", generatedResource.APIVersion, "kind", generatedResource.Kind, "name", generatedResource.Name, "namespace", generatedResource.Namespace)
+		}
+	}
+
+	if !generatePolicyWithClone {
+		grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(p.Name)
+		if err != nil {
+			logger.Error(err, "failed to generate request for the policy", "name", p.Name)
+			return
+		}
+
+		for _, gr := range grs {
+			c.addGR(gr)
+		}
 	}
 }
 

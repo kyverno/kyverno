@@ -26,10 +26,13 @@ import (
 )
 
 // ClusterReportChangeRequestLister helps list ClusterReportChangeRequests.
+// All objects returned here must be treated as read-only.
 type ClusterReportChangeRequestLister interface {
 	// List lists all ClusterReportChangeRequests in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.ClusterReportChangeRequest, err error)
 	// Get retrieves the ClusterReportChangeRequest from the index for a given name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.ClusterReportChangeRequest, error)
 	ClusterReportChangeRequestListerExpansion
 }

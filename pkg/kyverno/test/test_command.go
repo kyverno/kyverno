@@ -225,8 +225,9 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	results := make(map[string]report.PolicyReportResult)
 	infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
 	for _, resp := range resps {
-		policyName := resp.PolicyResponse.Policy
+		policyName := resp.PolicyResponse.Policy.Name
 		resourceName := resp.PolicyResponse.Resource.Name
+
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {
 			rules = append(rules, rule.Name)
@@ -257,14 +258,18 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 				if rule.Type != utils.Validation.String() {
 					continue
 				}
+				ruleName := strings.ReplaceAll(rule.Name, "autogen-", "")
+				if strings.Contains(rule.Name, "autogen-cronjob") {
+					ruleName = strings.ReplaceAll(rule.Name, "autogen-cronjob-", "")
+				}
 				var result report.PolicyReportResult
-				resultsKey := fmt.Sprintf("%s-%s-%s", info.PolicyName, rule.Name, infoResult.Resource.Name)
+				resultsKey := fmt.Sprintf("%s-%s-%s", info.PolicyName, ruleName, infoResult.Resource.Name)
 				if val, ok := results[resultsKey]; ok {
 					result = val
 				} else {
 					continue
 				}
-				result.Rule = rule.Name
+				result.Rule = ruleName
 				result.Status = report.PolicyStatus(rule.Check)
 				results[resultsKey] = result
 			}
@@ -273,18 +278,18 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	return results
 }
 
-func getPolicyResouceFullPath(path []string, policyresoucePath string, isGit bool) []string {
+func getPolicyResourceFullPath(path []string, policyResourcePath string, isGit bool) []string {
 	var pol []string
 	if !isGit {
 		for _, p := range path {
-			pol = append(pol, filepath.Join(policyresoucePath, p))
+			pol = append(pol, filepath.Join(policyResourcePath, p))
 		}
 		return pol
 	}
 	return path
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyresoucePath string, rc *resultCounts) (err error) {
+func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts) (err error) {
 	openAPIController, err := openapi.NewOpenAPIController()
 	engineResponses := make([]*response.EngineResponse, 0)
 	validateEngineResponses := make([]*response.EngineResponse, 0)
@@ -300,7 +305,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 
 	fmt.Printf("\nExecuting %s...", values.Name)
 
-	_, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyresoucePath)
+	_, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to decode yaml", err)
@@ -308,42 +313,49 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		return err
 	}
 
-	fullPolicyPath := getPolicyResouceFullPath(values.Policies, policyresoucePath, isGit)
-	fullResourcePath := getPolicyResouceFullPath(values.Resources, policyresoucePath, isGit)
+	fullPolicyPath := getPolicyResourceFullPath(values.Policies, policyResourcePath, isGit)
+	fullResourcePath := getPolicyResourceFullPath(values.Resources, policyResourcePath, isGit)
 
-	policies, err := common.GetPoliciesFromPaths(fs, fullPolicyPath, isGit, policyresoucePath)
+	policies, err := common.GetPoliciesFromPaths(fs, fullPolicyPath, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		os.Exit(1)
 	}
+
 	mutatedPolicies, err := common.MutatePolices(policies)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to mutate policy", err)
 		}
 	}
-	resources, err := common.GetResourceAccordingToResourcePath(fs, fullResourcePath, false, mutatedPolicies, dClient, "", false, isGit, policyresoucePath)
+
+	resources, err := common.GetResourceAccordingToResourcePath(fs, fullResourcePath, false, mutatedPolicies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		os.Exit(1)
 	}
+
 	msgPolicies := "1 policy"
 	if len(mutatedPolicies) > 1 {
 		msgPolicies = fmt.Sprintf("%d policies", len(policies))
 	}
+
 	msgResources := "1 resource"
 	if len(resources) > 1 {
 		msgResources = fmt.Sprintf("%d resources", len(resources))
 	}
+
 	if len(mutatedPolicies) > 0 && len(resources) > 0 {
 		fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
 	}
+
 	for _, policy := range mutatedPolicies {
 		err := policy2.Validate(policy, nil, true, openAPIController)
 		if err != nil {
-			log.Log.V(3).Info(fmt.Sprintf("skipping policy %v as it is not valid", policy.Name), "error", err)
+			log.Log.Error(err, "skipping invalid policy", "name", policy.Name)
 			continue
 		}
+
 		matches := common.PolicyHasVariables(*policy)
 		variable := common.RemoveDuplicateVariables(matches)
 		if len(matches) > 0 && variablesString == "" && values.Variables == "" {
