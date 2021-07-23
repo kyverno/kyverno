@@ -2,9 +2,10 @@
 
 We welcome all contributions, suggestions, and feedback, so please do not hesitate to reach out!
 
-The easiest way to reach us is on the [Kubernetes slack #kyverno channel](https://app.slack.com/client/T09NY5SBT/CLGR9BJU9). 
+The easiest way to reach us is on the [Kubernetes slack #kyverno channel](https://app.slack.com/client/T09NY5SBT/CLGR9BJU9).
 
 ## Ways you can contribute
+
 - Report potential bugs
 - Request a feature
 - Request a sample policy
@@ -27,11 +28,13 @@ Signed-off-by: Random J Developer <random@developer.example.org>
 ```
 
 This can easily be done with the `-s` command line option to append this automatically to your commit message.
+
 ```
 $ git commit -s -m 'This is my commit message'
 ```
 
 By doing this you state that you can certify the following (https://developercertificate.org/):
+
 ```
 Developer Certificate of Origin
 Version 1.1
