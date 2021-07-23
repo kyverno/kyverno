@@ -1,4 +1,4 @@
-package policyruleresults
+package admissionrequests
 
 import (
 	"github.com/kyverno/kyverno/pkg/metrics"

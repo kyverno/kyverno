@@ -17,7 +17,6 @@ import (
 	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/policystatus"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -68,7 +67,6 @@ func NewReportChangeRequestGenerator(client *policyreportclient.Clientset,
 	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
 	cpolInformer kyvernoinformer.ClusterPolicyInformer,
 	polInformer kyvernoinformer.PolicyInformer,
-	policyStatus policystatus.Listener,
 	log logr.Logger) *Generator {
 	gen := Generator{
 		dclient:                          dclient,

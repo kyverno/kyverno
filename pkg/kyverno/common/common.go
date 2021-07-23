@@ -21,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/policymutation"
@@ -157,25 +158,92 @@ func PolicyHasVariables(policy v1.ClusterPolicy) [][]string {
 	return matches
 }
 
-// PolicyHasNonAllowedVariables - checks for unexpected variables in the policy
-func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) bool {
-	policyRaw, _ := json.Marshal(policy)
+// for now forbidden sections are match, exclude and
+func ruleForbiddenSectionsHaveVariables(rule v1.Rule) error {
+	var err error
 
-	matchesAll := RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
-	matchesAllowed := AllowedVariables.FindAllStringSubmatch(string(policyRaw), -1)
-
-	if len(matchesAll) > len(matchesAllowed) {
-		// If rules contains Context then skip this validation
-		for _, rule := range policy.Spec.Rules {
-			if len(rule.Context) > 0 {
-				return false
-			}
-		}
-
-		return true
+	err = JSONPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
+	if err != nil {
+		return fmt.Errorf("Rule \"%s\" should not have variables in patchesJSON6902 path section", rule.Name)
 	}
 
-	return false
+	err = objectHasVariables(rule.ExcludeResources)
+	if err != nil {
+		return fmt.Errorf("Rule \"%s\" should not have variables in exclude section", rule.Name)
+	}
+
+	err = objectHasVariables(rule.MatchResources)
+	if err != nil {
+		return fmt.Errorf("Rule \"%s\" should not have variables in match section", rule.Name)
+	}
+
+	return nil
+}
+
+func JSONPatchPathHasVariables(patch string) error {
+	jsonPatch, err := yaml.ToJSON([]byte(patch))
+	if err != nil {
+		return err
+	}
+
+	decodedPatch, err := jsonpatch.DecodePatch(jsonPatch)
+	if err != nil {
+		return err
+	}
+
+	for _, operation := range decodedPatch {
+		path, err := operation.Path()
+		if err != nil {
+			return err
+		}
+
+		vars := variables.RegexVariables.FindAllString(path, -1)
+		if len(vars) > 0 {
+			return fmt.Errorf("Operation \"%s\" has forbidden variables", operation.Kind())
+		}
+	}
+
+	return nil
+}
+
+func objectHasVariables(object interface{}) error {
+	var err error
+	objectJSON, err := json.Marshal(object)
+	if err != nil {
+		return err
+	}
+
+	if len(RegexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
+		return fmt.Errorf("Object has forbidden variables")
+	}
+
+	return nil
+}
+
+// PolicyHasNonAllowedVariables - checks for unexpected variables in the policy
+func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) error {
+	for _, rule := range policy.Spec.Rules {
+		var err error
+
+		ruleJSON, err := json.Marshal(rule)
+		if err != nil {
+			return err
+		}
+
+		err = ruleForbiddenSectionsHaveVariables(rule)
+		if err != nil {
+			return err
+		}
+
+		matchesAll := RegexVariables.FindAllStringSubmatch(string(ruleJSON), -1)
+		matchesAllowed := AllowedVariables.FindAllStringSubmatch(string(ruleJSON), -1)
+
+		if (len(matchesAll) > len(matchesAllowed)) && len(rule.Context) == 0 {
+			return fmt.Errorf("Rule \"%s\" has forbidden variables. Allowed variables are: {{request.*}}, {{serviceAccountName}}, {{serviceAccountNamespace}}, {{@}} and ones defined by the context", rule.Name)
+		}
+	}
+
+	return nil
 }
 
 // MutatePolicy - applies mutation to a policy
@@ -298,34 +366,44 @@ func IsInputFromPipe() bool {
 	return fileInfo.Mode()&os.ModeCharDevice == 0
 }
 
-// RemoveDuplicateVariables - remove duplicate variables
-func RemoveDuplicateVariables(matches [][]string) string {
+// RemoveDuplicateAndObjectVariables - remove duplicate variables
+func RemoveDuplicateAndObjectVariables(matches [][]string) string {
 	var variableStr string
 	for _, m := range matches {
 		for _, v := range m {
 			foundVariable := strings.Contains(variableStr, v)
 			if !foundVariable {
-				variableStr = variableStr + " " + v
+				if !strings.Contains(v, "request.object") {
+					variableStr = variableStr + " " + v
+				}
 			}
 		}
 	}
 	return variableStr
 }
 
-func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyResourcePath string) (map[string]string, map[string]map[string]Resource, map[string]map[string]string, error) {
+func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyResourcePath string) (map[string]string, map[string]map[string]Resource, map[string]map[string]string, bool, error) {
 	valuesMapResource := make(map[string]map[string]Resource)
 	valuesMapRule := make(map[string]map[string]Rule)
 	namespaceSelectorMap := make(map[string]map[string]string)
 	variables := make(map[string]string)
+	operationIsDelete := false
 	var yamlFile []byte
 	var err error
 	if variablesString != "" {
 		kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
 		for _, kvpair := range kvpairs {
 			kvs := strings.Split(strings.Trim(kvpair, " "), "=")
+			if strings.Contains(kvs[0], "request.object") {
+				return variables, valuesMapResource, namespaceSelectorMap, operationIsDelete, sanitizederror.NewWithError("variable request.object.* is handled by kyverno. please do not pass value for request.object variables ", err)
+			}
+			if strings.Contains(kvs[0], "request.operation") && strings.Contains(kvs[1], "DELETE") {
+				operationIsDelete = true
+			}
 			variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
 		}
 	}
+
 	if valuesFile != "" {
 		if isGit {
 			filep, err := fs.Open(filepath.Join(policyResourcePath, valuesFile))
@@ -338,22 +416,30 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		}
 
 		if err != nil {
-			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("unable to read yaml", err)
+			return variables, valuesMapResource, namespaceSelectorMap, operationIsDelete, sanitizederror.NewWithError("unable to read yaml", err)
 		}
 
 		valuesBytes, err := yaml.ToJSON(yamlFile)
 		if err != nil {
-			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to convert json", err)
+			return variables, valuesMapResource, namespaceSelectorMap, operationIsDelete, sanitizederror.NewWithError("failed to convert json", err)
 		}
 
 		values := &Values{}
 		if err := json.Unmarshal(valuesBytes, values); err != nil {
-			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to decode yaml", err)
+			return variables, valuesMapResource, namespaceSelectorMap, operationIsDelete, sanitizederror.NewWithError("failed to decode yaml", err)
 		}
 
 		for _, p := range values.Policies {
 			resourceMap := make(map[string]Resource)
 			for _, r := range p.Resources {
+				for variableInFile, valueInFile := range r.Values {
+					if strings.Contains(variableInFile, "request.object") {
+						return variables, valuesMapResource, namespaceSelectorMap, operationIsDelete, sanitizederror.NewWithError("variable request.object.* is handled by kyverno. please do not pass value for request.object variables ", err)
+					}
+					if strings.Contains(variableInFile, "request.operation") && strings.Contains(valueInFile, "DELETE") {
+						operationIsDelete = true
+					}
+				}
 				resourceMap[r.Name] = r
 			}
 			valuesMapResource[p.Name] = resourceMap
@@ -391,7 +477,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		Policies: storePolices,
 	})
 
-	return variables, valuesMapResource, namespaceSelectorMap, nil
+	return variables, valuesMapResource, namespaceSelectorMap, operationIsDelete, nil
 }
 
 // MutatePolices - function to apply mutation on policies
@@ -414,7 +500,7 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool) ([]*response.EngineResponse, *response.EngineResponse, bool, bool, error) {
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool, operationIsDelete bool) ([]*response.EngineResponse, *response.EngineResponse, bool, bool, error) {
 
 	responseError := false
 	rcError := false
@@ -442,6 +528,20 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	log.Log.V(3).Info("applying policy on resource", "policy", policy.Name, "resource", resPath)
 
 	ctx := context.NewContext()
+	resourceRaw, err := resource.MarshalJSON()
+	if err != nil {
+		log.Log.Error(err, "failed to marshal resource")
+	}
+
+	if operationIsDelete {
+		err = ctx.AddResourceInOldObject(resourceRaw)
+	} else {
+		err = ctx.AddResource(resourceRaw)
+	}
+	if err != nil {
+		log.Log.Error(err, "failed to load resource in context")
+	}
+
 	for key, value := range variables {
 		jsonData := pkgcommon.VariableToJSON(key, value)
 		ctx.AddJSON(jsonData)
@@ -548,7 +648,7 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 	yaml = yaml + ("\n---\n\n")
 
 	if !mutateLogPathIsDir {
-		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/command.go
+		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
 		f, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0644)
 	} else {
 		f, err = os.OpenFile(mutateLogPath+"/"+fileName+".yaml", os.O_CREATE|os.O_WRONLY, 0644)

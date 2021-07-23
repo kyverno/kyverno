@@ -9,7 +9,9 @@ import (
 	"github.com/go-logr/logr"
 	v1alpha1 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	changerequestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	policyreportlister "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -44,6 +46,10 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, stopCh 
 		select {
 		case <-ticker.C:
 			logger.Info("performing the background scan", "scan interval", pc.reconcilePeriod.String())
+			if err := pc.policyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests); err != nil {
+				logger.Error(err, "failed to cleanup report change requests")
+			}
+
 			if err := pc.policyReportEraser.EraseResultsEntries(eraseResultsEntries); err != nil {
 				logger.Error(err, "continue reconciling policy reports")
 			}
@@ -52,6 +58,10 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, stopCh 
 
 		case erase := <-reconcileCh:
 			logger.Info("received the reconcile signal, reconciling policy report")
+			if err := pc.policyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests); err != nil {
+				logger.Error(err, "failed to cleanup report change requests")
+			}
+
 			if erase {
 				if err := pc.policyReportEraser.EraseResultsEntries(eraseResultsEntries); err != nil {
 					logger.Error(err, "continue reconciling policy reports")
@@ -64,6 +74,29 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, stopCh 
 			return
 		}
 	}
+}
+
+func cleanupReportChangeRequests(pclient *kyvernoclient.Clientset, rcrLister changerequestlister.ReportChangeRequestLister, crcrLister changerequestlister.ClusterReportChangeRequestLister) error {
+	var errors []string
+
+	var gracePeriod int64 = 0
+	deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}
+
+	err := pclient.KyvernoV1alpha1().ClusterReportChangeRequests().DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
+	if err != nil {
+		errors = append(errors, err.Error())
+	}
+
+	err = pclient.KyvernoV1alpha1().ReportChangeRequests(config.KyvernoNamespace).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
+	if err != nil {
+		errors = append(errors, err.Error())
+	}
+
+	if len(errors) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("%v", strings.Join(errors, ";"))
 }
 
 func eraseResultsEntries(pclient *kyvernoclient.Clientset, reportLister policyreportlister.PolicyReportLister, clusterReportLister policyreportlister.ClusterPolicyReportLister) error {

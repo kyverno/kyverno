@@ -54,7 +54,7 @@ func Test_Validate_Sets(t *testing.T) {
 		e2eClient.DeleteClusteredResource(crdGVR, crdName)
 
 		// Wait Till Deletion of Namespace
-		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+		e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error {
 			_, err := e2eClient.GetClusteredResource(nsGVR, nspace)
 			if err != nil {
 				return nil
@@ -78,7 +78,7 @@ func Test_Validate_Sets(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Wait till CRD is created
-		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+		e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error {
 			_, err := e2eClient.GetClusteredResource(crdGVR, crdName)
 			if err == nil {
 				return nil
@@ -104,7 +104,7 @@ func Test_Validate_Sets(t *testing.T) {
 		// Clear Namespace
 		e2eClient.DeleteClusteredResource(nsGVR, nspace)
 		// Wait Till Deletion of Namespace
-		e2e.GetWithRetry(time.Duration(1), 15, func() error {
+		e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error {
 			_, err := e2eClient.GetClusteredResource(nsGVR, nspace)
 			if err != nil {
 				return nil

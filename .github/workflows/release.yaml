@@ -15,7 +15,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
 
       - name: Cache Go modules
         uses: actions/cache@v1
@@ -28,7 +28,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
       - uses: creekorful/goreportcard-action@v1.0
 
       - name: login to GitHub Container Registry
@@ -55,7 +55,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
 
       - name: Cache Go modules
         uses: actions/cache@v1
@@ -68,7 +68,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
       - uses: creekorful/goreportcard-action@v1.0
 
       - name: login to GitHub Container Registry
@@ -95,7 +95,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
 
       - name: Cache Go modules
         uses: actions/cache@v1
@@ -108,7 +108,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
       - uses: creekorful/goreportcard-action@v1.0
 
       - name: login to GitHub Container Registry
@@ -139,7 +139,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
 
       - name: Cache Go modules
         uses: actions/cache@v1
@@ -152,7 +152,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
       - uses: creekorful/goreportcard-action@v1.0
 
       - name: login to GitHub Container Registry
@@ -165,21 +165,6 @@ jobs:
           args: release --rm-dist --debug
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Configure Git
-        run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-
-      - name: Install Helm
-        uses: azure/setup-helm@v1
-        with:
-          version: v3.4.0
-
-      - name: Run chart-releaser
-        uses: stefanprodan/helm-gh-pages@master
-        with:
-          token: "${{ secrets.GITHUB_TOKEN }}"
 
   release-cli-via-krew:
     runs-on: ubuntu-latest

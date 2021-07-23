@@ -4,8 +4,6 @@ import (
 	contextdefault "context"
 	"encoding/json"
 	"fmt"
-	"reflect"
-	"sort"
 	"strings"
 	"time"
 
@@ -25,8 +23,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	gen "github.com/kyverno/kyverno/pkg/generate"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	policyRuleExecutionLatency "github.com/kyverno/kyverno/pkg/metrics/policyruleexecutionlatency"
-	policyRuleResults "github.com/kyverno/kyverno/pkg/metrics/policyruleresults"
+	policyExecutionDuration "github.com/kyverno/kyverno/pkg/metrics/policyexecutionduration"
+	policyResults "github.com/kyverno/kyverno/pkg/metrics/policyresults"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
 	v1beta1 "k8s.io/api/admission/v1beta1"
@@ -35,13 +33,33 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-//HandleGenerate handles admission-requests for policies with generate rules
-func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, ctx *context.Context, userRequestInfo kyverno.RequestInfo, dynamicConfig config.Interface, admissionRequestTimestamp int64, latencySender *chan int64, triggeredGeneratePoliciesSender *chan []kyverno.ClusterPolicy, generateEngineResponsesSender *chan []*response.EngineResponse) {
+func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*v1.ClusterPolicy, ts int64, logger logr.Logger) {
+	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
+	generateEngineResponsesSenderForAdmissionReviewDurationMetric := make(chan []*response.EngineResponse, 1)
+	generateEngineResponsesSenderForAdmissionRequestsCountMetric := make(chan []*response.EngineResponse, 1)
+
+	go ws.handleGenerate(request, policies, policyContext.JSONContext, policyContext.AdmissionInfo, ws.configHandler, ts, &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric, &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
+	go registerAdmissionReviewDurationMetricGenerate(logger, *ws.promConfig.Metrics, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
+	go registerAdmissionRequestsMetricGenerate(logger, *ws.promConfig.Metrics, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
+}
+
+//handleGenerate handles admission-requests for policies with generate rules
+func (ws *WebhookServer) handleGenerate(
+	request *v1beta1.AdmissionRequest,
+	policies []*kyverno.ClusterPolicy,
+	ctx *context.Context,
+	userRequestInfo kyverno.RequestInfo,
+	dynamicConfig config.Interface,
+	admissionRequestTimestamp int64,
+	latencySender *chan int64,
+	generateEngineResponsesSenderForAdmissionReviewDurationMetric *chan []*response.EngineResponse,
+	generateEngineResponsesSenderForAdmissionRequestsCountMetric *chan []*response.EngineResponse,
+) {
+
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
-	logger.V(4).Info("incoming request")
+	logger.V(6).Info("generate request")
 
 	var engineResponses []*response.EngineResponse
-	var triggeredGeneratePolicies []kyverno.ClusterPolicy
 	if (request.Operation == v1beta1.Create || request.Operation == v1beta1.Update) && len(policies) != 0 {
 		// convert RAW to unstructured
 		new, old, err := kyvernoutils.ExtractResources(nil, request)
@@ -79,16 +97,13 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 				engineResponse.PolicyResponse.Rules = rules
 				// some generate rules do apply to the resource
 				engineResponses = append(engineResponses, engineResponse)
-				triggeredGeneratePolicies = append(triggeredGeneratePolicies, *policy)
-				ws.statusListener.Update(generateStats{
-					resp: engineResponse,
-				})
 			}
-			// registering the kyverno_policy_rule_results_info metric concurrently
-			go ws.registerPolicyRuleResultsMetricGeneration(logger, string(request.Operation), *policy, *engineResponse, admissionRequestTimestamp)
 
-			// registering the kyverno_policy_rule_execution_latency_milliseconds metric concurrently
-			go ws.registerPolicyRuleExecutionLatencyMetricGenerate(logger, string(request.Operation), *policy, *engineResponse, admissionRequestTimestamp)
+			// registering the kyverno_policy_results_total metric concurrently
+			go ws.registerPolicyResultsMetricGeneration(logger, string(request.Operation), *policy, *engineResponse)
+
+			// registering the kyverno_policy_execution_duration_seconds metric concurrently
+			go ws.registerPolicyExecutionDurationMetricGenerate(logger, string(request.Operation), *policy, *engineResponse)
 		}
 
 		// Adds Generate Request to a channel(queue size 1000) to generators
@@ -102,39 +117,43 @@ func (ws *WebhookServer) HandleGenerate(request *v1beta1.AdmissionRequest, polic
 	}
 
 	if request.Operation == v1beta1.Update {
-		ws.handleUpdate(request, policies)
+		ws.handleUpdatesForGenerateRules(request, policies)
 	}
 
 	// sending the admission request latency to other goroutine (reporting the metrics) over the channel
 	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
 	*latencySender <- admissionReviewLatencyDuration
-	*triggeredGeneratePoliciesSender <- triggeredGeneratePolicies
-	*generateEngineResponsesSender <- engineResponses
+	*generateEngineResponsesSenderForAdmissionReviewDurationMetric <- engineResponses
+	*generateEngineResponsesSenderForAdmissionRequestsCountMetric <- engineResponses
 }
 
-func (ws *WebhookServer) registerPolicyRuleResultsMetricGeneration(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, admissionRequestTimestamp int64) {
-	resourceRequestOperationPromAlias, err := policyRuleResults.ParseResourceRequestOperation(resourceRequestOperation)
+func (ws *WebhookServer) registerPolicyResultsMetricGeneration(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
+	resourceRequestOperationPromAlias, err := policyResults.ParseResourceRequestOperation(resourceRequestOperation)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_rule_results_info metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
 	}
-	if err := policyRuleResults.ParsePromMetrics(*ws.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_rule_results_info metrics for the above policy", "name", policy.Name)
+	if err := policyResults.ParsePromMetrics(*ws.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
 	}
 }
 
-func (ws *WebhookServer) registerPolicyRuleExecutionLatencyMetricGenerate(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, admissionRequestTimestamp int64) {
-	resourceRequestOperationPromAlias, err := policyRuleExecutionLatency.ParseResourceRequestOperation(resourceRequestOperation)
+func (ws *WebhookServer) registerPolicyExecutionDurationMetricGenerate(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
+	resourceRequestOperationPromAlias, err := policyExecutionDuration.ParseResourceRequestOperation(resourceRequestOperation)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_rule_execution_latency_milliseconds metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
 	}
-	if err := policyRuleExecutionLatency.ParsePromMetrics(*ws.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias, admissionRequestTimestamp); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_rule_execution_latency_milliseconds metrics for the above policy", "name", policy.Name)
+	if err := policyExecutionDuration.ParsePromMetrics(*ws.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
 	}
 }
 
-//handleUpdate handles admission-requests for update
-func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy) {
-	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
+//handleUpdatesForGenerateRules handles admission-requests for update
+func (ws *WebhookServer) handleUpdatesForGenerateRules(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy) {
+	if request.Operation != v1beta1.Update {
+		return
+	}
+
+	logger := ws.log.WithValues("action", "generate", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
 	if err != nil {
 		logger.Error(err, "failed to convert object resource to unstructured format")
@@ -142,16 +161,16 @@ func (ws *WebhookServer) handleUpdate(request *v1beta1.AdmissionRequest, policie
 
 	resLabels := resource.GetLabels()
 	if resLabels["generate.kyverno.io/clone-policy-name"] != "" {
-		ws.handleUpdateCloneSourceResource(resLabels, logger)
+		ws.handleUpdateGenerateSourceResource(resLabels, logger)
 	}
 
 	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == v1beta1.Update {
-		ws.handleUpdateTargetResource(request, policies, resLabels, logger)
+		ws.handleUpdateGenerateTargetResource(request, policies, resLabels, logger)
 	}
 }
 
-//handleUpdateCloneSourceResource - handles update of clone source for generate policy
-func (ws *WebhookServer) handleUpdateCloneSourceResource(resLabels map[string]string, logger logr.Logger) {
+//handleUpdateGenerateSourceResource - handles update of clone source for generate policy
+func (ws *WebhookServer) handleUpdateGenerateSourceResource(resLabels map[string]string, logger logr.Logger) {
 	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
 	for _, policyName := range policyNames {
 
@@ -159,7 +178,7 @@ func (ws *WebhookServer) handleUpdateCloneSourceResource(resLabels map[string]st
 		_, err := ws.kyvernoClient.KyvernoV1().ClusterPolicies().Get(contextdefault.TODO(), policyName, metav1.GetOptions{})
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
-				logger.V(4).Info("skipping updation of generate request as policy is deleted")
+				logger.V(4).Info("skipping update of generate request as policy is deleted")
 			} else {
 				logger.Error(err, "failed to get generate policy", "Name", policyName)
 			}
@@ -198,8 +217,8 @@ func (ws *WebhookServer) updateAnnotationInGR(gr *v1.GenerateRequest, logger log
 	}
 }
 
-//handleUpdateTargetResource - handles update of target resource for generate policy
-func (ws *WebhookServer) handleUpdateTargetResource(request *v1beta1.AdmissionRequest, policies []*v1.ClusterPolicy, resLabels map[string]string, logger logr.Logger) {
+//handleUpdateGenerateTargetResource - handles update of target resource for generate policy
+func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.AdmissionRequest, policies []*v1.ClusterPolicy, resLabels map[string]string, logger logr.Logger) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
@@ -427,76 +446,6 @@ func transform(userRequestInfo kyverno.RequestInfo, er *response.EngineResponse)
 	}
 
 	return gr
-}
-
-type generateStats struct {
-	resp *response.EngineResponse
-}
-
-func (gs generateStats) PolicyName() string {
-	return gs.resp.PolicyResponse.Policy.Name
-}
-
-func (gs generateStats) UpdateStatus(status kyverno.PolicyStatus) kyverno.PolicyStatus {
-	if reflect.DeepEqual(response.EngineResponse{}, gs.resp) {
-		return status
-	}
-
-	var nameToRule = make(map[string]v1.RuleStats)
-	for _, rule := range status.Rules {
-		nameToRule[rule.Name] = rule
-	}
-
-	for _, rule := range gs.resp.PolicyResponse.Rules {
-		ruleStat := nameToRule[rule.Name]
-		ruleStat.Name = rule.Name
-
-		averageOver := int64(ruleStat.AppliedCount + ruleStat.FailedCount)
-		ruleStat.ExecutionTime = updateAverageTime(
-			rule.ProcessingTime,
-			ruleStat.ExecutionTime,
-			averageOver).String()
-
-		if rule.Success {
-			status.RulesAppliedCount++
-			ruleStat.AppliedCount++
-		} else {
-			status.RulesFailedCount++
-			ruleStat.FailedCount++
-		}
-
-		nameToRule[rule.Name] = ruleStat
-	}
-
-	var policyAverageExecutionTime time.Duration
-	var ruleStats = make([]v1.RuleStats, 0, len(nameToRule))
-	for _, ruleStat := range nameToRule {
-		executionTime, err := time.ParseDuration(ruleStat.ExecutionTime)
-		if err == nil {
-			policyAverageExecutionTime += executionTime
-		}
-		ruleStats = append(ruleStats, ruleStat)
-	}
-
-	sort.Slice(ruleStats, func(i, j int) bool {
-		return ruleStats[i].Name < ruleStats[j].Name
-	})
-
-	status.AvgExecutionTime = policyAverageExecutionTime.String()
-	status.Rules = ruleStats
-
-	return status
-}
-
-func updateAverageTime(newTime time.Duration, oldAverageTimeString string, averageOver int64) time.Duration {
-	if averageOver == 0 {
-		return newTime
-	}
-	oldAverageExecutionTime, _ := time.ParseDuration(oldAverageTimeString)
-	numerator := (oldAverageExecutionTime.Nanoseconds() * averageOver) + newTime.Nanoseconds()
-	denominator := averageOver + 1
-	newAverageTimeInNanoSeconds := numerator / denominator
-	return time.Duration(newAverageTimeInNanoSeconds) * time.Nanosecond
 }
 
 type generateRequestResponse struct {

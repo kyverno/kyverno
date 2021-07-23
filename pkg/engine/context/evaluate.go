@@ -3,7 +3,10 @@ package context
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 )
@@ -42,8 +45,13 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 
 	result, err := queryPath.Search(data)
 	if err != nil {
+		if !strings.HasPrefix(err.Error(), "Unknown key") {
+			ctx.log.Error(err, "JMESPath search failed", "query", query)
+		}
+
 		return emptyResult, err
 	}
+
 	return result, nil
 }
 
@@ -57,4 +65,30 @@ func (ctx *Context) isBuiltInVariable(variable string) bool {
 		}
 	}
 	return false
+}
+
+func (ctx *Context) HasChanged(jmespath string) (bool, error) {
+	objData, err := ctx.Query("request.object." + jmespath)
+	if err != nil {
+		return false, errors.Wrap(err, "failed to query request.object")
+	}
+
+	if objData == nil {
+		return false, fmt.Errorf("request.object.%s not found", jmespath)
+	}
+
+	oldObjData, err := ctx.Query("request.oldObject." + jmespath)
+	if err != nil {
+		return false, errors.Wrap(err, "failed to query request.object")
+	}
+
+	if oldObjData == nil {
+		return false, fmt.Errorf("request.oldObject.%s not found", jmespath)
+	}
+
+	if reflect.DeepEqual(objData, oldObjData) {
+		return false, nil
+	}
+
+	return true, nil
 }

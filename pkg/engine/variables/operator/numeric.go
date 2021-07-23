@@ -10,19 +10,21 @@ import (
 )
 
 //NewNumericOperatorHandler returns handler to manage the provided numeric operations (>, >=, <=, <)
-func NewNumericOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyverno.ConditionOperator) OperatorHandler {
+func NewNumericOperatorHandler(log logr.Logger, ctx context.EvalInterface, subHandler VariableSubstitutionHandler, op kyverno.ConditionOperator) OperatorHandler {
 	return NumericOperatorHandler{
-		ctx:       ctx,
-		log:       log,
-		condition: op,
+		ctx:        ctx,
+		subHandler: subHandler,
+		log:        log,
+		condition:  op,
 	}
 }
 
 //NumericOperatorHandler provides implementation to handle Numeric Operations associated with policies
 type NumericOperatorHandler struct {
-	ctx       context.EvalInterface
-	log       logr.Logger
-	condition kyverno.ConditionOperator
+	ctx        context.EvalInterface
+	subHandler VariableSubstitutionHandler
+	log        logr.Logger
+	condition  kyverno.ConditionOperator
 }
 
 // compareByCondition compares a float64 key with a float64 value on the basis of the provided operator
@@ -42,7 +44,27 @@ func compareByCondition(key float64, value float64, op kyverno.ConditionOperator
 	}
 }
 
-func (noh NumericOperatorHandler) Evaluate(key, value interface{}) bool {
+func (noh NumericOperatorHandler) Evaluate(key, value interface{}, isPreCondition bool) bool {
+	var err error
+	if key, err = noh.subHandler(noh.log, noh.ctx, key); err != nil {
+		// Failed to resolve the variable
+		if isPreCondition {
+			noh.log.Info("Failed to resolve variable", "info", err.Error(), "variable", key)
+		} else {
+			noh.log.Error(err, "Failed to resolve variable", "variable", key)
+		}
+		return false
+	}
+	if value, err = noh.subHandler(noh.log, noh.ctx, value); err != nil {
+		// Failed to resolve the variable
+		if isPreCondition {
+			noh.log.Info("Failed to resolve variable", "info", err.Error(), "variable", value)
+		} else {
+			noh.log.Error(err, "Failed to resolve variable", "variable", value)
+		}
+		return false
+	}
+
 	switch typedKey := key.(type) {
 	case int:
 		return noh.validateValueWithIntPattern(int64(typedKey), value)

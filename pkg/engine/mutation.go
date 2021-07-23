@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	gojmespath "github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -41,7 +42,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	defer endMutateResultResponse(logger, resp, startTime)
 
 	if ManagedPodResource(policy, patchedResource) {
-		logger.V(5).Info("skip applying policy as direct changes to pods managed by workload controllers are not allowed", "policy", policy.GetName())
+		logger.V(5).Info("changes to pods managed by workload controllers are not permitted", "policy", policy.GetName())
 		resp.PatchedResource = patchedResource
 		return
 	}
@@ -52,15 +53,13 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	var err error
 
 	for _, rule := range policy.Spec.Rules {
-		var ruleResponse response.RuleResponse
-		logger := logger.WithValues("rule", rule.Name)
 		if !rule.HasMutate() {
 			continue
 		}
 
-		// check if the resource satisfies the filter conditions defined in the rule
-		//TODO: this needs to be extracted, to filter the resource so that we can avoid passing resources that
-		// don't satisfy a policy rule resource description
+		var ruleResponse response.RuleResponse
+		logger := logger.WithValues("rule", rule.Name)
+
 		excludeResource := []string{}
 		if len(policyContext.ExcludeGroupRole) > 0 {
 			excludeResource = policyContext.ExcludeGroupRole
@@ -73,9 +72,24 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 		logger.V(3).Info("matched mutate rule")
 
+		// Restore() is meant for restoring context loaded from external lookup (APIServer & ConfigMap)
+		// while we need to keep updated resource in the JSON context as rules can be chained
+		resource, err := policyContext.JSONContext.Query("request.object")
 		policyContext.JSONContext.Restore()
-		if err = LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
-			logger.Error(err, "failed to load context")
+		if err == nil && resource != nil {
+			if err := ctx.AddResourceAsObject(resource.(map[string]interface{})); err != nil {
+				logger.WithName("RestoreContext").Error(err, "unable to update resource object")
+			}
+		} else {
+			logger.WithName("RestoreContext").Error(err, "failed to quey resource object")
+		}
+
+		if err := LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
+			if _, ok := err.(gojmespath.NotFoundError); ok {
+				logger.V(3).Info("failed to load context", "reason", err.Error())
+			} else {
+				logger.Error(err, "failed to load context")
+			}
 			continue
 		}
 
@@ -91,13 +105,14 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			logger.V(2).Info("failed to load context", "reason", err.Error())
 			continue
 		}
-
-		if !variables.EvaluateConditions(logger, ctx, copyConditions) {
+		// evaluate pre-conditions
+		// - handle variable substitutions
+		if !variables.EvaluateConditions(logger, ctx, copyConditions, true) {
 			logger.V(3).Info("resource fails the preconditions")
 			continue
 		}
 
-		if rule, err = variables.SubstituteAllInRule(logger, policyContext.JSONContext, rule); err != nil {
+		if rule, err = variables.SubstituteAllInRule(logger, ctx, rule); err != nil {
 			ruleResp := response.RuleResponse{
 				Name:    rule.Name,
 				Type:    utils.Validation.String(),
@@ -122,6 +137,10 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			}
 
 			logger.V(4).Info("mutate rule applied successfully", "ruleName", rule.Name)
+		}
+
+		if err := ctx.AddResourceAsObject(patchedResource.Object); err != nil {
+			logger.Error(err, "failed to update resource in the JSON context")
 		}
 
 		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)

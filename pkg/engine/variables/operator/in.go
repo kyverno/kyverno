@@ -11,21 +11,43 @@ import (
 )
 
 //NewInHandler returns handler to manage In operations
-func NewInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
+func NewInHandler(log logr.Logger, ctx context.EvalInterface, subHandler VariableSubstitutionHandler) OperatorHandler {
 	return InHandler{
-		ctx: ctx,
-		log: log,
+		ctx:        ctx,
+		subHandler: subHandler,
+		log:        log,
 	}
 }
 
 //InHandler provides implementation to handle In Operator
 type InHandler struct {
-	ctx context.EvalInterface
-	log logr.Logger
+	ctx        context.EvalInterface
+	subHandler VariableSubstitutionHandler
+	log        logr.Logger
 }
 
 //Evaluate evaluates expression with In Operator
-func (in InHandler) Evaluate(key, value interface{}) bool {
+func (in InHandler) Evaluate(key, value interface{}, isPreCondition bool) bool {
+	var err error
+	// substitute the variables
+	if key, err = in.subHandler(in.log, in.ctx, key); err != nil {
+		if isPreCondition {
+			in.log.Info("Failed to resolve variable", "info", err.Error(), "variable", key)
+		} else {
+			in.log.Error(err, "Failed to resolve variable", "variable", key)
+		}
+		return false
+	}
+
+	if value, err = in.subHandler(in.log, in.ctx, value); err != nil {
+		if isPreCondition {
+			in.log.Info("Failed to resolve variable", "info", err.Error(), "variable", value)
+		} else {
+			in.log.Error(err, "Failed to resolve variable", "variable", value)
+		}
+		return false
+	}
+
 	switch typedKey := key.(type) {
 	case string:
 		return in.validateValueWithStringPattern(typedKey, value)

@@ -158,14 +158,14 @@ func (c *Controller) deletePolicy(obj interface{}) {
 
 	for _, gr := range grList {
 		for _, generatedResource := range gr.Status.GeneratedResources {
-			logger.Info("retaining resource", "APIVersion", generatedResource.APIVersion, "Kind", generatedResource.Kind, "Name", generatedResource.Name, "Nmaespace", generatedResource.Namespace)
+			logger.V(4).Info("retaining resource", "apiVersion", generatedResource.APIVersion, "kind", generatedResource.Kind, "name", generatedResource.Name, "namespace", generatedResource.Namespace)
 		}
 	}
 
 	if !generatePolicyWithClone {
 		grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(p.Name)
 		if err != nil {
-			logger.Error(err, "failed to generate request CR for the policy", "name", p.Name)
+			logger.Error(err, "failed to generate request for the policy", "name", p.Name)
 			return
 		}
 

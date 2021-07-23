@@ -227,6 +227,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	for _, resp := range resps {
 		policyName := resp.PolicyResponse.Policy.Name
 		resourceName := resp.PolicyResponse.Resource.Name
+
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {
 			rules = append(rules, rule.Name)
@@ -257,14 +258,18 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 				if rule.Type != utils.Validation.String() {
 					continue
 				}
+				ruleName := strings.ReplaceAll(rule.Name, "autogen-", "")
+				if strings.Contains(rule.Name, "autogen-cronjob") {
+					ruleName = strings.ReplaceAll(rule.Name, "autogen-cronjob-", "")
+				}
 				var result report.PolicyReportResult
-				resultsKey := fmt.Sprintf("%s-%s-%s", info.PolicyName, rule.Name, infoResult.Resource.Name)
+				resultsKey := fmt.Sprintf("%s-%s-%s", info.PolicyName, ruleName, infoResult.Resource.Name)
 				if val, ok := results[resultsKey]; ok {
 					result = val
 				} else {
 					continue
 				}
-				result.Rule = rule.Name
+				result.Rule = ruleName
 				result.Status = report.PolicyStatus(rule.Check)
 				results[resultsKey] = result
 			}
@@ -300,7 +305,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 
 	fmt.Printf("\nExecuting %s...", values.Name)
 
-	_, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
+	_, valuesMap, namespaceSelectorMap, operationIsDelete, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to decode yaml", err)
@@ -316,37 +321,44 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		os.Exit(1)
 	}
+
 	mutatedPolicies, err := common.MutatePolices(policies)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to mutate policy", err)
 		}
 	}
+
 	resources, err := common.GetResourceAccordingToResourcePath(fs, fullResourcePath, false, mutatedPolicies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		os.Exit(1)
 	}
+
 	msgPolicies := "1 policy"
 	if len(mutatedPolicies) > 1 {
 		msgPolicies = fmt.Sprintf("%d policies", len(policies))
 	}
+
 	msgResources := "1 resource"
 	if len(resources) > 1 {
 		msgResources = fmt.Sprintf("%d resources", len(resources))
 	}
+
 	if len(mutatedPolicies) > 0 && len(resources) > 0 {
 		fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
 	}
+
 	for _, policy := range mutatedPolicies {
 		err := policy2.Validate(policy, nil, true, openAPIController)
 		if err != nil {
-			log.Log.V(3).Info(fmt.Sprintf("skipping policy %v as it is not valid", policy.Name), "error", err)
+			log.Log.Error(err, "skipping invalid policy", "name", policy.Name)
 			continue
 		}
+
 		matches := common.PolicyHasVariables(*policy)
-		variable := common.RemoveDuplicateVariables(matches)
-		if len(matches) > 0 && variablesString == "" && values.Variables == "" {
+		variable := common.RemoveDuplicateAndObjectVariables(matches)
+		if len(variable) > 0 && variablesString == "" && values.Variables == "" {
 			skipPolicy := SkippedPolicy{
 				Name:     policy.GetName(),
 				Rules:    policy.Spec.Rules,
@@ -373,11 +385,11 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			if len(valuesMap[policy.GetName()]) != 0 && !reflect.DeepEqual(valuesMap[policy.GetName()][resource.GetName()], Resource{}) {
 				thisPolicyResourceValues = valuesMap[policy.GetName()][resource.GetName()].Values
 			}
-			if len(common.PolicyHasVariables(*policy)) > 0 && len(thisPolicyResourceValues) == 0 {
+			if len(variable) > 0 && len(thisPolicyResourceValues) == 0 {
 				return sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 			}
 
-			ers, validateErs, _, _, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false)
+			ers, validateErs, _, _, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false, operationIsDelete)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}

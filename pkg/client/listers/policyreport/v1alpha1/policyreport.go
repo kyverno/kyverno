@@ -26,8 +26,10 @@ import (
 )
 
 // PolicyReportLister helps list PolicyReports.
+// All objects returned here must be treated as read-only.
 type PolicyReportLister interface {
 	// List lists all PolicyReports in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.PolicyReport, err error)
 	// PolicyReports returns an object that can list and get PolicyReports.
 	PolicyReports(namespace string) PolicyReportNamespaceLister
@@ -58,10 +60,13 @@ func (s *policyReportLister) PolicyReports(namespace string) PolicyReportNamespa
 }
 
 // PolicyReportNamespaceLister helps list and get PolicyReports.
+// All objects returned here must be treated as read-only.
 type PolicyReportNamespaceLister interface {
 	// List lists all PolicyReports in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.PolicyReport, err error)
 	// Get retrieves the PolicyReport from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.PolicyReport, error)
 	PolicyReportNamespaceListerExpansion
 }

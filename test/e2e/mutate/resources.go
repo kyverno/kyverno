@@ -132,7 +132,7 @@ spec:
       patchesJson6902: |-
         - op: replace
           path: /spec/rules/0/host
-          value: {{request.object.spec.rules[0].host}}.mycompany.com
+          value: "{{request.object.spec.rules[0].host}}.mycompany.com"
 `)
 
 var ingressNetworkingV1 = []byte(`

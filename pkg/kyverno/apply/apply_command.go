@@ -157,7 +157,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("pass the values either using set flag or values_file flag", err)
 	}
 
-	variables, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
+	variables, valuesMap, namespaceSelectorMap, operationIsDelete, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -263,9 +263,9 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		}
 
 		matches := common.PolicyHasVariables(*policy)
-		variable := common.RemoveDuplicateVariables(matches)
+		variable := common.RemoveDuplicateAndObjectVariables(matches)
 
-		if len(matches) > 0 && variablesString == "" && valuesFile == "" {
+		if len(variable) > 0 && variablesString == "" && valuesFile == "" {
 			rc.skip++
 			skipPolicy := SkippedPolicy{
 				Name:     policy.GetName(),
@@ -288,11 +288,11 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				thisPolicyResourceValues[k] = v
 			}
 
-			if len(common.PolicyHasVariables(*policy)) > 0 && len(thisPolicyResourceValues) == 0 && len(store.GetContext().Policies) == 0 {
+			if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && len(store.GetContext().Policies) == 0 {
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 			}
 
-			ers, validateErs, responseError, rcErs, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin)
+			ers, validateErs, responseError, rcErs, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin, operationIsDelete)
 			if err != nil {
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}
@@ -341,7 +341,7 @@ func printReportOrViolation(policyReport bool, validateEngineResponses []*respon
 		resps := buildPolicyReports(validateEngineResponses, skippedPolicies)
 		if len(resps) > 0 || resourcesLen == 0 {
 			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
-			report, _ := generateCLIraw(resps)
+			report, _ := generateCLIRaw(resps)
 			yamlReport, _ := yaml1.Marshal(report)
 			fmt.Println(string(yamlReport))
 		} else {

@@ -79,14 +79,14 @@ func GetWithRetry(sleepInterval time.Duration, retryCount int, retryFunc func() 
 	var err error
 	for i := 0; i < retryCount; i++ {
 		err = retryFunc()
-		if err != nil {
-			time.Sleep(sleepInterval * time.Second)
-			continue
-		} else {
-			break
+		if err == nil {
+			return nil
 		}
+
+		time.Sleep(sleepInterval)
 	}
-	return err
+
+	return fmt.Errorf("operation failed, retries=%v, duration=%v: %v", retryCount, sleepInterval, err)
 }
 
 // DeleteNamespacedResource ...
@@ -122,9 +122,6 @@ func (e2e *E2EClient) CreateNamespacedResourceYaml(gvr schema.GroupVersionResour
 		return nil, err
 	}
 	result, err := e2e.Client.Resource(gvr).Namespace(namespace).Create(context.TODO(), &resource, metav1.CreateOptions{})
-	if gvr.Resource == "clusterpolicies" {
-		time.Sleep(1 * time.Second)
-	}
 	return result, err
 }
 

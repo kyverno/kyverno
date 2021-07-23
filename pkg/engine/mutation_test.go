@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"gotest.tools/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func Test_VariableSubstitutionOverlay(t *testing.T) {
@@ -262,6 +263,42 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 	t.Log(string(expectedPatch))
 	t.Log(string(er.PolicyResponse.Rules[0].Patches[0]))
 	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches[0]) {
-		t.Error("patches dont match")
+		t.Error("patches don't match")
 	}
+}
+
+// https://github.com/kyverno/kyverno/issues/2022
+func Test_chained_rules(t *testing.T) {
+	policyRaw := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"replace-image-registry","annotations":{"policies.kyverno.io/minversion":"1.4.2"}},"spec":{"background":false,"rules":[{"name":"replace-image-registry","match":{"resources":{"kinds":["Pod"]}},"mutate":{"patchStrategicMerge":{"spec":{"containers":[{"(name)":"*","image":"{{regex_replace_all('^[^/]+','{{@}}','myregistry.corp.com')}}"}]}}}},{"name":"replace-image-registry-chained","match":{"resources":{"kinds":["Pod"]}},"mutate":{"patchStrategicMerge":{"spec":{"containers":[{"(name)":"*","image":"{{regex_replace_all('\\b(myregistry.corp.com)\\b','{{@}}','otherregistry.corp.com')}}"}]}}}}]}}`)
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &policy)
+	assert.NilError(t, err)
+
+	resourceRaw := []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test"},"spec":{"containers":[{"name":"test","image":"foo/bash:5.0"}]}}`)
+	resource, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResourceAsObject(resource.Object)
+	assert.NilError(t, err)
+
+	policyContext := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		NewResource: *resource,
+	}
+
+	err = ctx.AddImageInfo(resource)
+	assert.NilError(t, err)
+
+	err = context.MutateResourceWithImageInfo(resourceRaw, ctx)
+	assert.NilError(t, err)
+
+	er := Mutate(policyContext)
+	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
+	assert.NilError(t, err)
+	assert.Equal(t, containers[0].(map[string]interface{})["image"], "otherregistry.corp.com/foo/bash:5.0")
+
+	assert.Equal(t, string(er.PolicyResponse.Rules[0].Patches[0]), `{"op":"replace","path":"/spec/containers/0/image","value":"myregistry.corp.com/foo/bash:5.0"}`)
+	assert.Equal(t, string(er.PolicyResponse.Rules[1].Patches[0]), `{"op":"replace","path":"/spec/containers/0/image","value":"otherregistry.corp.com/foo/bash:5.0"}`)
 }

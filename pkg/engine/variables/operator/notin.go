@@ -8,21 +8,44 @@ import (
 )
 
 //NewNotInHandler returns handler to manage NotIn operations
-func NewNotInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
+func NewNotInHandler(log logr.Logger, ctx context.EvalInterface, subHandler VariableSubstitutionHandler) OperatorHandler {
 	return NotInHandler{
-		ctx: ctx,
-		log: log,
+		ctx:        ctx,
+		subHandler: subHandler,
+		log:        log,
 	}
 }
 
 //NotInHandler provides implementation to handle NotIn Operator
 type NotInHandler struct {
-	ctx context.EvalInterface
-	log logr.Logger
+	ctx        context.EvalInterface
+	subHandler VariableSubstitutionHandler
+	log        logr.Logger
 }
 
 //Evaluate evaluates expression with NotIn Operator
-func (nin NotInHandler) Evaluate(key, value interface{}) bool {
+func (nin NotInHandler) Evaluate(key, value interface{}, isPreCondition bool) bool {
+	var err error
+
+	// substitute the variables
+	if key, err = nin.subHandler(nin.log, nin.ctx, key); err != nil {
+		if isPreCondition {
+			nin.log.Info("Failed to resolve variable", "info", err.Error(), "variable", key)
+		} else {
+			nin.log.Error(err, "Failed to resolve variable", "variable", key)
+		}
+		return false
+	}
+
+	if value, err = nin.subHandler(nin.log, nin.ctx, value); err != nil {
+		if isPreCondition {
+			nin.log.Info("Failed to resolve variable", "info", err.Error(), "variable", value)
+		} else {
+			nin.log.Error(err, "Failed to resolve variable", "variable", value)
+		}
+		return false
+	}
+
 	switch typedKey := key.(type) {
 	case string:
 		return nin.validateValueWithStringPattern(typedKey, value)

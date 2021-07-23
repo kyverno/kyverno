@@ -28,8 +28,11 @@ import (
 // - ResourceDescription mandatory checks
 func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
 	p := *policy
-	if len(common.PolicyHasVariables(p)) > 0 && common.PolicyHasNonAllowedVariables(p) {
-		return fmt.Errorf("policy contains invalid variables")
+	if len(common.PolicyHasVariables(p)) > 0 {
+		err := common.PolicyHasNonAllowedVariables(p)
+		if err != nil {
+			return fmt.Errorf("policy contains invalid variables: %s", err.Error())
+		}
 	}
 
 	// policy name is stored in the label of the report change request
@@ -48,7 +51,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 	for i, rule := range p.Spec.Rules {
 		if jsonPatchOnPod(rule) {
-			log.Log.V(1).Info("warning: pods managed by workload controllers cannot be mutated using policies. Use the auto-gen feature or write policies that match pod controllers.")
+			log.Log.V(1).Info("pods managed by workload controllers cannot be mutated using policies. Use the auto-gen feature or write policies that match pod controllers.")
 		}
 		// validate resource description
 		if path, err := validateResources(rule); err != nil {
@@ -113,7 +116,11 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 				return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 					" the rule does not match an kind")
 			}
-			return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+			return fmt.Errorf("at least one element must be specified in a kind block. the kind attribute is mandatory when working with the resources element")
+		}
+
+		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
+			return fmt.Errorf("wildcards (*) are currently not supported in the match.resources.kinds field. at least one resource kind must be specified in a kind block.")
 		}
 
 		// Validate string values in labels
@@ -630,7 +637,7 @@ func validateUniqueRuleName(p kyverno.ClusterPolicy) (string, error) {
 
 // validateRuleType checks only one type of rule is defined per rule
 func validateRuleType(r kyverno.Rule) error {
-	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate()}
+	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate(), r.HasVerifyImages()}
 
 	operationCount := func() int {
 		count := 0
@@ -643,9 +650,9 @@ func validateRuleType(r kyverno.Rule) error {
 	}()
 
 	if operationCount == 0 {
-		return fmt.Errorf("no operation defined in the rule '%s'.(supported operations: mutation,validation,generation)", r.Name)
+		return fmt.Errorf("no operation defined in the rule '%s'.(supported operations: mutate,validate,generate,verifyImages)", r.Name)
 	} else if operationCount != 1 {
-		return fmt.Errorf("multiple operations defined in the rule '%s', only one type of operation is allowed per rule", r.Name)
+		return fmt.Errorf("multiple operations defined in the rule '%s', only one operation (mutate,validate,generate,verifyImages) is allowed per rule", r.Name)
 	}
 	return nil
 }
