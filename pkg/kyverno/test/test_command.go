@@ -305,7 +305,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 
 	fmt.Printf("\nExecuting %s...", values.Name)
 
-	_, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
+	_, valuesMap, namespaceSelectorMap, operationIsDelete, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to decode yaml", err)
@@ -357,8 +357,8 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		}
 
 		matches := common.PolicyHasVariables(*policy)
-		variable := common.RemoveDuplicateVariables(matches)
-		if len(matches) > 0 && variablesString == "" && values.Variables == "" {
+		variable := common.RemoveDuplicateAndObjectVariables(matches)
+		if len(variable) > 0 && variablesString == "" && values.Variables == "" {
 			skipPolicy := SkippedPolicy{
 				Name:     policy.GetName(),
 				Rules:    policy.Spec.Rules,
@@ -385,11 +385,11 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			if len(valuesMap[policy.GetName()]) != 0 && !reflect.DeepEqual(valuesMap[policy.GetName()][resource.GetName()], Resource{}) {
 				thisPolicyResourceValues = valuesMap[policy.GetName()][resource.GetName()].Values
 			}
-			if len(common.PolicyHasVariables(*policy)) > 0 && len(thisPolicyResourceValues) == 0 {
+			if len(variable) > 0 && len(thisPolicyResourceValues) == 0 {
 				return sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 			}
 
-			ers, validateErs, _, _, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false)
+			ers, validateErs, _, _, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false, operationIsDelete)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}
