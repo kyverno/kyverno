@@ -377,7 +377,6 @@ type Generation struct {
 	// Data provides the resource declaration used to populate each generated resource.
 	// At most one of Data or Clone must be specified. If neither are provided, the generated
 	// resource will be created with default data only.
-	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	Data apiextensions.JSON `json:"data,omitempty" yaml:"data,omitempty"`
 
