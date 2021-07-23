@@ -1,11 +1,13 @@
 package context
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/distribution/distribution/reference"
 	"github.com/go-logr/logr"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -188,4 +190,32 @@ func addDefaultDomain(name string) string {
 	}
 
 	return name
+}
+
+func MutateResourceWithImageInfo(raw []byte, ctx *Context) error {
+	images := ctx.ImageInfo()
+	if images == nil {
+		return nil
+	}
+
+	buildJSONPatch := func(op, path, value string) []byte {
+		p := fmt.Sprintf(`{ "op": "%s", "path": "%s", "value":"%s" }`, op, path, value)
+		return []byte(p)
+	}
+
+	var patches [][]byte
+	for _, info := range images.Containers {
+		patches = append(patches, buildJSONPatch("replace", info.JSONPointer, info.String()))
+	}
+
+	for _, info := range images.InitContainers {
+		patches = append(patches, buildJSONPatch("replace", info.JSONPointer, info.String()))
+	}
+
+	patchedResource, err := engineutils.ApplyPatches(raw, patches)
+	if err != nil {
+		return err
+	}
+
+	return ctx.AddResource(patchedResource)
 }
