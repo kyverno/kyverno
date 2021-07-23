@@ -143,7 +143,7 @@ func (ctx *Context) AddResource(dataRaw []byte) error {
 	return ctx.AddJSON(objRaw)
 }
 
-//AddResource data at path: request.oldObject
+//AddResourceInOldObject data at path: request.oldObject
 func (ctx *Context) AddResourceInOldObject(dataRaw []byte) error {
 
 	// unmarshal the resource struct
@@ -160,6 +160,25 @@ func (ctx *Context) AddResourceInOldObject(dataRaw []byte) error {
 			OldObject interface{} `json:"oldObject"`
 		}{
 			OldObject: data,
+		},
+	}
+
+	objRaw, err := json.Marshal(modifiedResource)
+	if err != nil {
+		ctx.log.Error(err, "failed to marshal the resource")
+		return err
+	}
+	return ctx.AddJSON(objRaw)
+}
+
+func (ctx *Context) AddResourceAsObject(data interface{}) error {
+	modifiedResource := struct {
+		Request interface{} `json:"request"`
+	}{
+		Request: struct {
+			Object interface{} `json:"object"`
+		}{
+			Object: data,
 		},
 	}
 
