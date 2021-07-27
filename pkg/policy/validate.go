@@ -65,6 +65,8 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 // - ResourceDescription mandatory checks
 func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
 	p := *policy
+	namespacedPolicyBool := false
+	clusterResources := make([]string, 0)
 	if len(common.PolicyHasVariables(p)) > 0 {
 		err := common.PolicyHasNonAllowedVariables(p)
 		if err != nil {
@@ -83,6 +85,36 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 	if p.Spec.Background == nil || *p.Spec.Background == true {
 		if err := ContainsVariablesOtherThanObject(p); err != nil {
 			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule: %s ", err)
+		}
+	}
+
+	if p.ObjectMeta.Namespace != "" {
+		namespacedPolicyBool = true
+	}
+
+	var res []*metav1.APIResourceList
+
+	if !mock && namespacedPolicyBool {
+		var Empty struct{}
+		clusterResourcesMap := make(map[string]*struct{})
+		// Get all the cluster type kind supported by cluster
+
+		res, err := client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
+		if err != nil {
+			return err
+		}
+		for _, resList := range res {
+			for _, r := range resList.APIResources {
+				if !r.Namespaced {
+					if _, ok := clusterResourcesMap[r.Kind]; !ok {
+						clusterResourcesMap[r.Kind] = &Empty
+					}
+				}
+			}
+		}
+
+		for k := range clusterResourcesMap {
+			clusterResources = append(clusterResources, k)
 		}
 	}
 
@@ -118,55 +150,56 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 		// validate Cluster Resources in namespaced policy
 		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
-		if !mock {
-			res, err := client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
-			if err != nil {
-				return err
-			}
-			if p.ObjectMeta.Namespace != "" {
-				var Empty struct{}
-				clusterResourcesMap := make(map[string]*struct{})
-				// Get all the cluster type kind supported by cluster
-				for _, resList := range res {
-					for _, r := range resList.APIResources {
-						if !r.Namespaced {
-							if _, ok := clusterResourcesMap[r.Kind]; !ok {
-								clusterResourcesMap[r.Kind] = &Empty
-							}
-						}
-					}
-				}
+		if namespacedPolicyBool {
+			return checkClusterResourceInMatchAndExclude(rule, clusterResources, mock, res)
 
-				clusterResources := make([]string, 0, len(clusterResourcesMap))
-				for k := range clusterResourcesMap {
-					clusterResources = append(clusterResources, k)
-				}
-				return checkClusterResourceInMatchAndExclude(rule, clusterResources)
-			}
-
-			// Check for generate policy
-			// - if resource to be generated is namespaced resource then the namespace field
-			// should be mentioned
-			// - if resource to be generated is non namespaced resource then the namespace field
-			// should not be mentioned
-			if rule.HasGenerate() {
-				generateResourceKind := rule.Generation.Kind
-				for _, resList := range res {
-					for _, r := range resList.APIResources {
-						if r.Kind == generateResourceKind {
-							if r.Namespaced {
-								if rule.Generation.Namespace == "" {
-									return fmt.Errorf("path: spec.rules[%v]: please mention the namespace to generate a namespaced resource", rule.Name)
-								}
-							} else {
-								if rule.Generation.Namespace != "" {
-									return fmt.Errorf("path: spec.rules[%v]: do not mention the namespace to generate a non namespaced resource", rule.Name)
-								}
-							}
-						}
-					}
-				}
-			}
+			// if !mock {
+			// 	res, err := client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
+			// 	if err != nil {
+			// 		return err
+			// 	}
+			// 	if p.ObjectMeta.Namespace != "" {
+			// 		var Empty struct{}
+			// 		clusterResourcesMap := make(map[string]*struct{})
+			// 		// Get all the cluster type kind supported by cluster
+			// 		for _, resList := range res {
+			// 			for _, r := range resList.APIResources {
+			// 				if !r.Namespaced {
+			// 					if _, ok := clusterResourcesMap[r.Kind]; !ok {
+			// 						clusterResourcesMap[r.Kind] = &Empty
+			// 					}
+			// 				}
+			// 			}
+			// 		}
+			// 		clusterResources := make([]string, 0, len(clusterResourcesMap))
+			// 		for k := range clusterResourcesMap {
+			// 			clusterResources = append(clusterResources, k)
+			// 		}
+			// 		return checkClusterResourceInMatchAndExclude(rule, clusterResources)
+			// 	}
+			// 	// Check for generate policy
+			// 	// - if resource to be generated is namespaced resource then the namespace field
+			// 	// should be mentioned
+			// 	// - if resource to be generated is non namespaced resource then the namespace field
+			// 	// should not be mentioned
+			// 	if rule.HasGenerate() {
+			// 		generateResourceKind := rule.Generation.Kind
+			// 		for _, resList := range res {
+			// 			for _, r := range resList.APIResources {
+			// 				if r.Kind == generateResourceKind {
+			// 					if r.Namespaced {
+			// 						if rule.Generation.Namespace == "" {
+			// 							return fmt.Errorf("path: spec.rules[%v]: please mention the namespace to generate a namespaced resource", rule.Name)
+			// 						}
+			// 					} else {
+			// 						if rule.Generation.Namespace != "" {
+			// 							return fmt.Errorf("path: spec.rules[%v]: do not mention the namespace to generate a non namespaced resource", rule.Name)
+			// 						}
+			// 					}
+			// 				}
+			// 			}
+			// 		}
+			// 	}
 		}
 
 		if doMatchAndExcludeConflict(rule) {
@@ -1108,7 +1141,7 @@ func validateResourceDescription(rd kyverno.ResourceDescription) error {
 
 // checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in
 // Match and Exclude block
-func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources []string) error {
+func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources []string, mock bool, res []*metav1.APIResourceList) error {
 	// Contains Namespaces in Match->ResourceDescription
 	if len(rule.MatchResources.ResourceDescription.Namespaces) > 0 {
 		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in match.resources")
@@ -1117,19 +1150,48 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources [
 	if len(rule.ExcludeResources.ResourceDescription.Namespaces) > 0 {
 		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in exclude.resources")
 	}
-	// Contains "Cluster Wide Resources" in Match->ResourceDescription->Kinds
-	for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
-		for _, k := range clusterResources {
-			if kind == k {
-				return fmt.Errorf("namespaced policy : cluster type value '%s' not allowed in match.resources.kinds", kind)
+
+	if !mock {
+		// Contains "Cluster Wide Resources" in Match->ResourceDescription->Kinds
+		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
+			for _, k := range clusterResources {
+				if kind == k {
+					return fmt.Errorf("namespaced policy : cluster type value '%s' not allowed in match.resources.kinds", kind)
+				}
 			}
 		}
-	}
-	// Contains "Cluster Wide Resources" in Exclude->ResourceDescription->Kinds
-	for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-		for _, k := range clusterResources {
-			if kind == k {
-				return fmt.Errorf("namespaced policy : cluster type value '%s' not allowed in exclude.resources.kinds", kind)
+
+		// Contains "Cluster Wide Resources" in Exclude->ResourceDescription->Kinds
+		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
+			for _, k := range clusterResources {
+				if kind == k {
+					return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in exclude.resources.kinds", kind)
+				}
+			}
+
+		}
+
+		// Check for generate policy
+		// - if resource to be generated is namespaced resource then the namespace field
+		// should be mentioned
+		// - if resource to be generated is non namespaced resource then the namespace field
+		// should not be mentioned
+		if rule.HasGenerate() {
+			generateResourceKind := rule.Generation.Kind
+			for _, resList := range res {
+				for _, r := range resList.APIResources {
+					if r.Kind == generateResourceKind {
+						if r.Namespaced {
+							if rule.Generation.Namespace == "" {
+								return fmt.Errorf("path: spec.rules[%v]: please mention the namespace to generate a namespaced resource", rule.Name)
+							}
+						} else {
+							if rule.Generation.Namespace != "" {
+								return fmt.Errorf("path: spec.rules[%v]: do not mention the namespace to generate a non namespaced resource", rule.Name)
+							}
+						}
+					}
+				}
 			}
 		}
 
