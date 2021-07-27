@@ -2212,7 +2212,18 @@
     "style": "dark",
     "tags": [],
     "templating": {
-      "list": []
+      "list": [
+        {
+          "hide": 0,
+          "label": "datasource",
+          "name": "DS_PROMETHEUS_KYVERNO",
+          "options": [],
+          "query": "prometheus",
+          "refresh": 1,
+          "regex": "",
+          "type": "datasource"
+        }
+      ]
     },
     "time": {
       "from": "now-30m",
