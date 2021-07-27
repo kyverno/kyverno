@@ -285,6 +285,7 @@ func newAnyPolicy(t *testing.T) *kyverno.ClusterPolicy {
 		},
 		"spec": {
 			"background": false,
+			"validationFailureAction": "enforce",
 			"rules": [
 				{
 					"name": "any-match-rule",
@@ -312,15 +313,13 @@ func newAnyPolicy(t *testing.T) *kyverno.ClusterPolicy {
 							}
 						]
 					},
-					"mutate": {
-						"overlay": {
-							"spec": {
-								"containers": [
-									{
-										"(image)": "*",
-										"imagePullPolicy": "IfNotPresent"
-									}
-								]
+					"validate": {
+						"message": "label 'app.kubernetes.io/name' is required",
+						"pattern": {
+							"metadata": {
+								"labels": {
+									"app.kubernetes.io/name": "?*"
+								}
 							}
 						}
 					}
