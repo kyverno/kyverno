@@ -133,9 +133,20 @@ func Test_Add_Remove(t *testing.T) {
 	policy := newPolicy(t)
 	kind := "Pod"
 	pCache.Add(policy)
+
 	validateEnforce := pCache.get(ValidateEnforce, kind, "")
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
+	}
+
+	mutate := pCache.get(Mutate, kind, "")
+	if len(mutate) != 1 {
+		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
+	}
+
+	generate := pCache.get(Generate, kind, "")
+	if len(mutate) != 1 {
+		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
 
 	pCache.Remove(policy)
@@ -150,9 +161,20 @@ func Test_Add_Remove_Any(t *testing.T) {
 	policy := newAnyPolicy(t)
 	kind := "Pod"
 	pCache.Add(policy)
+
 	validateEnforce := pCache.get(ValidateEnforce, kind, "")
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
+	}
+
+	mutate := pCache.get(Mutate, kind, "")
+	if len(mutate) != 1 {
+		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
+	}
+
+	generate := pCache.get(Generate, kind, "")
+	if len(mutate) != 1 {
+		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
 
 	pCache.Remove(policy)
