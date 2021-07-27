@@ -735,6 +735,62 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 				}
 			  }`),
 		},
+		{
+			rawPolicy: []byte(`{
+				"metadata": {
+				  "annotations": {
+					"+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
+				  }
+				},
+				"spec": {
+				  "volumes": [
+					{
+					  "hostPath": {
+						"<(path)": "*data"
+					  }
+					}
+				  ]
+				}
+			  }`),
+			rawResource: []byte(`{
+				"kind": "Pod",
+				"apiVersion": "v1",
+				"metadata": {
+				  "name": "nginx"
+				},
+				"spec": {
+				  "containers": [
+					{
+					  "name": "nginx",
+					  "image": "nginx:latest",
+					  "imagePullPolicy": "Never",
+					  "volumeMounts": [
+						{
+						  "mountPath": "/cache",
+						  "name": "cache-volume"
+						}
+					  ]
+					}
+				  ],
+				  "volumes": [
+					{
+					  "name": "cache-volume",
+					  "hostPath": {
+						"path": "/data",
+						"type": "Directory"
+					  }
+					}
+				  ]
+				}
+			  }`),
+			expectedPatch: []byte(`{
+				"metadata": {
+				  "annotations": {
+					"cluster-autoscaler.kubernetes.io/safe-to-evict": true
+				  }
+				}
+			  }`),
+		},
 	}
 
 	for i, test := range testCases {
@@ -807,7 +863,7 @@ func Test_CheckConditionAnchor_DoesNotMatch(t *testing.T) {
 	resource := yaml.MustParse(string(resourceRaw))
 
 	err := checkCondition(log.Log, pattern, resource)
-	assert.Error(t, err, "Condition failed: Validation rule failed at '/key1/' to validate value 'sample' with pattern 'value*'")
+	assert.Error(t, err, "Validation rule failed at '/key1/' to validate value 'sample' with pattern 'value*'")
 }
 
 func Test_ValidateConditions_MapWithOneCondition_Matches(t *testing.T) {

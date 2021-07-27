@@ -22,6 +22,18 @@ func NewConditionError(err error) error {
 	return ConditionError{err}
 }
 
+type GlobalConditionError struct {
+	errorChain error
+}
+
+func (ce GlobalConditionError) Error() string {
+	return fmt.Sprintf("Global condition failed: %s", ce.errorChain.Error())
+}
+
+func NewGlobalConditionError(err error) error {
+	return ConditionError{err}
+}
+
 // preProcessPattern - Dynamically preProcess the yaml
 // 1> For conditional anchor remove anchors from the pattern.
 // 2> For Adding anchors remove anchor tags.
@@ -52,7 +64,6 @@ func preProcessRecursive(logger logr.Logger, pattern, resource *yaml.RNode) erro
 	return nil
 }
 
-// walkMap - walk through the MappingNode
 func walkMap(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	var err error
 
@@ -92,7 +103,6 @@ func walkMap(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	return nil
 }
 
-// walkList - walk through array elements
 func walkList(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	elements, err := pattern.Elements()
 	if err != nil {
@@ -173,23 +183,18 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 // validateConditions checks all conditions from current map.
 // If at least one condition fails, return error.
 // If caller handles list of maps and gets an error, it must skip element.
+// If caller handles list of maps and gets GlobalConditionError, it must skip entire rule.
 // If caller handles map, it must stop processing and skip entire rule.
 func validateConditions(logger logr.Logger, pattern, resource *yaml.RNode) error {
-	conditions, err := filterKeys(pattern, anchor.IsConditionAnchor)
+	var err error
+	err = validateConditionsInternal(logger, pattern, resource, anchor.IsGlobalAnchor)
 	if err != nil {
-		return err
+		return NewGlobalConditionError(err)
 	}
 
-	for _, condition := range conditions {
-		conditionKey := removeAnchor(condition)
-		if resource == nil || resource.Field(conditionKey) == nil {
-			continue
-		}
-
-		err = checkCondition(logger, pattern.Field(condition).Value, resource.Field(conditionKey).Value)
-		if err != nil {
-			return err
-		}
+	err = validateConditionsInternal(logger, pattern, resource, anchor.IsConditionAnchor)
+	if err != nil {
+		return NewConditionError(err)
 	}
 
 	return nil
@@ -247,7 +252,7 @@ func hasAnchors(pattern *yaml.RNode) bool {
 		}
 
 		for _, key := range fields {
-			if anchor.IsConditionAnchor(key) || anchor.IsAddingAnchor(key) {
+			if anchor.ContainsCondition(key) || anchor.IsAddingAnchor(key) {
 				return true
 			}
 
@@ -304,11 +309,8 @@ func checkCondition(logger logr.Logger, pattern *yaml.RNode, resource *yaml.RNod
 	}
 
 	_, err = validate.ValidateResourceWithPattern(logger, resourceInterface, patternInterface)
-	if err != nil {
-		return NewConditionError(err)
-	}
 
-	return nil
+	return err
 }
 
 func deleteConditionsFromNestedMaps(pattern *yaml.RNode) error {
@@ -322,7 +324,7 @@ func deleteConditionsFromNestedMaps(pattern *yaml.RNode) error {
 	}
 
 	for _, field := range fields {
-		if anchor.IsConditionAnchor(field) {
+		if anchor.ContainsCondition(field) {
 			err = pattern.PipeE(yaml.Clear(field))
 			if err != nil {
 				return err
@@ -381,7 +383,7 @@ func deleteAnchors(node *yaml.RNode) (bool, error) {
 }
 
 func deleteAnchorsInMap(node *yaml.RNode) (bool, error) {
-	conditions, err := filterKeys(node, anchor.IsConditionAnchor)
+	conditions, err := filterKeys(node, anchor.ContainsCondition)
 	if err != nil {
 		return false, err
 	}
@@ -456,4 +458,25 @@ func deleteAnchorsInList(node *yaml.RNode) (bool, error) {
 func deleteListElement(list *yaml.RNode, i int) {
 	content := list.YNode().Content
 	list.YNode().Content = append(content[:i], content[i+1:]...)
+}
+
+func validateConditionsInternal(logger logr.Logger, pattern, resource *yaml.RNode, filter func(string) bool) error {
+	conditions, err := filterKeys(pattern, filter)
+	if err != nil {
+		return err
+	}
+
+	for _, condition := range conditions {
+		conditionKey := removeAnchor(condition)
+		if resource == nil || resource.Field(conditionKey) == nil {
+			continue
+		}
+
+		err = checkCondition(logger, pattern.Field(condition).Value, resource.Field(conditionKey).Value)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

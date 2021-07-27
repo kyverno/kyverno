@@ -17,6 +17,24 @@ func IsConditionAnchor(str string) bool {
 	return (str[0] == '(' && str[len(str)-1] == ')')
 }
 
+//IsGlobalAnchor checks for global condition anchor
+func IsGlobalAnchor(str string) bool {
+	left := "<("
+	right := ")"
+	if len(str) < len(left)+len(right) {
+		return false
+	}
+
+	//TODO: trim spaces ?
+	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
+}
+
+//ContainsCondition returns true, if str is either condition anchor or
+// global condition anchor
+func ContainsCondition(str string) bool {
+	return IsConditionAnchor(str) || IsGlobalAnchor(str)
+}
+
 //IsNegationAnchor checks for negation anchor
 func IsNegationAnchor(str string) bool {
 	left := "X("
