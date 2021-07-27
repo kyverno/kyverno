@@ -284,11 +284,10 @@ func newAnyPolicy(t *testing.T) *kyverno.ClusterPolicy {
 			"name": "test-policy"
 		},
 		"spec": {
-			"background": false,
 			"validationFailureAction": "enforce",
 			"rules": [
 				{
-					"name": "any-match-rule",
+					"name": "deny-privileged-disallowpriviligedescalation",
 					"match": {
 						"any": [
 							{
@@ -314,12 +313,129 @@ func newAnyPolicy(t *testing.T) *kyverno.ClusterPolicy {
 						]
 					},
 					"validate": {
-						"message": "label 'app.kubernetes.io/name' is required",
-						"pattern": {
-							"metadata": {
-								"labels": {
-									"app.kubernetes.io/name": "?*"
+						"deny": {
+							"conditions": {
+								"all": [
+									{
+										"key": "a",
+										"operator": "Equals",
+										"value": "a"
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"name": "deny-privileged-disallowpriviligedescalation",
+					"match": {
+						"all": [
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"names": [
+										"dev"
+									]
 								}
+							},
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"namespaces": [
+										"prod"
+									]
+								}
+							}
+						]
+					},
+					"validate": {
+						"pattern": {
+							"spec": {
+								"containers": [
+									{
+										"image": "!*:latest"
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"name": "annotate-host-path",
+					"match": {
+						"any": [
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"names": [
+										"dev"
+									]
+								}
+							},
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"namespaces": [
+										"prod"
+									]
+								}
+							}
+						]
+					},
+					"mutate": {
+						"overlay": {
+							"metadata": {
+								"annotations": {
+									"+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
+								}
+							}
+						}
+					}
+				},
+				{
+					"name": "default-deny-ingress",
+					"match": {
+						"any": [
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"names": [
+										"dev"
+									]
+								}
+							},
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"namespaces": [
+										"prod"
+									]
+								}
+							}
+						]
+					},
+					"generate": {
+						"kind": "NetworkPolicy",
+						"name": "default-deny-ingress",
+						"namespace": "{{request.object.metadata.name}}",
+						"data": {
+							"spec": {
+								"podSelector": {},
+								"policyTypes": [
+									"Ingress"
+								]
 							}
 						}
 					}
