@@ -184,6 +184,16 @@ test-e2e:
 	go test ./test/e2e/generate -v
 	$(eval export E2E="")
 
+test-e2e-local:
+	$(eval export E2E="ok")
+	kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/definitions/github/rbac.yaml
+	kubectl port-forward -n kyverno service/kyverno-svc-metrics  8000:8000 &
+	go test ./test/e2e/metrics -v
+	go test ./test/e2e/mutate -v
+	go test ./test/e2e/generate -v
+	kill  $!
+	$(eval export E2E="")
+
 #Test TestCmd Policy
 test-cmd: cli
 	$(PWD)/$(CLI_PATH)/kyverno test https://github.com/kyverno/policies/main
