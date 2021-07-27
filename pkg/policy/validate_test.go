@@ -1462,3 +1462,54 @@ func Test_Wildcards_Kind(t *testing.T) {
 	err = Validate(policy, nil, true, openAPIController)
 	assert.Assert(t, err != nil)
 }
+
+func Test_Namespced_Policy(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "Policy",
+		"metadata": {
+		  "name": "evil-policy-match-foreign-pods",
+		  "namespace": "customer-foo"
+		},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "evil-validation",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Pod"
+				  ],
+				  "namespaces": [
+					"customer-bar"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "Mua ah ah ... you've been pwned by customer-foo",
+				"pattern": {
+				  "metadata": {
+					"annotations": {
+					  "pwned-by-customer-foo": "true"
+					}
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }
+	`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openAPIController, _ := openapi.NewOpenAPIController()
+	err = Validate(policy, nil, true, openAPIController)
+	fmt.Println(err)
+	assert.Assert(t, err != nil)
+}
