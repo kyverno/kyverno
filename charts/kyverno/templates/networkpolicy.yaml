@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ template "kyverno.fullname" . }}
+  namespace: {{ template "kyverno.namespace" . }}
+spec:
+  podSelector:
+    matchLabels:
+      app: kyverno
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    ports:
+    - protocol: TCP
+      port: 9443 # webhook access
+
+
