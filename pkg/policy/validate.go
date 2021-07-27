@@ -114,30 +114,33 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		if len(rule.MatchResources.Any) > 0 {
 			for _, rmr := range rule.MatchResources.Any {
 				if len(rmr.Kinds) == 0 {
-					if !ruleOnlyDealsWithResourceMetaData(rule) {
-						return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-							" the rule does not match an kind")
-					}
-					return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+					// if !ruleOnlyDealsWithResourceMetaData(rule) {
+					// 	return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+					// 		" the rule does not match an kind")
+					// }
+					// return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+					return validateMatchKindHelper(rule)
 				}
 			}
 		} else if len(rule.MatchResources.All) > 0 {
 			for _, rmr := range rule.MatchResources.All {
 				if len(rmr.Kinds) == 0 {
-					if !ruleOnlyDealsWithResourceMetaData(rule) {
-						return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-							" the rule does not match an kind")
-					}
-					return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+					// if !ruleOnlyDealsWithResourceMetaData(rule) {
+					// 	return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+					// 		" the rule does not match an kind")
+					// }
+					// return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+					return validateMatchKindHelper(rule)
 				}
 			}
 		} else {
 			if len(rule.MatchResources.Kinds) == 0 {
-				if !ruleOnlyDealsWithResourceMetaData(rule) {
-					return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-						" the rule does not match an kind")
-				}
-				return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+				// if !ruleOnlyDealsWithResourceMetaData(rule) {
+				// 	return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+				// 		" the rule does not match an kind")
+				// }
+				// return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+				return validateMatchKindHelper(rule)
 			}
 		}
 
@@ -204,13 +207,213 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 	return nil
 }
 
+func validateMatchKindHelper(rule kyverno.Rule) error {
+	if !ruleOnlyDealsWithResourceMetaData(rule) {
+		return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+			" the rule does not match an kind")
+	}
+	return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+}
+
 // doMatchAndExcludeConflict checks if the resultant
 // of match and exclude block is not an empty set
 // returns true if it is an empty set
+
+// need to confirm this before writing tests for this
 func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 
-	if len(rule.MatchResources.All) > 0 || len(rule.ExcludeResources.All) > 0 {
-		return false
+	if len(rule.ExcludeResources.All) > 0 && len(rule.MatchResources.Any) > 0 {
+		// get details of all
+		excludeRoles := make(map[string]bool)
+		excludeClusterRoles := make(map[string]bool)
+		excludeSubjects := make(map[string]bool)
+		excludeKinds := make(map[string]bool)
+		excludeNamespaces := make(map[string]bool)
+		excludeSelectorMatchExpressions := make(map[string]bool)
+		excludeNamespaceSelectorMatchExpressions := make(map[string]bool)
+
+		for _, rer := range rule.ExcludeResources.All {
+			for _, role := range rer.UserInfo.Roles {
+				excludeRoles[role] = true
+			}
+			for _, clusterRoles := range rer.UserInfo.ClusterRoles {
+				excludeClusterRoles[clusterRoles] = true
+			}
+
+			for _, subject := range rer.UserInfo.Subjects {
+				subjectRaw, _ := json.Marshal(subject)
+				excludeSubjects[string(subjectRaw)] = true
+			}
+
+			for _, kind := range rer.ResourceDescription.Kinds {
+				excludeKinds[kind] = true
+			}
+
+			for _, namespace := range rer.ResourceDescription.Namespaces {
+				excludeNamespaces[namespace] = true
+			}
+
+			if rer.ResourceDescription.Selector != nil {
+				for _, matchExpression := range rer.ResourceDescription.Selector.MatchExpressions {
+					matchExpressionRaw, _ := json.Marshal(matchExpression)
+					excludeSelectorMatchExpressions[string(matchExpressionRaw)] = true
+				}
+			}
+
+			if rer.ResourceDescription.NamespaceSelector != nil {
+				for _, matchExpression := range rer.ResourceDescription.NamespaceSelector.MatchExpressions {
+					matchExpressionRaw, _ := json.Marshal(matchExpression)
+					excludeNamespaceSelectorMatchExpressions[string(matchExpressionRaw)] = true
+				}
+			}
+		}
+
+		// see if something extra in exclude because if yes then they don't conflict
+		if len(excludeRoles) > 0 {
+			for _, rmr := range rule.MatchResources.Any {
+				if len(rmr.UserInfo.Roles) == 0 {
+					return false
+				}
+
+				for _, role := range rmr.UserInfo.Roles {
+					if !excludeRoles[role] {
+						return false
+					}
+				}
+			}
+		}
+		// for _, rmr := range rule.MatchResources.Any {
+
+		// }
+
+		if len(excludeClusterRoles) > 0 {
+			for _, rmr := range rule.MatchResources.Any {
+				if len(rmr.UserInfo.ClusterRoles) == 0 {
+					return false
+				}
+
+				for _, clusterRole := range rmr.UserInfo.ClusterRoles {
+					if !excludeClusterRoles[clusterRole] {
+						return false
+					}
+				}
+			}
+		}
+
+		if len(excludeSubjects) > 0 {
+			for _, rmr := range rule.MatchResources.Any {
+				if len(rmr.UserInfo.Subjects) == 0 {
+					return false
+				}
+
+				for _, subject := range rmr.UserInfo.Subjects {
+					subjectRaw, _ := json.Marshal(subject)
+					if !excludeSubjects[string(subjectRaw)] {
+						return false
+					}
+				}
+			}
+		}
+
+		if len(rule.ExcludeResources.ResourceDescription.Names) > 0 {
+			excludeSlice := rule.ExcludeResources.ResourceDescription.Names
+			matchSlice := rule.MatchResources.ResourceDescription.Names
+
+			// if exclude block has something and match doesn't it means we
+			// have a non empty set
+			if len(rule.MatchResources.ResourceDescription.Names) == 0 {
+				return false
+			}
+
+			// if *any* name in match and exclude conflicts
+			// we want user to fix that
+			for _, matchName := range matchSlice {
+				for _, excludeName := range excludeSlice {
+					if wildcard.Match(excludeName, matchName) {
+						return true
+					}
+				}
+			}
+			return false
+		}
+
+		if len(excludeNamespaces) > 0 {
+			if len(rule.MatchResources.ResourceDescription.Namespaces) == 0 {
+				return false
+			}
+
+			for _, namespace := range rule.MatchResources.ResourceDescription.Namespaces {
+				if !excludeNamespaces[namespace] {
+					return false
+				}
+			}
+		}
+
+		if len(excludeKinds) > 0 {
+			if len(rule.MatchResources.ResourceDescription.Kinds) == 0 {
+				return false
+			}
+
+			for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
+				if !excludeKinds[kind] {
+					return false
+				}
+			}
+		}
+
+		if rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector != nil {
+			if len(excludeSelectorMatchExpressions) > 0 {
+				if len(rule.MatchResources.ResourceDescription.Selector.MatchExpressions) == 0 {
+					return false
+				}
+
+				for _, matchExpression := range rule.MatchResources.ResourceDescription.Selector.MatchExpressions {
+					matchExpressionRaw, _ := json.Marshal(matchExpression)
+					if !excludeSelectorMatchExpressions[string(matchExpressionRaw)] {
+						return false
+					}
+				}
+			}
+
+			if len(rule.ExcludeResources.ResourceDescription.Selector.MatchLabels) > 0 {
+				if len(rule.MatchResources.ResourceDescription.Selector.MatchLabels) == 0 {
+					return false
+				}
+
+				for label, value := range rule.MatchResources.ResourceDescription.Selector.MatchLabels {
+					if rule.ExcludeResources.ResourceDescription.Selector.MatchLabels[label] != value {
+						return false
+					}
+				}
+			}
+		}
+
+		if rule.MatchResources.ResourceDescription.NamespaceSelector != nil && rule.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
+			if len(excludeNamespaceSelectorMatchExpressions) > 0 {
+				if len(rule.MatchResources.ResourceDescription.NamespaceSelector.MatchExpressions) == 0 {
+					return false
+				}
+
+				for _, matchExpression := range rule.MatchResources.ResourceDescription.NamespaceSelector.MatchExpressions {
+					matchExpressionRaw, _ := json.Marshal(matchExpression)
+					if !excludeNamespaceSelectorMatchExpressions[string(matchExpressionRaw)] {
+						return false
+					}
+				}
+			}
+
+			if len(rule.ExcludeResources.ResourceDescription.NamespaceSelector.MatchLabels) > 0 {
+				if len(rule.MatchResources.ResourceDescription.NamespaceSelector.MatchLabels) == 0 {
+					return false
+				}
+
+				for label, value := range rule.MatchResources.ResourceDescription.NamespaceSelector.MatchLabels {
+					if rule.ExcludeResources.ResourceDescription.NamespaceSelector.MatchLabels[label] != value {
+						return false
+					}
+				}
+			}
+		}
 	}
 
 	// if both have any then no resource should be common
@@ -552,6 +755,14 @@ func validateResources(rule kyverno.Rule) (string, error) {
 		return "exclude.", fmt.Errorf("Can't specify any/all together with exclude resources")
 	}
 
+	if len(rule.MatchResources.Any) > 0 && len(rule.MatchResources.All) > 0 {
+		return "match.", fmt.Errorf("Can't specify any and all together.")
+	}
+
+	if len(rule.ExcludeResources.Any) > 0 && len(rule.ExcludeResources.All) > 0 {
+		return "match.", fmt.Errorf("Can't specify any and all together.")
+	}
+
 	if len(rule.MatchResources.Any) > 0 {
 		for _, rmr := range rule.MatchResources.Any {
 			// matched resources
@@ -580,7 +791,7 @@ func validateResources(rule kyverno.Rule) (string, error) {
 				return fmt.Sprintf("exclude.resources.%s", path), err
 			}
 		}
-	} else if len(rule.MatchResources.All) > 0 {
+	} else if len(rule.ExcludeResources.All) > 0 {
 		for _, rmr := range rule.ExcludeResources.All {
 			// exclude resources
 			if path, err := validateExcludeResourceDescription(rmr.ResourceDescription); err != nil {
@@ -608,6 +819,15 @@ func validateResources(rule kyverno.Rule) (string, error) {
 	}
 	return "", nil
 }
+
+// makes no sense to add this since we would have to have the same err != nil checks above too
+// func validateResourcesMatchHelper(rmr kyverno.ResourceFilter) (string, error) {
+// 	// matched resources
+// 	if path, err := validateMatchedResourceDescription(rmr.ResourceDescription); err != nil {
+// 		return fmt.Sprintf("match.resources.%s", path), err
+// 	}
+// 	return "", nil
+// }
 
 // validateConditions validates all the 'conditions' or 'preconditions' of a rule depending on the corresponding 'condition.key'.
 // As of now, it is validating the 'value' field whether it contains the only allowed set of values or not when 'condition.key' is {{request.operation}}

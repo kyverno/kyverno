@@ -64,7 +64,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 					"background": false,
 					"rules": [
 						{
-							"name": "test-rule",
+							"name": "any-match-rule",
 							"match": {
 								"any": [
 									{

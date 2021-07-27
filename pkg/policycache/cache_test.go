@@ -145,6 +145,23 @@ func Test_Add_Remove(t *testing.T) {
 	}
 }
 
+func Test_Add_Remove_Any(t *testing.T) {
+	pCache := newPolicyCache(log.Log, dummyLister{}, dummyNsLister{})
+	policy := newAnyPolicy(t)
+	kind := "Pod"
+	pCache.Add(policy)
+	validateEnforce := pCache.get(ValidateEnforce, kind, "")
+	if len(validateEnforce) != 1 {
+		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
+	}
+
+	pCache.Remove(policy)
+	deletedValidateEnforce := pCache.get(ValidateEnforce, kind, "")
+	if len(deletedValidateEnforce) != 0 {
+		t.Errorf("expected 0 validate enforce policy, found %v", len(deletedValidateEnforce))
+	}
+}
+
 func Test_Remove_From_Empty_Cache(t *testing.T) {
 	pCache := newPolicyCache(log.Log, nil, nil)
 	policy := newPolicy(t)
@@ -253,6 +270,64 @@ func newPolicy(t *testing.T) *kyverno.ClusterPolicy {
 		  ]
 		}
 	  }`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	return policy
+}
+
+func newAnyPolicy(t *testing.T) *kyverno.ClusterPolicy {
+	rawPolicy := []byte(`{
+		"metadata": {
+			"name": "test-policy"
+		},
+		"spec": {
+			"background": false,
+			"rules": [
+				{
+					"name": "any-match-rule",
+					"match": {
+						"any": [
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"names": [
+										"dev"
+									]
+								}
+							},
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"namespaces": [
+										"prod"
+									]
+								}
+							}
+						]
+					},
+					"mutate": {
+						"overlay": {
+							"spec": {
+								"containers": [
+									{
+										"(image)": "*",
+										"imagePullPolicy": "IfNotPresent"
+									}
+								]
+							}
+						}
+					}
+				}
+			]
+		}
+	}`)
 
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
