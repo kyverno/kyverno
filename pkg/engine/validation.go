@@ -125,32 +125,33 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		}
 
 		// evaluate pre-conditions
-		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditionsCopy, true) {
+		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditionsCopy) {
 			log.V(4).Info("resource fails the preconditions")
 			continue
 		}
 
-		if rule, err = variables.SubstituteAllInRule(log, ctx.JSONContext, rule); err != nil {
-			ruleResp := response.RuleResponse{
-				Name:    rule.Name,
-				Type:    utils.Validation.String(),
-				Message: fmt.Sprintf("variable substitution failed for rule %s: %s", rule.Name, err.Error()),
-				Success: true,
-			}
-
-			incrementAppliedCount(resp)
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
-
-			switch err.(type) {
-			case gojmespath.NotFoundError:
-				log.V(2).Info("failed to substitute variables, skip current rule", "info", err.Error(), "rule name", rule.Name)
-			default:
-				log.Error(err, "failed to substitute variables, skip current rule", "rule name", rule.Name)
-			}
-			continue
-		}
-
 		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
+
+			if rule, err = variables.SubstituteAllInRule(log, ctx.JSONContext, rule); err != nil {
+				ruleResp := response.RuleResponse{
+					Name:    rule.Name,
+					Type:    utils.Validation.String(),
+					Message: fmt.Sprintf("variable substitution failed for rule %s: %s", rule.Name, err.Error()),
+					Success: true,
+				}
+
+				incrementAppliedCount(resp)
+				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
+
+				switch err.(type) {
+				case gojmespath.NotFoundError:
+					log.V(2).Info("failed to substitute variables, skip current rule", "info", err.Error(), "rule name", rule.Name)
+				default:
+					log.Error(err, "failed to substitute variables, skip current rule", "rule name", rule.Name)
+				}
+				continue
+			}
+
 			ruleResponse := validateResourceWithRule(log, ctx, rule)
 			if ruleResponse != nil {
 				if !common.IsConditionalAnchorError(ruleResponse.Message) {
@@ -162,7 +163,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 			rule.Validation.Deny.AnyAllConditions, err = variables.SubstituteAllInPreconditions(log, ctx.JSONContext, rule.Validation.Deny.AnyAllConditions)
 			if err != nil {
 				log.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", rule.Name)
-				return nil
+				continue
 			}
 
 			denyConditionsCopy, err := copyConditions(rule.Validation.Deny.AnyAllConditions)
@@ -170,7 +171,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 				log.V(2).Info("wrongfully configured data", "reason", err.Error())
 				continue
 			}
-			deny := variables.EvaluateConditions(log, ctx.JSONContext, denyConditionsCopy, false)
+			deny := variables.EvaluateConditions(log, ctx.JSONContext, denyConditionsCopy)
 			ruleResp := response.RuleResponse{
 				Name:    rule.Name,
 				Type:    utils.Validation.String(),

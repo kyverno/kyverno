@@ -2242,3 +2242,178 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 	}
 	assert.Assert(t, !er.IsSuccessful())
 }
+
+func Test_EmptyStringInDenyCondition(t *testing.T) {
+	policyRaw := []byte(`{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+	  "annotations": {
+		"meta.helm.sh/release-name": "kyverno-policies",
+		"meta.helm.sh/release-namespace": "kyverno",
+		"pod-policies.kyverno.io/autogen-controllers": "none"
+	  },
+	  "labels": {
+		"app.kubernetes.io/managed-by": "Helm"
+	  },
+	  "name": "if-baltic-restrict-external-load-balancer"
+	},
+	"spec": {
+	  "background": true,
+	  "rules": [
+		{
+		  "match": {
+			"resources": {
+			  "kinds": [
+				"Service"
+			  ]
+			}
+		  },
+		  "name": "match-service-type",
+		  "preconditions": [
+			{
+			  "key": "{{request.object.spec.type}}",
+			  "operator": "Equals",
+			  "value": "LoadBalancer"
+			}
+		  ],
+		  "validate": {
+			"deny": {
+			  "conditions": [
+				{
+				  "key": "{{ request.object.metadata.annotations.\"service.beta.kubernetes.io/azure-load-balancer-internal\"}}",
+				  "operator": "NotEquals",
+				  "value": "true"
+				}
+			  ]
+			}
+		  }
+		}
+	  ],
+	  "validationFailureAction": "enforce"
+	}
+  }`)
+
+	resourceRaw := []byte(`{
+	"apiVersion": "v1",
+	"kind": "Service",
+	"metadata": {
+	  "name": "example-service"
+	},
+	"spec": {
+	  "selector": {
+		"app": "example"
+	  },
+	  "ports": [
+		{
+		  "port": 8765,
+		  "targetPort": 9376
+		}
+	  ],
+	  "type": "LoadBalancer"
+	}
+  }`)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &policy)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResource(resourceRaw)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: ctx})
+	assert.Assert(t, !er.IsSuccessful())
+}
+
+func Test_StringInDenyCondition(t *testing.T) {
+	policyRaw := []byte(`{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+	  "annotations": {
+		"meta.helm.sh/release-name": "kyverno-policies",
+		"meta.helm.sh/release-namespace": "kyverno",
+		"pod-policies.kyverno.io/autogen-controllers": "none"
+	  },
+	  "labels": {
+		"app.kubernetes.io/managed-by": "Helm"
+	  },
+	  "name": "if-baltic-restrict-external-load-balancer"
+	},
+	"spec": {
+	  "background": true,
+	  "rules": [
+		{
+		  "match": {
+			"resources": {
+			  "kinds": [
+				"Service"
+			  ]
+			}
+		  },
+		  "name": "match-service-type",
+		  "preconditions": [
+			{
+			  "key": "{{request.object.spec.type}}",
+			  "operator": "Equals",
+			  "value": "LoadBalancer"
+			}
+		  ],
+		  "validate": {
+			"deny": {
+			  "conditions": [
+				{
+				  "key": "{{ request.object.metadata.annotations.\"service.beta.kubernetes.io/azure-load-balancer-internal\"}}",
+				  "operator": "NotEquals",
+				  "value": "true"
+				}
+			  ]
+			}
+		  }
+		}
+	  ],
+	  "validationFailureAction": "enforce"
+	}
+  }`)
+
+	resourceRaw := []byte(`{
+	"apiVersion": "v1",
+	"kind": "Service",
+	"metadata": {
+	  "name": "example-service",
+	  "annotations": {
+		"service.beta.kubernetes.io/azure-load-balancer-internal": "true"
+	  }
+	},
+	"spec": {
+	  "selector": {
+		"app": "example"
+	  },
+	  "ports": [
+		{
+		  "port": 8765,
+		  "targetPort": 9376
+		}
+	  ],
+	  "type": "LoadBalancer"
+	}
+  }`)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &policy)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResource(resourceRaw)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: ctx})
+	assert.Assert(t, er.IsSuccessful())
+}
