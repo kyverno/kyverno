@@ -613,15 +613,6 @@ func validateResources(rule kyverno.Rule) (string, error) {
 	return "", nil
 }
 
-// makes no sense to add this since we would have to have the same err != nil checks above too
-// func validateResourcesMatchHelper(rmr kyverno.ResourceFilter) (string, error) {
-// 	// matched resources
-// 	if path, err := validateMatchedResourceDescription(rmr.ResourceDescription); err != nil {
-// 		return fmt.Sprintf("match.resources.%s", path), err
-// 	}
-// 	return "", nil
-// }
-
 // validateConditions validates all the 'conditions' or 'preconditions' of a rule depending on the corresponding 'condition.key'.
 // As of now, it is validating the 'value' field whether it contains the only allowed set of values or not when 'condition.key' is {{request.operation}}
 // this is backwards compatible i.e. conditions can be provided in the old manner as well i.e. without 'any' or 'all'

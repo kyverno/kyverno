@@ -99,7 +99,6 @@ func (pc *policyCache) Remove(policy *kyverno.ClusterPolicy) {
 	pc.Logger.V(4).Info("policy is removed from cache", "name", policy.GetName())
 }
 
-// no idea about how to write their tests
 func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	m.Lock()
 	defer m.Unlock()

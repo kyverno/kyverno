@@ -256,7 +256,6 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 }
 
 //MatchesResourceDescription checks if the resource matches resource description of the rule or not
-// dont use reasons for faliure there
 func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string) error {
 
 	rule := *ruleRef.DeepCopy()
@@ -264,7 +263,6 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	admissionInfo := *admissionInfoRef.DeepCopy()
 
 	var reasonsForFailure []error
-	// do something on the basis of length
 	if len(rule.MatchResources.Any) > 0 {
 		// inlcude object if ANY of the criterias match
 		// so if one matches then break from loop
@@ -329,7 +327,6 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 }
 
 func matchesResourceDescriptionMatchHelper(rmr kyverno.ResourceFilter, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
-	// original behaviour
 	var errs []error
 	if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
 		rmr.UserInfo = kyverno.UserInfo{}
@@ -339,10 +336,8 @@ func matchesResourceDescriptionMatchHelper(rmr kyverno.ResourceFilter, admission
 	if !reflect.DeepEqual(rmr.ResourceDescription, kyverno.ResourceDescription{}) ||
 		!reflect.DeepEqual(rmr.UserInfo, kyverno.UserInfo{}) {
 		matchErrs := doesResourceMatchConditionBlock(rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
-		//*reasonsForFailure = append(*reasonsForFailure, matchErrs...)
 		errs = append(errs, matchErrs...)
 	} else {
-		//*reasonsForFailure = append(*reasonsForFailure, fmt.Errorf("match cannot be empty"))
 		errs = append(errs, fmt.Errorf("match cannot be empty"))
 	}
 	return errs
