@@ -1,6 +1,9 @@
+{{- if .Values.networkPolicy.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
   name: {{ template "kyverno.fullname" . }}
   namespace: {{ template "kyverno.namespace" . }}
 spec:
@@ -14,5 +17,4 @@ spec:
     ports:
     - protocol: TCP
       port: 9443 # webhook access
-
-
+{{- end }}
