@@ -1156,7 +1156,7 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources [
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
 			for _, k := range clusterResources {
 				if kind == k {
-					return fmt.Errorf("namespaced policy : cluster type value '%s' not allowed in match.resources.kinds", kind)
+					return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
 				}
 			}
 		}
