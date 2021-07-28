@@ -133,9 +133,48 @@ func Test_Add_Remove(t *testing.T) {
 	policy := newPolicy(t)
 	kind := "Pod"
 	pCache.Add(policy)
+
 	validateEnforce := pCache.get(ValidateEnforce, kind, "")
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
+	}
+
+	mutate := pCache.get(Mutate, kind, "")
+	if len(mutate) != 1 {
+		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
+	}
+
+	generate := pCache.get(Generate, kind, "")
+	if len(mutate) != 1 {
+		t.Errorf("expected 1 generate policy, found %v", len(generate))
+	}
+
+	pCache.Remove(policy)
+	deletedValidateEnforce := pCache.get(ValidateEnforce, kind, "")
+	if len(deletedValidateEnforce) != 0 {
+		t.Errorf("expected 0 validate enforce policy, found %v", len(deletedValidateEnforce))
+	}
+}
+
+func Test_Add_Remove_Any(t *testing.T) {
+	pCache := newPolicyCache(log.Log, dummyLister{}, dummyNsLister{})
+	policy := newAnyPolicy(t)
+	kind := "Pod"
+	pCache.Add(policy)
+
+	validateEnforce := pCache.get(ValidateEnforce, kind, "")
+	if len(validateEnforce) != 1 {
+		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
+	}
+
+	mutate := pCache.get(Mutate, kind, "")
+	if len(mutate) != 1 {
+		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
+	}
+
+	generate := pCache.get(Generate, kind, "")
+	if len(mutate) != 1 {
+		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
 
 	pCache.Remove(policy)
@@ -253,6 +292,179 @@ func newPolicy(t *testing.T) *kyverno.ClusterPolicy {
 		  ]
 		}
 	  }`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	return policy
+}
+
+func newAnyPolicy(t *testing.T) *kyverno.ClusterPolicy {
+	rawPolicy := []byte(`{
+		"metadata": {
+			"name": "test-policy"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+					"name": "deny-privileged-disallowpriviligedescalation",
+					"match": {
+						"any": [
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"names": [
+										"dev"
+									]
+								}
+							},
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"namespaces": [
+										"prod"
+									]
+								}
+							}
+						]
+					},
+					"validate": {
+						"deny": {
+							"conditions": {
+								"all": [
+									{
+										"key": "a",
+										"operator": "Equals",
+										"value": "a"
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"name": "deny-privileged-disallowpriviligedescalation",
+					"match": {
+						"all": [
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"names": [
+										"dev"
+									]
+								}
+							},
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"namespaces": [
+										"prod"
+									]
+								}
+							}
+						]
+					},
+					"validate": {
+						"pattern": {
+							"spec": {
+								"containers": [
+									{
+										"image": "!*:latest"
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"name": "annotate-host-path",
+					"match": {
+						"any": [
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"names": [
+										"dev"
+									]
+								}
+							},
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"namespaces": [
+										"prod"
+									]
+								}
+							}
+						]
+					},
+					"mutate": {
+						"overlay": {
+							"metadata": {
+								"annotations": {
+									"+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
+								}
+							}
+						}
+					}
+				},
+				{
+					"name": "default-deny-ingress",
+					"match": {
+						"any": [
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"names": [
+										"dev"
+									]
+								}
+							},
+							{
+								"resources": {
+									"kinds": [
+										"Pod"
+									],
+									"namespaces": [
+										"prod"
+									]
+								}
+							}
+						]
+					},
+					"generate": {
+						"kind": "NetworkPolicy",
+						"name": "default-deny-ingress",
+						"namespace": "{{request.object.metadata.name}}",
+						"data": {
+							"spec": {
+								"podSelector": {},
+								"policyTypes": [
+									"Ingress"
+								]
+							}
+						}
+					}
+				}
+			]
+		}
+	}`)
 
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
