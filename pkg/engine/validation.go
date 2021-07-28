@@ -86,7 +86,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	ctx.JSONContext.Checkpoint()
 	defer ctx.JSONContext.Restore()
 
-	for _, rule := range ctx.Policy.Spec.Rules {
+	for i, rule := range ctx.Policy.Spec.Rules {
 		var err error
 
 		if !rule.HasValidate() {
@@ -131,7 +131,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		}
 
 		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
-			if err := substituteAll(log, ctx, &rule, resp); err != nil {
+			if err := substituteAll(log, ctx, &ctx.Policy.Spec.Rules[i], resp); err != nil {
 				continue
 			}
 
@@ -149,7 +149,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 				continue
 			}
 
-			if err := substituteAll(log, ctx, &rule, resp); err != nil {
+			if err := substituteAll(log, ctx, &ctx.Policy.Spec.Rules[i], resp); err != nil {
 				continue
 			}
 
