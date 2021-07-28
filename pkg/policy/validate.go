@@ -114,32 +114,17 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		if len(rule.MatchResources.Any) > 0 {
 			for _, rmr := range rule.MatchResources.Any {
 				if len(rmr.Kinds) == 0 {
-					// if !ruleOnlyDealsWithResourceMetaData(rule) {
-					// 	return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-					// 		" the rule does not match an kind")
-					// }
-					// return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
 					return validateMatchKindHelper(rule)
 				}
 			}
 		} else if len(rule.MatchResources.All) > 0 {
 			for _, rmr := range rule.MatchResources.All {
 				if len(rmr.Kinds) == 0 {
-					// if !ruleOnlyDealsWithResourceMetaData(rule) {
-					// 	return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-					// 		" the rule does not match an kind")
-					// }
-					// return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
 					return validateMatchKindHelper(rule)
 				}
 			}
 		} else {
 			if len(rule.MatchResources.Kinds) == 0 {
-				// if !ruleOnlyDealsWithResourceMetaData(rule) {
-				// 	return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-				// 		" the rule does not match an kind")
-				// }
-				// return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
 				return validateMatchKindHelper(rule)
 			}
 		}
@@ -218,8 +203,6 @@ func validateMatchKindHelper(rule kyverno.Rule) error {
 // doMatchAndExcludeConflict checks if the resultant
 // of match and exclude block is not an empty set
 // returns true if it is an empty set
-
-// need to confirm this before writing tests for this
 func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 
 	if len(rule.ExcludeResources.All) > 0 || len(rule.MatchResources.All) > 0 {
