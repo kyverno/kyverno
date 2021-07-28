@@ -428,7 +428,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 		}
 		if testRes.Status == v.Status {
 			if testRes.Status == report.StatusSkip {
-				res.Result = boldGreen.Sprintf("Skip")
+				res.Result = boldGreen.Sprintf("Pass")
 				rc.skip++
 			} else {
 				res.Result = boldGreen.Sprintf("Pass")
