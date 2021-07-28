@@ -50,6 +50,8 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	policyContext.JSONContext.Checkpoint()
 	defer policyContext.JSONContext.Restore()
 
+	var err error
+
 	for _, rule := range policy.Spec.Rules {
 		if !rule.HasMutate() {
 			continue
@@ -63,7 +65,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			excludeResource = policyContext.ExcludeGroupRole
 		}
 
-		if err := MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, policyContext.NamespaceLabels); err != nil {
+		if err = MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, policyContext.NamespaceLabels); err != nil {
 			logger.V(4).Info("rule not matched", "reason", err.Error())
 			continue
 		}
@@ -91,6 +93,12 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			continue
 		}
 
+		rule.AnyAllConditions, err = variables.SubstituteAllInPreconditions(logger, ctx, rule.AnyAllConditions)
+		if err != nil {
+			logger.V(3).Info("failed to substitute vars in preconditions, skip current rule", "rule name", rule.Name)
+			continue
+		}
+
 		// operate on the copy of the conditions, as we perform variable substitution
 		copyConditions, err := copyConditions(rule.AnyAllConditions)
 		if err != nil {
@@ -99,7 +107,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		}
 		// evaluate pre-conditions
 		// - handle variable substitutions
-		if !variables.EvaluateConditions(logger, ctx, copyConditions, true) {
+		if !variables.EvaluateConditions(logger, ctx, copyConditions) {
 			logger.V(3).Info("resource fails the preconditions")
 			continue
 		}
