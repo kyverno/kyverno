@@ -86,7 +86,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	ctx.JSONContext.Checkpoint()
 	defer ctx.JSONContext.Restore()
 
-	for i, rule := range ctx.Policy.Spec.Rules {
+	for _, rule := range ctx.Policy.Spec.Rules {
 		var err error
 
 		if !rule.HasValidate() {
@@ -131,7 +131,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		}
 
 		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
-			if err := substituteAll(log, ctx, &ctx.Policy.Spec.Rules[i], resp); err != nil {
+			if rule, err = substituteAll(log, ctx, rule, resp); err != nil {
 				continue
 			}
 
@@ -149,7 +149,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 				continue
 			}
 
-			if err := substituteAll(log, ctx, &ctx.Policy.Spec.Rules[i], resp); err != nil {
+			if rule, err = substituteAll(log, ctx, rule, resp); err != nil {
 				continue
 			}
 
@@ -330,9 +330,9 @@ func buildAnyPatternErrorMessage(rule kyverno.Rule, errors []string) string {
 	return fmt.Sprintf("validation error: %s. %s", rule.Validation.Message, errStr)
 }
 
-func substituteAll(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule, resp *response.EngineResponse) error {
+func substituteAll(log logr.Logger, ctx *PolicyContext, rule kyverno.Rule, resp *response.EngineResponse) (kyverno.Rule, error) {
 	var err error
-	if *rule, err = variables.SubstituteAllInRule(log, ctx.JSONContext, *rule); err != nil {
+	if rule, err = variables.SubstituteAllInRule(log, ctx.JSONContext, rule); err != nil {
 		ruleResp := response.RuleResponse{
 			Name:    rule.Name,
 			Type:    utils.Validation.String(),
@@ -350,8 +350,8 @@ func substituteAll(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule, resp
 			log.Error(err, "failed to substitute variables, skip current rule", "rule name", rule.Name)
 		}
 
-		return err
+		return rule, err
 	}
 
-	return nil
+	return rule, nil
 }
