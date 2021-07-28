@@ -131,24 +131,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		}
 
 		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
-
-			if rule, err = variables.SubstituteAllInRule(log, ctx.JSONContext, rule); err != nil {
-				ruleResp := response.RuleResponse{
-					Name:    rule.Name,
-					Type:    utils.Validation.String(),
-					Message: fmt.Sprintf("variable substitution failed for rule %s: %s", rule.Name, err.Error()),
-					Success: true,
-				}
-
-				incrementAppliedCount(resp)
-				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
-
-				switch err.(type) {
-				case gojmespath.NotFoundError:
-					log.V(2).Info("failed to substitute variables, skip current rule", "info", err.Error(), "rule name", rule.Name)
-				default:
-					log.Error(err, "failed to substitute variables, skip current rule", "rule name", rule.Name)
-				}
+			if err := substituteAll(log, ctx, &rule, resp); err != nil {
 				continue
 			}
 
@@ -163,6 +146,10 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 			rule.Validation.Deny.AnyAllConditions, err = variables.SubstituteAllInPreconditions(log, ctx.JSONContext, rule.Validation.Deny.AnyAllConditions)
 			if err != nil {
 				log.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", rule.Name)
+				continue
+			}
+
+			if err := substituteAll(log, ctx, &rule, resp); err != nil {
 				continue
 			}
 
@@ -341,4 +328,30 @@ func buildAnyPatternErrorMessage(rule kyverno.Rule, errors []string) string {
 	}
 
 	return fmt.Sprintf("validation error: %s. %s", rule.Validation.Message, errStr)
+}
+
+func substituteAll(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule, resp *response.EngineResponse) error {
+	var err error
+	if *rule, err = variables.SubstituteAllInRule(log, ctx.JSONContext, *rule); err != nil {
+		ruleResp := response.RuleResponse{
+			Name:    rule.Name,
+			Type:    utils.Validation.String(),
+			Message: fmt.Sprintf("variable substitution failed for rule %s: %s", rule.Name, err.Error()),
+			Success: true,
+		}
+
+		incrementAppliedCount(resp)
+		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
+
+		switch err.(type) {
+		case gojmespath.NotFoundError:
+			log.V(2).Info("failed to substitute variables, skip current rule", "info", err.Error(), "rule name", rule.Name)
+		default:
+			log.Error(err, "failed to substitute variables, skip current rule", "rule name", rule.Name)
+		}
+
+		return err
+	}
+
+	return nil
 }

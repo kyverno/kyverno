@@ -1929,8 +1929,8 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 			policyRaw: []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"flux-multi-tenancy"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"serviceAccountName","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":".spec.serviceAccountName is required","pattern":{"spec":{"serviceAccountName":"?*"}}}},{"name":"sourceRefNamespace","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":"spec.sourceRef.namespace must be the same as metadata.namespace","deny":{"conditions":[{"key":"{{request.object.spec.sourceRef.namespace}}","operator":"NotEquals","value":"{{request.object.metadata.namespace}}"}]}}}]}}`),
 			// referred variable path not present
 			resourceRaw:     []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team"},"prune":true,"validation":"client"}}`),
-			expectedResult:  true,
-			expectedMessage: "variable substitution failed for rule sourceRefNamespace: Unknown key \"namespace\" in path",
+			expectedResult:  false,
+			expectedMessage: "spec.sourceRef.namespace must be the same as metadata.namespace",
 		},
 		{
 			name:      "resource-with-violation",
