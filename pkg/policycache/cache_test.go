@@ -145,7 +145,7 @@ func Test_Add_Remove(t *testing.T) {
 	}
 
 	generate := pCache.get(Generate, kind, "")
-	if len(mutate) != 1 {
+	if len(generate) != 1 {
 		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
 
@@ -173,7 +173,7 @@ func Test_Add_Remove_Any(t *testing.T) {
 	}
 
 	generate := pCache.get(Generate, kind, "")
-	if len(mutate) != 1 {
+	if len(generate) != 1 {
 		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
 
