@@ -229,11 +229,15 @@ type MatchResources struct {
 	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
 
 	// UserInfo contains information about the user performing the operation.
+	// Specifying UserInfo directly under match is being deprecated.
+	// Please specify under "any" or "all" instead.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
 	// Requires at least one tag to be specified when under MatchResources.
+	// Specifying ResourceDescription directly under match is being deprecated.
+	// Please specify under "any" or "all" instead.
 	// +optional
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
@@ -250,10 +254,14 @@ type ExcludeResources struct {
 	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
 
 	// UserInfo contains information about the user performing the operation.
+	// Specifying UserInfo directly under exclude is being deprecated.
+	// Please specify under "any" or "all" instead.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
+	// Specifying ResourceDescription directly under exclude is being deprecated.
+	// Please specify under "any" or "all" instead.
 	// +optional
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
