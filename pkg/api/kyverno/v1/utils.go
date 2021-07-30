@@ -149,6 +149,10 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 	}
 
 	err = json.Unmarshal(temp, out)
+	if err != nil {
+		// never should get here
+		return
+	}
 	// *out = *in
 	// if in.Context != nil {
 	// 	in, out := &in.Context, &out.Context
