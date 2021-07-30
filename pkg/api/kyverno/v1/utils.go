@@ -139,33 +139,43 @@ func (in *Deny) DeepCopyInto(out *Deny) {
 	}
 }
 func (in *Rule) DeepCopyInto(out *Rule) {
-	*out = *in
-	if in.Context != nil {
-		in, out := &in.Context, &out.Context
-		*out = make([]ContextEntry, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
+	//deepcopy.Copy(in, out)
+	//*out = *in
+
+	temp, err := json.Marshal(in)
+	if err != nil {
+		// never should get here
+		return
 	}
-	in.MatchResources.DeepCopyInto(&out.MatchResources)
-	in.ExcludeResources.DeepCopyInto(&out.ExcludeResources)
-	if in.AnyAllConditions != nil {
-		out.AnyAllConditions = in.AnyAllConditions
-	}
-	in.Mutation.DeepCopyInto(&out.Mutation)
-	in.Validation.DeepCopyInto(&out.Validation)
-	in.Generation.DeepCopyInto(&out.Generation)
-	if in.VerifyImages != nil {
-		in, out := &in.VerifyImages, &out.VerifyImages
-		*out = make([]*ImageVerification, len(*in))
-		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(ImageVerification)
-				**out = **in
-			}
-		}
-	}
+
+	err = json.Unmarshal(temp, out)
+	// *out = *in
+	// if in.Context != nil {
+	// 	in, out := &in.Context, &out.Context
+	// 	*out = make([]ContextEntry, len(*in))
+	// 	for i := range *in {
+	// 		(*in)[i].DeepCopyInto(&(*out)[i])
+	// 	}
+	// }
+	// in.MatchResources.DeepCopyInto(&out.MatchResources)
+	// in.ExcludeResources.DeepCopyInto(&out.ExcludeResources)
+	// if in.AnyAllConditions != nil {
+	// 	out.AnyAllConditions = in.AnyAllConditions
+	// }
+	// in.Mutation.DeepCopyInto(&out.Mutation)
+	// in.Validation.DeepCopyInto(&out.Validation)
+	// in.Generation.DeepCopyInto(&out.Generation)
+	// if in.VerifyImages != nil {
+	// 	in, out := &in.VerifyImages, &out.VerifyImages
+	// 	*out = make([]*ImageVerification, len(*in))
+	// 	for i := range *in {
+	// 		if (*in)[i] != nil {
+	// 			in, out := &(*in)[i], &(*out)[i]
+	// 			*out = new(ImageVerification)
+	// 			**out = **in
+	// 		}
+	// 	}
+	// }
 }
 
 //ToKey generates the key string used for adding label to polivy violation
