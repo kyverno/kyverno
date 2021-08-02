@@ -8,28 +8,28 @@ import (
 )
 
 //Evaluate evaluates the condition
-func Evaluate(log logr.Logger, ctx context.EvalInterface, condition kyverno.Condition, isPreCondition bool) bool {
+func Evaluate(log logr.Logger, ctx context.EvalInterface, condition kyverno.Condition) bool {
 	// get handler for the operator
-	handle := operator.CreateOperatorHandler(log, ctx, condition.Operator, SubstituteAll)
+	handle := operator.CreateOperatorHandler(log, ctx, condition.Operator)
 	if handle == nil {
 		return false
 	}
-	return handle.Evaluate(condition.Key, condition.Value, isPreCondition)
+	return handle.Evaluate(condition.Key, condition.Value)
 }
 
 //EvaluateConditions evalues all the conditions present in a slice, in a backwards compatible way
-func EvaluateConditions(log logr.Logger, ctx context.EvalInterface, conditions interface{}, isPreCondition bool) bool {
+func EvaluateConditions(log logr.Logger, ctx context.EvalInterface, conditions interface{}) bool {
 	switch typedConditions := conditions.(type) {
 	case kyverno.AnyAllConditions:
-		return evaluateAnyAllConditions(log, ctx, typedConditions, isPreCondition)
+		return evaluateAnyAllConditions(log, ctx, typedConditions)
 	case []kyverno.Condition: // backwards compatibility
-		return evaluateOldConditions(log, ctx, typedConditions, isPreCondition)
+		return evaluateOldConditions(log, ctx, typedConditions)
 	}
 	return false
 }
 
 //evaluateAnyAllConditions evaluates multiple conditions as a logical AND (all) or OR (any) operation depending on the conditions
-func evaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, conditions kyverno.AnyAllConditions, isPreCondition bool) bool {
+func evaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, conditions kyverno.AnyAllConditions) bool {
 	anyConditions, allConditions := conditions.AnyConditions, conditions.AllConditions
 	anyConditionsResult, allConditionsResult := true, true
 
@@ -37,7 +37,7 @@ func evaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, condit
 	if anyConditions != nil {
 		anyConditionsResult = false
 		for _, condition := range anyConditions {
-			if Evaluate(log, ctx, condition, isPreCondition) {
+			if Evaluate(log, ctx, condition) {
 				anyConditionsResult = true
 				break
 			}
@@ -47,7 +47,7 @@ func evaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, condit
 	// update the allConditionsResult if they are present
 	if allConditions != nil {
 		for _, condition := range allConditions {
-			if !Evaluate(log, ctx, condition, isPreCondition) {
+			if !Evaluate(log, ctx, condition) {
 				allConditionsResult = false
 				break
 			}
@@ -59,9 +59,9 @@ func evaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, condit
 }
 
 //evaluateOldConditions evaluates multiple conditions when those conditions are provided in the old manner i.e. without 'any' or 'all'
-func evaluateOldConditions(log logr.Logger, ctx context.EvalInterface, conditions []kyverno.Condition, isPreCondition bool) bool {
+func evaluateOldConditions(log logr.Logger, ctx context.EvalInterface, conditions []kyverno.Condition) bool {
 	for _, condition := range conditions {
-		if !Evaluate(log, ctx, condition, isPreCondition) {
+		if !Evaluate(log, ctx, condition) {
 			return false
 		}
 	}

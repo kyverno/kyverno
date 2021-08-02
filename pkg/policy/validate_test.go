@@ -1287,6 +1287,55 @@ func Test_Validate_Kind(t *testing.T) {
 	assert.Assert(t, err != nil)
 }
 
+func Test_Validate_Any_Kind(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "policy-to-monitor-root-user-access"
+		},
+		"spec": {
+			"validationFailureAction": "audit",
+			"rules": [
+				{
+					"name": "monitor-annotation-for-root-user-access",
+					"match": {
+						"any": [
+							{
+								"resources": {
+									"selector": {
+										"matchLabels": {
+											"AllowRootUserAccess": "true"
+										}
+									}
+								}
+							}
+						]
+					},
+					"validate": {
+						"message": "Label provisioner.wg.net/cloudprovider is required",
+						"pattern": {
+							"metadata": {
+								"labels": {
+									"provisioner.wg.net/cloudprovider": "*"
+								}
+							}
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openAPIController, _ := openapi.NewOpenAPIController()
+	err = Validate(policy, nil, true, openAPIController)
+	assert.Assert(t, err != nil)
+}
+
 func Test_checkAutoGenRules(t *testing.T) {
 	testCases := []struct {
 		name           string
