@@ -240,7 +240,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	}
 
 	if variablesString != "" {
-		setInStoreContext(mutatedPolicies, variables)
+		variables = setInStoreContext(mutatedPolicies, variables)
 	}
 
 	msgPolicies := "1 policy"
@@ -421,7 +421,7 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 	return nil
 }
 
-func setInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string]string) {
+func setInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string]string) map[string]string {
 	storePolices := make([]store.Policy, 0)
 	for _, policy := range mutatedPolicies {
 		storeRules := make([]store.Rule, 0)
@@ -432,6 +432,7 @@ func setInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string
 					for k, v := range variables {
 						if strings.HasPrefix(k, contextVar.Name) {
 							contextVal[k] = v
+							delete(variables, k)
 						}
 					}
 				}
@@ -439,7 +440,6 @@ func setInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string
 					Name:   rule.Name,
 					Values: contextVal,
 				})
-
 			}
 		}
 		storePolices = append(storePolices, store.Policy{
@@ -451,4 +451,6 @@ func setInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string
 	store.SetContext(store.Context{
 		Policies: storePolices,
 	})
+
+	return variables
 }
