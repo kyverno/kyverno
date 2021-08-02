@@ -138,6 +138,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringArrayVarP(&resourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 	cmd.Flags().StringVarP(&mutateLogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
+	// currently `set` flag supports variable for single policy applied on single resource
 	cmd.Flags().StringVarP(&variablesString, "set", "s", "", "Variables that are required")
 	cmd.Flags().StringVarP(&valuesFile, "values-file", "f", "", "File containing values for policy variables")
 	cmd.Flags().BoolVarP(&policyReport, "policy-report", "", false, "Generates policy report when passed (default policyviolation r")
@@ -232,6 +233,14 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		os.Exit(1)
+	}
+
+	if (len(resources) > 1 || len(mutatedPolicies) > 1) && variablesString != "" {
+		return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("currently `set` flag supports variable for single policy applied on single resource ", nil)
+	}
+
+	if variablesString != "" {
+		variables = setInStoreContext(mutatedPolicies, variables)
 	}
 
 	msgPolicies := "1 policy"
@@ -410,4 +419,38 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 	}
 
 	return nil
+}
+
+func setInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string]string) map[string]string {
+	storePolices := make([]store.Policy, 0)
+	for _, policy := range mutatedPolicies {
+		storeRules := make([]store.Rule, 0)
+		for _, rule := range policy.Spec.Rules {
+			contextVal := make(map[string]string)
+			if len(rule.Context) != 0 {
+				for _, contextVar := range rule.Context {
+					for k, v := range variables {
+						if strings.HasPrefix(k, contextVar.Name) {
+							contextVal[k] = v
+							delete(variables, k)
+						}
+					}
+				}
+				storeRules = append(storeRules, store.Rule{
+					Name:   rule.Name,
+					Values: contextVal,
+				})
+			}
+		}
+		storePolices = append(storePolices, store.Policy{
+			Name:  policy.Name,
+			Rules: storeRules,
+		})
+	}
+
+	store.SetContext(store.Context{
+		Policies: storePolices,
+	})
+
+	return variables
 }
