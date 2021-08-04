@@ -215,29 +215,66 @@ const (
 	LessThanOrEquals ConditionOperator = "LessThanOrEquals"
 	// LessThan evaluates if the key (numeric) is less than the value (numeric).
 	LessThan ConditionOperator = "LessThan"
+	// DurationGreaterThanOrEquals evaluates if the key (duration) is greater than or equal to the value (duration)
+	DurationGreaterThanOrEquals ConditionOperator = "DurationGreaterThanOrEquals"
+	// DurationGreaterThan evaluates if the key (duration) is greater than the value (duration)
+	DurationGreaterThan ConditionOperator = "DurationGreaterThan"
+	// DurationLessThanOrEquals evaluates if the key (duration) is less than or equal to the value (duration)
+	DurationLessThanOrEquals ConditionOperator = "DurationLessThanOrEquals"
+	// DurationLessThan evaluates if the key (duration) is greater than the value (duration)
+	DurationLessThan ConditionOperator = "DurationLessThan"
 )
 
 // MatchResources is used to specify resource and admission review request data for
 // which a policy rule is applicable.
 type MatchResources struct {
+	// Any allows specifying resources which will be ORed
+	// +optional
+	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
+
+	// All allows specifying resources which will be ANDed
+	// +optional
+	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
+
 	// UserInfo contains information about the user performing the operation.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
 	// Requires at least one tag to be specified when under MatchResources.
+	// +optional
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
 // ExcludeResources specifies resource and admission review request data for
 // which a policy rule is not applicable.
 type ExcludeResources struct {
+	// Any allows specifying resources which will be ORed
+	// +optional
+	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
+
+	// All allows specifying resources which will be ANDed
+	// +optional
+	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
+
 	// UserInfo contains information about the user performing the operation.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
 	// +optional
+	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
+}
+
+type ResourceFilters []ResourceFilter
+
+// ResourceFilters allow users to "AND" or "OR" between resources
+type ResourceFilter struct {
+	// UserInfo contains information about the user performing the operation.
+	// +optional
+	UserInfo `json:",omitempty" yaml:",omitempty"`
+
+	// ResourceDescription contains information about the resource being created or modified.
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 

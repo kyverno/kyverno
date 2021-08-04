@@ -202,3 +202,9 @@ serviceMonitor:
 # 3) Let Helm generate a self signed cert, by setting createSelfSignedCert true
 # If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false
 createSelfSignedCert: false
+
+# When true, use a NetworkPolicy to allow ingress to the webhook
+# This is useful on clusters using Calico and/or native k8s network
+# policies in a default-deny setup.
+networkPolicy:
+  enabled: false

@@ -13,44 +13,21 @@ import (
 )
 
 //NewNotEqualHandler returns handler to manage NotEqual operations
-func NewNotEqualHandler(log logr.Logger, ctx context.EvalInterface, subHandler VariableSubstitutionHandler) OperatorHandler {
+func NewNotEqualHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return NotEqualHandler{
-		ctx:        ctx,
-		subHandler: subHandler,
-		log:        log,
+		ctx: ctx,
+		log: log,
 	}
 }
 
 //NotEqualHandler provides implementation to handle NotEqual Operator
 type NotEqualHandler struct {
-	ctx        context.EvalInterface
-	subHandler VariableSubstitutionHandler
-	log        logr.Logger
+	ctx context.EvalInterface
+	log logr.Logger
 }
 
 //Evaluate evaluates expression with NotEqual Operator
-func (neh NotEqualHandler) Evaluate(key, value interface{}, isPreCondition bool) bool {
-	var err error
-	//TODO: decouple variables from evaluation
-	// substitute the variables
-	if key, err = neh.subHandler(neh.log, neh.ctx, key); err != nil {
-		// Failed to resolve the variable
-		if isPreCondition {
-			neh.log.Info("Failed to resolve variable", "info", err.Error(), "variable", key)
-		} else {
-			neh.log.Error(err, "Failed to resolve variable", "variable", key)
-		}
-		return false
-	}
-	if value, err = neh.subHandler(neh.log, neh.ctx, value); err != nil {
-		// Failed to resolve the variable
-		if isPreCondition {
-			neh.log.Info("Failed to resolve variable", "info", err.Error(), "variable", value)
-		} else {
-			neh.log.Error(err, "Failed to resolve variable", "variable", value)
-		}
-		return false
-	}
+func (neh NotEqualHandler) Evaluate(key, value interface{}) bool {
 	// key and value need to be of same type
 	switch typedKey := key.(type) {
 	case bool:

@@ -60,6 +60,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 		return nil
 	}
 
+	var err error
 	startTime := time.Now()
 
 	policy := policyContext.Policy
@@ -74,10 +75,10 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name,
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 
-	if err := MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err != nil {
+	if err = MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err != nil {
 
 		// if the oldResource matched, return "false" to delete GR for it
-		if err := MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err == nil {
+		if err = MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err == nil {
 			return &response.RuleResponse{
 				Name:    rule.Name,
 				Type:    "Generation",
@@ -95,27 +96,34 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	policyContext.JSONContext.Checkpoint()
 	defer policyContext.JSONContext.Restore()
 
-	if err := LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
+	if err = LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}
 
+	ruleCopy := rule.DeepCopy()
+	ruleCopy.AnyAllConditions, err = variables.SubstituteAllInPreconditions(logger, ctx, ruleCopy.AnyAllConditions)
+	if err != nil {
+		logger.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", ruleCopy.Name)
+		return nil
+	}
+
 	// operate on the copy of the conditions, as we perform variable substitution
-	copyConditions, err := copyConditions(rule.AnyAllConditions)
+	copyConditions, err := transformConditions(ruleCopy.AnyAllConditions)
 	if err != nil {
 		logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
 		return nil
 	}
 
 	// evaluate pre-conditions
-	if !variables.EvaluateConditions(logger, ctx, copyConditions, true) {
-		logger.V(4).Info("preconditions not satisfied, skipping rule", "rule", rule.Name)
+	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
+		logger.V(4).Info("preconditions not satisfied, skipping rule", "rule", ruleCopy.Name)
 		return nil
 	}
 
 	// build rule Response
 	return &response.RuleResponse{
-		Name:    rule.Name,
+		Name:    ruleCopy.Name,
 		Type:    "Generation",
 		Success: true,
 		RuleStats: response.RuleStats{
