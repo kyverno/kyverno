@@ -20,12 +20,20 @@ RUN go env
 RUN CGO_ENABLED=0 go build -o /output/kyverno -tags "${TAGS}" -ldflags="${LD_FLAGS}" -v ./cmd/kyverno/
 
 # Packaging stage
-FROM scratch
+FROM registry.access.redhat.com/rhel7/rhel-atomic
 
-LABEL maintainer="Kyverno"
+LABEL name="kyverno" \
+      maintainer="shuting@nirmata.com" \
+      vendor="NIRMATA" \
+      version="1.0.0" \
+      release="v1.4.2-rc3" \
+      summary="Kubernetes Native Policy Management" \
+      description="Kubernetes Native Policy Management"
 COPY --from=builder /output/kyverno /
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+ADD licenses /licenses
 
 USER 10001
 
