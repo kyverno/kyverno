@@ -90,7 +90,7 @@ jobs:
       - name: Set version
         id: version
         run: echo ::set-output name=version::${GITHUB_REF#refs/*/}
-        
+
       - name: Checkout
         uses: actions/checkout@v2
         with:
@@ -136,6 +136,14 @@ jobs:
           make release
           make release-notes > release/release-notes.out
           cat release/release-notes.out
+          
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v2
+        with:
+          version: latest
+          args: release --rm-dist --debug --release-notes=release/release-notes.out
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   
   create-release:
     runs-on: ubuntu-latest
