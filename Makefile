@@ -220,6 +220,10 @@ release:
 	kustomize build ./definitions > ./definitions/install.yaml
 	kustomize build ./definitions > ./definitions/release/install.yaml
 
+release-notes:
+	@bash -c 'while IFS= read -r line; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION) "* ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
+	true
+	
 kyverno-crd: controller-gen
 	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1alpha1 output:dir=./definitions/crds
 	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1 output:dir=./definitions/crds
