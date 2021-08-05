@@ -87,6 +87,10 @@ jobs:
   release-kyverno-cli:
     runs-on: ubuntu-latest
     steps:
+      - name: Set version
+        id: version
+        run: echo ::set-output name=version::${GITHUB_REF#refs/*/}
+        
       - name: Checkout
         uses: actions/checkout@v2
         with:
