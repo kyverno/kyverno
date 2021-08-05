@@ -87,10 +87,6 @@ jobs:
   release-kyverno-cli:
     runs-on: ubuntu-latest
     steps:
-      - name: Set version
-        id: version
-        run: echo ::set-output name=version::${GITHUB_REF#refs/*/}
-
       - name: Checkout
         uses: actions/checkout@v2
         with:
@@ -127,23 +123,6 @@ jobs:
       - name :  docker images publish
         run: |
           make docker-publish-cli
-      
-      - name: Make Release
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          rm -rf release
-          make release
-          make release-notes > release/release-notes.out
-          cat release/release-notes.out
-          
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v2
-        with:
-          version: latest
-          args: release --rm-dist --debug --release-notes=release/release-notes.out
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   
   create-release:
     runs-on: ubuntu-latest
@@ -152,6 +131,10 @@ jobs:
       - release-kyverno
       - release-kyverno-cli
     steps:
+      - name: Set version
+        id: version
+        run: echo ::set-output name=version::${GITHUB_REF#refs/*/}
+
       - name: Checkout
         uses: actions/checkout@v2
         with:
@@ -175,7 +158,22 @@ jobs:
           go-version: 1.16
       - uses: creekorful/goreportcard-action@v1.0
 
-
+      - name: Make Release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          rm -rf release
+          make release
+          make release-notes > release/release-notes.out
+          cat release/release-notes.out
+          
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v2
+        with:
+          version: latest
+          args: release --rm-dist --debug --release-notes=release/release-notes.out
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release-cli-via-krew:
     runs-on: ubuntu-latest
