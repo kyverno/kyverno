@@ -462,7 +462,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 	}
 
 	if reqObjVars != "" {
-		fmt.Printf(("\nvariable request.object.* is handled by kyverno. ignoring value of variables: `%v` passed by the user.\n"), reqObjVars)
+		fmt.Printf(("\nNOTICE: request.object.* variables are automatically parsed from the supplied resource. Ignoring value of variables `%v`.\n"), reqObjVars)
 	}
 
 	storePolices := make([]store.Policy, 0)
