@@ -215,6 +215,14 @@ const (
 	LessThanOrEquals ConditionOperator = "LessThanOrEquals"
 	// LessThan evaluates if the key (numeric) is less than the value (numeric).
 	LessThan ConditionOperator = "LessThan"
+	// DurationGreaterThanOrEquals evaluates if the key (duration) is greater than or equal to the value (duration)
+	DurationGreaterThanOrEquals ConditionOperator = "DurationGreaterThanOrEquals"
+	// DurationGreaterThan evaluates if the key (duration) is greater than the value (duration)
+	DurationGreaterThan ConditionOperator = "DurationGreaterThan"
+	// DurationLessThanOrEquals evaluates if the key (duration) is less than or equal to the value (duration)
+	DurationLessThanOrEquals ConditionOperator = "DurationLessThanOrEquals"
+	// DurationLessThan evaluates if the key (duration) is greater than the value (duration)
+	DurationLessThan ConditionOperator = "DurationLessThan"
 )
 
 // MatchResources is used to specify resource and admission review request data for

@@ -18,7 +18,6 @@ require (
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210216200643-d81088d9983e
 	github.com/googleapis/gnostic v0.5.4
 	github.com/jmespath/go-jmespath v0.4.0
-	github.com/json-iterator/go v1.1.11 // indirect
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
@@ -28,22 +27,23 @@ require (
 	github.com/onsi/ginkgo v1.15.0
 	github.com/onsi/gomega v1.11.0
 	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
-	github.com/ory/go-acc v0.2.6 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.10.0
-	github.com/sigstore/cosign v0.5.0
-	github.com/sigstore/sigstore v0.0.0-20210530211317-99216b8b86a6
-	github.com/spf13/cobra v1.1.3
+	github.com/prometheus/client_golang v1.11.0
+	github.com/sigstore/cosign v1.0.0
+	github.com/sigstore/rekor v0.3.0 // indirect
+	github.com/sigstore/sigstore v0.0.0-20210726180807-7e34e36ecda1
+	github.com/sigstore/fulcio v0.1.1
+	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.21.1
+	k8s.io/api v0.21.3
 	k8s.io/apiextensions-apiserver v0.21.1
-	k8s.io/apimachinery v0.21.1
+	k8s.io/apimachinery v0.21.3
 	k8s.io/cli-runtime v0.21.1
-	k8s.io/client-go v0.21.1
+	k8s.io/client-go v0.21.3
 	k8s.io/klog/v2 v2.9.0
 	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
 	sigs.k8s.io/controller-runtime v0.8.1

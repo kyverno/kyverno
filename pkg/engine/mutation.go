@@ -93,14 +93,15 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			continue
 		}
 
-		rule.AnyAllConditions, err = variables.SubstituteAllInPreconditions(logger, ctx, rule.AnyAllConditions)
+		ruleCopy := rule.DeepCopy()
+		ruleCopy.AnyAllConditions, err = variables.SubstituteAllInPreconditions(logger, ctx, ruleCopy.AnyAllConditions)
 		if err != nil {
 			logger.V(3).Info("failed to substitute vars in preconditions, skip current rule", "rule name", rule.Name)
 			continue
 		}
 
 		// operate on the copy of the conditions, as we perform variable substitution
-		copyConditions, err := copyConditions(rule.AnyAllConditions)
+		copyConditions, err := transformConditions(rule.AnyAllConditions)
 		if err != nil {
 			logger.V(2).Info("failed to load context", "reason", err.Error())
 			continue
@@ -112,23 +113,23 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			continue
 		}
 
-		if rule, err = variables.SubstituteAllInRule(logger, ctx, rule); err != nil {
+		if *ruleCopy, err = variables.SubstituteAllInRule(logger, ctx, *ruleCopy); err != nil {
 			ruleResp := response.RuleResponse{
-				Name:    rule.Name,
+				Name:    ruleCopy.Name,
 				Type:    utils.Validation.String(),
-				Message: fmt.Sprintf("variable substitution failed for rule %s: %s", rule.Name, err.Error()),
+				Message: fmt.Sprintf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error()),
 				Success: true,
 			}
 
 			incrementAppliedCount(resp)
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
 
-			logger.Error(err, "failed to substitute variables, skip current rule", "rule name", rule.Name)
+			logger.Error(err, "failed to substitute variables, skip current rule", "rule name", ruleCopy.Name)
 			continue
 		}
 
-		mutation := rule.Mutation.DeepCopy()
-		mutateHandler := mutate.CreateMutateHandler(rule.Name, mutation, patchedResource, ctx, logger)
+		mutation := ruleCopy.Mutation.DeepCopy()
+		mutateHandler := mutate.CreateMutateHandler(ruleCopy.Name, mutation, patchedResource, ctx, logger)
 		ruleResponse, patchedResource = mutateHandler.Handle()
 		if ruleResponse.Success {
 			// - overlay pattern does not match the resource conditions
@@ -136,7 +137,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 				continue
 			}
 
-			logger.V(4).Info("mutate rule applied successfully", "ruleName", rule.Name)
+			logger.V(4).Info("mutate rule applied successfully", "ruleName", ruleCopy.Name)
 		}
 
 		if err := ctx.AddResourceAsObject(patchedResource.Object); err != nil {

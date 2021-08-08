@@ -380,7 +380,7 @@ func copyOldConditions(original []kyverno.Condition) []kyverno.Condition {
 	return copies
 }
 
-func copyConditions(original apiextensions.JSON) (interface{}, error) {
+func transformConditions(original apiextensions.JSON) (interface{}, error) {
 	// conditions are currently in the form of []interface{}
 	kyvernoOriginalConditions, err := utils.ApiextensionsJsonToKyvernoConditions(original)
 	if err != nil {

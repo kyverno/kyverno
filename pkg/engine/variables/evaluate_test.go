@@ -211,6 +211,150 @@ func Test_Eval_LessThan_Const_string_Fail(t *testing.T) {
 	}
 }
 
+func Test_Eval_DurationGreaterThanOrEquals_Const_string_Equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1h",
+		Operator: kyverno.DurationGreaterThanOrEquals,
+		Value:    "1h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationGreaterThanOrEquals_Const_string_Greater_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "2h",
+		Operator: kyverno.DurationGreaterThanOrEquals,
+		Value:    "1h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationGreaterThanOrEquals_Const_string_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1h",
+		Operator: kyverno.DurationGreaterThanOrEquals,
+		Value:    "2h",
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationGreaterThan_Const_string_Equal_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1h",
+		Operator: kyverno.DurationGreaterThan,
+		Value:    "2h",
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationGreaterThan_Const_string_Greater_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "2h",
+		Operator: kyverno.DurationGreaterThan,
+		Value:    "1h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationGreaterThan_Const_string_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1h",
+		Operator: kyverno.DurationGreaterThan,
+		Value:    "2h",
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationLessThanOrEquals_Const_string_Equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "2h",
+		Operator: kyverno.DurationLessThanOrEquals,
+		Value:    "2h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationLessThanOrEquals_Const_string_Less_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1h",
+		Operator: kyverno.DurationLessThanOrEquals,
+		Value:    "2h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationLessThanOrEquals_Const_string_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "2h",
+		Operator: kyverno.LessThanOrEquals,
+		Value:    "1h",
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationLessThan_Const_string_Equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1h",
+		Operator: kyverno.DurationLessThan,
+		Value:    "1h",
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationLessThan_Const_string_Less_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1h",
+		Operator: kyverno.DurationLessThan,
+		Value:    "2h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationLessThan_Const_string_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "2h",
+		Operator: kyverno.DurationLessThan,
+		Value:    "1h",
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
 //Bool
 
 func Test_Eval_Equal_Const_Bool_Pass(t *testing.T) {
@@ -470,6 +614,150 @@ func Test_Eval_LessThan_Const_int_Fail(t *testing.T) {
 	}
 }
 
+func Test_Eval_DurationGreaterThanOrEquals_Const_int_Equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1h",
+		Operator: kyverno.DurationGreaterThanOrEquals,
+		Value:    3600,
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationGreaterThanOrEquals_Const_int_Greater_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "2h",
+		Operator: kyverno.DurationGreaterThanOrEquals,
+		Value:    3600,
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationGreaterThanOrEquals_Const_int_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1h",
+		Operator: kyverno.DurationGreaterThanOrEquals,
+		Value:    7200,
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationGreaterThan_Const_int_Equal_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      3600,
+		Operator: kyverno.DurationGreaterThan,
+		Value:    7200,
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationGreaterThan_Const_int_Greater_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "2h",
+		Operator: kyverno.DurationGreaterThan,
+		Value:    3600,
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationGreaterThan_Const_int_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      3600,
+		Operator: kyverno.DurationGreaterThan,
+		Value:    7200,
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationLessThanOrEquals_Const_int_Equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "2h",
+		Operator: kyverno.DurationLessThanOrEquals,
+		Value:    7200,
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationLessThanOrEquals_Const_int_Less_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1h",
+		Operator: kyverno.DurationLessThanOrEquals,
+		Value:    7200,
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationLessThanOrEquals_Const_int_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      7200,
+		Operator: kyverno.LessThanOrEquals,
+		Value:    3600,
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationLessThan_Const_int_Equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      3600,
+		Operator: kyverno.DurationLessThan,
+		Value:    "1h",
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationLessThan_Const_int_Less_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      3600,
+		Operator: kyverno.DurationLessThan,
+		Value:    "2h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationLessThan_Const_int_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      7200,
+		Operator: kyverno.DurationLessThan,
+		Value:    3600,
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
 // int64
 func Test_Eval_Equal_Const_int64_Pass(t *testing.T) {
 	ctx := context.NewContext()
@@ -522,6 +810,150 @@ func Test_Eval_NoEqual_Const_int64_Fail(t *testing.T) {
 		Value:    int64(1),
 	}
 
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationGreaterThanOrEquals_Const_int64_Equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      int64(3600),
+		Operator: kyverno.DurationGreaterThanOrEquals,
+		Value:    "1h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationGreaterThanOrEquals_Const_int64_Greater_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      int64(7200),
+		Operator: kyverno.DurationGreaterThanOrEquals,
+		Value:    "1h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationGreaterThanOrEquals_Const_int64_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      int64(3600),
+		Operator: kyverno.DurationGreaterThanOrEquals,
+		Value:    int64(7200),
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationGreaterThan_Const_int64_Equal_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      int64(3600),
+		Operator: kyverno.DurationGreaterThan,
+		Value:    int64(7200),
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationGreaterThan_Const_int64_Greater_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      int64(7200),
+		Operator: kyverno.DurationGreaterThan,
+		Value:    int64(3600),
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationGreaterThan_Const_int64_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      int64(3600),
+		Operator: kyverno.DurationGreaterThan,
+		Value:    int64(7200),
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationLessThanOrEquals_Const_int64_Equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      int64(7200),
+		Operator: kyverno.DurationLessThanOrEquals,
+		Value:    "2h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationLessThanOrEquals_Const_int64_Less_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      int64(3600),
+		Operator: kyverno.DurationLessThanOrEquals,
+		Value:    "2h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationLessThanOrEquals_Const_int64_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      int64(7200),
+		Operator: kyverno.LessThanOrEquals,
+		Value:    int64(3600),
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationLessThan_Const_int64_Equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      int64(3600),
+		Operator: kyverno.DurationLessThan,
+		Value:    "1h",
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationLessThan_Const_int64_Less_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      int64(3600),
+		Operator: kyverno.DurationLessThan,
+		Value:    "2h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationLessThan_Const_int64_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      int64(7200),
+		Operator: kyverno.DurationLessThan,
+		Value:    int64(3600),
+	}
 	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
 	}
@@ -723,6 +1155,150 @@ func Test_Eval_LessThan_Const_float64_Fail(t *testing.T) {
 		Key:      2.5,
 		Operator: kyverno.LessThan,
 		Value:    1.95,
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationGreaterThanOrEquals_Const_float64_Equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      3600.0,
+		Operator: kyverno.DurationGreaterThanOrEquals,
+		Value:    "1h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationGreaterThanOrEquals_Const_float64_Greater_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      7200.0,
+		Operator: kyverno.DurationGreaterThanOrEquals,
+		Value:    "1h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationGreaterThanOrEquals_Const_float64_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      3600.0,
+		Operator: kyverno.DurationGreaterThanOrEquals,
+		Value:    7200.0,
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationGreaterThan_Const_float64_Equal_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      3600.0,
+		Operator: kyverno.DurationGreaterThan,
+		Value:    7200.0,
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationGreaterThan_Const_float64_Greater_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      7200.0,
+		Operator: kyverno.DurationGreaterThan,
+		Value:    "1h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationGreaterThan_Const_float64_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      3600.0,
+		Operator: kyverno.DurationGreaterThan,
+		Value:    7200.0,
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationLessThanOrEquals_Const_float64_Equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      7200.0,
+		Operator: kyverno.DurationLessThanOrEquals,
+		Value:    "2h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationLessThanOrEquals_Const_float64_Less_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      3600.0,
+		Operator: kyverno.DurationLessThanOrEquals,
+		Value:    "2h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationLessThanOrEquals_Const_float64_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      7200.0,
+		Operator: kyverno.LessThanOrEquals,
+		Value:    "1h",
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationLessThan_Const_float64_Equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      3600.0,
+		Operator: kyverno.DurationLessThan,
+		Value:    "1h",
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_DurationLessThan_Const_float64_Less_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1h",
+		Operator: kyverno.DurationLessThan,
+		Value:    7200.0,
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationLessThan_Const_float64_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      7200.0,
+		Operator: kyverno.DurationLessThan,
+		Value:    3600.0,
 	}
 	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")

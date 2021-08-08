@@ -387,6 +387,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 	valuesMapRule := make(map[string]map[string]Rule)
 	namespaceSelectorMap := make(map[string]map[string]string)
 	variables := make(map[string]string)
+	reqObjVars := ""
 
 	var yamlFile []byte
 	var err error
@@ -395,7 +396,10 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		for _, kvpair := range kvpairs {
 			kvs := strings.Split(strings.Trim(kvpair, " "), "=")
 			if strings.Contains(kvs[0], "request.object") {
-				return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("variable request.object.* is handled by kyverno. please do not pass value for request.object variables ", err)
+				if !strings.Contains(reqObjVars, kvs[0]) {
+					reqObjVars = reqObjVars + "," + kvs[0]
+				}
+				continue
 			}
 
 			variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
@@ -432,7 +436,11 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 			for _, r := range p.Resources {
 				for variableInFile := range r.Values {
 					if strings.Contains(variableInFile, "request.object") {
-						return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("variable request.object.* is handled by kyverno. please do not pass value for request.object variables ", err)
+						if !strings.Contains(reqObjVars, variableInFile) {
+							reqObjVars = reqObjVars + "," + variableInFile
+						}
+						delete(r.Values, variableInFile)
+						continue
 					}
 				}
 				resourceMap[r.Name] = r
@@ -451,6 +459,10 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		for _, n := range values.NamespaceSelectors {
 			namespaceSelectorMap[n.Name] = n.Labels
 		}
+	}
+
+	if reqObjVars != "" {
+		fmt.Printf(("\nNOTICE: request.object.* variables are automatically parsed from the supplied resource. Ignoring value of variables `%v`.\n"), reqObjVars)
 	}
 
 	storePolices := make([]store.Policy, 0)
