@@ -11,6 +11,7 @@ assignees: ''
 State the version numbers of applications involved in the bug.
 
 * Kubernetes version:
+* Kubernetes platform (if applicable; ex., EKS, GKE, OpenShift):
 * Kyverno version:
 
 **Describe the bug**
