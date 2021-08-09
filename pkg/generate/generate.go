@@ -321,6 +321,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 
 	// build the resource template
 	newResource := &unstructured.Unstructured{}
+	newResourceOnlyLabel := &unstructured.Unstructured{}
 	newResource.SetUnstructuredContent(rdata)
 	newResource.SetName(genName)
 	newResource.SetNamespace(genNamespace)
@@ -365,12 +366,22 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 			label["policy.kyverno.io/synchronize"] = "disable"
 		}
 
-		logger.V(4).Info("updating label in existing resource")
-		newResource.SetLabels(label)
-		_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
-		if err != nil {
-			logger.Error(err, "failed to update resource")
-			return noGenResource, err
+		if rule.Generation.Synchronize {
+			logger.V(4).Info("updating existing resource")
+			newResource.SetLabels(label)
+			_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
+			if err != nil {
+				logger.Error(err, "failed to update resource")
+				return noGenResource, err
+			}
+		} else {
+			logger.V(4).Info("updating label in existing resource")
+			newResourceOnlyLabel.SetLabels(label)
+			_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
+			if err != nil {
+				logger.Error(err, "failed to update label in existing resource")
+				return noGenResource, err
+			}
 		}
 		logger.V(2).Info("updated generate target resource")
 	}
