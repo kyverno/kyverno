@@ -123,6 +123,57 @@ jobs:
       - name :  docker images publish
         run: |
           make docker-publish-cli
+  
+  create-release:
+    runs-on: ubuntu-latest
+    needs:
+      - release-init-kyverno
+      - release-kyverno
+      - release-kyverno-cli
+    steps:
+      - name: Set version
+        id: version
+        run: echo ::set-output name=version::${GITHUB_REF#refs/*/}
+
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16
+
+      - name: Cache Go modules
+        uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16
+      - uses: creekorful/goreportcard-action@v1.0
+
+      - name: Make Release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          rm -rf release
+          mkdir release
+          make release-notes > release/release-notes.out
+          cat release/release-notes.out
+          
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v2
+        with:
+          version: latest
+          args: release --rm-dist --debug --release-notes=release/release-notes.out
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release-cli-via-krew:
     runs-on: ubuntu-latest
