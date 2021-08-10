@@ -9,7 +9,8 @@ GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 CONTROLLER_GEN=controller-gen
 CONTROLLER_GEN_REQ_VERSION := v0.4.0
-VERSION ?= $(shell git rev-parse --abbrev-ref HEAD) 
+VERSION ?= $(shell git describe --always --tags)
+
 REGISTRY?=ghcr.io
 REPO=$(REGISTRY)/kyverno
 IMAGE_TAG?=$(GIT_VERSION)
@@ -221,7 +222,7 @@ release:
 	kustomize build ./definitions > ./definitions/release/install.yaml
 
 release-notes:
-	@bash -c 'while IFS= read -r line; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION) "* ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
+	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION) "* ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
 	true
 
 kyverno-crd: controller-gen

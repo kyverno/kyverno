@@ -163,7 +163,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           rm -rf release
-          make release
+          mkdir release
           make release-notes > release/release-notes.out
           cat release/release-notes.out
           
