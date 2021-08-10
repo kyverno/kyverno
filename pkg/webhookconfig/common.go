@@ -52,23 +52,6 @@ func extractCA(config *rest.Config) (result []byte) {
 	return config.TLSClientConfig.CAData
 }
 
-// func (wrc *Register) constructOwner() v1.OwnerReference {
-// 	logger := wrc.log
-
-// 	kubePolicyDeployment, _, err := wrc.GetKubePolicyDeployment()
-// 	if err != nil {
-// 		logger.Error(err, "failed to construct OwnerReference")
-// 		return v1.OwnerReference{}
-// 	}
-
-// 	return v1.OwnerReference{
-// 		APIVersion: config.DeploymentAPIVersion,
-// 		Kind:       config.DeploymentKind,
-// 		Name:       kubePolicyDeployment.ObjectMeta.Name,
-// 		UID:        kubePolicyDeployment.ObjectMeta.UID,
-// 	}
-// }
-
 // GetKubePolicyDeployment gets Kyverno deployment using the resource cache
 // it does not initialize any client call
 func (wrc *Register) GetKubePolicyDeployment() (*apps.Deployment, *unstructured.Unstructured, error) {

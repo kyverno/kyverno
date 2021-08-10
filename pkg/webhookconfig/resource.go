@@ -50,9 +50,6 @@ func (wrc *Register) constructDefaultMutatingWebhookConfig(caData []byte) *admre
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.MutatingWebhookConfigurationName,
-			// OwnerReferences: []v1.OwnerReference{
-			// 	wrc.constructOwner(),
-			// },
 		},
 		Webhooks: []admregapi.MutatingWebhook{webhookCfg},
 	}
@@ -121,9 +118,6 @@ func (wrc *Register) constructDefaultValidatingWebhookConfig(caData []byte) *adm
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.ValidatingWebhookConfigurationName,
-			// OwnerReferences: []v1.OwnerReference{
-			// 	wrc.constructOwner(),
-			// },
 		},
 		Webhooks: []admregapi.ValidatingWebhook{
 			generateValidatingWebhook(
