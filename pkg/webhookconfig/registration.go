@@ -464,9 +464,9 @@ func (wrc *Register) constructVerifyMutatingWebhookConfig(caData []byte) *admreg
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.VerifyMutatingWebhookConfigurationName,
-			OwnerReferences: []v1.OwnerReference{
-				wrc.constructOwner(),
-			},
+			// OwnerReferences: []v1.OwnerReference{
+			// 	wrc.constructOwner(),
+			// },
 		},
 		Webhooks: []admregapi.MutatingWebhook{
 			generateMutatingWebhook(
