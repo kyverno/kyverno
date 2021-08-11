@@ -13,9 +13,6 @@ func (wrc *Register) contructPolicyValidatingWebhookConfig(caData []byte) *admre
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.PolicyValidatingWebhookConfigurationName,
-			OwnerReferences: []v1.OwnerReference{
-				wrc.constructOwner(),
-			},
 		},
 		Webhooks: []admregapi.ValidatingWebhook{
 			generateValidatingWebhook(
@@ -62,9 +59,6 @@ func (wrc *Register) contructPolicyMutatingWebhookConfig(caData []byte) *admrega
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.PolicyMutatingWebhookConfigurationName,
-			OwnerReferences: []v1.OwnerReference{
-				wrc.constructOwner(),
-			},
 		},
 		Webhooks: []admregapi.MutatingWebhook{
 			generateMutatingWebhook(
