@@ -222,7 +222,7 @@ release:
 	kustomize build ./definitions > ./definitions/release/install.yaml
 
 release-notes:
-	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)"* ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
+	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)" ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
 	true
 
 kyverno-crd: controller-gen
