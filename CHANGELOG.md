@@ -1,3 +1,8 @@
+## v1.4.2
+
+### Enhancements 
+- Remove unused variable from Kyverno CLI (#2252)
+
 ## v1.4.2-rc4
 
 ### Enhancements
