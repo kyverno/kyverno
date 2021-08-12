@@ -4,6 +4,7 @@ on:
     branches:
       - 'main'
     paths:
+      - 'charts/kyverno-crds/Chart.yaml'
       - 'charts/kyverno/Chart.yaml'
       - '.github/workflows/helm-release.yaml'
 
