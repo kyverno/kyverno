@@ -181,6 +181,8 @@ serviceMonitor:
   # Additional labels
   additionalLabels:
     # key: value
+  # Override namespace (default is same than kyverno)
+  namespace:
 
   # Interval to scrape metrics
   interval: 30s
