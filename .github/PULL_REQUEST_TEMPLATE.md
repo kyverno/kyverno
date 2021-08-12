@@ -10,6 +10,12 @@ chance substantial changes will be requested or that the changes will be rejecte
 You can discuss changes with maintainers in the [Kyverno Slack Channel](https://kubernetes.slack.com/).
 -->
 
+## Milestone of this PR
+<!--
+
+Add the milestone label by commenting `/milestone 1.2.3`.
+
+-->
 ## What type of PR is this
 
 <!--
