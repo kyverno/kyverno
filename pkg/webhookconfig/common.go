@@ -7,7 +7,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/tls"
 	admregapi "k8s.io/api/admissionregistration/v1beta1"
 	apps "k8s.io/api/apps/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	rest "k8s.io/client-go/rest"
@@ -51,23 +50,6 @@ func extractCA(config *rest.Config) (result []byte) {
 	}
 
 	return config.TLSClientConfig.CAData
-}
-
-func (wrc *Register) constructOwner() v1.OwnerReference {
-	logger := wrc.log
-
-	kubePolicyDeployment, _, err := wrc.GetKubePolicyDeployment()
-	if err != nil {
-		logger.Error(err, "failed to construct OwnerReference")
-		return v1.OwnerReference{}
-	}
-
-	return v1.OwnerReference{
-		APIVersion: config.DeploymentAPIVersion,
-		Kind:       config.DeploymentKind,
-		Name:       kubePolicyDeployment.ObjectMeta.Name,
-		UID:        kubePolicyDeployment.ObjectMeta.UID,
-	}
 }
 
 // GetKubePolicyDeployment gets Kyverno deployment using the resource cache

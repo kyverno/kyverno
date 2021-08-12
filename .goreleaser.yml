@@ -42,9 +42,8 @@ release:
 changelog:
   sort: asc
   filters:
-    # commit messages matching the regexp listed here will be removed from
-    # the changelog
     exclude:
       - '^docs:'
       - typo
+      - '^test:'
 
