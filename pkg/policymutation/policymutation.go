@@ -112,13 +112,13 @@ func checkForGVKFormatPatch(policy *kyverno.ClusterPolicy, log logr.Logger) (pat
 
 func getFormatedKind(str string) (kind string) {
 	if strings.Count(str, "/") == 0 {
-		return strings.Title(strings.ToLower(str))
+		return strings.Title(str)
 	}
 	splitString := strings.Split(str, "/")
 	if strings.Count(str, "/") == 1 {
-		return splitString[0] + "/" + strings.Title(strings.ToLower(splitString[1]))
+		return splitString[0] + "/" + strings.Title(splitString[1])
 	}
-	return splitString[0] + "/" + splitString[1] + "/" + strings.Title(strings.ToLower(splitString[2]))
+	return splitString[0] + "/" + splitString[1] + "/" + strings.Title(splitString[2])
 }
 
 func convertPatchToJSON6902(policy *kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
