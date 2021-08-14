@@ -2,10 +2,12 @@ package policy
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"gotest.tools/assert"
@@ -1236,4 +1238,227 @@ func Test_doesMatchExcludeConflict(t *testing.T) {
 			t.Errorf("Testcase [%d] failed - description - %v", i+1, testcase.description)
 		}
 	}
+}
+
+func Test_Validate_Kind(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "policy-to-monitor-root-user-access"
+		},
+		"spec": {
+		  "validationFailureAction": "audit",
+		  "rules": [
+			{
+			  "name": "monitor-annotation-for-root-user-access",
+			  "match": {
+				"resources": {
+				  "selector": {
+					"matchLabels": {
+					  "AllowRootUserAccess": "true"
+					}
+				  }
+				}
+			  },
+			  "validate": {
+				"message": "Label provisioner.wg.net/cloudprovider is required",
+				"pattern": {
+				  "metadata": {
+					"labels": {
+					  "provisioner.wg.net/cloudprovider": "*"
+					}
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }
+	`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openAPIController, _ := openapi.NewOpenAPIController()
+	err = Validate(policy, nil, true, openAPIController)
+	assert.Assert(t, err != nil)
+}
+
+func Test_Validate_Any_Kind(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "policy-to-monitor-root-user-access"
+		},
+		"spec": {
+			"validationFailureAction": "audit",
+			"rules": [
+				{
+					"name": "monitor-annotation-for-root-user-access",
+					"match": {
+						"any": [
+							{
+								"resources": {
+									"selector": {
+										"matchLabels": {
+											"AllowRootUserAccess": "true"
+										}
+									}
+								}
+							}
+						]
+					},
+					"validate": {
+						"message": "Label provisioner.wg.net/cloudprovider is required",
+						"pattern": {
+							"metadata": {
+								"labels": {
+									"provisioner.wg.net/cloudprovider": "*"
+								}
+							}
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openAPIController, _ := openapi.NewOpenAPIController()
+	err = Validate(policy, nil, true, openAPIController)
+	assert.Assert(t, err != nil)
+}
+
+func Test_checkAutoGenRules(t *testing.T) {
+	testCases := []struct {
+		name           string
+		policy         []byte
+		expectedResult bool
+	}{
+		{
+			name:           "rule-missing-autogen-cronjob",
+			policy:         []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test","annotations":{"pod-policies.kyverno.io/autogen-controllers":"Deployment,CronJob"}},"spec":{"rules":[{"match":{"resources":{"kinds":["Pod"]}},"name":"block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}},{"match":{"resources":{"kinds":["Deployment"]}},"name":"autogen-block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"spec":{"template":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}}}}]}}`),
+			expectedResult: true,
+		},
+		{
+			name:           "rule-missing-autogen-deployment",
+			policy:         []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test","annotations":{"pod-policies.kyverno.io/autogen-controllers":"Deployment,CronJob"}},"spec":{"rules":[{"match":{"resources":{"kinds":["Pod"]}},"name":"block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}},{"match":{"resources":{"kinds":["CronJob"]}},"name":"autogen-cronjob-block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"spec":{"jobTemplate":{"spec":{"template":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}}}}}}]}}`),
+			expectedResult: true,
+		},
+		{
+			name:           "rule-missing-autogen-all",
+			policy:         []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test","annotations":{"pod-policies.kyverno.io/autogen-controllers":"Deployment,CronJob,StatefulSet,Job,DaemonSet"}},"spec":{"rules":[{"match":{"resources":{"kinds":["Pod"]}},"name":"block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}}]}}`),
+			expectedResult: true,
+		},
+		{
+			name:           "rule-with-autogen-disabled",
+			policy:         []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test","annotations":{"pod-policies.kyverno.io/autogen-controllers":"none"}},"spec":{"rules":[{"match":{"resources":{"kinds":["Pod"]}},"name":"block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}}]}}`),
+			expectedResult: false,
+		},
+	}
+
+	for _, test := range testCases {
+		var policy kyverno.ClusterPolicy
+		err := json.Unmarshal(test.policy, &policy)
+		assert.NilError(t, err)
+
+		res := missingAutoGenRules(&policy, log.Log)
+		assert.Equal(t, test.expectedResult, res, fmt.Sprintf("test %s failed", test.name))
+	}
+}
+
+func Test_Validate_ApiCall(t *testing.T) {
+	testCases := []struct {
+		resource       kyverno.ContextEntry
+		expectedResult interface{}
+	}{
+		{
+			resource: kyverno.ContextEntry{
+				APICall: &kyverno.APICall{
+					URLPath:  "/apis/networking.k8s.io/v1/namespaces/{{request.namespace}}/networkpolicies",
+					JMESPath: "",
+				},
+			},
+			expectedResult: nil,
+		},
+		{
+			resource: kyverno.ContextEntry{
+				APICall: &kyverno.APICall{
+					URLPath:  "/apis/networking.k8s.io/v1/namespaces/{{request.namespace}}/networkpolicies",
+					JMESPath: "items[",
+				},
+			},
+			expectedResult: "failed to parse JMESPath items[: SyntaxError: Expected tStar, received: tEOF",
+		},
+		{
+			resource: kyverno.ContextEntry{
+				APICall: &kyverno.APICall{
+					URLPath:  "/apis/networking.k8s.io/v1/namespaces/{{request.namespace}}/networkpolicies",
+					JMESPath: "items[{{request.namespace}}",
+				},
+			},
+			expectedResult: nil,
+		},
+	}
+
+	for _, testCase := range testCases {
+		err := validateAPICall(testCase.resource)
+
+		if err == nil {
+			assert.Equal(t, err, testCase.expectedResult)
+		} else {
+			assert.Equal(t, err.Error(), testCase.expectedResult)
+		}
+	}
+}
+func Test_Wildcards_Kind(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "require-labels"
+		},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "rules": [
+			{
+			  "name": "check-for-labels",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"*"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "label 'app.kubernetes.io/name' is required",
+				"pattern": {
+				  "metadata": {
+					"labels": {
+					  "app.kubernetes.io/name": "?*"
+					}
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }
+	`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openAPIController, _ := openapi.NewOpenAPIController()
+	err = Validate(policy, nil, true, openAPIController)
+	assert.Assert(t, err != nil)
 }

@@ -1,9 +1,9 @@
 nameOverride:
 fullnameOverride:
 namespace:
-# Supported- default/restricted/privileged/custom
+# Supported- baseline/restricted/privileged/custom
 # For more info- https://kyverno.io/policies/pod-security
-podSecurityStandard: default
+podSecurityStandard: baseline
 # Supported- low/medium/high
 podSecuritySeverity: medium
 # Policies to include when podSecurityStandard is custom
@@ -11,6 +11,9 @@ podSecurityPolicies: []
 # Supported values- `audit`, `enforce`
 # For more info- https://kyverno.io/docs/writing-policies/validate/
 validationFailureAction: audit
+
+# -- Additional labels
+customLabels: {}
 
 rbac:
   create: true
@@ -59,6 +62,10 @@ hostNetwork: false
 # for further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
 dnsPolicy: "ClusterFirst"
 
+# env variables for initContainers
+envVarsInit: {}
+
+# env variables for containers
 envVars: {}
 
 extraArgs: []
@@ -70,6 +77,14 @@ resources:
   requests:
     cpu: 100m
     memory: 50Mi
+
+initResources:
+  limits:
+    cpu: 100m
+    memory: 256Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
 
 ## Liveness Probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
@@ -130,6 +145,12 @@ config:
 #  - ""
   excludeUsername:
 #  - ""
+  # Webhookconfigurations, this block defines the namespaceSelector in the webhookconfigurations.
+  # Note that it takes a list of namespaceSelector in the JSON format, and only the first element
+  # will be forwarded to the webhookconfigurations.
+  webhooks:
+  # webhooks: [{"namespaceSelector":{"matchExpressions":[{"key":"environment","operator":"In","values":["prod"]}]}}]
+  generateSuccessEvents: 'false'
   # existingConfig: init-config
 
 service:
@@ -137,11 +158,40 @@ service:
   type: ClusterIP
   # Only used if service.type is NodePort
   nodePort:
+  annotations: {}
+
+topologySpreadConstraints: []
+
+metricsService:
+  create: true
+  type: ClusterIP
+  ## Kyverno's metrics server will be exposed at this port
+  port: 8000
+  ## The Node's port which will allow access Kyverno's metrics at the host level. Only used if service.type is NodePort.
+  nodePort:
   ## Provide any additional annotations which may be required. This can be used to
   ## set the LoadBalancer service type to internal only.
   ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#internal-load-balancer
   ##
   annotations: {}
+
+# Service Monitor to collect Prometheus Metrics
+serviceMonitor:
+  enabled: false
+  # Additional labels
+  additionalLabels:
+    # key: value
+  # Override namespace (default is same than kyverno)
+  namespace:
+
+  # Interval to scrape metrics
+  interval: 30s
+  # Timeout if metrics can't be retrieved in given time interval
+  scrapeTimeout: 25s
+  # Is TLS required for endpoint
+  secure: false
+  # TLS Configuration for endpoint
+  tlsConfig: {}
 
 # Kyverno requires a certificate key pair and corresponding certificate authority
 # to properly register its webhooks. This can be done in one of 3 ways:
@@ -154,3 +204,9 @@ service:
 # 3) Let Helm generate a self signed cert, by setting createSelfSignedCert true
 # If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false
 createSelfSignedCert: false
+
+# When true, use a NetworkPolicy to allow ingress to the webhook
+# This is useful on clusters using Calico and/or native k8s network
+# policies in a default-deny setup.
+networkPolicy:
+  enabled: false

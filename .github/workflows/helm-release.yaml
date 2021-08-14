@@ -1,0 +1,49 @@
+name: helm-release
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'charts/kyverno-crds/Chart.yaml'
+      - 'charts/kyverno/Chart.yaml'
+      - '.github/workflows/helm-release.yaml'
+
+jobs:
+  helm-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Unshallow
+        run: git fetch --prune --unshallow
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.0.1
+
+      - name: Run chart-testing (lint)
+        run: ct lint --target-branch=main --check-version-increment=false
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: helm-tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          
+      - name: Install Helm
+        uses: azure/setup-helm@v1
+        with:
+          version: v3.4.1
+
+      - name: Run chart-releaser
+        uses: stefanprodan/helm-gh-pages@v1.4.1
+        with:
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          linting: off

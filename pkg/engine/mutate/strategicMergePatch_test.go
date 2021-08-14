@@ -9,6 +9,7 @@ import (
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func TestMergePatch(t *testing.T) {
@@ -39,7 +40,7 @@ func TestMergePatch(t *testing.T) {
 	for i, test := range testCases {
 
 		// out
-		out, err := strategicMergePatch(string(test.rawResource), string(test.rawPolicy))
+		out, err := strategicMergePatch(log.Log, string(test.rawResource), string(test.rawPolicy))
 		assert.NilError(t, err)
 
 		// expect
@@ -132,7 +133,7 @@ func Test_PolicyDeserilize(t *testing.T) {
 	patchString, err := json.Marshal(overlayPatches)
 	assert.NilError(t, err)
 
-	out, err := strategicMergePatch(string(baseBytes), string(patchString))
+	out, err := strategicMergePatch(log.Log, string(baseBytes), string(patchString))
 	assert.NilError(t, err)
 
 	var ep unstructured.Unstructured

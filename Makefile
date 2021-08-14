@@ -7,7 +7,9 @@ GIT_VERSION := $(shell git describe --always --tags)
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
+CONTROLLER_GEN=controller-gen
 CONTROLLER_GEN_REQ_VERSION := v0.4.0
+VERSION ?= $(shell git describe --always --tags)
 
 REGISTRY?=ghcr.io
 REPO=$(REGISTRY)/kyverno
@@ -15,6 +17,10 @@ IMAGE_TAG?=$(GIT_VERSION)
 GOOS ?= $(shell go env GOOS)
 PACKAGE ?=github.com/kyverno/kyverno
 LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
+
+# Used to disable inclusion of cloud provider code in k8schain
+# https://github.com/google/go-containerregistry/tree/main/pkg/authn/k8schain
+TAGS=disable_aws,disable_azure,disable_gcp
 
 ##################################
 # KYVERNO
@@ -64,28 +70,28 @@ KYVERNO_PATH := cmd/kyverno
 KYVERNO_IMAGE := kyverno
 
 local:
-	go build -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)
-	go build -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)
+	go build -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)
+	go build -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)
 
 kyverno: fmt vet
-	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
+	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
 
 docker-publish-kyverno: docker-build-kyverno docker-push-kyverno
 
 docker-build-kyverno:
-	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TAGS=$(TAGS)
 
-docker-build-local-kyverno:
-	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
+docker-build-kyverno-local:
+	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
 	@docker build -f $(PWD)/$(KYVERNO_PATH)/localDockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(PWD)/$(KYVERNO_PATH)
 	@docker tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REPO)/$(KYVERNO_IMAGE):latest
 
 docker-build-kyverno-amd64:
-	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64"
+	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64" --build-arg TAGS=$(TAGS)
 
 docker-push-kyverno:
-	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
-	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TAGS=$(TAGS)
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TAGS=$(TAGS)
 
 ##################################
 
@@ -156,9 +162,12 @@ $(GO_ACC):
 # go-acc merges the result for pks so that it be used by
 # go tool cover for reporting
 
+test: test-unit test-e2e test-cmd
+
+
 # go get downloads and installs the binary
 # we temporarily add the GO_ACC to the path
-test-all: $(GO_ACC)
+test-unit: $(GO_ACC)
 	@echo "	running unit tests"
 	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
 
@@ -171,14 +180,28 @@ code-cov-report: $(CODE_COVERAGE_FILE_TXT)
 # Test E2E
 test-e2e:
 	$(eval export E2E="ok")
+	go test ./test/e2e/metrics -v
 	go test ./test/e2e/mutate -v
 	go test ./test/e2e/generate -v
 	$(eval export E2E="")
 
+test-e2e-local:
+	$(eval export E2E="ok")
+	kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/definitions/github/rbac.yaml
+	kubectl port-forward -n kyverno service/kyverno-svc-metrics  8000:8000 &
+	go test ./test/e2e/metrics -v
+	go test ./test/e2e/mutate -v
+	go test ./test/e2e/generate -v
+	kill  $!
+	$(eval export E2E="")
+
 #Test TestCmd Policy
-run_testcmd_policy:
-	go build -o  kyvernoctl cmd/cli/kubectl-kyverno/main.go
-	./kyvernoctl test https://github.com/kyverno/policies/main
+test-cmd: cli
+	$(PWD)/$(CLI_PATH)/kyverno test https://github.com/kyverno/policies/main
+	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test
+	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
+	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-rule && exit 1 || exit 0
+	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
 
 # godownloader create downloading script for kyverno-cli
 godownloader:
@@ -187,7 +210,7 @@ godownloader:
 # kustomize-crd will create install.yaml
 kustomize-crd:
 	# Create CRD for helm deployment Helm
-	kustomize build ./definitions/crds > ./charts/kyverno/crds/crds.yaml
+	kustomize build ./definitions/crds > ./charts/kyverno-crds/templates/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
 	kustomize build ./definitions > ./definitions/install.yaml
 	# Generate install_debug.yaml that for developer testing
@@ -197,6 +220,10 @@ kustomize-crd:
 release:
 	kustomize build ./definitions > ./definitions/install.yaml
 	kustomize build ./definitions > ./definitions/release/install.yaml
+
+release-notes:
+	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)" ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
+	true
 
 kyverno-crd: controller-gen
 	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1alpha2 output:dir=./definitions/crds

@@ -17,6 +17,9 @@ import (
 //Interface to manage context operations
 type Interface interface {
 
+	// AddRequest marshals and adds the admission request to the context
+	AddRequest(request *v1beta1.AdmissionRequest) error
+
 	// AddJSON  merges the json with context
 	AddJSON(dataRaw []byte) error
 
@@ -35,9 +38,17 @@ type Interface interface {
 	EvalInterface
 }
 
-//EvalInterface ... to evaluate
+//EvalInterface is used to query and inspect context data
 type EvalInterface interface {
+
+	// Query accepts a JMESPath expression and returns matching data
 	Query(query string) (interface{}, error)
+
+	// HasChanged accepts a JMESPath expression and compares matching data in the
+	// request.object and request.oldObject context fields. If the data has changed
+	// it return `true`. If the data has not changed it returns false. If either
+	// request.object or request.oldObject are not found, an error is returned.
+	HasChanged(jmespath string) (bool, error)
 }
 
 //Context stores the data resources as JSON
@@ -46,6 +57,7 @@ type Context struct {
 	jsonRaw           []byte
 	jsonRawCheckpoint []byte
 	builtInVars       []string
+	images            *Images
 	log               logr.Logger
 }
 
@@ -77,7 +89,8 @@ func (ctx *Context) AddJSON(dataRaw []byte) error {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 	// merge json
-	ctx.jsonRaw, err = jsonpatch.MergePatch(ctx.jsonRaw, dataRaw)
+	ctx.jsonRaw, err = jsonpatch.MergeMergePatches(ctx.jsonRaw, dataRaw)
+
 	if err != nil {
 		ctx.log.Error(err, "failed to merge JSON data")
 		return err
@@ -98,6 +111,7 @@ func (ctx *Context) AddRequest(request *v1beta1.AdmissionRequest) error {
 		ctx.log.Error(err, "failed to marshal the request")
 		return err
 	}
+
 	return ctx.AddJSON(objRaw)
 }
 
@@ -111,6 +125,53 @@ func (ctx *Context) AddResource(dataRaw []byte) error {
 		return err
 	}
 
+	modifiedResource := struct {
+		Request interface{} `json:"request"`
+	}{
+		Request: struct {
+			Object interface{} `json:"object"`
+		}{
+			Object: data,
+		},
+	}
+
+	objRaw, err := json.Marshal(modifiedResource)
+	if err != nil {
+		ctx.log.Error(err, "failed to marshal the resource")
+		return err
+	}
+	return ctx.AddJSON(objRaw)
+}
+
+//AddResourceInOldObject data at path: request.oldObject
+func (ctx *Context) AddResourceInOldObject(dataRaw []byte) error {
+
+	// unmarshal the resource struct
+	var data interface{}
+	if err := json.Unmarshal(dataRaw, &data); err != nil {
+		ctx.log.Error(err, "failed to unmarshal the resource")
+		return err
+	}
+
+	modifiedResource := struct {
+		Request interface{} `json:"request"`
+	}{
+		Request: struct {
+			OldObject interface{} `json:"oldObject"`
+		}{
+			OldObject: data,
+		},
+	}
+
+	objRaw, err := json.Marshal(modifiedResource)
+	if err != nil {
+		ctx.log.Error(err, "failed to marshal the resource")
+		return err
+	}
+	return ctx.AddJSON(objRaw)
+}
+
+func (ctx *Context) AddResourceAsObject(data interface{}) error {
 	modifiedResource := struct {
 		Request interface{} `json:"request"`
 	}{
@@ -221,20 +282,28 @@ func (ctx *Context) AddImageInfo(resource *unstructured.Unstructured) error {
 		return nil
 	}
 
-	resourceImg := newResourceImage(initContainersImgs, containersImgs)
-
-	images := struct {
-		Images interface{} `json:"images"`
-	}{
-		Images: resourceImg,
+	images := newImages(initContainersImgs, containersImgs)
+	if images == nil {
+		return nil
 	}
 
-	objRaw, err := json.Marshal(images)
+	ctx.images = images
+	imagesTag := struct {
+		Images interface{} `json:"images"`
+	}{
+		Images: images,
+	}
+
+	objRaw, err := json.Marshal(imagesTag)
 	if err != nil {
 		return err
 	}
 
 	return ctx.AddJSON(objRaw)
+}
+
+func (ctx *Context) ImageInfo() *Images {
+	return ctx.images
 }
 
 // Checkpoint creates a copy of the internal state.

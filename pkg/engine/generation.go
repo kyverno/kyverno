@@ -14,17 +14,24 @@ import (
 //    - the caller has to check the ruleResponse to determine whether the path exist
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func Generate(policyContext *PolicyContext) (resp *response.EngineResponse) {
-	return filterRules(policyContext)
+	policyStartTime := time.Now()
+	return filterRules(policyContext, policyStartTime)
 }
 
-func filterRules(policyContext *PolicyContext) *response.EngineResponse {
+func filterRules(policyContext *PolicyContext, startTime time.Time) *response.EngineResponse {
 	kind := policyContext.NewResource.GetKind()
 	name := policyContext.NewResource.GetName()
 	namespace := policyContext.NewResource.GetNamespace()
 	apiVersion := policyContext.NewResource.GetAPIVersion()
 	resp := &response.EngineResponse{
 		PolicyResponse: response.PolicyResponse{
-			Policy: policyContext.Policy.Name,
+			Policy: response.PolicySpec{
+				Name:      policyContext.Policy.GetName(),
+				Namespace: policyContext.Policy.GetNamespace(),
+			},
+			PolicyStats: response.PolicyStats{
+				PolicyExecutionTimestamp: startTime.Unix(),
+			},
 			Resource: response.ResourceSpec{
 				Kind:       kind,
 				Name:       name,
@@ -53,6 +60,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 		return nil
 	}
 
+	var err error
 	startTime := time.Now()
 
 	policy := policyContext.Policy
@@ -67,16 +75,17 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name,
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 
-	if err := MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err != nil {
+	if err = MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err != nil {
 
 		// if the oldResource matched, return "false" to delete GR for it
-		if err := MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err == nil {
+		if err = MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err == nil {
 			return &response.RuleResponse{
 				Name:    rule.Name,
 				Type:    "Generation",
 				Success: false,
 				RuleStats: response.RuleStats{
-					ProcessingTime: time.Since(startTime),
+					ProcessingTime:         time.Since(startTime),
+					RuleExecutionTimestamp: startTime.Unix(),
 				},
 			}
 		}
@@ -87,13 +96,20 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	policyContext.JSONContext.Checkpoint()
 	defer policyContext.JSONContext.Restore()
 
-	if err := LoadContext(logger, rule.Context, resCache, policyContext); err != nil {
+	if err = LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}
 
+	ruleCopy := rule.DeepCopy()
+	ruleCopy.AnyAllConditions, err = variables.SubstituteAllInPreconditions(logger, ctx, ruleCopy.AnyAllConditions)
+	if err != nil {
+		logger.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", ruleCopy.Name)
+		return nil
+	}
+
 	// operate on the copy of the conditions, as we perform variable substitution
-	copyConditions, err := copyConditions(rule.AnyAllConditions)
+	copyConditions, err := transformConditions(ruleCopy.AnyAllConditions)
 	if err != nil {
 		logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
 		return nil
@@ -101,17 +117,18 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
-		logger.V(4).Info("preconditions not satisfied, skipping rule", "rule", rule.Name)
+		logger.V(4).Info("preconditions not satisfied, skipping rule", "rule", ruleCopy.Name)
 		return nil
 	}
 
 	// build rule Response
 	return &response.RuleResponse{
-		Name:    rule.Name,
+		Name:    ruleCopy.Name,
 		Type:    "Generation",
 		Success: true,
 		RuleStats: response.RuleStats{
-			ProcessingTime: time.Since(startTime),
+			ProcessingTime:         time.Since(startTime),
+			RuleExecutionTimestamp: startTime.Unix(),
 		},
 	}
 }

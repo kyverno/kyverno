@@ -11,6 +11,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/metrics"
+	policyExecutionDuration "github.com/kyverno/kyverno/pkg/metrics/policyexecutionduration"
+	policyResults "github.com/kyverno/kyverno/pkg/metrics/policyresults"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -38,14 +41,21 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 				namespaced, _ = pc.rm.GetScope(k)
 			}
 
+			// this tracker would help to ensure that even for multiple namespaces, duplicate metric are not generated
+			metricRegisteredTracker := false
+
 			if !namespaced {
-				pc.applyAndReportPerNamespace(policy, k, "", rule, logger.WithValues("kind", k))
+				pc.applyAndReportPerNamespace(policy, k, "", rule, logger.WithValues("kind", k), &metricRegisteredTracker)
 				continue
 			}
 
 			namespaces := pc.getNamespacesForRule(&rule, logger.WithValues("kind", k))
 			for _, ns := range namespaces {
-				pc.applyAndReportPerNamespace(policy, k, ns, rule, logger.WithValues("kind", k).WithValues("ns", ns))
+				// for kind: Policy, consider only the namespace which the policy belongs to.
+				// for kind: ClusterPolicy, consider all the namespaces.
+				if policy.Namespace == ns || policy.Namespace == "" {
+					pc.applyAndReportPerNamespace(policy, k, ns, rule, logger.WithValues("kind", k).WithValues("ns", ns), &metricRegisteredTracker)
+				}
 			}
 		}
 	}
@@ -62,7 +72,7 @@ func (pc *PolicyController) registerResource(gvk string) (err error) {
 	return nil
 }
 
-func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPolicy, kind string, ns string, rule kyverno.Rule, logger logr.Logger) {
+func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPolicy, kind string, ns string, rule kyverno.Rule, logger logr.Logger, metricAlreadyRegistered *bool) {
 	rMap := pc.getResourcesPerNamespace(kind, ns, rule, logger)
 	excludeAutoGenResources(*policy, rMap, logger)
 	if len(rMap) == 0 {
@@ -75,7 +85,29 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPo
 		engineResponses = append(engineResponses, responses...)
 	}
 
-	pc.report(policy.Name, engineResponses, logger)
+	if !*metricAlreadyRegistered && len(engineResponses) > 0 {
+		for _, engineResponse := range engineResponses {
+			// registering the kyverno_policy_results_total metric concurrently
+			go pc.registerPolicyResultsMetricValidation(logger, *policy, *engineResponse)
+			// registering the kyverno_policy_execution_duration_seconds metric concurrently
+			go pc.registerPolicyExecutionDurationMetricValidate(logger, *policy, *engineResponse)
+		}
+		*metricAlreadyRegistered = true
+	}
+
+	pc.report(engineResponses, logger)
+}
+
+func (pc *PolicyController) registerPolicyResultsMetricValidation(logger logr.Logger, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
+	if err := policyResults.ParsePromMetrics(*pc.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
+	}
+}
+
+func (pc *PolicyController) registerPolicyExecutionDurationMetricValidate(logger logr.Logger, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
+	if err := policyExecutionDuration.ParsePromMetrics(*pc.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, "", metrics.ResourceCreated); err != nil {
+		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
+	}
 }
 
 func (pc *PolicyController) applyPolicy(policy *kyverno.ClusterPolicy, resource unstructured.Unstructured, logger logr.Logger) (engineResponses []*response.EngineResponse) {

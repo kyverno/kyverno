@@ -12,6 +12,8 @@ metadata:
     policies.kyverno.io/description: >-
       In addition to restricting HostPath volumes, the restricted pod security profile
       limits usage of non-core volume types to those defined through PersistentVolumes.
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
 spec:
   background: true
   validationFailureAction: {{ .Values.validationFailureAction }}

@@ -10,7 +10,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/utils"
-	"github.com/minio/minio/pkg/wildcard"
+	"github.com/minio/pkg/wildcard"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -135,6 +135,19 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 		}
 	}
 
+	if len(conditionBlock.Names) > 0 {
+		noneMatch := true
+		for i := range conditionBlock.Names {
+			if checkName(conditionBlock.Names[i], resource.GetName()) {
+				noneMatch = false
+				break
+			}
+		}
+		if noneMatch {
+			errs = append(errs, fmt.Errorf("none of the names match"))
+		}
+	}
+
 	if len(conditionBlock.Namespaces) > 0 {
 		if !checkNameSpace(conditionBlock.Namespaces, resource) {
 			errs = append(errs, fmt.Errorf("namespace does not match"))
@@ -250,27 +263,52 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	admissionInfo := *admissionInfoRef.DeepCopy()
 
 	var reasonsForFailure []error
-
-	if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
-		rule.MatchResources.UserInfo = kyverno.UserInfo{}
-	}
-
-	// checking if resource matches the rule
-	if !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) ||
-		!reflect.DeepEqual(rule.MatchResources.UserInfo, kyverno.UserInfo{}) {
-		matchErrs := doesResourceMatchConditionBlock(rule.MatchResources.ResourceDescription, rule.MatchResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
-		reasonsForFailure = append(reasonsForFailure, matchErrs...)
-	} else {
-		reasonsForFailure = append(reasonsForFailure, fmt.Errorf("match cannot be empty"))
-	}
-
-	// checking if resource has been excluded
-	if !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) ||
-		!reflect.DeepEqual(rule.ExcludeResources.UserInfo, kyverno.UserInfo{}) {
-		excludeErrs := doesResourceMatchConditionBlock(rule.ExcludeResources.ResourceDescription, rule.ExcludeResources.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
-		if excludeErrs == nil {
-			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded"))
+	if len(rule.MatchResources.Any) > 0 {
+		// inlcude object if ANY of the criterias match
+		// so if one matches then break from loop
+		oneMatched := false
+		for _, rmr := range rule.MatchResources.Any {
+			// if there are no errors it means it was a match
+			if len(matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, dynamicConfig, namespaceLabels)) == 0 {
+				oneMatched = true
+				break
+			}
 		}
+		if !oneMatched {
+			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("no resource matched"))
+		}
+	} else if len(rule.MatchResources.All) > 0 {
+		// include object if ALL of the criterias match
+		for _, rmr := range rule.MatchResources.All {
+			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
+		}
+	} else {
+		rmr := kyverno.ResourceFilter{UserInfo: rule.MatchResources.UserInfo, ResourceDescription: rule.MatchResources.ResourceDescription}
+		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
+	}
+
+	if len(rule.ExcludeResources.Any) > 0 {
+		// exclude the object if ANY of the criterias match
+		for _, rer := range rule.ExcludeResources.Any {
+			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
+		}
+	} else if len(rule.ExcludeResources.All) > 0 {
+		// exlcude the object if ALL the criterias match
+		excludedByAll := true
+		for _, rer := range rule.ExcludeResources.All {
+			// we got no errors inplying a resource did NOT exclude it
+			// "matchesResourceDescriptionExcludeHelper" returns errors if resource is excluded by a filter
+			if len(matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels)) == 0 {
+				excludedByAll = false
+				break
+			}
+		}
+		if excludedByAll {
+			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded since the combination of all criterias exclude it"))
+		}
+	} else {
+		rer := kyverno.ResourceFilter{UserInfo: rule.ExcludeResources.UserInfo, ResourceDescription: rule.ExcludeResources.ResourceDescription}
+		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
 	}
 
 	// creating final error
@@ -286,6 +324,39 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	}
 
 	return nil
+}
+
+func matchesResourceDescriptionMatchHelper(rmr kyverno.ResourceFilter, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
+	var errs []error
+	if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
+		rmr.UserInfo = kyverno.UserInfo{}
+	}
+
+	// checking if resource matches the rule
+	if !reflect.DeepEqual(rmr.ResourceDescription, kyverno.ResourceDescription{}) ||
+		!reflect.DeepEqual(rmr.UserInfo, kyverno.UserInfo{}) {
+		matchErrs := doesResourceMatchConditionBlock(rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
+		errs = append(errs, matchErrs...)
+	} else {
+		errs = append(errs, fmt.Errorf("match cannot be empty"))
+	}
+	return errs
+}
+
+func matchesResourceDescriptionExcludeHelper(rer kyverno.ResourceFilter, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
+	var errs []error
+	// checking if resource matches the rule
+	if !reflect.DeepEqual(rer.ResourceDescription, kyverno.ResourceDescription{}) ||
+		!reflect.DeepEqual(rer.UserInfo, kyverno.UserInfo{}) {
+		excludeErrs := doesResourceMatchConditionBlock(rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
+		// it was a match so we want to exclude it
+		if len(excludeErrs) == 0 {
+			errs = append(errs, fmt.Errorf("resource excluded since one of the criterias excluded it"))
+			errs = append(errs, excludeErrs...)
+		}
+	}
+	// len(errs) != 0 if the filter excluded the resource
+	return errs
 }
 
 func copyAnyAllConditions(original kyverno.AnyAllConditions) kyverno.AnyAllConditions {
@@ -309,7 +380,7 @@ func copyOldConditions(original []kyverno.Condition) []kyverno.Condition {
 	return copies
 }
 
-func copyConditions(original apiextensions.JSON) (interface{}, error) {
+func transformConditions(original apiextensions.JSON) (interface{}, error) {
 	// conditions are currently in the form of []interface{}
 	kyvernoOriginalConditions, err := utils.ApiextensionsJsonToKyvernoConditions(original)
 	if err != nil {
@@ -325,12 +396,17 @@ func copyConditions(original apiextensions.JSON) (interface{}, error) {
 }
 
 // excludeResource checks if the resource has ownerRef set
-func excludeResource(resource unstructured.Unstructured) bool {
+func excludeResource(podControllers string, resource unstructured.Unstructured) bool {
 	kind := resource.GetKind()
+	hasOwner := false
 	if kind == "Pod" || kind == "Job" {
-		if len(resource.GetOwnerReferences()) > 0 {
-			return true
+		for _, owner := range resource.GetOwnerReferences() {
+			hasOwner = true
+			if owner.Kind != "ReplicaSet" && !strings.Contains(podControllers, owner.Kind) {
+				return false
+			}
 		}
+		return hasOwner
 	}
 
 	return false
@@ -340,14 +416,17 @@ func excludeResource(resource unstructured.Unstructured) bool {
 // - if the policy has auto-gen annotation && resource == Pod
 // - if the auto-gen contains cronJob && resource == Job
 func ManagedPodResource(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) bool {
-	if policy.HasAutoGenAnnotation() && excludeResource(resource) {
+	podControllers, ok := policy.GetAnnotations()[PodControllersAnnotation]
+	if !ok || strings.ToLower(podControllers) == "none" {
+		return false
+	}
+
+	if excludeResource(podControllers, resource) {
 		return true
 	}
 
-	if podControllers, ok := policy.GetAnnotations()[PodControllersAnnotation]; ok {
-		if strings.Contains(podControllers, "CronJob") && excludeResource(resource) {
-			return true
-		}
+	if strings.Contains(podControllers, "CronJob") && excludeResource(podControllers, resource) {
+		return true
 	}
 
 	return false

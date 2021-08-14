@@ -149,7 +149,7 @@ func (builder *requestBuilder) buildRCRResult(policy string, resource response.R
 				UID:        types.UID(resource.UID),
 			},
 		},
-		Scored:   true,
+		Scored:   av.scored,
 		Category: av.category,
 		Severity: av.severity,
 	}
@@ -157,6 +157,9 @@ func (builder *requestBuilder) buildRCRResult(policy string, resource response.R
 	result.Rule = rule.Name
 	result.Message = rule.Message
 	result.Result = report.PolicyResult(rule.Check)
+	if result.Result == "fail" && !av.scored {
+		result.Result = "warn"
+	}
 	result.Source = SourceValue
 	result.Timestamp = metav1.Timestamp{
 		Seconds: time.Now().Unix(),
@@ -235,7 +238,7 @@ func calculateSummary(results []*report.PolicyReportResult) (summary report.Poli
 
 func buildPVInfo(er *response.EngineResponse) Info {
 	info := Info{
-		PolicyName: er.PolicyResponse.Policy,
+		PolicyName: er.PolicyResponse.Policy.Name,
 		Namespace:  er.PatchedResource.GetNamespace(),
 		Results: []EngineResponseResult{
 			{
@@ -266,10 +269,12 @@ func buildViolatedRules(er *response.EngineResponse) []kyverno.ViolatedRule {
 
 const categoryLabel string = "policies.kyverno.io/category"
 const severityLabel string = "policies.kyverno.io/severity"
+const scoredLabel string = "policies.kyverno.io/scored"
 
 type annotationValues struct {
 	category string
 	severity report.PolicySeverity
+	scored   bool
 }
 
 func (av *annotationValues) setSeverityFromString(severity string) {
@@ -292,6 +297,15 @@ func (builder *requestBuilder) fetchAnnotationValues(policy, ns string) annotati
 	}
 	if severity, ok := ann[severityLabel]; ok {
 		av.setSeverityFromString(severity)
+	}
+	if scored, ok := ann[scoredLabel]; ok {
+		if scored == "false" {
+			av.scored = false
+		} else {
+			av.scored = true
+		}
+	} else {
+		av.scored = true
 	}
 
 	return av

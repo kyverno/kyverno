@@ -27,11 +27,12 @@ type Policy struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
-	// Spec defines policy behaviors and contains one or rules.
+	// Spec defines policy behaviors and contains one or more rules.
 	Spec Spec `json:"spec" yaml:"spec"`
 
 	// Status contains policy runtime information.
 	// +optional
+	// Deprecated. Policy metrics are available via the metrics endpoint
 	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
@@ -80,12 +81,11 @@ type Rule struct {
 	// +optional
 	ExcludeResources ExcludeResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 
-	// AnyAllConditions enable variable-based conditional rule execution. This is useful for
-	// finer control of when an rule is applied. A condition can reference object data
-	// using JMESPath notation.
-	// This too can be made to happen in a logical-manner where in some situation all the conditions need to pass
-	// and in some other situation, atleast one condition is enough to pass.
-	// For the sake of backwards compatibility, it can be populated with []kyverno.Condition.
+	// Preconditions are used to determine if a policy rule should be applied by evaluating a
+	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
+	// of conditions (without `any` or `all` statements is supported for backwards compatibility but
+	// will be deprecated in the next major release.
+	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	AnyAllConditions apiextensions.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
@@ -101,6 +101,10 @@ type Rule struct {
 	// Generation is used to create new resources.
 	// +optional
 	Generation Generation `json:"generate,omitempty" yaml:"generate,omitempty"`
+
+	// VerifyImages is used to verify image signatures and mutate them to add a digest
+	// +optional
+	VerifyImages []*ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
 
 // AnyAllCondition consists of conditions wrapped denoting a logical criteria to be fulfilled.
@@ -110,7 +114,7 @@ type AnyAllConditions struct {
 	// AnyConditions enable variable-based conditional rule execution. This is useful for
 	// finer control of when an rule is applied. A condition can reference object data
 	// using JMESPath notation.
-	// Here, atleast one of the conditions need to pass
+	// Here, at least one of the conditions need to pass
 	// +optional
 	AnyConditions []Condition `json:"any,omitempty" yaml:"any,omitempty"`
 
@@ -211,29 +215,66 @@ const (
 	LessThanOrEquals ConditionOperator = "LessThanOrEquals"
 	// LessThan evaluates if the key (numeric) is less than the value (numeric).
 	LessThan ConditionOperator = "LessThan"
+	// DurationGreaterThanOrEquals evaluates if the key (duration) is greater than or equal to the value (duration)
+	DurationGreaterThanOrEquals ConditionOperator = "DurationGreaterThanOrEquals"
+	// DurationGreaterThan evaluates if the key (duration) is greater than the value (duration)
+	DurationGreaterThan ConditionOperator = "DurationGreaterThan"
+	// DurationLessThanOrEquals evaluates if the key (duration) is less than or equal to the value (duration)
+	DurationLessThanOrEquals ConditionOperator = "DurationLessThanOrEquals"
+	// DurationLessThan evaluates if the key (duration) is greater than the value (duration)
+	DurationLessThan ConditionOperator = "DurationLessThan"
 )
 
 // MatchResources is used to specify resource and admission review request data for
 // which a policy rule is applicable.
 type MatchResources struct {
+	// Any allows specifying resources which will be ORed
+	// +optional
+	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
+
+	// All allows specifying resources which will be ANDed
+	// +optional
+	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
+
 	// UserInfo contains information about the user performing the operation.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
 	// Requires at least one tag to be specified when under MatchResources.
+	// +optional
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
 // ExcludeResources specifies resource and admission review request data for
 // which a policy rule is not applicable.
 type ExcludeResources struct {
+	// Any allows specifying resources which will be ORed
+	// +optional
+	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
+
+	// All allows specifying resources which will be ANDed
+	// +optional
+	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
+
 	// UserInfo contains information about the user performing the operation.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
 	// +optional
+	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
+}
+
+type ResourceFilters []ResourceFilter
+
+// ResourceFilters allow users to "AND" or "OR" between resources
+type ResourceFilter struct {
+	// UserInfo contains information about the user performing the operation.
+	// +optional
+	UserInfo `json:",omitempty" yaml:",omitempty"`
+
+	// ResourceDescription contains information about the resource being created or modified.
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
@@ -262,6 +303,12 @@ type ResourceDescription struct {
 	// "*" (matches zero or many characters) and "?" (at least one character).
 	// +optional
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+
+	// Names are the names of the resources. Each name supports wildcard characters
+	// "*" (matches zero or many characters) and "?" (at least one character).
+	// NOTE: "Name" is being deprecated in favor of "Names".
+	// +optional
+	Names []string `json:"names,omitempty" yaml:"names,omitempty"`
 
 	// Namespaces is a list of namespaces names. Each name supports wildcard characters
 	// "*" (matches zero or many characters) and "?" (at least one character).
@@ -357,18 +404,32 @@ type Validation struct {
 	// +optional
 	AnyPattern apiextensions.JSON `json:"anyPattern,omitempty" yaml:"anyPattern,omitempty"`
 
-	// Deny defines conditions to fail the validation rule.
+	// Deny defines conditions used to pass or fail a validation rule.
 	// +optional
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
 }
 
-// Deny specifies a list of conditions. The validation rule fails, if any Condition
-// evaluates to "false".
+// Deny specifies a list of conditions used to pass or fail a validation rule.
 type Deny struct {
-	// specifies the set of conditions to deny in a logical manner
-	// For the sake of backwards compatibility, it can be populated with []kyverno.Condition.
+	// Multiple conditions can be declared under an `any` or `all` statement. A direct list
+	// of conditions (without `any` or `all` statements) is also supported for backwards compatibility
+	// but will be deprecated in the next major release.
+	// See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
 	// +kubebuilder:validation:XPreserveUnknownFields
 	AnyAllConditions apiextensions.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+}
+
+// ImageVerification validates that images that match the specified pattern
+// are signed with the supplied public key. Once the image is verified it is
+// mutated to include the SHA digest retrieved during the registration.
+type ImageVerification struct {
+
+	// Image is the image name consisting of the registry address, repository, image, and tag.
+	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
+	Image string `json:"image,omitempty" yaml:"image,omitempty"`
+
+	// Key is the PEM encoded public key that the image is signed with.
+	Key string `json:"key,omitempty" yaml:"key,omitempty"`
 }
 
 // Generation defines how new resources should be created and managed.
@@ -411,6 +472,8 @@ type CloneFrom struct {
 }
 
 // PolicyStatus mostly contains runtime information related to policy execution.
+// Deprecated. Policy metrics are now available via the "/metrics" endpoint.
+// See: https://kyverno.io/docs/monitoring-kyverno-with-prometheus-metrics/
 type PolicyStatus struct {
 	// AvgExecutionTime is the average time taken to process the policy rules on a resource.
 	// +optional
@@ -446,6 +509,8 @@ type PolicyStatus struct {
 }
 
 // RuleStats provides statistics for an individual rule within a policy.
+// Deprecated. Policy metrics are now available via the "/metrics" endpoint.
+// See: https://kyverno.io/docs/monitoring-kyverno-with-prometheus-metrics/
 type RuleStats struct {
 	// Name is the rule name.
 	Name string `json:"ruleName" yaml:"ruleName"`

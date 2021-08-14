@@ -5,7 +5,9 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: disallow-bind-mounts
+      policy:
+        namespace: ''
+        name: disallow-bind-mounts
       resource:
         kind: Pod
         apiVersion: v1

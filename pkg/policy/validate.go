@@ -16,7 +16,7 @@ import (
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/utils"
-	"github.com/minio/minio/pkg/wildcard"
+	"github.com/minio/pkg/wildcard"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,8 +28,11 @@ import (
 // - ResourceDescription mandatory checks
 func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
 	p := *policy
-	if len(common.PolicyHasVariables(p)) > 0 && common.PolicyHasNonAllowedVariables(p) {
-		return fmt.Errorf("policy contains invalid variables")
+	if len(common.PolicyHasVariables(p)) > 0 {
+		err := common.PolicyHasNonAllowedVariables(p)
+		if err != nil {
+			return fmt.Errorf("policy contains invalid variables: %s", err.Error())
+		}
 	}
 
 	// policy name is stored in the label of the report change request
@@ -48,7 +51,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 	for i, rule := range p.Spec.Rules {
 		if jsonPatchOnPod(rule) {
-			log.Log.V(1).Info("warning: pods managed by workload controllers cannot be mutated using policies. Use the auto-gen feature or write policies that match pod controllers.")
+			log.Log.V(1).Info("pods managed by workload controllers cannot be mutated using policies. Use the auto-gen feature or write policies that match pod controllers.")
 		}
 		// validate resource description
 		if path, err := validateResources(rule); err != nil {
@@ -106,13 +109,28 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			return err
 		}
 
-		// If a rules match block does not match any kind,
-		// we should only allow such rules to have metadata in its overlay
-		if len(rule.MatchResources.Kinds) == 0 {
-			if !ruleOnlyDealsWithResourceMetaData(rule) {
-				return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-					" the rule does not match an kind")
+		// If a rule's match block does not match any kind,
+		// we should only allow it to have metadata in its overlay
+		if len(rule.MatchResources.Any) > 0 {
+			for _, rmr := range rule.MatchResources.Any {
+				if len(rmr.Kinds) == 0 {
+					return validateMatchKindHelper(rule)
+				}
 			}
+		} else if len(rule.MatchResources.All) > 0 {
+			for _, rmr := range rule.MatchResources.All {
+				if len(rmr.Kinds) == 0 {
+					return validateMatchKindHelper(rule)
+				}
+			}
+		} else {
+			if len(rule.MatchResources.Kinds) == 0 {
+				return validateMatchKindHelper(rule)
+			}
+		}
+
+		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
+			return fmt.Errorf("wildcards (*) are currently not supported in the match.resources.kinds field. at least one resource kind must be specified in a kind block.")
 		}
 
 		// Validate string values in labels
@@ -174,9 +192,34 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 	return nil
 }
 
+func validateMatchKindHelper(rule kyverno.Rule) error {
+	if !ruleOnlyDealsWithResourceMetaData(rule) {
+		return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+			" the rule does not match an kind")
+	}
+	return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+}
+
 // doMatchAndExcludeConflict checks if the resultant
 // of match and exclude block is not an empty set
+// returns true if it is an empty set
 func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
+
+	if len(rule.ExcludeResources.All) > 0 || len(rule.MatchResources.All) > 0 {
+		return false
+	}
+
+	// if both have any then no resource should be common
+	if len(rule.MatchResources.Any) > 0 && len(rule.ExcludeResources.Any) > 0 {
+		for _, rmr := range rule.MatchResources.Any {
+			for _, rer := range rule.ExcludeResources.Any {
+				if reflect.DeepEqual(rmr, rer) {
+					return true
+				}
+			}
+		}
+		return false
+	}
 
 	if reflect.DeepEqual(rule.ExcludeResources, kyverno.ExcludeResources{}) {
 		return false
@@ -265,6 +308,28 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		if !wildcard.Match(rule.ExcludeResources.ResourceDescription.Name, rule.MatchResources.ResourceDescription.Name) {
 			return false
 		}
+	}
+
+	if len(rule.ExcludeResources.ResourceDescription.Names) > 0 {
+		excludeSlice := rule.ExcludeResources.ResourceDescription.Names
+		matchSlice := rule.MatchResources.ResourceDescription.Names
+
+		// if exclude block has something and match doesn't it means we
+		// have a non empty set
+		if len(rule.MatchResources.ResourceDescription.Names) == 0 {
+			return false
+		}
+
+		// if *any* name in match and exclude conflicts
+		// we want user to fix that
+		for _, matchName := range matchSlice {
+			for _, excludeName := range excludeSlice {
+				if wildcard.Match(excludeName, matchName) {
+					return true
+				}
+			}
+		}
+		return false
 	}
 
 	if len(excludeNamespaces) > 0 {
@@ -475,13 +540,62 @@ func validateResources(rule kyverno.Rule) (string, error) {
 		return fmt.Sprintf("resources.%s", path), err
 	}
 
-	// matched resources
-	if path, err := validateMatchedResourceDescription(rule.MatchResources.ResourceDescription); err != nil {
-		return fmt.Sprintf("match.resources.%s", path), err
+	if (len(rule.MatchResources.Any) > 0 || len(rule.MatchResources.All) > 0) && !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) {
+		return "match.", fmt.Errorf("Can't specify any/all together with match resources")
 	}
-	// exclude resources
-	if path, err := validateExcludeResourceDescription(rule.ExcludeResources.ResourceDescription); err != nil {
-		return fmt.Sprintf("exclude.resources.%s", path), err
+
+	if (len(rule.ExcludeResources.Any) > 0 || len(rule.ExcludeResources.All) > 0) && !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) {
+		return "exclude.", fmt.Errorf("Can't specify any/all together with exclude resources")
+	}
+
+	if len(rule.MatchResources.Any) > 0 && len(rule.MatchResources.All) > 0 {
+		return "match.", fmt.Errorf("Can't specify any and all together.")
+	}
+
+	if len(rule.ExcludeResources.Any) > 0 && len(rule.ExcludeResources.All) > 0 {
+		return "match.", fmt.Errorf("Can't specify any and all together.")
+	}
+
+	if len(rule.MatchResources.Any) > 0 {
+		for _, rmr := range rule.MatchResources.Any {
+			// matched resources
+			if path, err := validateMatchedResourceDescription(rmr.ResourceDescription); err != nil {
+				return fmt.Sprintf("match.resources.%s", path), err
+			}
+		}
+	} else if len(rule.MatchResources.All) > 0 {
+		for _, rmr := range rule.MatchResources.All {
+			// matched resources
+			if path, err := validateMatchedResourceDescription(rmr.ResourceDescription); err != nil {
+				return fmt.Sprintf("match.resources.%s", path), err
+			}
+		}
+	} else {
+		// matched resources
+		if path, err := validateMatchedResourceDescription(rule.MatchResources.ResourceDescription); err != nil {
+			return fmt.Sprintf("match.resources.%s", path), err
+		}
+	}
+
+	if len(rule.ExcludeResources.Any) > 0 {
+		for _, rmr := range rule.ExcludeResources.Any {
+			// exclude resources
+			if path, err := validateExcludeResourceDescription(rmr.ResourceDescription); err != nil {
+				return fmt.Sprintf("exclude.resources.%s", path), err
+			}
+		}
+	} else if len(rule.ExcludeResources.All) > 0 {
+		for _, rmr := range rule.ExcludeResources.All {
+			// exclude resources
+			if path, err := validateExcludeResourceDescription(rmr.ResourceDescription); err != nil {
+				return fmt.Sprintf("exclude.resources.%s", path), err
+			}
+		}
+	} else {
+		// exclude resources
+		if path, err := validateExcludeResourceDescription(rule.ExcludeResources.ResourceDescription); err != nil {
+			return fmt.Sprintf("exclude.resources.%s", path), err
+		}
 	}
 
 	//validating the values present under validate.preconditions, if they exist
@@ -606,7 +720,7 @@ func validateUniqueRuleName(p kyverno.ClusterPolicy) (string, error) {
 
 // validateRuleType checks only one type of rule is defined per rule
 func validateRuleType(r kyverno.Rule) error {
-	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate()}
+	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate(), r.HasVerifyImages()}
 
 	operationCount := func() int {
 		count := 0
@@ -619,9 +733,9 @@ func validateRuleType(r kyverno.Rule) error {
 	}()
 
 	if operationCount == 0 {
-		return fmt.Errorf("no operation defined in the rule '%s'.(supported operations: mutation,validation,generation)", r.Name)
+		return fmt.Errorf("no operation defined in the rule '%s'.(supported operations: mutate,validate,generate,verifyImages)", r.Name)
 	} else if operationCount != 1 {
-		return fmt.Errorf("multiple operations defined in the rule '%s', only one type of operation is allowed per rule", r.Name)
+		return fmt.Errorf("multiple operations defined in the rule '%s', only one operation (mutate,validate,generate,verifyImages) is allowed per rule", r.Name)
 	}
 	return nil
 }
@@ -689,7 +803,13 @@ func validateAPICall(entry kyverno.ContextEntry) error {
 		return err
 	}
 
-	if entry.APICall.JMESPath != "" {
+	// If JMESPath contains variables, the validation will fail because it's not possible to infer which value
+	// will be inserted by the variable
+	// Skip validation if a variable is detected
+
+	jmesPath := variables.ReplaceAllVars(entry.APICall.JMESPath, func(s string) string { return "kyvernojmespathvariable" })
+
+	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.APICall.JMESPath != "" {
 		if _, err := jmespath.NewParser().Parse(entry.APICall.JMESPath); err != nil {
 			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.APICall.JMESPath, err)
 		}
@@ -706,6 +826,10 @@ func validateAPICall(entry kyverno.ContextEntry) error {
 func validateMatchedResourceDescription(rd kyverno.ResourceDescription) (string, error) {
 	if reflect.DeepEqual(rd, kyverno.ResourceDescription{}) {
 		return "", fmt.Errorf("match resources not specified")
+	}
+
+	if rd.Name != "" && len(rd.Names) > 0 {
+		return "", fmt.Errorf("both name and names can not be specified together")
 	}
 
 	if err := validateResourceDescription(rd); err != nil {
@@ -771,6 +895,11 @@ func validateExcludeResourceDescription(rd kyverno.ResourceDescription) (string,
 		// exclude is not mandatory
 		return "", nil
 	}
+
+	if rd.Name != "" && len(rd.Names) > 0 {
+		return "", fmt.Errorf("both name and names can not be specified together")
+	}
+
 	if err := validateResourceDescription(rd); err != nil {
 		return "exclude", err
 	}

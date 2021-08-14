@@ -16,11 +16,14 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/utils"
 	ut "github.com/kyverno/kyverno/pkg/utils"
@@ -32,20 +35,25 @@ import (
 )
 
 // GetPolicies - Extracting the policies from multiple YAML
-
-type Resource struct {
-	Name   string            `json:"name"`
-	Values map[string]string `json:"values"`
-}
-
 type Policy struct {
 	Name      string     `json:"name"`
 	Resources []Resource `json:"resources"`
+	Rules     []Rule     `json:"rules"`
+}
+
+type Rule struct {
+	Name   string            `json:"name"`
+	Values map[string]string `json:"values"`
 }
 
 type Values struct {
 	Policies           []Policy            `json:"policies"`
 	NamespaceSelectors []NamespaceSelector `json:"namespaceSelector"`
+}
+
+type Resource struct {
+	Name   string            `json:"name"`
+	Values map[string]string `json:"values"`
 }
 
 type NamespaceSelector struct {
@@ -62,7 +70,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 			err      error
 		)
 
-		isHttpPath := strings.Contains(path, "http")
+		isHttpPath := IsHttpRegex.MatchString(path)
 
 		// path clean and retrieving file info can be possible if it's not an HTTP URL
 		if !isHttpPath {
@@ -150,25 +158,92 @@ func PolicyHasVariables(policy v1.ClusterPolicy) [][]string {
 	return matches
 }
 
-// PolicyHasNonAllowedVariables - checks for unexpected variables in the policy
-func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) bool {
-	policyRaw, _ := json.Marshal(policy)
+// for now forbidden sections are match, exclude and
+func ruleForbiddenSectionsHaveVariables(rule v1.Rule) error {
+	var err error
 
-	matchesAll := RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
-	matchesAllowed := AllowedVariables.FindAllStringSubmatch(string(policyRaw), -1)
-
-	if len(matchesAll) > len(matchesAllowed) {
-		// If rules contains Context then skip this validation
-		for _, rule := range policy.Spec.Rules {
-			if len(rule.Context) > 0 {
-				return false
-			}
-		}
-
-		return true
+	err = JSONPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
+	if err != nil {
+		return fmt.Errorf("Rule \"%s\" should not have variables in patchesJSON6902 path section", rule.Name)
 	}
 
-	return false
+	err = objectHasVariables(rule.ExcludeResources)
+	if err != nil {
+		return fmt.Errorf("Rule \"%s\" should not have variables in exclude section", rule.Name)
+	}
+
+	err = objectHasVariables(rule.MatchResources)
+	if err != nil {
+		return fmt.Errorf("Rule \"%s\" should not have variables in match section", rule.Name)
+	}
+
+	return nil
+}
+
+func JSONPatchPathHasVariables(patch string) error {
+	jsonPatch, err := yaml.ToJSON([]byte(patch))
+	if err != nil {
+		return err
+	}
+
+	decodedPatch, err := jsonpatch.DecodePatch(jsonPatch)
+	if err != nil {
+		return err
+	}
+
+	for _, operation := range decodedPatch {
+		path, err := operation.Path()
+		if err != nil {
+			return err
+		}
+
+		vars := variables.RegexVariables.FindAllString(path, -1)
+		if len(vars) > 0 {
+			return fmt.Errorf("Operation \"%s\" has forbidden variables", operation.Kind())
+		}
+	}
+
+	return nil
+}
+
+func objectHasVariables(object interface{}) error {
+	var err error
+	objectJSON, err := json.Marshal(object)
+	if err != nil {
+		return err
+	}
+
+	if len(RegexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
+		return fmt.Errorf("Object has forbidden variables")
+	}
+
+	return nil
+}
+
+// PolicyHasNonAllowedVariables - checks for unexpected variables in the policy
+func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) error {
+	for _, rule := range policy.Spec.Rules {
+		var err error
+
+		ruleJSON, err := json.Marshal(rule)
+		if err != nil {
+			return err
+		}
+
+		err = ruleForbiddenSectionsHaveVariables(rule)
+		if err != nil {
+			return err
+		}
+
+		matchesAll := RegexVariables.FindAllStringSubmatch(string(ruleJSON), -1)
+		matchesAllowed := AllowedVariables.FindAllStringSubmatch(string(ruleJSON), -1)
+
+		if (len(matchesAll) > len(matchesAllowed)) && len(rule.Context) == 0 {
+			return fmt.Errorf("Rule \"%s\" has forbidden variables. Allowed variables are: {{request.*}}, {{serviceAccountName}}, {{serviceAccountNamespace}}, {{@}} and ones defined by the context", rule.Name)
+		}
+	}
+
+	return nil
 }
 
 // MutatePolicy - applies mutation to a policy
@@ -291,65 +366,94 @@ func IsInputFromPipe() bool {
 	return fileInfo.Mode()&os.ModeCharDevice == 0
 }
 
-// RemoveDuplicateVariables - remove duplicate variables
-func RemoveDuplicateVariables(matches [][]string) string {
+// RemoveDuplicateAndObjectVariables - remove duplicate variables
+func RemoveDuplicateAndObjectVariables(matches [][]string) string {
 	var variableStr string
 	for _, m := range matches {
 		for _, v := range m {
 			foundVariable := strings.Contains(variableStr, v)
 			if !foundVariable {
-				variableStr = variableStr + " " + v
+				if !strings.Contains(v, "request.object") {
+					variableStr = variableStr + " " + v
+				}
 			}
 		}
 	}
 	return variableStr
 }
 
-// GetVariable - get the variables from console/file
-func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyresoucePath string) (map[string]string, map[string]map[string]Resource, map[string]map[string]string, error) {
-	valuesMap := make(map[string]map[string]Resource)
+func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyResourcePath string) (map[string]string, map[string]map[string]Resource, map[string]map[string]string, error) {
+	valuesMapResource := make(map[string]map[string]Resource)
+	valuesMapRule := make(map[string]map[string]Rule)
 	namespaceSelectorMap := make(map[string]map[string]string)
 	variables := make(map[string]string)
+	reqObjVars := ""
+
 	var yamlFile []byte
 	var err error
 	if variablesString != "" {
 		kvpairs := strings.Split(strings.Trim(variablesString, " "), ",")
 		for _, kvpair := range kvpairs {
 			kvs := strings.Split(strings.Trim(kvpair, " "), "=")
+			if strings.Contains(kvs[0], "request.object") {
+				if !strings.Contains(reqObjVars, kvs[0]) {
+					reqObjVars = reqObjVars + "," + kvs[0]
+				}
+				continue
+			}
+
 			variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
 		}
 	}
+
 	if valuesFile != "" {
 		if isGit {
-			filep, err := fs.Open(filepath.Join(policyresoucePath, valuesFile))
+			filep, err := fs.Open(filepath.Join(policyResourcePath, valuesFile))
 			if err != nil {
 				fmt.Printf("Unable to open variable file: %s. error: %s", valuesFile, err)
 			}
 			yamlFile, err = ioutil.ReadAll(filep)
 		} else {
-			yamlFile, err = ioutil.ReadFile(valuesFile)
+			yamlFile, err = ioutil.ReadFile(filepath.Join(policyResourcePath, valuesFile))
 		}
 
 		if err != nil {
-			return variables, valuesMap, namespaceSelectorMap, sanitizederror.NewWithError("unable to read yaml", err)
+			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("unable to read yaml", err)
 		}
 
 		valuesBytes, err := yaml.ToJSON(yamlFile)
 		if err != nil {
-			return variables, valuesMap, namespaceSelectorMap, sanitizederror.NewWithError("failed to convert json", err)
+			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to convert json", err)
 		}
 
 		values := &Values{}
 		if err := json.Unmarshal(valuesBytes, values); err != nil {
-			return variables, valuesMap, namespaceSelectorMap, sanitizederror.NewWithError("failed to decode yaml", err)
+			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to decode yaml", err)
 		}
 
 		for _, p := range values.Policies {
-			pmap := make(map[string]Resource)
+			resourceMap := make(map[string]Resource)
 			for _, r := range p.Resources {
-				pmap[r.Name] = r
+				for variableInFile := range r.Values {
+					if strings.Contains(variableInFile, "request.object") {
+						if !strings.Contains(reqObjVars, variableInFile) {
+							reqObjVars = reqObjVars + "," + variableInFile
+						}
+						delete(r.Values, variableInFile)
+						continue
+					}
+				}
+				resourceMap[r.Name] = r
 			}
-			valuesMap[p.Name] = pmap
+			valuesMapResource[p.Name] = resourceMap
+
+			if p.Rules != nil {
+				ruleMap := make(map[string]Rule)
+				for _, r := range p.Rules {
+					ruleMap[r.Name] = r
+				}
+				valuesMapRule[p.Name] = ruleMap
+			}
 		}
 
 		for _, n := range values.NamespaceSelectors {
@@ -357,7 +461,30 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		}
 	}
 
-	return variables, valuesMap, namespaceSelectorMap, nil
+	if reqObjVars != "" {
+		fmt.Printf(("\nNOTICE: request.object.* variables are automatically parsed from the supplied resource. Ignoring value of variables `%v`.\n"), reqObjVars)
+	}
+
+	storePolices := make([]store.Policy, 0)
+	for policyName, ruleMap := range valuesMapRule {
+		storeRules := make([]store.Rule, 0)
+		for _, rule := range ruleMap {
+			storeRules = append(storeRules, store.Rule{
+				Name:   rule.Name,
+				Values: rule.Values,
+			})
+		}
+		storePolices = append(storePolices, store.Policy{
+			Name:  policyName,
+			Rules: storeRules,
+		})
+	}
+
+	store.SetContext(store.Context{
+		Policies: storePolices,
+	})
+
+	return variables, valuesMapResource, namespaceSelectorMap, nil
 }
 
 // MutatePolices - function to apply mutation on policies
@@ -380,7 +507,13 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool) ([]*response.EngineResponse, *response.EngineResponse, bool, bool, error) {
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool) (*response.EngineResponse, bool, bool, error) {
+
+	operationIsDelete := false
+
+	if variables["request.operation"] == "DELETE" {
+		operationIsDelete = true
+	}
 
 	responseError := false
 	rcError := false
@@ -400,7 +533,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		resourceNamespace := resource.GetNamespace()
 		namespaceLabels = namespaceSelectorMap[resource.GetNamespace()]
 		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-			return engineResponses, &response.EngineResponse{}, responseError, rcError, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
+			return &response.EngineResponse{}, responseError, rcError, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
 		}
 	}
 
@@ -408,33 +541,22 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	log.Log.V(3).Info("applying policy on resource", "policy", policy.Name, "resource", resPath)
 
 	ctx := context.NewContext()
+	resourceRaw, err := resource.MarshalJSON()
+	if err != nil {
+		log.Log.Error(err, "failed to marshal resource")
+	}
+
+	if operationIsDelete {
+		err = ctx.AddResourceInOldObject(resourceRaw)
+	} else {
+		err = ctx.AddResource(resourceRaw)
+	}
+	if err != nil {
+		log.Log.Error(err, "failed to load resource in context")
+	}
+
 	for key, value := range variables {
-		var subString string
-		splitBySlash := strings.Split(key, "\"")
-		if len(splitBySlash) > 1 {
-			subString = splitBySlash[1]
-		}
-
-		startString := ""
-		endString := ""
-		lenOfVariableString := 0
-		addedSlashString := false
-		for _, k := range strings.Split(splitBySlash[0], ".") {
-			if k != "" {
-				startString += fmt.Sprintf(`{"%s":`, k)
-				endString += `}`
-				lenOfVariableString = lenOfVariableString + len(k) + 1
-				if lenOfVariableString >= len(splitBySlash[0]) && len(splitBySlash) > 1 && addedSlashString == false {
-					startString += fmt.Sprintf(`{"%s":`, subString)
-					endString += `}`
-					addedSlashString = true
-				}
-			}
-		}
-
-		midString := fmt.Sprintf(`"%s"`, value)
-		finalString := startString + midString + endString
-		var jsonData = []byte(finalString)
+		jsonData := pkgcommon.VariableToJSON(key, value)
 		ctx.AddJSON(jsonData)
 	}
 
@@ -466,7 +588,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			} else {
 				err := PrintMutatedOutput(mutateLogPath, mutateLogPathIsDir, string(yamlEncodedResource), resource.GetName()+"-mutated")
 				if err != nil {
-					return engineResponses, &response.EngineResponse{}, responseError, rcError, sanitizederror.NewWithError("failed to print mutated result", err)
+					return &response.EngineResponse{}, responseError, rcError, sanitizederror.NewWithError("failed to print mutated result", err)
 				}
 				fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
 			}
@@ -529,7 +651,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		}
 	}
 
-	return engineResponses, validateResponse, responseError, rcError, nil
+	return validateResponse, responseError, rcError, nil
 }
 
 // PrintMutatedOutput - function to print output in provided file or directory
@@ -539,7 +661,7 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 	yaml = yaml + ("\n---\n\n")
 
 	if !mutateLogPathIsDir {
-		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/command.go
+		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
 		f, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0644)
 	} else {
 		f, err = os.OpenFile(mutateLogPath+"/"+fileName+".yaml", os.O_CREATE|os.O_WRONLY, 0644)
@@ -560,11 +682,11 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 }
 
 // GetPoliciesFromPaths - get policies according to the resource path
-func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyresoucePath string) (policies []*v1.ClusterPolicy, err error) {
+func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyResourcePath string) (policies []*v1.ClusterPolicy, err error) {
 	var errors []error
 	if isGit {
 		for _, pp := range dirPath {
-			filep, err := fs.Open(filepath.Join(policyresoucePath, pp))
+			filep, err := fs.Open(filepath.Join(policyResourcePath, pp))
 			if err != nil {
 				fmt.Printf("Error: file not available with path %s: %v", filep.Name(), err.Error())
 				continue
@@ -623,9 +745,9 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
-	cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string, policyReport bool, isGit bool, policyresoucePath string) (resources []*unstructured.Unstructured, err error) {
+	cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string, policyReport bool, isGit bool, policyResourcePath string) (resources []*unstructured.Unstructured, err error) {
 	if isGit {
-		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyresoucePath)
+		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyResourcePath)
 		if err != nil {
 			return nil, sanitizederror.NewWithError("failed to extract the resources", err)
 		}

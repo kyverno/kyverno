@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -12,9 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -36,6 +36,8 @@ type Controller struct {
 
 	// typed client for Kyverno CRDs
 	kyvernoClient *kyvernoclient.Clientset
+
+	policyInformer kyvernoinformer.ClusterPolicyInformer
 
 	// event generator interface
 	eventGen event.Interface
@@ -63,9 +65,8 @@ type Controller struct {
 
 	//TODO: list of generic informers
 	// only support Namespaces for re-evaluation on resource updates
-	nsInformer           informers.GenericInformer
-	policyStatusListener policystatus.Listener
-	log                  logr.Logger
+	nsInformer informers.GenericInformer
+	log        logr.Logger
 
 	Config   config.Interface
 	resCache resourcecache.ResourceCache
@@ -73,37 +74,35 @@ type Controller struct {
 
 //NewController returns an instance of the Generate-Request Controller
 func NewController(
+	kubeClient kubernetes.Interface,
 	kyvernoClient *kyvernoclient.Clientset,
 	client *dclient.Client,
 	policyInformer kyvernoinformer.ClusterPolicyInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
 	eventGen event.Interface,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
-	policyStatus policystatus.Listener,
 	log logr.Logger,
 	dynamicConfig config.Interface,
 	resourceCache resourcecache.ResourceCache,
 ) (*Controller, error) {
 
 	c := Controller{
-		client:               client,
-		kyvernoClient:        kyvernoClient,
-		eventGen:             eventGen,
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
-		dynamicInformer:      dynamicInformer,
-		log:                  log,
-		policyStatusListener: policyStatus,
-		Config:               dynamicConfig,
-		resCache:             resourceCache,
+		client:          client,
+		kyvernoClient:   kyvernoClient,
+		policyInformer:  policyInformer,
+		eventGen:        eventGen,
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
+		dynamicInformer: dynamicInformer,
+		log:             log,
+		Config:          dynamicConfig,
+		resCache:        resourceCache,
 	}
 
 	c.statusControl = StatusControl{client: kyvernoClient}
 
-	policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: c.updatePolicy, // We only handle updates to policy
-		// Deletion of policy will be handled by cleanup controller
-	})
+	c.policySynced = policyInformer.Informer().HasSynced
 
+	c.grSynced = grInformer.Informer().HasSynced
 	grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addGR,
 		UpdateFunc: c.updateGR,
@@ -113,23 +112,110 @@ func NewController(
 	c.policyLister = policyInformer.Lister()
 	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
 
-	c.policySynced = policyInformer.Informer().HasSynced
-	c.grSynced = grInformer.Informer().HasSynced
-
-	//TODO: dynamic registration
-	// Only supported for namespaces
 	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
 	if err != nil {
 		return nil, err
 	}
 
-	nsInformer := dynamicInformer.ForResource(gvr)
-	c.nsInformer = nsInformer
+	c.nsInformer = dynamicInformer.ForResource(gvr)
+
+	return &c, nil
+}
+
+// Run starts workers
+func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
+	defer utilruntime.HandleCrash()
+	defer c.queue.ShutDown()
+	defer c.log.Info("shutting down")
+
+	if !cache.WaitForCacheSync(stopCh, c.policySynced, c.grSynced) {
+		c.log.Info("failed to sync informer cache")
+		return
+	}
+
+	c.policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updatePolicy, // We only handle updates to policy
+		// Deletion of policy will be handled by cleanup controller
+	})
+
 	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateGenericResource,
 	})
 
-	return &c, nil
+	for i := 0; i < workers; i++ {
+		go wait.Until(c.worker, time.Second, stopCh)
+	}
+
+	<-stopCh
+}
+
+// worker runs a worker thread that just dequeues items, processes them, and marks them done.
+// It enforces that the syncHandler is never invoked concurrently with the same key.
+func (c *Controller) worker() {
+	for c.processNextWorkItem() {
+	}
+}
+
+func (c *Controller) processNextWorkItem() bool {
+	key, quit := c.queue.Get()
+	if quit {
+		return false
+	}
+
+	defer c.queue.Done(key)
+	err := c.syncGenerateRequest(key.(string))
+	c.handleErr(err, key)
+	return true
+}
+
+func (c *Controller) handleErr(err error, key interface{}) {
+	logger := c.log
+	if err == nil {
+		c.queue.Forget(key)
+		return
+	}
+
+	if apierrors.IsNotFound(err) {
+		c.queue.Forget(key)
+		logger.V(4).Info("Dropping generate request from the queue", "key", key, "error", err.Error())
+		return
+	}
+
+	if c.queue.NumRequeues(key) < maxRetries {
+		logger.V(3).Info("retrying generate request", "key", key, "error", err.Error())
+		c.queue.AddRateLimited(key)
+		return
+	}
+
+	logger.Error(err, "failed to process generate request", "key", key)
+	c.queue.Forget(key)
+}
+
+func (c *Controller) syncGenerateRequest(key string) error {
+	logger := c.log
+	var err error
+	startTime := time.Now()
+	logger.V(4).Info("started sync", "key", key, "startTime", startTime)
+	defer func() {
+		logger.V(4).Info("completed sync generate request", "key", key, "processingTime", time.Since(startTime).String())
+	}()
+
+	_, grName, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		return err
+	}
+
+	gr, err := c.grLister.Get(grName)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+
+		logger.Error(err, "failed to fetch generate request", "key", key)
+		return err
+	}
+
+	return c.processGR(gr)
 }
 
 func (c *Controller) updateGenericResource(old, cur interface{}) {
@@ -146,6 +232,11 @@ func (c *Controller) updateGenericResource(old, cur interface{}) {
 	for _, gr := range grs {
 		c.enqueueGenerateRequest(gr)
 	}
+}
+
+// EnqueueGenerateRequestFromWebhook - enqueueing generate requests from webhook
+func (c *Controller) EnqueueGenerateRequestFromWebhook(gr *kyverno.GenerateRequest) {
+	c.enqueueGenerateRequest(gr)
 }
 
 func (c *Controller) enqueueGenerateRequest(gr *kyverno.GenerateRequest) {
@@ -235,6 +326,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 			return
 		}
 	}
+
 	for _, resource := range gr.Status.GeneratedResources {
 		r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
 		if err != nil && !apierrors.IsNotFound(err) {
@@ -252,102 +344,5 @@ func (c *Controller) deleteGR(obj interface{}) {
 	logger.V(3).Info("deleting generate request", "name", gr.Name)
 
 	// sync Handler will remove it from the queue
-	c.enqueueGenerateRequest(gr)
-}
-
-//Run ...
-func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
-	logger := c.log
-	defer utilruntime.HandleCrash()
-	defer c.queue.ShutDown()
-
-	logger.Info("starting", "workers", workers)
-	defer logger.Info("shutting down")
-
-	if !cache.WaitForCacheSync(stopCh, c.policySynced, c.grSynced) {
-		logger.Info("failed to sync informer cache")
-		return
-	}
-
-	for i := 0; i < workers; i++ {
-		go wait.Until(c.worker, time.Second, stopCh)
-	}
-
-	<-stopCh
-}
-
-// worker runs a worker thread that just dequeues items, processes them, and marks them done.
-// It enforces that the syncHandler is never invoked concurrently with the same key.
-func (c *Controller) worker() {
-	c.log.V(3).Info("starting new worker...")
-
-	for c.processNextWorkItem() {
-	}
-}
-
-func (c *Controller) processNextWorkItem() bool {
-	key, quit := c.queue.Get()
-	if quit {
-		return false
-	}
-
-	defer c.queue.Done(key)
-	err := c.syncGenerateRequest(key.(string))
-	c.handleErr(err, key)
-	return true
-}
-
-func (c *Controller) handleErr(err error, key interface{}) {
-	logger := c.log
-	if err == nil {
-		c.queue.Forget(key)
-		return
-	}
-
-	if errors.IsNotFound(err) {
-		c.queue.Forget(key)
-		logger.V(4).Info("Dropping generate request from the queue", "key", key, "error", err.Error())
-		return
-	}
-
-	if c.queue.NumRequeues(key) < maxRetries {
-		logger.V(3).Info("retrying generate request", "key", key, "error", err.Error())
-		c.queue.AddRateLimited(key)
-		return
-	}
-
-	logger.Error(err, "failed to process generate request", "key", key)
-	c.queue.Forget(key)
-}
-
-func (c *Controller) syncGenerateRequest(key string) error {
-	logger := c.log
-	var err error
-	startTime := time.Now()
-	logger.V(4).Info("started sync", "key", key, "startTime", startTime)
-	defer func() {
-		logger.V(4).Info("completed sync generate request", "key", key, "processingTime", time.Since(startTime).String())
-	}()
-
-	_, grName, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		return err
-	}
-
-	gr, err := c.grLister.Get(grName)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil
-		}
-
-		logger.Error(err, "failed to list generate requests")
-		return err
-	}
-
-	return c.processGR(gr)
-}
-
-// EnqueueGenerateRequestFromWebhook - enqueueing generate requests from webhook
-func (c *Controller) EnqueueGenerateRequestFromWebhook(gr *kyverno.GenerateRequest) {
 	c.enqueueGenerateRequest(gr)
 }

@@ -21,6 +21,7 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 	resp.Type = utils.Mutation.String()
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
+		resp.RuleStats.RuleExecutionTimestamp = startTime.Unix()
 		logger.V(4).Info("applied JSON6902 patch", "processingTime", resp.RuleStats.ProcessingTime.String())
 	}()
 

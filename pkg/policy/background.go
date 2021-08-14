@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	gojmespath "github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -24,7 +25,7 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 			return fmt.Errorf("invalid variable used at path: spec/rules[%d]/exclude/%s", idx, path)
 		}
 
-		filterVars := []string{"request.object", "request.namespace"}
+		filterVars := []string{"request.object", "request.namespace", "images"}
 		ctx := context.NewContext(filterVars...)
 
 		for _, contextEntry := range rule.Context {
@@ -95,7 +96,7 @@ func validateDenyConditions(idx int, ctx context.EvalInterface, denyConditions a
 func checkNotFoundErr(err error) bool {
 	if err != nil {
 		switch err.(type) {
-		case variables.NotFoundVariableErr:
+		case gojmespath.NotFoundError:
 			return true
 		case context.InvalidVariableErr:
 			// non-white-listed variable is found

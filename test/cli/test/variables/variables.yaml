@@ -1,0 +1,25 @@
+policies:
+  - name: cm-variable-example
+    rules:
+      - name: example-configmap-lookup
+        values:
+          dictionary.data.env: test
+    resources:
+      - name: test-env-test
+        values:
+          request.object.metadata.name: test-env-test
+      - name: test-env-dev
+        values:
+          request.object.metadata.name: test-env-dev
+  - name: cm-array-example
+    rules:
+      - name: validate-role-annotation
+        values:
+          roles-dictionary.data.allowed-roles: "[\"app\",\"test\"]"
+    resources:
+      - name: test-web
+        values:
+          request.object.metadata.annotations.role: web
+      - name: test-app
+        values:
+          request.object.metadata.annotations.role: app

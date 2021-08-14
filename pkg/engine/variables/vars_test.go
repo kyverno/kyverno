@@ -1,6 +1,7 @@
 package variables
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -136,49 +137,83 @@ func Test_subVars_failed(t *testing.T) {
 }
 
 func Test_subVars_with_JMESPath_At(t *testing.T) {
-	patternMap := []byte(`
-	{
-		"kind": "{{@}}",
-		"data": {
-			"rules": [
-				{
-					"apiGroups": [
-						"{{request.object.metadata.name}}"
-					],
-					"resources": [
-						"namespaces"
-					],
-					"verbs": [
-						"*"
-					],
-					"resourceNames": [
-						"{{request.object.metadata.name}}"
-					]
+	patternMap := []byte(`{
+		"mutate": {
+			"overlay": {
+				"spec": {
+					"kind": "{{@}}",
+					"data": {
+						"rules": [
+							{
+								"apiGroups": [
+									"{{request.object.metadata.name}}"
+								],
+								"resources": [
+									"namespaces"
+								],
+								"verbs": [
+									"*"
+								],
+								"resourceNames": [
+									"{{request.object.metadata.name}}"
+								]
+							}
+						]
+					}
 				}
-			]
+			}
 		}
-	}
-	`)
+	}`)
 
 	resourceRaw := []byte(`
 	{
-		"kind": "foo",
-		"name": "bar",
 		"metadata": {
 			"name": "temp",
 			"namespace": "n1"
 		},
 		"spec": {
+			"kind": "foo",
 			"namespace": "n1",
 			"name": "temp1"
 		}
 	}
 		`)
 
-	expected := []byte(`{"data":{"rules":[{"apiGroups":["temp"],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"kind":"foo"}`)
+	expectedRaw := []byte(`{
+		"mutate":{
+		   "overlay":{
+			  "spec":{
+				 "data":{
+					"rules":[
+					   {
+						  "apiGroups":[
+							 "temp"
+						  ],
+						  "resourceNames":[
+							 "temp"
+						  ],
+						  "resources":[
+							 "namespaces"
+						  ],
+						  "verbs":[
+							 "*"
+						  ]
+					   }
+					]
+				 },
+				 "kind":"foo"
+			  }
+		   }
+		}
+	}`)
+
+	var err error
+
+	expected := new(bytes.Buffer)
+	err = json.Compact(expected, expectedRaw)
+	assert.NilError(t, err)
 
 	var pattern, resource interface{}
-	var err error
 	err = json.Unmarshal(patternMap, &pattern)
 	assert.NilError(t, err)
 	err = json.Unmarshal(resourceRaw, &resource)
@@ -192,34 +227,52 @@ func Test_subVars_with_JMESPath_At(t *testing.T) {
 	assert.NilError(t, err)
 	out, err := json.Marshal(output)
 	assert.NilError(t, err)
-	assert.Equal(t, string(out), string(expected))
+	assert.Equal(t, string(out), expected.String())
 }
 
 func Test_subVars_withRegexMatch(t *testing.T) {
-	patternMap := []byte(`
-	{
-		"port": "{{ regex_match('(443)', '{{@}}') }}",
-		"name": "ns-owner-{{request.object.metadata.name}}"
-	}
-	`)
+	patternMap := []byte(`{
+		"mutate": {
+			"overlay": {
+				"spec": {
+					"port": "{{ regex_match('(443)', '{{@}}') }}",
+					"name": "ns-owner-{{request.object.metadata.name}}"
+				}
+			}
+		}
+	}`)
 
 	resourceRaw := []byte(`
 	{
-		"port": "443",
 		"metadata": {
 			"name": "temp",
 			"namespace": "n1"
 		},
 		"spec": {
+			"port": "443",
 			"namespace": "n1",
 			"name": "temp1"
 		}
-	}
-		`)
-	expected := []byte(`{"name":"ns-owner-temp","port":true}`)
+	}`)
+
+	expectedRaw := []byte(`{
+		"mutate":{
+		   "overlay":{
+			  "spec":{
+				 "name":"ns-owner-temp",
+				 "port":true
+			  }
+		   }
+		}
+	 }`)
+
+	var err error
+
+	expected := new(bytes.Buffer)
+	err = json.Compact(expected, expectedRaw)
+	assert.NilError(t, err)
 
 	var pattern, resource interface{}
-	var err error
 	err = json.Unmarshal(patternMap, &pattern)
 	assert.NilError(t, err)
 	err = json.Unmarshal(resourceRaw, &resource)
@@ -233,32 +286,33 @@ func Test_subVars_withRegexMatch(t *testing.T) {
 	assert.NilError(t, err)
 	out, err := json.Marshal(output)
 	assert.NilError(t, err)
-	fmt.Print(string(out))
-	assert.Equal(t, string(out), string(expected))
+	assert.Equal(t, string(out), expected.String())
 }
 
 func Test_subVars_withRegexReplaceAll(t *testing.T) {
-	patternMap := []byte(`
-	{
-		"port": "{{ regex_replace_all_literal('.*', '{{@}}', '1313') }}",
-		"name": "ns-owner-{{request.object.metadata.name}}"
-	}
-	`)
+	patternMap := []byte(`{
+		"mutate": {
+			"overlay": {
+				"spec": {
+					"port": "{{ regex_replace_all_literal('.*', '{{@}}', '1313') }}",
+					"name": "ns-owner-{{request.object.metadata.name}}"
+				}
+			}
+		}
+	}`)
 
-	resourceRaw := []byte(`
-	{
-		"port": "43123",
+	resourceRaw := []byte(`{
 		"metadata": {
 			"name": "temp",
 			"namespace": "n1"
 		},
 		"spec": {
+			"port": "43123",
 			"namespace": "n1",
 			"name": "temp1"
 		}
-	}
-		`)
-	expected := []byte(`{"name":"ns-owner-temp","port":"1313"}`)
+	}`)
+	expected := []byte(`{"mutate":{"overlay":{"spec":{"name":"ns-owner-temp","port":"1313"}}}}`)
 
 	var pattern, resource interface{}
 	var err error
@@ -382,7 +436,7 @@ func Test_SubstituteSuccess(t *testing.T) {
 	patternRaw := []byte(`"{{request.object.metadata.annotations.test}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
-	action := substituteVariablesIfAny(log.Log, ctx)
+	action := substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
 	results, err := action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
@@ -406,7 +460,7 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.annotations.test2}}}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
-	action := substituteVariablesIfAny(log.Log, ctx)
+	action := substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
 	results, err := action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
@@ -419,7 +473,7 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 	patternRaw = []byte(`"{{request.object.metadata2.{{request.object.metadata.annotations.test}}}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
-	action = substituteVariablesIfAny(log.Log, ctx)
+	action = substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
 	results, err = action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
@@ -438,7 +492,7 @@ func Test_SubstituteRecursive(t *testing.T) {
 	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.annotations.test}}}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
-	action := substituteVariablesIfAny(log.Log, ctx)
+	action := substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
 	results, err := action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
@@ -578,6 +632,65 @@ var variableObject = []byte(`
 	"simple_object_null": null
 }
 `)
+
+func Test_SubstituteNull(t *testing.T) {
+	patternRaw := []byte(`
+	{
+		"spec": {
+			"content": "{{ request.object.simple_object_null }}"
+		}
+	}
+	`)
+
+	var err error
+	var pattern, resource map[string]interface{}
+	err = json.Unmarshal(patternRaw, &pattern)
+	assert.NilError(t, err)
+
+	err = json.Unmarshal(variableObject, &resource)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(variableObject)
+
+	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+
+	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
+	var expected interface{}
+	expected = nil
+
+	assert.DeepEqual(t, expected, content)
+}
+
+func Test_SubstituteNullInString(t *testing.T) {
+	patternRaw := []byte(`
+	{
+		"spec": {
+			"content": "content = {{ request.object.simple_object_null }}"
+		}
+	}
+	`)
+
+	var err error
+	var pattern, resource map[string]interface{}
+	err = json.Unmarshal(patternRaw, &pattern)
+	assert.NilError(t, err)
+
+	err = json.Unmarshal(variableObject, &resource)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	ctx.AddResource(variableObject)
+
+	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+
+	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
+	expected := "content = null"
+
+	assert.DeepEqual(t, expected, content)
+}
 
 func Test_SubstituteArray(t *testing.T) {
 	patternRaw := []byte(`

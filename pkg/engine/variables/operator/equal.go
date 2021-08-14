@@ -2,47 +2,32 @@ package operator
 
 import (
 	"fmt"
-	"github.com/minio/minio/pkg/wildcard"
 	"math"
 	"reflect"
 	"strconv"
+
+	"github.com/minio/pkg/wildcard"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
 //NewEqualHandler returns handler to manage Equal operations
-func NewEqualHandler(log logr.Logger, ctx context.EvalInterface, subHandler VariableSubstitutionHandler) OperatorHandler {
+func NewEqualHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return EqualHandler{
-		ctx:        ctx,
-		subHandler: subHandler,
-		log:        log,
+		ctx: ctx,
+		log: log,
 	}
 }
 
 //EqualHandler provides implementation to handle NotEqual Operator
 type EqualHandler struct {
-	ctx        context.EvalInterface
-	subHandler VariableSubstitutionHandler
-	log        logr.Logger
+	ctx context.EvalInterface
+	log logr.Logger
 }
 
 //Evaluate evaluates expression with Equal Operator
 func (eh EqualHandler) Evaluate(key, value interface{}) bool {
-	var err error
-	//TODO: decouple variables from evaluation
-	// substitute the variables
-	if key, err = eh.subHandler(eh.log, eh.ctx, key); err != nil {
-		// Failed to resolve the variable
-		eh.log.Error(err, "Failed to resolve variable", "variable", key)
-		return false
-	}
-	if value, err = eh.subHandler(eh.log, eh.ctx, value); err != nil {
-		// Failed to resolve the variable
-		eh.log.Error(err, "Failed to resolve variable", "variable", value)
-		return false
-	}
-
 	// key and value need to be of same type
 	switch typedKey := key.(type) {
 	case bool:

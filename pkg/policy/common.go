@@ -9,7 +9,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils"
-	"github.com/minio/minio/pkg/wildcard"
+	"github.com/minio/pkg/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -57,7 +57,7 @@ func ConvertPolicyToClusterPolicy(nsPolicies *kyverno.Policy) *kyverno.ClusterPo
 	return &cpol
 }
 
-func parseNamespacedPolicy(key string) (string, string, bool) {
+func ParseNamespacedPolicy(key string) (string, string, bool) {
 	namespace := ""
 	index := strings.Index(key, "/")
 	if index != -1 {

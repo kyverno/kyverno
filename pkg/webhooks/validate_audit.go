@@ -1,8 +1,12 @@
 package webhooks
 
 import (
+	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/utils"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -11,12 +15,11 @@ import (
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/policystatus"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/userinfo"
-	"github.com/minio/minio/cmd/logger"
 	"k8s.io/api/admission/v1beta1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,12 +46,11 @@ type AuditHandler interface {
 }
 
 type auditHandler struct {
-	client         *client.Client
-	queue          workqueue.RateLimitingInterface
-	pCache         policycache.Interface
-	eventGen       event.Interface
-	statusListener policystatus.Listener
-	prGenerator    policyreport.GeneratorInterface
+	client      *client.Client
+	queue       workqueue.RateLimitingInterface
+	pCache      policycache.Interface
+	eventGen    event.Interface
+	prGenerator policyreport.GeneratorInterface
 
 	rbLister       rbaclister.RoleBindingLister
 	rbSynced       cache.InformerSynced
@@ -60,12 +62,12 @@ type auditHandler struct {
 	log           logr.Logger
 	configHandler config.Interface
 	resCache      resourcecache.ResourceCache
+	promConfig    *metrics.PromConfig
 }
 
 // NewValidateAuditHandler returns a new instance of audit policy handler
 func NewValidateAuditHandler(pCache policycache.Interface,
 	eventGen event.Interface,
-	statusListener policystatus.Listener,
 	prGenerator policyreport.GeneratorInterface,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
@@ -73,13 +75,13 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	log logr.Logger,
 	dynamicConfig config.Interface,
 	resCache resourcecache.ResourceCache,
-	client *client.Client) AuditHandler {
+	client *client.Client,
+	promConfig *metrics.PromConfig) AuditHandler {
 
 	return &auditHandler{
 		pCache:         pCache,
 		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		eventGen:       eventGen,
-		statusListener: statusListener,
 		rbLister:       rbInformer.Lister(),
 		rbSynced:       rbInformer.Informer().HasSynced,
 		crbLister:      crbInformer.Lister(),
@@ -91,6 +93,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		configHandler:  dynamicConfig,
 		resCache:       resCache,
 		client:         client,
+		promConfig:     promConfig,
 	}
 }
 
@@ -108,7 +111,7 @@ func (h *auditHandler) Run(workers int, stopCh <-chan struct{}) {
 	}()
 
 	if !cache.WaitForCacheSync(stopCh, h.rbSynced, h.crbSynced) {
-		logger.Info("failed to sync informer cache")
+		h.log.Info("failed to sync informer cache")
 	}
 
 	for i := 0; i < workers; i++ {
@@ -134,7 +137,7 @@ func (h *auditHandler) processNextWorkItem() bool {
 	request, ok := obj.(*v1beta1.AdmissionRequest)
 	if !ok {
 		h.queue.Forget(obj)
-		logger.Info("incorrect type: expecting type 'AdmissionRequest'", "object", obj)
+		h.log.Info("incorrect type: expecting type 'AdmissionRequest'", "object", obj)
 		return true
 	}
 
@@ -147,14 +150,14 @@ func (h *auditHandler) processNextWorkItem() bool {
 func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	var roles, clusterRoles []string
 	var err error
-
+	// time at which the corresponding the admission request's processing got initiated
+	admissionRequestTimestamp := time.Now().Unix()
 	logger := h.log.WithName("process")
-	policies := h.pCache.Get(policycache.ValidateAudit, nil)
-	// Get namespace policies from the cache for the requested resource namespace
-	nsPolicies := h.pCache.Get(policycache.ValidateAudit, &request.Namespace)
-	policies = append(policies, nsPolicies...)
+
+	policies := h.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
+
 	// getRoleRef only if policy has roles/clusterroles defined
-	if containRBACInfo(policies) {
+	if containsRBACInfo(policies) {
 		roles, clusterRoles, err = userinfo.GetRoleRef(h.rbLister, h.crbLister, request, h.configHandler)
 		if err != nil {
 			logger.Error(err, "failed to get RBAC information for request")
@@ -168,7 +171,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 
 	ctx, err := newVariablesContext(request, &userRequestInfo)
 	if err != nil {
-		logger.Error(err, "unable to build variable context")
+		return errors.Wrap(err, "unable to build variable context")
 	}
 
 	namespaceLabels := make(map[string]string)
@@ -176,7 +179,33 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 
-	HandleValidation(request, policies, nil, ctx, userRequestInfo, h.statusListener, h.eventGen, h.prGenerator, logger, h.configHandler, h.resCache, h.client, namespaceLabels)
+	newResource, oldResource, err := utils.ExtractResources(nil, request)
+	if err != nil {
+		return errors.Wrap(err, "failed create parse resource")
+	}
+
+	if err := ctx.AddImageInfo(&newResource); err != nil {
+		return errors.Wrap(err, "failed add image information to policy rule context\"")
+	}
+
+	policyContext := &engine.PolicyContext{
+		NewResource:         newResource,
+		OldResource:         oldResource,
+		AdmissionInfo:       userRequestInfo,
+		ExcludeGroupRole:    h.configHandler.GetExcludeGroupRole(),
+		ExcludeResourceFunc: h.configHandler.ToFilter,
+		ResourceCache:       h.resCache,
+		JSONContext:         ctx,
+		Client:              h.client,
+	}
+
+	vh := &validationHandler{
+		log:         h.log,
+		eventGen:    h.eventGen,
+		prGenerator: h.prGenerator,
+	}
+
+	vh.handleValidation(h.promConfig, request, policies, policyContext, namespaceLabels, admissionRequestTimestamp)
 	return nil
 }
 
