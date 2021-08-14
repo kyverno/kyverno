@@ -51,6 +51,12 @@ const (
 
 	// DeploymentAPIVersion define the default deployment resource apiVersion
 	DeploymentAPIVersion = "apps/v1"
+
+	// NamespaceKind define the default namespace resource kind
+	NamespaceKind = "Namespace"
+
+	// NamespaceAPIVersion define the default namespace resource apiVersion
+	NamespaceAPIVersion = "v1"
 )
 
 var (
