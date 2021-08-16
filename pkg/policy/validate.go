@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/jmespath/go-jmespath"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -20,8 +22,38 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+//check for forward slash
+func JSONPatchPathHasForwardSlash(patch string) bool {
+
+	jsonPatch, err := yaml.ToJSON([]byte(patch))
+	if err != nil {
+		return err
+	}
+
+	decodedPatch, err := jsonpatch.DecodePatch(jsonPatch)
+	if err != nil {
+		return err
+	}
+
+	for _, operation := range decodedPatch {
+		path, err := operation.Path()
+		if err != nil {
+			return err
+		}
+
+		out, err := regexp.MatchString(`^/`, path)
+		if err != nil {
+			return fmt.Errorf("Path :", err)
+		}
+
+		return out
+	}
+	return nil
+}
 
 // Validate does some initial check to verify some conditions
 // - One operation per rule
@@ -50,6 +82,11 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 	}
 
 	for i, rule := range p.Spec.Rules {
+		//check for forward slash
+		if JSONPatchPathHasForwardSlash(rule) != true {
+			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
+		}
+
 		if jsonPatchOnPod(rule) {
 			log.Log.V(1).Info("pods managed by workload controllers cannot be mutated using policies. Use the auto-gen feature or write policies that match pod controllers.")
 		}
