@@ -302,3 +302,90 @@ func Test_chained_rules(t *testing.T) {
 	assert.Equal(t, string(er.PolicyResponse.Rules[0].Patches[0]), `{"op":"replace","path":"/spec/containers/0/image","value":"myregistry.corp.com/foo/bash:5.0"}`)
 	assert.Equal(t, string(er.PolicyResponse.Rules[1].Patches[0]), `{"op":"replace","path":"/spec/containers/0/image","value":"otherregistry.corp.com/foo/bash:5.0"}`)
 }
+
+// https://github.com/kyverno/kyverno/issues/2228
+func Test_VariableSubstitutionPrecondition(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "add-label"
+		},
+		"spec": {
+			"rules": [
+				{
+					"name": "add-name-label",
+					"match": {
+						"resources": {
+							"kinds": [
+								"Pod"
+							]
+						}
+					},
+					"preconditions": [
+						{
+							"key": "{{ request.object.metadata.name }}",
+							"operator": "Equals",
+							"value": "check-root-user"
+						}
+					],
+					"mutate": {
+						"overlay": {
+							"metadata": {
+								"labels": {
+									"appname": "{{request.object.metadata.name}}"
+								}
+							}
+						}
+					}
+				}
+			]
+		}
+	}
+	`)
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "check-root-user"
+		},
+		"spec": {
+			"containers": [
+				{
+					"name": "check-root-user",
+					"image": "nginxinc/nginx-unprivileged",
+					"securityContext": {
+						"runAsNonRoot": true
+					}
+				}
+			]
+		}
+	}
+	`)
+	expectedPatch := []byte(`{"op":"add","path":"/metadata/labels","value":{"appname":"check-root-user"}}`)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	if err != nil {
+		t.Error(err)
+	}
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	ctx := context.NewContext()
+	err = ctx.AddResource(rawResource)
+	if err != nil {
+		t.Error(err)
+	}
+	policyContext := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		NewResource: *resourceUnstructured}
+	er := Mutate(policyContext)
+	t.Log(string(expectedPatch))
+	t.Log(string(er.PolicyResponse.Rules[0].Patches[0]))
+	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches[0]) {
+		t.Error("patches dont match")
+	}
+}
