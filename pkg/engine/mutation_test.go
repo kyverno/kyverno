@@ -361,7 +361,7 @@ func Test_precondition(t *testing.T) {
   }
 }`)
 
-	expectedPatch := []byte(`{"op":"add","path":"/metadata/labels","value":{"my-added-label":"test"}}`)
+	expectedPatch := []byte(`{"op":"add","path":"/metadata/labels/my-added-label","value":"test"}`)
 
 	store.SetMock(true)
 	var policy kyverno.ClusterPolicy
