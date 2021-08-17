@@ -177,11 +177,6 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 			  }`),
 			expectedPatch: []byte(`{
 				"spec": {
-				  "containers": [
-					{
-					  "name": "hello"
-					}
-				  ],
 				  "imagePullSecrets": [
 					{
 					  "name": "regcred"
@@ -222,11 +217,6 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 			  }`),
 			expectedPatch: []byte(`{
 				"spec": {
-				  "containers": [
-					{
-					  "name": "hello"
-					}
-				  ],
 				  "imagePullSecrets": [
 					{
 					  "name": "regcred"
@@ -276,14 +266,6 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 			  }`),
 			expectedPatch: []byte(`{
 				"spec": {
-				  "containers": [
-					{
-					  "name": "hello"
-					},
-					{
-					  "name": "hello2"
-					}
-				  ],
 				  "imagePullSecrets": [
 					{
 					  "name": "regcred"
@@ -351,13 +333,6 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 				  "labels": {
 					"add-labels": "add"
 				  }
-				},
-				"spec": {
-				  "volumes": [
-					{
-					  "name": "cache-volume"
-					}
-				  ]
 				}
 			  }`),
 		},
@@ -412,15 +387,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 				  ]
 				}
 			  }`),
-			expectedPatch: []byte(`{
-				"spec": {
-				  "volumes": [
-					{
-					  "name": "cache-volume"
-					}
-				  ]
-				}
-			  }`),
+			expectedPatch: []byte(`{}`),
 		},
 		{
 			rawPolicy: []byte(`{
@@ -794,6 +761,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 	}
 
 	for i, test := range testCases {
+
 		t.Logf("Running test %d...", i+1)
 		preProcessedPolicy, err := preProcessStrategicMergePatch(log.Log, string(test.rawPolicy), string(test.rawResource))
 		assert.NilError(t, err)

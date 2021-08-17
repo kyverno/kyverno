@@ -158,9 +158,14 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 					}
 
 					newNode := patternElement.Copy()
-					err := deleteConditionsFromNestedMaps(newNode)
+					empty, err := deleteConditionsFromNestedMaps(newNode)
 					if err != nil {
 						return err
+					}
+
+					// Do not add an empty element to the patch
+					if empty {
+						continue
 					}
 
 					err = newNode.PipeE(yaml.SetField("name", resourceElementName.Value))
@@ -313,34 +318,50 @@ func checkCondition(logger logr.Logger, pattern *yaml.RNode, resource *yaml.RNod
 	return err
 }
 
-func deleteConditionsFromNestedMaps(pattern *yaml.RNode) error {
+func deleteConditionsFromNestedMaps(pattern *yaml.RNode) (bool, error) {
 	if pattern.YNode().Kind != yaml.MappingNode {
-		return nil
+		return false, nil
 	}
 
 	fields, err := pattern.Fields()
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	for _, field := range fields {
 		if anchor.ContainsCondition(field) {
 			err = pattern.PipeE(yaml.Clear(field))
 			if err != nil {
-				return err
+				return false, err
 			}
 		} else {
 			child := pattern.Field(field).Value
 			if child != nil {
-				err = deleteConditionsFromNestedMaps(child)
+				empty, err := deleteConditionsFromNestedMaps(child)
 				if err != nil {
-					return err
+					return false, err
+				}
+
+				if empty {
+					err = pattern.PipeE(yaml.Clear(field))
+					if err != nil {
+						return false, err
+					}
 				}
 			}
 		}
 	}
 
-	return nil
+	fields, err = pattern.Fields()
+	if err != nil {
+		return false, err
+	}
+
+	if len(fields) == 0 {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func deleteConditionElements(pattern *yaml.RNode) error {
@@ -403,15 +424,49 @@ func deleteAnchorsInMap(node *yaml.RNode) (bool, error) {
 
 	// Go further through the map elements.
 	for _, field := range fields {
+
+		patternValue := node.Field(field).Value
+		var wasEmpty bool
+		var isSequence bool
+		if patternValue.YNode().Kind == yaml.SequenceNode {
+			isSequence = true
+			elements, err := patternValue.Elements()
+			if err != nil {
+				return false, err
+			}
+
+			if len(elements) == 0 {
+				wasEmpty = true
+			}
+		}
+
 		ok, err := deleteAnchors(node.Field(field).Value)
 		if err != nil {
 			return false, err
 		}
 
-		// If we have at least one element without annchor,
+		// If we have at least one element without anchor,
 		// then we don't need to delete this element.
 		if !ok {
 			return false, nil
+		}
+
+		if isSequence {
+			patternValue := node.Field(field).Value
+			elements, err := patternValue.Elements()
+			if err != nil {
+				return false, err
+			}
+
+			if len(elements) == 0 && !wasEmpty {
+				// List became empty after deleting anchors,
+				// delete it
+
+				err = node.PipeE(yaml.Clear(field))
+				if err != nil {
+					return false, err
+				}
+			}
 		}
 	}
 
