@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
-	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
@@ -21,6 +20,7 @@ func ValidateResourceWithPattern(logger logr.Logger, resource, pattern interface
 	elemPath, err := validateResourceElement(logger, resource, pattern, pattern, "/", ac)
 	if err != nil {
 		if common.IsConditionalAnchorError(err.Error()) {
+			logger.V(3).Info(ac.AnchorError.Message)
 			return "", nil
 		}
 
@@ -102,12 +102,7 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 		// if there are resource values at same level, then anchor acts as conditional instead of a strict check
 		// but if there are non then its a if then check
 		if err != nil {
-			// If Conditional anchor fails then we don't process the resources
-			if commonAnchors.IsConditionAnchor(key) {
-				ac.AnchorError = common.NewConditionalAnchorError(fmt.Sprintf("condition anchor did not satisfy: %s", err.Error()))
-				log.V(3).Info(ac.AnchorError.Message)
-				return "", ac.AnchorError.Error()
-			}
+			// If global anchor fails then we don't process the resource
 			return handlerPath, err
 		}
 	}

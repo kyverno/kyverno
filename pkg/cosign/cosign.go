@@ -5,6 +5,8 @@ import (
 	"crypto"
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -14,7 +16,6 @@ import (
 	"github.com/sigstore/cosign/pkg/cosign"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"k8s.io/client-go/kubernetes"
-	"strings"
 )
 
 // Initialize loads the image pull secrets and initializes the default auth method for container registry API calls
