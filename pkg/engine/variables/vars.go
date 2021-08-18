@@ -53,7 +53,7 @@ func newPreconditionsVariableResolver(log logr.Logger) VariableResolver {
 	return func(ctx context.EvalInterface, variable string) (interface{}, error) {
 		value, err := DefaultVariableResolver(ctx, variable)
 		if err != nil {
-			log.Info(fmt.Sprintf("Variable \"%s\" is not resolved in preconditions. Considering it as an empty string", variable))
+			log.V(4).Info(fmt.Sprintf("Variable \"%s\" is not resolved in preconditions. Considering it as an empty string", variable))
 			return "", nil
 		}
 
