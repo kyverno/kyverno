@@ -16,6 +16,14 @@ func IsConditionalAnchorError(msg string) bool {
 	return false
 }
 
+// IsGlobalAnchorError checks if error message has conditional anchor error string
+func IsGlobalAnchorError(msg string) bool {
+	if strings.Contains(msg, GlobalAnchorErrMsg) {
+		return true
+	}
+	return false
+}
+
 // NewConditionalAnchorError returns a new instance of ConditionalAnchorError
 func NewConditionalAnchorError(msg string) ValidateAnchorError {
 	return ValidateAnchorError{

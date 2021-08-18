@@ -19,7 +19,7 @@ func ValidateResourceWithPattern(logger logr.Logger, resource, pattern interface
 	ac := common.NewAnchorMap()
 	elemPath, err := validateResourceElement(logger, resource, pattern, pattern, "/", ac)
 	if err != nil {
-		if common.IsConditionalAnchorError(err.Error()) {
+		if common.IsConditionalAnchorError(err.Error()) || common.IsGlobalAnchorError(err.Error()) {
 			logger.V(3).Info(ac.AnchorError.Message)
 			return "", nil
 		}

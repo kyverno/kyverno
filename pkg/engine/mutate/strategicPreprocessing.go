@@ -31,7 +31,7 @@ func (ce GlobalConditionError) Error() string {
 }
 
 func NewGlobalConditionError(err error) error {
-	return ConditionError{err}
+	return GlobalConditionError{err}
 }
 
 // preProcessPattern - Dynamically preProcess the yaml
