@@ -3730,6 +3730,11 @@ spec:
     matchLabels:
       app: kyverno
       app.kubernetes.io/name: kyverno
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 40%
+    type: RollingUpdate
   template:
     metadata:
       labels:
