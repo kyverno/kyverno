@@ -101,7 +101,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		}
 
 		// operate on the copy of the conditions, as we perform variable substitution
-		copyConditions, err := transformConditions(rule.AnyAllConditions)
+		copyConditions, err := transformConditions(ruleCopy.AnyAllConditions)
 		if err != nil {
 			logger.V(2).Info("failed to load context", "reason", err.Error())
 			continue

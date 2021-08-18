@@ -302,3 +302,88 @@ func Test_chained_rules(t *testing.T) {
 	assert.Equal(t, string(er.PolicyResponse.Rules[0].Patches[0]), `{"op":"replace","path":"/spec/containers/0/image","value":"myregistry.corp.com/foo/bash:5.0"}`)
 	assert.Equal(t, string(er.PolicyResponse.Rules[1].Patches[0]), `{"op":"replace","path":"/spec/containers/0/image","value":"otherregistry.corp.com/foo/bash:5.0"}`)
 }
+
+func Test_precondition(t *testing.T) {
+	resourceRaw := []byte(`{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "name": "nginx-config-test",
+    "labels": {
+      "app.kubernetes.io/managed-by": "Helm"
+    }
+  },
+  "spec": {
+    "containers": [
+      {
+        "image": "nginx:latest",
+        "name": "test-nginx"
+      }
+    ]
+  }
+}`)
+
+	policyraw := []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "cm-variable-example"
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "example-configmap-lookup",
+        "match": {
+          "resources": {
+            "kinds": [
+              "Pod"
+            ]
+          }
+        },
+        "preconditions": [
+          {
+            "key": "{{ request.object.metadata.labels.\"app.kubernetes.io/managed-by\"}}",
+            "operator": "Equals",
+            "value": "Helm"
+          }
+        ],
+        "mutate": {
+          "patchStrategicMerge": {
+            "metadata": {
+              "labels": {
+                "my-added-label": "test"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}`)
+
+	expectedPatch := []byte(`{"op":"add","path":"/metadata/labels/my-added-label","value":"test"}`)
+
+	store.SetMock(true)
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(policyraw, &policy)
+	assert.NilError(t, err)
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResource(resourceRaw)
+	assert.NilError(t, err)
+
+	policyContext := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		NewResource: *resourceUnstructured,
+	}
+
+	er := Mutate(policyContext)
+	t.Log(string(expectedPatch))
+	t.Log(string(er.PolicyResponse.Rules[0].Patches[0]))
+	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches[0]) {
+		t.Error("patches don't match")
+	}
+}
