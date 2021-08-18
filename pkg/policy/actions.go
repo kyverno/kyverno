@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy/generate"
 	"github.com/kyverno/kyverno/pkg/policy/mutate"
 	"github.com/kyverno/kyverno/pkg/policy/validate"
+	"github.com/kyverno/kyverno/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -54,6 +55,10 @@ func validateActions(idx int, rule kyverno.Rule, client *dclient.Client, mock bo
 			if path, err := checker.Validate(); err != nil {
 				return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			}
+		}
+
+		if utils.ContainsString(rule.MatchResources.Kinds, rule.Generation.Kind) {
+			return fmt.Errorf("genration kind and match resource kind should not be same")
 		}
 	}
 
