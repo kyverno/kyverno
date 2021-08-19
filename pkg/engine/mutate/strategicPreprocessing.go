@@ -524,7 +524,7 @@ func validateConditionsInternal(logger logr.Logger, pattern, resource *yaml.RNod
 	for _, condition := range conditions {
 		conditionKey := removeAnchor(condition)
 		if resource == nil || resource.Field(conditionKey) == nil {
-			continue
+			return fmt.Errorf("could not found \"%s\" key in the resource", conditionKey)
 		}
 
 		err = checkCondition(logger, pattern.Field(condition).Value, resource.Field(conditionKey).Value)

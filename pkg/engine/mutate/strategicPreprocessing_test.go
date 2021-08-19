@@ -653,58 +653,6 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 		{
 			rawPolicy: []byte(`{
 				"metadata": {
-					"labels": {
-						"(key1)": "value1",
-					}
-				},
-				"spec": {
-				  "containers": [
-					{
-					  "name": "busybox",
-					  "image": "gcr.io/google-containers/busybox:latest"
-					}
-				  ],
-				  "imagePullSecrets": [
-					{
-					  "name": "regcred"
-					}
-				  ]
-				}
-			  }`),
-			rawResource: []byte(`{
-				"apiVersion": "v1",
-				"kind": "Pod",
-				"metadata": {
-				  "name": "hello"
-				},
-				"spec": {
-				  "containers": [
-					{
-					  "name": "hello",
-					  "image": "busybox"
-					}
-				  ]
-				}
-			  }`),
-			expectedPatch: []byte(`{
-				"spec": {
-				  "containers": [
-					{
-						"name": "busybox",
-						"image": "gcr.io/google-containers/busybox:latest"
-					}
-				  ],
-				  "imagePullSecrets": [
-					{
-					  "name": "regcred"
-					}
-				  ]
-				}
-			  }`),
-		},
-		{
-			rawPolicy: []byte(`{
-				"metadata": {
 				  "annotations": {
 					"+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
 				  }
@@ -1013,4 +961,49 @@ func Test_ConditionCheck_SeveralElementsMatchExceptOne(t *testing.T) {
 	assert.NilError(t, err)
 
 	assert.Equal(t, len(elements), 2)
+}
+
+func Test_NonExistingKeyMustFailPreprocessing(t *testing.T) {
+	rawPattern := []byte(`{
+			"metadata": {
+				"labels": {
+					"(key1)": "value1",
+				}
+			},
+			"spec": {
+			  "containers": [
+				{
+				  "name": "busybox",
+				  "image": "gcr.io/google-containers/busybox:latest"
+				}
+			  ],
+			  "imagePullSecrets": [
+				{
+				  "name": "regcred"
+				}
+			  ]
+			}
+		  }`)
+
+	rawResource := []byte(`{
+			"apiVersion": "v1",
+			"kind": "Pod",
+			"metadata": {
+			  "name": "hello"
+			},
+			"spec": {
+			  "containers": [
+				{
+				  "name": "hello",
+				  "image": "busybox"
+				}
+			  ]
+			}
+		  }`)
+
+	pattern := yaml.MustParse(string(rawPattern))
+	resource := yaml.MustParse(string(rawResource))
+
+	err := preProcessPattern(log.Log, pattern, resource)
+	assert.Error(t, err, "Condition failed: could not found \"key1\" key in the resource")
 }
