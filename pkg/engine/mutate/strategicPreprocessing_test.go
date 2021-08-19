@@ -976,7 +976,8 @@ func Test_ConditionCheck_SeveralElementsMatchExceptOne(t *testing.T) {
 	patternRaw := []byte(`{
 		"containers": [
 			{
-			  "(image)": "gcr.io/google-containers/busybox:*"
+			  "(name)": "hello?",
+			  "image": "gcr.io/google-containers/busybox:1"
 			}
 		]
 	}`)
@@ -1004,8 +1005,12 @@ func Test_ConditionCheck_SeveralElementsMatchExceptOne(t *testing.T) {
 	err := preProcessPattern(log.Log, pattern, containers)
 	assert.NilError(t, err)
 
-	containersElements, err := pattern.Field("containers").Value.Elements()
+	patternContainers := pattern.Field("containers")
+	assert.Assert(t, patternContainers != nil)
+	assert.Assert(t, patternContainers.Value != nil)
+
+	elements, err := patternContainers.Value.Elements()
 	assert.NilError(t, err)
 
-	assert.Equal(t, len(containersElements), 2)
+	assert.Equal(t, len(elements), 2)
 }
