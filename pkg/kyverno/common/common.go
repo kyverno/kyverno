@@ -382,12 +382,13 @@ func RemoveDuplicateAndObjectVariables(matches [][]string) string {
 	return variableStr
 }
 
-func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyResourcePath string) (map[string]string, map[string]map[string]Resource, map[string]map[string]string, bool, error) {
+func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyResourcePath string) (map[string]string, map[string]map[string]Resource, map[string]map[string]string, error) {
 	valuesMapResource := make(map[string]map[string]Resource)
 	valuesMapRule := make(map[string]map[string]Rule)
 	namespaceSelectorMap := make(map[string]map[string]string)
 	variables := make(map[string]string)
-	operationIsDelete := false
+	reqObjVars := ""
+
 	var yamlFile []byte
 	var err error
 	if variablesString != "" {
@@ -395,11 +396,12 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		for _, kvpair := range kvpairs {
 			kvs := strings.Split(strings.Trim(kvpair, " "), "=")
 			if strings.Contains(kvs[0], "request.object") {
-				return variables, valuesMapResource, namespaceSelectorMap, operationIsDelete, sanitizederror.NewWithError("variable request.object.* is handled by kyverno. please do not pass value for request.object variables ", err)
+				if !strings.Contains(reqObjVars, kvs[0]) {
+					reqObjVars = reqObjVars + "," + kvs[0]
+				}
+				continue
 			}
-			if strings.Contains(kvs[0], "request.operation") && strings.Contains(kvs[1], "DELETE") {
-				operationIsDelete = true
-			}
+
 			variables[strings.Trim(kvs[0], " ")] = strings.Trim(kvs[1], " ")
 		}
 	}
@@ -416,28 +418,29 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		}
 
 		if err != nil {
-			return variables, valuesMapResource, namespaceSelectorMap, operationIsDelete, sanitizederror.NewWithError("unable to read yaml", err)
+			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("unable to read yaml", err)
 		}
 
 		valuesBytes, err := yaml.ToJSON(yamlFile)
 		if err != nil {
-			return variables, valuesMapResource, namespaceSelectorMap, operationIsDelete, sanitizederror.NewWithError("failed to convert json", err)
+			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to convert json", err)
 		}
 
 		values := &Values{}
 		if err := json.Unmarshal(valuesBytes, values); err != nil {
-			return variables, valuesMapResource, namespaceSelectorMap, operationIsDelete, sanitizederror.NewWithError("failed to decode yaml", err)
+			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to decode yaml", err)
 		}
 
 		for _, p := range values.Policies {
 			resourceMap := make(map[string]Resource)
 			for _, r := range p.Resources {
-				for variableInFile, valueInFile := range r.Values {
+				for variableInFile := range r.Values {
 					if strings.Contains(variableInFile, "request.object") {
-						return variables, valuesMapResource, namespaceSelectorMap, operationIsDelete, sanitizederror.NewWithError("variable request.object.* is handled by kyverno. please do not pass value for request.object variables ", err)
-					}
-					if strings.Contains(variableInFile, "request.operation") && strings.Contains(valueInFile, "DELETE") {
-						operationIsDelete = true
+						if !strings.Contains(reqObjVars, variableInFile) {
+							reqObjVars = reqObjVars + "," + variableInFile
+						}
+						delete(r.Values, variableInFile)
+						continue
 					}
 				}
 				resourceMap[r.Name] = r
@@ -456,6 +459,10 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		for _, n := range values.NamespaceSelectors {
 			namespaceSelectorMap[n.Name] = n.Labels
 		}
+	}
+
+	if reqObjVars != "" {
+		fmt.Printf(("\nNOTICE: request.object.* variables are automatically parsed from the supplied resource. Ignoring value of variables `%v`.\n"), reqObjVars)
 	}
 
 	storePolices := make([]store.Policy, 0)
@@ -477,7 +484,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		Policies: storePolices,
 	})
 
-	return variables, valuesMapResource, namespaceSelectorMap, operationIsDelete, nil
+	return variables, valuesMapResource, namespaceSelectorMap, nil
 }
 
 // MutatePolices - function to apply mutation on policies
@@ -500,7 +507,13 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool, operationIsDelete bool) ([]*response.EngineResponse, *response.EngineResponse, bool, bool, error) {
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool) (*response.EngineResponse, bool, bool, error) {
+
+	operationIsDelete := false
+
+	if variables["request.operation"] == "DELETE" {
+		operationIsDelete = true
+	}
 
 	responseError := false
 	rcError := false
@@ -520,7 +533,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		resourceNamespace := resource.GetNamespace()
 		namespaceLabels = namespaceSelectorMap[resource.GetNamespace()]
 		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-			return engineResponses, &response.EngineResponse{}, responseError, rcError, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
+			return &response.EngineResponse{}, responseError, rcError, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
 		}
 	}
 
@@ -575,7 +588,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			} else {
 				err := PrintMutatedOutput(mutateLogPath, mutateLogPathIsDir, string(yamlEncodedResource), resource.GetName()+"-mutated")
 				if err != nil {
-					return engineResponses, &response.EngineResponse{}, responseError, rcError, sanitizederror.NewWithError("failed to print mutated result", err)
+					return &response.EngineResponse{}, responseError, rcError, sanitizederror.NewWithError("failed to print mutated result", err)
 				}
 				fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
 			}
@@ -638,7 +651,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		}
 	}
 
-	return engineResponses, validateResponse, responseError, rcError, nil
+	return validateResponse, responseError, rcError, nil
 }
 
 // PrintMutatedOutput - function to print output in provided file or directory

@@ -138,6 +138,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringArrayVarP(&resourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 	cmd.Flags().StringVarP(&mutateLogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
+	// currently `set` flag supports variable for single policy applied on single resource
 	cmd.Flags().StringVarP(&variablesString, "set", "s", "", "Variables that are required")
 	cmd.Flags().StringVarP(&valuesFile, "values-file", "f", "", "File containing values for policy variables")
 	cmd.Flags().BoolVarP(&policyReport, "policy-report", "", false, "Generates policy report when passed (default policyviolation r")
@@ -157,7 +158,8 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("pass the values either using set flag or values_file flag", err)
 	}
 
-	variables, valuesMap, namespaceSelectorMap, operationIsDelete, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
+	variables, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
+
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -233,6 +235,14 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		os.Exit(1)
 	}
 
+	if (len(resources) > 1 || len(mutatedPolicies) > 1) && variablesString != "" {
+		return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("currently `set` flag supports variable for single policy applied on single resource ", nil)
+	}
+
+	if variablesString != "" {
+		variables = setInStoreContext(mutatedPolicies, variables)
+	}
+
 	msgPolicies := "1 policy"
 	if len(mutatedPolicies) > 1 {
 		msgPolicies = fmt.Sprintf("%d policies", len(policies))
@@ -250,7 +260,6 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	}
 
 	rc = &resultCounts{}
-	engineResponses := make([]*response.EngineResponse, 0)
 	validateEngineResponses = make([]*response.EngineResponse, 0)
 	skippedPolicies = make([]SkippedPolicy, 0)
 
@@ -292,7 +301,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 			}
 
-			ers, validateErs, responseError, rcErs, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin, operationIsDelete)
+			validateErs, responseError, rcErs, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin)
 			if err != nil {
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}
@@ -304,7 +313,6 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 			if rcErs == true {
 				rc.error++
 			}
-			engineResponses = append(engineResponses, ers...)
 			validateEngineResponses = append(validateEngineResponses, validateErs)
 		}
 	}
@@ -409,4 +417,38 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 	}
 
 	return nil
+}
+
+func setInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string]string) map[string]string {
+	storePolices := make([]store.Policy, 0)
+	for _, policy := range mutatedPolicies {
+		storeRules := make([]store.Rule, 0)
+		for _, rule := range policy.Spec.Rules {
+			contextVal := make(map[string]string)
+			if len(rule.Context) != 0 {
+				for _, contextVar := range rule.Context {
+					for k, v := range variables {
+						if strings.HasPrefix(k, contextVar.Name) {
+							contextVal[k] = v
+							delete(variables, k)
+						}
+					}
+				}
+				storeRules = append(storeRules, store.Rule{
+					Name:   rule.Name,
+					Values: contextVal,
+				})
+			}
+		}
+		storePolices = append(storePolices, store.Policy{
+			Name:  policy.Name,
+			Rules: storeRules,
+		})
+	}
+
+	store.SetContext(store.Context{
+		Policies: storePolices,
+	})
+
+	return variables
 }

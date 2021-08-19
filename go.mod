@@ -34,11 +34,12 @@ require (
 	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.10.0
-	github.com/sassoftware/relic v7.2.1+incompatible // indirect
-	github.com/sigstore/cosign v0.5.0
-	github.com/sigstore/sigstore v0.0.0-20210530211317-99216b8b86a6
-	github.com/spf13/cobra v1.1.3
+	github.com/prometheus/client_golang v1.11.0
+	github.com/sigstore/cosign v1.0.0
+	github.com/sigstore/rekor v0.3.0 // indirect
+	github.com/sigstore/sigstore v0.0.0-20210726180807-7e34e36ecda1
+	github.com/sigstore/fulcio v0.1.1
+	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.0
 	github.com/xanzy/ssh-agent v0.3.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0

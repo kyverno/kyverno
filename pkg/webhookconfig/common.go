@@ -56,18 +56,27 @@ func extractCA(config *rest.Config) (result []byte) {
 func (wrc *Register) constructOwner() v1.OwnerReference {
 	logger := wrc.log
 
-	kubePolicyDeployment, _, err := wrc.GetKubePolicyDeployment()
+	kubeNamespace, err := wrc.GetKubePolicyNamespace()
 	if err != nil {
 		logger.Error(err, "failed to construct OwnerReference")
 		return v1.OwnerReference{}
 	}
 
 	return v1.OwnerReference{
-		APIVersion: config.DeploymentAPIVersion,
-		Kind:       config.DeploymentKind,
-		Name:       kubePolicyDeployment.ObjectMeta.Name,
-		UID:        kubePolicyDeployment.ObjectMeta.UID,
+		APIVersion: config.NamespaceAPIVersion,
+		Kind:       config.NamespaceKind,
+		Name:       config.KyvernoNamespace,
+		UID:        kubeNamespace.GetUID(),
 	}
+}
+
+func (wrc *Register) GetKubePolicyNamespace() (*unstructured.Unstructured, error) {
+	kubeNamespace, err := wrc.client.GetResource(config.NamespaceAPIVersion, config.NamespaceKind, "", config.KyvernoNamespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return kubeNamespace, nil
 }
 
 // GetKubePolicyDeployment gets Kyverno deployment using the resource cache

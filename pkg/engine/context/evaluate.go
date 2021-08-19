@@ -3,9 +3,10 @@ package context
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	"reflect"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 )

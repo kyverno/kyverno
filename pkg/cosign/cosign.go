@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/pkg/errors"
 	"github.com/sigstore/cosign/pkg/cosign"
 	"github.com/sigstore/sigstore/pkg/signature"
@@ -44,10 +45,10 @@ func Verify(imageRef string, key []byte, log logr.Logger) (digest string, err er
 
 	cosignOpts := &cosign.CheckOpts{
 		Annotations: map[string]interface{}{},
-		Claims:      false,
-		Tlog:        false,
-		Roots:       nil,
-		PubKey:      pubKey,
+		SigVerifier: pubKey,
+		RegistryClientOpts: []remote.Option{
+			remote.WithAuthFromKeychain(authn.DefaultKeychain),
+		},
 	}
 
 	ref, err := name.ParseReference(imageRef)
@@ -55,7 +56,7 @@ func Verify(imageRef string, key []byte, log logr.Logger) (digest string, err er
 		return "", errors.Wrap(err, "failed to parse image")
 	}
 
-	verified, err := cosign.Verify(context.Background(), ref, cosignOpts, "https://rekor.sigstore.dev")
+	verified, err := cosign.Verify(context.Background(), ref, cosignOpts)
 	if err != nil {
 		msg := err.Error()
 		logger.Info("image verification failed", "error", msg)
@@ -76,14 +77,14 @@ func Verify(imageRef string, key []byte, log logr.Logger) (digest string, err er
 	return digest, nil
 }
 
-func decodePEM(raw []byte) (pub cosign.PublicKey, err error) {
+func decodePEM(raw []byte) (signature.Verifier, error) {
 	// PEM encoded file.
 	ed, err := cosign.PemToECDSAKey(raw)
 	if err != nil {
 		return nil, errors.Wrap(err, "pem to ecdsa")
 	}
 
-	return signature.ECDSAVerifier{Key: ed, HashAlg: crypto.SHA256}, nil
+	return signature.LoadECDSAVerifier(ed, crypto.SHA256)
 }
 
 func extractDigest(imgRef string, verified []cosign.SignedPayload, log logr.Logger) (string, error) {

@@ -153,6 +153,14 @@ config:
   generateSuccessEvents: 'false'
   # existingConfig: init-config
 
+## Deployment update strategy
+## Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+updateStrategy:
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 40%
+  type: RollingUpdate
+
 service:
   port: 443
   type: ClusterIP
@@ -181,6 +189,8 @@ serviceMonitor:
   # Additional labels
   additionalLabels:
     # key: value
+  # Override namespace (default is same than kyverno)
+  namespace:
 
   # Interval to scrape metrics
   interval: 30s
@@ -202,3 +212,9 @@ serviceMonitor:
 # 3) Let Helm generate a self signed cert, by setting createSelfSignedCert true
 # If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false
 createSelfSignedCert: false
+
+# When true, use a NetworkPolicy to allow ingress to the webhook
+# This is useful on clusters using Calico and/or native k8s network
+# policies in a default-deny setup.
+networkPolicy:
+  enabled: false

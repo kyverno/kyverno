@@ -291,7 +291,6 @@ func getPolicyResourceFullPath(path []string, policyResourcePath string, isGit b
 
 func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts) (err error) {
 	openAPIController, err := openapi.NewOpenAPIController()
-	engineResponses := make([]*response.EngineResponse, 0)
 	validateEngineResponses := make([]*response.EngineResponse, 0)
 	skippedPolicies := make([]SkippedPolicy, 0)
 	var dClient *client.Client
@@ -305,7 +304,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 
 	fmt.Printf("\nExecuting %s...", values.Name)
 
-	_, valuesMap, namespaceSelectorMap, operationIsDelete, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
+	_, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to decode yaml", err)
@@ -389,11 +388,10 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 				return sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 			}
 
-			ers, validateErs, _, _, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false, operationIsDelete)
+			validateErs, _, _, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}
-			engineResponses = append(engineResponses, ers...)
 			validateEngineResponses = append(validateEngineResponses, validateErs)
 		}
 	}
@@ -428,7 +426,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 		}
 		if testRes.Status == v.Status {
 			if testRes.Status == report.StatusSkip {
-				res.Result = boldGreen.Sprintf("Skip")
+				res.Result = boldGreen.Sprintf("Pass")
 				rc.skip++
 			} else {
 				res.Result = boldGreen.Sprintf("Pass")

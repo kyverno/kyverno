@@ -111,41 +111,31 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 
 		log.V(3).Info("matched validate rule")
 
-		// operate on the copy of the conditions, as we perform variable substitution
-		preconditionsCopy, err := copyConditions(rule.AnyAllConditions)
+		ruleCopy := rule.DeepCopy()
+		ruleCopy.AnyAllConditions, err = variables.SubstituteAllInPreconditions(log, ctx.JSONContext, ruleCopy.AnyAllConditions)
+		if err != nil {
+			log.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", rule.Name)
+			return nil
+		}
+
+		preconditions, err := transformConditions(ruleCopy.AnyAllConditions)
 		if err != nil {
 			log.V(2).Info("wrongfully configured data", "reason", err.Error())
 			continue
 		}
 
 		// evaluate pre-conditions
-		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditionsCopy, true) {
+		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditions) {
 			log.V(4).Info("resource fails the preconditions")
 			continue
 		}
 
-		if rule, err = variables.SubstituteAllInRule(log, ctx.JSONContext, rule); err != nil {
-			ruleResp := response.RuleResponse{
-				Name:    rule.Name,
-				Type:    utils.Validation.String(),
-				Message: fmt.Sprintf("variable substitution failed for rule %s: %s", rule.Name, err.Error()),
-				Success: true,
-			}
-
-			incrementAppliedCount(resp)
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
-
-			switch err.(type) {
-			case gojmespath.NotFoundError:
-				log.V(2).Info("failed to substitute variables, skip current rule", "info", err.Error(), "rule name", rule.Name)
-			default:
-				log.Error(err, "failed to substitute variables, skip current rule", "rule name", rule.Name)
-			}
-			continue
-		}
-
 		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
-			ruleResponse := validateResourceWithRule(log, ctx, rule)
+			if *ruleCopy, err = substituteAll(log, ctx, *ruleCopy, resp); err != nil {
+				continue
+			}
+
+			ruleResponse := validateResourceWithRule(log, ctx, *ruleCopy)
 			if ruleResponse != nil {
 				if !common.IsConditionalAnchorError(ruleResponse.Message) {
 					incrementAppliedCount(resp)
@@ -153,16 +143,27 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 				}
 			}
 		} else if rule.Validation.Deny != nil {
-			denyConditionsCopy, err := copyConditions(rule.Validation.Deny.AnyAllConditions)
+			ruleCopy.Validation.Deny.AnyAllConditions, err = variables.SubstituteAllInPreconditions(log, ctx.JSONContext, ruleCopy.Validation.Deny.AnyAllConditions)
+			if err != nil {
+				log.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", rule.Name)
+				continue
+			}
+
+			if *ruleCopy, err = substituteAll(log, ctx, *ruleCopy, resp); err != nil {
+				continue
+			}
+
+			denyConditions, err := transformConditions(ruleCopy.Validation.Deny.AnyAllConditions)
 			if err != nil {
 				log.V(2).Info("wrongfully configured data", "reason", err.Error())
 				continue
 			}
-			deny := variables.EvaluateConditions(log, ctx.JSONContext, denyConditionsCopy, false)
+
+			deny := variables.EvaluateConditions(log, ctx.JSONContext, denyConditions)
 			ruleResp := response.RuleResponse{
-				Name:    rule.Name,
+				Name:    ruleCopy.Name,
 				Type:    utils.Validation.String(),
-				Message: rule.Validation.Message,
+				Message: ruleCopy.Validation.Message,
 				Success: !deny,
 			}
 
@@ -328,4 +329,30 @@ func buildAnyPatternErrorMessage(rule kyverno.Rule, errors []string) string {
 	}
 
 	return fmt.Sprintf("validation error: %s. %s", rule.Validation.Message, errStr)
+}
+
+func substituteAll(log logr.Logger, ctx *PolicyContext, rule kyverno.Rule, resp *response.EngineResponse) (kyverno.Rule, error) {
+	var err error
+	if rule, err = variables.SubstituteAllInRule(log, ctx.JSONContext, rule); err != nil {
+		ruleResp := response.RuleResponse{
+			Name:    rule.Name,
+			Type:    utils.Validation.String(),
+			Message: fmt.Sprintf("variable substitution failed for rule %s: %s", rule.Name, err.Error()),
+			Success: true,
+		}
+
+		incrementAppliedCount(resp)
+		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
+
+		switch err.(type) {
+		case gojmespath.NotFoundError:
+			log.V(2).Info("failed to substitute variables, skip current rule", "info", err.Error(), "rule name", rule.Name)
+		default:
+			log.Error(err, "failed to substitute variables, skip current rule", "rule name", rule.Name)
+		}
+
+		return rule, err
+	}
+
+	return rule, nil
 }
