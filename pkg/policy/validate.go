@@ -134,11 +134,11 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			return fmt.Errorf("wildcards (*) are currently not supported in the match.resources.kinds field. at least one resource kind must be specified in a kind block.")
 		}
 
-		// Validate Kind with match resource kind's
+		// Validate Kind with match resource kinds
 		for _, kind := range rule.MatchResources.Kinds {
 			_, k := c.GetKindFromGVK(kind)
 			if k == p.Kind {
-				return fmt.Errorf(" kind and match resource kind should not be same")
+				return fmt.Errorf("kind and match resource kind should not be the same.")
 			}
 		}
 
