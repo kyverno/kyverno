@@ -7,4 +7,4 @@ results:
   - policy: missing
     rule: validate-image-tag
     resource: test
-    status: pass
+    result: pass

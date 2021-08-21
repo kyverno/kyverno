@@ -9,16 +9,16 @@ results:
   - policy: cm-variable-example
     rule: example-configmap-lookup
     resource: test-env-test
-    status: pass
+    result: pass
   - policy: cm-variable-example
     rule: example-configmap-lookup
     resource: test-env-dev
-    status: fail
+    result: fail
   - policy: cm-array-example
     rule: validate-role-annotation
     resource: test-web
-    status: fail
+    result: fail
   - policy: cm-array-example
     rule: validate-role-annotation
     resource: test-app
-    status: pass
+    result: pass

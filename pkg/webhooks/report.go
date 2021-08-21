@@ -1,10 +1,11 @@
 package webhooks
 
 import (
-	"github.com/go-logr/logr"
-	kyvernov1alpha1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"strings"
+
+	"github.com/go-logr/logr"
+	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 
 	"github.com/kyverno/kyverno/pkg/event"
 )
@@ -35,7 +36,7 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked, onUpdat
 			pe := event.NewEvent(
 				log,
 				kind,
-				kyvernov1alpha1.SchemeGroupVersion.String(),
+				kyvernov1alpha2.SchemeGroupVersion.String(),
 				er.PolicyResponse.Policy.Namespace,
 				er.PolicyResponse.Policy.Name,
 				event.PolicyViolation.String(),
@@ -73,7 +74,7 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked, onUpdat
 			e := event.NewEvent(
 				log,
 				kind,
-				kyvernov1alpha1.SchemeGroupVersion.String(),
+				kyvernov1alpha2.SchemeGroupVersion.String(),
 				er.PolicyResponse.Policy.Namespace,
 				er.PolicyResponse.Policy.Name,
 				event.PolicyApplied.String(),
