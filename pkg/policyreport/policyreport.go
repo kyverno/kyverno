@@ -181,7 +181,7 @@ func updateSummary(results []interface{}) map[string]interface{} {
 			continue
 		}
 
-		switch typedResult["status"].(string) {
+		switch typedResult["result"].(string) {
 		case report.StatusPass:
 			pass, _ := summary[report.StatusPass].(int64)
 			summary[report.StatusPass] = pass + 1
