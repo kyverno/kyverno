@@ -141,7 +141,7 @@ func registerPolicyResultsMetricValidation(promConfig *metrics.PromConfig, logge
 	if err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
 	}
-	if err := policyResults.ParsePromMetrics(*promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias); err != nil {
+	if err := policyResults.ParsePromConfig(*promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
 	}
 }
@@ -151,7 +151,7 @@ func registerPolicyExecutionDurationMetricValidate(promConfig *metrics.PromConfi
 	if err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
 	}
-	if err := policyExecutionDuration.ParsePromMetrics(*promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias); err != nil {
+	if err := policyExecutionDuration.ParsePromConfig(*promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
 	}
 }
@@ -161,7 +161,7 @@ func registerAdmissionReviewDurationMetricValidate(promConfig *metrics.PromConfi
 	if err != nil {
 		logger.Error(err, "error occurred while registering kyverno_admission_review_duration_seconds metrics")
 	}
-	if err := admissionReviewDuration.ParsePromMetrics(*promConfig.Metrics).ProcessEngineResponses(engineResponses, admissionReviewLatencyDuration, resourceRequestOperationPromAlias); err != nil {
+	if err := admissionReviewDuration.ParsePromConfig(*promConfig).ProcessEngineResponses(engineResponses, admissionReviewLatencyDuration, resourceRequestOperationPromAlias); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_admission_review_duration_seconds metrics")
 	}
 }
@@ -171,7 +171,7 @@ func registerAdmissionRequestsMetricValidate(promConfig *metrics.PromConfig, log
 	if err != nil {
 		logger.Error(err, "error occurred while registering kyverno_admission_requests_total metrics")
 	}
-	if err := admissionRequests.ParsePromMetrics(*promConfig.Metrics).ProcessEngineResponses(engineResponses, resourceRequestOperationPromAlias); err != nil {
+	if err := admissionRequests.ParsePromConfig(*promConfig).ProcessEngineResponses(engineResponses, resourceRequestOperationPromAlias); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_admission_requests_total metrics")
 	}
 }

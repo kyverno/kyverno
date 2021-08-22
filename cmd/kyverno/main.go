@@ -113,20 +113,6 @@ func main() {
 		}()
 	}
 
-	if !disableMetricsExport {
-		promConfig = metrics.NewPromConfig()
-		metricsServerMux = http.NewServeMux()
-		metricsServerMux.Handle("/metrics", promhttp.HandlerFor(promConfig.MetricsRegistry, promhttp.HandlerOpts{Timeout: 10 * time.Second}))
-		metricsAddr := ":" + metricsPort
-		go func() {
-			setupLog.Info("enabling metrics service", "address", metricsAddr)
-			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
-				setupLog.Error(err, "failed to enable metrics service", "address", metricsAddr)
-				os.Exit(1)
-			}
-		}()
-	}
-
 	// KYVERNO CRD CLIENT
 	// access CRD resources
 	//		- ClusterPolicy, Policy
@@ -252,6 +238,33 @@ func main() {
 		webhookCfg.UpdateWebhookChan,
 		log.Log.WithName("ConfigData"),
 	)
+
+	metricsConfigData, err := config.NewMetricsConfigData(
+		kubeClient,
+		log.Log.WithName("MetricsConfigData"),
+	)
+	if err != nil {
+		setupLog.Error(err, "failed to fetch metrics config")
+		os.Exit(1)
+	}
+
+	if !disableMetricsExport {
+		promConfig, err = metrics.NewPromConfig(metricsConfigData, log.Log.WithName("MetricsConfig"))
+		if err != nil {
+			setupLog.Error(err, "failed to setup Prometheus metric configuration")
+			os.Exit(1)
+		}
+		metricsServerMux = http.NewServeMux()
+		metricsServerMux.Handle("/metrics", promhttp.HandlerFor(promConfig.MetricsRegistry, promhttp.HandlerOpts{Timeout: 10 * time.Second}))
+		metricsAddr := ":" + metricsPort
+		go func() {
+			setupLog.Info("enabling metrics service", "address", metricsAddr)
+			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
+				setupLog.Error(err, "failed to enable metrics service", "address", metricsAddr)
+				os.Exit(1)
+			}
+		}()
+	}
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation

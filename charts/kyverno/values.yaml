@@ -94,7 +94,7 @@ livenessProbe:
     path: /health/liveness
     port: 9443
     scheme: HTTPS
-  initialDelaySeconds: 10
+  initialDelaySeconds: 15
   periodSeconds: 30
   timeoutSeconds: 5
   failureThreshold: 2
@@ -152,6 +152,19 @@ config:
   # webhooks: [{"namespaceSelector":{"matchExpressions":[{"key":"environment","operator":"In","values":["prod"]}]}}]
   generateSuccessEvents: 'false'
   # existingConfig: init-config
+  metricsConfig:
+    namespaces: {
+      "include": [],
+      "exclude": []
+    }
+    # 'namespaces.include': list of namespaces to capture metrics for. Default: metrics being captured for all namespaces except excludeNamespaces.
+    # 'namespaces.exclude': list of namespaces to NOT capture metrics for. Default: []
+
+    # metricsRefreshInterval: 24h
+    # rate at which metrics should reset so as to clean up the memory footprint of kyverno metrics, if you might be expecting high memory footprint of Kyverno's metrics. Default: 0, no refresh of metrics
+
+  # Or provide an existing metrics config-map by uncommenting the below line
+  # existingMetricsConfig: sample-metrics-configmap. Refer to the ./templates/metricsconfigmap.yaml for the structure of metrics configmap.
 
 ## Deployment update strategy
 ## Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy

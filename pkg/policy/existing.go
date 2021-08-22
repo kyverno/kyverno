@@ -100,13 +100,13 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPo
 }
 
 func (pc *PolicyController) registerPolicyResultsMetricValidation(logger logr.Logger, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
-	if err := policyResults.ParsePromMetrics(*pc.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
+	if err := policyResults.ParsePromConfig(*pc.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
 	}
 }
 
 func (pc *PolicyController) registerPolicyExecutionDurationMetricValidate(logger logr.Logger, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
-	if err := policyExecutionDuration.ParsePromMetrics(*pc.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, "", metrics.ResourceCreated); err != nil {
+	if err := policyExecutionDuration.ParsePromConfig(*pc.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, "", metrics.ResourceCreated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
 	}
 }

@@ -30,6 +30,7 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/sigstore/cosign v1.1.0
 	github.com/sigstore/sigstore v0.0.0-20210729211320-56a91f560f44
 	github.com/spf13/cobra v1.2.1
