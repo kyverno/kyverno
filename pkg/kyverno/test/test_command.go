@@ -309,7 +309,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 
 	fmt.Printf("\nExecuting %s...", values.Name)
 
-	_, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
+	variables, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to decode yaml", err)
@@ -352,6 +352,9 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	if len(mutatedPolicies) > 0 && len(resources) > 0 {
 		fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
 	}
+	if variablesString != "" {
+		variables = setInStoreContext(mutatedPolicies, variables)
+	}
 
 	for _, policy := range mutatedPolicies {
 		err := policy2.Validate(policy, nil, true, openAPIController)
@@ -373,26 +376,18 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			continue
 		}
 		for _, resource := range resources {
-			var resourcePolicy string
-			for polName, values := range valuesMap {
-				for resName := range values {
-					if resName == resource.GetName() {
-						resourcePolicy = polName
-					}
-				}
-			}
-			if len(valuesMap) != 0 && resourcePolicy != policy.GetName() {
-				log.Log.V(3).Info(fmt.Sprintf("Skipping resource, policy names do not match %s != %s", resourcePolicy, policy.GetName()))
-				continue
-			}
 			thisPolicyResourceValues := make(map[string]string)
 			if len(valuesMap[policy.GetName()]) != 0 && !reflect.DeepEqual(valuesMap[policy.GetName()][resource.GetName()], Resource{}) {
 				thisPolicyResourceValues = valuesMap[policy.GetName()][resource.GetName()].Values
 			}
-			if len(variable) > 0 && len(thisPolicyResourceValues) == 0 {
-				return sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
+
+			for k, v := range variables {
+				thisPolicyResourceValues[k] = v
 			}
 
+			if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && len(store.GetContext().Policies) == 0 {
+				return sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
+			}
 			validateErs, _, _, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
@@ -455,4 +450,38 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 	printer.HeaderFgColor = tablewriter.FgGreenColor
 	printer.Print(table)
 	return nil
+}
+
+func setInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string]string) map[string]string {
+	storePolices := make([]store.Policy, 0)
+	for _, policy := range mutatedPolicies {
+		storeRules := make([]store.Rule, 0)
+		for _, rule := range policy.Spec.Rules {
+			contextVal := make(map[string]string)
+			if len(rule.Context) != 0 {
+				for _, contextVar := range rule.Context {
+					for k, v := range variables {
+						if strings.HasPrefix(k, contextVar.Name) {
+							contextVal[k] = v
+							delete(variables, k)
+						}
+					}
+				}
+				storeRules = append(storeRules, store.Rule{
+					Name:   rule.Name,
+					Values: contextVal,
+				})
+			}
+		}
+		storePolices = append(storePolices, store.Policy{
+			Name:  policy.Name,
+			Rules: storeRules,
+		})
+	}
+
+	store.SetContext(store.Context{
+		Policies: storePolices,
+	})
+
+	return variables
 }
