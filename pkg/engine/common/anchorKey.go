@@ -18,10 +18,7 @@ func IsConditionalAnchorError(msg string) bool {
 
 // IsGlobalAnchorError checks if error message has conditional anchor error string
 func IsGlobalAnchorError(msg string) bool {
-	if strings.Contains(msg, GlobalAnchorErrMsg) {
-		return true
-	}
-	return false
+	return strings.Contains(msg, GlobalAnchorErrMsg)
 }
 
 // NewConditionalAnchorError returns a new instance of ConditionalAnchorError
@@ -34,26 +31,20 @@ func NewConditionalAnchorError(msg string) ValidateAnchorError {
 
 // IsConditionAnchorError ...
 func (e ValidateAnchorError) IsConditionAnchorError() bool {
-	if e.Err == ConditionalAnchorErr {
-		return true
-	}
-	return false
+	return e.Err == ConditionalAnchorErr
 }
 
 // NewGlobalAnchorError returns a new instance of GlobalAnchorError
 func NewGlobalAnchorError(msg string) ValidateAnchorError {
 	return ValidateAnchorError{
 		Err:     GlobalAnchorErr,
-		Message: fmt.Sprintf("%s: %s", ConditionalAnchorErrMsg, msg),
+		Message: fmt.Sprintf("%s: %s", GlobalAnchorErrMsg, msg),
 	}
 }
 
 // IsConditionAnchorError ...
 func (e ValidateAnchorError) IsGlobalAnchorError() bool {
-	if e.Err == GlobalAnchorErr {
-		return true
-	}
-	return false
+	return e.Err == GlobalAnchorErr
 }
 
 // IsNil ...

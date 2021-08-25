@@ -422,55 +422,28 @@ func deleteAnchorsInMap(node *yaml.RNode) (bool, error) {
 		return false, err
 	}
 
+	needToDelete := true
+
 	// Go further through the map elements.
 	for _, field := range fields {
-
-		patternValue := node.Field(field).Value
-		var wasEmpty bool
-		var isSequence bool
-		if patternValue.YNode().Kind == yaml.SequenceNode {
-			isSequence = true
-			elements, err := patternValue.Elements()
-			if err != nil {
-				return false, err
-			}
-
-			if len(elements) == 0 {
-				wasEmpty = true
-			}
-		}
-
 		ok, err := deleteAnchors(node.Field(field).Value)
 		if err != nil {
 			return false, err
 		}
 
-		// If we have at least one element without anchor,
-		// then we don't need to delete this element.
-		if !ok {
-			return false, nil
-		}
-
-		if isSequence {
-			patternValue := node.Field(field).Value
-			elements, err := patternValue.Elements()
+		if ok {
+			err = node.PipeE(yaml.Clear(field))
 			if err != nil {
 				return false, err
 			}
-
-			if len(elements) == 0 && !wasEmpty {
-				// List became empty after deleting anchors,
-				// delete it
-
-				err = node.PipeE(yaml.Clear(field))
-				if err != nil {
-					return false, err
-				}
-			}
+		} else {
+			// If we have at least one element without anchor,
+			// then we don't need to delete this element.
+			needToDelete = false
 		}
 	}
 
-	return true, nil
+	return needToDelete, nil
 }
 
 func deleteAnchorsInList(node *yaml.RNode) (bool, error) {
@@ -478,6 +451,8 @@ func deleteAnchorsInList(node *yaml.RNode) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
+	wasEmpty := len(elements) == 0
 
 	for i, element := range elements {
 		if hasAnchors(element) {
@@ -487,9 +462,6 @@ func deleteAnchorsInList(node *yaml.RNode) (bool, error) {
 			// inside sub-arrays. Delete them too.
 
 			ok, err := deleteAnchors(element)
-			if err != nil {
-				return false, err
-			}
 			if err != nil {
 				return false, err
 			}
@@ -503,7 +475,7 @@ func deleteAnchorsInList(node *yaml.RNode) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if len(elements) == 0 {
+	if len(elements) == 0 && !wasEmpty {
 		return true, nil
 	}
 

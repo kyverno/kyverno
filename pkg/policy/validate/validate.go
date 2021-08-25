@@ -31,7 +31,7 @@ func (v *Validate) Validate() (string, error) {
 	}
 
 	if rule.Pattern != nil {
-		if path, err := common.ValidatePattern(rule.Pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor}); err != nil {
+		if path, err := common.ValidatePattern(rule.Pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor, commonAnchors.IsGlobalAnchor}); err != nil {
 			return fmt.Sprintf("pattern.%s", path), err
 		}
 	}
@@ -42,7 +42,7 @@ func (v *Validate) Validate() (string, error) {
 			return "anyPattern", fmt.Errorf("failed to deserialize anyPattern, expect array: %v", err)
 		}
 		for i, pattern := range anyPattern {
-			if path, err := common.ValidatePattern(pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor}); err != nil {
+			if path, err := common.ValidatePattern(pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor, commonAnchors.IsGlobalAnchor}); err != nil {
 				return fmt.Sprintf("anyPattern[%d].%s", i, path), err
 			}
 		}

@@ -94,7 +94,7 @@ func RemoveAnchor(key string) (string, string) {
 		return key[1 : len(key)-1], key[0:1]
 	}
 
-	if IsExistenceAnchor(key) || IsAddingAnchor(key) || IsEqualityAnchor(key) || IsNegationAnchor(key) {
+	if IsExistenceAnchor(key) || IsAddingAnchor(key) || IsEqualityAnchor(key) || IsNegationAnchor(key) || IsGlobalAnchor(key) {
 		return key[2 : len(key)-1], key[0:2]
 	}
 

@@ -85,7 +85,16 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 func strategicMergePatch(logger logr.Logger, base, overlay string) ([]byte, error) {
 	preprocessedYaml, err := preProcessStrategicMergePatch(logger, overlay, base)
 	if err != nil {
-		return []byte{}, fmt.Errorf("failed to preProcess rule: %+v", err)
+		_, isConditionError := err.(ConditionError)
+		_, isGlobalConditionError := err.(GlobalConditionError)
+
+		if isConditionError || isGlobalConditionError {
+			if err = preprocessedYaml.UnmarshalJSON([]byte(`{}`)); err != nil {
+				return []byte{}, err
+			}
+		} else {
+			return []byte{}, fmt.Errorf("failed to preProcess rule: %+v", err)
+		}
 	}
 
 	f := patchstrategicmerge.Filter{
@@ -98,14 +107,11 @@ func strategicMergePatch(logger logr.Logger, base, overlay string) ([]byte, erro
 	return baseObj.Bytes(), err
 }
 
-var counter = 1
-
 func preProcessStrategicMergePatch(logger logr.Logger, pattern, resource string) (*yaml.RNode, error) {
 	patternNode := yaml.MustParse(pattern)
 	resourceNode := yaml.MustParse(resource)
 
 	err := preProcessPattern(logger, patternNode, resourceNode)
 
-	counter += 1
 	return patternNode, err
 }

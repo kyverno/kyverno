@@ -1398,7 +1398,7 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 			name:     "check global anchor",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   false,
+			nilErr:   true,
 		},
 		{
 			name:     "test-4",

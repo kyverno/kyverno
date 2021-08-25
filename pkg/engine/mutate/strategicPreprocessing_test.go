@@ -573,8 +573,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 				"metadata": {
 				  "annotations": {
 					"annotation2": "atest2"
-				  },
-				  "labels": {}
+				  }
 				},
 				"spec": {
 				  "containers": [
