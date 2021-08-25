@@ -422,6 +422,10 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy stri
 	if err != nil {
 		return nil, Skip, fmt.Errorf("source resource %s %s/%s/%s not found. %v", apiVersion, kind, rNamespace, rName, err)
 	}
+	// remove ownerReferences when cloning resources to other namespace
+	if rNamespace != namespace && obj.GetOwnerReferences() != nil {
+		obj.SetOwnerReferences(nil)
+	}
 
 	// check if resource to be generated exists
 	newResource, err := client.GetResource(apiVersion, kind, namespace, name)
