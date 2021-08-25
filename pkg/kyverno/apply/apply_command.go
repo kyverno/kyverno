@@ -75,25 +75,34 @@ To apply policy with variables:
 
 		policies:
 			- name: <policy1 name>
+				rules:
+					- name: <rule1 name>
+						values:
+							<context variable1 in policy1 rule1>: <value>
+							<context variable2 in policy1 rule1>: <value>
+					- name: <rule2 name>
+						values:
+							<context variable1 in policy1 rule2>: <value>
+							<context variable2 in policy1 rule2>: <value>
 				resources:
 				- name: <resource1 name>
 					values:
-					<variable1 in policy1>: <value>
-					<variable2 in policy1>: <value>
+						<variable1 in policy1>: <value>
+						<variable2 in policy1>: <value>
 				- name: <resource2 name>
 					values:
-					<variable1 in policy1>: <value>
-					<variable2 in policy1>: <value>
+						<variable1 in policy1>: <value>
+						<variable2 in policy1>: <value>
 			- name: <policy2 name>
 				resources:
 				- name: <resource1 name>
 					values:
-					<variable1 in policy2>: <value>
-					<variable2 in policy2>: <value>
+						<variable1 in policy2>: <value>
+						<variable2 in policy2>: <value>
 				- name: <resource2 name>
 					values:
-					<variable1 in policy2>: <value>
-					<variable2 in policy2>: <value>
+						<variable1 in policy2>: <value>
+						<variable2 in policy2>: <value>
 		namespaceSelector:
 			- name: <namespace1 name>
 			labels:
@@ -282,7 +291,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				Variable: variable,
 			}
 			skippedPolicies = append(skippedPolicies, skipPolicy)
-			log.Log.V(3).Info(fmt.Sprintf("skipping policy %s", policy.Name), "error", fmt.Sprintf("policy have variable - %s", variable))
+			log.Log.V(3).Info(fmt.Sprintf("skipping policy %s as non of the variable values are not passed", policy.Name), "error", fmt.Sprintf("policy have variable - %s", variable))
 			continue
 		}
 
