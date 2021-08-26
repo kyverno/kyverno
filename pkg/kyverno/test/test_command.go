@@ -82,6 +82,7 @@ type TestResults struct {
 	Policy   string              `json:"policy"`
 	Rule     string              `json:"rule"`
 	Result   report.PolicyResult `json:"result"`
+	Status   report.PolicyResult `json:"status"`
 	Resource string              `json:"resource"`
 }
 
@@ -428,6 +429,9 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 			rc.fail++
 			table = append(table, res)
 			continue
+		}
+		if v.Result == "" && v.Status != "" {
+			v.Result = v.Status
 		}
 		if testRes.Result == v.Result {
 			if testRes.Result == report.StatusSkip {
