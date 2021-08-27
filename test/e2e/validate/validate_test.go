@@ -69,7 +69,7 @@ func Test_Validate_Sets(t *testing.T) {
 
 		// Create policy
 		By(fmt.Sprintf("Creating policy in \"%s\"", clPolNS))
-		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, test.Data)
+		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, test.PolicyRaw)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Create Flux CRD
@@ -92,8 +92,13 @@ func Test_Validate_Sets(t *testing.T) {
 		// Create Kustomize resource
 		kustomizeGVR := e2e.GetGVR("kustomize.toolkit.fluxcd.io", "v1beta1", "kustomizations")
 		By(fmt.Sprintf("Creating Kustomize resource in \"%s\"", nspace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(kustomizeGVR, nspace, kyverno_2043_FluxKustomization)
-		Expect(err).NotTo(HaveOccurred())
+		_, err = e2eClient.CreateNamespacedResourceYaml(kustomizeGVR, nspace, test.ResourceRaw)
+
+		if test.MustSucceed {
+			Expect(err).NotTo(HaveOccurred())
+		} else {
+			Expect(err).To(HaveOccurred())
+		}
 
 		//CleanUp Resources
 		e2eClient.CleanClusterPolicies(clPolGVR)

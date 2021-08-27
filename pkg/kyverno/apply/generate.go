@@ -3,7 +3,7 @@ package apply
 import (
 	"reflect"
 
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -132,7 +132,7 @@ func updateSummary(results []interface{}) map[string]interface{} {
 			continue
 		}
 
-		switch typedResult["status"].(string) {
+		switch typedResult["result"].(string) {
 		case report.StatusPass:
 			pass, _ := summary[report.StatusPass].(int64)
 			pass++

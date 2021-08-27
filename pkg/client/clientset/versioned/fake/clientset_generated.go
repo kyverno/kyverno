@@ -22,10 +22,10 @@ import (
 	clientset "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	fakekyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1/fake"
-	kyvernov1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha1"
-	fakekyvernov1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha1/fake"
-	wgpolicyk8sv1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha1"
-	fakewgpolicyk8sv1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha1/fake"
+	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha2"
+	fakekyvernov1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha2/fake"
+	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
+	fakewgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -85,12 +85,12 @@ func (c *Clientset) KyvernoV1() kyvernov1.KyvernoV1Interface {
 	return &fakekyvernov1.FakeKyvernoV1{Fake: &c.Fake}
 }
 
-// KyvernoV1alpha1 retrieves the KyvernoV1alpha1Client
-func (c *Clientset) KyvernoV1alpha1() kyvernov1alpha1.KyvernoV1alpha1Interface {
-	return &fakekyvernov1alpha1.FakeKyvernoV1alpha1{Fake: &c.Fake}
+// KyvernoV1alpha2 retrieves the KyvernoV1alpha2Client
+func (c *Clientset) KyvernoV1alpha2() kyvernov1alpha2.KyvernoV1alpha2Interface {
+	return &fakekyvernov1alpha2.FakeKyvernoV1alpha2{Fake: &c.Fake}
 }
 
-// Wgpolicyk8sV1alpha1 retrieves the Wgpolicyk8sV1alpha1Client
-func (c *Clientset) Wgpolicyk8sV1alpha1() wgpolicyk8sv1alpha1.Wgpolicyk8sV1alpha1Interface {
-	return &fakewgpolicyk8sv1alpha1.FakeWgpolicyk8sV1alpha1{Fake: &c.Fake}
+// Wgpolicyk8sV1alpha2 retrieves the Wgpolicyk8sV1alpha2Client
+func (c *Clientset) Wgpolicyk8sV1alpha2() wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Interface {
+	return &fakewgpolicyk8sv1alpha2.FakeWgpolicyk8sV1alpha2{Fake: &c.Fake}
 }

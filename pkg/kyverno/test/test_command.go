@@ -10,13 +10,14 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/kataras/tablewriter"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
@@ -30,6 +31,7 @@ import (
 	"github.com/lensesio/tableprinter"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -79,7 +81,8 @@ type SkippedPolicy struct {
 type TestResults struct {
 	Policy   string              `json:"policy"`
 	Rule     string              `json:"rule"`
-	Status   report.PolicyStatus `json:"status"`
+	Result   report.PolicyResult `json:"result"`
+	Status   report.PolicyResult `json:"status"`
 	Resource string              `json:"resource"`
 }
 
@@ -224,6 +227,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResults) map[string]report.PolicyReportResult {
 	results := make(map[string]report.PolicyReportResult)
 	infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
+	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 	for _, resp := range resps {
 		policyName := resp.PolicyResponse.Policy.Name
 		resourceName := resp.PolicyResponse.Resource.Name
@@ -243,7 +247,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 		for _, test := range testResults {
 			if test.Policy == policyName && test.Resource == resourceName {
 				if !util.ContainsString(rules, test.Rule) {
-					result.Status = report.StatusSkip
+					result.Result = report.StatusSkip
 				}
 				resultsKey := fmt.Sprintf("%s-%s-%s", test.Policy, test.Rule, test.Resource)
 				if _, ok := results[resultsKey]; !ok {
@@ -270,7 +274,9 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 					continue
 				}
 				result.Rule = ruleName
-				result.Status = report.PolicyStatus(rule.Check)
+				result.Result = report.PolicyResult(rule.Check)
+				result.Source = policyreport.SourceValue
+				result.Timestamp = now
 				results[resultsKey] = result
 			}
 		}
@@ -424,8 +430,11 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 			table = append(table, res)
 			continue
 		}
-		if testRes.Status == v.Status {
-			if testRes.Status == report.StatusSkip {
+		if v.Result == "" && v.Status != "" {
+			v.Result = v.Status
+		}
+		if testRes.Result == v.Result {
+			if testRes.Result == report.StatusSkip {
 				res.Result = boldGreen.Sprintf("Pass")
 				rc.skip++
 			} else {

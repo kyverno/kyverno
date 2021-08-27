@@ -33,7 +33,6 @@ require (
 	github.com/sigstore/cosign v1.0.0
 	github.com/sigstore/rekor v0.3.0 // indirect
 	github.com/sigstore/sigstore v0.0.0-20210726180807-7e34e36ecda1
-	github.com/sigstore/fulcio v0.1.1
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.0
 	gopkg.in/yaml.v2 v2.4.0

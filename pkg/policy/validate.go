@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jmespath/go-jmespath"
+	c "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
@@ -131,6 +132,14 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
 			return fmt.Errorf("wildcards (*) are currently not supported in the match.resources.kinds field. at least one resource kind must be specified in a kind block.")
+		}
+
+		// Validate Kind with match resource kinds
+		for _, kind := range rule.MatchResources.Kinds {
+			_, k := c.GetKindFromGVK(kind)
+			if k == p.Kind {
+				return fmt.Errorf("kind and match resource kind should not be the same.")
+			}
 		}
 
 		// Validate string values in labels
