@@ -754,10 +754,13 @@ func validateRuleContext(rule kyverno.Rule) error {
 		return nil
 	}
 
+	contextNames := make([]string, 0)
+
 	for _, entry := range rule.Context {
 		if entry.Name == "" {
 			return fmt.Errorf("a name is required for context entries")
 		}
+		contextNames = append(contextNames, entry.Name)
 
 		var err error
 		if entry.ConfigMap != nil {
@@ -770,6 +773,14 @@ func validateRuleContext(rule kyverno.Rule) error {
 
 		if err != nil {
 			return err
+		}
+	}
+
+	ruleBytes, _ := json.Marshal(rule)
+	ruleString := strings.ReplaceAll(string(ruleBytes), " ", "")
+	for _, contextName := range contextNames {
+		if !strings.Contains(ruleString, fmt.Sprintf("{{"+contextName)) {
+			return fmt.Errorf("context variable `%s` is not used in the policy", contextName)
 		}
 	}
 

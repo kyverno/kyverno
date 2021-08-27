@@ -79,7 +79,7 @@ kyverno: fmt vet
 docker-publish-kyverno: docker-build-kyverno docker-push-kyverno
 
 docker-build-kyverno:
-	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TAGS=$(TAGS)
+	@docker build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 docker-build-kyverno-local:
 	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
