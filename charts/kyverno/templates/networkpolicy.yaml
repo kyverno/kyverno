@@ -14,7 +14,17 @@ spec:
   - Ingress
   ingress:
   - from:
-    ports:
-    - protocol: TCP
-      port: 9443 # webhook access
+      namespaceSelector:
+        matchExpressions:
+          {{- toYaml .Values.networkPolicy.namespaceExpressions | nindent 8 }}
+        matchLabels:
+          app: kyverno
+      podSelector:
+        matchExpressions:
+          {{- toYaml .Values.networkPolicy.podExpressions | nindent 8 }}
+        matchLabels:
+          app: kyverno
+  ports:
+  - protocol: TCP
+    port: 9443 # webhook access
 {{- end }}

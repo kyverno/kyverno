@@ -218,3 +218,5 @@ createSelfSignedCert: false
 # policies in a default-deny setup.
 networkPolicy:
   enabled: false
+  namespaceExpressions: [{}]
+  podExpressions: [{}]
