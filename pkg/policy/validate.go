@@ -26,8 +26,8 @@ import (
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-//check for forward slash
-func JSONPatchPathHasForwardSlash(patch string) error {
+// validateJSONPatchPathForForwardSlash checks for forward slash
+func validateJSONPatchPathForForwardSlash(patch string) error {
 
 	jsonPatch, err := yaml.ToJSON([]byte(patch))
 	if err != nil {
@@ -49,7 +49,7 @@ func JSONPatchPathHasForwardSlash(patch string) error {
 		if err != nil {
 			return err
 		}
-		if val != true {
+		if !val {
 			return fmt.Errorf("Path :%s", path)
 		}
 
@@ -85,7 +85,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 	for i, rule := range p.Spec.Rules {
 		//check for forward slash
-		if err := JSONPatchPathHasForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
+		if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
 			return fmt.Errorf("path: spec.rules[%d]: %s", i, err)
 		}
 
