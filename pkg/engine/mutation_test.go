@@ -515,7 +515,7 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
           }
         ],
         "mutate": {
-          "patchesJson6902": "- path: \"/subsets/1/addresses/-\"\n  op: add\n  value: {\"ip\":\"192.168.42.172\"}"
+          "patchesJson6902": "- path: \"/subsets/0/addresses/-\"\n  op: add\n  value: {\"ip\":\"192.168.42.172\"}\n- path: \"/subsets/1/addresses/-\"\n  op: add\n  value: {\"ip\":\"192.168.42.173\"}"
         }
       }
     ]
