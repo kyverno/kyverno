@@ -27,7 +27,6 @@ type (
 // function names
 var (
 	compare                = "compare"
-	contains               = "contains"
 	equalFold              = "equal_fold"
 	replace                = "replace"
 	replaceAll             = "replace_all"
@@ -35,7 +34,6 @@ var (
 	toLower                = "to_lower"
 	trim                   = "trim"
 	split                  = "split"
-	equals                 = "equals"
 	regexReplaceAll        = "regex_replace_all"
 	regexReplaceAllLiteral = "regex_replace_all_literal"
 	regexMatch             = "regex_match"
@@ -55,14 +53,6 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpString}},
 			},
 			Handler: jpfCompare,
-		},
-		{
-			Name: contains,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString}},
-			},
-			Handler: jpfContains,
 		},
 		{
 			Name: equalFold,
@@ -173,21 +163,6 @@ func jpfCompare(arguments []interface{}) (interface{}, error) {
 	}
 
 	return strings.Compare(a.String(), b.String()), nil
-}
-
-func jpfContains(arguments []interface{}) (interface{}, error) {
-	var err error
-	str, err := validateArg(contains, arguments, 0, reflect.String)
-	if err != nil {
-		return nil, err
-	}
-
-	substr, err := validateArg(contains, arguments, 1, reflect.String)
-	if err != nil {
-		return nil, err
-	}
-
-	return strings.Contains(str.String(), substr.String()), nil
 }
 
 func jpfEqualFold(arguments []interface{}) (interface{}, error) {
