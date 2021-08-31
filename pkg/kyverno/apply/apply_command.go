@@ -47,11 +47,11 @@ type Values struct {
 	Policies []Policy `json:"policies"`
 }
 
-type SkippedPolicy struct {
-	Name     string    `json:"name"`
-	Rules    []v1.Rule `json:"rules"`
-	Variable string    `json:"variable"`
-}
+// type SkippedPolicy struct {
+// 	Name     string    `json:"name"`
+// 	Rules    []v1.Rule `json:"rules"`
+// 	Variable string    `json:"variable"`
+// }
 
 var applyHelp = `
 To apply on a resource:
@@ -157,7 +157,7 @@ func Command() *cobra.Command {
 }
 
 func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool, mutateLogPath string,
-	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool) (validateEngineResponses []*response.EngineResponse, rc *resultCounts, resources []*unstructured.Unstructured, skippedPolicies []SkippedPolicy, err error) {
+	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool) (validateEngineResponses []*response.EngineResponse, rc *resultCounts, resources []*unstructured.Unstructured, skippedPolicies []string, err error) {
 
 	store.SetMock(true)
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
@@ -270,30 +270,48 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 
 	rc = &resultCounts{}
 	validateEngineResponses = make([]*response.EngineResponse, 0)
-	skippedPolicies = make([]SkippedPolicy, 0)
+	// skippedPolicies = make([]SkippedPolicy, 0)
+	skippedPolicies = make([]string, 0)
 
 	for _, policy := range mutatedPolicies {
 		err := policy2.Validate(policy, nil, true, openAPIController)
+		// here skip policy
 		if err != nil {
-			rc.skip += len(resources)
-			log.Log.V(3).Info(fmt.Sprintf("skipping policy %v as it is not valid", policy.Name), "error", err)
+			skippedPolicies = append(skippedPolicies, policy.Name)
 			continue
 		}
+
+		// if err != nil {
+		// 	rc.skip += len(resources)
+		// 	log.Log.V(3).Info(fmt.Sprintf("skipping policy %v as it is not valid", policy.Name), "error", err)
+		// 	continue
+		// }
 
 		matches := common.PolicyHasVariables(*policy)
 		variable := common.RemoveDuplicateAndObjectVariables(matches)
-
-		if len(variable) > 0 && variablesString == "" && valuesFile == "" {
-			rc.skip++
-			skipPolicy := SkippedPolicy{
-				Name:     policy.GetName(),
-				Rules:    policy.Spec.Rules,
-				Variable: variable,
+		if len(variable) > 0 {
+			if len(variables) == 0 {
+				// check policy in valuesMap
+				if valuesMap[policy.Name] == nil {
+					//check for namespce selector
+					skippedPolicies = append(skippedPolicies, policy.Name)
+					continue
+				}
 			}
-			skippedPolicies = append(skippedPolicies, skipPolicy)
-			log.Log.V(3).Info(fmt.Sprintf("skipping policy %s as non of the variable values are not passed", policy.Name), "error", fmt.Sprintf("policy have variable - %s", variable))
-			continue
+			// valuesMap, namespaceSelectorMap
 		}
+		// if len(variable) > 0 && variablesString == "" && valuesFile == "" {
+		// 	// skip policy ...can we get specific policy name??
+		// 	rc.skip++
+		// 	skipPolicy := SkippedPolicy{
+		// 		Name:     policy.GetName(),
+		// 		Rules:    policy.Spec.Rules,
+		// 		Variable: variable,
+		// 	}
+		// 	skippedPolicies = append(skippedPolicies, skipPolicy)
+		// 	log.Log.V(3).Info(fmt.Sprintf("skipping policy %s as non of the variable values are not passed", policy.Name), "error", fmt.Sprintf("policy have variable - %s", variable))
+		// 	continue
+		// }
 
 		for _, resource := range resources {
 			// get values from file for this policy resource combination
@@ -352,10 +370,18 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 }
 
 // printReportOrViolation - printing policy report/violations
-func printReportOrViolation(policyReport bool, validateEngineResponses []*response.EngineResponse, rc *resultCounts, resourcePaths []string, resourcesLen int, skippedPolicies []SkippedPolicy, stdin bool) {
+func printReportOrViolation(policyReport bool, validateEngineResponses []*response.EngineResponse, rc *resultCounts, resourcePaths []string, resourcesLen int, skippedPolicies []string, stdin bool) {
+	if len(skippedPolicies) > 0 {
+		fmt.Println("----------------------------------------------------------------------\nPolicies Skipped:\n")
+		for i, policyName := range skippedPolicies {
+			fmt.Println(i+1, ". ", policyName)
+		}
+		fmt.Println("----------------------------------------------------------------------")
+	}
+
 	if policyReport {
 		os.Setenv("POLICY-TYPE", pkgCommon.PolicyReport)
-		resps := buildPolicyReports(validateEngineResponses, skippedPolicies)
+		resps := buildPolicyReports(validateEngineResponses)
 		if len(resps) > 0 || resourcesLen == 0 {
 			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
 			report, _ := generateCLIRaw(resps)
@@ -365,10 +391,10 @@ func printReportOrViolation(policyReport bool, validateEngineResponses []*respon
 			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
 		}
 	} else {
-		rcCount := rc.pass + rc.fail + rc.warn + rc.error + rc.skip
-		if rcCount < len(resourcePaths) {
-			rc.skip += len(resourcePaths) - rcCount
-		}
+		// rcCount := rc.pass + rc.fail + rc.warn + rc.error + rc.skip
+		// if rcCount < len(resourcePaths) {
+		// 	rc.skip += len(resourcePaths) - rcCount
+		// }
 		if !stdin {
 			fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n",
 				rc.pass, rc.fail, rc.warn, rc.error, rc.skip)
