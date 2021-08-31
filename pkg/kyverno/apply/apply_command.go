@@ -25,14 +25,6 @@ import (
 	yaml1 "sigs.k8s.io/yaml"
 )
 
-type resultCounts struct {
-	pass  int
-	fail  int
-	warn  int
-	error int
-	skip  int
-}
-
 type Resource struct {
 	Name   string            `json:"name"`
 	Values map[string]string `json:"values"`
@@ -151,7 +143,7 @@ func Command() *cobra.Command {
 }
 
 func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool, mutateLogPath string,
-	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool) (validateEngineResponses []*response.EngineResponse, rc *resultCounts, resources []*unstructured.Unstructured, skippedPolicies []string, err error) {
+	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool) (validateEngineResponses []*response.EngineResponse, rc *common.ResultCounts, resources []*unstructured.Unstructured, skippedPolicies []string, err error) {
 
 	store.SetMock(true)
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
@@ -262,7 +254,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		}
 	}
 
-	rc = &resultCounts{}
+	rc = &common.ResultCounts{}
 	validateEngineResponses = make([]*response.EngineResponse, 0)
 	// skippedPolicies = make([]SkippedPolicy, 0)
 	skippedPolicies = make([]string, 0)
@@ -301,14 +293,9 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 			}
 
-			validateErs, responseError, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin)
+			validateErs, _, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin, rc)
 			if err != nil {
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
-			}
-			if responseError == true {
-				rc.fail++
-			} else {
-				rc.pass++
 			}
 
 			validateEngineResponses = append(validateEngineResponses, validateErs)
@@ -341,7 +328,7 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 }
 
 // printReportOrViolation - printing policy report/violations
-func printReportOrViolation(policyReport bool, validateEngineResponses []*response.EngineResponse, rc *resultCounts, resourcePaths []string, resourcesLen int, skippedPolicies []string, stdin bool) {
+func printReportOrViolation(policyReport bool, validateEngineResponses []*response.EngineResponse, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skippedPolicies []string, stdin bool) {
 	if len(skippedPolicies) > 0 {
 		fmt.Println("----------------------------------------------------------------------\nPolicies Skipped(as required variables are not provided by the users):")
 		for i, policyName := range skippedPolicies {
@@ -364,10 +351,10 @@ func printReportOrViolation(policyReport bool, validateEngineResponses []*respon
 	} else {
 		if !stdin {
 			fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n",
-				rc.pass, rc.fail, rc.warn, rc.error, rc.skip)
+				rc.Pass, rc.Fail, rc.Warn, rc.Error, rc.Skip)
 		}
 
-		if rc.fail > 0 || rc.error > 0 {
+		if rc.Fail > 0 || rc.Error > 0 {
 			os.Exit(1)
 		}
 	}

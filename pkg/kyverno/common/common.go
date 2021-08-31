@@ -34,7 +34,13 @@ import (
 	yaml_v2 "sigs.k8s.io/yaml"
 )
 
-// GetPolicies - Extracting the policies from multiple YAML
+type ResultCounts struct {
+	Pass  int
+	Fail  int
+	Warn  int
+	Error int
+	Skip  int
+}
 type Policy struct {
 	Name      string     `json:"name"`
 	Resources []Resource `json:"resources"`
@@ -61,6 +67,7 @@ type NamespaceSelector struct {
 	Labels map[string]string `json:"labels"`
 }
 
+// GetPolicies - Extracting the policies from multiple YAML
 func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) {
 	for _, path := range paths {
 		log.Log.V(5).Info("reading policies", "path", path)
@@ -507,7 +514,7 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool) (*response.EngineResponse, bool, error) {
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts) (*response.EngineResponse, bool, error) {
 
 	operationIsDelete := false
 
@@ -605,17 +612,44 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 
 	policyCtx := &engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels}
 	validateResponse := engine.Validate(policyCtx)
+	printCount := 0
 	if !policyReport {
-		if !validateResponse.IsSuccessful() {
-			fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.Name, resPath)
-			for i, r := range validateResponse.PolicyResponse.Rules {
-				if !r.Success {
-					fmt.Printf("%d. %s: %s \n", i+1, r.Name, r.Message)
+		for _, policyRule := range policy.Spec.Rules {
+			ruleFoundInEngineResponse := false
+			for i, valResponseRule := range validateResponse.PolicyResponse.Rules {
+				fmt.Println("valResponseRule.Name: ", valResponseRule.Name)
+				fmt.Println("valResponseRule.Success: ", valResponseRule.Success)
+				if policyRule.Name == valResponseRule.Name {
+					ruleFoundInEngineResponse = true
+					if valResponseRule.Success {
+						rc.Pass++
+					} else {
+						if printCount < 1 {
+							fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.Name, resPath)
+							printCount++
+						}
+
+						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name, valResponseRule.Message)
+						rc.Fail++
+					}
+					continue
 				}
 			}
-
-			responseError = true
+			if !ruleFoundInEngineResponse {
+				rc.Skip++
+			}
 		}
+
+		// if !validateResponse.IsSuccessful() {
+		// 	fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.Name, resPath)
+		// 	for i, r := range validateResponse.PolicyResponse.Rules {
+		// 		if !r.Success {
+		// 			fmt.Printf("%d. %s: %s \n", i+1, r.Name, r.Message)
+		// 		}
+		// 	}
+
+		// 	responseError = true
+		// }
 	}
 
 	var policyHasGenerate bool
