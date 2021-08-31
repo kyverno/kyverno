@@ -14,69 +14,65 @@ import (
 )
 
 func Test_VariableSubstitutionOverlay(t *testing.T) {
-	rawPolicy := []byte(`
-	{
-		"apiVersion": "kyverno.io/v1",
-		"kind": "ClusterPolicy",
-		"metadata": {
-			"name": "add-label"
-		},
-		"spec": {
-			"rules": [
-				{
-					"name": "add-name-label",
-					"match": {
-						"resources": {
-							"kinds": [
-								"Pod"
-							]
-						}
-					},
-					"mutate": {
-						"overlay": {
-							"metadata": {
-								"labels": {
-									"appname": "{{request.object.metadata.name}}"
-								}
-							}
-						}
-					}
-				}
-			]
-		}
-	}
-	`)
-	rawResource := []byte(`
-	{
-		"apiVersion": "v1",
-		"kind": "Pod",
-		"metadata": {
-			"name": "check-root-user"
-		},
-		"spec": {
-			"containers": [
-				{
-					"name": "check-root-user",
-					"image": "nginxinc/nginx-unprivileged",
-					"securityContext": {
-						"runAsNonRoot": true
-					}
-				}
-			]
-		}
-	}
-	`)
+	policyRaw := []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "add-label"
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "add-name-label",
+        "match": {
+          "resources": {
+            "kinds": [
+              "Pod"
+            ]
+          }
+        },
+        "mutate": {
+          "overlay": {
+            "metadata": {
+              "labels": {
+                "appname": "{{request.object.metadata.name}}"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}`)
+	resourceRaw := []byte(`{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "name": "check-root-user"
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "check-root-user",
+        "image": "nginxinc/nginx-unprivileged",
+        "securityContext": {
+          "runAsNonRoot": true
+        }
+      }
+    ]
+  }
+}`)
 	expectedPatch := []byte(`{"op":"add","path":"/metadata/labels","value":{"appname":"check-root-user"}}`)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := json.Unmarshal(policyRaw, &policy)
 	if err != nil {
 		t.Error(err)
 	}
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 	ctx := context.NewContext()
-	err = ctx.AddResource(rawResource)
+	err = ctx.AddResource(resourceRaw)
 	if err != nil {
 		t.Error(err)
 	}
@@ -100,55 +96,54 @@ func Test_VariableSubstitutionOverlay(t *testing.T) {
 
 func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	resourceRaw := []byte(`{
-		"apiVersion": "v1",
-		"kind": "Pod",
-		"metadata": {
-			"name": "check-root-user"
-		},
-		"spec": {
-			"containers": [
-				{
-					"name": "check-root-user",
-					"image": "nginxinc/nginx-unprivileged",
-					"securityContext": {
-						"runAsNonRoot": true
-					}
-				}
-			]
-		}
-	}`)
-
-	policyraw := []byte(`{
-		"apiVersion": "kyverno.io/v1",
-		"kind": "ClusterPolicy",
-		"metadata": {
-		  "name": "substitute-variable"
-		},
-		"spec": {
-		  "rules": [
-			{
-			  "name": "test-path-not-exist",
-			  "match": {
-				"resources": {
-				  "kinds": [
-					"Pod"
-				  ]
-				}
-			  },
-			  "mutate": {
-				"overlay": {
-				  "spec": {
-					"name": "{{request.object.metadata.name1}}"
-				  }
-				}
-			  }
-			}
-		  ]
-		}
-	  }`)
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "name": "check-root-user"
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "check-root-user",
+        "image": "nginxinc/nginx-unprivileged",
+        "securityContext": {
+          "runAsNonRoot": true
+        }
+      }
+    ]
+  }
+}`)
+	policyRaw := []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "substitute-variable"
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "test-path-not-exist",
+        "match": {
+          "resources": {
+            "kinds": [
+              "Pod"
+            ]
+          }
+        },
+        "mutate": {
+          "overlay": {
+            "spec": {
+              "name": "{{request.object.metadata.name1}}"
+            }
+          }
+        }
+      }
+    ]
+  }
+}`)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(policyraw, &policy)
+	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
@@ -168,60 +163,59 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 
 func Test_variableSubstitutionCLI(t *testing.T) {
 	resourceRaw := []byte(`{
-		"apiVersion": "v1",
-		"kind": "Pod",
-		"metadata": {
-		  "name": "nginx-config-test"
-		},
-		"spec": {
-		  "containers": [
-			{
-			  "image": "nginx:latest",
-			  "name": "test-nginx"
-			}
-		  ]
-		}
-	}`)
-
-	policyraw := []byte(`{
-		"apiVersion": "kyverno.io/v1",
-		"kind": "ClusterPolicy",
-		"metadata": {
-		  "name": "cm-variable-example"
-		},
-		"spec": {
-		  "rules": [
-			{
-			  "name": "example-configmap-lookup",
-			  "context": [
-				{
-				  "name": "dictionary",
-				  "configMap": {
-					"name": "mycmap",
-					"namespace": "default"
-				  }
-				}
-			  ],
-			  "match": {
-				"resources": {
-				  "kinds": [
-					"Pod"
-				  ]
-				}
-			  },
-			  "mutate": {
-				"patchStrategicMerge": {
-				  "metadata": {
-					"labels": {
-					  "my-environment-name": "{{dictionary.data.env}}"
-					}
-				  }
-				}
-			  }
-			}
-		  ]
-		}
-	  }`)
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "name": "nginx-config-test"
+  },
+  "spec": {
+    "containers": [
+      {
+        "image": "nginx:latest",
+        "name": "test-nginx"
+      }
+    ]
+  }
+}`)
+	policyRaw := []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "cm-variable-example"
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "example-configmap-lookup",
+        "context": [
+          {
+            "name": "dictionary",
+            "configMap": {
+              "name": "mycmap",
+              "namespace": "default"
+            }
+          }
+        ],
+        "match": {
+          "resources": {
+            "kinds": [
+              "Pod"
+            ]
+          }
+        },
+        "mutate": {
+          "patchStrategicMerge": {
+            "metadata": {
+              "labels": {
+                "my-environment-name": "{{dictionary.data.env}}"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}`)
 
 	configMapVariableContext := store.Context{
 		Policies: []store.Policy{
@@ -244,7 +238,7 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 	store.SetContext(configMapVariableContext)
 	store.SetMock(true)
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(policyraw, &policy)
+	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
@@ -269,12 +263,84 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 
 // https://github.com/kyverno/kyverno/issues/2022
 func Test_chained_rules(t *testing.T) {
-	policyRaw := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"replace-image-registry","annotations":{"policies.kyverno.io/minversion":"1.4.2"}},"spec":{"background":false,"rules":[{"name":"replace-image-registry","match":{"resources":{"kinds":["Pod"]}},"mutate":{"patchStrategicMerge":{"spec":{"containers":[{"(name)":"*","image":"{{regex_replace_all('^[^/]+','{{@}}','myregistry.corp.com')}}"}]}}}},{"name":"replace-image-registry-chained","match":{"resources":{"kinds":["Pod"]}},"mutate":{"patchStrategicMerge":{"spec":{"containers":[{"(name)":"*","image":"{{regex_replace_all('\\b(myregistry.corp.com)\\b','{{@}}','otherregistry.corp.com')}}"}]}}}}]}}`)
+	policyRaw := []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "replace-image-registry",
+    "annotations": {
+      "policies.kyverno.io/minversion": "1.4.2"
+    }
+  },
+  "spec": {
+    "background": false,
+    "rules": [
+      {
+        "name": "replace-image-registry",
+        "match": {
+          "resources": {
+            "kinds": [
+              "Pod"
+            ]
+          }
+        },
+        "mutate": {
+          "patchStrategicMerge": {
+            "spec": {
+              "containers": [
+                {
+                  "(name)": "*",
+                  "image": "{{regex_replace_all('^[^/]+','{{@}}','myregistry.corp.com')}}"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "replace-image-registry-chained",
+        "match": {
+          "resources": {
+            "kinds": [
+              "Pod"
+            ]
+          }
+        },
+        "mutate": {
+          "patchStrategicMerge": {
+            "spec": {
+              "containers": [
+                {
+                  "(name)": "*",
+                  "image": "{{regex_replace_all('\\b(myregistry.corp.com)\\b','{{@}}','otherregistry.corp.com')}}"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}`)
+	resourceRaw := []byte(`{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "name": "test"
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "test",
+        "image": "foo/bash:5.0"
+      }
+    ]
+  }
+}`)
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
 
-	resourceRaw := []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test"},"spec":{"containers":[{"name":"test","image":"foo/bash:5.0"}]}}`)
 	resource, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
@@ -322,8 +388,7 @@ func Test_precondition(t *testing.T) {
     ]
   }
 }`)
-
-	policyraw := []byte(`{
+	policyRaw := []byte(`{
   "apiVersion": "kyverno.io/v1",
   "kind": "ClusterPolicy",
   "metadata": {
@@ -360,12 +425,11 @@ func Test_precondition(t *testing.T) {
     ]
   }
 }`)
-
 	expectedPatch := []byte(`{"op":"add","path":"/metadata/labels/my-added-label","value":"test"}`)
 
 	store.SetMock(true)
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(policyraw, &policy)
+	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
