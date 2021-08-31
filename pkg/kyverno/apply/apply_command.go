@@ -343,7 +343,7 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 // printReportOrViolation - printing policy report/violations
 func printReportOrViolation(policyReport bool, validateEngineResponses []*response.EngineResponse, rc *resultCounts, resourcePaths []string, resourcesLen int, skippedPolicies []string, stdin bool) {
 	if len(skippedPolicies) > 0 {
-		fmt.Println("----------------------------------------------------------------------\nPolicies Skipped(as required variables are not provided by the users):\n")
+		fmt.Println("----------------------------------------------------------------------\nPolicies Skipped(as required variables are not provided by the users):")
 		for i, policyName := range skippedPolicies {
 			fmt.Println(i+1, ". ", policyName)
 		}
