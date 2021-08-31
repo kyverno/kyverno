@@ -301,7 +301,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 			}
 
-			validateErs, responseError, rcErs, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin)
+			validateErs, responseError, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin)
 			if err != nil {
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}
@@ -310,9 +310,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 			} else {
 				rc.pass++
 			}
-			if rcErs == true {
-				rc.error++
-			}
+
 			validateEngineResponses = append(validateEngineResponses, validateErs)
 		}
 	}
