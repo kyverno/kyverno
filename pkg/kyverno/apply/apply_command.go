@@ -1,6 +1,7 @@
 package apply
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -224,6 +225,15 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		}
 	}
 
+	for _, policy := range mutatedPolicies {
+		p, err := json.Marshal(policy)
+		if err != nil {
+			return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("failed to marsal mutated policy", err)
+		}
+		log.Log.V(5).Info("mutated Policy:", string(p))
+
+	}
+
 	resources, err = common.GetResourceAccordingToResourcePath(fs, resourcePaths, cluster, mutatedPolicies, dClient, namespace, policyReport, false, "")
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
@@ -250,13 +260,12 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 
 	if len(mutatedPolicies) > 0 && len(resources) > 0 {
 		if !stdin {
-			fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
+			fmt.Printf("\nApplying %s to %s... \n(Total number of result count may vary as the policy is mutated by Kyverno. To check the mutated policy please try with log level 5)", msgPolicies, msgResources)
 		}
 	}
 
 	rc = &common.ResultCounts{}
 	validateEngineResponses = make([]*response.EngineResponse, 0)
-	// skippedPolicies = make([]SkippedPolicy, 0)
 	skippedPolicies = make([]string, 0)
 
 	for _, policy := range mutatedPolicies {
@@ -293,7 +302,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 			}
 
-			validateErs, _, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin, rc)
+			validateErs, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin, rc)
 			if err != nil {
 				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}
