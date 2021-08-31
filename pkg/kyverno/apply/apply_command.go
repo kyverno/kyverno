@@ -47,12 +47,6 @@ type Values struct {
 	Policies []Policy `json:"policies"`
 }
 
-// type SkippedPolicy struct {
-// 	Name     string    `json:"name"`
-// 	Rules    []v1.Rule `json:"rules"`
-// 	Variable string    `json:"variable"`
-// }
-
 var applyHelp = `
 To apply on a resource:
 	kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
@@ -275,43 +269,22 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 
 	for _, policy := range mutatedPolicies {
 		err := policy2.Validate(policy, nil, true, openAPIController)
-		// here skip policy
 		if err != nil {
 			skippedPolicies = append(skippedPolicies, policy.Name)
 			continue
 		}
 
-		// if err != nil {
-		// 	rc.skip += len(resources)
-		// 	log.Log.V(3).Info(fmt.Sprintf("skipping policy %v as it is not valid", policy.Name), "error", err)
-		// 	continue
-		// }
-
 		matches := common.PolicyHasVariables(*policy)
 		variable := common.RemoveDuplicateAndObjectVariables(matches)
 		if len(variable) > 0 {
 			if len(variables) == 0 {
-				// check policy in valuesMap
-				if valuesMap[policy.Name] == nil {
-					//check for namespce selector
+				// check policy in variable file
+				if valuesFile == "" || valuesMap[policy.Name] == nil {
 					skippedPolicies = append(skippedPolicies, policy.Name)
 					continue
 				}
 			}
-			// valuesMap, namespaceSelectorMap
 		}
-		// if len(variable) > 0 && variablesString == "" && valuesFile == "" {
-		// 	// skip policy ...can we get specific policy name??
-		// 	rc.skip++
-		// 	skipPolicy := SkippedPolicy{
-		// 		Name:     policy.GetName(),
-		// 		Rules:    policy.Spec.Rules,
-		// 		Variable: variable,
-		// 	}
-		// 	skippedPolicies = append(skippedPolicies, skipPolicy)
-		// 	log.Log.V(3).Info(fmt.Sprintf("skipping policy %s as non of the variable values are not passed", policy.Name), "error", fmt.Sprintf("policy have variable - %s", variable))
-		// 	continue
-		// }
 
 		for _, resource := range resources {
 			// get values from file for this policy resource combination
@@ -372,7 +345,7 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 // printReportOrViolation - printing policy report/violations
 func printReportOrViolation(policyReport bool, validateEngineResponses []*response.EngineResponse, rc *resultCounts, resourcePaths []string, resourcesLen int, skippedPolicies []string, stdin bool) {
 	if len(skippedPolicies) > 0 {
-		fmt.Println("----------------------------------------------------------------------\nPolicies Skipped:\n")
+		fmt.Println("----------------------------------------------------------------------\nPolicies Skipped(as required variables are not provided by the users):\n")
 		for i, policyName := range skippedPolicies {
 			fmt.Println(i+1, ". ", policyName)
 		}
@@ -391,10 +364,6 @@ func printReportOrViolation(policyReport bool, validateEngineResponses []*respon
 			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
 		}
 	} else {
-		// rcCount := rc.pass + rc.fail + rc.warn + rc.error + rc.skip
-		// if rcCount < len(resourcePaths) {
-		// 	rc.skip += len(resourcePaths) - rcCount
-		// }
 		if !stdin {
 			fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n",
 				rc.pass, rc.fail, rc.warn, rc.error, rc.skip)
