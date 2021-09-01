@@ -790,7 +790,9 @@ func CheckValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *res
 				}
 
 				if valResponseRule.Success {
-					rc.Pass++
+					if !policyReport {
+						rc.Pass++
+					}
 					vrule.Check = report.StatusPass
 				} else {
 					if !policyReport {
@@ -801,7 +803,9 @@ func CheckValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *res
 
 						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name, valResponseRule.Message)
 					}
-					rc.Fail++
+					if !policyReport {
+						rc.Fail++
+					}
 					vrule.Check = report.StatusFail
 				}
 				violatedRules = append(violatedRules, vrule)
@@ -810,7 +814,9 @@ func CheckValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *res
 		}
 
 		if !ruleFoundInEngineResponse {
-			rc.Skip++
+			if !policyReport {
+				rc.Skip++
+			}
 			vruleSkip := v1.ViolatedRule{
 				Name:    policyRule.Name,
 				Type:    "Validation",
