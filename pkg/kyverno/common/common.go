@@ -848,7 +848,7 @@ func processGenerateEngineResponse(policy *v1.ClusterPolicy, generateResponse *r
 					rc.Pass++
 				} else {
 					if printCount < 1 {
-						fmt.Printf("\ngenerate resource is valid", "policy", policy.Name, "resource", resPath)
+						fmt.Println("\ngenerate resource is valid", "policy", policy.Name, "resource", resPath)
 						printCount++
 					}
 					fmt.Printf("%d. %s \n", i+1, genResponseRule.Name)
