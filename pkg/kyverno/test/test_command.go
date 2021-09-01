@@ -116,10 +116,10 @@ type resultCounts struct {
 	fail int
 }
 
-func testCommandExecute(dirPath []string, valuesFile string, fileName string) (rc *resultCounts, err error) {
+func testCommandExecute(dirPath []string, valuesFile string, fileName string) (rc *common.ResultCounts, err error) {
 	var errors []error
 	fs := memfs.New()
-	rc = &resultCounts{}
+	// rc = &resultCounts{}
 	var testYamlCount int
 	if len(dirPath) == 0 {
 		return rc, sanitizederror.NewWithError(fmt.Sprintf("a directory is required"), err)
@@ -186,14 +186,14 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 			fmt.Printf("    %v \n", e.Error())
 		}
 	}
-	if rc.fail > 0 {
+	if rc.Fail > 0 {
 		os.Exit(1)
 	}
 	os.Exit(0)
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *common.ResultCounts) []error {
 	var errors []error
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
@@ -295,7 +295,7 @@ func getPolicyResourceFullPath(path []string, policyResourcePath string, isGit b
 	return path
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts) (err error) {
+func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *common.ResultCounts) (err error) {
 	openAPIController, err := openapi.NewOpenAPIController()
 	validateEngineResponses := make([]*response.EngineResponse, 0)
 	skippedPolicies := make([]SkippedPolicy, 0)
@@ -409,7 +409,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	return
 }
 
-func printTestResult(resps map[string]report.PolicyReportResult, testResults []TestResults, rc *resultCounts) error {
+func printTestResult(resps map[string]report.PolicyReportResult, testResults []TestResults, rc *common.ResultCounts) error {
 	printer := tableprinter.New(os.Stdout)
 	table := []*Table{}
 	boldGreen := color.New(color.FgGreen).Add(color.Bold)
@@ -426,7 +426,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 			testRes = val
 		} else {
 			res.Result = boldYellow.Sprintf("Not found")
-			rc.fail++
+			rc.Fail++
 			table = append(table, res)
 			continue
 		}
@@ -436,14 +436,14 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 		if testRes.Result == v.Result {
 			if testRes.Result == report.StatusSkip {
 				res.Result = boldGreen.Sprintf("Pass")
-				rc.skip++
+				rc.Skip++
 			} else {
 				res.Result = boldGreen.Sprintf("Pass")
-				rc.pass++
+				rc.Pass++
 			}
 		} else {
 			res.Result = boldRed.Sprintf("Fail")
-			rc.fail++
+			rc.Fail++
 		}
 		table = append(table, res)
 	}
