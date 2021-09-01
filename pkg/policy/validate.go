@@ -29,6 +29,11 @@ import (
 // validateJSONPatchPathForForwardSlash checks for forward slash
 func validateJSONPatchPathForForwardSlash(patch string) error {
 
+	re, err := regexp.Compile("^/")
+	if err != nil {
+		return err
+	}
+
 	jsonPatch, err := yaml.ToJSON([]byte(patch))
 	if err != nil {
 		return err
@@ -45,10 +50,8 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 			return err
 		}
 
-		val, err := regexp.MatchString(`^/`, path)
-		if err != nil {
-			return err
-		}
+		val := re.MatchString(path)
+
 		if !val {
 			return fmt.Errorf("Path :%s", path)
 		}
