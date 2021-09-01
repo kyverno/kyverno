@@ -260,7 +260,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 
 	if len(mutatedPolicies) > 0 && len(resources) > 0 {
 		if !stdin {
-			fmt.Printf("\nApplying %s to %s... \n(Total number of result count may vary as the policy is mutated by Kyverno. To check the mutated policy please try with log level 5)", msgPolicies, msgResources)
+			fmt.Printf("\nApplying %s to %s... \n(Total number of result count may vary as the policy is mutated by Kyverno. To check the mutated policy please try with log level 5)\n", msgPolicies, msgResources)
 		}
 	}
 
@@ -287,6 +287,16 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 			}
 		}
 
+		kindOnwhichPolicyIsApplied := make(map[string]struct{})
+		for _, rule := range policy.Spec.Rules {
+			for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
+				kindOnwhichPolicyIsApplied[kind] = struct{}{}
+			}
+			for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
+				kindOnwhichPolicyIsApplied[kind] = struct{}{}
+			}
+		}
+
 		for _, resource := range resources {
 			// get values from file for this policy resource combination
 			thisPolicyResourceValues := make(map[string]string)
@@ -298,8 +308,11 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				thisPolicyResourceValues[k] = v
 			}
 
-			if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && len(store.GetContext().Policies) == 0 {
-				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
+			// skipping the variable check for non matching kind
+			if _, ok := kindOnwhichPolicyIsApplied[resource.GetKind()]; ok {
+				if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && len(store.GetContext().Policies) == 0 {
+					return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.Name, resource.GetName()), err)
+				}
 			}
 
 			validateErs, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin, rc)
@@ -350,7 +363,7 @@ func printReportOrViolation(policyReport bool, validateEngineResponses []*respon
 		os.Setenv("POLICY-TYPE", pkgCommon.PolicyReport)
 		resps := buildPolicyReports(validateEngineResponses)
 		if len(resps) > 0 || resourcesLen == 0 {
-			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
+			fmt.Println("\n----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
 			report, _ := generateCLIRaw(resps)
 			yamlReport, _ := yaml1.Marshal(report)
 			fmt.Println(string(yamlReport))
