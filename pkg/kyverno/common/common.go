@@ -16,6 +16,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -25,6 +26,7 @@ import (
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/policymutation"
+	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/utils"
 	ut "github.com/kyverno/kyverno/pkg/utils"
 	yamlv2 "gopkg.in/yaml.v2"
@@ -514,7 +516,7 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts) (*response.EngineResponse, error) {
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts) (*response.EngineResponse, policyreport.Info, error) {
 
 	operationIsDelete := false
 
@@ -539,7 +541,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		resourceNamespace := resource.GetNamespace()
 		namespaceLabels = namespaceSelectorMap[resource.GetNamespace()]
 		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-			return &response.EngineResponse{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
+			return &response.EngineResponse{}, policyreport.Info{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
 		}
 	}
 
@@ -579,7 +581,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		if len(mutateResponse.PolicyResponse.Rules) > 0 {
 			yamlEncodedResource, err := yamlv2.Marshal(mutateResponse.PatchedResource.Object)
 			if err != nil {
-				return &response.EngineResponse{}, sanitizederror.NewWithError("failed to marshal", err)
+				return &response.EngineResponse{}, policyreport.Info{}, sanitizederror.NewWithError("failed to marshal", err)
 			}
 
 			if mutateLogPath == "" {
@@ -594,7 +596,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			} else {
 				err := PrintMutatedOutput(mutateLogPath, mutateLogPathIsDir, string(yamlEncodedResource), resource.GetName()+"-mutated")
 				if err != nil {
-					return &response.EngineResponse{}, sanitizederror.NewWithError("failed to print mutated result", err)
+					return &response.EngineResponse{}, policyreport.Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
 				}
 				fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
 			}
@@ -612,34 +614,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 
 	policyCtx := &engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels}
 	validateResponse := engine.Validate(policyCtx)
-	printCount := 0
-	if !policyReport {
-		for _, policyRule := range policy.Spec.Rules {
-			ruleFoundInEngineResponse := false
-
-			for i, valResponseRule := range validateResponse.PolicyResponse.Rules {
-				if policyRule.Name == valResponseRule.Name {
-					ruleFoundInEngineResponse = true
-					if valResponseRule.Success {
-						rc.Pass++
-					} else {
-						if printCount < 1 {
-							fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.Name, resPath)
-							printCount++
-						}
-
-						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name, valResponseRule.Message)
-						rc.Fail++
-					}
-					continue
-				}
-			}
-
-			if !ruleFoundInEngineResponse {
-				rc.Skip++
-			}
-		}
-	}
+	info := checkValidateEngineResponse(policy, validateResponse, resPath, rc)
 
 	var policyHasGenerate bool
 	for _, rule := range policy.Spec.Rules {
@@ -673,7 +648,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		}
 	}
 
-	return validateResponse, nil
+	return validateResponse, info, nil
 }
 
 // PrintMutatedOutput - function to print output in provided file or directory
@@ -797,4 +772,66 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 
 	}
 	return resources, err
+}
+
+func checkValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts) policyreport.Info {
+	var violatedRules []v1.ViolatedRule
+	printCount := 0
+	for _, policyRule := range policy.Spec.Rules {
+		ruleFoundInEngineResponse := false
+
+		for i, valResponseRule := range validateResponse.PolicyResponse.Rules {
+			if policyRule.Name == valResponseRule.Name {
+				ruleFoundInEngineResponse = true
+				vrule := v1.ViolatedRule{
+					Name:    valResponseRule.Name,
+					Type:    valResponseRule.Type,
+					Message: valResponseRule.Message,
+				}
+
+				if valResponseRule.Success {
+					rc.Pass++
+					vrule.Check = report.StatusPass
+				} else {
+					if printCount < 1 {
+						fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.Name, resPath)
+						printCount++
+					}
+
+					fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name, valResponseRule.Message)
+					rc.Fail++
+					vrule.Check = report.StatusFail
+				}
+				violatedRules = append(violatedRules, vrule)
+				continue
+			}
+		}
+
+		if !ruleFoundInEngineResponse {
+			rc.Skip++
+			vruleSkip := v1.ViolatedRule{
+				Name:    policyRule.Name,
+				Type:    "Validation",
+				Message: policyRule.Validation.Message,
+				Check:   report.StatusSkip,
+			}
+			violatedRules = append(violatedRules, vruleSkip)
+		}
+
+	}
+	return buildPVInfo(validateResponse, violatedRules)
+}
+
+func buildPVInfo(er *response.EngineResponse, violatedRules []v1.ViolatedRule) policyreport.Info {
+	info := policyreport.Info{
+		PolicyName: er.PolicyResponse.Policy.Name,
+		Namespace:  er.PatchedResource.GetNamespace(),
+		Results: []policyreport.EngineResponseResult{
+			{
+				Resource: er.GetResourceSpec(),
+				Rules:    violatedRules,
+			},
+		},
+	}
+	return info
 }

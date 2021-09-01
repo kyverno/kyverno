@@ -85,7 +85,7 @@ func Test_NamespaceSelector(t *testing.T) {
 	for _, tc := range testcases {
 		policyArray, _ := ut.GetPolicy(tc.policy)
 		resourceArray, _ := GetResource(tc.resource)
-		validateErs, _ := ApplyPolicyOnResource(policyArray[0], resourceArray[0], "", false, nil, false, tc.namespaceSelectorMap, false, nil)
+		validateErs, _, _ := ApplyPolicyOnResource(policyArray[0], resourceArray[0], "", false, nil, false, tc.namespaceSelectorMap, false, nil)
 		assert.Assert(t, tc.success == validateErs.IsSuccessful())
 	}
 }

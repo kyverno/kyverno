@@ -72,7 +72,7 @@ var engineResponses = []*response.EngineResponse{
 
 func Test_buildPolicyReports(t *testing.T) {
 	os.Setenv("POLICY-TYPE", common.PolicyReport)
-	reports := buildPolicyReports(engineResponses)
+	reports := buildPolicyReports(engineResponses, nil)
 	assert.Assert(t, len(reports) == 2, len(reports))
 
 	for _, report := range reports {
@@ -97,7 +97,7 @@ func Test_buildPolicyReports(t *testing.T) {
 func Test_buildPolicyResults(t *testing.T) {
 	os.Setenv("POLICY-TYPE", common.PolicyReport)
 
-	results := buildPolicyResults(engineResponses)
+	results := buildPolicyResults(engineResponses, nil)
 	assert.Assert(t, len(results[clusterpolicyreport]) == 2, len(results[clusterpolicyreport]))
 	assert.Assert(t, len(results["policyreport-ns-policy1-namespace"]) == 2, len(results["policyreport-ns-policy1-namespace"]))
 

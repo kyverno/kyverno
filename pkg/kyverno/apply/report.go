@@ -21,11 +21,11 @@ import (
 const clusterpolicyreport = "clusterpolicyreport"
 
 // resps is the engine responses generated for a single policy
-func buildPolicyReports(resps []*response.EngineResponse) (res []*unstructured.Unstructured) {
+func buildPolicyReports(resps []*response.EngineResponse, pvInfos []policyreport.Info) (res []*unstructured.Unstructured) {
 	var raw []byte
 	var err error
 
-	resultsMap := buildPolicyResults(resps)
+	resultsMap := buildPolicyResults(resps, pvInfos)
 	for scope, result := range resultsMap {
 		if scope == clusterpolicyreport {
 			report := &report.ClusterPolicyReport{
@@ -74,9 +74,8 @@ func buildPolicyReports(resps []*response.EngineResponse) (res []*unstructured.U
 
 // buildPolicyResults returns a string-PolicyReportResult map
 // the key of the map is one of "clusterpolicyreport", "policyreport-ns-<namespace>"
-func buildPolicyResults(resps []*response.EngineResponse) map[string][]*report.PolicyReportResult {
+func buildPolicyResults(resps []*response.EngineResponse, infos []policyreport.Info) map[string][]*report.PolicyReportResult {
 	results := make(map[string][]*report.PolicyReportResult)
-	infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, info := range infos {

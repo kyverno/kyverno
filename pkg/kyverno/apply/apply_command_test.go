@@ -56,8 +56,8 @@ func Test_Apply(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		validateEngineResponses, _, _, _, _ := applyCommandHelper(tc.ResourcePaths, false, true, "", "", "", "", tc.PolicyPaths, false)
-		resps := buildPolicyReports(validateEngineResponses)
+		validateEngineResponses, _, _, _, info, _ := applyCommandHelper(tc.ResourcePaths, false, true, "", "", "", "", tc.PolicyPaths, false)
+		resps := buildPolicyReports(validateEngineResponses, info)
 		for i, resp := range resps {
 			compareSummary(tc.expectedPolicyReports[i].Summary, resp.UnstructuredContent()["summary"].(map[string]interface{}))
 		}
