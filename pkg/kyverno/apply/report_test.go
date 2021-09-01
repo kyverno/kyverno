@@ -140,23 +140,19 @@ func Test_buildPolicyResults(t *testing.T) {
 	info := kyvCommon.CheckValidateEngineResponse(&policy, &er, "", rc, true)
 	pvInfos = append(pvInfos, info)
 
-	results := buildPolicyReports(pvInfos)
+	results := buildPolicyResults(pvInfos)
 
-	// results := buildPolicyResults(engineResponses, nil)
-	// assert.Assert(t, len(results[clusterpolicyreport]) == 2, len(results[clusterpolicyreport]))
-	// assert.Assert(t, len(results["policyreport-ns-policy1-namespace"]) == 2, len(results["policyreport-ns-policy1-namespace"]))
-
-	// for _, result := range results {
-	// 	assert.Assert(t, len(result) == 2, len(result))
-	// 	for _, r := range result {
-	// 		switch r.Rule {
-	// 		case "policy1-rule1", "clusterpolicy2-rule1":
-	// 			assert.Assert(t, r.Result == report.PolicyResult(preport.StatusPass))
-	// 		case "policy1-rule2", "clusterpolicy2-rule2":
-	// 			assert.Assert(t, r.Result == report.PolicyResult(preport.StatusFail))
-	// 		}
-	// 	}
-	// }
+	for _, result := range results {
+		assert.Assert(t, len(result) == 2, len(result))
+		for _, r := range result {
+			switch r.Rule {
+			case "pods-require-limits":
+				assert.Assert(t, r.Result == report.PolicyResult(preport.StatusPass))
+			case "pods-require-account":
+				assert.Assert(t, r.Result == report.PolicyResult(preport.StatusFail))
+			}
+		}
+	}
 }
 
 func Test_calculateSummary(t *testing.T) {
