@@ -46,9 +46,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Test Policy
-        run: |
-          make test-cmd
+      # - name: Test Policy
+      #   run: |
+      #     make test-cmd
       
       - name: gofmt check
         run: |
