@@ -614,7 +614,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 
 	policyCtx := &engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels}
 	validateResponse := engine.Validate(policyCtx)
-	info := checkValidateEngineResponse(policy, validateResponse, resPath, rc, policyReport)
+	info := CheckValidateEngineResponse(policy, validateResponse, resPath, rc, policyReport)
 
 	var policyHasGenerate bool
 	for _, rule := range policy.Spec.Rules {
@@ -774,7 +774,7 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 	return resources, err
 }
 
-func checkValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) policyreport.Info {
+func CheckValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) policyreport.Info {
 	var violatedRules []v1.ViolatedRule
 	printCount := 0
 	for _, policyRule := range policy.Spec.Rules {
