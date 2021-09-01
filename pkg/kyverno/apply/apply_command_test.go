@@ -31,12 +31,12 @@ func Test_Apply(t *testing.T) {
 			},
 		},
 		{
-			PolicyPaths:   []string{"../../../test/best_practices/require_pod_requests_limits.yaml"},
+			PolicyPaths:   []string{"../../../test/best_practices/disallow_latest_tag.yaml"},
 			ResourcePaths: []string{"../../../test/resources/pod_with_latest_tag.yaml"},
 			expectedPolicyReports: []preport.PolicyReport{
 				{
 					Summary: preport.PolicyReportSummary{
-						Pass:  0,
+						Pass:  1,
 						Fail:  1,
 						Skip:  0,
 						Error: 0,
@@ -56,8 +56,8 @@ func Test_Apply(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		validateEngineResponses, _, _, _, info, _ := applyCommandHelper(tc.ResourcePaths, false, true, "", "", "", "", tc.PolicyPaths, false)
-		resps := buildPolicyReports(validateEngineResponses, info)
+		_, _, _, info, _ := applyCommandHelper(tc.ResourcePaths, false, true, "", "", "", "", tc.PolicyPaths, false)
+		resps := buildPolicyReports(info)
 		for i, resp := range resps {
 			compareSummary(tc.expectedPolicyReports[i].Summary, resp.UnstructuredContent()["summary"].(map[string]interface{}))
 		}
