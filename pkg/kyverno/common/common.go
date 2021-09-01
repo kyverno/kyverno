@@ -612,9 +612,19 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		}
 	}
 
-	policyCtx := &engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels}
-	validateResponse := engine.Validate(policyCtx)
-	info := CheckValidateEngineResponse(policy, validateResponse, resPath, rc, policyReport)
+	var policyHasValidate bool
+	for _, rule := range policy.Spec.Rules {
+		if rule.HasValidate() {
+			policyHasValidate = true
+		}
+	}
+
+	var info policyreport.Info
+	if policyHasValidate {
+		policyCtx := &engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels}
+		validateResponse := engine.Validate(policyCtx)
+		info = CheckValidateEngineResponse(policy, validateResponse, resPath, rc, policyReport)
+	}
 
 	var policyHasGenerate bool
 	for _, rule := range policy.Spec.Rules {
@@ -635,17 +645,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			NamespaceLabels: namespaceLabels,
 		}
 		generateResponse := engine.Generate(policyContext)
-		engineResponses = append(engineResponses, generateResponse)
-		if len(generateResponse.PolicyResponse.Rules) > 0 {
-			log.Log.V(3).Info("generate resource is valid", "policy", policy.Name, "resource", resPath)
-		} else {
-			fmt.Printf("generate policy %s resource %s is invalid \n", policy.Name, resPath)
-			for i, r := range generateResponse.PolicyResponse.Rules {
-				fmt.Printf("%d. %s \b", i+1, r.Message)
-			}
-
-			// responseError = true
-		}
+		processGenerateEngineResponse(policy, generateResponse, resPath, rc)
 	}
 
 	return info, nil
@@ -790,9 +790,7 @@ func CheckValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *res
 				}
 
 				if valResponseRule.Success {
-					if !policyReport {
-						rc.Pass++
-					}
+					rc.Pass++
 					vrule.Check = report.StatusPass
 				} else {
 					if !policyReport {
@@ -800,12 +798,9 @@ func CheckValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *res
 							fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.Name, resPath)
 							printCount++
 						}
-
 						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name, valResponseRule.Message)
 					}
-					if !policyReport {
-						rc.Fail++
-					}
+					rc.Fail++
 					vrule.Check = report.StatusFail
 				}
 				violatedRules = append(violatedRules, vrule)
@@ -814,9 +809,7 @@ func CheckValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *res
 		}
 
 		if !ruleFoundInEngineResponse {
-			if !policyReport {
-				rc.Skip++
-			}
+			rc.Skip++
 			vruleSkip := v1.ViolatedRule{
 				Name:    policyRule.Name,
 				Type:    "Validation",
@@ -842,4 +835,30 @@ func buildPVInfo(er *response.EngineResponse, violatedRules []v1.ViolatedRule) p
 		},
 	}
 	return info
+}
+
+func processGenerateEngineResponse(policy *v1.ClusterPolicy, generateResponse *response.EngineResponse, resPath string, rc *ResultCounts) {
+	printCount := 0
+	for _, policyRule := range policy.Spec.Rules {
+		ruleFoundInEngineResponse := false
+		for i, genResponseRule := range generateResponse.PolicyResponse.Rules {
+			if policyRule.Name == genResponseRule.Name {
+				ruleFoundInEngineResponse = true
+				if genResponseRule.Success {
+					rc.Pass++
+				} else {
+					if printCount < 1 {
+						fmt.Printf("\ngenerate resource is valid", "policy", policy.Name, "resource", resPath)
+						printCount++
+					}
+					fmt.Printf("%d. %s \n", i+1, genResponseRule.Name)
+					rc.Fail++
+				}
+				continue
+			}
+		}
+		if !ruleFoundInEngineResponse {
+			rc.Skip++
+		}
+	}
 }
