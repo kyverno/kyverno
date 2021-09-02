@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
@@ -244,7 +243,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	}
 
 	if variablesString != "" {
-		variables = setInStoreContext(mutatedPolicies, variables)
+		variables = common.SetInStoreContext(mutatedPolicies, variables)
 	}
 
 	msgPolicies := "1 policy"
@@ -426,38 +425,4 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 	}
 
 	return nil
-}
-
-func setInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string]string) map[string]string {
-	storePolices := make([]store.Policy, 0)
-	for _, policy := range mutatedPolicies {
-		storeRules := make([]store.Rule, 0)
-		for _, rule := range policy.Spec.Rules {
-			contextVal := make(map[string]string)
-			if len(rule.Context) != 0 {
-				for _, contextVar := range rule.Context {
-					for k, v := range variables {
-						if strings.HasPrefix(k, contextVar.Name) {
-							contextVal[k] = v
-							delete(variables, k)
-						}
-					}
-				}
-				storeRules = append(storeRules, store.Rule{
-					Name:   rule.Name,
-					Values: contextVal,
-				})
-			}
-		}
-		storePolices = append(storePolices, store.Policy{
-			Name:  policy.Name,
-			Rules: storeRules,
-		})
-	}
-
-	store.SetContext(store.Context{
-		Policies: storePolices,
-	})
-
-	return variables
 }

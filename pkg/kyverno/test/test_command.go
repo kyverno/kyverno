@@ -16,7 +16,6 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/kataras/tablewriter"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -72,12 +71,6 @@ type Test struct {
 	Results   []TestResults `json:"results"`
 }
 
-type SkippedPolicy struct {
-	Name     string    `json:"name"`
-	Rules    []v1.Rule `json:"rules"`
-	Variable string    `json:"variable"`
-}
-
 type TestResults struct {
 	Policy   string              `json:"policy"`
 	Rule     string              `json:"rule"`
@@ -98,7 +91,9 @@ type Resource struct {
 
 type Table struct {
 	ID       int    `header:"#"`
-	Resource string `header:"test"`
+	Policy   string `header:"policy"`
+	Rule     string `header:"rule"`
+	Resource string `header:"resource"`
 	Result   string `header:"result"`
 }
 type Policy struct {
@@ -111,15 +106,15 @@ type Values struct {
 }
 
 type resultCounts struct {
-	skip int
-	pass int
-	fail int
+	Skip int
+	Pass int
+	Fail int
 }
 
-func testCommandExecute(dirPath []string, valuesFile string, fileName string) (rc *common.ResultCounts, err error) {
+func testCommandExecute(dirPath []string, valuesFile string, fileName string) (rc *resultCounts, err error) {
 	var errors []error
 	fs := memfs.New()
-	// rc = &resultCounts{}
+	rc = &resultCounts{}
 	var testYamlCount int
 	if len(dirPath) == 0 {
 		return rc, sanitizederror.NewWithError(fmt.Sprintf("a directory is required"), err)
@@ -130,7 +125,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 			return rc, sanitizederror.NewWithError("failed to parse URL", err)
 		}
 		pathElems := strings.Split(gitURL.Path[1:], "/")
-		if len(pathElems) <= 2 {
+		if len(pathElems) <= 1 {
 			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch", gitURL.Path)
 			fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
 			os.Exit(1)
@@ -138,6 +133,9 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 		gitURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 		repoURL := gitURL.String()
 		branch := strings.ReplaceAll(dirPath[0], repoURL+"/", "")
+		if branch == "" {
+			branch = "main"
+		}
 		_, cloneErr := clone(repoURL, fs, branch)
 		if cloneErr != nil {
 			fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
@@ -193,7 +191,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *common.ResultCounts) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts) []error {
 	var errors []error
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
@@ -226,7 +224,6 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 
 func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResults, infos []policyreport.Info) map[string]report.PolicyReportResult {
 	results := make(map[string]report.PolicyReportResult)
-	// infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 	for _, resp := range resps {
 		policyName := resp.PolicyResponse.Policy.Name
@@ -262,18 +259,14 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 				if rule.Type != utils.Validation.String() {
 					continue
 				}
-				ruleName := strings.ReplaceAll(rule.Name, "autogen-", "")
-				if strings.Contains(rule.Name, "autogen-cronjob") {
-					ruleName = strings.ReplaceAll(rule.Name, "autogen-cronjob-", "")
-				}
 				var result report.PolicyReportResult
-				resultsKey := fmt.Sprintf("%s-%s-%s", info.PolicyName, ruleName, infoResult.Resource.Name)
+				resultsKey := fmt.Sprintf("%s-%s-%s", info.PolicyName, rule.Name, infoResult.Resource.Name)
 				if val, ok := results[resultsKey]; ok {
 					result = val
 				} else {
 					continue
 				}
-				result.Rule = ruleName
+				result.Rule = rule.Name
 				result.Result = report.PolicyResult(rule.Check)
 				result.Source = policyreport.SourceValue
 				result.Timestamp = now
@@ -281,6 +274,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 			}
 		}
 	}
+
 	return results
 }
 
@@ -295,14 +289,14 @@ func getPolicyResourceFullPath(path []string, policyResourcePath string, isGit b
 	return path
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *common.ResultCounts) (err error) {
+func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts) (err error) {
 	openAPIController, err := openapi.NewOpenAPIController()
 	validateEngineResponses := make([]*response.EngineResponse, 0)
-	skippedPolicies := make([]SkippedPolicy, 0)
 	var dClient *client.Client
 	values := &Test{}
 	var variablesString string
 	var pvInfos []policyreport.Info
+	var resultCounts common.ResultCounts
 	store.SetMock(true)
 
 	if err := json.Unmarshal(policyBytes, values); err != nil {
@@ -311,7 +305,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 
 	fmt.Printf("\nExecuting %s...", values.Name)
 
-	_, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
+	variables, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to decode yaml", err)
@@ -335,6 +329,13 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		}
 	}
 
+	for _, policy := range mutatedPolicies {
+		p, err := json.Marshal(policy)
+		if err != nil {
+			return sanitizederror.NewWithError("failed to marsal mutated policy", err)
+		}
+		log.Log.V(5).Info("mutated Policy:", string(p))
+	}
 	resources, err := common.GetResourceAccordingToResourcePath(fs, fullResourcePath, false, mutatedPolicies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
@@ -355,6 +356,9 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
 	}
 
+	if variablesString != "" {
+		variables = common.SetInStoreContext(mutatedPolicies, variables)
+	}
 	for _, policy := range mutatedPolicies {
 		err := policy2.Validate(policy, nil, true, openAPIController)
 		if err != nil {
@@ -364,38 +368,35 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 
 		matches := common.PolicyHasVariables(*policy)
 		variable := common.RemoveDuplicateAndObjectVariables(matches)
-		if len(variable) > 0 && variablesString == "" && values.Variables == "" {
-			skipPolicy := SkippedPolicy{
-				Name:     policy.GetName(),
-				Rules:    policy.Spec.Rules,
-				Variable: variable,
+
+		kindOnwhichPolicyIsApplied := make(map[string]struct{})
+		for _, rule := range policy.Spec.Rules {
+			for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
+				kindOnwhichPolicyIsApplied[kind] = struct{}{}
 			}
-			skippedPolicies = append(skippedPolicies, skipPolicy)
-			log.Log.V(3).Info(fmt.Sprintf("skipping policy %s", policy.Name), "error", fmt.Sprintf("policy have variable - %s", variable))
-			continue
+			for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
+				kindOnwhichPolicyIsApplied[kind] = struct{}{}
+			}
 		}
+
 		for _, resource := range resources {
-			var resourcePolicy string
-			for polName, values := range valuesMap {
-				for resName := range values {
-					if resName == resource.GetName() {
-						resourcePolicy = polName
-					}
-				}
-			}
-			if len(valuesMap) != 0 && resourcePolicy != policy.GetName() {
-				log.Log.V(3).Info(fmt.Sprintf("Skipping resource, policy names do not match %s != %s", resourcePolicy, policy.GetName()))
-				continue
-			}
+
 			thisPolicyResourceValues := make(map[string]string)
 			if len(valuesMap[policy.GetName()]) != 0 && !reflect.DeepEqual(valuesMap[policy.GetName()][resource.GetName()], Resource{}) {
 				thisPolicyResourceValues = valuesMap[policy.GetName()][resource.GetName()].Values
 			}
-			if len(variable) > 0 && len(thisPolicyResourceValues) == 0 {
-				return sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
+			for k, v := range variables {
+				thisPolicyResourceValues[k] = v
 			}
 
-			validateErs, info, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false, nil)
+			// skipping the variable check for non matching kind
+			if _, ok := kindOnwhichPolicyIsApplied[resource.GetKind()]; ok {
+				if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && len(store.GetContext().Policies) == 0 {
+					return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.Name, resource.GetName()), err)
+				}
+			}
+
+			validateErs, info, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false, &resultCounts)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}
@@ -411,7 +412,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	return
 }
 
-func printTestResult(resps map[string]report.PolicyReportResult, testResults []TestResults, rc *common.ResultCounts) error {
+func printTestResult(resps map[string]report.PolicyReportResult, testResults []TestResults, rc *resultCounts) error {
 	printer := tableprinter.New(os.Stdout)
 	table := []*Table{}
 	boldGreen := color.New(color.FgGreen).Add(color.Bold)
@@ -421,7 +422,9 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 	for i, v := range testResults {
 		res := new(Table)
 		res.ID = i + 1
-		res.Resource = boldFgCyan.Sprintf(v.Resource) + " with " + boldFgCyan.Sprintf(v.Policy) + "/" + boldFgCyan.Sprintf(v.Rule)
+		res.Policy = boldFgCyan.Sprintf(v.Policy)
+		res.Rule = boldFgCyan.Sprintf(v.Rule)
+		res.Resource = boldFgCyan.Sprintf(v.Resource)
 		resultKey := fmt.Sprintf("%s-%s-%s", v.Policy, v.Rule, v.Resource)
 		var testRes report.PolicyReportResult
 		if val, ok := resps[resultKey]; ok {
