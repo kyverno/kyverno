@@ -30,6 +30,7 @@ type EngineStats struct {
 
 func checkKind(kinds []string, resource unstructured.Unstructured) bool {
 	for _, kind := range kinds {
+		kind = strings.Title(kind)
 		SplitGVK := strings.Split(kind, "/")
 		if len(SplitGVK) == 1 {
 			if resource.GetKind() == kind {

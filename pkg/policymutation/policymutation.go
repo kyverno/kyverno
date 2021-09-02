@@ -90,7 +90,7 @@ func checkForGVKFormatPatch(policy *kyverno.ClusterPolicy, log logr.Logger) (pat
 	for i, rule := range policy.Spec.Rules {
 		kindList := []string{}
 		for _, k := range rule.MatchResources.Kinds {
-			kindList = append(kindList, getFormatedKind(k))
+			kindList = append(kindList, common.GetFormatedKind(k))
 		}
 		jsonPatch := struct {
 			Path  string   `json:"path"`
@@ -108,17 +108,6 @@ func checkForGVKFormatPatch(policy *kyverno.ClusterPolicy, log logr.Logger) (pat
 		patches = append(patches, patchByte)
 	}
 	return patches, errs
-}
-
-func getFormatedKind(str string) (kind string) {
-	if strings.Count(str, "/") == 0 {
-		return strings.Title(str)
-	}
-	splitString := strings.Split(str, "/")
-	if strings.Count(str, "/") == 1 {
-		return splitString[0] + "/" + strings.Title(splitString[1])
-	}
-	return splitString[0] + "/" + splitString[1] + "/" + strings.Title(splitString[2])
 }
 
 func convertPatchToJSON6902(policy *kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
