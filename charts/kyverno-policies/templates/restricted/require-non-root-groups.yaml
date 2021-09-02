@@ -1,5 +1,5 @@
 {{- $name := "require-non-root-groups" }}
-{{- if eq (include "kyverno.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
+{{- if eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -11,7 +11,7 @@ metadata:
     {{- end }}
     policies.kyverno.io/description: >-
       Containers should be forbidden from running with a root primary or supplementary GID.
-  labels: {{ include "kyverno.labels" . | nindent 4 }}
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
     app: kyverno
 spec:
   background: true

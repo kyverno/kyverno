@@ -1,5 +1,5 @@
 {{- $name := "restrict-sysctls" }}
-{{- if eq (include "kyverno.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
+{{- if eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -14,7 +14,7 @@ metadata:
       host, and should be disallowed except for an allowed "safe" subset. A
       sysctl is considered safe if it is namespaced in the container or the
       Pod, and it is isolated from other Pods or processes on the same Node.
-  labels: {{ include "kyverno.labels" . | nindent 4 }}
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
     app: kyverno
 spec:
   validationFailureAction: {{ .Values.validationFailureAction }}
