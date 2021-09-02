@@ -7,11 +7,10 @@ import (
 )
 
 func (pm PromMetrics) registerAdmissionRequestsMetric(
-	resourceName, resourceKind, resourceNamespace string,
+	resourceKind, resourceNamespace string,
 	resourceRequestOperation metrics.ResourceRequestOperation,
 ) error {
 	pm.AdmissionRequests.With(prom.Labels{
-		"resource_name":              resourceName,
 		"resource_kind":              resourceKind,
 		"resource_namespace":         resourceNamespace,
 		"resource_request_operation": string(resourceRequestOperation),
@@ -23,7 +22,7 @@ func (pm PromMetrics) ProcessEngineResponses(engineResponses []*response.EngineR
 	if len(engineResponses) == 0 {
 		return nil
 	}
-	resourceName, resourceNamespace, resourceKind := engineResponses[0].PolicyResponse.Resource.Name, engineResponses[0].PolicyResponse.Resource.Namespace, engineResponses[0].PolicyResponse.Resource.Kind
+	resourceNamespace, resourceKind := engineResponses[0].PolicyResponse.Resource.Namespace, engineResponses[0].PolicyResponse.Resource.Kind
 	totalValidateRulesCount, totalMutateRulesCount, totalGenerateRulesCount := 0, 0, 0
 	for _, e := range engineResponses {
 		validateRulesCount, mutateRulesCount, generateRulesCount := 0, 0, 0
@@ -49,5 +48,5 @@ func (pm PromMetrics) ProcessEngineResponses(engineResponses []*response.EngineR
 	if totalValidateRulesCount+totalMutateRulesCount+totalGenerateRulesCount == 0 {
 		return nil
 	}
-	return pm.registerAdmissionRequestsMetric(resourceName, resourceKind, resourceNamespace, resourceRequestOperation)
+	return pm.registerAdmissionRequestsMetric(resourceKind, resourceNamespace, resourceRequestOperation)
 }

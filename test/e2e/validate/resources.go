@@ -52,6 +52,53 @@ spec:
               value:  "{{request.object.metadata.namespace}}"
 `)
 
+var kyverno_2241_policy = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: flux-multi-tenancy
+spec:
+  validationFailureAction: enforce
+  rules:
+    - name: serviceAccountName
+      exclude:
+        resources:
+          namespaces:
+            - flux-system
+      match:
+        resources:
+          kinds:
+            - Kustomization
+            - HelmRelease
+      validate:
+        message: ".spec.serviceAccountName is required"
+        pattern:
+          spec:
+            serviceAccountName: "?*"
+    - name: sourceRefNamespace
+      exclude:
+        resources:
+          namespaces:
+            - flux-system
+      match:
+        resources:
+          kinds:
+            - Kustomization
+            - HelmRelease
+      preconditions:
+        any:
+        - key: "{{request.object.spec.sourceRef.namespace}}"
+          operator: NotEquals
+          value: ""
+      validate:
+        message: "spec.sourceRef.namespace must be the same as metadata.namespace"
+        deny:
+          conditions:
+            - key: "{{request.object.spec.sourceRef.namespace}}"
+              operator: NotEquals
+              value:  "{{request.object.metadata.namespace}}"
+`)
+
 var kyverno_2043_FluxCRD = []byte(`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -494,6 +541,23 @@ spec:
   sourceRef:
     kind: GitRepository
     name: dev-team
+  prune: true
+  validation: client
+`)
+
+var kyverno_2241_FluxKustomization = []byte(`
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: tenants
+  namespace: test-validate
+spec:
+  serviceAccountName: dev-team
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./tenants/production
   prune: true
   validation: client
 `)

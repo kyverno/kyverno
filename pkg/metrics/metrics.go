@@ -25,7 +25,7 @@ func NewPromConfig() *PromConfig {
 
 	policyResultsLabels := []string{
 		"policy_validation_mode", "policy_type", "policy_background_mode", "policy_name", "policy_namespace",
-		"resource_name", "resource_kind", "resource_namespace", "resource_request_operation",
+		"resource_kind", "resource_namespace", "resource_request_operation",
 		"rule_name", "rule_result", "rule_type", "rule_execution_cause",
 	}
 	policyResultsMetric := prom.NewCounterVec(
@@ -60,7 +60,7 @@ func NewPromConfig() *PromConfig {
 
 	policyExecutionDurationLabels := []string{
 		"policy_validation_mode", "policy_type", "policy_background_mode", "policy_name", "policy_namespace",
-		"resource_name", "resource_kind", "resource_namespace", "resource_request_operation",
+		"resource_kind", "resource_namespace", "resource_request_operation",
 		"rule_name", "rule_result", "rule_type", "rule_execution_cause", "generate_rule_latency_type",
 	}
 	policyExecutionDurationMetric := prom.NewHistogramVec(
@@ -72,7 +72,7 @@ func NewPromConfig() *PromConfig {
 	)
 
 	admissionReviewDurationLabels := []string{
-		"resource_name", "resource_kind", "resource_namespace", "resource_request_operation",
+		"resource_kind", "resource_namespace", "resource_request_operation",
 	}
 	admissionReviewDurationMetric := prom.NewHistogramVec(
 		prom.HistogramOpts{
@@ -83,7 +83,7 @@ func NewPromConfig() *PromConfig {
 	)
 
 	admissionRequestsLabels := []string{
-		"resource_name", "resource_kind", "resource_namespace", "resource_request_operation",
+		"resource_kind", "resource_namespace", "resource_request_operation",
 	}
 	admissionRequestsMetric := prom.NewCounterVec(
 		prom.CounterOpts{
