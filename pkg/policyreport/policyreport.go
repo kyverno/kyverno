@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	"github.com/cornelk/hashmap"
-	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha2"
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	changerequestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
-	policyreportlister "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha1"
+	changerequestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
+	policyreportlister "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -181,7 +181,7 @@ func updateSummary(results []interface{}) map[string]interface{} {
 			continue
 		}
 
-		switch typedResult["status"].(string) {
+		switch typedResult["result"].(string) {
 		case report.StatusPass:
 			pass, _ := summary[report.StatusPass].(int64)
 			summary[report.StatusPass] = pass + 1

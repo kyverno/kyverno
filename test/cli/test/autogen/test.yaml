@@ -6,47 +6,47 @@ results:
 # TEST: Pod with Labels Should Pass
 - policy: require-common-labels
   rule: check-for-labels
-  status: pass
+  result: pass
   resource: pod-with-labels
 
 # TEST: Pod Missing Labels Should Fail
 - policy: require-common-labels
   rule: check-for-labels
-  status: fail
+  result: fail
   resource: pod-missing-labels
 
 # TEST: Deployment with Labels Should Pass
 - policy: require-common-labels
   rule: check-for-labels
-  status: pass
+  result: pass
   resource: deployment-with-labels
 
 # TEST: Deployment with Labels Should Fail
 - policy: require-common-labels
   rule: check-for-labels
-  status: fail
+  result: fail
   resource: deployment-missing-labels
 
 # TEST: StatefulSet with Labels Should Pass
 - policy: require-common-labels
   rule: check-for-labels
-  status: pass
+  result: pass
   resource: StatefulSet-with-labels
 
 # TEST: StatefulSet with Labels Should fail
 - policy: require-common-labels
   rule: check-for-labels
-  status: fail
+  result: fail
   resource: StatefulSet-without-labels
 
 # TEST: Cronjob with Labels Should pass
 - policy: require-common-labels
   rule: check-for-labels
-  status: pass
+  result: pass
   resource: cronjob-with-labels
 
 # TEST: Cronjob without Labels Should fail
 - policy: require-common-labels
   rule: check-for-labels
-  status: fail
+  result: fail
   resource: cronjob-without-labels

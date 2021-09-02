@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -22,7 +22,7 @@ func Test_mergeClusterReport(t *testing.T) {
 				"results": []interface{}{
 					map[string]interface{}{
 						"policy":    "ns-polr-1",
-						"status":    report.StatusPass,
+						"result":    report.StatusPass,
 						"resources": make([]interface{}, 10),
 					},
 				},
@@ -38,7 +38,7 @@ func Test_mergeClusterReport(t *testing.T) {
 				"results": []interface{}{
 					map[string]interface{}{
 						"policy":    "ns-polr-2",
-						"status":    report.StatusPass,
+						"result":    report.StatusPass,
 						"resources": make([]interface{}, 5),
 					},
 				},
@@ -52,7 +52,7 @@ func Test_mergeClusterReport(t *testing.T) {
 				"results": []interface{}{
 					map[string]interface{}{
 						"policy":    "polr-3",
-						"status":    report.StatusPass,
+						"result":    report.StatusPass,
 						"resources": make([]interface{}, 1),
 					},
 				},
@@ -68,7 +68,7 @@ func Test_mergeClusterReport(t *testing.T) {
 				"results": []interface{}{
 					map[string]interface{}{
 						"policy": "cpolr-4",
-						"status": report.StatusFail,
+						"result": report.StatusFail,
 					},
 				},
 			},
@@ -83,7 +83,7 @@ func Test_mergeClusterReport(t *testing.T) {
 				"results": []interface{}{
 					map[string]interface{}{
 						"policy": "cpolr-5",
-						"status": report.StatusFail,
+						"result": report.StatusFail,
 					},
 				},
 			},
@@ -93,21 +93,21 @@ func Test_mergeClusterReport(t *testing.T) {
 	expectedResults := []interface{}{
 		map[string]interface{}{
 			"policy":    "ns-polr-2",
-			"status":    report.StatusPass,
+			"result":    report.StatusPass,
 			"resources": make([]interface{}, 5),
 		},
 		map[string]interface{}{
 			"policy":    "polr-3",
-			"status":    report.StatusPass,
+			"result":    report.StatusPass,
 			"resources": make([]interface{}, 1),
 		},
 		map[string]interface{}{
 			"policy": "cpolr-4",
-			"status": report.StatusFail,
+			"result": report.StatusFail,
 		},
 		map[string]interface{}{
 			"policy": "cpolr-5",
-			"status": report.StatusFail,
+			"result": report.StatusFail,
 		},
 	}
 
@@ -131,17 +131,17 @@ func Test_mergeClusterReport(t *testing.T) {
 func Test_updateSummary(t *testing.T) {
 	results := []interface{}{
 		map[string]interface{}{
-			"status":    report.StatusPass,
+			"result":    report.StatusPass,
 			"resources": make([]interface{}, 5),
 		},
 		map[string]interface{}{
-			"status": report.StatusFail,
+			"result": report.StatusFail,
 		},
 		map[string]interface{}{
-			"status": report.StatusFail,
+			"result": report.StatusFail,
 		},
 		map[string]interface{}{
-			"status": report.StatusFail,
+			"result": report.StatusFail,
 		},
 	}
 
