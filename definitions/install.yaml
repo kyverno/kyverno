@@ -3764,7 +3764,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: v1.4.2
-  name: init-config
+  name: kyverno
   namespace: kyverno
 ---
 apiVersion: v1
@@ -3848,8 +3848,6 @@ spec:
     spec:
       containers:
       - args:
-        - --filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]
-        - -v=2
         env:
         - name: INIT_CONFIG
           value: init-config
