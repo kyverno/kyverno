@@ -335,9 +335,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			return sanitizederror.NewWithError("failed to marsal mutated policy", err)
 		}
 		log.Log.V(5).Info("mutated Policy:", string(p))
-
 	}
-
 	resources, err := common.GetResourceAccordingToResourcePath(fs, fullResourcePath, false, mutatedPolicies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
@@ -361,7 +359,6 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	if variablesString != "" {
 		variables = common.SetInStoreContext(mutatedPolicies, variables)
 	}
-
 	for _, policy := range mutatedPolicies {
 		err := policy2.Validate(policy, nil, true, openAPIController)
 		if err != nil {
