@@ -313,7 +313,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				}
 			}
 
-			info, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin, rc)
+			_, info, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin, rc)
 			if err != nil {
 				return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}

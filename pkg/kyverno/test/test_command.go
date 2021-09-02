@@ -224,9 +224,9 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 	return errors
 }
 
-func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResults) map[string]report.PolicyReportResult {
+func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResults, infos []policyreport.Info) map[string]report.PolicyReportResult {
 	results := make(map[string]report.PolicyReportResult)
-	infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
+	// infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 	for _, resp := range resps {
 		policyName := resp.PolicyResponse.Policy.Name
@@ -302,6 +302,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	var dClient *client.Client
 	values := &Test{}
 	var variablesString string
+	var pvInfos []policyreport.Info
 	store.SetMock(true)
 
 	if err := json.Unmarshal(policyBytes, values); err != nil {
@@ -394,14 +395,15 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 				return sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
 			}
 
-			_, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false, nil)
+			validateErs, info, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false, nil)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}
-			// validateEngineResponses = append(validateEngineResponses, validateErs)
+			validateEngineResponses = append(validateEngineResponses, validateErs)
+			pvInfos = append(pvInfos, info)
 		}
 	}
-	resultsMap := buildPolicyResults(validateEngineResponses, values.Results)
+	resultsMap := buildPolicyResults(validateEngineResponses, values.Results, pvInfos)
 	resultErr := printTestResult(resultsMap, values.Results, rc)
 	if resultErr != nil {
 		return sanitizederror.NewWithError("Unable to genrate result. Error:", resultErr)
