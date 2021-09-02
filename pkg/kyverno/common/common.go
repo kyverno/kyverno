@@ -863,3 +863,37 @@ func processGenerateEngineResponse(policy *v1.ClusterPolicy, generateResponse *r
 		}
 	}
 }
+
+func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string]string) map[string]string {
+	storePolices := make([]store.Policy, 0)
+	for _, policy := range mutatedPolicies {
+		storeRules := make([]store.Rule, 0)
+		for _, rule := range policy.Spec.Rules {
+			contextVal := make(map[string]string)
+			if len(rule.Context) != 0 {
+				for _, contextVar := range rule.Context {
+					for k, v := range variables {
+						if strings.HasPrefix(k, contextVar.Name) {
+							contextVal[k] = v
+							delete(variables, k)
+						}
+					}
+				}
+				storeRules = append(storeRules, store.Rule{
+					Name:   rule.Name,
+					Values: contextVal,
+				})
+			}
+		}
+		storePolices = append(storePolices, store.Policy{
+			Name:  policy.Name,
+			Rules: storeRules,
+		})
+	}
+
+	store.SetContext(store.Context{
+		Policies: storePolices,
+	})
+
+	return variables
+}
