@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -116,43 +115,51 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 	fs := memfs.New()
 	rc = &resultCounts{}
 	var testYamlCount int
+
 	if len(dirPath) == 0 {
 		return rc, sanitizederror.NewWithError(fmt.Sprintf("a directory is required"), err)
 	}
+
 	if strings.Contains(string(dirPath[0]), "https://") {
 		gitURL, err := url.Parse(dirPath[0])
 		if err != nil {
 			return rc, sanitizederror.NewWithError("failed to parse URL", err)
 		}
+
 		pathElems := strings.Split(gitURL.Path[1:], "/")
 		if len(pathElems) <= 1 {
 			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch", gitURL.Path)
 			fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
 			os.Exit(1)
 		}
+
 		gitURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 		repoURL := gitURL.String()
 		branch := strings.ReplaceAll(dirPath[0], repoURL+"/", "")
 		if branch == "" {
 			branch = "main"
 		}
+
 		_, cloneErr := clone(repoURL, fs, branch)
 		if cloneErr != nil {
 			fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
 			log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
 			os.Exit(1)
 		}
+
 		policyYamls, err := listYAMLs(fs, "/")
 		if err != nil {
 			return rc, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
 		}
 		sort.Strings(policyYamls)
+
 		for _, yamlFilePath := range policyYamls {
 			file, err := fs.Open(yamlFilePath)
 			if err != nil {
 				errors = append(errors, sanitizederror.NewWithError("Error: failed to open file", err))
 				continue
 			}
+
 			if strings.Contains(file.Name(), fileName) {
 				testYamlCount++
 				policyresoucePath := strings.Trim(yamlFilePath, fileName)
@@ -161,23 +168,28 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 					errors = append(errors, sanitizederror.NewWithError("Error: failed to read file", err))
 					continue
 				}
+
 				policyBytes, err := yaml.ToJSON(bytes)
 				if err != nil {
 					errors = append(errors, sanitizederror.NewWithError("failed to convert to JSON", err))
 					continue
 				}
+
 				if err := applyPoliciesFromPath(fs, policyBytes, valuesFile, true, policyresoucePath, rc); err != nil {
 					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
 			}
 		}
+
 		if testYamlCount == 0 {
 			fmt.Printf("\n No test yamls available \n")
 		}
+
 	} else {
 		path := filepath.Clean(dirPath[0])
 		errors = getLocalDirTestFiles(fs, path, fileName, valuesFile, rc)
 	}
+
 	if len(errors) > 0 && log.Log.V(1).Enabled() {
 		fmt.Printf("ignoring errors: \n")
 		for _, e := range errors {
@@ -329,13 +341,11 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		}
 	}
 
-	for _, policy := range mutatedPolicies {
-		p, err := json.Marshal(policy)
-		if err != nil {
-			return sanitizederror.NewWithError("failed to marsal mutated policy", err)
-		}
-		log.Log.V(5).Info("mutated Policy:", string(p))
+	err = common.PrintMutatedPolicy(mutatedPolicies)
+	if err != nil {
+		return sanitizederror.NewWithError("failed to print mutated policy", err)
 	}
+
 	resources, err := common.GetResourceAccordingToResourcePath(fs, fullResourcePath, false, mutatedPolicies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
@@ -368,32 +378,12 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 
 		matches := common.PolicyHasVariables(*policy)
 		variable := common.RemoveDuplicateAndObjectVariables(matches)
-
-		kindOnwhichPolicyIsApplied := make(map[string]struct{})
-		for _, rule := range policy.Spec.Rules {
-			for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
-				kindOnwhichPolicyIsApplied[kind] = struct{}{}
-			}
-			for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-				kindOnwhichPolicyIsApplied[kind] = struct{}{}
-			}
-		}
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
 
 		for _, resource := range resources {
-
-			thisPolicyResourceValues := make(map[string]string)
-			if len(valuesMap[policy.GetName()]) != 0 && !reflect.DeepEqual(valuesMap[policy.GetName()][resource.GetName()], Resource{}) {
-				thisPolicyResourceValues = valuesMap[policy.GetName()][resource.GetName()].Values
-			}
-			for k, v := range variables {
-				thisPolicyResourceValues[k] = v
-			}
-
-			// skipping the variable check for non matching kind
-			if _, ok := kindOnwhichPolicyIsApplied[resource.GetKind()]; ok {
-				if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && len(store.GetContext().Policies) == 0 {
-					return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.Name, resource.GetName()), err)
-				}
+			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
+			if err != nil {
+				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.Name, resource.GetName()), err)
 			}
 
 			validateErs, info, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false, &resultCounts)

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
@@ -869,64 +870,108 @@ func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string
 }
 
 func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *response.EngineResponse, resPath string, rc *ResultCounts, mutateLogPath string, stdin bool, mutateLogPathIsDir bool, resourceName string) error {
-
 	var policyHasMutate bool
 	for _, rule := range policy.Spec.Rules {
 		if rule.HasMutate() {
 			policyHasMutate = true
 		}
 	}
-	if policyHasMutate {
+	if !policyHasMutate {
+		return nil
+	}
 
-		printCount := 0
-		printMutatedRes := false
-		for _, policyRule := range policy.Spec.Rules {
-			ruleFoundInEngineResponse := false
-			for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
-				if policyRule.Name == mutateResponseRule.Name {
-					ruleFoundInEngineResponse = true
-					if mutateResponseRule.Success {
-						rc.Pass++
-						printMutatedRes = true
-					} else {
-						if printCount < 1 {
-							fmt.Printf("\nFailed to apply mutate policy %s -> resource %s", policy.Name, resPath)
-							printCount++
-						}
-						fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name, mutateResponseRule.Message)
-						rc.Fail++
+	printCount := 0
+	printMutatedRes := false
+	for _, policyRule := range policy.Spec.Rules {
+		ruleFoundInEngineResponse := false
+		for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
+			if policyRule.Name == mutateResponseRule.Name {
+				ruleFoundInEngineResponse = true
+				if mutateResponseRule.Success {
+					rc.Pass++
+					printMutatedRes = true
+				} else {
+					if printCount < 1 {
+						fmt.Printf("\nFailed to apply mutate policy %s -> resource %s", policy.Name, resPath)
+						printCount++
 					}
-					continue
+					fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name, mutateResponseRule.Message)
+					rc.Fail++
 				}
-			}
-			if !ruleFoundInEngineResponse {
-				rc.Skip++
+				continue
 			}
 		}
-
-		if printMutatedRes {
-			yamlEncodedResource, err := yamlv2.Marshal(mutateResponse.PatchedResource.Object)
-			if err != nil {
-				return sanitizederror.NewWithError("failed to marshal", err)
-			}
-
-			if mutateLogPath == "" {
-				mutatedResource := string(yamlEncodedResource) + string("\n---")
-				if len(strings.TrimSpace(mutatedResource)) > 0 {
-					if !stdin {
-						fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
-					}
-					fmt.Printf("\n" + mutatedResource)
-					fmt.Printf("\n")
-				}
-			} else {
-				err := PrintMutatedOutput(mutateLogPath, mutateLogPathIsDir, string(yamlEncodedResource), resourceName+"-mutated")
-				if err != nil {
-					return sanitizederror.NewWithError("failed to print mutated result", err)
-				}
-				fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
-			}
+		if !ruleFoundInEngineResponse {
+			rc.Skip++
 		}
 	}
+
+	if printMutatedRes {
+		yamlEncodedResource, err := yamlv2.Marshal(mutateResponse.PatchedResource.Object)
+		if err != nil {
+			return sanitizederror.NewWithError("failed to marshal", err)
+		}
+
+		if mutateLogPath == "" {
+			mutatedResource := string(yamlEncodedResource) + string("\n---")
+			if len(strings.TrimSpace(mutatedResource)) > 0 {
+				if !stdin {
+					fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
+				}
+				fmt.Printf("\n" + mutatedResource)
+				fmt.Printf("\n")
+			}
+		} else {
+			err := PrintMutatedOutput(mutateLogPath, mutateLogPathIsDir, string(yamlEncodedResource), resourceName+"-mutated")
+			if err != nil {
+				return sanitizederror.NewWithError("failed to print mutated result", err)
+			}
+			fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
+		}
+	}
+
 	return nil
+}
+
+func PrintMutatedPolicy(mutatedPolicies []*v1.ClusterPolicy) error {
+	for _, policy := range mutatedPolicies {
+		p, err := json.Marshal(policy)
+		if err != nil {
+			return sanitizederror.NewWithError("failed to marsal mutated policy", err)
+		}
+		log.Log.V(5).Info("mutated Policy:", string(p))
+	}
+	return nil
+}
+
+func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]string, error) {
+	// get values from file for this policy resource combination
+	thisPolicyResourceValues := make(map[string]string)
+	if len(valuesMap[policyName]) != 0 && !reflect.DeepEqual(valuesMap[policyName][resourceName], Resource{}) {
+		thisPolicyResourceValues = valuesMap[policyName][resourceName].Values
+	}
+	for k, v := range variables {
+		thisPolicyResourceValues[k] = v
+	}
+
+	// skipping the variable check for non matching kind
+	if _, ok := kindOnwhichPolicyIsApplied[resourceKind]; ok {
+		if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && len(store.GetContext().Policies) == 0 {
+			return thisPolicyResourceValues, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policyName, resourceName), nil)
+		}
+	}
+	return thisPolicyResourceValues, nil
+}
+
+func GetKindsFromPolicy(policy *v1.ClusterPolicy) map[string]struct{} {
+	var kindOnwhichPolicyIsApplied = make(map[string]struct{})
+	for _, rule := range policy.Spec.Rules {
+		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
+			kindOnwhichPolicyIsApplied[kind] = struct{}{}
+		}
+		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
+			kindOnwhichPolicyIsApplied[kind] = struct{}{}
+		}
+	}
+	return kindOnwhichPolicyIsApplied
 }

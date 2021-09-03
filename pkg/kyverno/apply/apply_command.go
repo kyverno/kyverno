@@ -1,11 +1,9 @@
 package apply
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"time"
 
@@ -223,13 +221,9 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		}
 	}
 
-	for _, policy := range mutatedPolicies {
-		p, err := json.Marshal(policy)
-		if err != nil {
-			return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError("failed to marsal mutated policy", err)
-		}
-		log.Log.V(5).Info("mutated Policy:", string(p))
-
+	err = common.PrintMutatedPolicy(mutatedPolicies)
+	if err != nil {
+		return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError("failed to marsal mutated policy", err)
 	}
 
 	resources, err = common.GetResourceAccordingToResourcePath(fs, resourcePaths, cluster, mutatedPolicies, dClient, namespace, policyReport, false, "")
@@ -284,32 +278,12 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 			}
 		}
 
-		kindOnwhichPolicyIsApplied := make(map[string]struct{})
-		for _, rule := range policy.Spec.Rules {
-			for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
-				kindOnwhichPolicyIsApplied[kind] = struct{}{}
-			}
-			for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-				kindOnwhichPolicyIsApplied[kind] = struct{}{}
-			}
-		}
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
 
 		for _, resource := range resources {
-			// get values from file for this policy resource combination
-			thisPolicyResourceValues := make(map[string]string)
-			if len(valuesMap[policy.GetName()]) != 0 && !reflect.DeepEqual(valuesMap[policy.GetName()][resource.GetName()], Resource{}) {
-				thisPolicyResourceValues = valuesMap[policy.GetName()][resource.GetName()].Values
-			}
-
-			for k, v := range variables {
-				thisPolicyResourceValues[k] = v
-			}
-
-			// skipping the variable check for non matching kind
-			if _, ok := kindOnwhichPolicyIsApplied[resource.GetKind()]; ok {
-				if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && len(store.GetContext().Policies) == 0 {
-					return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.Name, resource.GetName()), err)
-				}
+			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
+			if err != nil {
+				return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.Name, resource.GetName()), err)
 			}
 
 			_, info, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin, rc)
