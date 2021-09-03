@@ -53,7 +53,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 		val := re.MatchString(path)
 
 		if !val {
-			return fmt.Errorf("Path :%s", path)
+			return fmt.Errorf("%s", path)
 		}
 
 	}
@@ -89,7 +89,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 	for i, rule := range p.Spec.Rules {
 		//check for forward slash
 		if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
-			return fmt.Errorf("path: spec.rules[%d]: %s", i, err)
+			return fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
 		}
 
 		if jsonPatchOnPod(rule) {
