@@ -7,7 +7,6 @@ import (
 	"time"
 
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -21,45 +20,11 @@ import (
 const clusterpolicyreport = "clusterpolicyreport"
 
 // resps is the engine responses generated for a single policy
-func buildPolicyReports(resps []*response.EngineResponse, skippedPolicies []SkippedPolicy) (res []*unstructured.Unstructured) {
+func buildPolicyReports(pvInfos []policyreport.Info) (res []*unstructured.Unstructured) {
 	var raw []byte
 	var err error
 
-	for _, sp := range skippedPolicies {
-		for _, r := range sp.Rules {
-			result := []*report.PolicyReportResult{
-				{
-					Message: fmt.Sprintln("skipped policy with variables -", sp.Variable),
-					Policy:  sp.Name,
-					Rule:    r.Name,
-					Result:  "skip",
-				},
-			}
-
-			report := &report.PolicyReport{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: report.SchemeGroupVersion.String(),
-					Kind:       "PolicyReport",
-				},
-				Results: result,
-			}
-
-			if raw, err = json.Marshal(report); err != nil {
-				log.Log.V(3).Info("failed to serialize policy report", "error", err)
-				continue
-			}
-
-			reportUnstructured, err := engineutils.ConvertToUnstructured(raw)
-			if err != nil {
-				log.Log.V(3).Info("failed to convert policy report", "error", err)
-				continue
-			}
-
-			res = append(res, reportUnstructured)
-		}
-	}
-
-	resultsMap := buildPolicyResults(resps)
+	resultsMap := buildPolicyResults(pvInfos)
 	for scope, result := range resultsMap {
 		if scope == clusterpolicyreport {
 			report := &report.ClusterPolicyReport{
@@ -108,9 +73,8 @@ func buildPolicyReports(resps []*response.EngineResponse, skippedPolicies []Skip
 
 // buildPolicyResults returns a string-PolicyReportResult map
 // the key of the map is one of "clusterpolicyreport", "policyreport-ns-<namespace>"
-func buildPolicyResults(resps []*response.EngineResponse) map[string][]*report.PolicyReportResult {
+func buildPolicyResults(infos []policyreport.Info) map[string][]*report.PolicyReportResult {
 	results := make(map[string][]*report.PolicyReportResult)
-	infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, info := range infos {

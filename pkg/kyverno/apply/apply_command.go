@@ -4,34 +4,24 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
+	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 	yaml1 "sigs.k8s.io/yaml"
 )
-
-type resultCounts struct {
-	pass  int
-	fail  int
-	warn  int
-	error int
-	skip  int
-}
 
 type Resource struct {
 	Name   string            `json:"name"`
@@ -45,12 +35,6 @@ type Policy struct {
 
 type Values struct {
 	Policies []Policy `json:"policies"`
-}
-
-type SkippedPolicy struct {
-	Name     string    `json:"name"`
-	Rules    []v1.Rule `json:"rules"`
-	Variable string    `json:"variable"`
 }
 
 var applyHelp = `
@@ -134,12 +118,12 @@ func Command() *cobra.Command {
 				}
 			}()
 
-			validateEngineResponses, rc, resources, skippedPolicies, err := applyCommandHelper(resourcePaths, cluster, policyReport, mutateLogPath, variablesString, valuesFile, namespace, policyPaths, stdin)
+			rc, resources, skippedPolicies, pvInfos, err := applyCommandHelper(resourcePaths, cluster, policyReport, mutateLogPath, variablesString, valuesFile, namespace, policyPaths, stdin)
 			if err != nil {
 				return err
 			}
 
-			printReportOrViolation(policyReport, validateEngineResponses, rc, resourcePaths, len(resources), skippedPolicies, stdin)
+			printReportOrViolation(policyReport, rc, resourcePaths, len(resources), skippedPolicies, stdin, pvInfos)
 			return nil
 		},
 	}
@@ -157,48 +141,47 @@ func Command() *cobra.Command {
 }
 
 func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool, mutateLogPath string,
-	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool) (validateEngineResponses []*response.EngineResponse, rc *resultCounts, resources []*unstructured.Unstructured, skippedPolicies []SkippedPolicy, err error) {
-
+	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool) (rc *common.ResultCounts, resources []*unstructured.Unstructured, skippedPolicies []string, pvInfos []policyreport.Info, err error) {
 	store.SetMock(true)
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
 	fs := memfs.New()
 
 	if valuesFile != "" && variablesString != "" {
-		return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("pass the values either using set flag or values_file flag", err)
+		return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError("pass the values either using set flag or values_file flag", err)
 	}
 
 	variables, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
 
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
-			return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("failed to decode yaml", err)
+			return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError("failed to decode yaml", err)
 		}
-		return validateEngineResponses, rc, resources, skippedPolicies, err
+		return rc, resources, skippedPolicies, pvInfos, err
 	}
 
 	openAPIController, err := openapi.NewOpenAPIController()
 	if err != nil {
-		return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("failed to initialize openAPIController", err)
+		return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError("failed to initialize openAPIController", err)
 	}
 
 	var dClient *client.Client
 	if cluster {
 		restConfig, err := kubernetesConfig.ToRESTConfig()
 		if err != nil {
-			return validateEngineResponses, rc, resources, skippedPolicies, err
+			return rc, resources, skippedPolicies, pvInfos, err
 		}
 		dClient, err = client.NewClient(restConfig, 15*time.Minute, make(chan struct{}), log.Log)
 		if err != nil {
-			return validateEngineResponses, rc, resources, skippedPolicies, err
+			return rc, resources, skippedPolicies, pvInfos, err
 		}
 	}
 
 	if len(policyPaths) == 0 {
-		return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Sprintf("require policy"), err)
+		return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError(fmt.Sprintf("require policy"), err)
 	}
 
 	if (len(policyPaths) > 0 && policyPaths[0] == "-") && len(resourcePaths) > 0 && resourcePaths[0] == "-" {
-		return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("a stdin pipe can be used for either policies or resources, not both", err)
+		return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError("a stdin pipe can be used for either policies or resources, not both", err)
 	}
 
 	policies, err := common.GetPoliciesFromPaths(fs, policyPaths, false, "")
@@ -208,15 +191,15 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	}
 
 	if len(resourcePaths) == 0 && !cluster {
-		return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Sprintf("resource file(s) or cluster required"), err)
+		return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError(fmt.Sprintf("resource file(s) or cluster required"), err)
 	}
 
 	mutateLogPathIsDir, err := checkMutateLogPath(mutateLogPath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
-			return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("failed to create file/folder", err)
+			return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError("failed to create file/folder", err)
 		}
-		return validateEngineResponses, rc, resources, skippedPolicies, err
+		return rc, resources, skippedPolicies, pvInfos, err
 	}
 
 	// empty the previous contents of the file just in case if the file already existed before with some content(so as to perform overwrites)
@@ -225,17 +208,22 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		_, err := os.OpenFile(mutateLogPath, os.O_TRUNC|os.O_WRONLY, 0644)
 		if err != nil {
 			if !sanitizederror.IsErrorSanitized(err) {
-				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("failed to truncate the existing file at "+mutateLogPath, err)
+				return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError("failed to truncate the existing file at "+mutateLogPath, err)
 			}
-			return validateEngineResponses, rc, resources, skippedPolicies, err
+			return rc, resources, skippedPolicies, pvInfos, err
 		}
 	}
 
 	mutatedPolicies, err := common.MutatePolices(policies)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
-			return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("failed to mutate policy", err)
+			return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError("failed to mutate policy", err)
 		}
+	}
+
+	err = common.PrintMutatedPolicy(mutatedPolicies)
+	if err != nil {
+		return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError("failed to marsal mutated policy", err)
 	}
 
 	resources, err = common.GetResourceAccordingToResourcePath(fs, resourcePaths, cluster, mutatedPolicies, dClient, namespace, policyReport, false, "")
@@ -245,11 +233,11 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	}
 
 	if (len(resources) > 1 || len(mutatedPolicies) > 1) && variablesString != "" {
-		return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError("currently `set` flag supports variable for single policy applied on single resource ", nil)
+		return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError("currently `set` flag supports variable for single policy applied on single resource ", nil)
 	}
 
 	if variablesString != "" {
-		variables = setInStoreContext(mutatedPolicies, variables)
+		variables = common.SetInStoreContext(mutatedPolicies, variables)
 	}
 
 	msgPolicies := "1 policy"
@@ -264,69 +252,50 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 
 	if len(mutatedPolicies) > 0 && len(resources) > 0 {
 		if !stdin {
-			fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
+			fmt.Printf("\nApplying %s to %s... \n(Total number of result count may vary as the policy is mutated by Kyverno. To check the mutated policy please try with log level 5)\n", msgPolicies, msgResources)
 		}
 	}
 
-	rc = &resultCounts{}
-	validateEngineResponses = make([]*response.EngineResponse, 0)
-	skippedPolicies = make([]SkippedPolicy, 0)
+	rc = &common.ResultCounts{}
+	skippedPolicies = make([]string, 0)
 
 	for _, policy := range mutatedPolicies {
 		err := policy2.Validate(policy, nil, true, openAPIController)
 		if err != nil {
-			rc.skip += len(resources)
-			log.Log.V(3).Info(fmt.Sprintf("skipping policy %v as it is not valid", policy.Name), "error", err)
+			skippedPolicies = append(skippedPolicies, policy.Name)
 			continue
 		}
 
 		matches := common.PolicyHasVariables(*policy)
 		variable := common.RemoveDuplicateAndObjectVariables(matches)
-
-		if len(variable) > 0 && variablesString == "" && valuesFile == "" {
-			rc.skip++
-			skipPolicy := SkippedPolicy{
-				Name:     policy.GetName(),
-				Rules:    policy.Spec.Rules,
-				Variable: variable,
+		if len(variable) > 0 {
+			if len(variables) == 0 {
+				// check policy in variable file
+				if valuesFile == "" || valuesMap[policy.Name] == nil {
+					skippedPolicies = append(skippedPolicies, policy.Name)
+					continue
+				}
 			}
-			skippedPolicies = append(skippedPolicies, skipPolicy)
-			log.Log.V(3).Info(fmt.Sprintf("skipping policy %s as non of the variable values are not passed", policy.Name), "error", fmt.Sprintf("policy have variable - %s", variable))
-			continue
 		}
 
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
+
 		for _, resource := range resources {
-			// get values from file for this policy resource combination
-			thisPolicyResourceValues := make(map[string]string)
-			if len(valuesMap[policy.GetName()]) != 0 && !reflect.DeepEqual(valuesMap[policy.GetName()][resource.GetName()], Resource{}) {
-				thisPolicyResourceValues = valuesMap[policy.GetName()][resource.GetName()].Values
-			}
-
-			for k, v := range variables {
-				thisPolicyResourceValues[k] = v
-			}
-
-			if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && len(store.GetContext().Policies) == 0 {
-				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Sprintf("policy %s have variables. pass the values for the variables using set/values_file flag", policy.Name), err)
-			}
-
-			validateErs, responseError, rcErs, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin)
+			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
 			if err != nil {
-				return validateEngineResponses, rc, resources, skippedPolicies, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
+				return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.Name, resource.GetName()), err)
 			}
-			if responseError == true {
-				rc.fail++
-			} else {
-				rc.pass++
+
+			_, info, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin, rc)
+			if err != nil {
+				return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}
-			if rcErs == true {
-				rc.error++
-			}
-			validateEngineResponses = append(validateEngineResponses, validateErs)
+			pvInfos = append(pvInfos, info)
+
 		}
 	}
 
-	return validateEngineResponses, rc, resources, skippedPolicies, nil
+	return rc, resources, skippedPolicies, pvInfos, nil
 }
 
 // checkMutateLogPath - checking path for printing mutated resource (-o flag)
@@ -352,12 +321,20 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 }
 
 // printReportOrViolation - printing policy report/violations
-func printReportOrViolation(policyReport bool, validateEngineResponses []*response.EngineResponse, rc *resultCounts, resourcePaths []string, resourcesLen int, skippedPolicies []SkippedPolicy, stdin bool) {
+func printReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skippedPolicies []string, stdin bool, pvInfos []policyreport.Info) {
+	if len(skippedPolicies) > 0 {
+		fmt.Println("----------------------------------------------------------------------\nPolicies Skipped(as required variables are not provided by the users):")
+		for i, policyName := range skippedPolicies {
+			fmt.Println(i+1, ". ", policyName)
+		}
+		fmt.Println("----------------------------------------------------------------------")
+	}
+
 	if policyReport {
 		os.Setenv("POLICY-TYPE", pkgCommon.PolicyReport)
-		resps := buildPolicyReports(validateEngineResponses, skippedPolicies)
+		resps := buildPolicyReports(pvInfos)
 		if len(resps) > 0 || resourcesLen == 0 {
-			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
+			fmt.Println("\n----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
 			report, _ := generateCLIRaw(resps)
 			yamlReport, _ := yaml1.Marshal(report)
 			fmt.Println(string(yamlReport))
@@ -365,18 +342,14 @@ func printReportOrViolation(policyReport bool, validateEngineResponses []*respon
 			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
 		}
 	} else {
-		rcCount := rc.pass + rc.fail + rc.warn + rc.error + rc.skip
-		if rcCount < len(resourcePaths) {
-			rc.skip += len(resourcePaths) - rcCount
-		}
 		if !stdin {
 			fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n",
-				rc.pass, rc.fail, rc.warn, rc.error, rc.skip)
+				rc.Pass, rc.Fail, rc.Warn, rc.Error, rc.Skip)
 		}
+	}
 
-		if rc.fail > 0 || rc.error > 0 {
-			os.Exit(1)
-		}
+	if rc.Fail > 0 || rc.Error > 0 {
+		os.Exit(1)
 	}
 }
 
@@ -426,38 +399,4 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 	}
 
 	return nil
-}
-
-func setInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string]string) map[string]string {
-	storePolices := make([]store.Policy, 0)
-	for _, policy := range mutatedPolicies {
-		storeRules := make([]store.Rule, 0)
-		for _, rule := range policy.Spec.Rules {
-			contextVal := make(map[string]string)
-			if len(rule.Context) != 0 {
-				for _, contextVar := range rule.Context {
-					for k, v := range variables {
-						if strings.HasPrefix(k, contextVar.Name) {
-							contextVal[k] = v
-							delete(variables, k)
-						}
-					}
-				}
-				storeRules = append(storeRules, store.Rule{
-					Name:   rule.Name,
-					Values: contextVal,
-				})
-			}
-		}
-		storePolices = append(storePolices, store.Policy{
-			Name:  policy.Name,
-			Rules: storeRules,
-		})
-	}
-
-	store.SetContext(store.Context{
-		Policies: storePolices,
-	})
-
-	return variables
 }
