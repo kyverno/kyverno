@@ -425,6 +425,9 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 			yamlFile, err = ioutil.ReadAll(filep)
 		} else {
 			yamlFile, err = ioutil.ReadFile(filepath.Join(policyResourcePath, valuesFile))
+			if err != nil {
+				fmt.Printf("\n Unable to open variable file: %s. error: %s \n", valuesFile, err)
+			}
 		}
 
 		if err != nil {
