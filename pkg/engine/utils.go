@@ -30,18 +30,17 @@ type EngineStats struct {
 
 func checkKind(kinds []string, resource unstructured.Unstructured) bool {
 	for _, kind := range kinds {
-		kind = strings.Title(kind)
 		SplitGVK := strings.Split(kind, "/")
 		if len(SplitGVK) == 1 {
-			if resource.GetKind() == kind {
+			if resource.GetKind() == strings.Title(kind) {
 				return true
 			}
 		} else if len(SplitGVK) == 2 {
-			if resource.GroupVersionKind().Kind == SplitGVK[1] && resource.GroupVersionKind().Version == SplitGVK[0] {
+			if resource.GroupVersionKind().Kind == strings.Title(SplitGVK[1]) && resource.GroupVersionKind().Version == SplitGVK[0] {
 				return true
 			}
 		} else {
-			if resource.GroupVersionKind().Group == SplitGVK[0] && resource.GroupVersionKind().Kind == SplitGVK[2] && (resource.GroupVersionKind().Version == SplitGVK[1] || resource.GroupVersionKind().Version == "*") {
+			if resource.GroupVersionKind().Group == SplitGVK[0] && resource.GroupVersionKind().Kind == strings.Title(SplitGVK[2]) && (resource.GroupVersionKind().Version == SplitGVK[1] || resource.GroupVersionKind().Version == "*") {
 				return true
 			}
 		}
