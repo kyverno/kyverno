@@ -869,53 +869,63 @@ func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string
 }
 
 func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *response.EngineResponse, resPath string, rc *ResultCounts, mutateLogPath string, stdin bool, mutateLogPathIsDir bool, resourceName string) error {
-	printCount := 0
-	printMutatedRes := false
-	for _, policyRule := range policy.Spec.Rules {
-		ruleFoundInEngineResponse := false
-		for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
-			if policyRule.Name == mutateResponseRule.Name {
-				ruleFoundInEngineResponse = true
-				if mutateResponseRule.Success {
-					rc.Pass++
-					printMutatedRes = true
-				} else {
-					if printCount < 1 {
-						fmt.Printf("\nFailed to apply mutate policy %s -> resource %s", policy.Name, resPath)
-						printCount++
-					}
-					fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name, mutateResponseRule.Message)
-					rc.Fail++
-				}
-				continue
-			}
-		}
-		if !ruleFoundInEngineResponse {
-			rc.Skip++
+
+	var policyHasMutate bool
+	for _, rule := range policy.Spec.Rules {
+		if rule.HasMutate() {
+			policyHasMutate = true
 		}
 	}
+	if policyHasMutate {
 
-	if printMutatedRes {
-		yamlEncodedResource, err := yamlv2.Marshal(mutateResponse.PatchedResource.Object)
-		if err != nil {
-			return sanitizederror.NewWithError("failed to marshal", err)
+		printCount := 0
+		printMutatedRes := false
+		for _, policyRule := range policy.Spec.Rules {
+			ruleFoundInEngineResponse := false
+			for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
+				if policyRule.Name == mutateResponseRule.Name {
+					ruleFoundInEngineResponse = true
+					if mutateResponseRule.Success {
+						rc.Pass++
+						printMutatedRes = true
+					} else {
+						if printCount < 1 {
+							fmt.Printf("\nFailed to apply mutate policy %s -> resource %s", policy.Name, resPath)
+							printCount++
+						}
+						fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name, mutateResponseRule.Message)
+						rc.Fail++
+					}
+					continue
+				}
+			}
+			if !ruleFoundInEngineResponse {
+				rc.Skip++
+			}
 		}
 
-		if mutateLogPath == "" {
-			mutatedResource := string(yamlEncodedResource) + string("\n---")
-			if len(strings.TrimSpace(mutatedResource)) > 0 {
-				if !stdin {
-					fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
-				}
-				fmt.Printf("\n" + mutatedResource)
-				fmt.Printf("\n")
-			}
-		} else {
-			err := PrintMutatedOutput(mutateLogPath, mutateLogPathIsDir, string(yamlEncodedResource), resourceName+"-mutated")
+		if printMutatedRes {
+			yamlEncodedResource, err := yamlv2.Marshal(mutateResponse.PatchedResource.Object)
 			if err != nil {
-				return sanitizederror.NewWithError("failed to print mutated result", err)
+				return sanitizederror.NewWithError("failed to marshal", err)
 			}
-			fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
+
+			if mutateLogPath == "" {
+				mutatedResource := string(yamlEncodedResource) + string("\n---")
+				if len(strings.TrimSpace(mutatedResource)) > 0 {
+					if !stdin {
+						fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
+					}
+					fmt.Printf("\n" + mutatedResource)
+					fmt.Printf("\n")
+				}
+			} else {
+				err := PrintMutatedOutput(mutateLogPath, mutateLogPathIsDir, string(yamlEncodedResource), resourceName+"-mutated")
+				if err != nil {
+					return sanitizederror.NewWithError("failed to print mutated result", err)
+				}
+				fmt.Printf("\n\nMutation:\nMutation has been applied successfully. Check the files.")
+			}
 		}
 	}
 	return nil
