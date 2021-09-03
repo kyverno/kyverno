@@ -346,10 +346,10 @@ func printReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 			fmt.Printf("\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n",
 				rc.Pass, rc.Fail, rc.Warn, rc.Error, rc.Skip)
 		}
+	}
 
-		if rc.Fail > 0 || rc.Error > 0 {
-			os.Exit(1)
-		}
+	if rc.Fail > 0 || rc.Error > 0 {
+		os.Exit(1)
 	}
 }
 
