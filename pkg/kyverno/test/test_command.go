@@ -378,6 +378,16 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 
 		matches := common.PolicyHasVariables(*policy)
 		variable := common.RemoveDuplicateAndObjectVariables(matches)
+
+		if len(variable) > 0 {
+			if len(variables) == 0 {
+				// check policy in variable file
+				if valuesFile == "" || valuesMap[policy.Name] == nil {
+					fmt.Printf("test skipped for policy  %v  (as required variables are not provided by the users) \n \n", policy.Name)
+				}
+			}
+		}
+
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
 
 		for _, resource := range resources {
