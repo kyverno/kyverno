@@ -7,6 +7,7 @@ metadata:
     policies.kyverno.io/description: The ':latest' tag is mutable and can lead to 
       unexpected errors if the image changes. A best practice is to use an immutable 
       tag that maps to a specific version of an application pod.
+    pod-policies.kyverno.io/autogen-controllers: none
 spec:
   validationFailureAction: audit
   rules:

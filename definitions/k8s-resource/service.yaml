@@ -4,7 +4,6 @@ kind: Service
 metadata:
   labels:
     app: kyverno
-  namespace: kyverno
   name: kyverno-svc
 spec:
   ports:
@@ -21,7 +20,6 @@ kind: Service
 metadata:
   labels:
     app: kyverno
-  namespace: kyverno
   name: kyverno-svc-metrics
 spec:
   ports:

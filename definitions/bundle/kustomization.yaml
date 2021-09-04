@@ -3,7 +3,11 @@ kind: Kustomization
 
 namespace: kyverno
 
+transformers:
+  - labels.yaml
+
 resources:
 - ../crds/
+- ../manifest/
 - ../k8s-resource/
 - namespace.yaml

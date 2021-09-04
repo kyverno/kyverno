@@ -219,7 +219,7 @@ kustomize-crd:
 # guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
 release:
 	kustomize build ./definitions > ./definitions/install.yaml
-	kustomize build ./definitions > ./definitions/release/install.yaml
+	kustomize build ./definitions/release > ./definitions/release/install.yaml
 
 release-notes:
 	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)" ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
