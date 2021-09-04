@@ -219,4 +219,6 @@ createSelfSignedCert: false
 networkPolicy:
   enabled: false
   namespaceExpressions: [{}]
+  namespaceLabels: {}
   podExpressions: [{}]
+  podLabels: {}

@@ -14,17 +14,26 @@ spec:
   - Ingress
   ingress:
   - from:
+      {{- with .Values.networkPolicy }}
       namespaceSelector:
         matchExpressions:
-          {{- toYaml .Values.networkPolicy.namespaceExpressions | nindent 8 }}
+          {{- toYaml .namespaceExpressions | nindent 8 }}
         matchLabels:
-          app: kyverno
+          {{- range $key, $value := .namespaceLabels }}
+          {{ $key | quote }}: {{ $value | quote }}
+          {{- end }}
       podSelector:
         matchExpressions:
-          {{- toYaml .Values.networkPolicy.podExpressions | nindent 8 }}
+          {{- toYaml .podExpressions | nindent 8 }}
         matchLabels:
-          app: kyverno
-  ports:
-  - protocol: TCP
-    port: 9443 # webhook access
+          {{- range $key, $value := .podLabels }}
+          {{ $key | quote }}: {{ $value | quote }}
+          {{- end }}
+      {{- end }}
+    ports:
+    - protocol: TCP
+      port: 9443 # webhook access
+  # Allow prometheus scrapes for metrics
+  - ports:
+      - port: 8000
 {{- end }}
