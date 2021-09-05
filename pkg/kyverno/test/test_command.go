@@ -71,11 +71,14 @@ type Test struct {
 }
 
 type TestResults struct {
-	Policy   string              `json:"policy"`
-	Rule     string              `json:"rule"`
-	Result   report.PolicyResult `json:"result"`
-	Status   report.PolicyResult `json:"status"`
-	Resource string              `json:"resource"`
+	Policy          string              `json:"policy"`
+	Rule            string              `json:"rule"`
+	Result          report.PolicyResult `json:"result"`
+	Status          report.PolicyResult `json:"status"`
+	Resource        string              `json:"resource"`
+	Kind            string              `json:"kind"`
+	Namespace       string              `json:"namespace"`
+	PatchedResource string              `json:"patchedResource"`
 }
 
 type ReportResult struct {
