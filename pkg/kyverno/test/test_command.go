@@ -14,11 +14,13 @@ import (
 	"github.com/fatih/color"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-logr/logr"
 	"github.com/kataras/tablewriter"
 	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/generate"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
@@ -30,6 +32,7 @@ import (
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -335,6 +338,25 @@ func getUserDefinedPolicyNameAndNamespace(policyNames string) (string, string) {
 	}
 	policy = policy_n_ns[1]
 	return namespace, policy
+}
+
+func getAndComparePatchedResource(path string, enginePatchedResource unstructured.Unstructured, isGit bool, policyResourcePath string, fs billy.Filesystem) report.PolicyResult {
+	var status report.PolicyResult
+	status = "skip"
+	patchedResources, err := common.GetPatchedResourceFromPath(fs, path, isGit, policyResourcePath)
+	if err != nil {
+		os.Exit(1)
+	}
+	var log logr.Logger
+	matched, err := generate.ValidateResourceWithPattern(log, enginePatchedResource.UnstructuredContent(), patchedResources.UnstructuredContent())
+
+	if err != nil {
+		status = "fail"
+	}
+	if matched == "" {
+		status = "pass"
+	}
+	return status
 }
 
 func getPolicyResourceFullPaths(path []string, policyResourcePath string, isGit bool) []string {
