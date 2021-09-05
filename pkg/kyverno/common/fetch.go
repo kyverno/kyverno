@@ -273,3 +273,30 @@ func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructu
 	}
 	return resource, nil
 }
+
+// GetPatchedResource converts raw bytes to unstructured object
+func GetPatchedResource(patchResourceBytes []byte) (patchedResource unstructured.Unstructured, err error) {
+	var getErrString string
+	files, splitDocError := utils.SplitYAMLDocuments(patchResourceBytes)
+	if splitDocError != nil {
+		return patchedResource, splitDocError
+	}
+
+	for _, resourceYaml := range files {
+		resource, err := convertResourceToUnstructured(resourceYaml)
+		if err != nil {
+			if strings.Contains(err.Error(), "Object 'Kind' is missing") {
+				log.Log.V(3).Info("skipping resource as kind not found")
+				continue
+			}
+			getErrString = getErrString + err.Error() + "\n"
+		}
+		patchedResource = *resource
+	}
+
+	if getErrString != "" {
+		return patchedResource, errors.New(getErrString)
+	}
+
+	return patchedResource, nil
+}
