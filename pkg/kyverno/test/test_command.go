@@ -320,7 +320,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 					continue
 				}
 				var result report.PolicyReportResult
-				resultsKey := fmt.Sprintf("%s-%s-%s", info.PolicyName, rule.Name, infoResult.Resource.Name)
+				resultsKey := fmt.Sprintf("%s-%s-%s-%s", info.PolicyName, rule.Name, infoResult.Resource.Kind, infoResult.Resource.Name)
 				if val, ok := results[resultsKey]; ok {
 					result = val
 				} else {
@@ -523,7 +523,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 		res.Policy = boldFgCyan.Sprintf(v.Policy)
 		res.Rule = boldFgCyan.Sprintf(v.Rule)
 		res.Resource = boldFgCyan.Sprintf(v.Resource)
-		resultKey := fmt.Sprintf("%s-%s-%s", v.Policy, v.Rule, v.Resource)
+		resultKey := fmt.Sprintf("%s-%s-%s-%s", v.Policy, v.Rule, v.Kind, v.Resource)
 		var testRes report.PolicyReportResult
 		if val, ok := resps[resultKey]; ok {
 			testRes = val
