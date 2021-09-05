@@ -341,6 +341,12 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	fullPolicyPath := getPolicyResourceFullPaths(values.Policies, policyResourcePath, isGit)
 	fullResourcePath := getPolicyResourceFullPaths(values.Resources, policyResourcePath, isGit)
 
+	for i, result := range values.Results {
+		var a []string
+		a = append(a, result.PatchedResource)
+		a = getPolicyResourceFullPaths(a, policyResourcePath, isGit)
+		values.Results[i].PatchedResource = a[0]
+	}
 	policies, err := common.GetPoliciesFromPaths(fs, fullPolicyPath, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
