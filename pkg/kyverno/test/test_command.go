@@ -264,10 +264,24 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 				test.Policy = userDefinedPolicyName
 			}
 			if test.Policy == policyName && test.Resource == resourceName {
+				var resultsKey string
+				resultsKey = fmt.Sprintf("%s-%s-%s-%s", test.Policy, test.Rule, test.Kind, test.Resource)
+
+				if test.Namespace != "" || resp.PolicyResponse.Policy.Namespace != "" {
+					if resp.PolicyResponse.Policy.Namespace != "" {
+						if resp.PolicyResponse.Policy.Namespace == userDefinedPolicyNamespace {
+							resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s", userDefinedPolicyNamespace, test.Policy, test.Rule, test.Kind, test.Resource)
+							if test.Namespace != "" {
+								resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource)
+							}
+						}
+					} else {
+						resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s", test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource)
+					}
+				}
 				if !util.ContainsString(rules, test.Rule) {
 					result.Result = report.StatusSkip
 				}
-				resultsKey := fmt.Sprintf("%s-%s-%s", test.Policy, test.Rule, test.Resource)
 				if _, ok := results[resultsKey]; !ok {
 					results[resultsKey] = result
 				}
