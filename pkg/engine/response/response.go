@@ -33,6 +33,7 @@ type PolicyResponse struct {
 type PolicySpec struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
+	Type      string `json:"type"`
 }
 
 //ResourceSpec resource action applied on
