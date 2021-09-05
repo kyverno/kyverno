@@ -524,6 +524,20 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 		res.Rule = boldFgCyan.Sprintf(v.Rule)
 		res.Resource = boldFgCyan.Sprintf(v.Resource)
 		resultKey := fmt.Sprintf("%s-%s-%s-%s", v.Policy, v.Rule, v.Kind, v.Resource)
+		if isNamespacedPolicy(v.Policy) || v.Namespace != "" {
+			if isNamespacedPolicy(v.Policy) {
+				var ns string
+				ns, v.Policy = getUserDefinedPolicyNameAndNamespace(v.Policy)
+				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, v.Rule, v.Kind, v.Resource)
+				res.Policy = boldFgCyan.Sprintf(ns) + "/" + boldFgCyan.Sprintf(v.Policy)
+				res.Resource = boldFgCyan.Sprintf(v.Kind) + boldFgCyan.Sprintf(v.Namespace) + boldFgCyan.Sprintf(v.Resource)
+				if v.Namespace != "" {
+					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, v.Rule, v.Namespace, v.Kind, v.Resource)
+				}
+			} else {
+				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, v.Rule, v.Namespace, v.Kind, v.Resource)
+			}
+		}
 		var testRes report.PolicyReportResult
 		if val, ok := resps[resultKey]; ok {
 			testRes = val
