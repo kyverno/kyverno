@@ -293,12 +293,22 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	return results
 }
 
-func getPolicyResourceFullPath(path []string, policyResourcePath string, isGit bool) []string {
+func getPolicyResourceFullPaths(path []string, policyResourcePath string, isGit bool) []string {
 	var pol []string
 	if !isGit {
 		for _, p := range path {
-			pol = append(pol, filepath.Join(policyResourcePath, p))
+			pol = append(pol, getPolicyResourceFullPath(p, policyResourcePath, isGit))
 		}
+		return pol
+	}
+	return path
+}
+
+func getPolicyResourceFullPath(path string, policyResourcePath string, isGit bool) string {
+	var pol string
+	if !isGit {
+		pol = filepath.Join(policyResourcePath, path)
+
 		return pol
 	}
 	return path
@@ -328,8 +338,8 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		return err
 	}
 
-	fullPolicyPath := getPolicyResourceFullPath(values.Policies, policyResourcePath, isGit)
-	fullResourcePath := getPolicyResourceFullPath(values.Resources, policyResourcePath, isGit)
+	fullPolicyPath := getPolicyResourceFullPaths(values.Policies, policyResourcePath, isGit)
+	fullResourcePath := getPolicyResourceFullPaths(values.Resources, policyResourcePath, isGit)
 
 	policies, err := common.GetPoliciesFromPaths(fs, fullPolicyPath, isGit, policyResourcePath)
 	if err != nil {
