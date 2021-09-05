@@ -237,7 +237,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 	return errors
 }
 
-func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResults, infos []policyreport.Info) map[string]report.PolicyReportResult {
+func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResults, infos []policyreport.Info, policyResourcePath string, fs billy.Filesystem, isGit bool) map[string]report.PolicyReportResult {
 	results := make(map[string]report.PolicyReportResult)
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 	for _, resp := range resps {
@@ -257,6 +257,12 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 			},
 		}
 		for _, test := range testResults {
+			var userDefinedPolicyNamespace string
+			var userDefinedPolicyName string
+			if isNamespacedPolicy(test.Policy) {
+				userDefinedPolicyNamespace, userDefinedPolicyName = getUserDefinedPolicyNameAndNamespace(test.Policy)
+				test.Policy = userDefinedPolicyName
+			}
 			if test.Policy == policyName && test.Resource == resourceName {
 				if !util.ContainsString(rules, test.Rule) {
 					result.Result = report.StatusSkip
@@ -291,6 +297,21 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	}
 
 	return results
+}
+
+func isNamespacedPolicy(policyNames string) bool {
+	return strings.Contains(policyNames, "/")
+}
+
+func getUserDefinedPolicyNameAndNamespace(policyNames string) (string, string) {
+	policy := policyNames
+	policy_n_ns := strings.Split(policyNames, "/")
+	namespace := policy_n_ns[0]
+	if namespace == "" {
+		namespace = "default"
+	}
+	policy = policy_n_ns[1]
+	return namespace, policy
 }
 
 func getPolicyResourceFullPaths(path []string, policyResourcePath string, isGit bool) []string {
@@ -423,7 +444,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			pvInfos = append(pvInfos, info)
 		}
 	}
-	resultsMap := buildPolicyResults(validateEngineResponses, values.Results, pvInfos)
+	resultsMap := buildPolicyResults(validateEngineResponses, values.Results, pvInfos, policyResourcePath, fs, isGit)
 	resultErr := printTestResult(resultsMap, values.Results, rc)
 	if resultErr != nil {
 		return sanitizederror.NewWithError("Unable to genrate result. Error:", resultErr)
