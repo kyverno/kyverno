@@ -281,6 +281,15 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 				}
 				if !util.ContainsString(rules, test.Rule) {
 					result.Result = report.StatusSkip
+					if resp.PolicyResponse.Policy.Type == "Mutate" {
+						status := getAndComparePatchedResource(test.PatchedResource, resp.PatchedResource, isGit, policyResourcePath, fs)
+						if status == "pass" {
+							result.Result = report.StatusPass
+							if resp.PolicyResponse.Policy.Namespace != "" && resp.PolicyResponse.Policy.Namespace != resp.PolicyResponse.Resource.Namespace {
+								result.Result = report.StatusSkip
+							}
+						}
+					}
 				}
 				if _, ok := results[resultsKey]; !ok {
 					results[resultsKey] = result
