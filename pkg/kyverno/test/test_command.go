@@ -294,6 +294,19 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 						}
 					}
 				}
+				for _, rule := range resp.PolicyResponse.Rules {
+					if rule.Type != utils.Mutation.String() {
+						continue
+					}
+					result.Result = getAndComparePatchedResource(test.PatchedResource, resp.PatchedResource, isGit, policyResourcePath, fs)
+					if test.Namespace != "" {
+						if test.Namespace == resp.PolicyResponse.Resource.Namespace {
+							results[resultsKey] = result
+						}
+					} else {
+						results[resultsKey] = result
+					}
+				}
 				if _, ok := results[resultsKey]; !ok {
 					results[resultsKey] = result
 				}
