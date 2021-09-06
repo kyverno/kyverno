@@ -426,6 +426,10 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		a = append(a, result.PatchedResource)
 		a = getPolicyResourceFullPaths(a, policyResourcePath, isGit)
 		values.Results[i].PatchedResource = a[0]
+
+		if result.Namespace == "" {
+			values.Results[i].Namespace = "default"
+		}
 	}
 	policies, err := common.GetPoliciesFromPaths(fs, fullPolicyPath, isGit, policyResourcePath)
 	if err != nil {
@@ -532,7 +536,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 				ns, v.Policy = getUserDefinedPolicyNameAndNamespace(v.Policy)
 				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, v.Rule, v.Kind, v.Resource)
 				res.Policy = boldFgCyan.Sprintf(ns) + "/" + boldFgCyan.Sprintf(v.Policy)
-				res.Resource = boldFgCyan.Sprintf(v.Kind) + boldFgCyan.Sprintf(v.Namespace) + boldFgCyan.Sprintf(v.Resource)
+				res.Resource = boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Resource)
 				if v.Namespace != "" {
 					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, v.Rule, v.Namespace, v.Kind, v.Resource)
 				}
