@@ -1,6 +1,13 @@
 package mutate
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/kyverno/kyverno/test/e2e"
+)
+
+var deploymentGVR = e2e.GetGVR("apps", "v1", "deployments")
+var podGVR = e2e.GetGVR("", "v1", "pods")
 
 func newNamespaceYaml(name string) []byte {
 	ns := fmt.Sprintf(`
@@ -204,4 +211,100 @@ spec:
   tls:
   - hosts:
     - kuard
+`)
+
+var setRunAsNonRootTrue = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: set-runasnonroot-true
+spec:
+  rules:
+    - name: set-runasnonroot-true
+      match:
+        resources:
+          kinds:
+          - Pod
+      mutate:
+        patchStrategicMerge:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+            initContainers:
+              - (name): "*"
+                securityContext:
+                  runAsNonRoot: true
+            containers:
+              - (name): "*"
+                securityContext:
+                  runAsNonRoot: true
+`)
+
+var podWithContainers = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: foo
+  namespace: test-mutate
+  labels:
+    app: foo
+spec:
+  containers:
+  - image: abc:1.28
+    name: busybox
+`)
+
+var podWithContainersPattern = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: foo
+  namespace: test-mutate
+  labels:
+    app: foo
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - (name): "*"
+    securityContext:
+      runAsNonRoot: true
+`)
+
+var podWithContainersAndInitContainers = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: foo
+  namespace: test-mutate1
+  labels:
+    app: foo
+spec:
+  containers:
+  - image: abc:1.28
+    name: busybox
+  initContainers:
+  - image: bcd:1.29
+    name: nginx
+`)
+
+var podWithContainersAndInitContainersPattern = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: foo
+  namespace: test-mutate1
+  labels:
+    app: foo
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - (name): "*"
+    securityContext:
+      runAsNonRoot: true
+  initContainers:
+  - (name): "*"
+    securityContext:
+      runAsNonRoot: true
 `)
