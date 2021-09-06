@@ -520,7 +520,7 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts) ([]*response.EngineResponse, *response.EngineResponse, policyreport.Info, error) {
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts, printPatchResource bool) ([]*response.EngineResponse, *response.EngineResponse, policyreport.Info, error) {
 
 	operationIsDelete := false
 
@@ -573,7 +573,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 
 	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
 	engineResponses = append(engineResponses, mutateResponse)
-	err = processMutateEngineResponse(policy, mutateResponse, resPath, rc, mutateLogPath, stdin, mutateLogPathIsDir, resource.GetName())
+	err = processMutateEngineResponse(policy, mutateResponse, resPath, rc, mutateLogPath, stdin, mutateLogPathIsDir, resource.GetName(), printPatchResource)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return engineResponses, &response.EngineResponse{}, policyreport.Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
@@ -874,7 +874,7 @@ func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string
 	return variables
 }
 
-func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *response.EngineResponse, resPath string, rc *ResultCounts, mutateLogPath string, stdin bool, mutateLogPathIsDir bool, resourceName string) error {
+func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *response.EngineResponse, resPath string, rc *ResultCounts, mutateLogPath string, stdin bool, mutateLogPathIsDir bool, resourceName string, printPatchResource bool) error {
 	var policyHasMutate bool
 	for _, rule := range policy.Spec.Rules {
 		if rule.HasMutate() {
@@ -920,11 +920,13 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 		if mutateLogPath == "" {
 			mutatedResource := string(yamlEncodedResource) + string("\n---")
 			if len(strings.TrimSpace(mutatedResource)) > 0 {
-				if !stdin {
+				if !stdin && printPatchResource {
 					fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
 				}
-				fmt.Printf("\n" + mutatedResource)
-				fmt.Printf("\n")
+				if printPatchResource {
+					fmt.Printf("\n" + mutatedResource)
+					fmt.Printf("\n")
+				}
 			}
 		} else {
 			err := PrintMutatedOutput(mutateLogPath, mutateLogPathIsDir, string(yamlEncodedResource), resourceName+"-mutated")
