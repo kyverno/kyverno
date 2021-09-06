@@ -501,7 +501,6 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			}
 			validateEngineResponses = append(validateEngineResponses, validateErs)
 			engineResponses = append(engineResponses, ers...)
-			engineResponses = append(engineResponses, validateEngineResponses...)
 			pvInfos = append(pvInfos, info)
 		}
 	}
