@@ -1,0 +1,58 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-label
+  annotations:
+    policies.kyverno.io/title: Add nodeSelector
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      The nodeSelector field uses labels to select the node on which a Pod can be scheduled.
+      This can be useful when Pods have specific needs that only certain nodes in a cluster can provide.
+      This policy adds the nodeSelector field to a Pod spec and configures it with labels `foo` and `color`.
+spec:
+  background: false
+  validationFailureAction:
+  rules:
+  - name: add-label
+    match:
+      resources:
+        kinds:
+        - Pod
+    # Adds the `nodeSelector` field to any Pod with two labels.
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            color: orange
+
+---
+
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: add-ndots
+  namespace: testing
+  annotations:
+    policies.kyverno.io/title: Add ndots
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      The ndots value controls where DNS lookups are first performed in a cluster
+      and needs to be set to a lower value than the default of 5 in some cases.
+      This policy mutates all Pods to add the ndots option with a value of 1.
+spec:
+  background: false
+  rules:
+  - name: add-ndots
+    match:
+      resources:
+        kinds:
+        - Pod
+    mutate:
+      patchStrategicMerge:
+        spec:
+          dnsConfig:
+            options:
+              - name: ndots
+                value: "1"

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+  labels:
+    foo: bar
+    color: orange
+  namespace: testing
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
