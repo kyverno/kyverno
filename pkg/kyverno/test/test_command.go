@@ -268,20 +268,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 			}
 			if test.Policy == policyName && test.Resource == resourceName {
 				var resultsKey string
-				resultsKey = fmt.Sprintf("%s-%s-%s-%s", test.Policy, test.Rule, test.Kind, test.Resource)
-
-				if test.Namespace != "" || resp.PolicyResponse.Policy.Namespace != "" {
-					if resp.PolicyResponse.Policy.Namespace != "" {
-						if resp.PolicyResponse.Policy.Namespace == userDefinedPolicyNamespace {
-							resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s", userDefinedPolicyNamespace, test.Policy, test.Rule, test.Kind, test.Resource)
-							if test.Namespace != "" {
-								resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource)
-							}
-						}
-					} else {
-						resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s", test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource)
-					}
-				}
+				resultsKey = GetResultKey(resp.PolicyResponse.Policy.Namespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource, userDefinedPolicyNamespace)
 				if !util.ContainsString(rules, test.Rule) {
 					result.Result = report.StatusSkip
 					if resp.PolicyResponse.Policy.Type == "Mutate" {
@@ -336,6 +323,25 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	}
 
 	return results
+}
+
+func GetResultKey(policyNamespace, policy, rule, namespace, kind, resource, userDefinedPolicyNamespace string) string {
+	var resultsKey string
+	resultsKey = fmt.Sprintf("%s-%s-%s-%s", policy, rule, kind, resource)
+
+	if namespace != "" || policyNamespace != "" {
+		if policyNamespace != "" {
+			if policyNamespace == userDefinedPolicyNamespace {
+				resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s", userDefinedPolicyNamespace, policy, rule, kind, resource)
+				if namespace != "" {
+					resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", userDefinedPolicyNamespace, policy, rule, namespace, kind, resource)
+				}
+			}
+		} else {
+			resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, namespace, kind, resource)
+		}
+	}
+	return resultsKey
 }
 
 func isNamespacedPolicy(policyNames string) bool {
