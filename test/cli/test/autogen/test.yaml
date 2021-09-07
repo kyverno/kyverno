@@ -17,36 +17,36 @@ results:
 
 # TEST: Deployment with Labels Should Pass
 - policy: require-common-labels
-  rule: autogen-check-for-labels
+  rule: check-for-labels
   result: pass
   resource: deployment-with-labels
 
 # TEST: Deployment with Labels Should Fail
 - policy: require-common-labels
-  rule: autogen-check-for-labels
+  rule: check-for-labels
   result: fail
   resource: deployment-missing-labels
 
 # TEST: StatefulSet with Labels Should Pass
 - policy: require-common-labels
-  rule: autogen-check-for-labels
+  rule: check-for-labels
   result: pass
   resource: StatefulSet-with-labels
 
 # TEST: StatefulSet with Labels Should fail
 - policy: require-common-labels
-  rule: autogen-check-for-labels
+  rule: check-for-labels
   result: fail
   resource: StatefulSet-without-labels
 
 # TEST: Cronjob with Labels Should pass
 - policy: require-common-labels
-  rule: autogen-cronjob-check-for-labels
+  rule: check-for-labels
   result: pass
   resource: cronjob-with-labels
 
 # TEST: Cronjob without Labels Should fail
 - policy: require-common-labels
-  rule: autogen-cronjob-check-for-labels
+  rule: check-for-labels
   result: fail
   resource: cronjob-without-labels
