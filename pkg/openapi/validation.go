@@ -167,10 +167,13 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 			return err
 		}
 
-		err = o.ValidateResource(*patchedResource.DeepCopy(), "", kind)
-		if err != nil {
-			return err
+		if policy.Spec.ShemaValidation == nil || *policy.Spec.ShemaValidation == true {
+			err = o.ValidateResource(*patchedResource.DeepCopy(), "", kind)
+			if err != nil {
+				return err
+			}
 		}
+
 	}
 
 	return nil

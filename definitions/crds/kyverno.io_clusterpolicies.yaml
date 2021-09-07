@@ -1518,6 +1518,11 @@ spec:
                       type: array
                   type: object
                 type: array
+              shemaValidation:
+                description: ShemaValidation controls skipping policy validation checks.
+                  Optional. Default value is "true". The value must be set to "false"
+                  if policy should skip validation checks.
+                type: boolean
               validationFailureAction:
                 description: ValidationFailureAction controls if a validation policy
                   rule failure should disallow the admission review request (enforce),

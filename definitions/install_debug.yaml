@@ -943,6 +943,11 @@ spec:
                       type: array
                   type: object
                 type: array
+              shemaValidation:
+                description: ShemaValidation controls skipping policy validation checks.
+                  Optional. Default value is "true". The value must be set to "false"
+                  if policy should skip validation checks.
+                type: boolean
               validationFailureAction:
                 description: ValidationFailureAction controls if a validation policy rule failure should disallow the admission review request (enforce), or allow (audit) the admission review request and report an error in a policy report. Optional. The default value is "audit".
                 type: string
@@ -2664,6 +2669,13 @@ spec:
                       type: array
                   type: object
                 type: array
+              shemaValidation:
+                description: ShemaValidation controls if rules are applied to existing
+                  resources during a background scan. Optional. Default value is "true".
+                  The value must be set to "false" if the policy rule uses variables
+                  that are only available in the admission review request (e.g. user
+                  name).
+                type: boolean
               validationFailureAction:
                 description: ValidationFailureAction controls if a validation policy rule failure should disallow the admission review request (enforce), or allow (audit) the admission review request and report an error in a policy report. Optional. The default value is "audit".
                 type: string

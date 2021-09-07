@@ -54,6 +54,12 @@ type Spec struct {
 	// uses variables that are only available in the admission review request (e.g. user name).
 	// +optional
 	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
+
+	// ShemaValidation controls skipping policy validation checks.
+	// Optional. Default value is "true". The value must be set to "false" if policy should
+	// skip validation checks.
+	// +optional
+	ShemaValidation *bool `json:"shemaValidation,omitempty" yaml:"shemaValidation,omitempty"`
 }
 
 // Rule defines a validation, mutation, or generation control for matching resources.
