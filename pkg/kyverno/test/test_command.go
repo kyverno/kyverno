@@ -268,7 +268,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 			}
 			if test.Policy == policyName && test.Resource == resourceName {
 				var resultsKey string
-				resultsKey = GetResultKey(resp.PolicyResponse.Policy.Namespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource, userDefinedPolicyNamespace)
+				resultsKey = GetResultKey(resp.PolicyResponse.Policy.Namespace, resp.PolicyResponse.Resource.Namespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource, userDefinedPolicyNamespace)
 				if !util.ContainsString(rules, test.Rule) {
 					result.Result = report.StatusSkip
 					if resp.PolicyResponse.Policy.Type == "Mutate" {
@@ -307,17 +307,25 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 					continue
 				}
 				var result report.PolicyReportResult
-				resultsKey := fmt.Sprintf("%s-%s-%s-%s", info.PolicyName, rule.Name, infoResult.Resource.Kind, infoResult.Resource.Name)
-				if val, ok := results[resultsKey]; ok {
-					result = val
-				} else {
-					continue
+				var resultsKey []string
+				var resultKey string
+				resultsKey1 := fmt.Sprintf("%s-%s-%s-%s", info.PolicyName, rule.Name, infoResult.Resource.Kind, infoResult.Resource.Name)
+				resultsKey2 := fmt.Sprintf("%s-%s-%s-%s-%s", info.PolicyName, rule.Name, infoResult.Resource.Namespace, infoResult.Resource.Kind, infoResult.Resource.Name)
+				resultsKey = append(resultsKey, resultsKey1)
+				resultsKey = append(resultsKey, resultsKey2)
+				for _, resultK := range resultsKey {
+					if val, ok := results[resultK]; ok {
+						result = val
+						resultKey = resultK
+					} else {
+						continue
+					}
 				}
 				result.Rule = rule.Name
 				result.Result = report.PolicyResult(rule.Check)
 				result.Source = policyreport.SourceValue
 				result.Timestamp = now
-				results[resultsKey] = result
+				results[resultKey] = result
 			}
 		}
 	}
@@ -325,7 +333,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	return results
 }
 
-func GetResultKey(policyNamespace, policy, rule, namespace, kind, resource, userDefinedPolicyNamespace string) string {
+func GetResultKey(policyNamespace, resourceNameSpace, policy, rule, namespace, kind, resource, userDefinedPolicyNamespace string) string {
 	var resultsKey string
 	resultsKey = fmt.Sprintf("%s-%s-%s-%s", policy, rule, kind, resource)
 
@@ -338,7 +346,9 @@ func GetResultKey(policyNamespace, policy, rule, namespace, kind, resource, user
 				}
 			}
 		} else {
-			resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, namespace, kind, resource)
+			if resourceNameSpace == namespace {
+				resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, namespace, kind, resource)
+			}
 		}
 	}
 	return resultsKey
@@ -359,6 +369,8 @@ func getUserDefinedPolicyNameAndNamespace(policyNames string) (string, string) {
 	return namespace, policy
 }
 
+//getAndComparePatchedResource --> Get the patchedResource from the path provided by user
+// And compare this patchedResource with engine generated patcheResource.
 func getAndComparePatchedResource(path string, enginePatchedResource unstructured.Unstructured, isGit bool, policyResourcePath string, fs billy.Filesystem) report.PolicyResult {
 	var status report.PolicyResult
 	status = "skip"
@@ -432,10 +444,6 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		a = append(a, result.PatchedResource)
 		a = getPolicyResourceFullPaths(a, policyResourcePath, isGit)
 		values.Results[i].PatchedResource = a[0]
-
-		if result.Namespace == "" {
-			values.Results[i].Namespace = "default"
-		}
 	}
 	policies, err := common.GetPoliciesFromPaths(fs, fullPolicyPath, isGit, policyResourcePath)
 	if err != nil {
@@ -536,6 +544,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 		res.Rule = boldFgCyan.Sprintf(v.Rule)
 		res.Resource = boldFgCyan.Sprintf(v.Resource)
 		resultKey := fmt.Sprintf("%s-%s-%s-%s", v.Policy, v.Rule, v.Kind, v.Resource)
+
 		if isNamespacedPolicy(v.Policy) || v.Namespace != "" {
 			if isNamespacedPolicy(v.Policy) {
 				var ns string
