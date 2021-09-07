@@ -53,6 +53,7 @@ var tests = []struct {
 	// ResourceRaw - The Yaml file of the ClusterPolicy
 	ResourceRaw []byte
 	// ExpectedPatternRaw - The Yaml file that contains validate pattern for the expected result
+	// This is not the final result. It is just used to validate the result from the engine.
 	ExpectedPatternRaw []byte
 }{
 	{
