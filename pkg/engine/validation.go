@@ -111,31 +111,31 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 
 		log.V(3).Info("matched validate rule")
 
-		rule.AnyAllConditions, err = variables.SubstituteAllInPreconditions(log, ctx.JSONContext, rule.AnyAllConditions)
+		ruleCopy := rule.DeepCopy()
+		ruleCopy.AnyAllConditions, err = variables.SubstituteAllInPreconditions(log, ctx.JSONContext, ruleCopy.AnyAllConditions)
 		if err != nil {
 			log.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", rule.Name)
 			return nil
 		}
 
-		// operate on the copy of the conditions, as we perform variable substitution
-		preconditionsCopy, err := copyConditions(rule.AnyAllConditions)
+		preconditions, err := transformConditions(ruleCopy.AnyAllConditions)
 		if err != nil {
 			log.V(2).Info("wrongfully configured data", "reason", err.Error())
 			continue
 		}
 
 		// evaluate pre-conditions
-		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditionsCopy) {
+		if !variables.EvaluateConditions(log, ctx.JSONContext, preconditions) {
 			log.V(4).Info("resource fails the preconditions")
 			continue
 		}
 
 		if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
-			if rule, err = substituteAll(log, ctx, rule, resp); err != nil {
+			if *ruleCopy, err = substituteAll(log, ctx, *ruleCopy, resp); err != nil {
 				continue
 			}
 
-			ruleResponse := validateResourceWithRule(log, ctx, rule)
+			ruleResponse := validateResourceWithRule(log, ctx, *ruleCopy)
 			if ruleResponse != nil {
 				if !common.IsConditionalAnchorError(ruleResponse.Message) {
 					incrementAppliedCount(resp)
@@ -143,26 +143,27 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 				}
 			}
 		} else if rule.Validation.Deny != nil {
-			rule.Validation.Deny.AnyAllConditions, err = variables.SubstituteAllInPreconditions(log, ctx.JSONContext, rule.Validation.Deny.AnyAllConditions)
+			ruleCopy.Validation.Deny.AnyAllConditions, err = variables.SubstituteAllInPreconditions(log, ctx.JSONContext, ruleCopy.Validation.Deny.AnyAllConditions)
 			if err != nil {
 				log.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", rule.Name)
 				continue
 			}
 
-			if rule, err = substituteAll(log, ctx, rule, resp); err != nil {
+			if *ruleCopy, err = substituteAll(log, ctx, *ruleCopy, resp); err != nil {
 				continue
 			}
 
-			denyConditionsCopy, err := copyConditions(rule.Validation.Deny.AnyAllConditions)
+			denyConditions, err := transformConditions(ruleCopy.Validation.Deny.AnyAllConditions)
 			if err != nil {
 				log.V(2).Info("wrongfully configured data", "reason", err.Error())
 				continue
 			}
-			deny := variables.EvaluateConditions(log, ctx.JSONContext, denyConditionsCopy)
+
+			deny := variables.EvaluateConditions(log, ctx.JSONContext, denyConditions)
 			ruleResp := response.RuleResponse{
-				Name:    rule.Name,
+				Name:    ruleCopy.Name,
 				Type:    utils.Validation.String(),
-				Message: rule.Validation.Message,
+				Message: ruleCopy.Validation.Message,
 				Success: !deny,
 			}
 

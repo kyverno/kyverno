@@ -51,6 +51,12 @@ func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvern
 		strings.ToLower(string(kyverno.LessThan)):
 		return NewNumericOperatorHandler(log, ctx, op)
 
+	case strings.ToLower(string(kyverno.DurationGreaterThanOrEquals)),
+		strings.ToLower(string(kyverno.DurationGreaterThan)),
+		strings.ToLower(string(kyverno.DurationLessThanOrEquals)),
+		strings.ToLower(string(kyverno.DurationLessThan)):
+		return NewDurationOperatorHandler(log, ctx, op)
+
 	default:
 		log.Info("operator not supported", "operator", str)
 	}

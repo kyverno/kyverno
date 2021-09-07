@@ -5,6 +5,5 @@ resources:
 - ./clusterroles.yaml
 - ./clusterrolebindings.yaml
 - ./configmap.yaml
-- ./namespace.yaml
 - ./service.yaml
 - ./serviceaccount.yaml

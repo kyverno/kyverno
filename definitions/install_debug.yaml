@@ -1064,7 +1064,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1alpha1
+    name: v1alpha2
     schema:
       openAPIV3Schema:
         description: ClusterPolicyReport is the Schema for the clusterpolicyreports API
@@ -1085,10 +1085,10 @@ spec:
                 category:
                   description: Category indicates policy category
                   type: string
-                data:
+                properties:
                   additionalProperties:
                     type: string
-                  description: Data provides additional information for the policy rule
+                  description: Properties provides additional information for the policy rule
                   type: object
                 message:
                   description: Message is a short user friendly description of the policy rule
@@ -1096,6 +1096,31 @@ spec:
                 policy:
                   description: Policy is the name of the policy
                   type: string
+                source:
+                  description: Source is an identifier for the policy engine that
+                    manages this report
+                  type: string
+                timestamp:
+                  description: Timestamp indicates the time the result was found
+                  properties:
+                    nanos:
+                      description: Non-negative fractions of a second at nanosecond
+                        resolution. Negative second values with fractions must still
+                        have non-negative nanos values that count forward in time.
+                        Must be from 0 to 999,999,999 inclusive. This field may be
+                        limited in precision depending on context.
+                      format: int32
+                      type: integer
+                    seconds:
+                      description: Represents seconds of UTC time since Unix epoch
+                        1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
+                        9999-12-31T23:59:59Z inclusive.
+                      format: int64
+                      type: integer
+                  required:
+                  - nanos
+                  - seconds
+                  type: object
                 resourceSelector:
                   description: ResourceSelector is an optional selector for policy results that apply to multiple resources. For example, a policy result may apply to all pods that match a label. Either a Resource or a ResourceSelector can be specified. If neither are provided, the result is assumed to be for the policy report scope.
                   properties:
@@ -1167,8 +1192,8 @@ spec:
                   - low
                   - medium
                   type: string
-                status:
-                  description: Status indicates the result of the policy rule check
+                result:
+                  description: Result indicates the outcome of the policy rule execution
                   enum:
                   - pass
                   - fail
@@ -1310,7 +1335,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1alpha1
+    name: v1alpha2
     schema:
       openAPIV3Schema:
         description: ClusterReportChangeRequest is the Schema for the ClusterReportChangeRequests API
@@ -1331,10 +1356,10 @@ spec:
                 category:
                   description: Category indicates policy category
                   type: string
-                data:
+                properties:
                   additionalProperties:
                     type: string
-                  description: Data provides additional information for the policy rule
+                  description: Properties provides additional information for the policy rule
                   type: object
                 message:
                   description: Message is a short user friendly description of the policy rule
@@ -1342,6 +1367,31 @@ spec:
                 policy:
                   description: Policy is the name of the policy
                   type: string
+                source:
+                  description: Source is an identifier for the policy engine that
+                    manages this report
+                  type: string
+                timestamp:
+                  description: Timestamp indicates the time the result was found
+                  properties:
+                    nanos:
+                      description: Non-negative fractions of a second at nanosecond
+                        resolution. Negative second values with fractions must still
+                        have non-negative nanos values that count forward in time.
+                        Must be from 0 to 999,999,999 inclusive. This field may be
+                        limited in precision depending on context.
+                      format: int32
+                      type: integer
+                    seconds:
+                      description: Represents seconds of UTC time since Unix epoch
+                        1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
+                        9999-12-31T23:59:59Z inclusive.
+                      format: int64
+                      type: integer
+                  required:
+                  - nanos
+                  - seconds
+                  type: object
                 resourceSelector:
                   description: ResourceSelector is an optional selector for policy results that apply to multiple resources. For example, a policy result may apply to all pods that match a label. Either a Resource or a ResourceSelector can be specified. If neither are provided, the result is assumed to be for the policy report scope.
                   properties:
@@ -1413,8 +1463,8 @@ spec:
                   - low
                   - medium
                   type: string
-                status:
-                  description: Status indicates the result of the policy rule check
+                result:
+                  description: Result indicates the outcome of the policy rule execution
                   enum:
                   - pass
                   - fail
@@ -2735,7 +2785,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1alpha1
+    name: v1alpha2
     schema:
       openAPIV3Schema:
         description: PolicyReport is the Schema for the policyreports API
@@ -2756,10 +2806,10 @@ spec:
                 category:
                   description: Category indicates policy category
                   type: string
-                data:
+                properties:
                   additionalProperties:
                     type: string
-                  description: Data provides additional information for the policy rule
+                  description: Properties provides additional information for the policy rule
                   type: object
                 message:
                   description: Message is a short user friendly description of the policy rule
@@ -2767,6 +2817,31 @@ spec:
                 policy:
                   description: Policy is the name of the policy
                   type: string
+                source:
+                  description: Source is an identifier for the policy engine that
+                    manages this report
+                  type: string
+                timestamp:
+                  description: Timestamp indicates the time the result was found
+                  properties:
+                    nanos:
+                      description: Non-negative fractions of a second at nanosecond
+                        resolution. Negative second values with fractions must still
+                        have non-negative nanos values that count forward in time.
+                        Must be from 0 to 999,999,999 inclusive. This field may be
+                        limited in precision depending on context.
+                      format: int32
+                      type: integer
+                    seconds:
+                      description: Represents seconds of UTC time since Unix epoch
+                        1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
+                        9999-12-31T23:59:59Z inclusive.
+                      format: int64
+                      type: integer
+                  required:
+                  - nanos
+                  - seconds
+                  type: object
                 resourceSelector:
                   description: ResourceSelector is an optional selector for policy results that apply to multiple resources. For example, a policy result may apply to all pods that match a label. Either a Resource or a ResourceSelector can be specified. If neither are provided, the result is assumed to be for the policy report scope.
                   properties:
@@ -2838,8 +2913,8 @@ spec:
                   - low
                   - medium
                   type: string
-                status:
-                  description: Status indicates the result of the policy rule check
+                result:
+                  description: Result indicates the outcome of the policy rule execution
                   enum:
                   - pass
                   - fail
@@ -2981,7 +3056,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1alpha1
+    name: v1alpha2
     schema:
       openAPIV3Schema:
         description: ReportChangeRequest is the Schema for the ReportChangeRequests API
@@ -3002,10 +3077,10 @@ spec:
                 category:
                   description: Category indicates policy category
                   type: string
-                data:
+                properties:
                   additionalProperties:
                     type: string
-                  description: Data provides additional information for the policy rule
+                  description: Properties provides additional information for the policy rule
                   type: object
                 message:
                   description: Message is a short user friendly description of the policy rule
@@ -3013,6 +3088,31 @@ spec:
                 policy:
                   description: Policy is the name of the policy
                   type: string
+                source:
+                  description: Source is an identifier for the policy engine that
+                    manages this report
+                  type: string
+                timestamp:
+                  description: Timestamp indicates the time the result was found
+                  properties:
+                    nanos:
+                      description: Non-negative fractions of a second at nanosecond
+                        resolution. Negative second values with fractions must still
+                        have non-negative nanos values that count forward in time.
+                        Must be from 0 to 999,999,999 inclusive. This field may be
+                        limited in precision depending on context.
+                      format: int32
+                      type: integer
+                    seconds:
+                      description: Represents seconds of UTC time since Unix epoch
+                        1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
+                        9999-12-31T23:59:59Z inclusive.
+                      format: int64
+                      type: integer
+                  required:
+                  - nanos
+                  - seconds
+                  type: object
                 resourceSelector:
                   description: ResourceSelector is an optional selector for policy results that apply to multiple resources. For example, a policy result may apply to all pods that match a label. Either a Resource or a ResourceSelector can be specified. If neither are provided, the result is assumed to be for the policy report scope.
                   properties:
@@ -3084,8 +3184,8 @@ spec:
                   - low
                   - medium
                   type: string
-                status:
-                  description: Status indicates the result of the policy rule check
+                result:
+                  description: Result indicates the outcome of the policy rule execution
                   enum:
                   - pass
                   - fail
@@ -3215,7 +3315,7 @@ metadata:
   name: kyverno:admin-policyreport
 rules:
 - apiGroups:
-  - wgpolicyk8s.io/v1alpha1
+  - wgpolicyk8s.io/v1alpha2
   resources:
   - policyreports
   - clusterpolicyreports

@@ -101,14 +101,15 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 		return nil
 	}
 
-	rule.AnyAllConditions, err = variables.SubstituteAllInPreconditions(logger, ctx, rule.AnyAllConditions)
+	ruleCopy := rule.DeepCopy()
+	ruleCopy.AnyAllConditions, err = variables.SubstituteAllInPreconditions(logger, ctx, ruleCopy.AnyAllConditions)
 	if err != nil {
-		logger.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", rule.Name)
+		logger.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", ruleCopy.Name)
 		return nil
 	}
 
 	// operate on the copy of the conditions, as we perform variable substitution
-	copyConditions, err := copyConditions(rule.AnyAllConditions)
+	copyConditions, err := transformConditions(ruleCopy.AnyAllConditions)
 	if err != nil {
 		logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
 		return nil
@@ -116,13 +117,13 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
-		logger.V(4).Info("preconditions not satisfied, skipping rule", "rule", rule.Name)
+		logger.V(4).Info("preconditions not satisfied, skipping rule", "rule", ruleCopy.Name)
 		return nil
 	}
 
 	// build rule Response
 	return &response.RuleResponse{
-		Name:    rule.Name,
+		Name:    ruleCopy.Name,
 		Type:    "Generation",
 		Success: true,
 		RuleStats: response.RuleStats{

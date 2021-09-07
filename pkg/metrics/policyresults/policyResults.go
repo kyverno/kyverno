@@ -12,7 +12,7 @@ func (pm PromMetrics) registerPolicyResultsMetric(
 	policyType metrics.PolicyType,
 	policyBackgroundMode metrics.PolicyBackgroundMode,
 	policyNamespace, policyName string,
-	resourceName, resourceKind, resourceNamespace string,
+	resourceKind, resourceNamespace string,
 	resourceRequestOperation metrics.ResourceRequestOperation,
 	ruleName string,
 	ruleResult metrics.RuleResult,
@@ -28,7 +28,6 @@ func (pm PromMetrics) registerPolicyResultsMetric(
 		"policy_background_mode":     string(policyBackgroundMode),
 		"policy_namespace":           policyNamespace,
 		"policy_name":                policyName,
-		"resource_name":              resourceName,
 		"resource_kind":              resourceKind,
 		"resource_namespace":         resourceNamespace,
 		"resource_request_operation": string(resourceRequestOperation),
@@ -59,7 +58,6 @@ func (pm PromMetrics) ProcessEngineResponse(policy kyverno.ClusterPolicy, engine
 
 	resourceSpec := engineResponse.PolicyResponse.Resource
 
-	resourceName := resourceSpec.Name
 	resourceKind := resourceSpec.Kind
 	resourceNamespace := resourceSpec.Namespace
 
@@ -78,7 +76,7 @@ func (pm PromMetrics) ProcessEngineResponse(policy kyverno.ClusterPolicy, engine
 			policyType,
 			policyBackgroundMode,
 			policyNamespace, policyName,
-			resourceName, resourceKind, resourceNamespace,
+			resourceKind, resourceNamespace,
 			resourceRequestOperation,
 			ruleName,
 			ruleResult,

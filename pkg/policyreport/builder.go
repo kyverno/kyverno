@@ -3,11 +3,12 @@ package policyreport
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	request "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha1"
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	request "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha2"
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -29,6 +30,9 @@ const (
 	// there would be a problem if use labels as the value could exceed 63 chars
 	deletedAnnotationResourceName string = "kyverno.io/delete.resource.name"
 	deletedAnnotationResourceKind string = "kyverno.io/delete.resource.kind"
+
+	// static value for PolicyReportResult.Source
+	SourceValue = "Kyverno"
 )
 
 func generatePolicyReportName(ns string) string {
@@ -152,9 +156,13 @@ func (builder *requestBuilder) buildRCRResult(policy string, resource response.R
 
 	result.Rule = rule.Name
 	result.Message = rule.Message
-	result.Status = report.PolicyStatus(rule.Check)
-	if result.Status == "fail" && !av.scored {
-		result.Status = "warn"
+	result.Result = report.PolicyResult(rule.Check)
+	if result.Result == "fail" && !av.scored {
+		result.Result = "warn"
+	}
+	result.Source = SourceValue
+	result.Timestamp = metav1.Timestamp{
+		Seconds: time.Now().Unix(),
 	}
 	return result
 }
@@ -212,7 +220,7 @@ func setRequestLabels(req *unstructured.Unstructured, info Info) bool {
 
 func calculateSummary(results []*report.PolicyReportResult) (summary report.PolicyReportSummary) {
 	for _, res := range results {
-		switch string(res.Status) {
+		switch string(res.Result) {
 		case report.StatusPass:
 			summary.Pass++
 		case report.StatusFail:
