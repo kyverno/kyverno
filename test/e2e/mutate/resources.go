@@ -6,7 +6,6 @@ import (
 	"github.com/kyverno/kyverno/test/e2e"
 )
 
-var deploymentGVR = e2e.GetGVR("apps", "v1", "deployments")
 var podGVR = e2e.GetGVR("", "v1", "pods")
 
 func newNamespaceYaml(name string) []byte {
