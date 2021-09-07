@@ -37,13 +37,95 @@ import (
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+var longHelp = `
+Test command provides a facility to test policies on resources. For that, user needs to provide the path of the folder containing test.yaml file. 
+
+	kyverno test  /path/to/folderContaningTestYamls
+				   or
+	kyverno test  /path/to/githubRepository
+
+The test.yaml file is configuration file for test command. It consists of 4 parts:-
+  "policies"  (required) --> element lists one or more path of policies 
+  "resources" (required) --> element lists one or more path of resources.
+  "variables" (optional) --> element with one variables files
+  "results"   (required)  --> element lists one more expected result. 
+`
+var exampleHelp = `
+For Validate Policy 
+  test.yaml
+
+- name: test-1
+  policies:
+  - <path>
+  - <path>
+  resources:
+  - <path>
+  - <path>
+  results:
+  - policy: <name>
+    rule: <name>
+    resource: <name>
+    namespace: <name> (OPTIONAL)
+    kind: <name> 
+    result: <pass/fail/skip>
+
+For more visit --> https://kyverno.io/docs/kyverno-cli/#test
+
+
+For Mutate Policy 
+1) Policy (Namespaced-policy)
+
+  test.yaml
+
+- name: test-1
+  policies:
+  - <path>
+  - <path>
+  resources:
+  - <path>
+  - <path>
+  results:
+  - policy: <namespace>/<name>
+    rule: <name>
+    resource: <name>
+    namespace: <name> (OPTIONAL)
+    patchedResource: <path>
+    kind: <name> 
+    result: <pass/fail/skip>
+  
+
+2) ClusterPolicy(cluster-wide policy)
+
+  test.yaml
+  
+- name: test-1
+  policies:
+  - <path>
+  - <path>
+  resources:
+  - <path>
+  - <path>
+  results:
+  - policy: <name>
+    rule: <name>
+    resource: <name>
+    namespace: <name> (OPTIONAL)
+    kind: <name> 
+    patchedResource: <path>
+    result: <pass/fail/skip>
+
+NOTE:- In the results section, policy, rule, resource, kind and result are mandatory fields for all type of policy.
+`
+
 // Command returns version command
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var valuesFile, fileName string
 	cmd = &cobra.Command{
-		Use:   "test",
-		Short: "run tests from directory",
+		Use:     "test",
+		Short:   "run tests from directory",
+		Long:    longHelp,
+		Example: exampleHelp,
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
 			defer func() {
 				if err != nil {
