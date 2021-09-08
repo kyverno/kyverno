@@ -32,9 +32,7 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 
 	for _, policy := range policies {
 		for _, rule := range policy.Spec.Rules {
-			for _, kind := range rule.MatchResources.Kinds {
-				resourceTypesMap[kind] = true
-			}
+			resourceTypesMap = getKindsFromPolicy(rule)
 		}
 	}
 
@@ -299,4 +297,41 @@ func GetPatchedResource(patchResourceBytes []byte) (patchedResource unstructured
 	}
 
 	return patchedResource, nil
+}
+
+// getKindsFromPolicy will return the kinds from policy match block
+func getKindsFromPolicy(rule v1.Rule) map[string]bool {
+	var resourceTypesMap = make(map[string]bool)
+	for _, kind := range rule.MatchResources.Kinds {
+		if strings.Contains(kind, "/") {
+			lastElement := kind[strings.LastIndex(kind, "/")+1:]
+			resourceTypesMap[lastElement] = true
+		}
+		resourceTypesMap[kind] = true
+	}
+
+	if rule.MatchResources.Any != nil {
+		for _, resFilter := range rule.MatchResources.Any {
+			for _, kind := range resFilter.ResourceDescription.Kinds {
+				if strings.Contains(kind, "/") {
+					lastElement := kind[strings.LastIndex(kind, "/")+1:]
+					resourceTypesMap[lastElement] = true
+				}
+				resourceTypesMap[kind] = true
+			}
+		}
+	}
+
+	if rule.MatchResources.All != nil {
+		for _, resFilter := range rule.MatchResources.All {
+			for _, kind := range resFilter.ResourceDescription.Kinds {
+				if strings.Contains(kind, "/") {
+					lastElement := kind[strings.LastIndex(kind, "/")+1:]
+					resourceTypesMap[lastElement] = true
+				}
+				resourceTypesMap[kind] = true
+			}
+		}
+	}
+	return resourceTypesMap
 }
