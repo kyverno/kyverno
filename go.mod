@@ -14,7 +14,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.0.0
 	github.com/go-git/go-git/v5 v5.2.0
 	github.com/go-logr/logr v0.4.0
-	github.com/google/go-containerregistry v0.5.1
+	github.com/google/go-containerregistry v0.6.0
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210216200643-d81088d9983e
 	github.com/googleapis/gnostic v0.5.4
 	github.com/jmespath/go-jmespath v0.4.0
@@ -30,9 +30,8 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
-	github.com/sigstore/cosign v1.0.0
-	github.com/sigstore/rekor v0.3.0 // indirect
-	github.com/sigstore/sigstore v0.0.0-20210726180807-7e34e36ecda1
+	github.com/sigstore/cosign v1.1.0
+	github.com/sigstore/sigstore v0.0.0-20210729211320-56a91f560f44
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.0
 	gopkg.in/yaml.v2 v2.4.0
