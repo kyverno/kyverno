@@ -1519,10 +1519,10 @@ spec:
                       type: array
                   type: object
                 type: array
-              shemaValidation:
-                description: ShemaValidation controls skipping policy validation checks.
-                  Optional. Default value is "true". The value must be set to "false"
-                  if policy should skip validation checks.
+              schemaValidation:
+                description: SchemaValidation skips policy validation checks. Optional.
+                  The default value is set to "true", it must be set to "false" to
+                  disable the validation checks.
                 type: boolean
               validationFailureAction:
                 description: ValidationFailureAction controls if a validation policy

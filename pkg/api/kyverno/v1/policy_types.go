@@ -55,11 +55,10 @@ type Spec struct {
 	// +optional
 	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
 
-	// ShemaValidation controls skipping policy validation checks.
-	// Optional. Default value is "true". The value must be set to "false" if policy should
-	// skip validation checks.
+	// SchemaValidation skips policy validation checks.
+	// Optional. The default value is set to "true", it must be set to "false" to disable the validation checks.
 	// +optional
-	ShemaValidation *bool `json:"shemaValidation,omitempty" yaml:"shemaValidation,omitempty"`
+	SchemaValidation *bool `json:"schemaValidation,omitempty" yaml:"schemaValidation,omitempty"`
 }
 
 // Rule defines a validation, mutation, or generation control for matching resources.
