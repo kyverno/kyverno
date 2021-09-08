@@ -10,40 +10,12 @@ import (
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
-type ValidationError struct {
-	err error
-}
-
-func (ve ValidationError) Error() string {
-	return ve.err.Error()
-}
-
-func NewValidationError(err error) error {
-	return ValidationError{err}
-}
-
-type KeyNotFoundError struct {
-	key string
-}
-
-func (e KeyNotFoundError) Error() string {
-	return fmt.Sprintf("could not found \"%s\" key in the resource", e.key)
-}
-
-func NewKeyNotFoundError(message string) error {
-	return KeyNotFoundError{message}
-}
-
 type ConditionError struct {
 	errorChain error
 }
 
 func (ce ConditionError) Error() string {
-	return fmt.Sprintf("condition failed: %s", ce.errorChain.Error())
-}
-
-func (ce ConditionError) Inner() error {
-	return ce.errorChain
+	return fmt.Sprintf("Condition failed: %s", ce.errorChain.Error())
 }
 
 func NewConditionError(err error) error {
@@ -55,11 +27,7 @@ type GlobalConditionError struct {
 }
 
 func (ce GlobalConditionError) Error() string {
-	return fmt.Sprintf("global condition failed: %s", ce.errorChain.Error())
-}
-
-func (ce GlobalConditionError) Inner() error {
-	return ce.errorChain
+	return fmt.Sprintf("Global condition failed: %s", ce.errorChain.Error())
 }
 
 func NewGlobalConditionError(err error) error {
@@ -173,7 +141,7 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 			for _, resourceElement := range resourceElements {
 				err := preProcessRecursive(logger, patternElement, resourceElement)
 				if err != nil {
-					if shouldSkipArrayElement(err) {
+					if _, ok := err.(ConditionError); ok {
 						// Skip element, if condition has failed
 						continue
 					}
@@ -528,27 +496,14 @@ func validateConditionsInternal(logger logr.Logger, pattern, resource *yaml.RNod
 	for _, condition := range conditions {
 		conditionKey := removeAnchor(condition)
 		if resource == nil || resource.Field(conditionKey) == nil {
-			return NewKeyNotFoundError(conditionKey)
+			return fmt.Errorf("could not found \"%s\" key in the resource", conditionKey)
 		}
 
 		err = checkCondition(logger, pattern.Field(condition).Value, resource.Field(conditionKey).Value)
 		if err != nil {
-			return NewValidationError(err)
+			return err
 		}
 	}
 
 	return nil
-}
-
-func shouldSkipArrayElement(err error) bool {
-	globalErr, isGlobal := err.(GlobalConditionError)
-	_, isCondition := err.(ConditionError)
-
-	if isGlobal {
-		if _, ok := globalErr.Inner().(KeyNotFoundError); ok {
-			return true
-		}
-	}
-
-	return isCondition
 }
