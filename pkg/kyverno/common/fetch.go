@@ -39,6 +39,30 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 				}
 				resourceTypesMap[kind] = true
 			}
+
+			if rule.MatchResources.Any != nil {
+				for _, resFilter := range rule.MatchResources.Any {
+					for _, kind := range resFilter.ResourceDescription.Kinds {
+						if strings.Contains(kind, "/") {
+							lastElement := kind[strings.LastIndex(kind, "/")+1:]
+							resourceTypesMap[lastElement] = true
+						}
+						resourceTypesMap[kind] = true
+					}
+				}
+			}
+
+			if rule.MatchResources.All != nil {
+				for _, resFilter := range rule.MatchResources.All {
+					for _, kind := range resFilter.ResourceDescription.Kinds {
+						if strings.Contains(kind, "/") {
+							lastElement := kind[strings.LastIndex(kind, "/")+1:]
+							resourceTypesMap[lastElement] = true
+						}
+						resourceTypesMap[kind] = true
+					}
+				}
+			}
 		}
 	}
 
