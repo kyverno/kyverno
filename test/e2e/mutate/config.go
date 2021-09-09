@@ -1,5 +1,9 @@
 package mutate
 
+import (
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
+
 // MutateTests is E2E Test Config for mutation
 var MutateTests = []struct {
 	//TestName - Name of the Test
@@ -28,6 +32,49 @@ var MutateTests = []struct {
 		Data:              configMapMutationWithContextLabelSelectionYaml,
 		ResourceNamespace: "test-mutate",
 		PolicyName:        "mutate-policy",
+	},
+}
+
+// Note: sometimes deleting namespaces takes time.
+// Using different names for namespaces prevents collisions.
+var tests = []struct {
+	//TestDescription - Description of the Test
+	TestDescription string
+	// PolicyName - Name of the Policy
+	PolicyName string
+	// PolicyRaw - The Yaml file of the ClusterPolicy
+	PolicyRaw []byte
+	// ResourceName - Name of the Resource
+	ResourceName string
+	// ResourceNamespace - Namespace of the Resource
+	ResourceNamespace string
+	// ResourceGVR - GVR of the Resource
+	ResourceGVR schema.GroupVersionResource
+	// ResourceRaw - The Yaml file of the ClusterPolicy
+	ResourceRaw []byte
+	// ExpectedPatternRaw - The Yaml file that contains validate pattern for the expected result
+	// This is not the final result. It is just used to validate the result from the engine.
+	ExpectedPatternRaw []byte
+}{
+	{
+		TestDescription:    "checks that runAsNonRoot is added to security context and containers elements security context",
+		PolicyName:         "set-runasnonroot-true",
+		PolicyRaw:          setRunAsNonRootTrue,
+		ResourceName:       "foo",
+		ResourceNamespace:  "test-mutate",
+		ResourceGVR:        podGVR,
+		ResourceRaw:        podWithContainers,
+		ExpectedPatternRaw: podWithContainersPattern,
+	},
+	{
+		TestDescription:    "checks that runAsNonRoot is added to security context and containers elements security context and initContainers elements security context",
+		PolicyName:         "set-runasnonroot-true",
+		PolicyRaw:          setRunAsNonRootTrue,
+		ResourceName:       "foo",
+		ResourceNamespace:  "test-mutate1",
+		ResourceGVR:        podGVR,
+		ResourceRaw:        podWithContainersAndInitContainers,
+		ExpectedPatternRaw: podWithContainersAndInitContainersPattern,
 	},
 }
 
