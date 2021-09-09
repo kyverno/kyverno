@@ -29,7 +29,8 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 			continue
 		}
 
-		for _, k := range rule.MatchResources.Kinds {
+		for _, kind := range rule.MatchResources.Kinds {
+			k := common.GetFormatedKind(kind)
 			logger = logger.WithValues("rule", rule.Name, "kind", k)
 			namespaced, err := pc.rm.GetScope(k)
 			if err != nil {

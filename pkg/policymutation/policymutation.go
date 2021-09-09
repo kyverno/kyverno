@@ -60,6 +60,17 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 	}
 	patches = append(patches, convertPatch...)
 
+	formatedGVK, errs := checkForGVKFormatPatch(policy, log)
+	if len(errs) > 0 {
+		var errMsgs []string
+		for _, err := range errs {
+			errMsgs = append(errMsgs, err.Error())
+			log.Error(err, "failed to format the kind")
+		}
+		updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
+	}
+	patches = append(patches, formatedGVK...)
+
 	overlaySMPPatches, errs := convertOverlayToStrategicMerge(policy, log)
 	if len(errs) > 0 {
 		var errMsgs []string
@@ -72,6 +83,31 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 	patches = append(patches, overlaySMPPatches...)
 
 	return utils.JoinPatches(patches), updateMsgs
+}
+
+func checkForGVKFormatPatch(policy *kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
+	patches = make([][]byte, 0)
+	for i, rule := range policy.Spec.Rules {
+		kindList := []string{}
+		for _, k := range rule.MatchResources.Kinds {
+			kindList = append(kindList, common.GetFormatedKind(k))
+		}
+		jsonPatch := struct {
+			Path  string   `json:"path"`
+			Op    string   `json:"op"`
+			Value []string `json:"value"`
+		}{
+			fmt.Sprintf("/spec/rules/%s/match/resources/kinds", strconv.Itoa(i)),
+			"replace",
+			kindList,
+		}
+		patchByte, err := json.Marshal(jsonPatch)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to convert policy '%s': %v", policy.Name, err))
+		}
+		patches = append(patches, patchByte)
+	}
+	return patches, errs
 }
 
 func convertPatchToJSON6902(policy *kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
