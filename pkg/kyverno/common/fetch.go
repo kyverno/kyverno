@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -33,9 +32,7 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 
 	for _, policy := range policies {
 		for _, rule := range policy.Spec.Rules {
-			for _, kind := range rule.MatchResources.Kinds {
-				resourceTypesMap[common.GetFormatedKind(kind)] = true
-			}
+			resourceTypesMap = getKindsFromPolicy(rule)
 		}
 	}
 
@@ -273,4 +270,41 @@ func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructu
 		resource.SetNamespace("default")
 	}
 	return resource, nil
+}
+
+// getKindsFromPolicy will return the kinds from policy match block
+func getKindsFromPolicy(rule v1.Rule) map[string]bool {
+	var resourceTypesMap = make(map[string]bool)
+	for _, kind := range rule.MatchResources.Kinds {
+		if strings.Contains(kind, "/") {
+			lastElement := kind[strings.LastIndex(kind, "/")+1:]
+			resourceTypesMap[strings.Title(lastElement)] = true
+		}
+		resourceTypesMap[strings.Title(kind)] = true
+	}
+
+	if rule.MatchResources.Any != nil {
+		for _, resFilter := range rule.MatchResources.Any {
+			for _, kind := range resFilter.ResourceDescription.Kinds {
+				if strings.Contains(kind, "/") {
+					lastElement := kind[strings.LastIndex(kind, "/")+1:]
+					resourceTypesMap[strings.Title(lastElement)] = true
+				}
+				resourceTypesMap[kind] = true
+			}
+		}
+	}
+
+	if rule.MatchResources.All != nil {
+		for _, resFilter := range rule.MatchResources.All {
+			for _, kind := range resFilter.ResourceDescription.Kinds {
+				if strings.Contains(kind, "/") {
+					lastElement := kind[strings.LastIndex(kind, "/")+1:]
+					resourceTypesMap[strings.Title(lastElement)] = true
+				}
+				resourceTypesMap[strings.Title(kind)] = true
+			}
+		}
+	}
+	return resourceTypesMap
 }

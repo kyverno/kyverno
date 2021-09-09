@@ -56,7 +56,7 @@ func Test_NamespaceSelector(t *testing.T) {
 		policy               []byte
 		resource             []byte
 		namespaceSelectorMap map[string]map[string]string
-		success              bool
+		result               ResultCounts
 	}
 
 	testcases := []TestCase{
@@ -68,7 +68,13 @@ func Test_NamespaceSelector(t *testing.T) {
 					"foo.com/managed-state": "managed",
 				},
 			},
-			success: false,
+			result: ResultCounts{
+				Pass:  0,
+				Fail:  1,
+				Warn:  0,
+				Error: 0,
+				Skip:  0,
+			},
 		},
 		{
 			policy:   policyNamespaceSelector,
@@ -78,14 +84,25 @@ func Test_NamespaceSelector(t *testing.T) {
 					"foo.com/managed-state": "managed",
 				},
 			},
-			success: true,
+			result: ResultCounts{
+				Pass:  1,
+				Fail:  1,
+				Warn:  0,
+				Error: 0,
+				Skip:  0,
+			},
 		},
 	}
 
+	rc := &ResultCounts{}
 	for _, tc := range testcases {
 		policyArray, _ := ut.GetPolicy(tc.policy)
 		resourceArray, _ := GetResource(tc.resource)
-		validateErs, _, _, _ := ApplyPolicyOnResource(policyArray[0], resourceArray[0], "", false, nil, false, tc.namespaceSelectorMap, false)
-		assert.Assert(t, tc.success == validateErs.IsSuccessful())
+		ApplyPolicyOnResource(policyArray[0], resourceArray[0], "", false, nil, false, tc.namespaceSelectorMap, false, rc)
+		assert.Assert(t, int64(rc.Pass) == int64(tc.result.Pass))
+		assert.Assert(t, int64(rc.Fail) == int64(tc.result.Fail))
+		assert.Assert(t, int64(rc.Skip) == int64(tc.result.Skip))
+		assert.Assert(t, int64(rc.Warn) == int64(tc.result.Warn))
+		assert.Assert(t, int64(rc.Error) == int64(tc.result.Error))
 	}
 }
