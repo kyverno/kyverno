@@ -76,6 +76,16 @@ var tests = []struct {
 		ResourceRaw:        podWithContainersAndInitContainers,
 		ExpectedPatternRaw: podWithContainersAndInitContainersPattern,
 	},
+	{
+		TestDescription:    "checks that variables in the keys are working correctly",
+		PolicyName:         "structured-logs-sidecar",
+		PolicyRaw:          kyverno_2316_policy,
+		ResourceName:       "busybox",
+		ResourceNamespace:  "test-mutate2",
+		ResourceGVR:        deploymentGVR,
+		ResourceRaw:        kyverno_2316_resource,
+		ExpectedPatternRaw: kyverno_2316_pattern,
+	},
 }
 
 var ingressTests = struct {

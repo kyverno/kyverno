@@ -7,6 +7,7 @@ import (
 )
 
 var podGVR = e2e.GetGVR("", "v1", "pods")
+var deploymentGVR = e2e.GetGVR("apps", "v1", "deployments")
 
 func newNamespaceYaml(name string) []byte {
 	ns := fmt.Sprintf(`
@@ -306,4 +307,82 @@ spec:
   - (name): "*"
     securityContext:
       runAsNonRoot: true
+`)
+
+var kyverno_2316_policy = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: structured-logs-sidecar
+spec:
+  background: false
+  rules:
+    - name: add-annotations
+      match:
+        resources:
+          kinds:
+            - Deployment
+          annotations:
+            structured-logs: "true"
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              "fluentbit.io/exclude-{{request.object.spec.template.spec.containers[0].name}}": "true"
+`)
+
+var kyverno_2316_resource = []byte(`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: busybox
+  namespace: test-mutate2
+  annotations:
+    structured-logs: "true"
+  labels:
+    # app: busybox
+    color: red
+    animal: bear
+    food: pizza
+    car: jeep
+    env: qa
+    # foo: blaaah
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      appa: busybox
+  template:
+    metadata:
+      labels:
+        appa: busybox
+        # foo: blaaah
+    spec:
+      containers:
+      - image: busybox:1.28
+        name: busybox
+        command: ["sleep", "9999"]
+        resources:
+          requests:
+            cpu: 100m
+            memory: 10Mi
+          limits:
+            cpu: 100m
+            memory: 10Mi
+      - image: busybox:1.28
+        name: busybox1
+        command: ["sleep", "9999"]
+        resources:
+          requests:
+            cpu: 100m
+            memory: 10Mi
+          limits:
+            cpu: 100m
+            memory: 20Mi
+`)
+
+var kyverno_2316_pattern = []byte(`
+metadata:
+  annotations:
+    fluentbit.io/exclude-busybox: "true"
 `)
