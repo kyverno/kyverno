@@ -33,7 +33,12 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resC
 		variables := rule.Values
 
 		for key, value := range variables {
-			jsonData := pkgcommon.VariableToJSON(key, value)
+			tmp := map[string]interface{}{key: value}
+			tmp = parseMultilineBlockBody(tmp)
+			value, _ := json.Marshal(tmp[key])
+
+			jsonData := pkgcommon.VariableToJSON(key, string(value))
+
 			if err := ctx.JSONContext.AddJSON(jsonData); err != nil {
 				return err
 			}
