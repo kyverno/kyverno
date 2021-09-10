@@ -14,9 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha2
+package v1alpha1
 
 import (
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -24,12 +25,12 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// ClusterReportChangeRequest is the Schema for the ClusterReportChangeRequests API
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
-// +kubebuilder:storageversion
-// +kubebuilder:resource:path=clusterpolicyreports,scope="Cluster",shortName=cpolr
+// +kubebuilder:resource:path=clusterreportchangerequests,scope="Cluster",shortName=crcr
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1
 // +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=`.summary.pass`
@@ -38,9 +39,7 @@ import (
 // +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=`.summary.error`
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.skip`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-
-// ClusterPolicyReport is the Schema for the clusterpolicyreports API
-type ClusterPolicyReport struct {
+type ClusterReportChangeRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
@@ -55,22 +54,22 @@ type ClusterPolicyReport struct {
 
 	// PolicyReportSummary provides a summary of results
 	// +optional
-	Summary PolicyReportSummary `json:"summary,omitempty"`
+	Summary report.PolicyReportSummary `json:"summary,omitempty"`
 
 	// PolicyReportResult provides result details
 	// +optional
-	Results []*PolicyReportResult `json:"results,omitempty"`
+	Results []*report.PolicyReportResult `json:"results,omitempty"`
 }
 
-// ClusterPolicyReportList contains a list of ClusterPolicyReport
+// ClusterReportChangeRequestList contains a list of ClusterReportChangeRequest
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ClusterPolicyReportList struct {
+type ClusterReportChangeRequestList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ClusterPolicyReport `json:"items"`
+	Items           []ClusterReportChangeRequest `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ClusterPolicyReport{}, &ClusterPolicyReportList{})
+	SchemeBuilder.Register(&ClusterReportChangeRequest{}, &ClusterReportChangeRequestList{})
 }
