@@ -15,7 +15,7 @@ type ConditionError struct {
 }
 
 func (ce ConditionError) Error() string {
-	return fmt.Sprintf("Condition failed: %s", ce.errorChain.Error())
+	return fmt.Sprintf("condition failed: %s", ce.errorChain.Error())
 }
 
 func NewConditionError(err error) error {
@@ -27,7 +27,7 @@ type GlobalConditionError struct {
 }
 
 func (ce GlobalConditionError) Error() string {
-	return fmt.Sprintf("Global condition failed: %s", ce.errorChain.Error())
+	return fmt.Sprintf("global condition failed: %s", ce.errorChain.Error())
 }
 
 func NewGlobalConditionError(err error) error {
@@ -77,24 +77,23 @@ func walkMap(logger logr.Logger, pattern, resource *yaml.RNode) error {
 		return err
 	}
 
-	fields, err := pattern.Fields()
+	nonAnchors, err := filterKeys(pattern, func(key string) bool {
+		return !hasAnchor(key)
+	})
 	if err != nil {
 		return err
 	}
 
-	for _, field := range fields {
-		var resourceNode *yaml.RNode
+	var resourceValue *yaml.RNode
 
+	for _, field := range nonAnchors {
 		if resource == nil || resource.Field(field) == nil {
-			// In case if we have pattern, but not corresponding resource part,
-			// just walk down and remove all anchors. nil here indicates that
-			// resourceNode is empty
-			resourceNode = nil
+			resourceValue = nil
 		} else {
-			resourceNode = resource.Field(field).Value
+			resourceValue = resource.Field(field).Value
 		}
 
-		err := preProcessRecursive(logger, pattern.Field(field).Value, resourceNode)
+		err := preProcessRecursive(logger, pattern.Field(field).Value, resourceValue)
 		if err != nil {
 			return err
 		}
@@ -137,17 +136,32 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 
 	for _, patternElement := range patternElements {
 		// If pattern has conditions, look for matching elements and process them
-		if hasAnchors(patternElement) {
+		hasAnyAnchor := hasAnchors(patternElement, hasAnchor)
+		hasGlobalConditions := hasAnchors(patternElement, anchor.IsGlobalAnchor)
+		if hasAnyAnchor {
+
+			anyGlobalConditionPassed := false
+			var lastGlobalAnchorError error = nil
+
 			for _, resourceElement := range resourceElements {
 				err := preProcessRecursive(logger, patternElement, resourceElement)
 				if err != nil {
-					if _, ok := err.(ConditionError); ok {
+					switch err.(type) {
+					case ConditionError:
 						// Skip element, if condition has failed
+						continue
+					case GlobalConditionError:
+						lastGlobalAnchorError = err
 						continue
 					}
 
 					return err
 				} else {
+					if hasGlobalConditions {
+						// global anchor has passed, there is no need to return an error
+						anyGlobalConditionPassed = true
+					}
+
 					// If condition is satisfied, create new pattern list element based on patternElement
 					// but related with current resource element by name.
 					// Resource element must have name. Without name kustomize won't be able to update this element.
@@ -178,6 +192,10 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 						return err
 					}
 				}
+			}
+
+			if !anyGlobalConditionPassed && lastGlobalAnchorError != nil {
+				return lastGlobalAnchorError
 			}
 		}
 	}
@@ -249,7 +267,11 @@ func filterKeys(pattern *yaml.RNode, condition func(string) bool) ([]string, err
 	return keys, nil
 }
 
-func hasAnchors(pattern *yaml.RNode) bool {
+func hasAnchor(key string) bool {
+	return anchor.ContainsCondition(key) || anchor.IsAddingAnchor(key)
+}
+
+func hasAnchors(pattern *yaml.RNode, isAnchor func(key string) bool) bool {
 	if yaml.MappingNode == pattern.YNode().Kind {
 		fields, err := pattern.Fields()
 		if err != nil {
@@ -257,13 +279,13 @@ func hasAnchors(pattern *yaml.RNode) bool {
 		}
 
 		for _, key := range fields {
-			if anchor.ContainsCondition(key) || anchor.IsAddingAnchor(key) {
+			if isAnchor(key) {
 				return true
 			}
 
 			patternNode := pattern.Field(key)
 			if !patternNode.IsNilOrEmpty() {
-				if hasAnchors(patternNode.Value) {
+				if hasAnchors(patternNode.Value, isAnchor) {
 					return true
 				}
 			}
@@ -455,7 +477,7 @@ func deleteAnchorsInList(node *yaml.RNode) (bool, error) {
 	wasEmpty := len(elements) == 0
 
 	for i, element := range elements {
-		if hasAnchors(element) {
+		if hasAnchors(element, hasAnchor) {
 			deleteListElement(node, i)
 		} else {
 			// This element also could have some conditions

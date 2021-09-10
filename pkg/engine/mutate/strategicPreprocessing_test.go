@@ -31,6 +31,59 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 	}{
 		{
 			rawPolicy: []byte(`{
+				"metadata": {
+				  "annotations": {
+					"+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
+				  }
+				},
+				"spec": {
+				  "volumes": [
+					{
+					  "<(emptyDir)": {}
+					}
+				  ]
+				}
+			  }`),
+			rawResource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+				  "name": "static-web",
+				  "labels": {
+					"role": "myrole"
+				  }
+				},
+				"spec": {
+				  "containers": [
+					{
+					  "name": "web",
+					  "image": "1nginx"
+					}
+				  ],
+				  "volumes": [
+					{
+					  "emptyDir": {},
+					  "name": "cache-volume"
+					},
+					{
+					  "secret": {
+						"secretName": "default-token-6gplg"
+					  },
+					  "name": "default-token-6gplg"
+					}
+				  ]
+				}
+			  }`),
+			expectedPatch: []byte(`{
+				"metadata": {
+				  "annotations": {
+					"cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
+				  }
+				}
+			  }`),
+		},
+		{
+			rawPolicy: []byte(`{
 				"metadata": null
 			  }`),
 			rawResource: []byte(`{
@@ -1004,5 +1057,5 @@ func Test_NonExistingKeyMustFailPreprocessing(t *testing.T) {
 	resource := yaml.MustParse(string(rawResource))
 
 	err := preProcessPattern(log.Log, pattern, resource)
-	assert.Error(t, err, "Condition failed: could not found \"key1\" key in the resource")
+	assert.Error(t, err, "condition failed: could not found \"key1\" key in the resource")
 }
