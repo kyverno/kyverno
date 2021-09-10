@@ -6,7 +6,6 @@ metadata:
     app: kyverno
     # do not remove
     app.kubernetes.io/name: kyverno
-  namespace: kyverno
   name: kyverno
 spec:
   selector:

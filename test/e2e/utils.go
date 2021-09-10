@@ -96,7 +96,8 @@ func (e2e *E2EClient) DeleteNamespacedResource(gvr schema.GroupVersionResource, 
 
 // DeleteClusteredResource ...
 func (e2e *E2EClient) DeleteClusteredResource(gvr schema.GroupVersionResource, name string) error {
-	return e2e.Client.Resource(gvr).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	var force int64 = 0
+	return e2e.Client.Resource(gvr).Delete(context.TODO(), name, metav1.DeleteOptions{GracePeriodSeconds: &force})
 }
 
 // CreateNamespacedResource ...

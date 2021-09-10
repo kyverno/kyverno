@@ -735,6 +735,99 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 				}
 			  }`),
 		},
+		{
+			rawPolicy: []byte(`{
+				"spec": {
+				  "securityContext": {
+					"runAsNonRoot": true
+				  },
+				  "initContainers": [
+					{
+					  "(name)": "*",
+					  "securityContext": {
+						"runAsNonRoot": true
+					  }
+					}
+				  ],
+				  "containers": [
+					{
+					  "(name)": "*",
+					  "securityContext": {
+						"runAsNonRoot": true
+					  }
+					}
+				  ]
+				}
+			  }`),
+			rawResource: []byte(`{
+				"spec":{
+				   "initContainers":[
+					  {
+						 "name":"initbusy",
+						 "image":"busybox:1.28",
+						 "command":[
+							"sleep",
+							"9999"
+						 ]
+					  }
+				   ],
+				   "containers":[
+					  {
+						 "image":"busybox:1.28",
+						 "name":"busybox",
+						 "command":[
+							"sleep",
+							"9999"
+						 ]
+					  }
+				   ],
+				   "affinity":{
+					  "podAntiAffinity":{
+						 "requiredDuringSchedulingIgnoredDuringExecution":[
+							{
+							   "labelSelector":{
+								  "matchExpressions":[
+									 {
+										"key":"app",
+										"operator":"In",
+										"values":[
+										   "foo",
+										   "bar"
+										]
+									 }
+								  ]
+							   },
+							   "topologyKey":"kubernetes.io/hostname"
+							}
+						 ]
+					  }
+				   }
+				}
+			 }`),
+			expectedPatch: []byte(`{
+				"spec": {
+				  "securityContext": {
+					"runAsNonRoot": true
+				  },
+				  "initContainers": [
+					{
+					  "name": "initbusy",
+					  "securityContext": {
+						"runAsNonRoot": true
+					  }
+					}
+				  ],
+				  "containers": [
+					{
+					  "name": "busybox",
+					  "securityContext": {
+						"runAsNonRoot": true
+					  }
+					}
+				  ]
+				}
+			  }`),
+		},
 	}
 
 	for i, test := range testCases {

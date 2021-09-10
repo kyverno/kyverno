@@ -8,4 +8,3 @@ metadata:
   labels:
     app: kyverno
   name: init-config
-  namespace: kyverno
