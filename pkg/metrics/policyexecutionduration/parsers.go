@@ -11,6 +11,10 @@ func ParsePromMetrics(pm metrics.PromMetrics) PromMetrics {
 	return PromMetrics(pm)
 }
 
+func ParsePromConfig(pc metrics.PromConfig) PromConfig {
+	return PromConfig(pc)
+}
+
 func ParseRuleTypeFromEngineRuleResponse(rule response.RuleResponse) metrics.RuleType {
 	switch rule.Type {
 	case "Validation":
