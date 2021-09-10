@@ -226,11 +226,10 @@ release-notes:
 	true
 
 kyverno-crd: controller-gen
-	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1alpha2 output:dir=./definitions/crds
-	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1 output:dir=./definitions/crds
+	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/... crd:crdVersions=v1 output:dir=./definitions/crds
 
 report-crd: controller-gen
-	$(CONTROLLER_GEN) crd paths=./pkg/api/policyreport/v1alpha2 output:dir=./definitions/crds
+	$(CONTROLLER_GEN) crd paths=./pkg/api/policyreport/... crd:crdVersions=v1 output:dir=./definitions/crds
 
 # install the right version of controller-gen
 install-controller-gen:
