@@ -11,7 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha2
+package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
@@ -61,7 +61,7 @@ type PolicyReportSummary struct {
 	Skip int `json:"skip"`
 }
 
-// PolicyResult has one of the following values:
+// PolicyStatus has one of the following values:
 //   - pass: indicates that the policy requirements are met
 //   - fail: indicates that the policy requirements are not met
 //   - warn: indicates that the policy requirements and not met, and the policy is not scored
@@ -69,7 +69,7 @@ type PolicyReportSummary struct {
 //   - skip: indicates that the policy was not selected based on user inputs or applicability
 //
 // +kubebuilder:validation:Enum=pass;fail;warn;error;skip
-type PolicyResult string
+type PolicyStatus string
 
 // PolicySeverity has one of the following values:
 //   - high
@@ -80,10 +80,6 @@ type PolicySeverity string
 
 // PolicyReportResult provides the result for an individual policy
 type PolicyReportResult struct {
-
-	// Source is an identifier for the policy engine that manages this report
-	// +optional
-	Source string `json:"source"`
 
 	// Policy is the name of the policy
 	Policy string `json:"policy"`
@@ -106,17 +102,14 @@ type PolicyReportResult struct {
 	// Message is a short user friendly description of the policy rule
 	Message string `json:"message,omitempty"`
 
-	// Result indicates the outcome of the policy rule execution
-	Result PolicyResult `json:"result,omitempty"`
+	// Status indicates the result of the policy rule check
+	Status PolicyStatus `json:"status,omitempty"`
 
 	// Scored indicates if this policy rule is scored
 	Scored bool `json:"scored,omitempty"`
 
-	// Properties provides additional information for the policy rule
-	Properties map[string]string `json:"properties,omitempty"`
-
-	// Timestamp indicates the time the result was found
-	Timestamp metav1.Timestamp `json:"timestamp,omitempty"`
+	// Data provides additional information for the policy rule
+	Data map[string]string `json:"data,omitempty"`
 
 	// Category indicates policy category
 	// +optional
@@ -130,7 +123,6 @@ type PolicyReportResult struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
-// +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1
 // +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=`.summary.pass`

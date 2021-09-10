@@ -210,7 +210,7 @@ godownloader:
 # kustomize-crd will create install.yaml
 kustomize-crd:
 	# Create CRD for helm deployment Helm
-	kustomize build ./definitions/crds > ./charts/kyverno-crds/templates/crds.yaml
+	kustomize build ./definitions/release | kustomize cfg grep kind=CustomResourceDefinition > ./charts/kyverno-crds/templates/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
 	kustomize build ./definitions > ./definitions/install.yaml
 	# Generate install_debug.yaml that for developer testing
@@ -226,11 +226,10 @@ release-notes:
 	true
 
 kyverno-crd: controller-gen
-	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1alpha2 output:dir=./definitions/crds
-	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1 output:dir=./definitions/crds
+	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/... crd:crdVersions=v1 output:dir=./definitions/crds
 
 report-crd: controller-gen
-	$(CONTROLLER_GEN) crd paths=./pkg/api/policyreport/v1alpha2 output:dir=./definitions/crds
+	$(CONTROLLER_GEN) crd paths=./pkg/api/policyreport/... crd:crdVersions=v1 output:dir=./definitions/crds
 
 # install the right version of controller-gen
 install-controller-gen:
