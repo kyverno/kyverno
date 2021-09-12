@@ -30,6 +30,7 @@ spec:
       {{- with .Values.podSecurityContext }}
       securityContext: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
+      {{- with .Values.antiAffinity.enable }}
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -39,7 +40,8 @@ spec:
                 operator: In
                 values:
                 - kyverno
-            topologyKey: {{ .Values.antiAffinityTopologyKey }}
+            topologyKey: {{ .Values.antiAffinity.topologyKey }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}

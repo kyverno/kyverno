@@ -48,9 +48,12 @@ podAnnotations: {}
 
 podSecurityContext: {}
 
-# By default this will make sure two pods don't end up on the same node
-# Changing this to a region would allow you to spread pods across regions
-antiAffinityTopologyKey: "kubernetes.io/hostname"
+antiAffinity:
+  # This can be disabled in a 1 node cluster. 
+  enable: true
+  # By default this will make sure two pods don't end up on the same node
+  # Changing this to a region would allow you to spread pods across regions
+  topologyKey: "kubernetes.io/hostname"
 
 nodeSelector: {}
 tolerations: []
