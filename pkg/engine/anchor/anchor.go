@@ -22,6 +22,8 @@ func CreateElementHandler(element string, pattern interface{}, path string) Vali
 	switch {
 	case commonAnchors.IsConditionAnchor(element):
 		return NewConditionAnchorHandler(element, pattern, path)
+	case commonAnchors.IsGlobalAnchor(element):
+		return NewGlobalAnchorHandler(element, pattern, path)
 	case commonAnchors.IsExistenceAnchor(element):
 		return NewExistenceHandler(element, pattern, path)
 	case commonAnchors.IsEqualityAnchor(element):
@@ -151,10 +153,44 @@ func (ch ConditionAnchorHandler) Handle(handler resourceElementHandler, resource
 		// validate the values of the pattern
 		returnPath, err := handler(log.Log, value, ch.pattern, originPattern, currentPath, ac)
 		if err != nil {
-			return returnPath, err
+			ac.AnchorError = common.NewConditionalAnchorError(fmt.Sprintf("condition anchor did not satisfy: %s", err.Error()))
+			return returnPath, ac.AnchorError.Error()
 		}
 		return "", nil
 
+	}
+	return "", nil
+}
+
+//NewGlobalAnchorHandler returns an instance of condition acnhor handler
+func NewGlobalAnchorHandler(anchor string, pattern interface{}, path string) ValidationHandler {
+	return GlobalAnchorHandler{
+		anchor:  anchor,
+		pattern: pattern,
+		path:    path,
+	}
+}
+
+//GlobalAnchorHandler provides handler for global condition anchor
+type GlobalAnchorHandler struct {
+	anchor  string
+	pattern interface{}
+	path    string
+}
+
+//Handle processed global condition anchor
+func (gh GlobalAnchorHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}, ac *common.AnchorKey) (string, error) {
+	anchorKey, _ := commonAnchors.RemoveAnchor(gh.anchor)
+	currentPath := gh.path + anchorKey + "/"
+	// check if anchor is present in resource
+	if value, ok := resourceMap[anchorKey]; ok {
+		// validate the values of the pattern
+		returnPath, err := handler(log.Log, value, gh.pattern, originPattern, currentPath, ac)
+		if err != nil {
+			ac.AnchorError = common.NewGlobalAnchorError(fmt.Sprintf("global anchor did not satisfy: %s", err.Error()))
+			return returnPath, ac.AnchorError.Error()
+		}
+		return "", nil
 	}
 	return "", nil
 }
