@@ -1891,7 +1891,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "avg(sum(kyverno_policy_execution_duration_seconds_sum{}) by (policy_name, policy_execution_timestamp, policy_type))",
+          "expr": "avg(sum(kyverno_policy_execution_duration_seconds_sum{}) by (policy_name, policy_type))",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
