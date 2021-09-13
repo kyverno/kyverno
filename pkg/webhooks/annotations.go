@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
@@ -49,6 +50,12 @@ func generateAnnotationPatches(engineResponses []*response.EngineResponse, log l
 		annotations = make(map[string]string)
 	}
 
+	if val, ok := annotations["policies.kyverno.io/patches"]; ok {
+		annotations["policies.kyverno.io/last-applied-patches"] = val
+		delete(annotations, "policies.kyverno.io/patches")
+	}
+
+	fmt.Println("HELLO ANNOTATION", annotations["policies.kyverno.io/last-applied-patches"])
 	var patchResponse annresponse
 	value := annotationFromEngineResponses(engineResponses, log)
 	if value == nil {
