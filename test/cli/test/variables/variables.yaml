@@ -23,3 +23,17 @@ policies:
       - name: test-app
         values:
           request.object.metadata.annotations.role: app
+  - name: cm-blk-scalar-example
+    rules:
+      - name: validate-blk-role-annotation
+        values:
+          roles-dictionary.data.allowed-roles: |-
+            app
+            test
+    resources:
+      - name: test-blk-web
+        values:
+          request.object.metadata.annotations.role: web
+      - name: test-blk-app
+        values:
+          request.object.metadata.annotations.role: app
