@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -20,45 +20,11 @@ import (
 const clusterpolicyreport = "clusterpolicyreport"
 
 // resps is the engine responses generated for a single policy
-func buildPolicyReports(resps []*response.EngineResponse, skippedPolicies []SkippedPolicy) (res []*unstructured.Unstructured) {
+func buildPolicyReports(pvInfos []policyreport.Info) (res []*unstructured.Unstructured) {
 	var raw []byte
 	var err error
 
-	for _, sp := range skippedPolicies {
-		for _, r := range sp.Rules {
-			result := []*report.PolicyReportResult{
-				{
-					Message: fmt.Sprintln("skipped policy with variables -", sp.Variable),
-					Policy:  sp.Name,
-					Rule:    r.Name,
-					Status:  "skip",
-				},
-			}
-
-			report := &report.PolicyReport{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: report.SchemeGroupVersion.String(),
-					Kind:       "PolicyReport",
-				},
-				Results: result,
-			}
-
-			if raw, err = json.Marshal(report); err != nil {
-				log.Log.V(3).Info("failed to serialize policy report", "error", err)
-				continue
-			}
-
-			reportUnstructured, err := engineutils.ConvertToUnstructured(raw)
-			if err != nil {
-				log.Log.V(3).Info("failed to convert policy report", "error", err)
-				continue
-			}
-
-			res = append(res, reportUnstructured)
-		}
-	}
-
-	resultsMap := buildPolicyResults(resps)
+	resultsMap := buildPolicyResults(pvInfos)
 	for scope, result := range resultsMap {
 		if scope == clusterpolicyreport {
 			report := &report.ClusterPolicyReport{
@@ -107,9 +73,9 @@ func buildPolicyReports(resps []*response.EngineResponse, skippedPolicies []Skip
 
 // buildPolicyResults returns a string-PolicyReportResult map
 // the key of the map is one of "clusterpolicyreport", "policyreport-ns-<namespace>"
-func buildPolicyResults(resps []*response.EngineResponse) map[string][]*report.PolicyReportResult {
+func buildPolicyResults(infos []policyreport.Info) map[string][]*report.PolicyReportResult {
 	results := make(map[string][]*report.PolicyReportResult)
-	infos := policyreport.GeneratePRsFromEngineResponse(resps, log.Log)
+	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, info := range infos {
 		var appname string
@@ -142,7 +108,9 @@ func buildPolicyResults(resps []*response.EngineResponse) map[string][]*report.P
 
 				result.Rule = rule.Name
 				result.Message = rule.Message
-				result.Status = report.PolicyStatus(rule.Check)
+				result.Result = report.PolicyResult(rule.Check)
+				result.Source = policyreport.SourceValue
+				result.Timestamp = now
 				results[appname] = append(results[appname], &result)
 			}
 		}
@@ -158,7 +126,7 @@ func mergeSucceededResults(results map[string][]*report.PolicyReportResult) map[
 
 		resourcesMap := make(map[string]*report.PolicyReportResult)
 		for _, result := range scopedResults {
-			if result.Status != report.PolicyStatus("pass") {
+			if result.Result != report.PolicyResult("pass") {
 				resultsNew[scope] = append(resultsNew[scope], result)
 				continue
 			}
@@ -183,7 +151,7 @@ func mergeSucceededResults(results map[string][]*report.PolicyReportResult) map[
 				Policy:    names[0],
 				Rule:      names[1],
 				Resources: v.Resources,
-				Status:    report.PolicyStatus(v.Status),
+				Result:    report.PolicyResult(v.Result),
 			}
 
 			resultsNew[scope] = append(resultsNew[scope], r)
@@ -194,7 +162,7 @@ func mergeSucceededResults(results map[string][]*report.PolicyReportResult) map[
 
 func calculateSummary(results []*report.PolicyReportResult) (summary report.PolicyReportSummary) {
 	for _, res := range results {
-		switch string(res.Status) {
+		switch string(res.Result) {
 		case report.StatusPass:
 			summary.Pass++
 		case report.StatusFail:

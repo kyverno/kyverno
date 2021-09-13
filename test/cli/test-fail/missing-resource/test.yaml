@@ -7,4 +7,4 @@ results:
   - policy: disallow-latest-tag
     rule: validate-image-tag
     resource: missing
-    status: pass
+    result: pass

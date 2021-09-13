@@ -3,9 +3,10 @@ package common
 import (
 	"encoding/json"
 	"fmt"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"strings"
 	"time"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -200,4 +201,15 @@ func removePolicyFromLabels(pName string, labels map[string]string) (bool, map[s
 	}
 
 	return false, labels
+}
+
+func GetFormatedKind(str string) (kind string) {
+	if strings.Count(str, "/") == 0 {
+		return strings.Title(str)
+	}
+	splitString := strings.Split(str, "/")
+	if strings.Count(str, "/") == 1 {
+		return splitString[0] + "/" + strings.Title(splitString[1])
+	}
+	return splitString[0] + "/" + splitString[1] + "/" + strings.Title(splitString[2])
 }

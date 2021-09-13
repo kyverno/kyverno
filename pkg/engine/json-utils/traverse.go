@@ -1,6 +1,7 @@
 package json_utils
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/kyverno/kyverno/pkg/engine/common"
@@ -17,13 +18,15 @@ type ActionData struct {
 // JSON element
 type Action func(data *ActionData) (interface{}, error)
 
-// OnlyForLeafs is an action modifier - apply action only for leafs
-func OnlyForLeafs(action Action) Action {
+// OnlyForLeafsAndKeys is an action modifier - apply action only for leafs and map keys
+func OnlyForLeafsAndKeys(action Action) Action {
 	return func(data *ActionData) (interface{}, error) {
-		switch data.Element.(type) {
+		switch typed := data.Element.(type) {
 		case map[string]interface{}, []interface{}: // skip arrays and maps
 			return data.Element, nil
-
+		case Key:
+			data.Element = typed.Key
+			return action(data)
 		default: // leaf detected
 			return action(data)
 		}
@@ -43,6 +46,11 @@ func NewTraversal(document interface{}, action Action) *Traversal {
 		document,
 		action,
 	}
+}
+
+// Key type is needed for traversal to specify the key
+type Key struct {
+	Key string
 }
 
 // TraverseJSON performs a traverse of JSON document and applying
@@ -66,6 +74,9 @@ func (t *Traversal) traverseJSON(element interface{}, path string) (interface{},
 	case []interface{}:
 		return t.traverseList(common.CopySlice(typed), path)
 
+	case Key:
+		return typed.Key, nil
+
 	default:
 		return element, nil
 	}
@@ -73,11 +84,33 @@ func (t *Traversal) traverseJSON(element interface{}, path string) (interface{},
 
 func (t *Traversal) traverseObject(object map[string]interface{}, path string) (map[string]interface{}, error) {
 	for key, element := range object {
+		newKey, err := t.traverseJSON(Key{key}, path)
+		if err != nil {
+			return nil, err
+		}
+		var newKeyStr string
+		if newKey == nil {
+			newKeyStr = key
+		} else {
+			var ok bool
+			if newKeyStr, ok = newKey.(string); !ok {
+				return nil, fmt.Errorf("expected string after substituting variables in key \"%s\"", key)
+			}
+		}
+
 		value, err := t.traverseJSON(element, path+"/"+key)
 		if err != nil {
 			return nil, err
 		}
-		object[key] = value
+
+		if newKeyStr != key {
+			// key was renamed after var substitution
+			// delete old key
+			object[newKeyStr] = value
+			delete(object, key)
+		} else {
+			object[key] = value
+		}
 	}
 	return object, nil
 }

@@ -3,13 +3,10 @@ module github.com/kyverno/kyverno
 go 1.16
 
 require (
-	github.com/Microsoft/go-winio v0.4.15 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cornelk/hashmap v1.0.1
 	github.com/dchest/siphash v1.2.1 // indirect
 	github.com/distribution/distribution v2.7.1+incompatible
-	github.com/docker/cli v20.10.0-beta1.0.20201117192004-5cc239616494+incompatible // indirect
-	github.com/docker/docker v20.10.0-beta1.0.20201110211921-af34b94a78a1+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.2.0
 	github.com/fatih/color v1.12.0
 	github.com/gardener/controller-manager-library v0.2.0
@@ -17,7 +14,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.0.0
 	github.com/go-git/go-git/v5 v5.2.0
 	github.com/go-logr/logr v0.4.0
-	github.com/google/go-containerregistry v0.5.1
+	github.com/google/go-containerregistry v0.6.0
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210216200643-d81088d9983e
 	github.com/googleapis/gnostic v0.5.4
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
@@ -35,6 +32,7 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/sigstore/cosign v1.0.0
 	github.com/sigstore/rekor v0.3.0 // indirect
 	github.com/sigstore/sigstore v0.0.0-20210726180807-7e34e36ecda1

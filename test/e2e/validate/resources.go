@@ -1,5 +1,7 @@
 package validate
 
+import "fmt"
+
 // Namespace Description
 var namespaceYaml = []byte(`
 apiVersion: v1
@@ -7,6 +9,16 @@ kind: Namespace
 metadata:
   name: test-validate
 `)
+
+func newNamespaceYaml(name string) []byte {
+	ns := fmt.Sprintf(`
+  apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: %s
+  `, name)
+	return []byte(ns)
+}
 
 // Regression: https://github.com/kyverno/kyverno/issues/2043
 // Policy: https://github.com/fluxcd/flux2-multi-tenancy/blob/main/infrastructure/kyverno-policies/flux-multi-tenancy.yaml
@@ -43,6 +55,53 @@ spec:
           kinds:
             - Kustomization
             - HelmRelease
+      validate:
+        message: "spec.sourceRef.namespace must be the same as metadata.namespace"
+        deny:
+          conditions:
+            - key: "{{request.object.spec.sourceRef.namespace}}"
+              operator: NotEquals
+              value:  "{{request.object.metadata.namespace}}"
+`)
+
+var kyverno_2241_policy = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: flux-multi-tenancy
+spec:
+  validationFailureAction: enforce
+  rules:
+    - name: serviceAccountName
+      exclude:
+        resources:
+          namespaces:
+            - flux-system
+      match:
+        resources:
+          kinds:
+            - Kustomization
+            - HelmRelease
+      validate:
+        message: ".spec.serviceAccountName is required"
+        pattern:
+          spec:
+            serviceAccountName: "?*"
+    - name: sourceRefNamespace
+      exclude:
+        resources:
+          namespaces:
+            - flux-system
+      match:
+        resources:
+          kinds:
+            - Kustomization
+            - HelmRelease
+      preconditions:
+        any:
+        - key: "{{request.object.spec.sourceRef.namespace}}"
+          operator: NotEquals
+          value: ""
       validate:
         message: "spec.sourceRef.namespace must be the same as metadata.namespace"
         deny:
@@ -496,4 +555,79 @@ spec:
     name: dev-team
   prune: true
   validation: client
+`)
+
+var kyverno_2241_FluxKustomization = []byte(`
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: tenants
+  namespace: test-validate
+spec:
+  serviceAccountName: dev-team
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./tenants/production
+  prune: true
+  validation: client
+`)
+
+var kyverno_2345_policy = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: drop-cap-net-raw
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+  - name: drop-cap-net-raw
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      deny:
+        conditions:
+          any:
+          - key: "{{ request.object.spec.containers[].securityContext.capabilities.drop[] | contains(@, 'NET_RAW') }}"
+            operator: Equals
+            value: false
+`)
+
+var kyverno_2345_resource = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test
+  namespace: test-validate1
+spec:
+  initContainers:
+  - name: jimmy
+    image: defdasdabian:923
+    command: ["/bin/sh", "-c", "sleep infinity"]
+    securityContext:
+      capabilities:
+        drop:
+        - XXXNET_RAWYYY
+        - SETUID
+  containers:
+  - name: test
+    image: defdasdabian:923
+    command: ["/bin/sh", "-c", "sleep infinity"]
+    securityContext:
+      capabilities:
+        drop:
+        - XXXNET_RAWYYY
+        - SETUID
+        - CAP_FOO_BAR
+  - name: asdf
+    image: defdasdabian:923
+    command: ["/bin/sh", "-c", "sleep infinity"]
+    securityContext:
+      capabilities:
+        drop:
+        - CAP_SOMETHING
 `)

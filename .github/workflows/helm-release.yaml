@@ -1,12 +1,8 @@
 name: helm-release
 on:
   push:
-    branches:
-      - 'main'
-    paths:
-      - 'charts/kyverno-crds/Chart.yaml'
-      - 'charts/kyverno/Chart.yaml'
-      - '.github/workflows/helm-release.yaml'
+    tags:
+      - 'helm-chart-v*'
 
 jobs:
   helm-tests:

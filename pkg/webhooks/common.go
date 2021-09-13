@@ -170,10 +170,6 @@ func convertResource(raw []byte, group, version, kind, namespace string) (unstru
 
 func excludeKyvernoResources(kind string) bool {
 	switch kind {
-	case "ClusterPolicy":
-		return true
-	case "Policy":
-		return true
 	case "ClusterPolicyReport":
 		return true
 	case "PolicyReport":
