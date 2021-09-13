@@ -330,12 +330,14 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	for _, resp := range resps {
 		policyName := resp.PolicyResponse.Policy.Name
 		resourceName := resp.PolicyResponse.Resource.Name
+		resourceKind := resp.PolicyResponse.Resource.Kind
+		resourceNamespace := resp.PolicyResponse.Resource.Namespace
+		policyNamespace := resp.PolicyResponse.Policy.Namespace
 
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {
 			rules = append(rules, rule.Name)
 		}
-
 		result := report.PolicyReportResult{
 			Policy: policyName,
 			Resources: []*corev1.ObjectReference{
@@ -344,6 +346,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 				},
 			},
 		}
+		var patcheResourcePath []string
 		for i, test := range testResults {
 			var userDefinedPolicyNamespace string
 			var userDefinedPolicyName string
@@ -353,7 +356,6 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 			}
 			if test.Policy == policyName && test.Resource == resourceName {
 				var resultsKey string
-				resultsKey = GetResultKey(resp.PolicyResponse.Policy.Namespace, resp.PolicyResponse.Resource.Namespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource, userDefinedPolicyNamespace)
 				if !util.ContainsString(rules, test.Rule) {
 					if !util.ContainsString(rules, "autogen-"+test.Rule) {
 						if !util.ContainsString(rules, "autogen-cronjob-"+test.Rule) {
@@ -367,31 +369,52 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 						test.Rule = "autogen-" + test.Rule
 					}
 					if resp.PolicyResponse.Policy.Type == "Mutate" {
-						status := getAndComparePatchedResource(test.PatchedResource, resp.PatchedResource, isGit, policyResourcePath, fs)
-						if status == "pass" {
+						x := getAndComparePatchedResource(test.PatchedResource, resp.PatchedResource, isGit, policyResourcePath, fs)
+						if x == "pass" {
 							result.Result = report.StatusPass
 							if resp.PolicyResponse.Policy.Namespace != "" && resp.PolicyResponse.Policy.Namespace != resp.PolicyResponse.Resource.Namespace {
 								result.Result = report.StatusSkip
 							}
+						} else {
+							result.Result = report.StatusSkip
 						}
 					}
 				}
-				for _, rule := range resp.PolicyResponse.Rules {
-					if rule.Type != utils.Mutation.String() {
-						continue
-					}
-					result.Result = getAndComparePatchedResource(test.PatchedResource, resp.PatchedResource, isGit, policyResourcePath, fs)
-					if test.Namespace != "" {
-						if test.Namespace == resp.PolicyResponse.Resource.Namespace {
-							results[resultsKey] = result
-						}
-					} else {
-						results[resultsKey] = result
-					}
-				}
+				resultsKey = GetResultKeyAccordingToTestResults(resp.PolicyResponse.Policy.Namespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource, userDefinedPolicyNamespace)
+
+				patcheResourcePath = append(patcheResourcePath, test.PatchedResource)
 				if _, ok := results[resultsKey]; !ok {
 					results[resultsKey] = result
 				}
+			}
+		}
+
+		for _, rule := range resp.PolicyResponse.Rules {
+			if rule.Type != utils.Mutation.String() {
+				continue
+			}
+			var resultsKey []string
+			var resultKey string
+
+			var result report.PolicyReportResult
+			resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name, resourceNamespace, resourceKind, resourceName)
+			for _, resultK := range resultsKey {
+				if val, ok := results[resultK]; ok {
+					result = val
+					resultKey = resultK
+				} else {
+					continue
+				}
+				var x string
+				for _, path := range patcheResourcePath {
+					result.Result = report.StatusFail
+					x = getAndComparePatchedResource(path, resp.PatchedResource, isGit, policyResourcePath, fs)
+					if x == "pass" {
+						result.Result = report.StatusPass
+						break
+					}
+				}
+				results[resultKey] = result
 			}
 		}
 	}
@@ -406,10 +429,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 				var result report.PolicyReportResult
 				var resultsKey []string
 				var resultKey string
-				resultsKey1 := fmt.Sprintf("%s-%s-%s-%s", info.PolicyName, rule.Name, infoResult.Resource.Kind, infoResult.Resource.Name)
-				resultsKey2 := fmt.Sprintf("%s-%s-%s-%s-%s", info.PolicyName, rule.Name, infoResult.Resource.Namespace, infoResult.Resource.Kind, infoResult.Resource.Name)
-				resultsKey = append(resultsKey, resultsKey1)
-				resultsKey = append(resultsKey, resultsKey2)
+				resultsKey = GetAllPossibleResultsKey("", info.PolicyName, rule.Name, infoResult.Resource.Namespace, infoResult.Resource.Kind, infoResult.Resource.Name)
 				for _, resultK := range resultsKey {
 					if val, ok := results[resultK]; ok {
 						result = val
@@ -431,22 +451,28 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	return results, testResults
 }
 
-func GetResultKey(policyNamespace, resourceNameSpace, policy, rule, namespace, kind, resource, userDefinedPolicyNamespace string) string {
+func GetAllPossibleResultsKey(policyNamespace, policy, rule, namespace, kind, resource string) []string {
+	var resultsKey []string
+	resultKey1 := fmt.Sprintf("%s-%s-%s-%s", policy, rule, kind, resource)
+	resultKey2 := fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, namespace, kind, resource)
+	resultKey3 := fmt.Sprintf("%s-%s-%s-%s-%s", policyNamespace, policy, rule, kind, resource)
+	resultKey4 := fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNamespace, policy, rule, namespace, kind, resource)
+	resultsKey = append(resultsKey, resultKey1, resultKey2, resultKey3, resultKey4)
+	return resultsKey
+}
+
+func GetResultKeyAccordingToTestResults(policyNamespace, policy, rule, namespace, kind, resource, userDefinedPolicyNamespace string) string {
 	var resultsKey string
 	resultsKey = fmt.Sprintf("%s-%s-%s-%s", policy, rule, kind, resource)
 
 	if namespace != "" || policyNamespace != "" {
 		if policyNamespace != "" {
-			if policyNamespace == userDefinedPolicyNamespace {
-				resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s", userDefinedPolicyNamespace, policy, rule, kind, resource)
-				if namespace != "" {
-					resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", userDefinedPolicyNamespace, policy, rule, namespace, kind, resource)
-				}
+			resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s", userDefinedPolicyNamespace, policy, rule, kind, resource)
+			if namespace != "" {
+				resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", userDefinedPolicyNamespace, policy, rule, namespace, kind, resource)
 			}
 		} else {
-			if resourceNameSpace == namespace {
-				resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, namespace, kind, resource)
-			}
+			resultsKey = fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, namespace, kind, resource)
 		}
 	}
 	return resultsKey
@@ -456,9 +482,9 @@ func isNamespacedPolicy(policyNames string) bool {
 	return strings.Contains(policyNames, "/")
 }
 
-func getUserDefinedPolicyNameAndNamespace(policyNames string) (string, string) {
-	policy := policyNames
-	policy_n_ns := strings.Split(policyNames, "/")
+func getUserDefinedPolicyNameAndNamespace(policyName string) (string, string) {
+	policy := policyName
+	policy_n_ns := strings.Split(policyName, "/")
 	namespace := policy_n_ns[0]
 	if namespace == "" {
 		namespace = "default"
@@ -467,10 +493,10 @@ func getUserDefinedPolicyNameAndNamespace(policyNames string) (string, string) {
 	return namespace, policy
 }
 
-//getAndComparePatchedResource --> Get the patchedResource from the path provided by user
+// getAndComparePatchedResource --> Get the patchedResource from the path provided by user
 // And compare this patchedResource with engine generated patcheResource.
-func getAndComparePatchedResource(path string, enginePatchedResource unstructured.Unstructured, isGit bool, policyResourcePath string, fs billy.Filesystem) report.PolicyResult {
-	var status report.PolicyResult
+func getAndComparePatchedResource(path string, enginePatchedResource unstructured.Unstructured, isGit bool, policyResourcePath string, fs billy.Filesystem) string {
+	var status string
 	status = "skip"
 	patchedResources, err := common.GetPatchedResourceFromPath(fs, path, isGit, policyResourcePath)
 	if err != nil {
@@ -615,8 +641,13 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}
-			validateEngineResponses = append(validateEngineResponses, validateErs)
+			if validateErs != nil {
+				validateEngineResponses = append(validateEngineResponses, validateErs)
+			}
 			engineResponses = append(engineResponses, ers...)
+			if validateEngineResponses != nil {
+				engineResponses = append(engineResponses, validateEngineResponses...)
+			}
 			pvInfos = append(pvInfos, info)
 		}
 	}
@@ -640,7 +671,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 		res.ID = i + 1
 		res.Policy = boldFgCyan.Sprintf(v.Policy)
 		res.Rule = boldFgCyan.Sprintf(v.Rule)
-		res.Resource = boldFgCyan.Sprintf(v.Resource)
+		res.Resource = boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
 		var ruleNameInResultKey string
 		if v.AutoGeneratedRule != "" {
 			ruleNameInResultKey = fmt.Sprintf("%s-%s", v.AutoGeneratedRule, v.Rule)
@@ -653,14 +684,15 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 			if isNamespacedPolicy(v.Policy) {
 				var ns string
 				ns, v.Policy = getUserDefinedPolicyNameAndNamespace(v.Policy)
-				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, v.Rule, v.Kind, v.Resource)
+				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Kind, v.Resource)
 				res.Policy = boldFgCyan.Sprintf(ns) + "/" + boldFgCyan.Sprintf(v.Policy)
 				res.Resource = boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Resource)
 				if v.Namespace != "" {
-					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, v.Rule, v.Namespace, v.Kind, v.Resource)
+					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
 				}
 			} else {
-				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, v.Rule, v.Namespace, v.Kind, v.Resource)
+				res.Resource = boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Resource)
+				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
 			}
 		}
 		var testRes report.PolicyReportResult

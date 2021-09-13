@@ -984,8 +984,10 @@ func GetKindsFromPolicy(policy *v1.ClusterPolicy) map[string]struct{} {
 }
 
 //GetPatchedResourceFromPath - get patchedResource from given path
-func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (patchedResource unstructured.Unstructured, err error) {
+func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (unstructured.Unstructured, error) {
 	var patchedResourceBytes []byte
+	var patchedResource unstructured.Unstructured
+	var err error
 	if isGit {
 		if len(path) > 0 {
 			filep, err := fs.Open(filepath.Join(policyResourcePath, path))
@@ -997,7 +999,7 @@ func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, po
 		if err != nil {
 			fmt.Printf("\n----------------------------------------------------------------------\nfailed to load patchedResource: %s. \nerror: %s\n----------------------------------------------------------------------\n", path, err)
 		}
-		patchedResource, err := GetPatchedResource(patchedResourceBytes)
+		patchedResource, err = GetPatchedResource(patchedResourceBytes)
 		if err != nil {
 			return patchedResource, err
 		}
