@@ -1213,6 +1213,29 @@ entries:
     version: 0.0.1
   kyverno-crds:
   - apiVersion: v1
+    appVersion: v1.4.3-rc1
+    created: "2021-09-13T15:30:15.967355-07:00"
+    description: Kubernetes Native Policy Management CRDs
+    digest: 6a2386115216fc750856ff578cd96d4fb79da0a3b83ed90c8a0b4f36be0db4f4
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.10.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno-crds
+    sources:
+    - https://github.com/kyverno/kyverno
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-crds-v2.0.3-rc1.tgz
+    version: v2.0.3-rc1
+  - apiVersion: v1
     appVersion: v1.4.2
     created: "2021-09-13T22:17:03.081985081Z"
     description: Kubernetes Native Policy Management CRDs
@@ -1235,4 +1258,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-crds-v2.0.2.tgz
     version: v2.0.2
-generated: "2021-09-13T22:17:03.069359924Z"
+generated: "2021-09-13T15:30:15.960591-07:00"
