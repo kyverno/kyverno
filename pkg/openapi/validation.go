@@ -12,6 +12,7 @@ import (
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
 	data "github.com/kyverno/kyverno/api"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/utils"
 	cmap "github.com/orcaman/concurrent-map"
@@ -144,7 +145,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	for _, rule := range policy.Spec.Rules {
 		if rule.HasMutate() {
 			for _, kind := range rule.MatchResources.Kinds {
-				kindToRules[kind] = append(kindToRules[kind], rule)
+				kindToRules[kind] = append(kindToRules[common.GetFormatedKind(kind)], rule)
 			}
 		}
 	}
@@ -167,10 +168,13 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 			return err
 		}
 
-		err = o.ValidateResource(*patchedResource.DeepCopy(), "", kind)
-		if err != nil {
-			return err
+		if policy.Spec.SchemaValidation == nil || *policy.Spec.SchemaValidation {
+			err = o.ValidateResource(*patchedResource.DeepCopy(), "", kind)
+			if err != nil {
+				return err
+			}
 		}
+
 	}
 
 	return nil

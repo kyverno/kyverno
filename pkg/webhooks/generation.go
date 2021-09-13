@@ -39,8 +39,8 @@ func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest
 	generateEngineResponsesSenderForAdmissionRequestsCountMetric := make(chan []*response.EngineResponse, 1)
 
 	go ws.handleGenerate(request, policies, policyContext.JSONContext, policyContext.AdmissionInfo, ws.configHandler, ts, &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric, &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
-	go registerAdmissionReviewDurationMetricGenerate(logger, *ws.promConfig.Metrics, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
-	go registerAdmissionRequestsMetricGenerate(logger, *ws.promConfig.Metrics, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
+	go registerAdmissionReviewDurationMetricGenerate(logger, *ws.promConfig, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
+	go registerAdmissionRequestsMetricGenerate(logger, *ws.promConfig, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
 }
 
 //handleGenerate handles admission-requests for policies with generate rules
@@ -132,7 +132,7 @@ func (ws *WebhookServer) registerPolicyResultsMetricGeneration(logger logr.Logge
 	if err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
 	}
-	if err := policyResults.ParsePromMetrics(*ws.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias); err != nil {
+	if err := policyResults.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
 	}
 }
@@ -142,7 +142,7 @@ func (ws *WebhookServer) registerPolicyExecutionDurationMetricGenerate(logger lo
 	if err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
 	}
-	if err := policyExecutionDuration.ParsePromMetrics(*ws.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias); err != nil {
+	if err := policyExecutionDuration.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
 	}
 }

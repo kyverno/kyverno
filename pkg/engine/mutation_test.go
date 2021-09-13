@@ -451,3 +451,100 @@ func Test_precondition(t *testing.T) {
 		t.Error("patches don't match")
 	}
 }
+
+func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
+	resourceRaw := []byte(`{
+  "apiVersion": "v1",
+  "kind": "Endpoints",
+  "metadata": {
+    "name": "my-service"
+  },
+  "subsets": [
+    {
+      "addresses": [
+        {
+          "ip": "127.0.0.1"
+        }
+      ]
+    }
+  ]
+}`)
+
+	policyraw := []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "policy-endpoints"
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "Add IP to subset",
+        "match": {
+          "resources": {
+            "kinds": [
+              "Endpoints"
+            ]
+          }
+        },
+        "preconditions": [
+          {
+            "key": "{{ request.object.subsets[] | length(@) }}",
+            "operator": "Equals",
+            "value": "1"
+          }
+        ],
+        "mutate": {
+          "patchesJson6902": "- path: \"/subsets/0/addresses/-\"\n  op: add\n  value: {\"ip\":\"192.168.42.172\"}"
+        }
+      },
+      {
+        "name": "Add IP to subsets",
+        "match": {
+          "resources": {
+            "kinds": [
+              "Endpoints"
+            ]
+          }
+        },
+        "preconditions": [
+          {
+            "key": "{{ request.object.subsets[] | length(@) }}",
+            "operator": "Equals",
+            "value": "2"
+          }
+        ],
+        "mutate": {
+          "patchesJson6902": "- path: \"/subsets/0/addresses/-\"\n  op: add\n  value: {\"ip\":\"192.168.42.172\"}\n- path: \"/subsets/1/addresses/-\"\n  op: add\n  value: {\"ip\":\"192.168.42.173\"}"
+        }
+      }
+    ]
+  }
+}`)
+
+	expectedPatch := []byte(`{"op":"add","path":"/subsets/0/addresses/1","value":{"ip":"192.168.42.172"}}`)
+
+	store.SetMock(true)
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(policyraw, &policy)
+	assert.NilError(t, err)
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResource(resourceRaw)
+	assert.NilError(t, err)
+
+	policyContext := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		NewResource: *resourceUnstructured,
+	}
+
+	er := Mutate(policyContext)
+	t.Log(string(expectedPatch))
+	t.Log(string(er.PolicyResponse.Rules[0].Patches[0]))
+	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches[0]) {
+		t.Error("patches don't match")
+	}
+}

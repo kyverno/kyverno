@@ -1,12 +1,20 @@
 package metrics
 
 import (
+	"fmt"
+
+	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/config"
 	prom "github.com/prometheus/client_golang/prometheus"
+	"github.com/robfig/cron/v3"
 )
 
 type PromConfig struct {
 	MetricsRegistry *prom.Registry
 	Metrics         *PromMetrics
+	Config          *config.MetricsConfigData
+	Log             logr.Logger
+	cron            *cron.Cron
 }
 
 type PromMetrics struct {
@@ -18,14 +26,16 @@ type PromMetrics struct {
 	AdmissionRequests       *prom.CounterVec
 }
 
-func NewPromConfig() *PromConfig {
+func NewPromConfig(metricsConfigData *config.MetricsConfigData, log logr.Logger) (*PromConfig, error) {
 	pc := new(PromConfig)
-
+	pc.Config = metricsConfigData
+	pc.cron = cron.New()
 	pc.MetricsRegistry = prom.NewRegistry()
+	pc.Log = log
 
 	policyResultsLabels := []string{
 		"policy_validation_mode", "policy_type", "policy_background_mode", "policy_name", "policy_namespace",
-		"resource_name", "resource_kind", "resource_namespace", "resource_request_operation",
+		"resource_kind", "resource_namespace", "resource_request_operation",
 		"rule_name", "rule_result", "rule_type", "rule_execution_cause",
 	}
 	policyResultsMetric := prom.NewCounterVec(
@@ -60,7 +70,7 @@ func NewPromConfig() *PromConfig {
 
 	policyExecutionDurationLabels := []string{
 		"policy_validation_mode", "policy_type", "policy_background_mode", "policy_name", "policy_namespace",
-		"resource_name", "resource_kind", "resource_namespace", "resource_request_operation",
+		"resource_kind", "resource_namespace", "resource_request_operation",
 		"rule_name", "rule_result", "rule_type", "rule_execution_cause", "generate_rule_latency_type",
 	}
 	policyExecutionDurationMetric := prom.NewHistogramVec(
@@ -72,7 +82,7 @@ func NewPromConfig() *PromConfig {
 	)
 
 	admissionReviewDurationLabels := []string{
-		"resource_name", "resource_kind", "resource_namespace", "resource_request_operation",
+		"resource_kind", "resource_namespace", "resource_request_operation",
 	}
 	admissionReviewDurationMetric := prom.NewHistogramVec(
 		prom.HistogramOpts{
@@ -83,7 +93,7 @@ func NewPromConfig() *PromConfig {
 	)
 
 	admissionRequestsLabels := []string{
-		"resource_name", "resource_kind", "resource_namespace", "resource_request_operation",
+		"resource_kind", "resource_namespace", "resource_request_operation",
 	}
 	admissionRequestsMetric := prom.NewCounterVec(
 		prom.CounterOpts{
@@ -109,5 +119,28 @@ func NewPromConfig() *PromConfig {
 	pc.MetricsRegistry.MustRegister(pc.Metrics.AdmissionReviewDuration)
 	pc.MetricsRegistry.MustRegister(pc.Metrics.AdmissionRequests)
 
-	return pc
+	// configuring metrics periodic refresh
+	if pc.Config.GetMetricsRefreshInterval() != 0 {
+		if len(pc.cron.Entries()) > 0 {
+			pc.Log.Info("Skipping the configuration of metrics refresh. Already found cron expiration to be set.")
+		} else {
+			_, err := pc.cron.AddFunc(fmt.Sprintf("@every %s", pc.Config.GetMetricsRefreshInterval()), func() {
+				pc.Log.Info("Resetting the metrics as per their periodic refresh")
+				pc.Metrics.PolicyResults.Reset()
+				pc.Metrics.PolicyRuleInfo.Reset()
+				pc.Metrics.PolicyChanges.Reset()
+				pc.Metrics.PolicyExecutionDuration.Reset()
+				pc.Metrics.AdmissionReviewDuration.Reset()
+				pc.Metrics.AdmissionRequests.Reset()
+			})
+			if err != nil {
+				return nil, err
+			}
+			log.Info(fmt.Sprintf("Configuring metrics refresh at a periodic rate of %s", pc.Config.GetMetricsRefreshInterval()))
+			pc.cron.Start()
+		}
+	} else {
+		pc.Log.Info("Skipping the configuration of metrics refresh as 'metricsRefreshInterval' wasn't specified in values.yaml at the time of installing kyverno")
+	}
+	return pc, nil
 }

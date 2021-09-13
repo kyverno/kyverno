@@ -400,6 +400,7 @@ func deleteAnchorsInMap(node *yaml.RNode) (bool, error) {
 	}
 
 	// Go further through the map elements.
+	hasOnlyAnchors := true
 	for _, field := range fields {
 		ok, err := deleteAnchors(node.Field(field).Value)
 		if err != nil {
@@ -409,11 +410,11 @@ func deleteAnchorsInMap(node *yaml.RNode) (bool, error) {
 		// If we have at least one element without annchor,
 		// then we don't need to delete this element.
 		if !ok {
-			return false, nil
+			hasOnlyAnchors = false
 		}
 	}
 
-	return true, nil
+	return hasOnlyAnchors, nil
 }
 
 func deleteAnchorsInList(node *yaml.RNode) (bool, error) {

@@ -8,7 +8,7 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 )
 
-func (pm PromMetrics) registerPolicyRuleInfoMetric(
+func (pc PromConfig) registerPolicyRuleInfoMetric(
 	policyValidationMode metrics.PolicyValidationMode,
 	policyType metrics.PolicyType,
 	policyBackgroundMode metrics.PolicyBackgroundMode,
@@ -26,11 +26,21 @@ func (pm PromMetrics) registerPolicyRuleInfoMetric(
 		return fmt.Errorf("unknown metric change type found:  %s", metricChangeType)
 	}
 
+	includeNamespaces, excludeNamespaces := pc.Config.GetIncludeNamespaces(), pc.Config.GetExcludeNamespaces()
+	if (policyNamespace != "" && policyNamespace != "-") && metrics.ElementInSlice(policyNamespace, excludeNamespaces) {
+		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_rule_info_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", policyNamespace, excludeNamespaces))
+		return nil
+	}
+	if (policyNamespace != "" && policyNamespace != "-") && len(includeNamespaces) > 0 && !metrics.ElementInSlice(policyNamespace, includeNamespaces) {
+		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_rule_info_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", policyNamespace, includeNamespaces))
+		return nil
+	}
+
 	if policyType == metrics.Cluster {
 		policyNamespace = "-"
 	}
 
-	pm.PolicyRuleInfo.With(prom.Labels{
+	pc.Metrics.PolicyRuleInfo.With(prom.Labels{
 		"policy_validation_mode": string(policyValidationMode),
 		"policy_type":            string(policyType),
 		"policy_background_mode": string(policyBackgroundMode),
@@ -43,7 +53,7 @@ func (pm PromMetrics) registerPolicyRuleInfoMetric(
 	return nil
 }
 
-func (pm PromMetrics) AddPolicy(policy interface{}) error {
+func (pc PromConfig) AddPolicy(policy interface{}) error {
 	switch inputPolicy := policy.(type) {
 	case *kyverno.ClusterPolicy:
 		policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.ValidationFailureAction)
@@ -59,7 +69,7 @@ func (pm PromMetrics) AddPolicy(policy interface{}) error {
 			ruleName := rule.Name
 			ruleType := metrics.ParseRuleType(rule)
 
-			if err = pm.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleCreated); err != nil {
+			if err = pc.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleCreated); err != nil {
 				return err
 			}
 		}
@@ -78,7 +88,7 @@ func (pm PromMetrics) AddPolicy(policy interface{}) error {
 			ruleName := rule.Name
 			ruleType := metrics.ParseRuleType(rule)
 
-			if err = pm.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleCreated); err != nil {
+			if err = pc.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleCreated); err != nil {
 				return err
 			}
 		}
@@ -88,7 +98,7 @@ func (pm PromMetrics) AddPolicy(policy interface{}) error {
 	}
 }
 
-func (pm PromMetrics) RemovePolicy(policy interface{}) error {
+func (pc PromConfig) RemovePolicy(policy interface{}) error {
 	switch inputPolicy := policy.(type) {
 	case *kyverno.ClusterPolicy:
 		for _, rule := range inputPolicy.Spec.Rules {
@@ -103,7 +113,7 @@ func (pm PromMetrics) RemovePolicy(policy interface{}) error {
 			ruleName := rule.Name
 			ruleType := metrics.ParseRuleType(rule)
 
-			if err = pm.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleDeleted); err != nil {
+			if err = pc.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleDeleted); err != nil {
 				return err
 			}
 		}
@@ -121,7 +131,7 @@ func (pm PromMetrics) RemovePolicy(policy interface{}) error {
 			ruleName := rule.Name
 			ruleType := metrics.ParseRuleType(rule)
 
-			if err = pm.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleDeleted); err != nil {
+			if err = pc.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleDeleted); err != nil {
 				return err
 			}
 		}
