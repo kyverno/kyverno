@@ -30,7 +30,7 @@ spec:
       {{- with .Values.podSecurityContext }}
       securityContext: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.antiAffinity.enable }}
+      {{- if .Values.antiAffinity.enable }}
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
