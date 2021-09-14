@@ -3,13 +3,13 @@
 ##################################
 # DEFAULTS
 ##################################
-GIT_VERSION := $(shell git describe --always --tags)
+GIT_VERSION := $(shell git describe --match "v[0-9]*")
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 CONTROLLER_GEN=controller-gen
 CONTROLLER_GEN_REQ_VERSION := v0.4.0
-VERSION ?= $(shell git describe --always --tags)
+VERSION ?= $(shell git describe --match "v[0-9]*")
 
 REGISTRY?=ghcr.io
 REPO=$(REGISTRY)/kyverno
