@@ -1,3 +1,6 @@
+# Below there are both type of olicies: ClusterPolicy and Policy(Namespaced-Policy)
+
+#ClusterPolicy
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -7,9 +10,10 @@ metadata:
     policies.kyverno.io/category: Sample
     policies.kyverno.io/subject: Pod
     policies.kyverno.io/description: >-
-      The nodeSelector field uses labels to select the node on which a Pod can be scheduled.
-      This can be useful when Pods have specific needs that only certain nodes in a cluster can provide.
-      This policy adds the nodeSelector field to a Pod spec and configures it with labels `foo` and `color`.
+      Labels are used as an important source of metadata describing objects in various ways
+      or triggering other functionality. Labels are also a very basic concept and should be
+      used throughout Kubernetes. This policy performs a simple mutation which adds a label
+      `color=orange` to Pods, Services, ConfigMaps, and Secrets.
 spec:
   background: false
   validationFailureAction:
@@ -19,7 +23,6 @@ spec:
       resources:
         kinds:
         - Pod
-    # Adds the `nodeSelector` field to any Pod with two labels.
     mutate:
       patchStrategicMerge:
         metadata:
@@ -28,6 +31,7 @@ spec:
 
 ---
 
+# Policy ( In testing namespace )
 apiVersion: kyverno.io/v1
 kind: Policy
 metadata:

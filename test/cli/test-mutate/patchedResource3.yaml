@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: myapp-pod1
+  name: same-name-but-diff-namespace
   labels:
     foo: bar
     color: orange
-  namespace: testing
+  namespace: production
 spec:
   containers:
   - name: nginx

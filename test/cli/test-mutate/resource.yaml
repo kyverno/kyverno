@@ -1,28 +1,24 @@
-# So resource == patchedResource then, go inside skip block and then result = pass
+# resource == patchedResource
 apiVersion: v1
 kind: Pod
 metadata:
   labels:
     foo: bar
     color: orange
-  name: myapp-pod
+  name: resource-equal-to-patch-res-for-cp
   namespace: practice
 spec:
   containers:
   - image: nginx:latest
     name: nginx
-  dnsConfig:
-    options:
-    - name: ndots
-      value: "1"
-
 
 ---
-#  So result = pass
+#  Resource with same name and diff. namespace 
+#  Same namespace as namespaced-policy
 apiVersion: v1
 kind: Pod
 metadata:
-  name: myapp-pod
+  name: same-name-but-diff-namespace
   labels:
     foo: bar
   namespace: testing
@@ -32,26 +28,23 @@ spec:
     image: nginx:latest
 
 ---
-#  So result = pass
+#  Resource with same name and diff. namespace 
+#  Namespace differ from namespaced-policy
 apiVersion: v1
 kind: Pod
 metadata:
-  name: myapp-pod1
+  name: same-name-but-diff-namespace
   labels:
     foo: bar
-  namespace: testing
+  namespace: production
 spec:
   containers:
   - name: nginx
     image: nginx:latest
 
-
-
 ---
 
-# ---
-# Resource desc != rule description. So rule not applied. Go inside skip block.
-# Check patched resource of user with engine
+# Deployment in default namespace
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -73,3 +66,35 @@ spec:
         image: nginx:1.14.2
         ports:
         - containerPort: 80
+
+---
+
+# Resource (Service) with same name but different kind
+apiVersion: v1
+kind: Service
+metadata:
+  name: same-name-but-diff-kind
+spec:
+  selector:
+    app: MyApp
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30007
+  type: NodePort
+
+---
+
+# Resource (Pod) with same name but different kind
+apiVersion: v1
+kind: Pod
+metadata:
+  name: same-name-but-diff-kind
+  labels:
+    foo: bar
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+
+

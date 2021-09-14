@@ -167,9 +167,6 @@ func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.Clu
 	resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
 	resp.PolicyResponse.Resource.Kind = resource.GetKind()
 	resp.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
-	if policy.HasMutate() {
-		resp.PolicyResponse.Policy.Type = "Mutate"
-	}
 }
 
 func endMutateResultResponse(logger logr.Logger, resp *response.EngineResponse, startTime time.Time) {
