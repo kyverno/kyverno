@@ -31,6 +31,7 @@ import (
 	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/version"
 )
 
 const (
@@ -143,7 +144,30 @@ func generateCacheKey(changeRequest interface{}) string {
 	return ""
 }
 
+// managedRequest returns true if the request is managed by
+// the current version of Kyverno instance
+func managedRequest(changeRequest interface{}) bool {
+	labels := make(map[string]string, 0)
+
+	if request, ok := changeRequest.(*changerequest.ReportChangeRequest); ok {
+		labels = request.GetLabels()
+	} else if request, ok := changeRequest.(*changerequest.ClusterReportChangeRequest); ok {
+		labels = request.GetLabels()
+	}
+
+	if v, ok := labels[appVersion]; !ok || v != version.BuildVersion {
+		return false
+	}
+
+	return true
+}
+
 func (g *ReportGenerator) addReportChangeRequest(obj interface{}) {
+	if !managedRequest(obj) {
+		g.cleanupReportRequests([]*changerequest.ReportChangeRequest{obj.(*changerequest.ReportChangeRequest)})
+		return
+	}
+
 	key := generateCacheKey(obj)
 	g.queue.Add(key)
 }
@@ -155,11 +179,21 @@ func (g *ReportGenerator) updateReportChangeRequest(old interface{}, cur interfa
 		return
 	}
 
+	if !managedRequest(curReq) {
+		g.cleanupReportRequests([]*changerequest.ReportChangeRequest{curReq})
+		return
+	}
+
 	key := generateCacheKey(cur)
 	g.queue.Add(key)
 }
 
 func (g *ReportGenerator) addClusterReportChangeRequest(obj interface{}) {
+	if !managedRequest(obj) {
+		g.cleanupReportRequests([]*changerequest.ClusterReportChangeRequest{obj.(*changerequest.ClusterReportChangeRequest)})
+		return
+	}
+
 	key := generateCacheKey(obj)
 	g.queue.Add(key)
 }
@@ -169,6 +203,10 @@ func (g *ReportGenerator) updateClusterReportChangeRequest(old interface{}, cur 
 	curReq := cur.(*changerequest.ClusterReportChangeRequest)
 
 	if reflect.DeepEqual(oldReq.Results, curReq.Results) {
+		return
+	}
+
+	if !managedRequest(curReq) {
 		return
 	}
 
@@ -461,7 +499,8 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 	report *unstructured.Unstructured, aggregatedRequests interface{}, err error) {
 
 	if namespace == "" {
-		requests, err := g.clusterReportChangeRequestLister.List(labels.Everything())
+		selector := labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion}))
+		requests, err := g.clusterReportChangeRequestLister.List(selector)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to list ClusterReportChangeRequests within: %v", err)
 		}
@@ -482,7 +521,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 			ns.SetDeletionTimestamp(&now)
 		}
 
-		selector := labels.SelectorFromSet(labels.Set(map[string]string{resourceLabelNamespace: namespace}))
+		selector := labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, resourceLabelNamespace: namespace}))
 		requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).List(selector)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to list reportChangeRequests within namespace %s: %v", ns, err)
