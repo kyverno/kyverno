@@ -147,7 +147,7 @@ func generateCacheKey(changeRequest interface{}) string {
 // managedRequest returns true if the request is managed by
 // the current version of Kyverno instance
 func managedRequest(changeRequest interface{}) bool {
-	labels := make(map[string]string, 0)
+	labels := make(map[string]string)
 
 	if request, ok := changeRequest.(*changerequest.ReportChangeRequest); ok {
 		labels = request.GetLabels()
