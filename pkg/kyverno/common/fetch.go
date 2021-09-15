@@ -279,9 +279,9 @@ func getKindsFromPolicy(rule v1.Rule) map[string]bool {
 	for _, kind := range rule.MatchResources.Kinds {
 		if strings.Contains(kind, "/") {
 			lastElement := kind[strings.LastIndex(kind, "/")+1:]
-			resourceTypesMap[common.HandleKind(lastElement)] = true
+			resourceTypesMap[common.HandleAllKind(lastElement)] = true
 		}
-		resourceTypesMap[common.HandleKind(kind)] = true
+		resourceTypesMap[common.HandleAllKind(kind)] = true
 	}
 
 	if rule.MatchResources.Any != nil {
@@ -289,7 +289,7 @@ func getKindsFromPolicy(rule v1.Rule) map[string]bool {
 			for _, kind := range resFilter.ResourceDescription.Kinds {
 				if strings.Contains(kind, "/") {
 					lastElement := kind[strings.LastIndex(kind, "/")+1:]
-					resourceTypesMap[common.HandleKind(lastElement)] = true
+					resourceTypesMap[common.HandleAllKind(lastElement)] = true
 				}
 				resourceTypesMap[kind] = true
 			}
@@ -301,9 +301,9 @@ func getKindsFromPolicy(rule v1.Rule) map[string]bool {
 			for _, kind := range resFilter.ResourceDescription.Kinds {
 				if strings.Contains(kind, "/") {
 					lastElement := kind[strings.LastIndex(kind, "/")+1:]
-					resourceTypesMap[common.HandleKind(lastElement)] = true
+					resourceTypesMap[common.HandleAllKind(lastElement)] = true
 				}
-				resourceTypesMap[common.HandleKind(kind)] = true
+				resourceTypesMap[common.HandleAllKind(kind)] = true
 			}
 		}
 	}
