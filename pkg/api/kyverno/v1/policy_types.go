@@ -435,6 +435,10 @@ type ImageVerification struct {
 
 	// Key is the PEM encoded public key that the image is signed with.
 	Key string `json:"key,omitempty" yaml:"key,omitempty"`
+
+	// Repository is an optional alternate OCI repository to use for image signatures that match this rule.
+	// If specified Repository will override the default OCI image repository configured for the installation.
+	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
 }
 
 // Generation defines how new resources should be created and managed.
