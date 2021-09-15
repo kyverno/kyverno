@@ -322,7 +322,7 @@ func Test_checkForGVKFormatPatch(t *testing.T) {
 		{
 			name:            "match-kinds",
 			policy:          []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"match-kinds"},"spec":{"rules":[{"name":"test","match":{"resources":{"kinds":["configmap","batch.volcano.sh/v1alpha1/job"]}},"validate":{"message":"Metadatalabel'name'isrequired.","pattern":{"metadata":{"labels":{"name":"?*"}}}}}]}}`),
-			expectedPatches: []byte(`{"path":"/spec/rules/0/match/resources/kinds","op":"replace","value":["Configmap","batch.volcano.sh/v1alpha1/Job"]}`),
+			expectedPatches: []byte(`{"path":"/spec/rules/0/match/resources/kinds","op":"replace","value":["ConfigMap","batch.volcano.sh/v1alpha1/Job"]}`),
 		},
 		{
 			name:            "exclude-kinds-empty",
@@ -332,7 +332,7 @@ func Test_checkForGVKFormatPatch(t *testing.T) {
 		{
 			name:            "exclude-kinds",
 			policy:          []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"exclude-kinds"},"spec":{"rules":[{"name":"test","exclude":{"resources":{"kinds":["configmap","batch.volcano.sh/v1alpha1/job"]}},"validate":{"message":"Metadatalabel'name'isrequired.","pattern":{"metadata":{"labels":{"name":"?*"}}}}}]}}`),
-			expectedPatches: []byte(`{"path":"/spec/rules/0/exclude/resources/kinds","op":"replace","value":["Configmap","batch.volcano.sh/v1alpha1/Job"]}`),
+			expectedPatches: []byte(`{"path":"/spec/rules/0/exclude/resources/kinds","op":"replace","value":["ConfigMap","batch.volcano.sh/v1alpha1/Job"]}`),
 		},
 		{
 			name:            "match-any-kinds-empty",
