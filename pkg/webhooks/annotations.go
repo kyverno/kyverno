@@ -12,6 +12,7 @@ import (
 
 const (
 	policyAnnotation = "policies.kyverno.io~1last-applied-patches"
+	oldAnnotation    = "policies.kyverno.io~1patches"
 )
 
 type rulePatch struct {
@@ -35,8 +36,9 @@ var operationToPastTense = map[string]string{
 	"test":    "tested",
 }
 
-func generateAnnotationPatches(engineResponses []*response.EngineResponse, log logr.Logger) []byte {
+func generateAnnotationPatches(engineResponses []*response.EngineResponse, log logr.Logger) [][]byte {
 	var annotations map[string]string
+	var patchBytes [][]byte
 
 	for _, er := range engineResponses {
 		if ann := er.PatchedResource.GetAnnotations(); ann != nil {
@@ -47,11 +49,7 @@ func generateAnnotationPatches(engineResponses []*response.EngineResponse, log l
 
 	if annotations == nil {
 		annotations = make(map[string]string)
-	}
-
-	if val, ok := annotations["policies.kyverno.io/patches"]; ok {
-		annotations["policies.kyverno.io/last-applied-patches"] = val
-		delete(annotations, "policies.kyverno.io/patches")
+		//annotations["policies.kyverno.io/patches"] = "present" //uncomment the comment on the left to test for removal of old patches "policies.kyverno.io/patches"
 	}
 
 	var patchResponse annresponse
@@ -63,19 +61,39 @@ func generateAnnotationPatches(engineResponses []*response.EngineResponse, log l
 
 	if _, ok := annotations[strings.ReplaceAll(policyAnnotation, "~1", "/")]; ok {
 		// create update patch string
+		if _, ok := annotations["policies.kyverno.io/patches"]; ok {
+			patchResponse = annresponse{
+				Op:   "remove",
+				Path: "/metadata/annotations/policies.kyverno.io/patches",
+			}
+			patchByte, _ := json.Marshal(patchResponse)
+			patchBytes = append(patchBytes, patchByte)
+		}
 		patchResponse = annresponse{
 			Op:    "replace",
 			Path:  "/metadata/annotations/" + policyAnnotation,
 			Value: string(value),
 		}
+		patchByte, _ := json.Marshal(patchResponse)
+		patchBytes = append(patchBytes, patchByte)
 	} else {
 		// mutate rule has annotation patches
 		if len(annotations) > 0 {
+			if _, ok := annotations["policies.kyverno.io/patches"]; ok {
+				patchResponse = annresponse{
+					Op:   "remove",
+					Path: "/metadata/annotations/" + oldAnnotation,
+				}
+				patchByte, _ := json.Marshal(patchResponse)
+				patchBytes = append(patchBytes, patchByte)
+			}
 			patchResponse = annresponse{
 				Op:    "add",
 				Path:  "/metadata/annotations/" + policyAnnotation,
 				Value: string(value),
 			}
+			patchByte, _ := json.Marshal(patchResponse)
+			patchBytes = append(patchBytes, patchByte)
 		} else {
 			// insert 'policies.kyverno.patches' entry in annotation map
 			annotations[strings.ReplaceAll(policyAnnotation, "~1", "/")] = string(value)
@@ -84,18 +102,20 @@ func generateAnnotationPatches(engineResponses []*response.EngineResponse, log l
 				Path:  "/metadata/annotations",
 				Value: annotations,
 			}
+			patchByte, _ := json.Marshal(patchResponse)
+			patchBytes = append(patchBytes, patchByte)
 		}
 	}
 
-	patchByte, _ := json.Marshal(patchResponse)
-
-	// check the patch
-	_, err := jsonpatch.DecodePatch([]byte("[" + string(patchByte) + "]"))
-	if err != nil {
-		log.Error(err, "failed to build JSON patch for annotation", "patch", string(patchByte))
+	for _, patchByte := range patchBytes {
+		// check the patch
+		_, err := jsonpatch.DecodePatch([]byte("[" + string(patchByte) + "]"))
+		if err != nil {
+			log.Error(err, "failed to build JSON patch for annotation", "patch", string(patchByte))
+		}
 	}
 
-	return patchByte
+	return patchBytes
 }
 
 func annotationFromEngineResponses(engineResponses []*response.EngineResponse, log logr.Logger) []byte {
