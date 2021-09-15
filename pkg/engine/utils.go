@@ -8,6 +8,7 @@ import (
 	"time"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/pkg/wildcard"
@@ -32,15 +33,15 @@ func checkKind(kinds []string, resource unstructured.Unstructured) bool {
 	for _, kind := range kinds {
 		SplitGVK := strings.Split(kind, "/")
 		if len(SplitGVK) == 1 {
-			if resource.GetKind() == strings.Title(kind) {
+			if resource.GetKind() == common.HandleAllKind(kind) {
 				return true
 			}
 		} else if len(SplitGVK) == 2 {
-			if resource.GroupVersionKind().Kind == strings.Title(SplitGVK[1]) && resource.GroupVersionKind().Version == SplitGVK[0] {
+			if resource.GroupVersionKind().Kind == common.HandleAllKind(SplitGVK[1]) && resource.GroupVersionKind().Version == SplitGVK[0] {
 				return true
 			}
 		} else {
-			if resource.GroupVersionKind().Group == SplitGVK[0] && resource.GroupVersionKind().Kind == strings.Title(SplitGVK[2]) && (resource.GroupVersionKind().Version == SplitGVK[1] || resource.GroupVersionKind().Version == "*") {
+			if resource.GroupVersionKind().Group == SplitGVK[0] && resource.GroupVersionKind().Kind == common.HandleAllKind(SplitGVK[2]) && (resource.GroupVersionKind().Version == SplitGVK[1] || resource.GroupVersionKind().Version == "*") {
 				return true
 			}
 		}

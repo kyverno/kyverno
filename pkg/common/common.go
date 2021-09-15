@@ -205,11 +205,22 @@ func removePolicyFromLabels(pName string, labels map[string]string) (bool, map[s
 
 func GetFormatedKind(str string) (kind string) {
 	if strings.Count(str, "/") == 0 {
-		return strings.Title(str)
+		return HandleAllKind(str)
 	}
 	splitString := strings.Split(str, "/")
 	if strings.Count(str, "/") == 1 {
-		return splitString[0] + "/" + strings.Title(splitString[1])
+		return splitString[0] + "/" + HandleAllKind(splitString[1])
 	}
-	return splitString[0] + "/" + splitString[1] + "/" + strings.Title(splitString[2])
+	return splitString[0] + "/" + splitString[1] + "/" + HandleAllKind(splitString[2])
+}
+func HandleAllKind(str string) (kind string) {
+	if (strings.ToLower(str)) == "clusterrole" {
+		return "ClusterRole"
+	} else if (strings.ToLower(str)) == "configmap" {
+		return "ConfigMap"
+	} else if (strings.ToLower(str)) == "cronjob" {
+		return "CronJob"
+	} else {
+		return strings.Title(str)
+	}
 }

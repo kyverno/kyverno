@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -278,9 +279,9 @@ func getKindsFromPolicy(rule v1.Rule) map[string]bool {
 	for _, kind := range rule.MatchResources.Kinds {
 		if strings.Contains(kind, "/") {
 			lastElement := kind[strings.LastIndex(kind, "/")+1:]
-			resourceTypesMap[strings.Title(lastElement)] = true
+			resourceTypesMap[common.HandleKind(lastElement)] = true
 		}
-		resourceTypesMap[strings.Title(kind)] = true
+		resourceTypesMap[common.HandleKind(kind)] = true
 	}
 
 	if rule.MatchResources.Any != nil {
@@ -288,7 +289,7 @@ func getKindsFromPolicy(rule v1.Rule) map[string]bool {
 			for _, kind := range resFilter.ResourceDescription.Kinds {
 				if strings.Contains(kind, "/") {
 					lastElement := kind[strings.LastIndex(kind, "/")+1:]
-					resourceTypesMap[strings.Title(lastElement)] = true
+					resourceTypesMap[common.HandleKind(lastElement)] = true
 				}
 				resourceTypesMap[kind] = true
 			}
@@ -300,9 +301,9 @@ func getKindsFromPolicy(rule v1.Rule) map[string]bool {
 			for _, kind := range resFilter.ResourceDescription.Kinds {
 				if strings.Contains(kind, "/") {
 					lastElement := kind[strings.LastIndex(kind, "/")+1:]
-					resourceTypesMap[strings.Title(lastElement)] = true
+					resourceTypesMap[common.HandleKind(lastElement)] = true
 				}
-				resourceTypesMap[strings.Title(kind)] = true
+				resourceTypesMap[common.HandleKind(kind)] = true
 			}
 		}
 	}
