@@ -88,26 +88,90 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 func checkForGVKFormatPatch(policy *kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
 	patches = make([][]byte, 0)
 	for i, rule := range policy.Spec.Rules {
-		kindList := []string{}
-		for _, k := range rule.MatchResources.Kinds {
-			kindList = append(kindList, common.GetFormatedKind(k))
+		patchByte, err := convertGVKForKinds(fmt.Sprintf("/spec/rules/%s/match/resources/kinds", strconv.Itoa(i)), rule.MatchResources.Kinds, log)
+		if err == nil && patchByte != nil {
+			patches = append(patches, patchByte)
+		} else if err != nil {
+			errs = append(errs, fmt.Errorf("failed to GVK for rule '%s/%s/%d/match': %v", policy.Name, rule.Name, i, err))
 		}
-		jsonPatch := struct {
-			Path  string   `json:"path"`
-			Op    string   `json:"op"`
-			Value []string `json:"value"`
-		}{
-			fmt.Sprintf("/spec/rules/%s/match/resources/kinds", strconv.Itoa(i)),
-			"replace",
-			kindList,
+
+		for j, matchAll := range rule.MatchResources.All {
+			patchByte, err := convertGVKForKinds(fmt.Sprintf("/spec/rules/%s/match/all/%s/resources/kinds", strconv.Itoa(i), strconv.Itoa(j)), matchAll.ResourceDescription.Kinds, log)
+			if err == nil && patchByte != nil {
+				patches = append(patches, patchByte)
+			} else if err != nil {
+				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/match/all/%d': %v", policy.Name, rule.Name, i, j, err))
+			}
 		}
-		patchByte, err := json.Marshal(jsonPatch)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to convert policy '%s': %v", policy.Name, err))
+
+		for k, matchAny := range rule.MatchResources.Any {
+			patchByte, err := convertGVKForKinds(fmt.Sprintf("/spec/rules/%s/match/any/%s/resources/kinds", strconv.Itoa(i), strconv.Itoa(k)), matchAny.ResourceDescription.Kinds, log)
+			if err == nil && patchByte != nil {
+				patches = append(patches, patchByte)
+			} else if err != nil {
+				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/match/any/%d': %v", policy.Name, rule.Name, i, k, err))
+			}
 		}
-		patches = append(patches, patchByte)
+
+		patchByte, err = convertGVKForKinds(fmt.Sprintf("/spec/rules/%s/exclude/resources/kinds", strconv.Itoa(i)), rule.ExcludeResources.Kinds, log)
+		if err == nil && patchByte != nil {
+			patches = append(patches, patchByte)
+		} else if err != nil {
+			errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/exclude': %v", policy.Name, rule.Name, i, err))
+		}
+
+		for j, excludeAll := range rule.ExcludeResources.All {
+			patchByte, err := convertGVKForKinds(fmt.Sprintf("/spec/rules/%s/exclude/all/%s/resources/kinds", strconv.Itoa(i), strconv.Itoa(j)), excludeAll.ResourceDescription.Kinds, log)
+			if err == nil && patchByte != nil {
+				patches = append(patches, patchByte)
+			} else if err != nil {
+				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/exclude/all/%d': %v", policy.Name, rule.Name, i, j, err))
+			}
+		}
+
+		for k, excludeAny := range rule.ExcludeResources.Any {
+			patchByte, err := convertGVKForKinds(fmt.Sprintf("/spec/rules/%s/exclude/any/%s/resources/kinds", strconv.Itoa(i), strconv.Itoa(k)), excludeAny.ResourceDescription.Kinds, log)
+			if err == nil && patchByte != nil {
+				patches = append(patches, patchByte)
+			} else if err != nil {
+				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/exclude/any/%d': %v", policy.Name, rule.Name, i, k, err))
+			}
+		}
 	}
+
 	return patches, errs
+}
+
+func convertGVKForKinds(path string, kinds []string, log logr.Logger) ([]byte, error) {
+	kindList := []string{}
+	for _, k := range kinds {
+		gvk := common.GetFormatedKind(k)
+		if gvk == k {
+			continue
+		}
+		kindList = append(kindList, gvk)
+	}
+
+	if len(kindList) == 0 {
+		return nil, nil
+	}
+
+	p, err := buildReplaceJsonPatch(path, kindList)
+	log.V(4).WithName("convertGVKForKinds").Info("generated patch", "patch", string(p))
+	return p, err
+}
+
+func buildReplaceJsonPatch(path string, kindList []string) ([]byte, error) {
+	jsonPatch := struct {
+		Path  string   `json:"path"`
+		Op    string   `json:"op"`
+		Value []string `json:"value"`
+	}{
+		path,
+		"replace",
+		kindList,
+	}
+	return json.Marshal(jsonPatch)
 }
 
 func convertPatchToJSON6902(policy *kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
