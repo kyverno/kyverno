@@ -37,3 +37,11 @@ policies:
       - name: test-blk-app
         values:
           request.object.metadata.annotations.role: app
+  - name: cm-globalval-example
+    resources:
+      - name: test-global-dev
+      - name: test-global-prod
+        values:
+          request.mode: prod
+globalValues:
+  request.mode: dev
