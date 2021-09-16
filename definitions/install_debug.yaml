@@ -939,6 +939,9 @@ spec:
                           key:
                             description: Key is the PEM encoded public key that the image is signed with.
                             type: string
+                          repository:
+                            description: Repository is an optional alternate OCI repository to use for image signatures that match this rule. If specified Repository will override the default OCI image repository configured for the installation.
+                            type: string
                         type: object
                       type: array
                   type: object
@@ -3090,6 +3093,9 @@ spec:
                             type: string
                           key:
                             description: Key is the PEM encoded public key that the image is signed with.
+                            type: string
+                          repository:
+                            description: Repository is an optional alternate OCI repository to use for image signatures that match this rule. If specified Repository will override the default OCI image repository configured for the installation.
                             type: string
                         type: object
                       type: array
