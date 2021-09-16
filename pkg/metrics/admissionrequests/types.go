@@ -5,3 +5,5 @@ import (
 )
 
 type PromMetrics metrics.PromMetrics
+
+type PromConfig metrics.PromConfig

@@ -1,17 +1,28 @@
 package admissionreviewduration
 
 import (
+	"fmt"
+
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	prom "github.com/prometheus/client_golang/prometheus"
 )
 
-func (pm PromMetrics) registerAdmissionReviewDurationMetric(
+func (pc PromConfig) registerAdmissionReviewDurationMetric(
 	resourceKind, resourceNamespace string,
 	resourceRequestOperation metrics.ResourceRequestOperation,
 	admissionRequestLatency float64,
 ) error {
-	pm.AdmissionReviewDuration.With(prom.Labels{
+	includeNamespaces, excludeNamespaces := pc.Config.GetIncludeNamespaces(), pc.Config.GetExcludeNamespaces()
+	if (resourceNamespace != "" && resourceNamespace != "-") && metrics.ElementInSlice(resourceNamespace, excludeNamespaces) {
+		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_admission_review_duration_seconds metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
+		return nil
+	}
+	if (resourceNamespace != "" && resourceNamespace != "-") && len(includeNamespaces) > 0 && !metrics.ElementInSlice(resourceNamespace, includeNamespaces) {
+		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_admission_review_duration_seconds metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
+		return nil
+	}
+	pc.Metrics.AdmissionReviewDuration.With(prom.Labels{
 		"resource_kind":              resourceKind,
 		"resource_namespace":         resourceNamespace,
 		"resource_request_operation": string(resourceRequestOperation),
@@ -19,7 +30,7 @@ func (pm PromMetrics) registerAdmissionReviewDurationMetric(
 	return nil
 }
 
-func (pm PromMetrics) ProcessEngineResponses(engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64, resourceRequestOperation metrics.ResourceRequestOperation) error {
+func (pc PromConfig) ProcessEngineResponses(engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64, resourceRequestOperation metrics.ResourceRequestOperation) error {
 	if len(engineResponses) == 0 {
 		return nil
 	}
@@ -50,5 +61,5 @@ func (pm PromMetrics) ProcessEngineResponses(engineResponses []*response.EngineR
 		return nil
 	}
 	admissionReviewLatencyDurationInSeconds := float64(admissionReviewLatencyDuration) / float64(1000*1000*1000)
-	return pm.registerAdmissionReviewDurationMetric(resourceKind, resourceNamespace, resourceRequestOperation, admissionReviewLatencyDurationInSeconds)
+	return pc.registerAdmissionReviewDurationMetric(resourceKind, resourceNamespace, resourceRequestOperation, admissionReviewLatencyDurationInSeconds)
 }

@@ -4,7 +4,7 @@ input:
   resource: test/resources/pod-with-default-volume.yaml
 expected:
   mutation:
-    patchedresource: test/resources/pod-with-default-volume.yaml
+    patchedresource: test/output/pod-with-default-volume.yaml
     policyresponse:
       policy:
         namespace: ''

@@ -29,6 +29,7 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1
 // +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=`.summary.pass`

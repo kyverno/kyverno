@@ -30,6 +30,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:resource:path=clusterreportchangerequests,scope="Cluster",shortName=crcr
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1

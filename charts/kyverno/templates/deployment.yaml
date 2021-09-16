@@ -68,6 +68,8 @@ spec:
               drop:
                 - all
           env:
+          - name: METRICS_CONFIG
+            value: {{ template "kyverno.metricsConfigMapName" . }}
           - name: KYVERNO_NAMESPACE
             valueFrom:
               fieldRef:
@@ -103,6 +105,8 @@ spec:
           env:
           - name: INIT_CONFIG
             value: {{ template "kyverno.configMapName" . }}
+          - name: METRICS_CONFIG
+            value: {{ template "kyverno.metricsConfigMapName" . }}
           - name: KYVERNO_NAMESPACE
             valueFrom:
               fieldRef:
