@@ -1,7 +1,7 @@
 apiVersion: v1
 name: kyverno-crds
-version: v2.0.3-rc2
-appVersion: v1.4.3-rc2
+version: v2.0.3
+appVersion: v1.4.3
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management CRDs
 keywords:
