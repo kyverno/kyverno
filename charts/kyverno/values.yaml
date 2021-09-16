@@ -37,6 +37,13 @@ initImage:
   # If initImage.pullPolicy is missing, defaults to image.pullPolicy
   pullPolicy:
   # No pull secrets just for initImage; just add to image.pullSecrets
+testImage:
+  # testImage.repository defaults to "busybox" if omitted
+  repository:
+  # testImage.tag defaults to "latest" if omitted
+  tag:
+  # testImage.pullPolicy defaults to image.pullPolicy if ommitted
+  pullPolicy:
 
 replicaCount: 1
 
