@@ -14,7 +14,28 @@ spec:
   - Ingress
   ingress:
   - from:
+      {{- with .Values.networkPolicy }}
+      namespaceSelector:
+        matchExpressions:
+          {{- toYaml .namespaceExpressions | nindent 8 }}
+        matchLabels:
+          {{- range $key, $value := .namespaceLabels }}
+          {{ $key | quote }}: {{ $value | quote }}
+          {{- end }}
+      podSelector:
+        matchExpressions:
+          {{- toYaml .podExpressions | nindent 8 }}
+        matchLabels:
+          {{- range $key, $value := .podLabels }}
+          {{ $key | quote }}: {{ $value | quote }}
+          {{- end }}
+      {{- end }}
     ports:
     - protocol: TCP
       port: 9443 # webhook access
+  # Allow prometheus scrapes for metrics
+  {{- if .Values.metricsService.create }}
+  - ports:
+      - port: {{ .Values.metricsService.port }}
+  {{- end }}
 {{- end }}

@@ -16,6 +16,11 @@ func IsConditionalAnchorError(msg string) bool {
 	return false
 }
 
+// IsGlobalAnchorError checks if error message has conditional anchor error string
+func IsGlobalAnchorError(msg string) bool {
+	return strings.Contains(msg, GlobalAnchorErrMsg)
+}
+
 // NewConditionalAnchorError returns a new instance of ConditionalAnchorError
 func NewConditionalAnchorError(msg string) ValidateAnchorError {
 	return ValidateAnchorError{
@@ -26,10 +31,20 @@ func NewConditionalAnchorError(msg string) ValidateAnchorError {
 
 // IsConditionAnchorError ...
 func (e ValidateAnchorError) IsConditionAnchorError() bool {
-	if e.Err == ConditionalAnchorErr {
-		return true
+	return e.Err == ConditionalAnchorErr
+}
+
+// NewGlobalAnchorError returns a new instance of GlobalAnchorError
+func NewGlobalAnchorError(msg string) ValidateAnchorError {
+	return ValidateAnchorError{
+		Err:     GlobalAnchorErr,
+		Message: fmt.Sprintf("%s: %s", GlobalAnchorErrMsg, msg),
 	}
-	return false
+}
+
+// IsConditionAnchorError ...
+func (e ValidateAnchorError) IsGlobalAnchorError() bool {
+	return e.Err == GlobalAnchorErr
 }
 
 // IsNil ...
@@ -44,8 +59,13 @@ func (e ValidateAnchorError) Error() error {
 // AnchorError is the const specification of anchor errors
 type AnchorError int
 
-// ConditionalAnchorErr ...
-const ConditionalAnchorErr AnchorError = iota
+const (
+	// ConditionalAnchorErr refers to condition violation
+	ConditionalAnchorErr AnchorError = iota
+
+	// GlobalAnchorErr refers to global condition violation
+	GlobalAnchorErr
+)
 
 // ValidateAnchorError represents the error type of validation anchors
 type ValidateAnchorError struct {
@@ -55,6 +75,9 @@ type ValidateAnchorError struct {
 
 // ConditionalAnchorErrMsg - the error message for conditional anchor error
 var ConditionalAnchorErrMsg = "conditionalAnchorError"
+
+// GlobalAnchorErrMsg - the error message for global anchor error
+var GlobalAnchorErrMsg = "globalAnchorError"
 
 // AnchorKey - contains map of anchors
 type AnchorKey struct {

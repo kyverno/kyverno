@@ -9,6 +9,10 @@ func ParsePromMetrics(pm metrics.PromMetrics) PromMetrics {
 	return PromMetrics(pm)
 }
 
+func ParsePromConfig(pc metrics.PromConfig) PromConfig {
+	return PromConfig(pc)
+}
+
 func ParseResourceRequestOperation(requestOperationStr string) (metrics.ResourceRequestOperation, error) {
 	switch requestOperationStr {
 	case "CREATE":

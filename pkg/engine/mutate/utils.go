@@ -26,7 +26,7 @@ func removeAnchor(key string) string {
 		return key[1 : len(key)-1]
 	}
 
-	if commonAnchors.IsExistenceAnchor(key) || commonAnchors.IsAddingAnchor(key) || commonAnchors.IsEqualityAnchor(key) || commonAnchors.IsNegationAnchor(key) {
+	if commonAnchors.IsExistenceAnchor(key) || commonAnchors.IsAddingAnchor(key) || commonAnchors.IsEqualityAnchor(key) || commonAnchors.IsNegationAnchor(key) || commonAnchors.IsGlobalAnchor(key) {
 		return key[2 : len(key)-1]
 	}
 

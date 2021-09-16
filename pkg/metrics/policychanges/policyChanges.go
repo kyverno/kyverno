@@ -8,7 +8,7 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 )
 
-func (pm PromMetrics) registerPolicyChangesMetric(
+func (pc PromConfig) registerPolicyChangesMetric(
 	policyValidationMode metrics.PolicyValidationMode,
 	policyType metrics.PolicyType,
 	policyBackgroundMode metrics.PolicyBackgroundMode,
@@ -18,7 +18,16 @@ func (pm PromMetrics) registerPolicyChangesMetric(
 	if policyType == metrics.Cluster {
 		policyNamespace = "-"
 	}
-	pm.PolicyChanges.With(prom.Labels{
+	includeNamespaces, excludeNamespaces := pc.Config.GetIncludeNamespaces(), pc.Config.GetExcludeNamespaces()
+	if (policyNamespace != "" && policyNamespace != "-") && metrics.ElementInSlice(policyNamespace, excludeNamespaces) {
+		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_changes_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", policyNamespace, excludeNamespaces))
+		return nil
+	}
+	if (policyNamespace != "" && policyNamespace != "-") && len(includeNamespaces) > 0 && !metrics.ElementInSlice(policyNamespace, includeNamespaces) {
+		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_changes_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", policyNamespace, includeNamespaces))
+		return nil
+	}
+	pc.Metrics.PolicyChanges.With(prom.Labels{
 		"policy_validation_mode": string(policyValidationMode),
 		"policy_type":            string(policyType),
 		"policy_background_mode": string(policyBackgroundMode),
@@ -29,7 +38,7 @@ func (pm PromMetrics) registerPolicyChangesMetric(
 	return nil
 }
 
-func (pm PromMetrics) RegisterPolicy(policy interface{}, policyChangeType PolicyChangeType) error {
+func (pc PromConfig) RegisterPolicy(policy interface{}, policyChangeType PolicyChangeType) error {
 	switch inputPolicy := policy.(type) {
 	case *kyverno.ClusterPolicy:
 		policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.ValidationFailureAction)
@@ -40,7 +49,7 @@ func (pm PromMetrics) RegisterPolicy(policy interface{}, policyChangeType Policy
 		policyType := metrics.Cluster
 		policyNamespace := "" // doesn't matter for cluster policy
 		policyName := inputPolicy.ObjectMeta.Name
-		if err = pm.registerPolicyChangesMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, policyChangeType); err != nil {
+		if err = pc.registerPolicyChangesMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, policyChangeType); err != nil {
 			return err
 		}
 		return nil
@@ -53,7 +62,7 @@ func (pm PromMetrics) RegisterPolicy(policy interface{}, policyChangeType Policy
 		policyType := metrics.Namespaced
 		policyNamespace := inputPolicy.ObjectMeta.Namespace
 		policyName := inputPolicy.ObjectMeta.Name
-		if err = pm.registerPolicyChangesMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, policyChangeType); err != nil {
+		if err = pc.registerPolicyChangesMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, policyChangeType); err != nil {
 			return err
 		}
 		return nil
