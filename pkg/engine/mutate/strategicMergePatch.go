@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -29,26 +28,6 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 		resp.RuleStats.RuleExecutionTimestamp = startTime.Unix()
 		logger.V(4).Info("finished applying strategicMerge patch", "processingTime", resp.RuleStats.ProcessingTime.String())
 	}()
-
-	// ====== Meet Conditions =======
-	if path, overlayerr := meetConditions(log, resource.UnstructuredContent(), overlay); !reflect.DeepEqual(overlayerr, overlayError{}) {
-		switch overlayerr.statusCode {
-		// anchor key does not exist in the resource, skip applying policy
-		case conditionNotPresent:
-			log.V(4).Info("skip applying policy", "path", path, "error", overlayerr)
-			log.V(3).Info("skip applying rule", "reason", "conditionNotPresent")
-			resp.Success = true
-			return resp, resource
-		// anchor key is not satisfied in the resource, skip applying policy
-		case conditionFailure:
-			log.V(4).Info("failed to validate condition", "path", path, "error", overlayerr)
-			log.V(3).Info("skip applying rule", "reason", "conditionFailure")
-			resp.Success = true
-			resp.Message = overlayerr.ErrorMsg()
-			return resp, resource
-		}
-	}
-	// ============================
 
 	overlayBytes, err := json.Marshal(overlay)
 	if err != nil {
@@ -99,14 +78,23 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 
 	resp.Success = true
 	resp.Patches = jsonPatches
-	resp.Message = fmt.Sprintf("successfully processed strategic merge patch")
+	resp.Message = "successfully processed strategic merge patch"
 	return resp, patchedResource
 }
 
 func strategicMergePatch(logger logr.Logger, base, overlay string) ([]byte, error) {
 	preprocessedYaml, err := preProcessStrategicMergePatch(logger, overlay, base)
 	if err != nil {
-		return []byte{}, fmt.Errorf("failed to preProcess rule: %+v", err)
+		_, isConditionError := err.(ConditionError)
+		_, isGlobalConditionError := err.(GlobalConditionError)
+
+		if isConditionError || isGlobalConditionError {
+			if err = preprocessedYaml.UnmarshalJSON([]byte(`{}`)); err != nil {
+				return []byte{}, err
+			}
+		} else {
+			return []byte{}, fmt.Errorf("failed to preProcess rule: %+v", err)
+		}
 	}
 
 	f := patchstrategicmerge.Filter{
@@ -122,6 +110,8 @@ func strategicMergePatch(logger logr.Logger, base, overlay string) ([]byte, erro
 func preProcessStrategicMergePatch(logger logr.Logger, pattern, resource string) (*yaml.RNode, error) {
 	patternNode := yaml.MustParse(pattern)
 	resourceNode := yaml.MustParse(resource)
+
 	err := preProcessPattern(logger, patternNode, resourceNode)
+
 	return patternNode, err
 }

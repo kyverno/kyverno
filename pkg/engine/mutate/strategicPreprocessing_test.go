@@ -31,6 +31,59 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 	}{
 		{
 			rawPolicy: []byte(`{
+				"metadata": {
+				  "annotations": {
+					"+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
+				  }
+				},
+				"spec": {
+				  "volumes": [
+					{
+					  "<(emptyDir)": {}
+					}
+				  ]
+				}
+			  }`),
+			rawResource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+				  "name": "static-web",
+				  "labels": {
+					"role": "myrole"
+				  }
+				},
+				"spec": {
+				  "containers": [
+					{
+					  "name": "web",
+					  "image": "1nginx"
+					}
+				  ],
+				  "volumes": [
+					{
+					  "emptyDir": {},
+					  "name": "cache-volume"
+					},
+					{
+					  "secret": {
+						"secretName": "default-token-6gplg"
+					  },
+					  "name": "default-token-6gplg"
+					}
+				  ]
+				}
+			  }`),
+			expectedPatch: []byte(`{
+				"metadata": {
+				  "annotations": {
+					"cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
+				  }
+				}
+			  }`),
+		},
+		{
+			rawPolicy: []byte(`{
 				"metadata": null
 			  }`),
 			rawResource: []byte(`{
@@ -177,11 +230,6 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 			  }`),
 			expectedPatch: []byte(`{
 				"spec": {
-				  "containers": [
-					{
-					  "name": "hello"
-					}
-				  ],
 				  "imagePullSecrets": [
 					{
 					  "name": "regcred"
@@ -222,11 +270,6 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 			  }`),
 			expectedPatch: []byte(`{
 				"spec": {
-				  "containers": [
-					{
-					  "name": "hello"
-					}
-				  ],
 				  "imagePullSecrets": [
 					{
 					  "name": "regcred"
@@ -276,14 +319,6 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 			  }`),
 			expectedPatch: []byte(`{
 				"spec": {
-				  "containers": [
-					{
-					  "name": "hello"
-					},
-					{
-					  "name": "hello2"
-					}
-				  ],
 				  "imagePullSecrets": [
 					{
 					  "name": "regcred"
@@ -351,13 +386,6 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 				  "labels": {
 					"add-labels": "add"
 				  }
-				},
-				"spec": {
-				  "volumes": [
-					{
-					  "name": "cache-volume"
-					}
-				  ]
 				}
 			  }`),
 		},
@@ -412,15 +440,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 				  ]
 				}
 			  }`),
-			expectedPatch: []byte(`{
-				"spec": {
-				  "volumes": [
-					{
-					  "name": "cache-volume"
-					}
-				  ]
-				}
-			  }`),
+			expectedPatch: []byte(`{}`),
 		},
 		{
 			rawPolicy: []byte(`{
@@ -606,8 +626,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 				"metadata": {
 				  "annotations": {
 					"annotation2": "atest2"
-				  },
-				  "labels": {}
+				  }
 				},
 				"spec": {
 				  "containers": [
@@ -686,50 +705,147 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 		{
 			rawPolicy: []byte(`{
 				"metadata": {
-					"labels": {
-						"(key1)": "value1",
-					}
+				  "annotations": {
+					"+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
+				  }
 				},
 				"spec": {
-				  "containers": [
+				  "volumes": [
 					{
-					  "name": "busybox",
-					  "image": "gcr.io/google-containers/busybox:latest"
-					}
-				  ],
-				  "imagePullSecrets": [
-					{
-					  "name": "regcred"
+					  "hostPath": {
+						"<(path)": "*data"
+					  }
 					}
 				  ]
 				}
 			  }`),
 			rawResource: []byte(`{
-				"apiVersion": "v1",
 				"kind": "Pod",
+				"apiVersion": "v1",
 				"metadata": {
-				  "name": "hello"
+				  "name": "nginx"
 				},
 				"spec": {
 				  "containers": [
 					{
-					  "name": "hello",
-					  "image": "busybox"
+					  "name": "nginx",
+					  "image": "nginx:latest",
+					  "imagePullPolicy": "Never",
+					  "volumeMounts": [
+						{
+						  "mountPath": "/cache",
+						  "name": "cache-volume"
+						}
+					  ]
+					}
+				  ],
+				  "volumes": [
+					{
+					  "name": "cache-volume",
+					  "hostPath": {
+						"path": "/data",
+						"type": "Directory"
+					  }
 					}
 				  ]
 				}
 			  }`),
 			expectedPatch: []byte(`{
+				"metadata": {
+				  "annotations": {
+					"cluster-autoscaler.kubernetes.io/safe-to-evict": true
+				  }
+				}
+			  }`),
+		},
+		{
+			rawPolicy: []byte(`{
 				"spec": {
-				  "containers": [
+				  "securityContext": {
+					"runAsNonRoot": true
+				  },
+				  "initContainers": [
 					{
-						"name": "busybox",
-						"image": "gcr.io/google-containers/busybox:latest"
+					  "(name)": "*",
+					  "securityContext": {
+						"runAsNonRoot": true
+					  }
 					}
 				  ],
-				  "imagePullSecrets": [
+				  "containers": [
 					{
-					  "name": "regcred"
+					  "(name)": "*",
+					  "securityContext": {
+						"runAsNonRoot": true
+					  }
+					}
+				  ]
+				}
+			  }`),
+			rawResource: []byte(`{
+				"spec":{
+				   "initContainers":[
+					  {
+						 "name":"initbusy",
+						 "image":"busybox:1.28",
+						 "command":[
+							"sleep",
+							"9999"
+						 ]
+					  }
+				   ],
+				   "containers":[
+					  {
+						 "image":"busybox:1.28",
+						 "name":"busybox",
+						 "command":[
+							"sleep",
+							"9999"
+						 ]
+					  }
+				   ],
+				   "affinity":{
+					  "podAntiAffinity":{
+						 "requiredDuringSchedulingIgnoredDuringExecution":[
+							{
+							   "labelSelector":{
+								  "matchExpressions":[
+									 {
+										"key":"app",
+										"operator":"In",
+										"values":[
+										   "foo",
+										   "bar"
+										]
+									 }
+								  ]
+							   },
+							   "topologyKey":"kubernetes.io/hostname"
+							}
+						 ]
+					  }
+				   }
+				}
+			 }`),
+			expectedPatch: []byte(`{
+				"spec": {
+				  "securityContext": {
+					"runAsNonRoot": true
+				  },
+				  "initContainers": [
+					{
+					  "name": "initbusy",
+					  "securityContext": {
+						"runAsNonRoot": true
+					  }
+					}
+				  ],
+				  "containers": [
+					{
+					  "name": "busybox",
+					  "securityContext": {
+						"runAsNonRoot": true
+					  }
 					}
 				  ]
 				}
@@ -738,6 +854,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 	}
 
 	for i, test := range testCases {
+
 		t.Logf("Running test %d...", i+1)
 		preProcessedPolicy, err := preProcessStrategicMergePatch(log.Log, string(test.rawPolicy), string(test.rawResource))
 		assert.NilError(t, err)
@@ -807,7 +924,7 @@ func Test_CheckConditionAnchor_DoesNotMatch(t *testing.T) {
 	resource := yaml.MustParse(string(resourceRaw))
 
 	err := checkCondition(log.Log, pattern, resource)
-	assert.Error(t, err, "Condition failed: Validation rule failed at '/key1/' to validate value 'sample' with pattern 'value*'")
+	assert.Error(t, err, "Validation rule failed at '/key1/' to validate value 'sample' with pattern 'value*'")
 }
 
 func Test_ValidateConditions_MapWithOneCondition_Matches(t *testing.T) {
@@ -952,7 +1069,8 @@ func Test_ConditionCheck_SeveralElementsMatchExceptOne(t *testing.T) {
 	patternRaw := []byte(`{
 		"containers": [
 			{
-			  "(image)": "gcr.io/google-containers/busybox:*"
+			  "(name)": "hello?",
+			  "image": "gcr.io/google-containers/busybox:1"
 			}
 		]
 	}`)
@@ -980,8 +1098,57 @@ func Test_ConditionCheck_SeveralElementsMatchExceptOne(t *testing.T) {
 	err := preProcessPattern(log.Log, pattern, containers)
 	assert.NilError(t, err)
 
-	containersElements, err := pattern.Field("containers").Value.Elements()
+	patternContainers := pattern.Field("containers")
+	assert.Assert(t, patternContainers != nil)
+	assert.Assert(t, patternContainers.Value != nil)
+
+	elements, err := patternContainers.Value.Elements()
 	assert.NilError(t, err)
 
-	assert.Equal(t, len(containersElements), 2)
+	assert.Equal(t, len(elements), 2)
+}
+
+func Test_NonExistingKeyMustFailPreprocessing(t *testing.T) {
+	rawPattern := []byte(`{
+			"metadata": {
+				"labels": {
+					"(key1)": "value1",
+				}
+			},
+			"spec": {
+			  "containers": [
+				{
+				  "name": "busybox",
+				  "image": "gcr.io/google-containers/busybox:latest"
+				}
+			  ],
+			  "imagePullSecrets": [
+				{
+				  "name": "regcred"
+				}
+			  ]
+			}
+		  }`)
+
+	rawResource := []byte(`{
+			"apiVersion": "v1",
+			"kind": "Pod",
+			"metadata": {
+			  "name": "hello"
+			},
+			"spec": {
+			  "containers": [
+				{
+				  "name": "hello",
+				  "image": "busybox"
+				}
+			  ]
+			}
+		  }`)
+
+	pattern := yaml.MustParse(string(rawPattern))
+	resource := yaml.MustParse(string(rawResource))
+
+	err := preProcessPattern(log.Log, pattern, resource)
+	assert.Error(t, err, "condition failed: could not found \"key1\" key in the resource")
 }

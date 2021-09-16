@@ -42,12 +42,15 @@ func Test_TraverseLeafsCheckIfTheyHit(t *testing.T) {
 	err := json.Unmarshal(document, &originalJSON)
 	assert.NilError(t, err)
 
-	traversal := NewTraversal(originalJSON, OnlyForLeafs(func(data *ActionData) (interface{}, error) {
-		hitMap[data.Element.(string)]++
+	traversal := NewTraversal(originalJSON, OnlyForLeafsAndKeys(func(data *ActionData) (interface{}, error) {
+		if key, ok := data.Element.(string); ok {
+			hitMap[key]++
+		}
 		return data.Element, nil
 	}))
 
 	_, err = traversal.TraverseJSON()
+	assert.NilError(t, err)
 
 	for _, v := range hitMap {
 		assert.Equal(t, v, 1)
@@ -62,7 +65,7 @@ func Test_PathMustBeCorrectEveryTime(t *testing.T) {
 	err := json.Unmarshal(document, &originalJSON)
 	assert.NilError(t, err)
 
-	traversal := NewTraversal(originalJSON, OnlyForLeafs(func(data *ActionData) (interface{}, error) {
+	traversal := NewTraversal(originalJSON, OnlyForLeafsAndKeys(func(data *ActionData) (interface{}, error) {
 		if data.Element.(string) == expectedValue {
 			assert.Equal(t, expectedPath, data.Path)
 		}
@@ -70,4 +73,5 @@ func Test_PathMustBeCorrectEveryTime(t *testing.T) {
 	}))
 
 	_, err = traversal.TraverseJSON()
+	assert.NilError(t, err)
 }

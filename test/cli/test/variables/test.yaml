@@ -2,6 +2,7 @@ name: test-variables
 policies:
   - cm-variable-example.yaml
   - cm-array-example.yaml
+  - cm-blk-scalar-example.yaml
 resources:
   - resources.yaml
 variables: variables.yaml
@@ -21,4 +22,12 @@ results:
   - policy: cm-array-example
     rule: validate-role-annotation
     resource: test-app
+    result: pass
+  - policy: cm-blk-scalar-example
+    rule: validate-blk-role-annotation
+    resource: test-blk-web
+    result: fail
+  - policy: cm-blk-scalar-example
+    rule: validate-blk-role-annotation
+    resource: test-blk-app
     result: pass

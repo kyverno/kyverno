@@ -53,6 +53,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- printf "%s" (default (include "kyverno.fullname" .) .Values.config.existingConfig) -}}
 {{- end -}}
 
+{{/* Get the metrics config map name. */}}
+{{- define "kyverno.metricsConfigMapName" -}}
+{{- printf "%s" (default (printf "%s-metrics" (include "kyverno.fullname" .)) .Values.config.existingMetricsConfig) -}}
+{{- end -}}
 
 {{/* Get the namespace name. */}}
 {{- define "kyverno.namespace" -}}

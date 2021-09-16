@@ -19,3 +19,7 @@ func ParsePolicyRuleInfoMetricChangeType(change string) (PolicyRuleInfoMetricCha
 func ParsePromMetrics(pm metrics.PromMetrics) PromMetrics {
 	return PromMetrics(pm)
 }
+
+func ParsePromConfig(pc metrics.PromConfig) PromConfig {
+	return PromConfig(pc)
+}

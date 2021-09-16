@@ -3,13 +3,13 @@
 ##################################
 # DEFAULTS
 ##################################
-GIT_VERSION := $(shell git describe --always --tags)
+GIT_VERSION := $(shell git describe --match "v[0-9]*")
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 CONTROLLER_GEN=controller-gen
 CONTROLLER_GEN_REQ_VERSION := v0.4.0
-VERSION ?= $(shell git describe --always --tags)
+VERSION ?= $(shell git describe --match "v[0-9]*")
 
 REGISTRY?=ghcr.io
 REPO=$(REGISTRY)/kyverno
@@ -210,7 +210,7 @@ godownloader:
 # kustomize-crd will create install.yaml
 kustomize-crd:
 	# Create CRD for helm deployment Helm
-	kustomize build ./definitions/crds > ./charts/kyverno-crds/templates/crds.yaml
+	kustomize build ./definitions/release | kustomize cfg grep kind=CustomResourceDefinition > ./charts/kyverno-crds/templates/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
 	kustomize build ./definitions > ./definitions/install.yaml
 	# Generate install_debug.yaml that for developer testing
@@ -219,18 +219,17 @@ kustomize-crd:
 # guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
 release:
 	kustomize build ./definitions > ./definitions/install.yaml
-	kustomize build ./definitions > ./definitions/release/install.yaml
+	kustomize build ./definitions/release > ./definitions/release/install.yaml
 
 release-notes:
 	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)" ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
 	true
 
 kyverno-crd: controller-gen
-	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1alpha2 output:dir=./definitions/crds
-	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/v1 output:dir=./definitions/crds
+	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/... crd:crdVersions=v1 output:dir=./definitions/crds
 
 report-crd: controller-gen
-	$(CONTROLLER_GEN) crd paths=./pkg/api/policyreport/v1alpha2 output:dir=./definitions/crds
+	$(CONTROLLER_GEN) crd paths=./pkg/api/policyreport/... crd:crdVersions=v1 output:dir=./definitions/crds
 
 # install the right version of controller-gen
 install-controller-gen:

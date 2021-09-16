@@ -113,7 +113,7 @@ func ValidateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface, rule
 }
 
 func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) jsonUtils.Action {
-	return jsonUtils.OnlyForLeafs(func(data *jsonUtils.ActionData) (interface{}, error) {
+	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
 		if !ok {
 			return data.Element, nil
@@ -149,7 +149,7 @@ func (n NotResolvedReferenceErr) Error() string {
 }
 
 func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
-	return jsonUtils.OnlyForLeafs(func(data *jsonUtils.ActionData) (interface{}, error) {
+	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
 		if !ok {
 			return data.Element, nil
@@ -196,7 +196,7 @@ func DefaultVariableResolver(ctx context.EvalInterface, variable string) (interf
 }
 
 func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr VariableResolver) jsonUtils.Action {
-	return jsonUtils.OnlyForLeafs(func(data *jsonUtils.ActionData) (interface{}, error) {
+	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
 		if !ok {
 			return data.Element, nil
@@ -359,7 +359,7 @@ func formAbsolutePath(referencePath, absolutePath string) string {
 func getValueFromReference(fullDocument interface{}, path string) (interface{}, error) {
 	var element interface{}
 
-	if _, err := jsonUtils.NewTraversal(fullDocument, jsonUtils.OnlyForLeafs(
+	if _, err := jsonUtils.NewTraversal(fullDocument, jsonUtils.OnlyForLeafsAndKeys(
 		func(data *jsonUtils.ActionData) (interface{}, error) {
 			if common.RemoveAnchorsFromPath(data.Path) == path {
 				element = data.Element

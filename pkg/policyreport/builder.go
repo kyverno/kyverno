@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/version"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -21,6 +22,9 @@ import (
 )
 
 const (
+	// appVersion represents which version of Kyverno manages rcr / crcr
+	appVersion string = "app.kubernetes.io/version"
+
 	// the following labels are used to list rcr / crcr
 	resourceLabelNamespace string = "kyverno.io/resource.namespace"
 	deletedLabelPolicy     string = "kyverno.io/delete.policy"
@@ -181,6 +185,7 @@ func set(obj *unstructured.Unstructured, info Info) {
 
 	obj.SetLabels(map[string]string{
 		resourceLabelNamespace: info.Namespace,
+		appVersion:             version.BuildVersion,
 	})
 }
 

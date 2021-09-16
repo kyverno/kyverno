@@ -1,6 +1,7 @@
 package policycache
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -141,7 +142,8 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 
 func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, mutateMap map[string]bool, pName string, enforcePolicy bool, validateEnforceMap map[string]bool, validateAuditMap map[string]bool, generateMap map[string]bool, imageVerifyMap map[string]bool) {
 	for _, gvk := range rmr.Kinds {
-		_, kind := common.GetKindFromGVK(gvk)
+		_, k := common.GetKindFromGVK(gvk)
+		kind := strings.Title(k)
 		_, ok := m.kindDataMap[kind]
 		if !ok {
 			m.kindDataMap[kind] = make(map[PolicyType][]string)

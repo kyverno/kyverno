@@ -29,35 +29,23 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 			continue
 		}
 
-		for _, k := range rule.MatchResources.Kinds {
-			logger = logger.WithValues("rule", rule.Name, "kind", k)
-			namespaced, err := pc.rm.GetScope(k)
-			if err != nil {
-				if err := pc.registerResource(k); err != nil {
-					logger.Error(err, "failed to find resource", "kind", k)
-					continue
-				}
+		match := rule.MatchResources
+		exclude := rule.ExcludeResources
 
-				namespaced, _ = pc.rm.GetScope(k)
-			}
-
-			// this tracker would help to ensure that even for multiple namespaces, duplicate metric are not generated
-			metricRegisteredTracker := false
-
-			if !namespaced {
-				pc.applyAndReportPerNamespace(policy, k, "", rule, logger.WithValues("kind", k), &metricRegisteredTracker)
-				continue
-			}
-
-			namespaces := pc.getNamespacesForRule(&rule, logger.WithValues("kind", k))
-			for _, ns := range namespaces {
-				// for kind: Policy, consider only the namespace which the policy belongs to.
-				// for kind: ClusterPolicy, consider all the namespaces.
-				if policy.Namespace == ns || policy.Namespace == "" {
-					pc.applyAndReportPerNamespace(policy, k, ns, rule, logger.WithValues("kind", k).WithValues("ns", ns), &metricRegisteredTracker)
-				}
-			}
+		for _, value := range match.Any {
+			pc.processExistingKinds(value.ResourceDescription.Kinds, policy, rule, logger)
 		}
+		for _, value := range match.All {
+			pc.processExistingKinds(value.ResourceDescription.Kinds, policy, rule, logger)
+		}
+		for _, value := range exclude.All {
+			pc.processExistingKinds(value.ResourceDescription.Kinds, policy, rule, logger)
+		}
+		for _, value := range exclude.Any {
+			pc.processExistingKinds(value.ResourceDescription.Kinds, policy, rule, logger)
+		}
+
+		pc.processExistingKinds(match.Kinds, policy, rule, logger)
 	}
 }
 
@@ -99,13 +87,13 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPo
 }
 
 func (pc *PolicyController) registerPolicyResultsMetricValidation(logger logr.Logger, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
-	if err := policyResults.ParsePromMetrics(*pc.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
+	if err := policyResults.ParsePromConfig(*pc.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
 	}
 }
 
 func (pc *PolicyController) registerPolicyExecutionDurationMetricValidate(logger logr.Logger, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
-	if err := policyExecutionDuration.ParsePromMetrics(*pc.promConfig.Metrics).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, "", metrics.ResourceCreated); err != nil {
+	if err := policyExecutionDuration.ParsePromConfig(*pc.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, "", metrics.ResourceCreated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
 	}
 }
@@ -237,4 +225,35 @@ func (rm *ResourceManager) GetScope(kind string) (bool, error) {
 
 func buildKey(policy, pv, kind, ns, name, rv string) string {
 	return policy + "/" + pv + "/" + kind + "/" + ns + "/" + name + "/" + rv
+}
+
+func (pc *PolicyController) processExistingKinds(kind []string, policy *kyverno.ClusterPolicy, rule kyverno.Rule, logger logr.Logger) {
+
+	for _, k := range kind {
+		logger = logger.WithValues("rule", rule.Name, "kind", k)
+		namespaced, err := pc.rm.GetScope(k)
+		if err != nil {
+			if err := pc.registerResource(k); err != nil {
+				logger.Error(err, "failed to find resource", "kind", k)
+				continue
+			}
+			namespaced, _ = pc.rm.GetScope(k)
+		}
+
+		// this tracker would help to ensure that even for multiple namespaces, duplicate metric are not generated
+		metricRegisteredTracker := false
+
+		if !namespaced {
+			pc.applyAndReportPerNamespace(policy, k, "", rule, logger.WithValues("kind", k), &metricRegisteredTracker)
+			continue
+		}
+		namespaces := pc.getNamespacesForRule(&rule, logger.WithValues("kind", k))
+		for _, ns := range namespaces {
+			// for kind: Policy, consider only the namespace which the policy belongs to.
+			// for kind: ClusterPolicy, consider all the namespaces.
+			if policy.Namespace == ns || policy.Namespace == "" {
+				pc.applyAndReportPerNamespace(policy, k, ns, rule, logger.WithValues("kind", k).WithValues("ns", ns), &metricRegisteredTracker)
+			}
+		}
+	}
 }
