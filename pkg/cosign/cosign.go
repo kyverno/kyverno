@@ -19,6 +19,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+var (
+	// Alternate signature repository
+	ImageSignatureRepository string
+)
+
 // Initialize loads the image pull secrets and initializes the default auth method for container registry API calls
 func Initialize(client kubernetes.Interface, namespace, serviceAccount string, imagePullSecrets []string) error {
 	var kc authn.Keychain
@@ -37,7 +42,7 @@ func Initialize(client kubernetes.Interface, namespace, serviceAccount string, i
 	return nil
 }
 
-func Verify(imageRef string, key []byte, log logr.Logger) (digest string, err error) {
+func Verify(imageRef string, key []byte, repository string, log logr.Logger) (digest string, err error) {
 	pubKey, err := decodePEM(key)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to decode PEM %v", string(key))
@@ -54,6 +59,16 @@ func Verify(imageRef string, key []byte, log logr.Logger) (digest string, err er
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to parse image")
+	}
+
+	cosignOpts.SignatureRepo = ref.Context()
+	if repository != "" {
+		signatureRepo, err := name.NewRepository(repository)
+		if err != nil {
+			return "", errors.Wrapf(err, "failed to parse signature repository %s", repository)
+		}
+
+		cosignOpts.SignatureRepo = signatureRepo
 	}
 
 	verified, err := cosign.Verify(context.Background(), ref, cosignOpts)

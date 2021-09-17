@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -23,7 +23,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -952,6 +952,9 @@ spec:
                           key:
                             description: Key is the PEM encoded public key that the image is signed with.
                             type: string
+                          repository:
+                            description: Repository is an optional alternate OCI repository to use for image signatures that match this rule. If specified Repository will override the default OCI image repository configured for the installation.
+                            type: string
                         type: object
                       type: array
                   type: object
@@ -1047,7 +1050,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -1569,7 +1572,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: clusterreportchangerequests.kyverno.io
 spec:
   group: kyverno.io
@@ -2061,7 +2064,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: generaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -2233,7 +2236,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -3162,6 +3165,9 @@ spec:
                           key:
                             description: Key is the PEM encoded public key that the image is signed with.
                             type: string
+                          repository:
+                            description: Repository is an optional alternate OCI repository to use for image signatures that match this rule. If specified Repository will override the default OCI image repository configured for the installation.
+                            type: string
                         type: object
                       type: array
                   type: object
@@ -3257,7 +3263,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -3749,7 +3755,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: reportchangerequests.kyverno.io
 spec:
   group: kyverno.io
@@ -4269,7 +4275,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno-service-account
   namespace: kyverno
 ---
@@ -4283,7 +4289,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policies
 rules:
@@ -4305,7 +4311,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policyreport
 rules:
@@ -4327,7 +4333,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-reportchangerequest
 rules:
@@ -4349,7 +4355,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno:customresources
 rules:
 - apiGroups:
@@ -4395,7 +4401,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno:generatecontroller
 rules:
 - apiGroups:
@@ -4430,7 +4436,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno:leaderelection
 rules:
 - apiGroups:
@@ -4454,7 +4460,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno:policycontroller
 rules:
 - apiGroups:
@@ -4477,7 +4483,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno:userinfo
 rules:
 - apiGroups:
@@ -4503,7 +4509,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno:webhook
 rules:
 - apiGroups:
@@ -4555,7 +4561,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno:customresources
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -4576,7 +4582,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno:generatecontroller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -4597,7 +4603,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno:leaderelection
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -4618,7 +4624,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno:policycontroller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -4639,7 +4645,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno:userinfo
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -4660,7 +4666,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno:webhook
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -4702,7 +4708,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno-metrics
   namespace: kyverno
 ---
@@ -4716,7 +4722,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno-svc
   namespace: kyverno
 spec:
@@ -4738,7 +4744,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno-svc-metrics
   namespace: kyverno
 spec:
@@ -4760,7 +4766,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3-rc2
+    app.kubernetes.io/version: v1.4.3
   name: kyverno
   namespace: kyverno
 spec:
@@ -4783,7 +4789,7 @@ spec:
         app.kubernetes.io/managed-by: Kustomize
         app.kubernetes.io/name: kyverno
         app.kubernetes.io/part-of: kyverno
-        app.kubernetes.io/version: v1.4.3-rc2
+        app.kubernetes.io/version: v1.4.3
     spec:
       containers:
       - args:
@@ -4800,7 +4806,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: ghcr.io/kyverno/kyverno:v1.4.3-rc1
+        image: ghcr.io/kyverno/kyverno:v1.4.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 2
@@ -4848,7 +4854,7 @@ spec:
       - env:
         - name: METRICS_CONFIG
           value: kyverno-metrics
-        image: ghcr.io/kyverno/kyvernopre:v1.4.3-rc1
+        image: ghcr.io/kyverno/kyvernopre:v1.4.3
         imagePullPolicy: IfNotPresent
         name: kyverno-pre
         resources:

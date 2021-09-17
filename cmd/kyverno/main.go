@@ -61,6 +61,7 @@ var (
 	disableMetricsExport         bool
 	policyControllerResyncPeriod time.Duration
 	imagePullSecrets             string
+	imageSignatureRepository     string
 	setupLog                     = log.Log.WithName("setup")
 )
 
@@ -79,7 +80,8 @@ func main() {
 	flag.BoolVar(&disableMetricsExport, "disable-metrics", false, "Set this flag to 'true', to enable exposing the metrics.")
 	flag.StringVar(&metricsPort, "metrics-port", "8000", "Expose prometheus metrics at the given port, default to 8000.")
 	flag.DurationVar(&policyControllerResyncPeriod, "background-scan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h.")
-	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials")
+	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
+	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
@@ -162,6 +164,10 @@ func main() {
 			setupLog.Error(err, "failed to initialize image pull secrets")
 			os.Exit(1)
 		}
+	}
+
+	if imageSignatureRepository != "" {
+		cosign.ImageSignatureRepository = imageSignatureRepository
 	}
 
 	// KYVERNO CRD INFORMER
