@@ -7,6 +7,7 @@ on:
       - 'README.md'
       - 'charts/**'
       - 'docs/**'
+      - '.github/config.yml'
   pull_request:
     branches:
       - 'main'
@@ -14,6 +15,7 @@ on:
       - 'README.md'
       - 'charts/**'
       - 'docs/**'
+      - '.github/config.yml'
 
 jobs:
   e2e-test:
