@@ -41,7 +41,7 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 		}
 
 		if len(rule.ExcludeResources.All) > 0 {
-			for _, value := range rule.ExcludeResources.Any {
+			for _, value := range rule.ExcludeResources.All {
 				if path := userInfoDefined(value.UserInfo); path != "" {
 					return fmt.Errorf("invalid variable used at path: spec/rules[%d]/match/%s", idx, path)
 				}
@@ -49,7 +49,7 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 		}
 
 		if len(rule.ExcludeResources.Any) > 0 {
-			for _, value := range rule.ExcludeResources.All {
+			for _, value := range rule.ExcludeResources.Any {
 				if path := userInfoDefined(value.UserInfo); path != "" {
 					return fmt.Errorf("invalid variable used at path: spec/rules[%d]/match/%s", idx, path)
 				}
