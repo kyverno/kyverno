@@ -49,7 +49,6 @@ func generateAnnotationPatches(engineResponses []*response.EngineResponse, log l
 
 	if annotations == nil {
 		annotations = make(map[string]string)
-		//annotations["policies.kyverno.io/patches"] = "present" //uncomment the comment on the left to test for removal of old patches "policies.kyverno.io/patches"
 	}
 
 	var patchResponse annresponse
@@ -66,6 +65,7 @@ func generateAnnotationPatches(engineResponses []*response.EngineResponse, log l
 				Op:   "remove",
 				Path: "/metadata/annotations/policies.kyverno.io/patches",
 			}
+			delete(annotations, "policies.kyverno.io/patches")
 			patchByte, _ := json.Marshal(patchResponse)
 			patchBytes = append(patchBytes, patchByte)
 		}
@@ -84,6 +84,7 @@ func generateAnnotationPatches(engineResponses []*response.EngineResponse, log l
 					Op:   "remove",
 					Path: "/metadata/annotations/" + oldAnnotation,
 				}
+				delete(annotations, "policies.kyverno.io/patches")
 				patchByte, _ := json.Marshal(patchResponse)
 				patchBytes = append(patchBytes, patchByte)
 			}
