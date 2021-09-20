@@ -33,13 +33,18 @@ spec:
     name: v1
     schema:
       openAPIV3Schema:
-        description: ClusterPolicy declares validation, mutation, and generation behaviors for matching resources.
+        description: ClusterPolicy declares validation, mutation, and generation behaviors
+          for matching resources.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -47,26 +52,49 @@ spec:
             description: Spec declares policy behaviors.
             properties:
               background:
-                description: Background controls if rules are applied to existing resources during a background scan. Optional. Default value is "true". The value must be set to "false" if the policy rule uses variables that are only available in the admission review request (e.g. user name).
+                description: Background controls if rules are applied to existing
+                  resources during a background scan. Optional. Default value is "true".
+                  The value must be set to "false" if the policy rule uses variables
+                  that are only available in the admission review request (e.g. user
+                  name).
                 type: boolean
               rules:
-                description: Rules is a list of Rule instances. A Policy contains multiple rules and each rule can validate, mutate, or generate resources.
+                description: Rules is a list of Rule instances. A Policy contains
+                  multiple rules and each rule can validate, mutate, or generate resources.
                 items:
-                  description: Rule defines a validation, mutation, or generation control for matching resources. Each rules contains a match declaration to select resources, and an optional exclude declaration to specify which resources to exclude.
+                  description: Rule defines a validation, mutation, or generation
+                    control for matching resources. Each rules contains a match declaration
+                    to select resources, and an optional exclude declaration to specify
+                    which resources to exclude.
                   properties:
                     context:
-                      description: Context defines variables and data sources that can be used during rule execution.
+                      description: Context defines variables and data sources that
+                        can be used during rule execution.
                       items:
-                        description: ContextEntry adds variables and data sources to a rule Context. Either a ConfigMap reference or a APILookup must be provided.
+                        description: ContextEntry adds variables and data sources
+                          to a rule Context. Either a ConfigMap reference or a APILookup
+                          must be provided.
                         properties:
                           apiCall:
-                            description: APICall defines an HTTP request to the Kubernetes API server. The JSON data retrieved is stored in the context.
+                            description: APICall defines an HTTP request to the Kubernetes
+                              API server. The JSON data retrieved is stored in the
+                              context.
                             properties:
                               jmesPath:
-                                description: JMESPath is an optional JSON Match Expression that can be used to transform the JSON response returned from the API server. For example a JMESPath of "items | length(@)" applied to the API server response to the URLPath "/apis/apps/v1/deployments" will return the total count of deployments across all namespaces.
+                                description: JMESPath is an optional JSON Match Expression
+                                  that can be used to transform the JSON response
+                                  returned from the API server. For example a JMESPath
+                                  of "items | length(@)" applied to the API server
+                                  response to the URLPath "/apis/apps/v1/deployments"
+                                  will return the total count of deployments across
+                                  all namespaces.
                                 type: string
                               urlPath:
-                                description: URLPath is the URL path to be used in the HTTP GET request to the Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments"). The format required is the same format used by the `kubectl get --raw` command.
+                                description: URLPath is the URL path to be used in
+                                  the HTTP GET request to the Kubernetes API server
+                                  (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
+                                  The format required is the same format used by the
+                                  `kubectl get --raw` command.
                                 type: string
                             required:
                             - urlPath
@@ -89,7 +117,10 @@ spec:
                         type: object
                       type: array
                     exclude:
-                      description: ExcludeResources defines when this policy rule should not be applied. The exclude criteria can include resource information (e.g. kind, name, namespace, labels) and admission review request information like the name or role.
+                      description: ExcludeResources defines when this policy rule
+                        should not be applied. The exclude criteria can include resource
+                        information (e.g. kind, name, namespace, labels) and admission
+                        review request information like the name or role.
                       properties:
                         all:
                           description: All allows specifying resources which will be ANDed
@@ -344,17 +375,23 @@ spec:
                             type: object
                           type: array
                         clusterRoles:
-                          description: ClusterRoles is the list of cluster-wide role names for the user.
+                          description: ClusterRoles is the list of cluster-wide role
+                            names for the user.
                           items:
                             type: string
                           type: array
                         resources:
-                          description: ResourceDescription contains information about the resource being created or modified.
+                          description: ResourceDescription contains information about
+                            the resource being created or modified.
                           properties:
                             annotations:
                               additionalProperties:
                                 type: string
-                              description: Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters "*" (matches zero or many characters) and "?" (matches at least one character).
+                              description: Annotations is a  map of annotations (key-value
+                                pairs of type string). Annotation keys and values
+                                support the wildcard characters "*" (matches zero
+                                or many characters) and "?" (matches at least one
+                                character).
                               type: object
                             kinds:
                               description: Kinds is a list of resource kinds.
@@ -362,7 +399,9 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: Name is the name of the resource. The name
+                                supports wildcard characters "*" (matches zero or
+                                many characters) and "?" (at least one character).
                               type: string
                             names:
                               description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
@@ -370,21 +409,39 @@ spec:
                                 type: string
                               type: array
                             namespaceSelector:
-                              description: 'NamespaceSelector is a label selector for the resource namespace. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character).Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              description: 'NamespaceSelector is a label selector
+                                for the resource namespace. Label keys and values
+                                in `matchLabels` support the wildcard characters `*`
+                                (matches zero or many characters) and `?` (matches
+                                one character).Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
+                                an empty label set.'
                               properties:
                                 matchExpressions:
-                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
                                   items:
-                                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
                                     properties:
                                       key:
-                                        description: key is the label key that the selector applies to.
+                                        description: key is the label key that the
+                                          selector applies to.
                                         type: string
                                       operator:
-                                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
                                         type: string
                                       values:
-                                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
                                         items:
                                           type: string
                                         type: array
@@ -396,30 +453,54 @@ spec:
                                 matchLabels:
                                   additionalProperties:
                                     type: string
-                                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
                                   type: object
                               type: object
                             namespaces:
-                              description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: Namespaces is a list of namespaces names.
+                                Each name supports wildcard characters "*" (matches
+                                zero or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
                             selector:
-                              description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              description: 'Selector is a label selector. Label keys
+                                and values in `matchLabels` support the wildcard characters
+                                `*` (matches zero or many characters) and `?` (matches
+                                one character). Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
+                                an empty label set.'
                               properties:
                                 matchExpressions:
-                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
                                   items:
-                                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
                                     properties:
                                       key:
-                                        description: key is the label key that the selector applies to.
+                                        description: key is the label key that the
+                                          selector applies to.
                                         type: string
                                       operator:
-                                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
                                         type: string
                                       values:
-                                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
                                         items:
                                           type: string
                                         type: array
@@ -431,31 +512,51 @@ spec:
                                 matchLabels:
                                   additionalProperties:
                                     type: string
-                                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
                                   type: object
                               type: object
                           type: object
                         roles:
-                          description: Roles is the list of namespaced role names for the user.
+                          description: Roles is the list of namespaced role names
+                            for the user.
                           items:
                             type: string
                           type: array
                         subjects:
-                          description: Subjects is the list of subject names like users, user groups, and service accounts.
+                          description: Subjects is the list of subject names like
+                            users, user groups, and service accounts.
                           items:
-                            description: Subject contains a reference to the object or user identities a role binding applies to.  This can either hold a direct API object reference, or a value for non-objects such as user and group names.
+                            description: Subject contains a reference to the object
+                              or user identities a role binding applies to.  This
+                              can either hold a direct API object reference, or a
+                              value for non-objects such as user and group names.
                             properties:
                               apiGroup:
-                                description: APIGroup holds the API group of the referenced subject. Defaults to "" for ServiceAccount subjects. Defaults to "rbac.authorization.k8s.io" for User and Group subjects.
+                                description: APIGroup holds the API group of the referenced
+                                  subject. Defaults to "" for ServiceAccount subjects.
+                                  Defaults to "rbac.authorization.k8s.io" for User
+                                  and Group subjects.
                                 type: string
                               kind:
-                                description: Kind of object being referenced. Values defined by this API group are "User", "Group", and "ServiceAccount". If the Authorizer does not recognized the kind value, the Authorizer should report an error.
+                                description: Kind of object being referenced. Values
+                                  defined by this API group are "User", "Group", and
+                                  "ServiceAccount". If the Authorizer does not recognized
+                                  the kind value, the Authorizer should report an
+                                  error.
                                 type: string
                               name:
                                 description: Name of the object being referenced.
                                 type: string
                               namespace:
-                                description: Namespace of the referenced object.  If the object kind is non-namespace, such as "User" or "Group", and this value is not empty the Authorizer should report an error.
+                                description: Namespace of the referenced object.  If
+                                  the object kind is non-namespace, such as "User"
+                                  or "Group", and this value is not empty the Authorizer
+                                  should report an error.
                                 type: string
                             required:
                             - kind
@@ -470,7 +571,10 @@ spec:
                           description: APIVersion specifies resource apiVersion.
                           type: string
                         clone:
-                          description: Clone specifies the source resource used to populate each generated resource. At most one of Data or Clone can be specified. If neither are provided, the generated resource will be created with default data only.
+                          description: Clone specifies the source resource used to
+                            populate each generated resource. At most one of Data
+                            or Clone can be specified. If neither are provided, the
+                            generated resource will be created with default data only.
                           properties:
                             name:
                               description: Name specifies name of the resource.
@@ -480,7 +584,10 @@ spec:
                               type: string
                           type: object
                         data:
-                          description: Data provides the resource declaration used to populate each generated resource. At most one of Data or Clone must be specified. If neither are provided, the generated resource will be created with default data only.
+                          description: Data provides the resource declaration used
+                            to populate each generated resource. At most one of Data
+                            or Clone must be specified. If neither are provided, the
+                            generated resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
                         kind:
                           description: Kind specifies resource kind.
@@ -492,11 +599,20 @@ spec:
                           description: Namespace specifies resource namespace.
                           type: string
                         synchronize:
-                          description: Synchronize controls if generated resources should be kept in-sync with their source resource. If Synchronize is set to "true" changes to generated resources will be overwritten with resource data from Data or the resource specified in the Clone declaration. Optional. Defaults to "false" if not specified.
+                          description: Synchronize controls if generated resources
+                            should be kept in-sync with their source resource. If
+                            Synchronize is set to "true" changes to generated resources
+                            will be overwritten with resource data from Data or the
+                            resource specified in the Clone declaration. Optional.
+                            Defaults to "false" if not specified.
                           type: boolean
                       type: object
                     match:
-                      description: MatchResources defines when this policy rule should be applied. The match criteria can include resource information (e.g. kind, name, namespace, labels) and admission review request information like the user name or role. At least one kind is required.
+                      description: MatchResources defines when this policy rule should
+                        be applied. The match criteria can include resource information
+                        (e.g. kind, name, namespace, labels) and admission review
+                        request information like the user name or role. At least one
+                        kind is required.
                       properties:
                         all:
                           description: All allows specifying resources which will be ANDed
@@ -751,17 +867,24 @@ spec:
                             type: object
                           type: array
                         clusterRoles:
-                          description: ClusterRoles is the list of cluster-wide role names for the user.
+                          description: ClusterRoles is the list of cluster-wide role
+                            names for the user.
                           items:
                             type: string
                           type: array
                         resources:
-                          description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources.
+                          description: ResourceDescription contains information about
+                            the resource being created or modified. Requires at least
+                            one tag to be specified when under MatchResources.
                           properties:
                             annotations:
                               additionalProperties:
                                 type: string
-                              description: Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters "*" (matches zero or many characters) and "?" (matches at least one character).
+                              description: Annotations is a  map of annotations (key-value
+                                pairs of type string). Annotation keys and values
+                                support the wildcard characters "*" (matches zero
+                                or many characters) and "?" (matches at least one
+                                character).
                               type: object
                             kinds:
                               description: Kinds is a list of resource kinds.
@@ -769,7 +892,9 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: Name is the name of the resource. The name
+                                supports wildcard characters "*" (matches zero or
+                                many characters) and "?" (at least one character).
                               type: string
                             names:
                               description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
@@ -777,21 +902,39 @@ spec:
                                 type: string
                               type: array
                             namespaceSelector:
-                              description: 'NamespaceSelector is a label selector for the resource namespace. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character).Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              description: 'NamespaceSelector is a label selector
+                                for the resource namespace. Label keys and values
+                                in `matchLabels` support the wildcard characters `*`
+                                (matches zero or many characters) and `?` (matches
+                                one character).Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
+                                an empty label set.'
                               properties:
                                 matchExpressions:
-                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
                                   items:
-                                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
                                     properties:
                                       key:
-                                        description: key is the label key that the selector applies to.
+                                        description: key is the label key that the
+                                          selector applies to.
                                         type: string
                                       operator:
-                                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
                                         type: string
                                       values:
-                                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
                                         items:
                                           type: string
                                         type: array
@@ -803,30 +946,54 @@ spec:
                                 matchLabels:
                                   additionalProperties:
                                     type: string
-                                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
                                   type: object
                               type: object
                             namespaces:
-                              description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: Namespaces is a list of namespaces names.
+                                Each name supports wildcard characters "*" (matches
+                                zero or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
                             selector:
-                              description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              description: 'Selector is a label selector. Label keys
+                                and values in `matchLabels` support the wildcard characters
+                                `*` (matches zero or many characters) and `?` (matches
+                                one character). Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
+                                an empty label set.'
                               properties:
                                 matchExpressions:
-                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
                                   items:
-                                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
                                     properties:
                                       key:
-                                        description: key is the label key that the selector applies to.
+                                        description: key is the label key that the
+                                          selector applies to.
                                         type: string
                                       operator:
-                                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
                                         type: string
                                       values:
-                                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
                                         items:
                                           type: string
                                         type: array
@@ -838,31 +1005,51 @@ spec:
                                 matchLabels:
                                   additionalProperties:
                                     type: string
-                                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
                                   type: object
                               type: object
                           type: object
                         roles:
-                          description: Roles is the list of namespaced role names for the user.
+                          description: Roles is the list of namespaced role names
+                            for the user.
                           items:
                             type: string
                           type: array
                         subjects:
-                          description: Subjects is the list of subject names like users, user groups, and service accounts.
+                          description: Subjects is the list of subject names like
+                            users, user groups, and service accounts.
                           items:
-                            description: Subject contains a reference to the object or user identities a role binding applies to.  This can either hold a direct API object reference, or a value for non-objects such as user and group names.
+                            description: Subject contains a reference to the object
+                              or user identities a role binding applies to.  This
+                              can either hold a direct API object reference, or a
+                              value for non-objects such as user and group names.
                             properties:
                               apiGroup:
-                                description: APIGroup holds the API group of the referenced subject. Defaults to "" for ServiceAccount subjects. Defaults to "rbac.authorization.k8s.io" for User and Group subjects.
+                                description: APIGroup holds the API group of the referenced
+                                  subject. Defaults to "" for ServiceAccount subjects.
+                                  Defaults to "rbac.authorization.k8s.io" for User
+                                  and Group subjects.
                                 type: string
                               kind:
-                                description: Kind of object being referenced. Values defined by this API group are "User", "Group", and "ServiceAccount". If the Authorizer does not recognized the kind value, the Authorizer should report an error.
+                                description: Kind of object being referenced. Values
+                                  defined by this API group are "User", "Group", and
+                                  "ServiceAccount". If the Authorizer does not recognized
+                                  the kind value, the Authorizer should report an
+                                  error.
                                 type: string
                               name:
                                 description: Name of the object being referenced.
                                 type: string
                               namespace:
-                                description: Namespace of the referenced object.  If the object kind is non-namespace, such as "User" or "Group", and this value is not empty the Authorizer should report an error.
+                                description: Namespace of the referenced object.  If
+                                  the object kind is non-namespace, such as "User"
+                                  or "Group", and this value is not empty the Authorizer
+                                  should report an error.
                                 type: string
                             required:
                             - kind
@@ -874,18 +1061,25 @@ spec:
                       description: Mutation is used to modify matching resources.
                       properties:
                         overlay:
-                          description: Overlay specifies an overlay pattern to modify resources. DEPRECATED. Use PatchStrategicMerge instead. Scheduled for removal in release 1.5+.
+                          description: Overlay specifies an overlay pattern to modify
+                            resources. DEPRECATED. Use PatchStrategicMerge instead.
+                            Scheduled for removal in release 1.5+.
                           x-kubernetes-preserve-unknown-fields: true
                         patchStrategicMerge:
-                          description: PatchStrategicMerge is a strategic merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/ and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                          description: PatchStrategicMerge is a strategic merge patch
+                            used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
+                            and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                           x-kubernetes-preserve-unknown-fields: true
                         patches:
-                          description: Patches specifies a RFC 6902 JSON Patch to modify resources. DEPRECATED. Use PatchesJSON6902 instead. Scheduled for removal in release 1.5+.
+                          description: Patches specifies a RFC 6902 JSON Patch to
+                            modify resources. DEPRECATED. Use PatchesJSON6902 instead.
+                            Scheduled for removal in release 1.5+.
                           items:
                             description: 'Patch is a RFC 6902 JSON Patch. See: https://tools.ietf.org/html/rfc6902'
                             properties:
                               op:
-                                description: Operation specifies operations supported by JSON Patch. i.e:- add, replace and delete.
+                                description: Operation specifies operations supported
+                                  by JSON Patch. i.e:- add, replace and delete.
                                 type: string
                               path:
                                 description: Path specifies path of the resource.
@@ -898,11 +1092,14 @@ spec:
                           type: array
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
-                          description: PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                          description: PatchesJSON6902 is a list of RFC 6902 JSON
+                            Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902
+                            and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
                           type: string
                       type: object
                     name:
-                      description: Name is a label to identify the rule, It must be unique within the policy.
+                      description: Name is a label to identify the rule, It must be
+                        unique within the policy.
                       maxLength: 63
                       type: string
                     preconditions:
@@ -912,7 +1109,9 @@ spec:
                       description: Validation is used to validate matching resources.
                       properties:
                         anyPattern:
-                          description: AnyPattern specifies list of validation patterns. At least one of the patterns must be satisfied for the validation rule to succeed.
+                          description: AnyPattern specifies list of validation patterns.
+                            At least one of the patterns must be satisfied for the
+                            validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
                         deny:
                           description: Deny defines conditions used to pass or fail a validation rule.
@@ -922,10 +1121,12 @@ spec:
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
                         message:
-                          description: Message specifies a custom message to be displayed on failure.
+                          description: Message specifies a custom message to be displayed
+                            on failure.
                           type: string
                         pattern:
-                          description: Pattern specifies an overlay-style pattern used to check resources.
+                          description: Pattern specifies an overlay-style pattern
+                            used to check resources.
                           x-kubernetes-preserve-unknown-fields: true
                       type: object
                     verifyImages:
@@ -950,23 +1151,30 @@ spec:
                 description: SchemaValidation skips policy validation checks. Optional. The default value is set to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
-                description: ValidationFailureAction controls if a validation policy rule failure should disallow the admission review request (enforce), or allow (audit) the admission review request and report an error in a policy report. Optional. The default value is "audit".
+                description: ValidationFailureAction controls if a validation policy
+                  rule failure should disallow the admission review request (enforce),
+                  or allow (audit) the admission review request and report an error
+                  in a policy report. Optional. The default value is "audit".
                 type: string
             type: object
           status:
             description: Status contains policy runtime data.
             properties:
               averageExecutionTime:
-                description: AvgExecutionTime is the average time taken to process the policy rules on a resource.
+                description: AvgExecutionTime is the average time taken to process
+                  the policy rules on a resource.
                 type: string
               resourcesBlockedCount:
-                description: ResourcesBlockedCount is the total count of admission review requests that were blocked by this policy.
+                description: ResourcesBlockedCount is the total count of admission
+                  review requests that were blocked by this policy.
                 type: integer
               resourcesGeneratedCount:
-                description: ResourcesGeneratedCount is the total count of resources that were generated by this policy.
+                description: ResourcesGeneratedCount is the total count of resources
+                  that were generated by this policy.
                 type: integer
               resourcesMutatedCount:
-                description: ResourcesMutatedCount is the total count of resources that were mutated by this policy.
+                description: ResourcesMutatedCount is the total count of resources
+                  that were mutated by this policy.
                 type: integer
               ruleStatus:
                 description: Rules provides per rule statistics
@@ -974,41 +1182,51 @@ spec:
                   description: 'RuleStats provides statistics for an individual rule within a policy. Deprecated. Policy metrics are now available via the "/metrics" endpoint. See: https://kyverno.io/docs/monitoring-kyverno-with-prometheus-metrics/'
                   properties:
                     appliedCount:
-                      description: AppliedCount is the total number of times this rule was applied.
+                      description: AppliedCount is the total number of times this
+                        rule was applied.
                       type: integer
                     averageExecutionTime:
-                      description: ExecutionTime is the average time taken to execute this rule.
+                      description: ExecutionTime is the average time taken to execute
+                        this rule.
                       type: string
                     failedCount:
-                      description: FailedCount is the total count of policy error results for this rule.
+                      description: FailedCount is the total count of policy error
+                        results for this rule.
                       type: integer
                     resourcesBlockedCount:
-                      description: ResourcesBlockedCount is the total count of admission review requests that were blocked by this rule.
+                      description: ResourcesBlockedCount is the total count of admission
+                        review requests that were blocked by this rule.
                       type: integer
                     resourcesGeneratedCount:
-                      description: ResourcesGeneratedCount is the total count of resources that were generated by this rule.
+                      description: ResourcesGeneratedCount is the total count of resources
+                        that were generated by this rule.
                       type: integer
                     resourcesMutatedCount:
-                      description: ResourcesMutatedCount is the total count of resources that were mutated by this rule.
+                      description: ResourcesMutatedCount is the total count of resources
+                        that were mutated by this rule.
                       type: integer
                     ruleName:
                       description: Name is the rule name.
                       type: string
                     violationCount:
-                      description: ViolationCount is the total count of policy failure results for this rule.
+                      description: ViolationCount is the total count of policy failure
+                        results for this rule.
                       type: integer
                   required:
                   - ruleName
                   type: object
                 type: array
               rulesAppliedCount:
-                description: RulesAppliedCount is the total number of times this policy was applied.
+                description: RulesAppliedCount is the total number of times this policy
+                  was applied.
                 type: integer
               rulesFailedCount:
-                description: RulesFailedCount is the total count of policy execution errors for this policy.
+                description: RulesFailedCount is the total count of policy execution
+                  errors for this policy.
                 type: integer
               violationCount:
-                description: ViolationCount is the total count of policy failure results for this policy.
+                description: ViolationCount is the total count of policy failure results
+                  for this policy.
                 type: integer
             type: object
         required:
@@ -1073,20 +1291,26 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ClusterPolicyReport is the Schema for the clusterpolicyreports API
+        description: ClusterPolicyReport is the Schema for the clusterpolicyreports
+          API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
           results:
             description: PolicyReportResult provides result details
             items:
-              description: PolicyReportResult provides the result for an individual policy
+              description: PolicyReportResult provides the result for an individual
+                policy
               properties:
                 category:
                   description: Category indicates policy category
@@ -1094,30 +1318,46 @@ spec:
                 data:
                   additionalProperties:
                     type: string
-                  description: Data provides additional information for the policy rule
+                  description: Data provides additional information for the policy
+                    rule
                   type: object
                 message:
-                  description: Message is a short user friendly description of the policy rule
+                  description: Message is a short user friendly description of the
+                    policy rule
                   type: string
                 policy:
                   description: Policy is the name of the policy
                   type: string
                 resourceSelector:
-                  description: ResourceSelector is an optional selector for policy results that apply to multiple resources. For example, a policy result may apply to all pods that match a label. Either a Resource or a ResourceSelector can be specified. If neither are provided, the result is assumed to be for the policy report scope.
+                  description: ResourceSelector is an optional selector for policy
+                    results that apply to multiple resources. For example, a policy
+                    result may apply to all pods that match a label. Either a Resource
+                    or a ResourceSelector can be specified. If neither are provided,
+                    the result is assumed to be for the policy report scope.
                   properties:
                     matchExpressions:
-                      description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
                       items:
-                        description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                        description: A label selector requirement is a selector that
+                          contains values, a key, and an operator that relates the
+                          key and values.
                         properties:
                           key:
-                            description: key is the label key that the selector applies to.
+                            description: key is the label key that the selector applies
+                              to.
                             type: string
                           operator:
-                            description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                            description: operator represents a key's relationship
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
                             type: string
                           values:
-                            description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                            description: values is an array of string values. If the
+                              operator is In or NotIn, the values array must be non-empty.
+                              If the operator is Exists or DoesNotExist, the values
+                              array must be empty. This array is replaced during a
+                              strategic merge patch.
                             items:
                               type: string
                             type: array
@@ -1129,19 +1369,58 @@ spec:
                     matchLabels:
                       additionalProperties:
                         type: string
-                      description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                      description: matchLabels is a map of {key,value} pairs. A single
+                        {key,value} in the matchLabels map is equivalent to an element
+                        of matchExpressions, whose key field is "key", the operator
+                        is "In", and the values array contains only "value". The requirements
+                        are ANDed.
                       type: object
                   type: object
                 resources:
-                  description: Resources is an optional reference to the resource checked by the policy and rule
+                  description: Resources is an optional reference to the resource
+                    checked by the policy and rule
                   items:
-                    description: 'ObjectReference contains enough information to let you inspect or modify the referred object. --- New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.  1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.  2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular     restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".     Those cannot be well described when embedded.  3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.  4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity     during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple     and the version of the actual struct is irrelevant.  5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type     will affect numerous schemas.  Don''t make new APIs embed an underspecified API type they do not control. Instead of using this type, create a locally provided and used type that is well-focused on your reference. For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .'
+                    description: 'ObjectReference contains enough information to let
+                      you inspect or modify the referred object. --- New uses of this
+                      type are discouraged because of difficulty describing its usage
+                      when embedded in APIs.  1. Ignored fields.  It includes many
+                      fields which are not generally honored.  For instance, ResourceVersion
+                      and FieldPath are both very rarely valid in actual usage.  2.
+                      Invalid usage help.  It is impossible to add specific help for
+                      individual usage.  In most embedded usages, there are particular     restrictions
+                      like, "must refer only to types A and B" or "UID not honored"
+                      or "name must be restricted".     Those cannot be well described
+                      when embedded.  3. Inconsistent validation.  Because the usages
+                      are different, the validation rules are different by usage,
+                      which makes it hard for users to predict what will happen.  4.
+                      The fields are both imprecise and overly precise.  Kind is not
+                      a precise mapping to a URL. This can produce ambiguity     during
+                      interpretation and require a REST mapping.  In most cases, the
+                      dependency is on the group,resource tuple     and the version
+                      of the actual struct is irrelevant.  5. We cannot easily change
+                      it.  Because this type is embedded in many locations, updates
+                      to this type     will affect numerous schemas.  Don''t make
+                      new APIs embed an underspecified API type they do not control.
+                      Instead of using this type, create a locally provided and used
+                      type that is well-focused on your reference. For example, ServiceReferences
+                      for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
+                      .'
                     properties:
                       apiVersion:
                         description: API version of the referent.
                         type: string
                       fieldPath:
-                        description: 'If referring to a piece of an object instead of an entire object, this string should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2]. For example, if the object reference is to a container within a pod, this would take on a value like: "spec.containers{name}" (where "name" refers to the name of the container that triggered the event) or if no container name is specified "spec.containers[2]" (container with index 2 in this pod). This syntax is chosen only to have some well-defined way of referencing a part of an object. TODO: this design is not final and this field is subject to change in the future.'
+                        description: 'If referring to a piece of an object instead
+                          of an entire object, this string should contain a valid
+                          JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                          For example, if the object reference is to a container within
+                          a pod, this would take on a value like: "spec.containers{name}"
+                          (where "name" refers to the name of the container that triggered
+                          the event) or if no container name is specified "spec.containers[2]"
+                          (container with index 2 in this pod). This syntax is chosen
+                          only to have some well-defined way of referencing a part
+                          of an object. TODO: this design is not final and this field
+                          is subject to change in the future.'
                         type: string
                       kind:
                         description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
@@ -1153,7 +1432,8 @@ spec:
                         description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                         type: string
                       resourceVersion:
-                        description: 'Specific resourceVersion to which this reference is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                        description: 'Specific resourceVersion to which this reference
+                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
                         type: string
                       uid:
                         description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
@@ -1187,13 +1467,23 @@ spec:
               type: object
             type: array
           scope:
-            description: Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)
+            description: Scope is an optional reference to the report scope (e.g.
+              a Deployment, Namespace, or Node)
             properties:
               apiVersion:
                 description: API version of the referent.
                 type: string
               fieldPath:
-                description: 'If referring to a piece of an object instead of an entire object, this string should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2]. For example, if the object reference is to a container within a pod, this would take on a value like: "spec.containers{name}" (where "name" refers to the name of the container that triggered the event) or if no container name is specified "spec.containers[2]" (container with index 2 in this pod). This syntax is chosen only to have some well-defined way of referencing a part of an object. TODO: this design is not final and this field is subject to change in the future.'
+                description: 'If referring to a piece of an object instead of an entire
+                  object, this string should contain a valid JSON/Go field access
+                  statement, such as desiredState.manifest.containers[2]. For example,
+                  if the object reference is to a container within a pod, this would
+                  take on a value like: "spec.containers{name}" (where "name" refers
+                  to the name of the container that triggered the event) or if no
+                  container name is specified "spec.containers[2]" (container with
+                  index 2 in this pod). This syntax is chosen only to have some well-defined
+                  way of referencing a part of an object. TODO: this design is not
+                  final and this field is subject to change in the future.'
                 type: string
               kind:
                 description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
@@ -1205,28 +1495,39 @@ spec:
                 description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                 type: string
               resourceVersion:
-                description: 'Specific resourceVersion to which this reference is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                description: 'Specific resourceVersion to which this reference is
+                  made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
                 type: string
               uid:
                 description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                 type: string
             type: object
           scopeSelector:
-            description: ScopeSelector is an optional selector for multiple scopes (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.
+            description: ScopeSelector is an optional selector for multiple scopes
+              (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
+              should be specified.
             properties:
               matchExpressions:
-                description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                description: matchExpressions is a list of label selector requirements.
+                  The requirements are ANDed.
                 items:
-                  description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                  description: A label selector requirement is a selector that contains
+                    values, a key, and an operator that relates the key and values.
                   properties:
                     key:
-                      description: key is the label key that the selector applies to.
+                      description: key is the label key that the selector applies
+                        to.
                       type: string
                     operator:
-                      description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                      description: operator represents a key's relationship to a set
+                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
-                      description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                      description: values is an array of string values. If the operator
+                        is In or NotIn, the values array must be non-empty. If the
+                        operator is Exists or DoesNotExist, the values array must
+                        be empty. This array is replaced during a strategic merge
+                        patch.
                       items:
                         type: string
                       type: array
@@ -1238,26 +1539,34 @@ spec:
               matchLabels:
                 additionalProperties:
                   type: string
-                description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                description: matchLabels is a map of {key,value} pairs. A single {key,value}
+                  in the matchLabels map is equivalent to an element of matchExpressions,
+                  whose key field is "key", the operator is "In", and the values array
+                  contains only "value". The requirements are ANDed.
                 type: object
             type: object
           summary:
             description: PolicyReportSummary provides a summary of results
             properties:
               error:
-                description: Error provides the count of policies that could not be evaluated
+                description: Error provides the count of policies that could not be
+                  evaluated
                 type: integer
               fail:
-                description: Fail provides the count of policies whose requirements were not met
+                description: Fail provides the count of policies whose requirements
+                  were not met
                 type: integer
               pass:
-                description: Pass provides the count of policies whose requirements were met
+                description: Pass provides the count of policies whose requirements
+                  were met
                 type: integer
               skip:
-                description: Skip indicates the count of policies that were not selected for evaluation
+                description: Skip indicates the count of policies that were not selected
+                  for evaluation
                 type: integer
               warn:
-                description: Warn provides the count of unscored policies whose requirements were not met
+                description: Warn provides the count of unscored policies whose requirements
+                  were not met
                 type: integer
             type: object
         type: object
@@ -1297,23 +1606,29 @@ spec:
         description: ClusterPolicyReport is the Schema for the clusterpolicyreports API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
           results:
             description: PolicyReportResult provides result details
             items:
-              description: PolicyReportResult provides the result for an individual policy
+              description: PolicyReportResult provides the result for an individual
+                policy
               properties:
                 category:
                   description: Category indicates policy category
                   type: string
                 message:
-                  description: Message is a short user friendly description of the policy rule
+                  description: Message is a short user friendly description of the
+                    policy rule
                   type: string
                 policy:
                   description: Policy is the name of the policy
@@ -1324,21 +1639,35 @@ spec:
                   description: Properties provides additional information for the policy rule
                   type: object
                 resourceSelector:
-                  description: ResourceSelector is an optional selector for policy results that apply to multiple resources. For example, a policy result may apply to all pods that match a label. Either a Resource or a ResourceSelector can be specified. If neither are provided, the result is assumed to be for the policy report scope.
+                  description: ResourceSelector is an optional selector for policy
+                    results that apply to multiple resources. For example, a policy
+                    result may apply to all pods that match a label. Either a Resource
+                    or a ResourceSelector can be specified. If neither are provided,
+                    the result is assumed to be for the policy report scope.
                   properties:
                     matchExpressions:
-                      description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
                       items:
-                        description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                        description: A label selector requirement is a selector that
+                          contains values, a key, and an operator that relates the
+                          key and values.
                         properties:
                           key:
-                            description: key is the label key that the selector applies to.
+                            description: key is the label key that the selector applies
+                              to.
                             type: string
                           operator:
-                            description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                            description: operator represents a key's relationship
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
                             type: string
                           values:
-                            description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                            description: values is an array of string values. If the
+                              operator is In or NotIn, the values array must be non-empty.
+                              If the operator is Exists or DoesNotExist, the values
+                              array must be empty. This array is replaced during a
+                              strategic merge patch.
                             items:
                               type: string
                             type: array
@@ -1350,19 +1679,58 @@ spec:
                     matchLabels:
                       additionalProperties:
                         type: string
-                      description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                      description: matchLabels is a map of {key,value} pairs. A single
+                        {key,value} in the matchLabels map is equivalent to an element
+                        of matchExpressions, whose key field is "key", the operator
+                        is "In", and the values array contains only "value". The requirements
+                        are ANDed.
                       type: object
                   type: object
                 resources:
-                  description: Resources is an optional reference to the resource checked by the policy and rule
+                  description: Resources is an optional reference to the resource
+                    checked by the policy and rule
                   items:
-                    description: 'ObjectReference contains enough information to let you inspect or modify the referred object. --- New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.  1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.  2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular     restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".     Those cannot be well described when embedded.  3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.  4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity     during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple     and the version of the actual struct is irrelevant.  5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type     will affect numerous schemas.  Don''t make new APIs embed an underspecified API type they do not control. Instead of using this type, create a locally provided and used type that is well-focused on your reference. For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .'
+                    description: 'ObjectReference contains enough information to let
+                      you inspect or modify the referred object. --- New uses of this
+                      type are discouraged because of difficulty describing its usage
+                      when embedded in APIs.  1. Ignored fields.  It includes many
+                      fields which are not generally honored.  For instance, ResourceVersion
+                      and FieldPath are both very rarely valid in actual usage.  2.
+                      Invalid usage help.  It is impossible to add specific help for
+                      individual usage.  In most embedded usages, there are particular     restrictions
+                      like, "must refer only to types A and B" or "UID not honored"
+                      or "name must be restricted".     Those cannot be well described
+                      when embedded.  3. Inconsistent validation.  Because the usages
+                      are different, the validation rules are different by usage,
+                      which makes it hard for users to predict what will happen.  4.
+                      The fields are both imprecise and overly precise.  Kind is not
+                      a precise mapping to a URL. This can produce ambiguity     during
+                      interpretation and require a REST mapping.  In most cases, the
+                      dependency is on the group,resource tuple     and the version
+                      of the actual struct is irrelevant.  5. We cannot easily change
+                      it.  Because this type is embedded in many locations, updates
+                      to this type     will affect numerous schemas.  Don''t make
+                      new APIs embed an underspecified API type they do not control.
+                      Instead of using this type, create a locally provided and used
+                      type that is well-focused on your reference. For example, ServiceReferences
+                      for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
+                      .'
                     properties:
                       apiVersion:
                         description: API version of the referent.
                         type: string
                       fieldPath:
-                        description: 'If referring to a piece of an object instead of an entire object, this string should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2]. For example, if the object reference is to a container within a pod, this would take on a value like: "spec.containers{name}" (where "name" refers to the name of the container that triggered the event) or if no container name is specified "spec.containers[2]" (container with index 2 in this pod). This syntax is chosen only to have some well-defined way of referencing a part of an object. TODO: this design is not final and this field is subject to change in the future.'
+                        description: 'If referring to a piece of an object instead
+                          of an entire object, this string should contain a valid
+                          JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                          For example, if the object reference is to a container within
+                          a pod, this would take on a value like: "spec.containers{name}"
+                          (where "name" refers to the name of the container that triggered
+                          the event) or if no container name is specified "spec.containers[2]"
+                          (container with index 2 in this pod). This syntax is chosen
+                          only to have some well-defined way of referencing a part
+                          of an object. TODO: this design is not final and this field
+                          is subject to change in the future.'
                         type: string
                       kind:
                         description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
@@ -1374,7 +1742,8 @@ spec:
                         description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                         type: string
                       resourceVersion:
-                        description: 'Specific resourceVersion to which this reference is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                        description: 'Specific resourceVersion to which this reference
+                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
                         type: string
                       uid:
                         description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
@@ -1426,13 +1795,23 @@ spec:
               type: object
             type: array
           scope:
-            description: Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)
+            description: Scope is an optional reference to the report scope (e.g.
+              a Deployment, Namespace, or Node)
             properties:
               apiVersion:
                 description: API version of the referent.
                 type: string
               fieldPath:
-                description: 'If referring to a piece of an object instead of an entire object, this string should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2]. For example, if the object reference is to a container within a pod, this would take on a value like: "spec.containers{name}" (where "name" refers to the name of the container that triggered the event) or if no container name is specified "spec.containers[2]" (container with index 2 in this pod). This syntax is chosen only to have some well-defined way of referencing a part of an object. TODO: this design is not final and this field is subject to change in the future.'
+                description: 'If referring to a piece of an object instead of an entire
+                  object, this string should contain a valid JSON/Go field access
+                  statement, such as desiredState.manifest.containers[2]. For example,
+                  if the object reference is to a container within a pod, this would
+                  take on a value like: "spec.containers{name}" (where "name" refers
+                  to the name of the container that triggered the event) or if no
+                  container name is specified "spec.containers[2]" (container with
+                  index 2 in this pod). This syntax is chosen only to have some well-defined
+                  way of referencing a part of an object. TODO: this design is not
+                  final and this field is subject to change in the future.'
                 type: string
               kind:
                 description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
@@ -1444,28 +1823,39 @@ spec:
                 description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                 type: string
               resourceVersion:
-                description: 'Specific resourceVersion to which this reference is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                description: 'Specific resourceVersion to which this reference is
+                  made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
                 type: string
               uid:
                 description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                 type: string
             type: object
           scopeSelector:
-            description: ScopeSelector is an optional selector for multiple scopes (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.
+            description: ScopeSelector is an optional selector for multiple scopes
+              (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
+              should be specified.
             properties:
               matchExpressions:
-                description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                description: matchExpressions is a list of label selector requirements.
+                  The requirements are ANDed.
                 items:
-                  description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                  description: A label selector requirement is a selector that contains
+                    values, a key, and an operator that relates the key and values.
                   properties:
                     key:
-                      description: key is the label key that the selector applies to.
+                      description: key is the label key that the selector applies
+                        to.
                       type: string
                     operator:
-                      description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                      description: operator represents a key's relationship to a set
+                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
-                      description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                      description: values is an array of string values. If the operator
+                        is In or NotIn, the values array must be non-empty. If the
+                        operator is Exists or DoesNotExist, the values array must
+                        be empty. This array is replaced during a strategic merge
+                        patch.
                       items:
                         type: string
                       type: array
@@ -1477,26 +1867,34 @@ spec:
               matchLabels:
                 additionalProperties:
                   type: string
-                description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                description: matchLabels is a map of {key,value} pairs. A single {key,value}
+                  in the matchLabels map is equivalent to an element of matchExpressions,
+                  whose key field is "key", the operator is "In", and the values array
+                  contains only "value". The requirements are ANDed.
                 type: object
             type: object
           summary:
             description: PolicyReportSummary provides a summary of results
             properties:
               error:
-                description: Error provides the count of policies that could not be evaluated
+                description: Error provides the count of policies that could not be
+                  evaluated
                 type: integer
               fail:
-                description: Fail provides the count of policies whose requirements were not met
+                description: Fail provides the count of policies whose requirements
+                  were not met
                 type: integer
               pass:
-                description: Pass provides the count of policies whose requirements were met
+                description: Pass provides the count of policies whose requirements
+                  were met
                 type: integer
               skip:
-                description: Skip indicates the count of policies that were not selected for evaluation
+                description: Skip indicates the count of policies that were not selected
+                  for evaluation
                 type: integer
               warn:
-                description: Warn provides the count of unscored policies whose requirements were not met
+                description: Warn provides the count of unscored policies whose requirements
+                  were not met
                 type: integer
             type: object
         type: object
@@ -1561,10 +1959,14 @@ spec:
         description: ClusterReportChangeRequest is the Schema for the ClusterReportChangeRequests API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -1782,10 +2184,14 @@ spec:
         description: ClusterReportChangeRequest is the Schema for the ClusterReportChangeRequests API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -2499,17 +2905,23 @@ spec:
                             type: object
                           type: array
                         clusterRoles:
-                          description: ClusterRoles is the list of cluster-wide role names for the user.
+                          description: ClusterRoles is the list of cluster-wide role
+                            names for the user.
                           items:
                             type: string
                           type: array
                         resources:
-                          description: ResourceDescription contains information about the resource being created or modified.
+                          description: ResourceDescription contains information about
+                            the resource being created or modified.
                           properties:
                             annotations:
                               additionalProperties:
                                 type: string
-                              description: Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters "*" (matches zero or many characters) and "?" (matches at least one character).
+                              description: Annotations is a  map of annotations (key-value
+                                pairs of type string). Annotation keys and values
+                                support the wildcard characters "*" (matches zero
+                                or many characters) and "?" (matches at least one
+                                character).
                               type: object
                             kinds:
                               description: Kinds is a list of resource kinds.
@@ -2517,7 +2929,9 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: Name is the name of the resource. The name
+                                supports wildcard characters "*" (matches zero or
+                                many characters) and "?" (at least one character).
                               type: string
                             names:
                               description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
@@ -2525,21 +2939,39 @@ spec:
                                 type: string
                               type: array
                             namespaceSelector:
-                              description: 'NamespaceSelector is a label selector for the resource namespace. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character).Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              description: 'NamespaceSelector is a label selector
+                                for the resource namespace. Label keys and values
+                                in `matchLabels` support the wildcard characters `*`
+                                (matches zero or many characters) and `?` (matches
+                                one character).Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
+                                an empty label set.'
                               properties:
                                 matchExpressions:
-                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
                                   items:
-                                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
                                     properties:
                                       key:
-                                        description: key is the label key that the selector applies to.
+                                        description: key is the label key that the
+                                          selector applies to.
                                         type: string
                                       operator:
-                                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
                                         type: string
                                       values:
-                                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
                                         items:
                                           type: string
                                         type: array
@@ -2551,30 +2983,54 @@ spec:
                                 matchLabels:
                                   additionalProperties:
                                     type: string
-                                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
                                   type: object
                               type: object
                             namespaces:
-                              description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: Namespaces is a list of namespaces names.
+                                Each name supports wildcard characters "*" (matches
+                                zero or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
                             selector:
-                              description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              description: 'Selector is a label selector. Label keys
+                                and values in `matchLabels` support the wildcard characters
+                                `*` (matches zero or many characters) and `?` (matches
+                                one character). Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
+                                an empty label set.'
                               properties:
                                 matchExpressions:
-                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
                                   items:
-                                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
                                     properties:
                                       key:
-                                        description: key is the label key that the selector applies to.
+                                        description: key is the label key that the
+                                          selector applies to.
                                         type: string
                                       operator:
-                                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
                                         type: string
                                       values:
-                                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
                                         items:
                                           type: string
                                         type: array
@@ -2586,31 +3042,51 @@ spec:
                                 matchLabels:
                                   additionalProperties:
                                     type: string
-                                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
                                   type: object
                               type: object
                           type: object
                         roles:
-                          description: Roles is the list of namespaced role names for the user.
+                          description: Roles is the list of namespaced role names
+                            for the user.
                           items:
                             type: string
                           type: array
                         subjects:
-                          description: Subjects is the list of subject names like users, user groups, and service accounts.
+                          description: Subjects is the list of subject names like
+                            users, user groups, and service accounts.
                           items:
-                            description: Subject contains a reference to the object or user identities a role binding applies to.  This can either hold a direct API object reference, or a value for non-objects such as user and group names.
+                            description: Subject contains a reference to the object
+                              or user identities a role binding applies to.  This
+                              can either hold a direct API object reference, or a
+                              value for non-objects such as user and group names.
                             properties:
                               apiGroup:
-                                description: APIGroup holds the API group of the referenced subject. Defaults to "" for ServiceAccount subjects. Defaults to "rbac.authorization.k8s.io" for User and Group subjects.
+                                description: APIGroup holds the API group of the referenced
+                                  subject. Defaults to "" for ServiceAccount subjects.
+                                  Defaults to "rbac.authorization.k8s.io" for User
+                                  and Group subjects.
                                 type: string
                               kind:
-                                description: Kind of object being referenced. Values defined by this API group are "User", "Group", and "ServiceAccount". If the Authorizer does not recognized the kind value, the Authorizer should report an error.
+                                description: Kind of object being referenced. Values
+                                  defined by this API group are "User", "Group", and
+                                  "ServiceAccount". If the Authorizer does not recognized
+                                  the kind value, the Authorizer should report an
+                                  error.
                                 type: string
                               name:
                                 description: Name of the object being referenced.
                                 type: string
                               namespace:
-                                description: Namespace of the referenced object.  If the object kind is non-namespace, such as "User" or "Group", and this value is not empty the Authorizer should report an error.
+                                description: Namespace of the referenced object.  If
+                                  the object kind is non-namespace, such as "User"
+                                  or "Group", and this value is not empty the Authorizer
+                                  should report an error.
                                 type: string
                             required:
                             - kind
@@ -2625,7 +3101,10 @@ spec:
                           description: APIVersion specifies resource apiVersion.
                           type: string
                         clone:
-                          description: Clone specifies the source resource used to populate each generated resource. At most one of Data or Clone can be specified. If neither are provided, the generated resource will be created with default data only.
+                          description: Clone specifies the source resource used to
+                            populate each generated resource. At most one of Data
+                            or Clone can be specified. If neither are provided, the
+                            generated resource will be created with default data only.
                           properties:
                             name:
                               description: Name specifies name of the resource.
@@ -2635,7 +3114,10 @@ spec:
                               type: string
                           type: object
                         data:
-                          description: Data provides the resource declaration used to populate each generated resource. At most one of Data or Clone must be specified. If neither are provided, the generated resource will be created with default data only.
+                          description: Data provides the resource declaration used
+                            to populate each generated resource. At most one of Data
+                            or Clone must be specified. If neither are provided, the
+                            generated resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
                         kind:
                           description: Kind specifies resource kind.
@@ -2647,11 +3129,20 @@ spec:
                           description: Namespace specifies resource namespace.
                           type: string
                         synchronize:
-                          description: Synchronize controls if generated resources should be kept in-sync with their source resource. If Synchronize is set to "true" changes to generated resources will be overwritten with resource data from Data or the resource specified in the Clone declaration. Optional. Defaults to "false" if not specified.
+                          description: Synchronize controls if generated resources
+                            should be kept in-sync with their source resource. If
+                            Synchronize is set to "true" changes to generated resources
+                            will be overwritten with resource data from Data or the
+                            resource specified in the Clone declaration. Optional.
+                            Defaults to "false" if not specified.
                           type: boolean
                       type: object
                     match:
-                      description: MatchResources defines when this policy rule should be applied. The match criteria can include resource information (e.g. kind, name, namespace, labels) and admission review request information like the user name or role. At least one kind is required.
+                      description: MatchResources defines when this policy rule should
+                        be applied. The match criteria can include resource information
+                        (e.g. kind, name, namespace, labels) and admission review
+                        request information like the user name or role. At least one
+                        kind is required.
                       properties:
                         all:
                           description: All allows specifying resources which will be ANDed
@@ -2906,17 +3397,24 @@ spec:
                             type: object
                           type: array
                         clusterRoles:
-                          description: ClusterRoles is the list of cluster-wide role names for the user.
+                          description: ClusterRoles is the list of cluster-wide role
+                            names for the user.
                           items:
                             type: string
                           type: array
                         resources:
-                          description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources.
+                          description: ResourceDescription contains information about
+                            the resource being created or modified. Requires at least
+                            one tag to be specified when under MatchResources.
                           properties:
                             annotations:
                               additionalProperties:
                                 type: string
-                              description: Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters "*" (matches zero or many characters) and "?" (matches at least one character).
+                              description: Annotations is a  map of annotations (key-value
+                                pairs of type string). Annotation keys and values
+                                support the wildcard characters "*" (matches zero
+                                or many characters) and "?" (matches at least one
+                                character).
                               type: object
                             kinds:
                               description: Kinds is a list of resource kinds.
@@ -2924,7 +3422,9 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: Name is the name of the resource. The name
+                                supports wildcard characters "*" (matches zero or
+                                many characters) and "?" (at least one character).
                               type: string
                             names:
                               description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
@@ -2932,21 +3432,39 @@ spec:
                                 type: string
                               type: array
                             namespaceSelector:
-                              description: 'NamespaceSelector is a label selector for the resource namespace. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character).Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              description: 'NamespaceSelector is a label selector
+                                for the resource namespace. Label keys and values
+                                in `matchLabels` support the wildcard characters `*`
+                                (matches zero or many characters) and `?` (matches
+                                one character).Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
+                                an empty label set.'
                               properties:
                                 matchExpressions:
-                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
                                   items:
-                                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
                                     properties:
                                       key:
-                                        description: key is the label key that the selector applies to.
+                                        description: key is the label key that the
+                                          selector applies to.
                                         type: string
                                       operator:
-                                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
                                         type: string
                                       values:
-                                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
                                         items:
                                           type: string
                                         type: array
@@ -2958,30 +3476,54 @@ spec:
                                 matchLabels:
                                   additionalProperties:
                                     type: string
-                                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
                                   type: object
                               type: object
                             namespaces:
-                              description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: Namespaces is a list of namespaces names.
+                                Each name supports wildcard characters "*" (matches
+                                zero or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
                             selector:
-                              description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              description: 'Selector is a label selector. Label keys
+                                and values in `matchLabels` support the wildcard characters
+                                `*` (matches zero or many characters) and `?` (matches
+                                one character). Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
+                                an empty label set.'
                               properties:
                                 matchExpressions:
-                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
                                   items:
-                                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
                                     properties:
                                       key:
-                                        description: key is the label key that the selector applies to.
+                                        description: key is the label key that the
+                                          selector applies to.
                                         type: string
                                       operator:
-                                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
                                         type: string
                                       values:
-                                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
                                         items:
                                           type: string
                                         type: array
@@ -2993,31 +3535,51 @@ spec:
                                 matchLabels:
                                   additionalProperties:
                                     type: string
-                                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
                                   type: object
                               type: object
                           type: object
                         roles:
-                          description: Roles is the list of namespaced role names for the user.
+                          description: Roles is the list of namespaced role names
+                            for the user.
                           items:
                             type: string
                           type: array
                         subjects:
-                          description: Subjects is the list of subject names like users, user groups, and service accounts.
+                          description: Subjects is the list of subject names like
+                            users, user groups, and service accounts.
                           items:
-                            description: Subject contains a reference to the object or user identities a role binding applies to.  This can either hold a direct API object reference, or a value for non-objects such as user and group names.
+                            description: Subject contains a reference to the object
+                              or user identities a role binding applies to.  This
+                              can either hold a direct API object reference, or a
+                              value for non-objects such as user and group names.
                             properties:
                               apiGroup:
-                                description: APIGroup holds the API group of the referenced subject. Defaults to "" for ServiceAccount subjects. Defaults to "rbac.authorization.k8s.io" for User and Group subjects.
+                                description: APIGroup holds the API group of the referenced
+                                  subject. Defaults to "" for ServiceAccount subjects.
+                                  Defaults to "rbac.authorization.k8s.io" for User
+                                  and Group subjects.
                                 type: string
                               kind:
-                                description: Kind of object being referenced. Values defined by this API group are "User", "Group", and "ServiceAccount". If the Authorizer does not recognized the kind value, the Authorizer should report an error.
+                                description: Kind of object being referenced. Values
+                                  defined by this API group are "User", "Group", and
+                                  "ServiceAccount". If the Authorizer does not recognized
+                                  the kind value, the Authorizer should report an
+                                  error.
                                 type: string
                               name:
                                 description: Name of the object being referenced.
                                 type: string
                               namespace:
-                                description: Namespace of the referenced object.  If the object kind is non-namespace, such as "User" or "Group", and this value is not empty the Authorizer should report an error.
+                                description: Namespace of the referenced object.  If
+                                  the object kind is non-namespace, such as "User"
+                                  or "Group", and this value is not empty the Authorizer
+                                  should report an error.
                                 type: string
                             required:
                             - kind
@@ -3029,18 +3591,25 @@ spec:
                       description: Mutation is used to modify matching resources.
                       properties:
                         overlay:
-                          description: Overlay specifies an overlay pattern to modify resources. DEPRECATED. Use PatchStrategicMerge instead. Scheduled for removal in release 1.5+.
+                          description: Overlay specifies an overlay pattern to modify
+                            resources. DEPRECATED. Use PatchStrategicMerge instead.
+                            Scheduled for removal in release 1.5+.
                           x-kubernetes-preserve-unknown-fields: true
                         patchStrategicMerge:
-                          description: PatchStrategicMerge is a strategic merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/ and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                          description: PatchStrategicMerge is a strategic merge patch
+                            used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
+                            and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                           x-kubernetes-preserve-unknown-fields: true
                         patches:
-                          description: Patches specifies a RFC 6902 JSON Patch to modify resources. DEPRECATED. Use PatchesJSON6902 instead. Scheduled for removal in release 1.5+.
+                          description: Patches specifies a RFC 6902 JSON Patch to
+                            modify resources. DEPRECATED. Use PatchesJSON6902 instead.
+                            Scheduled for removal in release 1.5+.
                           items:
                             description: 'Patch is a RFC 6902 JSON Patch. See: https://tools.ietf.org/html/rfc6902'
                             properties:
                               op:
-                                description: Operation specifies operations supported by JSON Patch. i.e:- add, replace and delete.
+                                description: Operation specifies operations supported
+                                  by JSON Patch. i.e:- add, replace and delete.
                                 type: string
                               path:
                                 description: Path specifies path of the resource.
@@ -3053,7 +3622,9 @@ spec:
                           type: array
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
-                          description: PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                          description: PatchesJSON6902 is a list of RFC 6902 JSON
+                            Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902
+                            and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
                           type: string
                       type: object
                     name:
@@ -3716,17 +4287,22 @@ spec:
         description: ReportChangeRequest is the Schema for the ReportChangeRequests API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
           results:
             description: PolicyReportResult provides result details
             items:
-              description: PolicyReportResult provides the result for an individual policy
+              description: PolicyReportResult provides the result for an individual
+                policy
               properties:
                 category:
                   description: Category indicates policy category
@@ -3734,30 +4310,46 @@ spec:
                 data:
                   additionalProperties:
                     type: string
-                  description: Data provides additional information for the policy rule
+                  description: Data provides additional information for the policy
+                    rule
                   type: object
                 message:
-                  description: Message is a short user friendly description of the policy rule
+                  description: Message is a short user friendly description of the
+                    policy rule
                   type: string
                 policy:
                   description: Policy is the name of the policy
                   type: string
                 resourceSelector:
-                  description: ResourceSelector is an optional selector for policy results that apply to multiple resources. For example, a policy result may apply to all pods that match a label. Either a Resource or a ResourceSelector can be specified. If neither are provided, the result is assumed to be for the policy report scope.
+                  description: ResourceSelector is an optional selector for policy
+                    results that apply to multiple resources. For example, a policy
+                    result may apply to all pods that match a label. Either a Resource
+                    or a ResourceSelector can be specified. If neither are provided,
+                    the result is assumed to be for the policy report scope.
                   properties:
                     matchExpressions:
-                      description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
                       items:
-                        description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                        description: A label selector requirement is a selector that
+                          contains values, a key, and an operator that relates the
+                          key and values.
                         properties:
                           key:
-                            description: key is the label key that the selector applies to.
+                            description: key is the label key that the selector applies
+                              to.
                             type: string
                           operator:
-                            description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                            description: operator represents a key's relationship
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
                             type: string
                           values:
-                            description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                            description: values is an array of string values. If the
+                              operator is In or NotIn, the values array must be non-empty.
+                              If the operator is Exists or DoesNotExist, the values
+                              array must be empty. This array is replaced during a
+                              strategic merge patch.
                             items:
                               type: string
                             type: array
@@ -3769,19 +4361,58 @@ spec:
                     matchLabels:
                       additionalProperties:
                         type: string
-                      description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                      description: matchLabels is a map of {key,value} pairs. A single
+                        {key,value} in the matchLabels map is equivalent to an element
+                        of matchExpressions, whose key field is "key", the operator
+                        is "In", and the values array contains only "value". The requirements
+                        are ANDed.
                       type: object
                   type: object
                 resources:
-                  description: Resources is an optional reference to the resource checked by the policy and rule
+                  description: Resources is an optional reference to the resource
+                    checked by the policy and rule
                   items:
-                    description: 'ObjectReference contains enough information to let you inspect or modify the referred object. --- New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.  1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.  2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular     restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".     Those cannot be well described when embedded.  3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.  4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity     during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple     and the version of the actual struct is irrelevant.  5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type     will affect numerous schemas.  Don''t make new APIs embed an underspecified API type they do not control. Instead of using this type, create a locally provided and used type that is well-focused on your reference. For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .'
+                    description: 'ObjectReference contains enough information to let
+                      you inspect or modify the referred object. --- New uses of this
+                      type are discouraged because of difficulty describing its usage
+                      when embedded in APIs.  1. Ignored fields.  It includes many
+                      fields which are not generally honored.  For instance, ResourceVersion
+                      and FieldPath are both very rarely valid in actual usage.  2.
+                      Invalid usage help.  It is impossible to add specific help for
+                      individual usage.  In most embedded usages, there are particular     restrictions
+                      like, "must refer only to types A and B" or "UID not honored"
+                      or "name must be restricted".     Those cannot be well described
+                      when embedded.  3. Inconsistent validation.  Because the usages
+                      are different, the validation rules are different by usage,
+                      which makes it hard for users to predict what will happen.  4.
+                      The fields are both imprecise and overly precise.  Kind is not
+                      a precise mapping to a URL. This can produce ambiguity     during
+                      interpretation and require a REST mapping.  In most cases, the
+                      dependency is on the group,resource tuple     and the version
+                      of the actual struct is irrelevant.  5. We cannot easily change
+                      it.  Because this type is embedded in many locations, updates
+                      to this type     will affect numerous schemas.  Don''t make
+                      new APIs embed an underspecified API type they do not control.
+                      Instead of using this type, create a locally provided and used
+                      type that is well-focused on your reference. For example, ServiceReferences
+                      for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
+                      .'
                     properties:
                       apiVersion:
                         description: API version of the referent.
                         type: string
                       fieldPath:
-                        description: 'If referring to a piece of an object instead of an entire object, this string should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2]. For example, if the object reference is to a container within a pod, this would take on a value like: "spec.containers{name}" (where "name" refers to the name of the container that triggered the event) or if no container name is specified "spec.containers[2]" (container with index 2 in this pod). This syntax is chosen only to have some well-defined way of referencing a part of an object. TODO: this design is not final and this field is subject to change in the future.'
+                        description: 'If referring to a piece of an object instead
+                          of an entire object, this string should contain a valid
+                          JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                          For example, if the object reference is to a container within
+                          a pod, this would take on a value like: "spec.containers{name}"
+                          (where "name" refers to the name of the container that triggered
+                          the event) or if no container name is specified "spec.containers[2]"
+                          (container with index 2 in this pod). This syntax is chosen
+                          only to have some well-defined way of referencing a part
+                          of an object. TODO: this design is not final and this field
+                          is subject to change in the future.'
                         type: string
                       kind:
                         description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
@@ -3793,7 +4424,8 @@ spec:
                         description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                         type: string
                       resourceVersion:
-                        description: 'Specific resourceVersion to which this reference is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                        description: 'Specific resourceVersion to which this reference
+                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
                         type: string
                       uid:
                         description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
@@ -3827,13 +4459,23 @@ spec:
               type: object
             type: array
           scope:
-            description: Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)
+            description: Scope is an optional reference to the report scope (e.g.
+              a Deployment, Namespace, or Node)
             properties:
               apiVersion:
                 description: API version of the referent.
                 type: string
               fieldPath:
-                description: 'If referring to a piece of an object instead of an entire object, this string should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2]. For example, if the object reference is to a container within a pod, this would take on a value like: "spec.containers{name}" (where "name" refers to the name of the container that triggered the event) or if no container name is specified "spec.containers[2]" (container with index 2 in this pod). This syntax is chosen only to have some well-defined way of referencing a part of an object. TODO: this design is not final and this field is subject to change in the future.'
+                description: 'If referring to a piece of an object instead of an entire
+                  object, this string should contain a valid JSON/Go field access
+                  statement, such as desiredState.manifest.containers[2]. For example,
+                  if the object reference is to a container within a pod, this would
+                  take on a value like: "spec.containers{name}" (where "name" refers
+                  to the name of the container that triggered the event) or if no
+                  container name is specified "spec.containers[2]" (container with
+                  index 2 in this pod). This syntax is chosen only to have some well-defined
+                  way of referencing a part of an object. TODO: this design is not
+                  final and this field is subject to change in the future.'
                 type: string
               kind:
                 description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
@@ -3845,28 +4487,39 @@ spec:
                 description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                 type: string
               resourceVersion:
-                description: 'Specific resourceVersion to which this reference is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                description: 'Specific resourceVersion to which this reference is
+                  made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
                 type: string
               uid:
                 description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                 type: string
             type: object
           scopeSelector:
-            description: ScopeSelector is an optional selector for multiple scopes (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.
+            description: ScopeSelector is an optional selector for multiple scopes
+              (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
+              should be specified.
             properties:
               matchExpressions:
-                description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                description: matchExpressions is a list of label selector requirements.
+                  The requirements are ANDed.
                 items:
-                  description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                  description: A label selector requirement is a selector that contains
+                    values, a key, and an operator that relates the key and values.
                   properties:
                     key:
-                      description: key is the label key that the selector applies to.
+                      description: key is the label key that the selector applies
+                        to.
                       type: string
                     operator:
-                      description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                      description: operator represents a key's relationship to a set
+                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
-                      description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                      description: values is an array of string values. If the operator
+                        is In or NotIn, the values array must be non-empty. If the
+                        operator is Exists or DoesNotExist, the values array must
+                        be empty. This array is replaced during a strategic merge
+                        patch.
                       items:
                         type: string
                       type: array
@@ -3878,26 +4531,34 @@ spec:
               matchLabels:
                 additionalProperties:
                   type: string
-                description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                description: matchLabels is a map of {key,value} pairs. A single {key,value}
+                  in the matchLabels map is equivalent to an element of matchExpressions,
+                  whose key field is "key", the operator is "In", and the values array
+                  contains only "value". The requirements are ANDed.
                 type: object
             type: object
           summary:
             description: PolicyReportSummary provides a summary of results
             properties:
               error:
-                description: Error provides the count of policies that could not be evaluated
+                description: Error provides the count of policies that could not be
+                  evaluated
                 type: integer
               fail:
-                description: Fail provides the count of policies whose requirements were not met
+                description: Fail provides the count of policies whose requirements
+                  were not met
                 type: integer
               pass:
-                description: Pass provides the count of policies whose requirements were met
+                description: Pass provides the count of policies whose requirements
+                  were met
                 type: integer
               skip:
-                description: Skip indicates the count of policies that were not selected for evaluation
+                description: Skip indicates the count of policies that were not selected
+                  for evaluation
                 type: integer
               warn:
-                description: Warn provides the count of unscored policies whose requirements were not met
+                description: Warn provides the count of unscored policies whose requirements
+                  were not met
                 type: integer
             type: object
         type: object
@@ -3934,26 +4595,33 @@ spec:
     name: v1alpha2
     schema:
       openAPIV3Schema:
-        description: ReportChangeRequest is the Schema for the ReportChangeRequests API
+        description: ReportChangeRequest is the Schema for the ReportChangeRequests
+          API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
           results:
             description: PolicyReportResult provides result details
             items:
-              description: PolicyReportResult provides the result for an individual policy
+              description: PolicyReportResult provides the result for an individual
+                policy
               properties:
                 category:
                   description: Category indicates policy category
                   type: string
                 message:
-                  description: Message is a short user friendly description of the policy rule
+                  description: Message is a short user friendly description of the
+                    policy rule
                   type: string
                 policy:
                   description: Policy is the name of the policy
@@ -3964,21 +4632,35 @@ spec:
                   description: Properties provides additional information for the policy rule
                   type: object
                 resourceSelector:
-                  description: ResourceSelector is an optional selector for policy results that apply to multiple resources. For example, a policy result may apply to all pods that match a label. Either a Resource or a ResourceSelector can be specified. If neither are provided, the result is assumed to be for the policy report scope.
+                  description: ResourceSelector is an optional selector for policy
+                    results that apply to multiple resources. For example, a policy
+                    result may apply to all pods that match a label. Either a Resource
+                    or a ResourceSelector can be specified. If neither are provided,
+                    the result is assumed to be for the policy report scope.
                   properties:
                     matchExpressions:
-                      description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
                       items:
-                        description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                        description: A label selector requirement is a selector that
+                          contains values, a key, and an operator that relates the
+                          key and values.
                         properties:
                           key:
-                            description: key is the label key that the selector applies to.
+                            description: key is the label key that the selector applies
+                              to.
                             type: string
                           operator:
-                            description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                            description: operator represents a key's relationship
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
                             type: string
                           values:
-                            description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                            description: values is an array of string values. If the
+                              operator is In or NotIn, the values array must be non-empty.
+                              If the operator is Exists or DoesNotExist, the values
+                              array must be empty. This array is replaced during a
+                              strategic merge patch.
                             items:
                               type: string
                             type: array
@@ -3990,19 +4672,58 @@ spec:
                     matchLabels:
                       additionalProperties:
                         type: string
-                      description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                      description: matchLabels is a map of {key,value} pairs. A single
+                        {key,value} in the matchLabels map is equivalent to an element
+                        of matchExpressions, whose key field is "key", the operator
+                        is "In", and the values array contains only "value". The requirements
+                        are ANDed.
                       type: object
                   type: object
                 resources:
-                  description: Resources is an optional reference to the resource checked by the policy and rule
+                  description: Resources is an optional reference to the resource
+                    checked by the policy and rule
                   items:
-                    description: 'ObjectReference contains enough information to let you inspect or modify the referred object. --- New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.  1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.  2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular     restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".     Those cannot be well described when embedded.  3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.  4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity     during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple     and the version of the actual struct is irrelevant.  5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type     will affect numerous schemas.  Don''t make new APIs embed an underspecified API type they do not control. Instead of using this type, create a locally provided and used type that is well-focused on your reference. For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .'
+                    description: 'ObjectReference contains enough information to let
+                      you inspect or modify the referred object. --- New uses of this
+                      type are discouraged because of difficulty describing its usage
+                      when embedded in APIs.  1. Ignored fields.  It includes many
+                      fields which are not generally honored.  For instance, ResourceVersion
+                      and FieldPath are both very rarely valid in actual usage.  2.
+                      Invalid usage help.  It is impossible to add specific help for
+                      individual usage.  In most embedded usages, there are particular     restrictions
+                      like, "must refer only to types A and B" or "UID not honored"
+                      or "name must be restricted".     Those cannot be well described
+                      when embedded.  3. Inconsistent validation.  Because the usages
+                      are different, the validation rules are different by usage,
+                      which makes it hard for users to predict what will happen.  4.
+                      The fields are both imprecise and overly precise.  Kind is not
+                      a precise mapping to a URL. This can produce ambiguity     during
+                      interpretation and require a REST mapping.  In most cases, the
+                      dependency is on the group,resource tuple     and the version
+                      of the actual struct is irrelevant.  5. We cannot easily change
+                      it.  Because this type is embedded in many locations, updates
+                      to this type     will affect numerous schemas.  Don''t make
+                      new APIs embed an underspecified API type they do not control.
+                      Instead of using this type, create a locally provided and used
+                      type that is well-focused on your reference. For example, ServiceReferences
+                      for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
+                      .'
                     properties:
                       apiVersion:
                         description: API version of the referent.
                         type: string
                       fieldPath:
-                        description: 'If referring to a piece of an object instead of an entire object, this string should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2]. For example, if the object reference is to a container within a pod, this would take on a value like: "spec.containers{name}" (where "name" refers to the name of the container that triggered the event) or if no container name is specified "spec.containers[2]" (container with index 2 in this pod). This syntax is chosen only to have some well-defined way of referencing a part of an object. TODO: this design is not final and this field is subject to change in the future.'
+                        description: 'If referring to a piece of an object instead
+                          of an entire object, this string should contain a valid
+                          JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                          For example, if the object reference is to a container within
+                          a pod, this would take on a value like: "spec.containers{name}"
+                          (where "name" refers to the name of the container that triggered
+                          the event) or if no container name is specified "spec.containers[2]"
+                          (container with index 2 in this pod). This syntax is chosen
+                          only to have some well-defined way of referencing a part
+                          of an object. TODO: this design is not final and this field
+                          is subject to change in the future.'
                         type: string
                       kind:
                         description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
@@ -4014,7 +4735,8 @@ spec:
                         description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                         type: string
                       resourceVersion:
-                        description: 'Specific resourceVersion to which this reference is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                        description: 'Specific resourceVersion to which this reference
+                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
                         type: string
                       uid:
                         description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
@@ -4066,13 +4788,23 @@ spec:
               type: object
             type: array
           scope:
-            description: Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)
+            description: Scope is an optional reference to the report scope (e.g.
+              a Deployment, Namespace, or Node)
             properties:
               apiVersion:
                 description: API version of the referent.
                 type: string
               fieldPath:
-                description: 'If referring to a piece of an object instead of an entire object, this string should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2]. For example, if the object reference is to a container within a pod, this would take on a value like: "spec.containers{name}" (where "name" refers to the name of the container that triggered the event) or if no container name is specified "spec.containers[2]" (container with index 2 in this pod). This syntax is chosen only to have some well-defined way of referencing a part of an object. TODO: this design is not final and this field is subject to change in the future.'
+                description: 'If referring to a piece of an object instead of an entire
+                  object, this string should contain a valid JSON/Go field access
+                  statement, such as desiredState.manifest.containers[2]. For example,
+                  if the object reference is to a container within a pod, this would
+                  take on a value like: "spec.containers{name}" (where "name" refers
+                  to the name of the container that triggered the event) or if no
+                  container name is specified "spec.containers[2]" (container with
+                  index 2 in this pod). This syntax is chosen only to have some well-defined
+                  way of referencing a part of an object. TODO: this design is not
+                  final and this field is subject to change in the future.'
                 type: string
               kind:
                 description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
@@ -4084,28 +4816,39 @@ spec:
                 description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                 type: string
               resourceVersion:
-                description: 'Specific resourceVersion to which this reference is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                description: 'Specific resourceVersion to which this reference is
+                  made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
                 type: string
               uid:
                 description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                 type: string
             type: object
           scopeSelector:
-            description: ScopeSelector is an optional selector for multiple scopes (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.
+            description: ScopeSelector is an optional selector for multiple scopes
+              (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
+              should be specified.
             properties:
               matchExpressions:
-                description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                description: matchExpressions is a list of label selector requirements.
+                  The requirements are ANDed.
                 items:
-                  description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                  description: A label selector requirement is a selector that contains
+                    values, a key, and an operator that relates the key and values.
                   properties:
                     key:
-                      description: key is the label key that the selector applies to.
+                      description: key is the label key that the selector applies
+                        to.
                       type: string
                     operator:
-                      description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                      description: operator represents a key's relationship to a set
+                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
-                      description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                      description: values is an array of string values. If the operator
+                        is In or NotIn, the values array must be non-empty. If the
+                        operator is Exists or DoesNotExist, the values array must
+                        be empty. This array is replaced during a strategic merge
+                        patch.
                       items:
                         type: string
                       type: array
@@ -4117,26 +4860,34 @@ spec:
               matchLabels:
                 additionalProperties:
                   type: string
-                description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                description: matchLabels is a map of {key,value} pairs. A single {key,value}
+                  in the matchLabels map is equivalent to an element of matchExpressions,
+                  whose key field is "key", the operator is "In", and the values array
+                  contains only "value". The requirements are ANDed.
                 type: object
             type: object
           summary:
             description: PolicyReportSummary provides a summary of results
             properties:
               error:
-                description: Error provides the count of policies that could not be evaluated
+                description: Error provides the count of policies that could not be
+                  evaluated
                 type: integer
               fail:
-                description: Fail provides the count of policies whose requirements were not met
+                description: Fail provides the count of policies whose requirements
+                  were not met
                 type: integer
               pass:
-                description: Pass provides the count of policies whose requirements were met
+                description: Pass provides the count of policies whose requirements
+                  were met
                 type: integer
               skip:
-                description: Skip indicates the count of policies that were not selected for evaluation
+                description: Skip indicates the count of policies that were not selected
+                  for evaluation
                 type: integer
               warn:
-                description: Warn provides the count of unscored policies whose requirements were not met
+                description: Warn provides the count of unscored policies whose requirements
+                  were not met
                 type: integer
             type: object
         type: object

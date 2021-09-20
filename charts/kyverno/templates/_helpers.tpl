@@ -42,6 +42,17 @@ helm.sh/chart: {{ template "kyverno.chart" . }}
 {{- end }}
 {{- end -}}
 
+{{/* Helm required labels */}}
+{{- define "kyverno.test-labels" -}}
+app.kubernetes.io/component: kyverno
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/name: {{ template "kyverno.name" . }}-test
+app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
+app.kubernetes.io/version: "{{ .Chart.Version }}"
+helm.sh/chart: {{ template "kyverno.chart" . }}
+{{- end -}}
+
 {{/* matchLabels */}}
 {{- define "kyverno.matchLabels" -}}
 app.kubernetes.io/name: {{ template "kyverno.name" . }}
