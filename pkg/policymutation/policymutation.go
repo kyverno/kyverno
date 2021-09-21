@@ -371,8 +371,8 @@ func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bo
 			return false, "none"
 		}
 
-		if (len(match.Kinds) > 1 && utils.ContainsString(match.Kinds, "Pod")) ||
-			(len(exclude.Kinds) > 1 && utils.ContainsString(exclude.Kinds, "Pod")) {
+		if (len(match.Kinds) > 1 && utils.ContainsPod(match.Kinds, "Pod")) ||
+			(len(exclude.Kinds) > 1 && utils.ContainsPod(exclude.Kinds, "Pod")) {
 			return false, "none"
 		}
 
@@ -548,8 +548,8 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	for _, value := range exclude.Any {
 		excludeResourceDescriptionsKinds = append(excludeResourceDescriptionsKinds, value.ResourceDescription.Kinds...)
 	}
-	if !utils.ContainsString(matchResourceDescriptionsKinds, "Pod") ||
-		(len(excludeResourceDescriptionsKinds) != 0 && !utils.ContainsString(excludeResourceDescriptionsKinds, "Pod")) {
+	if !utils.ContainsPod(matchResourceDescriptionsKinds, "Pod") ||
+		(len(excludeResourceDescriptionsKinds) != 0 && !utils.ContainsPod(excludeResourceDescriptionsKinds, "Pod")) {
 		return kyvernoRule{}
 	}
 

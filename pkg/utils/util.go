@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	c "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/minio/pkg/wildcard"
@@ -43,6 +44,15 @@ func ContainsString(list []string, element string) bool {
 	return contains(list, element, compareString)
 }
 
+func ContainsPod(list []string, element string) bool {
+	for _, e := range list {
+		_, k := c.GetKindFromGVK(e)
+		if k == element {
+			return true
+		}
+	}
+	return false
+}
 func compareNamespaces(pattern, ns string) bool {
 	return wildcard.Match(pattern, ns)
 }
