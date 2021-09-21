@@ -11,6 +11,7 @@ import (
 func hasNestedAnchors(pattern interface{}) bool {
 	switch typed := pattern.(type) {
 	case map[string]interface{}:
+		fmt.Println("map[string]interface{}......")
 		if anchors := getAnchorsFromMap(typed); len(anchors) > 0 {
 			return true
 		}
@@ -21,6 +22,7 @@ func hasNestedAnchors(pattern interface{}) bool {
 		}
 		return false
 	case []interface{}:
+		fmt.Println("[]interface{}......")
 		for _, value := range typed {
 			if hasNestedAnchors(value) {
 				return true
@@ -28,6 +30,7 @@ func hasNestedAnchors(pattern interface{}) bool {
 		}
 		return false
 	default:
+		fmt.Println("default......")
 		return false
 	}
 }
@@ -39,6 +42,10 @@ func getSortedNestedAnchorResource(resources map[string]interface{}) *list.List 
 	fmt.Println("resources: ", resources)
 	for k, v := range resources {
 		fmt.Println("k: ", k, "                 v:", v)
+		if commonAnchors.IsConditionAnchor(k) || commonAnchors.IsExistenceAnchor(k) || commonAnchors.IsEqualityAnchor(k) || commonAnchors.IsNegationAnchor(k) || commonAnchors.IsGlobalAnchor(k) {
+			sortedResourceKeys.PushFront(k)
+			continue
+		}
 		if hasNestedAnchors(v) {
 			sortedResourceKeys.PushFront(k)
 			fmt.Println("PushFront")
@@ -54,7 +61,7 @@ func getSortedNestedAnchorResource(resources map[string]interface{}) *list.List 
 func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for key, value := range anchorsMap {
-		if commonAnchors.IsConditionAnchor(key) || commonAnchors.IsExistenceAnchor(key) || commonAnchors.IsEqualityAnchor(key) || commonAnchors.IsNegationAnchor(key) {
+		if commonAnchors.IsConditionAnchor(key) || commonAnchors.IsExistenceAnchor(key) || commonAnchors.IsEqualityAnchor(key) || commonAnchors.IsNegationAnchor(key) || commonAnchors.IsGlobalAnchor(key) {
 			result[key] = value
 		}
 	}
