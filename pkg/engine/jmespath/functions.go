@@ -38,11 +38,18 @@ var (
 	regexReplaceAllLiteral = "regex_replace_all_literal"
 	regexMatch             = "regex_match"
 	labelMatch             = "label_match"
+	add                    = "add"
+	subtract               = "subtract"
+	multiply               = "multiply"
+	divide                 = "divide"
+	modulo                 = "modulo"
 )
 
 const errorPrefix = "JMESPath function '%s': "
 const invalidArgumentTypeError = errorPrefix + "%d argument is expected of %s type"
 const genericError = errorPrefix + "%s"
+const zeroDivisionError = errorPrefix + "Zero divisor passed"
+const nonIntModuloError = errorPrefix + "Non-integer argument(s) passed for modulo"
 
 func getFunctions() []*gojmespath.FunctionEntry {
 	return []*gojmespath.FunctionEntry{
@@ -145,6 +152,46 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpObject}},
 			},
 			Handler: jpLabelMatch,
+		},
+		{
+			Name: add,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpNumber}},
+			},
+			Handler: jpAdd,
+		},
+		{
+			Name: subtract,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpNumber}},
+			},
+			Handler: jpSubtract,
+		},
+		{
+			Name: multiply,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpNumber}},
+			},
+			Handler: jpMultiply,
+		},
+		{
+			Name: divide,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpNumber}},
+			},
+			Handler: jpDivide,
+		},
+		{
+			Name: modulo,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpNumber}},
+			},
+			Handler: jpModulo,
 		},
 	}
 
@@ -358,6 +405,100 @@ func jpLabelMatch(arguments []interface{}) (interface{}, error) {
 	}
 
 	return true, nil
+}
+
+func jpAdd(arguments []interface{}) (interface{}, error) {
+	var err error
+	op1, err := validateArg(divide, arguments, 0, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+
+	op2, err := validateArg(divide, arguments, 1, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+
+	return op1.Float() + op2.Float(), nil
+}
+
+func jpSubtract(arguments []interface{}) (interface{}, error) {
+	var err error
+	op1, err := validateArg(divide, arguments, 0, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+
+	op2, err := validateArg(divide, arguments, 1, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+
+	return op1.Float() - op2.Float(), nil
+}
+
+func jpMultiply(arguments []interface{}) (interface{}, error) {
+	var err error
+	op1, err := validateArg(divide, arguments, 0, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+
+	op2, err := validateArg(divide, arguments, 1, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+
+	return op1.Float() * op2.Float(), nil
+}
+
+func jpDivide(arguments []interface{}) (interface{}, error) {
+	var err error
+	op1, err := validateArg(divide, arguments, 0, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+
+	op2, err := validateArg(divide, arguments, 1, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+
+	if op2.Float() == 0 {
+		return nil, fmt.Errorf(zeroDivisionError, divide)
+	}
+
+	return op1.Float() / op2.Float(), nil
+}
+
+func jpModulo(arguments []interface{}) (interface{}, error) {
+	var err error
+	op1, err := validateArg(divide, arguments, 0, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+
+	op2, err := validateArg(divide, arguments, 1, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+
+	val1 := int64(op1.Float())
+	val2 := int64(op2.Float())
+
+	if op1.Float() != float64(val1) {
+		return nil, fmt.Errorf(nonIntModuloError, modulo)
+	}
+
+	if op2.Float() != float64(val2) {
+		return nil, fmt.Errorf(nonIntModuloError, modulo)
+	}
+
+	if val2 == 0 {
+		return nil, fmt.Errorf(zeroDivisionError, modulo)
+	}
+
+	return val1 % val2, nil
 }
 
 // InterfaceToString casts an interface to a string type
