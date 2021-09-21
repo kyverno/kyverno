@@ -7,4 +7,4 @@ kind: ConfigMap
 metadata:
   labels:
     app: kyverno
-  name: init-config
+  name: kyverno
