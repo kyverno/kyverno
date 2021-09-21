@@ -1063,3 +1063,54 @@ func TestFindAndShiftReferences_AnyPatternPositiveCase(t *testing.T) {
 
 	assert.Equal(t, expectedMessage, actualMessage)
 }
+
+func Test_EscpReferenceSubstitution(t *testing.T) {
+	jsonRaw := []byte(`
+	{
+		"metadata": {
+			"name": "temp",
+			"namespace": "n1",
+			"annotations": {
+			  "test": "$(../../../../spec/namespace)",
+			  "testescp": "\\$(ENV_VAR)"
+            }
+		},
+		"(spec)": {
+			"namespace": "n1",
+			"name": "temp1"
+		}
+	}`)
+
+	expectedJSON := []byte(`
+	{
+		"metadata": {
+			"name": "temp",
+			"namespace": "n1",
+			"annotations": {
+			  "test": "n1",
+			  "testescp": "$(ENV_VAR)"
+            }
+		},
+		"(spec)": {
+			"namespace": "n1",
+			"name": "temp1"
+		}
+	}`)
+
+	var document interface{}
+	err := json.Unmarshal(jsonRaw, &document)
+	assert.NilError(t, err)
+
+	var expectedDocument interface{}
+	err = json.Unmarshal(expectedJSON, &expectedDocument)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResource(jsonRaw)
+	assert.NilError(t, err)
+
+	actualDocument, err := SubstituteAll(log.Log, ctx, document)
+	assert.NilError(t, err)
+
+	assert.DeepEqual(t, expectedDocument, actualDocument)
+}

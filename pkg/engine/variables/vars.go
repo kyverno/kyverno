@@ -18,7 +18,8 @@ import (
 )
 
 var RegexVariables = regexp.MustCompile(`\{\{[^{}]*\}\}`)
-var RegexReferences = regexp.MustCompile(`\$\(.[^\ ]*\)`)
+var RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
+var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
 
 // IsVariable returns true if the element contains a 'valid' variable {{}}
 func IsVariable(value string) bool {
@@ -156,6 +157,13 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 		}
 
 		for _, v := range RegexReferences.FindAllString(value, -1) {
+			initial := v[:2] == `$(`
+			v_old := v
+
+			if !initial {
+				v = v[1:]
+			}
+
 			resolvedReference, err := resolveReference(log, data.Document, v, data.Path)
 			if err != nil {
 				switch err.(type) {
@@ -173,7 +181,15 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 			log.V(3).Info("reference resolved", "reference", v, "value", resolvedReference, "path", data.Path)
 
 			if val, ok := resolvedReference.(string); ok {
-				value = strings.Replace(value, v, val, -1)
+				replace_with := ""
+
+				if !initial {
+					replace_with = string(v_old[0])
+				}
+
+				replace_with += val
+
+				value = strings.Replace(value, v_old, replace_with, 1)
 				continue
 			}
 
@@ -181,6 +197,10 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 				reference: v,
 				path:      data.Path,
 			}
+		}
+
+		for _, v := range RegexEscpReferences.FindAllString(value, -1) {
+			value = strings.Replace(value, v, v[1:], -1)
 		}
 
 		return value, nil
@@ -329,6 +349,12 @@ func valFromReferenceToString(value interface{}, operator string) (string, error
 
 func FindAndShiftReferences(log logr.Logger, value, shift, pivot string) string {
 	for _, reference := range RegexReferences.FindAllString(value, -1) {
+		initial := reference[:2] == `$(`
+		reference_old := reference
+
+		if !initial {
+			reference = reference[1:]
+		}
 
 		index := strings.Index(reference, pivot)
 		if index == -1 {
@@ -341,8 +367,16 @@ func FindAndShiftReferences(log logr.Logger, value, shift, pivot string) string 
 			pivot = pivot + "/" + ruleIndex
 		}
 
-		shiftedReference := strings.Replace(reference, pivot, pivot+"/"+shift, 1)
-		value = strings.Replace(value, reference, shiftedReference, -1)
+		shiftedReference := strings.Replace(reference, pivot, pivot+"/"+shift, -1)
+		replace_with := ""
+
+		if !initial {
+			replace_with = string(reference_old[0])
+		}
+
+		replace_with += shiftedReference
+
+		value = strings.Replace(value, reference_old, replace_with, 1)
 	}
 
 	return value
