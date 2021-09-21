@@ -36,6 +36,11 @@ func ValidateResourceWithPattern(logger logr.Logger, resource, pattern interface
 // and calls corresponding handler
 // Pattern tree and resource tree can have different structure. In this case validation fails
 func validateResourceElement(log logr.Logger, resourceElement, patternElement, originPattern interface{}, path string, ac *common.AnchorKey) (string, error) {
+	fmt.Println("\n---------------validateResourceElement--------------")
+	fmt.Println("resourceElement: ", resourceElement)
+	fmt.Println("patternElement: ", patternElement)
+	fmt.Println("originPattern: ", originPattern)
+	fmt.Println("path: ", path)
 	switch typedPatternElement := patternElement.(type) {
 	// map
 	case map[string]interface{}:
@@ -83,7 +88,11 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 // If validateResourceElement detects map element inside resource and pattern trees, it goes to validateMap
 // For each element of the map we must detect the type again, so we pass these elements to validateResourceElement
 func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string, ac *common.AnchorKey) (string, error) {
-
+	fmt.Println("\n-------------validateMap----------------")
+	fmt.Println("resourceMap: ", resourceMap)
+	fmt.Println("patternMap: ", patternMap)
+	fmt.Println("origPattern: ", origPattern)
+	fmt.Println("path: ", path)
 	patternMap = wildcards.ExpandInMetadata(patternMap, resourceMap)
 	// check if there is anchor in pattern
 	// Phase 1 : Evaluate all the anchors
@@ -112,6 +121,7 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 	sortedResourceKeys := getSortedNestedAnchorResource(resources)
 	for e := sortedResourceKeys.Front(); e != nil; e = e.Next() {
 		key := e.Value.(string)
+		fmt.Println("key picked: ", key)
 		handler := anchor.CreateElementHandler(key, resources[key], path)
 		handlerPath, err := handler.Handle(validateResourceElement, resourceMap, origPattern, ac)
 		if err != nil {

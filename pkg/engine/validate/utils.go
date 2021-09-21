@@ -2,6 +2,7 @@ package validate
 
 import (
 	"container/list"
+	"fmt"
 
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 )
@@ -34,11 +35,16 @@ func hasNestedAnchors(pattern interface{}) bool {
 // getSortedNestedAnchorResource - sorts anchors key
 func getSortedNestedAnchorResource(resources map[string]interface{}) *list.List {
 	sortedResourceKeys := list.New()
+	fmt.Println("\n-----------getSortedNestedAnchorResource------------")
+	fmt.Println("resources: ", resources)
 	for k, v := range resources {
+		fmt.Println("k: ", k, "                 v:", v)
 		if hasNestedAnchors(v) {
 			sortedResourceKeys.PushFront(k)
+			fmt.Println("PushFront")
 		} else {
 			sortedResourceKeys.PushBack(k)
+			fmt.Println("PushBack")
 		}
 	}
 	return sortedResourceKeys
