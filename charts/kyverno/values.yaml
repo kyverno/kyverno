@@ -26,14 +26,14 @@ rbac:
 image:
   repository: ghcr.io/kyverno/kyverno
   # Defaults to appVersion in Chart.yaml if omitted
-  tag:
+  tag: # replaced in e2e tests
   pullPolicy: IfNotPresent
   pullSecrets: []
   # - secretName
 initImage:
   repository: ghcr.io/kyverno/kyvernopre
   # If initImage.tag is missing, defaults to image.tag
-  tag:
+  tag: # replaced in e2e tests
   # If initImage.pullPolicy is missing, defaults to image.pullPolicy
   pullPolicy:
   # No pull secrets just for initImage; just add to image.pullSecrets
