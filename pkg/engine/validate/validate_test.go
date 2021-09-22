@@ -1384,21 +1384,10 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 			nilErr:   false,
 		},
 		{
-			name:     "test-x",
-			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "!*:* | *:latest","imagePullPolicy": "!Always"}]}}`),
-			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   false,
-		},
-		{
 			name:     "test-3",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
 			nilErr:   false,
-		}, {
-			name:     "check global anchor",
-			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
-			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   true,
 		},
 		{
 			name:     "test-4",
@@ -1508,6 +1497,54 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.2.3", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Always"}]}}`),
 			nilErr:   true,
 		},
+		{
+			name:     "test-22",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "!*:* | *:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-23",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-24",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-25",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "nginx", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo1", "value": "bar" }],"imagePullPolicy": "Always"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-26",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "nginx", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo", "value": "bar" }],"imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-27",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo1", "value": "bar" }],"imagePullPolicy": "Always"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-28",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo", "value": "bar" }],"imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		// {
+		// 	name:     "test-29",
+		// 	pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest"}],"=(volumes)": [{"=(hostPath)": {"path": "!/var/run/docker.sock"}}]}}`),
+		// 	resource: []byte(`{"spec": {"containers": [{"image": "nginx","name": "nginx","volumeMounts": [{"mountPath": "/test-pd","name": "test-volume"}]}],"volumes": [{"name": "test-volume","hostPath": {"path": "/var/run/docker.sock","type": "Directory"}}]}}`),
+		// 	nilErr:   true,
+		// },
 	}
 
 	for _, testCase := range testCases {
