@@ -22,6 +22,7 @@ type PolicyList struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Background",type="string",JSONPath=".spec.background"
 // +kubebuilder:printcolumn:name="Action",type="string",JSONPath=".spec.validationFailureAction"
+// +kubebuilder:printcolumn:name="Failure Policy",type="string",JSONPath=".spec.failurePolicy"
 // +kubebuilder:resource:shortName=pol
 type Policy struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
@@ -47,7 +48,7 @@ type Spec struct {
 	// Rules within the same policy share the same failure behavior.
 	// Allowed values are Ignore or Fail. Defaults to Fail.
 	// +optional
-	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty" protobuf:"bytes,4,opt,name=failurePolicy,casttype=FailurePolicyType"`
+	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
 
 	// ValidationFailureAction controls if a validation policy rule failure should disallow
 	// the admission review request (enforce), or allow (audit) the admission review request
@@ -119,6 +120,7 @@ type Rule struct {
 }
 
 // FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
+// +kubebuilder:validation:Enum=Ignore;Fail
 type FailurePolicyType string
 
 const (

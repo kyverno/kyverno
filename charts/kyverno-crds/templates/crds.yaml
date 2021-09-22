@@ -31,6 +31,9 @@ spec:
     - jsonPath: .spec.validationFailureAction
       name: Action
       type: string
+    - jsonPath: .spec.failurePolicy
+      name: Failure Policy
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -52,6 +55,9 @@ spec:
                 type: boolean
               failurePolicy:
                 description: FailurePolicy defines how unrecognized errors from the admission endpoint are handled. Rules within the same policy share the same failure behavior. Allowed values are Ignore or Fail. Defaults to Fail.
+                enum:
+                - Ignore
+                - Fail
                 type: string
               rules:
                 description: Rules is a list of Rule instances. A Policy contains multiple rules and each rule can validate, mutate, or generate resources.
@@ -2221,6 +2227,9 @@ spec:
     - jsonPath: .spec.validationFailureAction
       name: Action
       type: string
+    - jsonPath: .spec.failurePolicy
+      name: Failure Policy
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -2242,6 +2251,9 @@ spec:
                 type: boolean
               failurePolicy:
                 description: FailurePolicy defines how unrecognized errors from the admission endpoint are handled. Rules within the same policy share the same failure behavior. Allowed values are Ignore or Fail. Defaults to Fail.
+                enum:
+                - Ignore
+                - Fail
                 type: string
               rules:
                 description: Rules is a list of Rule instances. A Policy contains multiple rules and each rule can validate, mutate, or generate resources.
