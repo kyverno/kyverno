@@ -43,6 +43,12 @@ type Spec struct {
 	// each rule can validate, mutate, or generate resources.
 	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
 
+	// FailurePolicy defines how unrecognized errors from the admission endpoint are handled.
+	// Rules within the same policy share the same failure behavior.
+	// Allowed values are Ignore or Fail. Defaults to Fail.
+	// +optional
+	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty" protobuf:"bytes,4,opt,name=failurePolicy,casttype=FailurePolicyType"`
+
 	// ValidationFailureAction controls if a validation policy rule failure should disallow
 	// the admission review request (enforce), or allow (audit) the admission review request
 	// and report an error in a policy report. Optional. The default value is "audit".
@@ -111,6 +117,16 @@ type Rule struct {
 	// +optional
 	VerifyImages []*ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
+
+// FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
+type FailurePolicyType string
+
+const (
+	// Ignore means that an error calling the webhook is ignored.
+	Ignore FailurePolicyType = "Ignore"
+	// Fail means that an error calling the webhook causes the admission to fail.
+	Fail FailurePolicyType = "Fail"
+)
 
 // AnyAllCondition consists of conditions wrapped denoting a logical criteria to be fulfilled.
 // AnyConditions get fulfilled when at least one of its sub-conditions passes.

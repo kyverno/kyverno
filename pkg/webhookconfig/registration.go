@@ -302,9 +302,9 @@ func (wrc *Register) createPolicyValidatingWebhookConfiguration(caData []byte) e
 	var config *admregapi.ValidatingWebhookConfiguration
 
 	if wrc.serverIP != "" {
-		config = wrc.contructDebugPolicyValidatingWebhookConfig(caData)
+		config = wrc.constructDebugPolicyValidatingWebhookConfig(caData)
 	} else {
-		config = wrc.contructPolicyValidatingWebhookConfig(caData)
+		config = wrc.constructPolicyValidatingWebhookConfig(caData)
 	}
 
 	if _, err := wrc.client.CreateResource("", kindValidating, "", *config, false); err != nil {
@@ -324,9 +324,9 @@ func (wrc *Register) createPolicyMutatingWebhookConfiguration(caData []byte) err
 	var config *admregapi.MutatingWebhookConfiguration
 
 	if wrc.serverIP != "" {
-		config = wrc.contructDebugPolicyMutatingWebhookConfig(caData)
+		config = wrc.constructDebugPolicyMutatingWebhookConfig(caData)
 	} else {
-		config = wrc.contructPolicyMutatingWebhookConfig(caData)
+		config = wrc.constructPolicyMutatingWebhookConfig(caData)
 	}
 
 	// create mutating webhook configuration resource

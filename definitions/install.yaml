@@ -71,6 +71,12 @@ spec:
                   that are only available in the admission review request (e.g. user
                   name).
                 type: boolean
+              failurePolicy:
+                description: FailurePolicy defines how unrecognized errors from the
+                  admission endpoint are handled. Rules within the same policy share
+                  the same failure behavior. Allowed values are Ignore or Fail. Defaults
+                  to Fail.
+                type: string
               rules:
                 description: Rules is a list of Rule instances. A Policy contains
                   multiple rules and each rule can validate, mutate, or generate resources.
@@ -3252,6 +3258,12 @@ spec:
                   that are only available in the admission review request (e.g. user
                   name).
                 type: boolean
+              failurePolicy:
+                description: FailurePolicy defines how unrecognized errors from the
+                  admission endpoint are handled. Rules within the same policy share
+                  the same failure behavior. Allowed values are Ignore or Fail. Defaults
+                  to Fail.
+                type: string
               rules:
                 description: Rules is a list of Rule instances. A Policy contains
                   multiple rules and each rule can validate, mutate, or generate resources.

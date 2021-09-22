@@ -8,7 +8,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (wrc *Register) contructPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
+func (wrc *Register) constructPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
 
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
@@ -33,7 +33,7 @@ func (wrc *Register) contructPolicyValidatingWebhookConfig(caData []byte) *admre
 	}
 }
 
-func (wrc *Register) contructDebugPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
+func (wrc *Register) constructDebugPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
 	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.PolicyValidatingWebhookServicePath)
 	logger.V(4).Info("Debug PolicyValidatingWebhookConfig is registered with url ", "url", url)
@@ -58,7 +58,7 @@ func (wrc *Register) contructDebugPolicyValidatingWebhookConfig(caData []byte) *
 	}
 }
 
-func (wrc *Register) contructPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+func (wrc *Register) constructPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.PolicyMutatingWebhookConfigurationName,
@@ -82,7 +82,7 @@ func (wrc *Register) contructPolicyMutatingWebhookConfig(caData []byte) *admrega
 	}
 }
 
-func (wrc *Register) contructDebugPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+func (wrc *Register) constructDebugPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
 	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.PolicyMutatingWebhookServicePath)
 	logger.V(4).Info("Debug PolicyMutatingWebhookConfig is registered with url ", "url", url)
