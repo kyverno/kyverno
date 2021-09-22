@@ -1,5 +1,5 @@
-{{- $name := "disallow-privileged-containers" }}
-{{- if eq (include "kyverno.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
+{{- $name := "require-default-proc-mount" }}
+{{- if eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -10,28 +10,30 @@ metadata:
     policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
     {{- end }}
     policies.kyverno.io/description: >-
-      Privileged mode disables most security mechanisms and must not be allowed.
-  labels: {{ include "kyverno.labels" . | nindent 4 }}
+      The default /proc masks are set up to reduce attack surface and should be required.
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
     app: kyverno
 spec:
   validationFailureAction: {{ .Values.validationFailureAction }}
   background: true
   rules:
-  - name: priviledged-containers
+  - name: check-proc-mount
     match:
       resources:
         kinds:
         - Pod
     validate:
       message: >-
-        Privileged mode is disallowed. The fields spec.containers[*].securityContext.privileged
-        and spec.initContainers[*].securityContext.privileged must not be set to true.
+        Changing the proc mount from the default is not allowed. The fields
+        spec.containers[*].securityContext.procMount and
+        spec.initContainers[*].securityContext.procMount must not be changed 
+        from `Default`.
       pattern:
         spec:
           =(initContainers):
           - =(securityContext):
-              =(privileged): "false"          
+              =(procMount): "Default"
           containers:
           - =(securityContext):
-              =(privileged): "false"
+              =(procMount): "Default"
 {{- end -}}
