@@ -5,8 +5,7 @@ import (
 	"sync"
 
 	"github.com/kyverno/kyverno/pkg/config"
-	admregapi "k8s.io/api/admissionregistration/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	admregapi "k8s.io/api/admissionregistration/v1"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -81,7 +80,7 @@ func (wrc *Register) removeResourceMutatingWebhookConfiguration(wg *sync.WaitGro
 
 	// delete webhook configuration
 	err := wrc.client.DeleteResource("", kindMutating, "", configName, false)
-	if errors.IsNotFound(err) {
+	if errorsapi.IsNotFound(err) {
 		logger.V(4).Info("webhook configuration not found")
 		return
 	}
@@ -164,7 +163,7 @@ func (wrc *Register) removeResourceValidatingWebhookConfiguration(wg *sync.WaitG
 	}
 
 	err := wrc.client.DeleteResource("", kindValidating, "", configName, false)
-	if errors.IsNotFound(err) {
+	if errorsapi.IsNotFound(err) {
 		logger.V(5).Info("webhook configuration not found")
 		return
 	}

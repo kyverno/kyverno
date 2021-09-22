@@ -13,7 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/pkg/errors"
-	admregapi "k8s.io/api/admissionregistration/v1beta1"
+	admregapi "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/config"
-	admregapi "k8s.io/api/admissionregistration/v1beta1"
+	admregapi "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
