@@ -38,6 +38,11 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 		updateMsgs = append(updateMsgs, updateMsg)
 	}
 
+	if patch, updateMsg := defaultFailurePolicy(policy, log); patch != nil {
+		patches = append(patches, patch)
+		updateMsgs = append(updateMsgs, updateMsg)
+	}
+
 	patch, errs := GeneratePodControllerRule(*policy, log)
 	if len(errs) > 0 {
 		var errMsgs []string
@@ -303,6 +308,33 @@ func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy, log logr.Logg
 		log.V(3).Info("generated JSON Patch to set default", "spec.validationFailureAction", Audit)
 
 		return patchByte, fmt.Sprintf("default 'ValidationFailureAction' to '%s'", Audit)
+	}
+
+	return nil, ""
+}
+func defaultFailurePolicy(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, string) {
+	// set failurePolicy to Fail if not present
+	failurePolicy := string(kyverno.Fail)
+	if policy.Spec.FailurePolicy == nil {
+		log.V(4).Info("setting default value", "spec.failurePolicy", failurePolicy)
+		jsonPatch := struct {
+			Path  string `json:"path"`
+			Op    string `json:"op"`
+			Value string `json:"value"`
+		}{
+			"/spec/failurePolicy",
+			"add",
+			string(kyverno.Fail),
+		}
+
+		patchByte, err := json.Marshal(jsonPatch)
+		if err != nil {
+			log.Error(err, "failed to set default value", "spec.failurePolicy", failurePolicy)
+			return nil, ""
+		}
+
+		log.V(3).Info("generated JSON Patch to set default", "spec.failurePolicy", failurePolicy)
+		return patchByte, fmt.Sprintf("default failurePolicy to '%s'", failurePolicy)
 	}
 
 	return nil, ""
