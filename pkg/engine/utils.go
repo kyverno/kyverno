@@ -264,7 +264,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 
 	var reasonsForFailure []error
 	if policyNamespace != "" && policyNamespace != resourceRef.GetNamespace() {
-		return errors.New("")
+		return errors.New(" The policy and resource namespace are different. Therefore, policy skip this resource.")
 	}
 	if len(rule.MatchResources.Any) > 0 {
 		// inlcude object if ANY of the criterias match
