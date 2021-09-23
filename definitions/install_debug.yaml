@@ -32,6 +32,7 @@ spec:
       type: string
     - jsonPath: .spec.failurePolicy
       name: Failure Policy
+      type: string
     - jsonPath: .status.ready
       name: Ready
       type: string
@@ -3132,13 +3133,11 @@ spec:
     - jsonPath: .spec.validationFailureAction
       name: Action
       type: string
-<<<<<<< HEAD
     - jsonPath: .spec.failurePolicy
       name: Failure Policy
-=======
+      type: string
     - jsonPath: .status.ready
       name: Ready
->>>>>>> main
       type: string
     name: v1
     schema:

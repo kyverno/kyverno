@@ -27,6 +27,7 @@ spec:
       type: string
     - jsonPath: .spec.failurePolicy
       name: Failure Policy
+      type: string
     - jsonPath: .status.ready
       name: Ready
       type: string
