@@ -539,7 +539,6 @@ func getPolicyResourceFullPath(path string, policyResourcePath string, isGit boo
 func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts) (err error) {
 	openAPIController, err := openapi.NewOpenAPIController()
 	engineResponses := make([]*response.EngineResponse, 0)
-	validateEngineResponses := make([]*response.EngineResponse, 0)
 	var dClient *client.Client
 	values := &Test{}
 	var variablesString string
@@ -638,17 +637,11 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.Name, resource.GetName()), err)
 			}
 
-			ers, validateErs, info, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false, &resultCounts, false)
+			ers, info, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false, &resultCounts, false)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}
-			if validateErs != nil {
-				validateEngineResponses = append(validateEngineResponses, validateErs)
-			}
-			engineResponses = append(engineResponses, ers...)
-			if validateEngineResponses != nil {
-				engineResponses = append(engineResponses, validateEngineResponses...)
-			}
+			engineResponses = append(engineResponses, ers)
 			pvInfos = append(pvInfos, info)
 		}
 	}
