@@ -384,7 +384,7 @@ func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
 	}
 
 	resLabels := resource.GetLabels()
-	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == v1beta1.Delete {
+	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && request.Operation == v1beta1.Delete {
 		grName := resLabels["policy.kyverno.io/gr-name"]
 		gr, err := ws.grLister.Get(grName)
 		if err != nil {
