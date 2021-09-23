@@ -1,5 +1,5 @@
 {{- $name := "restrict-apparmor-profiles" }}
-{{- if eq (include "kyverno.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
+{{- if eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -14,7 +14,7 @@ metadata:
       On supported hosts, the 'runtime/default' AppArmor profile is applied by default. 
       The default policy should prevent overriding or disabling the policy, or restrict 
       overrides to an allowed set of profiles.
-  labels: {{ include "kyverno.labels" . | nindent 4 }}
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
     app: kyverno
 spec:
   validationFailureAction: {{ .Values.validationFailureAction }}

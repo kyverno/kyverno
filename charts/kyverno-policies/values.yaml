@@ -1,0 +1,14 @@
+# Supported- baseline/restricted/privileged/custom
+# For more info- https://kyverno.io/policies/pod-security
+podSecurityStandard: baseline
+# Supported- low/medium/high
+podSecuritySeverity: medium
+# Policies to include when podSecurityStandard is custom
+podSecurityPolicies: []
+# Supported values- `audit`, `enforce`
+# For more info- https://kyverno.io/docs/writing-policies/validate/
+validationFailureAction: audit
+
+nameOverride:
+# -- Additional labels
+customLabels: {}
