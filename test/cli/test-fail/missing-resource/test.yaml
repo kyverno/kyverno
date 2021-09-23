@@ -7,4 +7,5 @@ results:
   - policy: disallow-latest-tag
     rule: validate-image-tag
     resource: missing
+    kind: Pod
     result: pass
