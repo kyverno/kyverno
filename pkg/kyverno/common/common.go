@@ -925,7 +925,6 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 				}
 				if printPatchResource {
 					fmt.Printf("\n" + mutatedResource)
-					fmt.Printf("\n")
 				}
 			}
 		} else {

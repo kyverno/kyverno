@@ -263,10 +263,8 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	admissionInfo := *admissionInfoRef.DeepCopy()
 
 	var reasonsForFailure []error
-	if policyNamespace != "" {
-		if policyNamespace != resourceRef.GetNamespace() {
-			return errors.New("")
-		}
+	if policyNamespace != "" && policyNamespace != resourceRef.GetNamespace() {
+		return errors.New("")
 	}
 	if len(rule.MatchResources.Any) > 0 {
 		// inlcude object if ANY of the criterias match
