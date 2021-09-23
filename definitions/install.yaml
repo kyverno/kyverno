@@ -3176,13 +3176,10 @@ spec:
     - jsonPath: .spec.validationFailureAction
       name: Action
       type: string
-<<<<<<< HEAD
     - jsonPath: .spec.failurePolicy
       name: Failure Policy
-=======
     - jsonPath: .status.ready
       name: Ready
->>>>>>> main
       type: string
     name: v1
     schema:
