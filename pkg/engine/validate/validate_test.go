@@ -1539,12 +1539,36 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo", "value": "bar" }],"imagePullPolicy": "Always"}]}}`),
 			nilErr:   false,
 		},
+		{
+			name:     "test-29",
+			pattern:  []byte(`{"metadata": {"<(name)": "nginx"},"spec": {"imagePullSecrets": [{"name": "regcred"}]}}`),
+			resource: []byte(`{"metadata": {"name": "somename"},"spec": {"containers": [{"name": "nginx","image": "nginx:latest"}], "imagePullSecrets": [{"name": "cred"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-30",
+			pattern:  []byte(`{"metadata": {"<(name)": "nginx"},"spec": {"imagePullSecrets": [{"name": "regcred"}]}}`),
+			resource: []byte(`{"metadata": {"name": "nginx"},"spec": {"containers": [{"name": "nginx","image": "nginx:latest"}], "imagePullSecrets": [{"name": "cred"}]}}`),
+			nilErr:   false,
+		},
 		// {
-		// 	name:     "test-29",
-		// 	pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest"}],"=(volumes)": [{"=(hostPath)": {"path": "!/var/run/docker.sock"}}]}}`),
-		// 	resource: []byte(`{"spec": {"containers": [{"image": "nginx","name": "nginx","volumeMounts": [{"mountPath": "/test-pd","name": "test-volume"}]}],"volumes": [{"name": "test-volume","hostPath": {"path": "/var/run/docker.sock","type": "Directory"}}]}}`),
+		// 	name:     "test-31",
+		// 	pattern:  []byte(`{"metadata": {"labels": {"<(foo)": "bar"}},"spec": {"containers": [{"name": "nginx","image": "!*:latest"}]}}`),
+		// 	resource: []byte(`{"metadata": {"name": "nginx1","labels": {"foo1": "bar"}},"spec": {"containers": [{"name": "nginx","image": "nginx:latest"}]}}`),
 		// 	nilErr:   true,
 		// },
+		{
+			name:     "test-32",
+			pattern:  []byte(`{"metadata": {"labels": {"<(foo)": "bar"}},"spec": {"containers": [{"name": "nginx","image": "!*:latest"}]}}`),
+			resource: []byte(`{"metadata": {"name": "nginx","labels": {"foo": "bar"}},"spec": {"containers": [{"name": "nginx","image": "nginx"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-33",
+			pattern:  []byte(`{"metadata": {"labels": {"<(foo)": "bar"}},"spec": {"containers": [{"name": "nginx","image": "!*:latest"}]}}`),
+			resource: []byte(`{"metadata": {"name": "nginx","labels": {"foo": "bar"}},"spec": {"containers": [{"name": "nginx","image": "nginx:latest"}]}}`),
+			nilErr:   false,
+		},
 	}
 
 	for _, testCase := range testCases {
