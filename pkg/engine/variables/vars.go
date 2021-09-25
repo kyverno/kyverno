@@ -18,7 +18,11 @@ import (
 )
 
 var RegexVariables = regexp.MustCompile(`\{\{[^{}]*\}\}`)
+
+// Regex for '$(...)' at the beginning of the string, and 'x$(...)' where 'x' is not '\'
 var RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
+
+// Regex for '\$(...)'
 var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
 
 // IsVariable returns true if the element contains a 'valid' variable {{}}

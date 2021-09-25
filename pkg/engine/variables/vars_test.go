@@ -1071,8 +1071,10 @@ func Test_EscpReferenceSubstitution(t *testing.T) {
 			"name": "temp",
 			"namespace": "n1",
 			"annotations": {
-			  "test": "$(../../../../spec/namespace)",
-			  "testescp": "\\$(ENV_VAR)"
+			  "test1": "$(../../../../spec/namespace)",
+			  "test2": "\\$(ENV_VAR)",
+			  "test3": "\\${ENV_VAR}",
+			  "test4": "\\\\\\${ENV_VAR}"
             }
 		},
 		"(spec)": {
@@ -1087,8 +1089,10 @@ func Test_EscpReferenceSubstitution(t *testing.T) {
 			"name": "temp",
 			"namespace": "n1",
 			"annotations": {
-			  "test": "n1",
-			  "testescp": "$(ENV_VAR)"
+			  "test1": "n1",
+			  "test2": "$(ENV_VAR)",
+			  "test3": "\\${ENV_VAR}",
+			  "test4": "\\\\\\${ENV_VAR}"
             }
 		},
 		"(spec)": {
