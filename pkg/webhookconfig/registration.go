@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
@@ -34,36 +36,53 @@ const (
 // 4. Resource Mutation
 // 5. Webhook Status Mutation
 type Register struct {
-	client         *client.Client
-	clientConfig   *rest.Config
-	resCache       resourcecache.ResourceCache
-	serverIP       string // when running outside a cluster
-	timeoutSeconds int32
-	log            logr.Logger
-	debug          bool
+	client             *client.Client
+	kyvernoClient      *kyvernoclient.Clientset
+	clientConfig       *rest.Config
+	resCache           resourcecache.ResourceCache
+	serverIP           string // when running outside a cluster
+	timeoutSeconds     int32
+	log                logr.Logger
+	debug              bool
+	autoUpdateWebhooks bool
 
 	UpdateWebhookChan chan bool
+
+	// manage implements methods to manage webhook configurations
+	manage
 }
 
 // NewRegister creates new Register instance
 func NewRegister(
 	clientConfig *rest.Config,
 	client *client.Client,
+	kyvernoClient *kyvernoclient.Clientset,
 	resCache resourcecache.ResourceCache,
+	pInformer kyvernoinformer.ClusterPolicyInformer,
+	npInformer kyvernoinformer.PolicyInformer,
 	serverIP string,
 	webhookTimeout int32,
 	debug bool,
+	autoUpdateWebhooks bool,
+	stopCh <-chan struct{},
 	log logr.Logger) *Register {
-	return &Register{
-		clientConfig:      clientConfig,
-		client:            client,
-		resCache:          resCache,
-		serverIP:          serverIP,
-		timeoutSeconds:    webhookTimeout,
-		log:               log.WithName("Register"),
-		debug:             debug,
-		UpdateWebhookChan: make(chan bool),
+	register := &Register{
+		clientConfig:       clientConfig,
+		client:             client,
+		resCache:           resCache,
+		serverIP:           serverIP,
+		timeoutSeconds:     webhookTimeout,
+		log:                log.WithName("Register"),
+		debug:              debug,
+		autoUpdateWebhooks: autoUpdateWebhooks,
+		UpdateWebhookChan:  make(chan bool),
 	}
+
+	if register.autoUpdateWebhooks {
+		register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, resCache, stopCh, log.WithName("WebhookConfigManager"))
+	}
+
+	return register
 }
 
 // Register clean up the old webhooks and re-creates admission webhooks configs on cluster
@@ -109,6 +128,9 @@ func (wrc *Register) Register() error {
 		return fmt.Errorf("%s", strings.Join(errors, ","))
 	}
 
+	if wrc.autoUpdateWebhooks {
+		go wrc.manage.start()
+	}
 	return nil
 }
 
@@ -154,7 +176,7 @@ func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 // UpdateWebhookConfigurations updates resource webhook configurations dynamically
 // base on the UPDATEs of Kyverno init-config ConfigMap
 //
-// it currently updates namespaceSelector only, can be extend to update other fieids
+// it currently updates namespaceSelector only, can be extend to update other fields
 func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface) {
 	logger := wrc.log.WithName("UpdateWebhookConfigurations")
 	for {
@@ -597,7 +619,7 @@ func (wrc *Register) checkEndpoint() error {
 	}
 
 	if podIp == "" {
-		return fmt.Errorf("Pod is not assigned to any node yet")
+		return fmt.Errorf("pod is not assigned to any node yet")
 	}
 
 	for _, subset := range endpoint.Subsets {
@@ -616,7 +638,7 @@ func (wrc *Register) checkEndpoint() error {
 	// clean up old webhook configurations, if any
 	wrc.removeWebhookConfigurations()
 
-	err = fmt.Errorf("Endpoint not ready")
+	err = fmt.Errorf("endpoint not ready")
 	wrc.log.V(3).Info(err.Error(), "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
 	return err
 }

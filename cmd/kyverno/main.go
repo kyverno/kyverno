@@ -59,6 +59,7 @@ var (
 	genWorkers                   int
 	profile                      bool
 	disableMetricsExport         bool
+	autoUpdateWebhooks           bool
 	policyControllerResyncPeriod time.Duration
 	imagePullSecrets             string
 	imageSignatureRepository     string
@@ -82,6 +83,7 @@ func main() {
 	flag.DurationVar(&policyControllerResyncPeriod, "background-scan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h.")
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
+	flag.BoolVar(&autoUpdateWebhooks, "auto-update-webhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
 
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
@@ -218,10 +220,15 @@ func main() {
 	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,
 		client,
+		pclient,
 		rCache,
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().Policies(),
 		serverIP,
 		int32(webhookTimeout),
 		debug,
+		autoUpdateWebhooks,
+		stopCh,
 		log.Log)
 
 	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, log.Log.WithName("WebhookMonitor"))
