@@ -64,6 +64,10 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 func verifyAndPatchImages(logger logr.Logger, policyContext *PolicyContext, rule *v1.Rule, imageVerify *v1.ImageVerification, images map[string]*context.ImageInfo, resp *response.EngineResponse) {
 	imagePattern := imageVerify.Image
 	key := imageVerify.Key
+	repository := cosign.ImageSignatureRepository
+	if imageVerify.Repository != "" {
+		repository = imageVerify.Repository
+	}
 
 	for _, imageInfo := range images {
 		image := imageInfo.String()
@@ -88,7 +92,7 @@ func verifyAndPatchImages(logger logr.Logger, policyContext *PolicyContext, rule
 		}
 
 		start := time.Now()
-		digest, err := cosign.Verify(image, []byte(key), logger)
+		digest, err := cosign.Verify(image, []byte(key), repository, logger)
 		if err != nil {
 			logger.Info("failed to verify image", "image", image, "key", key, "error", err, "duration", time.Since(start).Seconds())
 			ruleResp.Status = response.RuleStatusFail

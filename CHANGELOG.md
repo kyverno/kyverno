@@ -1,3 +1,11 @@
+## v1.4.3
+
+## v1.4.3-rc2
+
+### Bug Fixes
+- Fix any/all conversion during policy mutation (#2392)
+- Fix upgrade issue from 1.4.2 to latest (#2384)
+
 ## v1.4.3-rc1
 
 ### Enhancements 

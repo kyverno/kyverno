@@ -3,7 +3,7 @@
 set -e
 
 pwd=$(pwd)
-hash=$(git describe --always --tags)
+hash=$(git describe --match "v[0-9]*")
 #
 ## Install Kind
 curl -Lo $pwd/kind https://kind.sigs.k8s.io/dl/v0.11.0/kind-linux-amd64

@@ -106,7 +106,7 @@ func (ws *WebhookServer) handleMutation(
 
 	// generate annotations
 	if annPatches := generateAnnotationPatches(engineResponses, logger); annPatches != nil {
-		patches = append(patches, annPatches)
+		patches = append(patches, annPatches...)
 	}
 
 	// REPORTING EVENTS

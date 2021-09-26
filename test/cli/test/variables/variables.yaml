@@ -15,7 +15,7 @@ policies:
     rules:
       - name: validate-role-annotation
         values:
-          roles-dictionary.data.allowed-roles: "[\"app\",\"test\"]"
+          roles-dictionary.data.allowed-roles: '["app","test"]'
     resources:
       - name: test-web
         values:
@@ -37,3 +37,10 @@ policies:
       - name: test-blk-app
         values:
           request.object.metadata.annotations.role: app
+  - name: cm-globalval-example
+    resources:
+      - name: test-global-prod
+        values:
+          request.mode: prod
+globalValues:
+  request.mode: dev
