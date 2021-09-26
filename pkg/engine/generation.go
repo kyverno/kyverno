@@ -82,7 +82,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 			return &response.RuleResponse{
 				Name:    rule.Name,
 				Type:    "Generation",
-				Success: false,
+				Status: response.RuleStatusFail,
 				RuleStats: response.RuleStats{
 					ProcessingTime:         time.Since(startTime),
 					RuleExecutionTimestamp: startTime.Unix(),
@@ -125,7 +125,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	return &response.RuleResponse{
 		Name:    ruleCopy.Name,
 		Type:    "Generation",
-		Success: true,
+		Status: response.RuleStatusPass,
 		RuleStats: response.RuleStats{
 			ProcessingTime:         time.Since(startTime),
 			RuleExecutionTimestamp: startTime.Unix(),

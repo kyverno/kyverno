@@ -764,7 +764,7 @@ func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *r
 					Message: valResponseRule.Message,
 				}
 
-				if valResponseRule.Success {
+				if valResponseRule.Status == response.RuleStatusPass {
 					rc.Pass++
 					vrule.Check = report.StatusPass
 				} else {
@@ -819,7 +819,7 @@ func processGenerateEngineResponse(policy *v1.ClusterPolicy, generateResponse *r
 		for i, genResponseRule := range generateResponse.PolicyResponse.Rules {
 			if policyRule.Name == genResponseRule.Name {
 				ruleFoundInEngineResponse = true
-				if genResponseRule.Success {
+				if genResponseRule.Status == response.RuleStatusPass {
 					rc.Pass++
 				} else {
 					if printCount < 1 {
@@ -890,7 +890,7 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 		for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.Name {
 				ruleFoundInEngineResponse = true
-				if mutateResponseRule.Success {
+				if mutateResponseRule.Status == response.RuleStatusPass {
 					rc.Pass++
 					printMutatedRes = true
 				} else {

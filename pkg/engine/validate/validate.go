@@ -12,24 +12,27 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 )
 
-// ValidateResourceWithPattern is a start of element-by-element validation process
+// MatchPattern is a start of element-by-element pattern validation process.
 // It assumes that validation is started from root, so "/" is passed
-func ValidateResourceWithPattern(logger logr.Logger, resource, pattern interface{}) (string, error) {
+func MatchPattern(logger logr.Logger, resource, pattern interface{}) *PatternError {
 	// newAnchorMap - to check anchor key has values
 	ac := common.NewAnchorMap()
 	elemPath, err := validateResourceElement(logger, resource, pattern, pattern, "/", ac)
 	if err != nil {
 		if common.IsConditionalAnchorError(err.Error()) || common.IsGlobalAnchorError(err.Error()) {
 			logger.V(3).Info(ac.AnchorError.Message)
-			return "", nil
+			return &PatternError{ac.AnchorError.Message, ""}
 		}
 
-		if !ac.IsAnchorError() {
-			return elemPath, err
+		if ac.IsAnchorError() {
+			logger.V(3).Info("missing anchor in resource")
+			return &PatternError{err.Error(), ""}
 		}
+
+		return &PatternError{err.Error(), elemPath}
 	}
 
-	return "", nil
+	return nil
 }
 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)

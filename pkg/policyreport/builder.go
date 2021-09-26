@@ -259,7 +259,7 @@ func buildViolatedRules(er *response.EngineResponse) []kyverno.ViolatedRule {
 			Message: rule.Message,
 		}
 		vrule.Check = report.StatusFail
-		if rule.Success {
+		if rule.Status == response.RuleStatusPass {
 			vrule.Check = report.StatusPass
 		}
 		violatedRules = append(violatedRules, vrule)

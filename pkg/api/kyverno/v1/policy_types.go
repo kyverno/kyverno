@@ -398,6 +398,8 @@ type Validation struct {
 	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
+	ForEachValidation *ForEachValidation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+
 	// Pattern specifies an overlay-style pattern used to check resources.
 	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
@@ -422,6 +424,39 @@ type Deny struct {
 	// See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
 	// +kubebuilder:validation:XPreserveUnknownFields
 	AnyAllConditions apiextensions.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+}
+
+type ForEachValidation struct {
+
+	// List specifies a JMESPath expression that results in one or more elements
+	// to which the validation logic is applied.
+	List string `json:"list,omitempty" yaml:"list,omitempty"`
+
+	// Context defines variables and data sources that can be used during rule execution.
+	// +optional
+	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+
+	// Preconditions are used to determine if a policy rule should be applied by evaluating a
+	// set of conditions. The declaration can contain nested `any` or `all` statements.
+	// See: https://kyverno.io/docs/writing-policies/preconditions/
+	// +kubebuilder:validation:XPreserveUnknownFields
+	// +optional
+	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+
+	// Pattern specifies an overlay-style pattern used to check resources.
+	// +kubebuilder:validation:XPreserveUnknownFields
+	// +optional
+	Pattern apiextensions.JSON `json:"pattern,omitempty" yaml:"pattern,omitempty"`
+
+	// AnyPattern specifies list of validation patterns. At least one of the patterns
+	// must be satisfied for the validation rule to succeed.
+	// +kubebuilder:validation:XPreserveUnknownFields
+	// +optional
+	AnyPattern apiextensions.JSON `json:"anyPattern,omitempty" yaml:"anyPattern,omitempty"`
+
+	// Deny defines conditions used to pass or fail a validation rule.
+	// +optional
+	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
 }
 
 // ImageVerification validates that images that match the specified pattern

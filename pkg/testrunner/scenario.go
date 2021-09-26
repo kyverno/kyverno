@@ -310,8 +310,8 @@ func compareRules(t *testing.T, rule response.RuleResponse, expectedRule respons
 	// }
 
 	// success
-	if rule.Success != expectedRule.Success {
-		t.Errorf("rule success: expected %t, received %t", expectedRule.Success, rule.Success)
+	if rule.Status != expectedRule.Status {
+		t.Errorf("rule success: expected %v, received %v", expectedRule.Status, rule.Status)
 	}
 }
 

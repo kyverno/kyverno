@@ -16,7 +16,7 @@ func IsConditionalAnchorError(msg string) bool {
 	return false
 }
 
-// IsGlobalAnchorError checks if error message has conditional anchor error string
+// IsGlobalAnchorError checks if error message has global anchor error string
 func IsGlobalAnchorError(msg string) bool {
 	return strings.Contains(msg, GlobalAnchorErrMsg)
 }

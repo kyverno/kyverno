@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -127,10 +128,12 @@ func TestValidate_image_tag_fail(t *testing.T) {
 		"validation rule 'validate-tag' passed.",
 		"validation error: imagePullPolicy 'Always' required with tag 'latest'. Rule validate-latest failed at path /spec/containers/0/imagePullPolicy/",
 	}
+
 	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
+
 	assert.Assert(t, !er.IsSuccessful())
 }
 
@@ -1474,7 +1477,7 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
-	assert.Assert(t, er.PolicyResponse.Rules[0].Success)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusError)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
 		"variable substitution failed for rule test-path-not-exist: Unknown key \"name1\" in path")
 }
@@ -1566,7 +1569,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSu
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
-	assert.Assert(t, er.PolicyResponse.Rules[0].Success)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusError)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: Unknown key \"name1\" in path")
 }
 
@@ -1625,7 +1628,7 @@ func Test_VariableSubstitution_NotOperatorWithStringVariable(t *testing.T) {
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
-	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "validation error: rule not-operator-with-variable-should-alway-fail-validation failed at path /spec/content/")
 }
 
@@ -1716,7 +1719,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
-	assert.Assert(t, er.PolicyResponse.Rules[0].Success)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusError)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: Unknown key \"name1\" in path")
 }
 
@@ -1808,7 +1811,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
 
-	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
 		"validation error: Rule test-path-not-exist[0] failed at path /spec/template/spec/containers/0/name/. Rule test-path-not-exist[1] failed at path /spec/template/spec/containers/0/name/.")
 }
@@ -1912,7 +1915,7 @@ func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
-	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "The animal cow is not in the allowed list of animals.")
 }
 
@@ -1921,32 +1924,32 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 		name            string
 		policyRaw       []byte
 		resourceRaw     []byte
-		expectedResult  bool
-		expectedMessage string
+		expectedResults  []response.RuleStatus
+		expectedMessages []string
 	}{
 		{
 			name:      "path-not-present",
 			policyRaw: []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"flux-multi-tenancy"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"serviceAccountName","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":".spec.serviceAccountName is required","pattern":{"spec":{"serviceAccountName":"?*"}}}},{"name":"sourceRefNamespace","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":"spec.sourceRef.namespace must be the same as metadata.namespace","deny":{"conditions":[{"key":"{{request.object.spec.sourceRef.namespace}}","operator":"NotEquals","value":"{{request.object.metadata.namespace}}"}]}}}]}}`),
 			// referred variable path not present
 			resourceRaw:     []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team"},"prune":true,"validation":"client"}}`),
-			expectedResult:  false,
-			expectedMessage: "spec.sourceRef.namespace must be the same as metadata.namespace",
+			expectedResults:  []response.RuleStatus{response.RuleStatusPass, response.RuleStatusFail},
+			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "spec.sourceRef.namespace must be the same as metadata.namespace"},
 		},
 		{
 			name:      "resource-with-violation",
 			policyRaw: []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"flux-multi-tenancy"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"serviceAccountName","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":".spec.serviceAccountName is required","pattern":{"spec":{"serviceAccountName":"?*"}}}},{"name":"sourceRefNamespace","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":"spec.sourceRef.namespace {{request.object.spec.sourceRef.namespace}} must be the same as metadata.namespace {{request.object.metadata.namespace}}","deny":{"conditions":[{"key":"{{request.object.spec.sourceRef.namespace}}","operator":"NotEquals","value":"{{request.object.metadata.namespace}}"}]}}}]}}`),
 			// referred variable path present with different value
 			resourceRaw:     []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team","namespace":"default"},"prune":true,"validation":"client"}}`),
-			expectedResult:  false,
-			expectedMessage: "spec.sourceRef.namespace default must be the same as metadata.namespace apps",
+			expectedResults:  []response.RuleStatus{response.RuleStatusPass, response.RuleStatusFail},
+			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "spec.sourceRef.namespace default must be the same as metadata.namespace apps"},
 		},
 		{
 			name:      "resource-comply",
 			policyRaw: []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"flux-multi-tenancy"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"serviceAccountName","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":".spec.serviceAccountName is required","pattern":{"spec":{"serviceAccountName":"?*"}}}},{"name":"sourceRefNamespace","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":"spec.sourceRef.namespace must be the same as metadata.namespace","deny":{"conditions":[{"key":"{{request.object.spec.sourceRef.namespace}}","operator":"NotEquals","value":"{{request.object.metadata.namespace}}"}]}}}]}}`),
 			// referred variable path present with same value - validate passes
 			resourceRaw:     []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team","namespace":"apps"},"prune":true,"validation":"client"}}`),
-			expectedResult:  true,
-			expectedMessage: "spec.sourceRef.namespace must be the same as metadata.namespace",
+			expectedResults:  []response.RuleStatus{response.RuleStatusPass, response.RuleStatusPass},
+			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "validation rule 'sourceRefNamespace' passed."},
 		},
 	}
 
@@ -1967,10 +1970,8 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 		er := Validate(policyContext)
 
 		for i, rule := range er.PolicyResponse.Rules {
-			if rule.Name == "sourceRefNamespace" {
-				assert.Equal(t, er.PolicyResponse.Rules[i].Success, test.expectedResult)
-				assert.Equal(t, er.PolicyResponse.Rules[i].Message, test.expectedMessage, "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedMessage, rule.Message)
-			}
+			assert.Equal(t, er.PolicyResponse.Rules[i].Status, test.expectedResults[i])
+			assert.Equal(t, er.PolicyResponse.Rules[i].Message, test.expectedMessages[i], "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedMessages[i], rule.Message)
 		}
 	}
 }

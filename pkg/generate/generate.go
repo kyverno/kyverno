@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	"reflect"
 	"strings"
 	"time"
@@ -149,7 +150,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	var applicableRules []string
 	// Removing GR if rule is failed. Used when the generate condition failed but gr exist
 	for _, r := range engineResponse.PolicyResponse.Rules {
-		if !r.Success {
+		if r.Status != response.RuleStatusPass {
 			logger.V(4).Info("querying all generate requests")
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
 				"generate.kyverno.io/policy-name":        engineResponse.PolicyResponse.Policy.Name,
