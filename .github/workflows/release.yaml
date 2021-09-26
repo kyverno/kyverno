@@ -102,13 +102,26 @@ jobs:
         run: |
           echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*")"
 
+      - name: Generate SBOM JSON
+        uses: CycloneDX/gh-gomod-generate-sbom@v0.3.0
+        with:
+          json: true
+          output: kyverno-v${{ env.KYVERNO_VERSION }}-bom.cdx.json
+          resolve-licenses: true
+          version: ^v0
+      - uses: actions/upload-artifact@v2
+        with:
+          name: kyverno-bom-cdx
+          path: kyverno-v*-bom.cdx.json
+
       - name :  docker images publish
         run: |
           make docker-publish-kyverno
 
-      - name: Sign image
+      - name: Sign image and SBOM
         run: |
           echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno:${KYVERNO_VERSION}
+          cosign attach sbom -sbom ./*-bom.cdx.json -type cyclonedx ghcr.io/kyverno/kyverno:latest
 
   release-kyverno-cli:
     runs-on: ubuntu-latest
