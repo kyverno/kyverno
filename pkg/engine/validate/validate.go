@@ -19,11 +19,13 @@ func MatchPattern(logger logr.Logger, resource, pattern interface{}) (error, str
 	ac := common.NewAnchorMap()
 	elemPath, err := validateResourceElement(logger, resource, pattern, pattern, "/", ac)
 	if err != nil {
+		// if conditional or global anchors report errors, the rule does not apply to the resource
 		if common.IsConditionalAnchorError(err.Error()) || common.IsGlobalAnchorError(err.Error()) {
-			logger.V(3).Info(ac.AnchorError.Message)
-			return ac.AnchorError.Error(), ""
+			logger.V(3).Info("skipping resource as anchor does not apply", "msg", ac.AnchorError.Error())
+			return nil, ""
 		}
 
+		// check if an anchor defined in the policy rule is missing in the resource
 		if ac.IsAnchorError() {
 			logger.V(3).Info("missing anchor in resource")
 			return err, ""

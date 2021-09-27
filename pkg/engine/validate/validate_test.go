@@ -1506,7 +1506,7 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		executeTestCase(t, testCase)
+		testMatchPattern(t, testCase)
 	}
 }
 
@@ -1518,17 +1518,24 @@ func Test_global_anchor(t *testing.T) {
 		nilErr   bool
 	} {
 		{
-			name:     "check global anchor",
+			name:     "check global anchor_skip",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
-			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:v1", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "check global anchor_apply",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
 			nilErr:   false,
 		},
 	}
 
-	executeTestCase(t, testCases[0])
+	testMatchPattern(t, testCases[0])
+	testMatchPattern(t, testCases[1])
 }
 
-func executeTestCase(t *testing.T, testCase struct {name     string;pattern  []byte;resource []byte;nilErr   bool}) {
+func testMatchPattern(t *testing.T, testCase struct {name string;pattern []byte;resource []byte;nilErr bool}) {
 	var pattern, resource interface{}
 	err := json.Unmarshal(testCase.pattern, &pattern)
 	assert.NilError(t, err)

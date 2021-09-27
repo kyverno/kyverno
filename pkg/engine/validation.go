@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"reflect"
@@ -189,7 +190,7 @@ func (v *validator) validate() *response.RuleResponse {
 		return ruleResponse(v.rule, "", response.RuleStatusSkip)
 	}
 
-	if v.rule.Validation.Pattern != nil || v.rule.Validation.AnyPattern != nil {
+	if v.pattern != nil || v.anyPattern != nil {
 		if err = v.substitutePatterns(); err != nil {
 			return ruleError(v.rule, "variable substitution failed", err)
 		}
@@ -197,7 +198,7 @@ func (v *validator) validate() *response.RuleResponse {
 		ruleResponse := v.validateResourceWithRule()
 		return ruleResponse
 
-	} else if v.rule.Validation.Deny != nil {
+	} else if v.deny != nil {
 		ruleResponse := v.validateDeny()
 		return ruleResponse
 	}
@@ -235,25 +236,44 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	for _, e := range elements {
 		v.ctx.JSONContext.Reset()
 
-		elementData := make(map[string]interface{})
-		elementData["element"] = e
-		jsonData, err := json.Marshal(elementData)
-		if err != nil {
-			return ruleError(v.rule, fmt.Sprintf("failed to marshall element %v", e), err)
+		ctx := v.ctx.Copy()
+		if err := addElementToContext(ctx, e); err != nil {
+			v.log.Error(err, "failed to add element to context")
+			return ruleError(v.rule, "failed to process foreach", err)
 		}
 
-		if err := v.ctx.JSONContext.AddJSON(jsonData); err != nil {
-			return ruleError(v.rule, fmt.Sprintf("failed add element (%s) to context", string(jsonData)), err)
-		}
-
-		foreachValidator := newForeachValidator(v.log, v.ctx, v.rule)
+		foreachValidator := newForeachValidator(v.log, ctx, v.rule)
 		r := foreachValidator.validate()
-		if r.Status != response.RuleStatusPass {
+		if r == nil {
+			v.log.Info("skipping rule due to empty result")
 
+		} else if r.Status == response.RuleStatusSkip {
+			v.log.Info("skipping rule as preconditions were not met")
+
+		} else if r.Status != response.RuleStatusPass {
+			msg := fmt.Sprintf("validation failed in foreach rule for %v", e)
+			return ruleResponse(v.rule, msg, r.Status)
 		}
 	}
 
 	return ruleResponse(v.rule, "", response.RuleStatusPass)
+}
+
+func addElementToContext(ctx *PolicyContext, e interface{}) error {
+	data, err := common.ToMap(e)
+	if err != nil {
+		return err
+	}
+
+	u := unstructured.Unstructured{}
+	u.SetUnstructuredContent(data)
+	ctx.NewResource = u
+
+	if err := ctx.JSONContext.AddResourceAsObject(e); err != nil {
+		return errors.Wrapf(err, "failed to add resource (%v) to JSON context", e)
+	}
+
+	return nil
 }
 
 func (v *validator) evaluateList(jmesPath string) ([]interface{}, error) {
@@ -302,9 +322,9 @@ func (v *validator) checkPreconditions() (bool, error) {
 
 func (v *validator) validateDeny() *response.RuleResponse {
 	anyAllCond := v.deny.AnyAllConditions
-	anyAllCond, err := variables.SubstituteAllInPreconditions(v.log, v.ctx.JSONContext, anyAllCond)
+	anyAllCond, err := variables.SubstituteAll(v.log, v.ctx.JSONContext, anyAllCond)
 	if err != nil {
-		return ruleError(v.rule, "failed to substitute variables in preconditions", err)
+		return ruleError(v.rule, "failed to substitute variables in deny conditions", err)
 	}
 
 	if err = v.substituteDeny(); err != nil {
@@ -557,7 +577,7 @@ func  (v *validator) substituteDeny() error {
 }
 
 func ruleError(rule *kyverno.Rule, msg string, err error) *response.RuleResponse {
-	msg = fmt.Sprintf("%s for rule %s: %s", msg, rule.Name, err.Error())
+	msg = fmt.Sprintf("%s: %s", msg, err.Error())
 	return ruleResponse(rule, msg, response.RuleStatusError)
 }
 

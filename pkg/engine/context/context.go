@@ -188,6 +188,7 @@ func (ctx *Context) AddResourceAsObject(data interface{}) error {
 		ctx.log.Error(err, "failed to marshal the resource")
 		return err
 	}
+
 	return ctx.AddJSON(objRaw)
 }
 

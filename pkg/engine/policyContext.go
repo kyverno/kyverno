@@ -40,3 +40,18 @@ type PolicyContext struct {
 	// NamespaceLabels stores the label of namespace to be processed by namespace selector
 	NamespaceLabels map[string]string
 }
+
+func (pc *PolicyContext) Copy() *PolicyContext {
+	return &PolicyContext{
+		Policy: pc.Policy,
+		NewResource: pc.NewResource,
+		OldResource: pc.OldResource,
+		AdmissionInfo: pc.AdmissionInfo,
+		Client: pc.Client,
+		ExcludeGroupRole: pc.ExcludeGroupRole,
+		ExcludeResourceFunc: pc.ExcludeResourceFunc,
+		ResourceCache: pc.ResourceCache,
+		JSONContext: pc.JSONContext,
+		NamespaceLabels: pc.NamespaceLabels,
+	}
+}

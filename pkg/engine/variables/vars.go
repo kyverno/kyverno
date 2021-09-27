@@ -108,7 +108,7 @@ func UntypedToRule(untyped interface{}) (kyverno.Rule, error) {
 func substituteAll(log logr.Logger, ctx context.EvalInterface, document interface{}, resolver VariableResolver) (_ interface{}, err error) {
 	document, err = substituteReferences(log, document)
 	if err != nil {
-		return kyverno.Rule{}, err
+		return document, err
 	}
 
 	return substituteVars(log, ctx, document, resolver)

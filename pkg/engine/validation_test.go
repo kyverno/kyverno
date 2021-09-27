@@ -1479,7 +1479,7 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 	er := Validate(policyContext)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusError)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
-		"variable substitution failed for rule test-path-not-exist: Unknown key \"name1\" in path")
+		"variable substitution failed: Unknown key \"name1\" in path")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSubstitutionFails(t *testing.T) {
@@ -1570,7 +1570,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSu
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusError)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: Unknown key \"name1\" in path")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed: Unknown key \"name1\" in path")
 }
 
 func Test_VariableSubstitution_NotOperatorWithStringVariable(t *testing.T) {
@@ -1720,7 +1720,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusError)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: Unknown key \"name1\" in path")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed: Unknown key \"name1\" in path")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatternSatisfy(t *testing.T) {
@@ -1932,8 +1932,8 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 			policyRaw: []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"flux-multi-tenancy"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"serviceAccountName","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":".spec.serviceAccountName is required","pattern":{"spec":{"serviceAccountName":"?*"}}}},{"name":"sourceRefNamespace","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":"spec.sourceRef.namespace must be the same as metadata.namespace","deny":{"conditions":[{"key":"{{request.object.spec.sourceRef.namespace}}","operator":"NotEquals","value":"{{request.object.metadata.namespace}}"}]}}}]}}`),
 			// referred variable path not present
 			resourceRaw:     []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team"},"prune":true,"validation":"client"}}`),
-			expectedResults:  []response.RuleStatus{response.RuleStatusPass, response.RuleStatusFail},
-			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "spec.sourceRef.namespace must be the same as metadata.namespace"},
+			expectedResults:  []response.RuleStatus{response.RuleStatusPass, response.RuleStatusError},
+			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "failed to substitute variables in deny conditions: Unknown key \"namespace\" in path"},
 		},
 		{
 			name:      "resource-with-violation",
@@ -1970,7 +1970,7 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 		er := Validate(policyContext)
 
 		for i, rule := range er.PolicyResponse.Rules {
-			assert.Equal(t, er.PolicyResponse.Rules[i].Status, test.expectedResults[i])
+			assert.Equal(t, er.PolicyResponse.Rules[i].Status, test.expectedResults[i], "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedResults[i].String(), er.PolicyResponse.Rules[i].Status.String())
 			assert.Equal(t, er.PolicyResponse.Rules[i].Message, test.expectedMessages[i], "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedMessages[i], rule.Message)
 		}
 	}
@@ -2417,4 +2417,336 @@ func Test_StringInDenyCondition(t *testing.T) {
 
 	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: ctx})
 	assert.Assert(t, er.IsSuccessful())
+}
+
+func Test_foreach_container_pass(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {"name": "test"},
+		"spec": { "template": { "spec": {
+			"containers": [
+				{"name": "pod1-valid", "image": "nginx/nginx:v1"},
+				{"name": "pod2-valid", "image": "nginx/nginx:v2"},
+				{"name": "pod3-valid", "image": "nginx/nginx:v3"}
+			]
+		}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "test"},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test-path-not-exist",
+			  "match": {"resources": { "kinds": [ "Deployment" ] } },
+			  "validate": {
+				"foreach": {
+				  "list": "request.object.spec.template.spec.containers",
+				  "pattern": {
+					"name": "*-valid"
+				  }
+				}
+			}}]}}`)
+
+	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusPass)
+}
+
+func Test_foreach_container_fail(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {"name": "test"},
+		"spec": { "template": { "spec": {
+			"containers": [
+				{"name": "pod1-valid", "image": "nginx/nginx:v1"},
+				{"name": "pod2-invalid", "image": "nginx/nginx:v2"},
+				{"name": "pod3-valid", "image": "nginx/nginx:v3"}
+			]
+		}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "test"},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Deployment" ] } },
+			  "validate": {
+				"foreach": {
+				  "list": "request.object.spec.template.spec.containers",
+				  "pattern": {
+					"name": "*-valid"
+				  }
+				}
+			}}]}}`)
+
+	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusFail)
+}
+
+func Test_foreach_container_deny_fail(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {"name": "test"},
+		"spec": { "template": { "spec": {
+			"containers": [
+				{"name": "pod1-valid", "image": "nginx/nginx:v1"},
+				{"name": "pod2-invalid", "image": "docker.io/nginx/nginx:v2"},
+				{"name": "pod3-valid", "image": "nginx/nginx:v3"}
+			]
+		}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "test"},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Deployment" ] } },
+			  "validate": {
+				"foreach": {
+				  "list": "request.object.spec.template.spec.containers",
+				  "deny": {
+				    "conditions": [
+					  {"key": "{{ regex_match('{{request.object.image}}', 'docker.io') }}", "operator": "Equals", "value": false}
+                    ]
+				  }
+				}
+			}}]}}`)
+
+	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusFail)
+}
+
+func Test_foreach_container_deny_success(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {"name": "test"},
+		"spec": { "template": { "spec": {
+			"containers": [
+				{"name": "pod1-valid", "image": "nginx/nginx:v1"},
+				{"name": "pod2-invalid", "image": "nginx/nginx:v2"},
+				{"name": "pod3-valid", "image": "nginx/nginx:v3"}
+			]
+		}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "test"},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Deployment" ] } },
+			  "validate": {
+				"foreach": {
+				  "list": "request.object.spec.template.spec.containers",
+				  "deny": {
+				    "conditions": [
+					  {"key": "{{ regex_match('{{request.object.image}}', 'docker.io') }}", "operator": "Equals", "value": false}
+                    ]
+				  }
+				}
+			}}]}}`)
+
+	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusFail)
+}
+
+func Test_foreach_container_deny_error(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {"name": "test"},
+		"spec": { "template": { "spec": {
+			"containers": [
+				{"name": "pod1-valid", "image": "nginx/nginx:v1"},
+				{"name": "pod2-invalid", "image": "nginx/nginx:v2"},
+				{"name": "pod3-valid", "image": "nginx/nginx:v3"}
+			]
+		}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "test"},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Deployment" ] } },
+			  "validate": {
+				"foreach": {
+				  "list": "request.object.spec.template.spec.containers",
+				  "deny": {
+				    "conditions": [
+					  {"key": "{{ regex_match_INVALID('{{request.object.image}}', 'docker.io') }}", "operator": "Equals", "value": false}
+                    ]
+				  }
+				}
+			}}]}}`)
+
+	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusError)
+}
+
+func Test_foreach_context_preconditions(t *testing.T) {
+
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {"name": "test"},
+		"spec": { "template": { "spec": {
+			"containers": [
+				{"name": "pod1-valid", "image": "nginx/nginx:v1"},
+				{"name": "pod2-valid", "image": "nginx/nginx:v2"},
+				{"name": "pod3-valid", "image": "nginx/nginx:v3"},
+				{"name": "pod4-valid", "image": "nginx/nginx:v4"}
+			]
+		}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "test"},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Deployment" ] } },
+			  "validate": {
+				"foreach": {
+				  "list": "request.object.spec.template.spec.containers",
+                  "context": [{"name": "tags", "configMap": {"name": "mycmap", "namespace": "default"}}],
+				  "preconditions": { "all": [
+					{
+					  "key": "{{request.object.name}}",
+					  "operator": "Equals",
+					  "value": "pod1-valid | pod2-valid | pod3-valid"
+					}
+				  ]},
+				  "deny": {
+				    "conditions": [
+					  {"key": "images.{{ request.object.name }}.tag", "operator": "NotEquals", "value": "{{ tags.data.{{ request.object.name }} }}"}
+                    ]
+				  }
+				}
+			}}]}}`)
+
+	configMapVariableContext := store.Context{
+		Policies: []store.Policy{
+			{
+				Name: "test",
+				Rules: []store.Rule{
+					{
+						Name: "test",
+						Values: map[string]string{
+							"tags.data.pod1-valid": "v1",
+							"tags.data.pod2-valid": "v2",
+							"tags.data.pod3-valid": "v3",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	store.SetContext(configMapVariableContext)
+	store.SetMock(true)
+
+	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusPass)
+}
+
+func Test_foreach_context_preconditions_fail(t *testing.T) {
+
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {"name": "test"},
+		"spec": { "template": { "spec": {
+			"containers": [
+				{"name": "pod1-valid", "image": "nginx/nginx:v1"},
+				{"name": "pod2-valid", "image": "nginx/nginx:v2"},
+				{"name": "pod3-valid", "image": "nginx/nginx:v3"},
+				{"name": "pod4-valid", "image": "nginx/nginx:v4"}
+			]
+		}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "test"},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Deployment" ] } },
+			  "validate": {
+				"foreach": {
+				  "list": "request.object.spec.template.spec.containers",
+                  "context": [{"name": "tags", "configMap": {"name": "mycmap", "namespace": "default"}}],
+				  "preconditions": { "all": [
+					{
+					  "key": "{{request.object.name}}",
+					  "operator": "Equals",
+					  "value": "pod1-valid | pod2-valid | pod3-valid"
+					}
+				  ]},
+				  "deny": {
+				    "conditions": [
+					  {"key": "images.{{ request.object.name }}.tag", "operator": "NotEquals", "value": "{{ tags.data.{{ request.object.name }} }}"}
+                    ]
+				  }
+				}
+			}}]}}`)
+
+	configMapVariableContext := store.Context{
+		Policies: []store.Policy{
+			{
+				Name: "test",
+				Rules: []store.Rule{
+					{
+						Name: "test",
+						Values: map[string]string{
+							"tags.data.pod1-valid": "v1",
+							"tags.data.pod2-valid": "v22",
+							"tags.data.pod3-valid": "v3",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	store.SetContext(configMapVariableContext)
+	store.SetMock(true)
+
+	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusFail)
+}
+
+func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string, status response.RuleStatus) {
+	var policy kyverno.ClusterPolicy
+	assert.NilError(t, json.Unmarshal(policyraw, &policy))
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResource(resourceRaw)
+	assert.NilError(t, err)
+
+	policyContext := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		NewResource: *resourceUnstructured}
+	er := Validate(policyContext)
+
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, status)
+	if msg != "" {
+		assert.Equal(t, er.PolicyResponse.Rules[0].Message, msg)
+	}
 }

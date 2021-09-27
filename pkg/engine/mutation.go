@@ -117,7 +117,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			ruleResp := response.RuleResponse{
 				Name:    ruleCopy.Name,
 				Type:    utils.Validation.String(),
-				Message: fmt.Sprintf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error()),
+				Message: fmt.Sprintf("variable substitution failed: %s", err.Error()),
 				Status: response.RuleStatusPass,
 			}
 
