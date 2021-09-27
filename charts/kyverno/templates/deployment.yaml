@@ -33,7 +33,7 @@ spec:
       {{- if .Values.antiAffinity.enable }}
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
+          preferredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
               - key: app.kubernetes.io/name
