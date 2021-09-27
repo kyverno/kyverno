@@ -86,7 +86,7 @@ var rawPolicy = []byte(`
   }
 `)
 
-var rawEngRes = []byte(`{"PatchedResource":{"apiVersion":"v1","kind":"Pod","metadata":{"name":"nginx1","namespace":"default"},"spec":{"containers":[{"image":"nginx","imagePullPolicy":"IfNotPresent","name":"nginx","resources":{"limits":{"cpu":"200m","memory":"100Mi"},"requests":{"cpu":"100m","memory":"50Mi"}}}]}},"PolicyResponse":{"policy":{"name":"pod-requirements","namespace":""},"resource":{"kind":"Pod","apiVersion":"v1","namespace":"default","name":"nginx1","uid":""},"processingTime":974958,"rulesAppliedCount":2,"policyExecutionTimestamp":1630527712,"rules":[{"name":"pods-require-account","type":"Validation","message":"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/","success":false,"processingTime":28833,"ruleExecutionTimestamp":1630527712},{"name":"pods-require-limits","type":"Validation","message":"validation rule 'pods-require-limits' passed.","success":true,"processingTime":578625,"ruleExecutionTimestamp":1630527712}],"ValidationFailureAction":"audit"}}`)
+var rawEngRes = []byte(`{"PatchedResource":{"apiVersion":"v1","kind":"Pod","metadata":{"name":"nginx1","namespace":"default"},"spec":{"containers":[{"image":"nginx","imagePullPolicy":"IfNotPresent","name":"nginx","resources":{"limits":{"cpu":"200m","memory":"100Mi"},"requests":{"cpu":"100m","memory":"50Mi"}}}]}},"PolicyResponse":{"policy":{"name":"pod-requirements","namespace":""},"resource":{"kind":"Pod","apiVersion":"v1","namespace":"default","name":"nginx1","uid":""},"processingTime":974958,"rulesAppliedCount":2,"policyExecutionTimestamp":1630527712,"rules":[{"name":"pods-require-account","type":"Validation","message":"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/","status":"Fail","processingTime":28833,"ruleExecutionTimestamp":1630527712},{"name":"pods-require-limits","type":"Validation","message":"validation rule 'pods-require-limits' passed.","status":"Pass","processingTime":578625,"ruleExecutionTimestamp":1630527712}],"ValidationFailureAction":"audit"}}`)
 
 func Test_buildPolicyReports(t *testing.T) {
 	os.Setenv("POLICY-TYPE", common.PolicyReport)
@@ -118,9 +118,9 @@ func Test_buildPolicyReports(t *testing.T) {
 			assert.Assert(t, report.GetName() == "policyreport-ns-default")
 			assert.Assert(t, report.GetKind() == "PolicyReport")
 			assert.Assert(t, len(report.UnstructuredContent()["results"].([]interface{})) == 2)
-			assert.Assert(t,
-				report.UnstructuredContent()["summary"].(map[string]interface{})[preport.StatusPass].(int64) == 1,
-				report.UnstructuredContent()["summary"].(map[string]interface{})[preport.StatusPass].(int64))
+
+			summary := report.UnstructuredContent()["summary"].(map[string]interface{})
+			assert.Assert(t, summary[preport.StatusPass].(int64) == 1, summary[preport.StatusPass].(int64))
 		}
 	}
 }
