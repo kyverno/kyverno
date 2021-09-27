@@ -1063,3 +1063,58 @@ func TestFindAndShiftReferences_AnyPatternPositiveCase(t *testing.T) {
 
 	assert.Equal(t, expectedMessage, actualMessage)
 }
+
+func Test_EscpReferenceSubstitution(t *testing.T) {
+	jsonRaw := []byte(`
+	{
+		"metadata": {
+			"name": "temp",
+			"namespace": "n1",
+			"annotations": {
+			  "test1": "$(../../../../spec/namespace)",
+			  "test2": "\\$(ENV_VAR)",
+			  "test3": "\\${ENV_VAR}",
+			  "test4": "\\\\\\${ENV_VAR}"
+            }
+		},
+		"(spec)": {
+			"namespace": "n1",
+			"name": "temp1"
+		}
+	}`)
+
+	expectedJSON := []byte(`
+	{
+		"metadata": {
+			"name": "temp",
+			"namespace": "n1",
+			"annotations": {
+			  "test1": "n1",
+			  "test2": "$(ENV_VAR)",
+			  "test3": "\\${ENV_VAR}",
+			  "test4": "\\\\\\${ENV_VAR}"
+            }
+		},
+		"(spec)": {
+			"namespace": "n1",
+			"name": "temp1"
+		}
+	}`)
+
+	var document interface{}
+	err := json.Unmarshal(jsonRaw, &document)
+	assert.NilError(t, err)
+
+	var expectedDocument interface{}
+	err = json.Unmarshal(expectedJSON, &expectedDocument)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResource(jsonRaw)
+	assert.NilError(t, err)
+
+	actualDocument, err := SubstituteAll(log.Log, ctx, document)
+	assert.NilError(t, err)
+
+	assert.DeepEqual(t, expectedDocument, actualDocument)
+}
