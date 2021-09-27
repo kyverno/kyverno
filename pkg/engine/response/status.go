@@ -22,8 +22,8 @@ const (
 	RuleStatusSkip
 )
 
-func (s RuleStatus) String() string {
-	return toString[s]
+func (s *RuleStatus) String() string {
+	return toString[*s]
 }
 
 var toString = map[RuleStatus]string{
@@ -43,26 +43,50 @@ var toID = map[string]RuleStatus{
 }
 
 // MarshalJSON marshals the enum as a quoted json string
-func (s RuleStatus) MarshalJSON() ([]byte, error) {
+func (s *RuleStatus) MarshalJSON() ([]byte, error) {
 	var b strings.Builder
-	fmt.Fprintf(&b, "\"%s\"", toString[s])
+	fmt.Fprintf(&b, "\"%s\"", toString[*s])
 	return []byte(b.String()), nil
 }
 
 // UnmarshalJSON unmarshals a quoted json string to the enum value
 func (s *RuleStatus) UnmarshalJSON(b []byte) error {
-	var j string
-	err := json.Unmarshal(b, &j)
+	var strVal string
+	err := json.Unmarshal(b, &strVal)
 	if err != nil {
 		return err
 	}
 
+	statusVal, err := getRuleStatus(strVal)
+	if err != nil {
+		return err
+	}
+
+	*s = *statusVal
+	return nil
+}
+
+func getRuleStatus(s string) (*RuleStatus, error){
 	for k, v := range toID {
-		if j == k {
-			*s = v
-			return nil
+		if s == k {
+			return &v, nil
 		}
 	}
 
-	return fmt.Errorf("invalid status: %s", j)
+	return nil, fmt.Errorf("invalid status: %s", s)
+}
+
+func (v *RuleStatus) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+
+	statusVal, err := getRuleStatus(s)
+	if err != nil {
+		return err
+	}
+
+	*v = *statusVal
+	return nil
 }

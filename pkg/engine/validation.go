@@ -404,13 +404,13 @@ func isSameRuleResponse(r1 *response.RuleResponse, r2 *response.RuleResponse) bo
 // validatePatterns validate pattern and anyPattern
 func (v *validator) validatePatterns(resource unstructured.Unstructured) *response.RuleResponse {
 	if v.pattern != nil {
-		if err := validate.MatchPattern(v.log, resource.Object, v.pattern); err != nil {
-			v.log.V(3).Info("validation error", "path", err.Path, "error", err.Error())
-			if err.Path == "" {
+		if err, path := validate.MatchPattern(v.log, resource.Object, v.pattern); err != nil {
+			v.log.V(3).Info("validation error", "path", path, "error", err.Error())
+			if path == "" {
 				return ruleResponse(v.rule, v.buildErrorMessage(err, ""), response.RuleStatusError)
 			}
 
-			return ruleResponse(v.rule, v.buildErrorMessage(err, err.Path), response.RuleStatusFail)
+			return ruleResponse(v.rule, v.buildErrorMessage(err, path), response.RuleStatusFail)
 		}
 
 		v.log.V(4).Info("successfully processed rule")
@@ -429,18 +429,18 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 		}
 
 		for idx, pattern := range anyPatterns {
-			err := validate.MatchPattern(v.log, resource.Object, pattern)
+			err, path := validate.MatchPattern(v.log, resource.Object, pattern)
 			if err == nil {
 				msg := fmt.Sprintf("validation rule '%s' anyPattern[%d] passed.", v.rule.Name, idx)
 				return ruleResponse(v.rule, msg, response.RuleStatusPass)
 			}
 
-			v.log.V(3).Info("validation rule failed", "anyPattern[%d]", idx, "path", err.Path)
-			if err.Path == "" {
+			v.log.V(3).Info("validation rule failed", "anyPattern[%d]", idx, "path", path)
+			if path == "" {
 				patternErr := fmt.Errorf("Rule %s[%d] failed: %s.", v.rule.Name, idx, err.Error())
 				failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
 			} else {
-				patternErr := fmt.Errorf("Rule %s[%d] failed at path %s.", v.rule.Name, idx, err.Path)
+				patternErr := fmt.Errorf("Rule %s[%d] failed at path %s.", v.rule.Name, idx, path)
 				failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
 			}
 		}

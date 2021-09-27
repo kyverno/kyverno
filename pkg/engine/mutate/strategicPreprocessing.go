@@ -325,7 +325,7 @@ func convertRNodeToInterface(document *yaml.RNode) (interface{}, error) {
 }
 
 func checkCondition(logger logr.Logger, pattern *yaml.RNode, resource *yaml.RNode) error {
-	patternInterface, err := convertRNodeToInterface(pattern)
+	patternInterface, err := convertRNodeToInterface(pattern);
 	if err != nil {
 		return err
 	}
@@ -335,8 +335,12 @@ func checkCondition(logger logr.Logger, pattern *yaml.RNode, resource *yaml.RNod
 		return err
 	}
 
-	err = validate.MatchPattern(logger, resourceInterface, patternInterface)
-	return err
+	err, _ = validate.MatchPattern(logger, resourceInterface, patternInterface)
+	if err != nil{
+		return err
+	}
+
+	return nil
 }
 
 func deleteConditionsFromNestedMaps(pattern *yaml.RNode) (bool, error) {

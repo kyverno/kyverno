@@ -18,4 +18,4 @@ expected:
         - name: validate-default-proc-mount
           type: Validation
           message: "validation rule 'validate-default-proc-mount' passed."
-          success: true
+          status: Pass

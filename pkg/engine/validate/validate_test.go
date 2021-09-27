@@ -1517,7 +1517,7 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 		err = json.Unmarshal(testCase.resource, &resource)
 		assert.NilError(t, err)
 
-		_, err = MatchPattern(log.Log, resource, pattern)
+		err, _ = MatchPattern(log.Log, resource, pattern)
 		if testCase.nilErr {
 			assert.NilError(t, err, fmt.Sprintf("\ntest: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
 		} else {

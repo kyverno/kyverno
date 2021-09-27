@@ -216,7 +216,7 @@ func Test_Mutate(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Validating created resource with the expected pattern...")
-		_, err = validate.MatchPattern(log.Log, actual, expected)
+		err, _ = validate.MatchPattern(log.Log, actual, expected)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Deleting Cluster Policies...")

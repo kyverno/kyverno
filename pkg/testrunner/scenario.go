@@ -3,9 +3,11 @@ package testrunner
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"
 	ospath "path"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -14,83 +16,94 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
+	"path"
+	"runtime"
 )
 
-type scenarioT struct {
-	testCases []scaseT
+type Scenario struct {
+	TestCases []TestCase
 }
 
-//scase defines input and output for a case
-type scaseT struct {
-	Input    sInput    `yaml:"input"`
-	Expected sExpected `yaml:"expected"`
+//CaseT defines input and output for a case
+type TestCase struct {
+	Input    Input    `yaml:"input"`
+	Expected Expected `yaml:"expected"`
 }
 
-//sInput defines input for a test scenario
-type sInput struct {
+//Input defines input for a test scenario
+type Input struct {
 	Policy        string   `yaml:"policy"`
 	Resource      string   `yaml:"resource"`
 	LoadResources []string `yaml:"loadresources,omitempty"`
 }
 
-type sExpected struct {
-	Mutation   sMutation   `yaml:"mutation,omitempty"`
-	Validation sValidation `yaml:"validation,omitempty"`
-	Generation sGeneration `yaml:"generation,omitempty"`
+type Expected struct {
+	Mutation   Mutation   `yaml:"mutation,omitempty"`
+	Validation Validation `yaml:"validation,omitempty"`
+	Generation Generation `yaml:"generation,omitempty"`
 }
 
-type sMutation struct {
+type Mutation struct {
 	// path to the patched resource to be compared with
 	PatchedResource string `yaml:"patchedresource,omitempty"`
 	// expected response from the policy engine
 	PolicyResponse response.PolicyResponse `yaml:"policyresponse"`
 }
 
-type sValidation struct {
+type Validation struct {
 	// expected response from the policy engine
 	PolicyResponse response.PolicyResponse `yaml:"policyresponse"`
 }
 
-type sGeneration struct {
+type Generation struct {
 	// generated resources
 	GeneratedResources []kyverno.ResourceSpec `yaml:"generatedResources"`
 	// expected response from the policy engine
 	PolicyResponse response.PolicyResponse `yaml:"policyresponse"`
 }
 
-//getRelativePath expects a path relative to project and builds the complete path
-func getRelativePath(path string) string {
-	gp := os.Getenv("GOPATH")
-	ap := ospath.Join(gp, projectPath)
-	return ospath.Join(ap, path)
+// RootDir returns the kyverno project directory based on the location of the current file.
+// It assumes that the project directory is 2 levels up. This means if this function is moved
+// it may not work as expected.
+func RootDir() string {
+	_, b, _, _ := runtime.Caller(0)
+	d := path.Join(path.Dir(b))
+	d = filepath.Dir(d)
+	return filepath.Dir(d)
 }
 
-func loadScenario(t *testing.T, path string) (*scenarioT, error) {
-	fileBytes, err := loadFile(t, path)
-	if err != nil {
-		return nil, err
-	}
+//getRelativePath expects a path relative to project and builds the complete path
+func getRelativePath(path string) string {
+	root := RootDir()
+	return ospath.Join(root, path)
+}
 
-	var testCases []scaseT
+func loadScenario(t *testing.T, path string) (*Scenario, error) {
+	fileBytes, err := loadFile(t, path)
+	assert.Nil(t, err)
+
+	var testCases []TestCase
 	// load test cases separated by '---'
 	// each test case defines an input & expected result
 	scenariosBytes := bytes.Split(fileBytes, []byte("---"))
-	for _, scenarioBytes := range scenariosBytes {
-		tc := scaseT{}
-		if err := yaml.Unmarshal([]byte(scenarioBytes), &tc); err != nil {
+	for _, testCaseBytes := range scenariosBytes {
+		var tc TestCase
+		if err := yaml.Unmarshal(testCaseBytes, &tc); err != nil {
 			t.Errorf("failed to decode test case YAML: %v", err)
 			continue
 		}
+
 		testCases = append(testCases, tc)
 	}
-	scenario := scenarioT{
-		testCases: testCases,
+
+	scenario := Scenario{
+		TestCases: testCases,
 	}
 
 	return &scenario, nil
@@ -106,14 +119,14 @@ func loadFile(t *testing.T, path string) ([]byte, error) {
 	return ioutil.ReadFile(path)
 }
 
-func runScenario(t *testing.T, s *scenarioT) bool {
-	for _, tc := range s.testCases {
+func runScenario(t *testing.T, s *Scenario) bool {
+	for _, tc := range s.TestCases {
 		runTestCase(t, tc)
 	}
 	return true
 }
 
-func runTestCase(t *testing.T, tc scaseT) bool {
+func runTestCase(t *testing.T, tc TestCase) bool {
 	policy := loadPolicy(t, tc.Input.Policy)
 	if policy == nil {
 		t.Error("Policy not loaded")
@@ -311,7 +324,7 @@ func compareRules(t *testing.T, rule response.RuleResponse, expectedRule respons
 
 	// success
 	if rule.Status != expectedRule.Status {
-		t.Errorf("rule success: expected %v, received %v", expectedRule.Status, rule.Status)
+		t.Errorf("rule status mismatch: expected %s, received %s", expectedRule.Status.String(), rule.Status.String())
 	}
 }
 
@@ -330,7 +343,7 @@ func loadPolicyResource(t *testing.T, file string) *unstructured.Unstructured {
 }
 
 func getClient(t *testing.T, files []string) *client.Client {
-	var objects []runtime.Object
+	var objects []k8sRuntime.Object
 	if files != nil {
 
 		for _, file := range files {
@@ -338,7 +351,7 @@ func getClient(t *testing.T, files []string) *client.Client {
 		}
 	}
 	// create mock client
-	scheme := runtime.NewScheme()
+	scheme := k8sRuntime.NewScheme()
 	// mock client expects the resource to be as runtime.Object
 	c, err := client.NewMockClient(scheme, nil, objects...)
 	if err != nil {
@@ -352,7 +365,7 @@ func getClient(t *testing.T, files []string) *client.Client {
 	return c
 }
 
-func getGVRForResources(objects []runtime.Object) []schema.GroupVersionResource {
+func getGVRForResources(objects []k8sRuntime.Object) []schema.GroupVersionResource {
 	var gvrs []schema.GroupVersionResource
 	for _, obj := range objects {
 		gvk := obj.GetObjectKind().GroupVersionKind()
@@ -380,7 +393,7 @@ func loadResource(t *testing.T, path string) []*unstructured.Unstructured {
 			continue
 		}
 
-		data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&obj)
+		data, err := k8sRuntime.DefaultUnstructuredConverter.ToUnstructured(&obj)
 		if err != nil {
 			t.Logf("failed to unmarshall resource. %v", err)
 			continue
@@ -392,8 +405,8 @@ func loadResource(t *testing.T, path string) []*unstructured.Unstructured {
 	return unstrResources
 }
 
-func loadObjects(t *testing.T, path string) []runtime.Object {
-	var resources []runtime.Object
+func loadObjects(t *testing.T, path string) []k8sRuntime.Object {
+	var resources []k8sRuntime.Object
 	t.Logf("loading objects from %s", path)
 	data, err := loadFile(t, path)
 	if err != nil {

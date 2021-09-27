@@ -16,5 +16,5 @@ expected:
       rules:
         - name: disable-servicelink-and-token
           type: Mutation
-          success: true
+          status: Pass
           message: successfully processed strategic merge patch

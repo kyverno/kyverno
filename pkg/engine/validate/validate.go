@@ -14,25 +14,25 @@ import (
 
 // MatchPattern is a start of element-by-element pattern validation process.
 // It assumes that validation is started from root, so "/" is passed
-func MatchPattern(logger logr.Logger, resource, pattern interface{}) *PatternError {
+func MatchPattern(logger logr.Logger, resource, pattern interface{}) (error, string) {
 	// newAnchorMap - to check anchor key has values
 	ac := common.NewAnchorMap()
 	elemPath, err := validateResourceElement(logger, resource, pattern, pattern, "/", ac)
 	if err != nil {
 		if common.IsConditionalAnchorError(err.Error()) || common.IsGlobalAnchorError(err.Error()) {
 			logger.V(3).Info(ac.AnchorError.Message)
-			return &PatternError{ac.AnchorError.Message, ""}
+			return ac.AnchorError.Error(), ""
 		}
 
 		if ac.IsAnchorError() {
 			logger.V(3).Info("missing anchor in resource")
-			return &PatternError{err.Error(), ""}
+			return err, ""
 		}
 
-		return &PatternError{err.Error(), elemPath}
+		return err, elemPath
 	}
 
-	return nil
+	return nil, ""
 }
 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)

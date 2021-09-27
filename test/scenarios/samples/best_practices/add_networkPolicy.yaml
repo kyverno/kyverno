@@ -20,5 +20,5 @@ expected:
       rules:
         - name: default-deny-ingress
           type: Generation
-          success: true
+          status: Pass
           message: created resource NetworkPolicy/devtest/default-deny-ingress

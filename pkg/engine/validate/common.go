@@ -41,11 +41,3 @@ func getRawKeyIfWrappedWithAttributes(str string) string {
 	}
 }
 
-type PatternError struct {
-	msg string
-	Path string
-}
-
-func (p* PatternError) Error() string {
-	return p.msg
-}

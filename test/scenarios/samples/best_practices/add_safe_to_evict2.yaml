@@ -17,5 +17,5 @@ expected:
       rules:
         - name: annotate-host-path
           type: Mutation
-          success: true
+          status: Pass
           message: "successfully processed strategic merge patch"

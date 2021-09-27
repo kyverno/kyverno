@@ -15,5 +15,6 @@ expected:
         name: image-with-hostpath
       rules:
         - name: validate-hostPath
+          message: "validation error: Host path volumes are not allowed. Rule validate-hostPath failed at path /spec/volumes/0/hostPath/"
           type: Validation
-          success: false
+          status: Fail
