@@ -28,6 +28,7 @@ func (wrc *Register) constructPolicyValidatingWebhookConfig(caData []byte) *admr
 				"kyverno.io",
 				"v1",
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				admregapi.Ignore,
 			),
 		},
 	}
@@ -53,6 +54,7 @@ func (wrc *Register) constructDebugPolicyValidatingWebhookConfig(caData []byte) 
 				"kyverno.io",
 				"v1",
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				admregapi.Ignore,
 			),
 		},
 	}
@@ -77,6 +79,7 @@ func (wrc *Register) constructPolicyMutatingWebhookConfig(caData []byte) *admreg
 				"kyverno.io",
 				"v1",
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				admregapi.Ignore,
 			),
 		},
 	}
@@ -102,6 +105,7 @@ func (wrc *Register) constructDebugPolicyMutatingWebhookConfig(caData []byte) *a
 				"kyverno.io",
 				"v1",
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				admregapi.Ignore,
 			),
 		},
 	}

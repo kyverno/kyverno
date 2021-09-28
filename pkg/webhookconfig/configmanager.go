@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -11,19 +13,26 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
+var defaultWebhookTimeout int32 = 3
+
 // TODO:
 // 1. configure timeout
 // 2.wildcard support
+// webhookConfigManager manges the webhook configuration dynamically
+// it is NOT multi-thread safe
 type webhookConfigManager struct {
 	client        *client.Client
 	kyvernoClient *kyvernoclient.Clientset
@@ -57,7 +66,6 @@ type webhookConfigManager struct {
 
 type manage interface {
 	start()
-	sync(key string) error
 }
 
 func newWebhookConfigManager(
@@ -75,6 +83,7 @@ func newWebhookConfigManager(
 		pInformer:     pInformer,
 		npInformer:    npInformer,
 		resCache:      resCache,
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "configmanager"),
 		stopCh:        stopCh,
 		log:           log,
 	}
@@ -164,9 +173,8 @@ func (m *webhookConfigManager) reconcileWebhook(policy *kyverno.ClusterPolicy) e
 		return err
 	}
 
-	webhook := buildWebhooks(policies)
-	if err = m.updateWebhookConfig(webhook); err != nil {
-		logger.Error(err, "failed to update webhook configuration")
+	webhooks := m.buildWebhooks(policies)
+	if err = m.updateWebhookConfig(webhooks); err != nil {
 		return err
 	}
 
@@ -203,7 +211,113 @@ func (m *webhookConfigManager) listPolicies(namespace string, failurePolicy kyve
 	return policies, nil
 }
 
-func (m *webhookConfigManager) updateWebhookConfig(webhook map[string]interface{}) error {
+const (
+	apiGroups   string = "apiGroups"
+	apiVersions string = "apiVersions"
+	resources   string = "resources"
+)
+
+// webhook is the instance that aggregates the GVK of existing policies
+// based on kind, failurePolicy and webhookTimeout
+type webhook struct {
+	kind              string
+	maxWebhookTimeout *int32
+	failurePolicy     kyverno.FailurePolicyType
+
+	// rule represents the same rule struct of the webhook using a map object
+	// https://github.com/kubernetes/api/blob/master/admissionregistration/v1/types.go#L25
+	rule map[string]interface{}
+}
+
+func (m *webhookConfigManager) updateWebhookConfig(webhooks []*webhook) error {
+	logger := m.log.WithName("updateWebhookConfig")
+	webhooksMap := make(map[string]interface{}, len(webhooks))
+	for _, w := range webhooks {
+		key := strings.Join([]string{w.kind, string(w.failurePolicy)}, "/")
+		webhooksMap[key] = w
+	}
+
+	var errs []string
+	if err := m.compareAndUpdateWebhook(kindMutating, getResourceMutatingWebhookConfigName(""), webhooksMap); err != nil {
+		logger.V(4).Info("failed to update mutatingwebhookconfigurations", "error", err.Error())
+		errs = append(errs, err.Error())
+	}
+
+	if err := m.compareAndUpdateWebhook(kindValidating, getResourceValidatingWebhookConfigName(""), webhooksMap); err != nil {
+		logger.V(4).Info("failed to update validatingwebhookconfigurations", "error", err.Error())
+		errs = append(errs, err.Error())
+	}
+
+	return errors.New(strings.Join(errs, "\n"))
+}
+
+func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName string, webhooksMap map[string]interface{}) error {
+	logger := m.log.WithName("compareAndUpdateWebhook").WithValues("kind", webhookKind, "name", webhookName)
+	webhookCache, _ := m.resCache.GetGVRCache(webhookKind)
+	resourceWebhook, err := webhookCache.Lister().Get(webhookName)
+	if err != nil {
+		return errors.Wrapf(err, "unable to get %s/%s", webhookKind, webhookName)
+	}
+
+	webhooksUntyped, _, err := unstructured.NestedSlice(resourceWebhook.UnstructuredContent(), "webhooks")
+	if err != nil {
+		return errors.Wrapf(err, "unable to fetch tag webhooks for %s/%s", webhookKind, webhookName)
+	}
+
+	newWebooks := make([]interface{}, len(webhooksUntyped))
+	copy(newWebooks, webhooksUntyped)
+	var changed bool
+	for i, webhookUntyed := range webhooksUntyped {
+		existingWebhook, ok := webhookUntyed.(map[string]interface{})
+		if !ok {
+			logger.Error(errors.New("type mismatched"), "expected map[string]interface{}, got %T", webhooksUntyped)
+			continue
+		}
+
+		failurePolicy, _, err := unstructured.NestedString(existingWebhook, "failurePolicy")
+		if err != nil {
+			logger.Error(errors.New("type mismatched"), "expected string, got %T", failurePolicy)
+			continue
+
+		}
+
+		rules, _, err := unstructured.NestedSlice(existingWebhook, "rules")
+		if err != nil {
+			logger.Error(err, "type mismatched, expected []interface{}, got %T", rules)
+			continue
+		}
+
+		var newRules []interface{}
+		newWebhook := webhooksMap[strings.Join([]string{webhookKind, failurePolicy}, "/")]
+		w, ok := newWebhook.(*webhook)
+		if !ok {
+			logger.Error(errors.New("type mismatched"), "expected *webhook, got %T", newWebooks)
+			continue
+		}
+
+		newRules = []interface{}{w.rule}
+		if !reflect.DeepEqual(rules, newRules) {
+			changed = true
+			if err = unstructured.SetNestedSlice(newWebooks[i].(map[string]interface{}), newRules, "rules"); err != nil {
+				fmt.Println("===========1 err", err)
+			}
+		}
+
+		if err = unstructured.SetNestedField(newWebooks[i].(map[string]interface{}), strconv.Itoa(int(*w.maxWebhookTimeout)), "timeoutSeconds"); err != nil {
+			fmt.Println("===========2 err", err)
+		}
+	}
+
+	if changed {
+		if err := unstructured.SetNestedSlice(resourceWebhook.UnstructuredContent(), newWebooks, "webhooks"); err != nil {
+			return errors.Wrap(err, "unable to set new webhooks")
+		}
+
+		if _, err := m.client.UpdateResource(resourceWebhook.GetAPIVersion(), resourceWebhook.GetKind(), resourceWebhook.GetName(), resourceWebhook, false); err != nil {
+			return errors.Wrapf(err, "unable to update %s/%s", webhookKind, webhookName)
+		}
+	}
+
 	return nil
 }
 
@@ -323,6 +437,103 @@ func (m *webhookConfigManager) enqueue(policy *kyverno.ClusterPolicy) {
 	m.queue.Add(key)
 }
 
-func buildWebhooks(policies []kyverno.ClusterPolicy) map[string]interface{} {
-	return nil
+func (m *webhookConfigManager) buildWebhooks(policies []kyverno.ClusterPolicy) (res []*webhook) {
+	mutateIgnore := newWebhook(kindMutating, defaultWebhookTimeout, kyverno.Ignore)
+	mutateFail := newWebhook(kindMutating, defaultWebhookTimeout, kyverno.Fail)
+	validateIgnore := newWebhook(kindValidating, defaultWebhookTimeout, kyverno.Ignore)
+	validateFail := newWebhook(kindValidating, defaultWebhookTimeout, kyverno.Fail)
+
+	for _, p := range policies {
+		if p.HasValidate() {
+			if p.Spec.FailurePolicy != nil && *p.Spec.FailurePolicy == kyverno.Ignore {
+				m.mergeWebhook(validateIgnore, p, true)
+			} else {
+				m.mergeWebhook(validateFail, p, true)
+			}
+		}
+
+		if p.HasMutate() || p.HasGenerate() {
+			if p.Spec.FailurePolicy != nil && *p.Spec.FailurePolicy == kyverno.Ignore {
+				m.mergeWebhook(mutateIgnore, p, false)
+			} else {
+				m.mergeWebhook(mutateFail, p, false)
+			}
+		}
+	}
+
+	res = append(res, mutateIgnore, mutateFail, validateIgnore, validateFail)
+	return res
+}
+
+// mergeWebhook merges the matching kinds of the policy to webhook.rule
+func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.ClusterPolicy, isValidate bool) {
+	matchedGVK := make([]string, 0)
+	for _, rule := range policy.Spec.Rules {
+		if isValidate && rule.HasValidate() {
+			matchedGVK = append(matchedGVK, rule.MatchKinds()...)
+		} else {
+			matchedGVK = append(matchedGVK, rule.MatchKinds()...)
+		}
+	}
+
+	gvkMap := make(map[string]int)
+	gvrList := make([]schema.GroupVersionResource, 0)
+	for _, gvk := range matchedGVK {
+		if _, ok := gvkMap[gvk]; !ok {
+			gvkMap[gvk] = 1
+
+			// note: webhook stores GVR in its rules while policy stores GVK in its rules definition
+			gv, k := common.GetKindFromGVK(gvk)
+			_, gvr, err := m.client.DiscoveryClient.FindResource(gv, k)
+			if err != nil {
+				continue
+			}
+			gvrList = append(gvrList, gvr)
+		}
+	}
+
+	var groups, versions, rsrcs []string
+	copy(groups, dst.rule[apiGroups].([]string))
+	copy(versions, dst.rule[apiVersions].([]string))
+	copy(rsrcs, dst.rule[resources].([]string))
+
+	for _, gvr := range gvrList {
+		groups = append(groups, gvr.Group)
+		versions = append(versions, gvr.Version)
+		rsrcs = append(rsrcs, gvr.Resource)
+	}
+
+	dst.rule[apiGroups] = removeDuplicates(groups)
+	dst.rule[apiVersions] = removeDuplicates(versions)
+	dst.rule[resources] = removeDuplicates(rsrcs)
+
+	if policy.Spec.WebhookTimeoutSeconds != nil {
+		if *dst.maxWebhookTimeout < *policy.Spec.WebhookTimeoutSeconds {
+			*dst.maxWebhookTimeout = *policy.Spec.WebhookTimeoutSeconds
+		}
+	}
+}
+
+func removeDuplicates(items []string) (res []string) {
+	set := make(map[string]int)
+	for _, item := range items {
+		if _, ok := set[item]; !ok {
+			set[item] = 1
+			res = append(res, item)
+		}
+	}
+	return
+}
+
+func newWebhook(kind string, timeout int32, failurePolicy kyverno.FailurePolicyType) *webhook {
+	return &webhook{
+		kind:              kind,
+		maxWebhookTimeout: &timeout,
+		failurePolicy:     failurePolicy,
+		rule: map[string]interface{}{
+			apiVersions: make([]string, 0),
+			apiGroups:   make([]string, 0),
+			resources:   make([]string, 0),
+		},
+	}
 }

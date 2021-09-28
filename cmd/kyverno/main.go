@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kyverno/kyverno/pkg/cosign"
-
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/klog/v2"
@@ -23,6 +21,7 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/cosign"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
@@ -388,7 +387,9 @@ func main() {
 			os.Exit(1)
 		}
 
-		go webhookCfg.UpdateWebhookConfigurations(configData)
+		if !autoUpdateWebhooks {
+			go webhookCfg.UpdateWebhookConfigurations(configData)
+		}
 		if registrationErr := registerWrapperRetry(); registrationErr != nil {
 			setupLog.Error(err, "Timeout registering admission control webhooks")
 			os.Exit(1)

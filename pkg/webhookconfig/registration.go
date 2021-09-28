@@ -143,19 +143,19 @@ func (wrc *Register) Check() error {
 		return err
 	}
 
-	if _, err := mutatingCache.Lister().Get(wrc.getResourceMutatingWebhookConfigName()); err != nil {
+	if _, err := mutatingCache.Lister().Get(getResourceMutatingWebhookConfigName(wrc.serverIP)); err != nil {
 		return err
 	}
 
-	if _, err := validatingCache.Lister().Get(wrc.getResourceValidatingWebhookConfigName()); err != nil {
+	if _, err := validatingCache.Lister().Get(getResourceValidatingWebhookConfigName(wrc.serverIP)); err != nil {
 		return err
 	}
 
-	if _, err := mutatingCache.Lister().Get(wrc.getPolicyMutatingWebhookConfigurationName()); err != nil {
+	if _, err := mutatingCache.Lister().Get(getPolicyMutatingWebhookConfigurationName(wrc.serverIP)); err != nil {
 		return err
 	}
 
-	if _, err := validatingCache.Lister().Get(wrc.getPolicyValidatingWebhookConfigurationName()); err != nil {
+	if _, err := validatingCache.Lister().Get(getPolicyValidatingWebhookConfigurationName(wrc.serverIP)); err != nil {
 		return err
 	}
 
@@ -173,6 +173,7 @@ func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 	wrc.removeSecrets()
 }
 
+// +deprecated
 // UpdateWebhookConfigurations updates resource webhook configurations dynamically
 // base on the UPDATEs of Kyverno init-config ConfigMap
 //
@@ -200,17 +201,17 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface)
 		}
 
 		if err := wrc.updateResourceMutatingWebhookConfiguration(nsSelector); err != nil {
-			logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", wrc.getResourceMutatingWebhookConfigName())
+			logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
 			go func() { wrc.UpdateWebhookChan <- true }()
 		} else {
-			logger.Info("successfully updated mutatingWebhookConfigurations", "name", wrc.getResourceMutatingWebhookConfigName())
+			logger.Info("successfully updated mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
 		}
 
 		if err := wrc.updateResourceValidatingWebhookConfiguration(nsSelector); err != nil {
-			logger.Error(err, "unable to update validatingWebhookConfigurations", "name", wrc.getResourceValidatingWebhookConfigName())
+			logger.Error(err, "unable to update validatingWebhookConfigurations", "name", getResourceValidatingWebhookConfigName(wrc.serverIP))
 			go func() { wrc.UpdateWebhookChan <- true }()
 		} else {
-			logger.Info("successfully updated validatingWebhookConfigurations", "name", wrc.getResourceValidatingWebhookConfigName())
+			logger.Info("successfully updated validatingWebhookConfigurations", "name", getResourceValidatingWebhookConfigName(wrc.serverIP))
 		}
 	}
 }
@@ -409,7 +410,7 @@ func (wrc *Register) removeWebhookConfigurations() {
 func (wrc *Register) removePolicyMutatingWebhookConfiguration(wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	mutatingConfig := wrc.getPolicyMutatingWebhookConfigurationName()
+	mutatingConfig := getPolicyMutatingWebhookConfigurationName(wrc.serverIP)
 
 	logger := wrc.log.WithValues("kind", kindMutating, "name", mutatingConfig)
 
@@ -434,9 +435,9 @@ func (wrc *Register) removePolicyMutatingWebhookConfiguration(wg *sync.WaitGroup
 	logger.Info("webhook configuration deleted")
 }
 
-func (wrc *Register) getPolicyMutatingWebhookConfigurationName() string {
+func getPolicyMutatingWebhookConfigurationName(serverIP string) string {
 	var mutatingConfig string
-	if wrc.serverIP != "" {
+	if serverIP != "" {
 		mutatingConfig = config.PolicyMutatingWebhookConfigurationDebugName
 	} else {
 		mutatingConfig = config.PolicyMutatingWebhookConfigurationName
@@ -447,7 +448,7 @@ func (wrc *Register) getPolicyMutatingWebhookConfigurationName() string {
 func (wrc *Register) removePolicyValidatingWebhookConfiguration(wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	validatingConfig := wrc.getPolicyValidatingWebhookConfigurationName()
+	validatingConfig := getPolicyValidatingWebhookConfigurationName(wrc.serverIP)
 
 	logger := wrc.log.WithValues("kind", kindValidating, "name", validatingConfig)
 	if mutateCache, ok := wrc.resCache.GetGVRCache("ValidatingWebhookConfiguration"); ok {
@@ -472,9 +473,9 @@ func (wrc *Register) removePolicyValidatingWebhookConfiguration(wg *sync.WaitGro
 	logger.Info("webhook configuration deleted")
 }
 
-func (wrc *Register) getPolicyValidatingWebhookConfigurationName() string {
+func getPolicyValidatingWebhookConfigurationName(serverIP string) string {
 	var validatingConfig string
-	if wrc.serverIP != "" {
+	if serverIP != "" {
 		validatingConfig = config.PolicyValidatingWebhookConfigurationDebugName
 	} else {
 		validatingConfig = config.PolicyValidatingWebhookConfigurationName
@@ -501,6 +502,7 @@ func (wrc *Register) constructVerifyMutatingWebhookConfig(caData []byte) *admreg
 				"apps",
 				"v1",
 				[]admregapi.OperationType{admregapi.Update},
+				admregapi.Ignore,
 			),
 		},
 	}
@@ -525,6 +527,7 @@ func (wrc *Register) constructDebugVerifyMutatingWebhookConfig(caData []byte) *a
 				"apps",
 				"v1",
 				[]admregapi.OperationType{admregapi.Update},
+				admregapi.Ignore,
 			),
 		},
 	}
@@ -646,7 +649,7 @@ func (wrc *Register) checkEndpoint() error {
 func (wrc *Register) updateResourceValidatingWebhookConfiguration(nsSelector map[string]interface{}) error {
 	validatingCache, _ := wrc.resCache.GetGVRCache(kindValidating)
 
-	resourceValidating, err := validatingCache.Lister().Get(wrc.getResourceValidatingWebhookConfigName())
+	resourceValidating, err := validatingCache.Lister().Get(getResourceValidatingWebhookConfigName(wrc.serverIP))
 	if err != nil {
 		return errors.Wrapf(err, "unable to get validatingWebhookConfigurations")
 	}
@@ -682,7 +685,7 @@ func (wrc *Register) updateResourceValidatingWebhookConfiguration(nsSelector map
 func (wrc *Register) updateResourceMutatingWebhookConfiguration(nsSelector map[string]interface{}) error {
 	mutatingCache, _ := wrc.resCache.GetGVRCache(kindMutating)
 
-	resourceMutating, err := mutatingCache.Lister().Get(wrc.getResourceMutatingWebhookConfigName())
+	resourceMutating, err := mutatingCache.Lister().Get(getResourceMutatingWebhookConfigName(wrc.serverIP))
 	if err != nil {
 		return errors.Wrapf(err, "unable to get mutatingWebhookConfigurations")
 	}

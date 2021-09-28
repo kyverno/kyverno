@@ -79,7 +79,7 @@ func ProcessPatches(log logr.Logger, ruleName string, mutation kyverno.Mutation,
 	}
 	err = patchedResource.UnmarshalJSON(resourceRaw)
 	if err != nil {
-		logger.Error(err, "failed to unmmarshal resource")
+		logger.Error(err, "failed to unmarshal resource")
 		resp.Success = false
 		resp.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
 		return resp, resource
