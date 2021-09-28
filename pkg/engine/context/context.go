@@ -53,21 +53,21 @@ type EvalInterface interface {
 
 //Context stores the data resources as JSON
 type Context struct {
-	mutex             sync.RWMutex
-	jsonRaw           []byte
+	mutex              sync.RWMutex
+	jsonRaw            []byte
 	jsonRawCheckpoints [][]byte
-	builtInVars       []string
-	images            *Images
-	log               logr.Logger
+	builtInVars        []string
+	images             *Images
+	log                logr.Logger
 }
 
 //NewContext returns a new context
 // builtInVars is the list of known variables (e.g. serviceAccountName)
 func NewContext(builtInVars ...string) *Context {
 	ctx := Context{
-		jsonRaw:     []byte(`{}`), // empty json struct
-		builtInVars: builtInVars,
-		log:         log.Log.WithName("context"),
+		jsonRaw:            []byte(`{}`), // empty json struct
+		builtInVars:        builtInVars,
+		log:                log.Log.WithName("context"),
 		jsonRawCheckpoints: make([][]byte, 0),
 	}
 
@@ -334,7 +334,7 @@ func (ctx *Context) reset(remove bool) {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 
-	if  len(ctx.jsonRawCheckpoints) == 0 {
+	if len(ctx.jsonRawCheckpoints) == 0 {
 		return
 	}
 

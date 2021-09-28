@@ -49,7 +49,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
 			return path, fmt.Errorf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", path, patternElement, resourceElement)
 		}
-		// CheckAnchorInResource - check anchor anchor key exists in resource and update the AnchorKey fields.
+		// CheckAnchorInResource - check anchor key exists in resource and update the AnchorKey fields.
 		ac.CheckAnchorInResource(typedPatternElement, typedResourceElement)
 		return validateMap(log, typedResourceElement, typedPatternElement, originPattern, path, ac)
 	// array

@@ -116,12 +116,11 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 }
 
 func processValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *response.RuleResponse {
+	v := newValidator(log, ctx, rule)
 	if rule.Validation.ForEachValidation != nil {
-		v := newValidator(log, ctx, rule)
 		return v.validateForEach()
 	}
 
-	v := newValidator(log, ctx, rule)
 	return v.validate()
 }
 
@@ -140,41 +139,48 @@ func addRuleResponse(log logr.Logger, resp *response.EngineResponse, ruleResp *r
 }
 
 type validator struct {
-	log logr.Logger
-	ctx *PolicyContext
-	rule *kyverno.Rule
-	contextEntries []kyverno.ContextEntry
+	log              logr.Logger
+	ctx              *PolicyContext
+	rule             *kyverno.Rule
+	contextEntries   []kyverno.ContextEntry
 	anyAllConditions apiextensions.JSON
-	pattern apiextensions.JSON
-	anyPattern apiextensions.JSON
-	deny *kyverno.Deny
+	pattern          apiextensions.JSON
+	anyPattern       apiextensions.JSON
+	deny             *kyverno.Deny
 }
 
 func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *validator {
 	ruleCopy := rule.DeepCopy()
 	return &validator{
-		log: log,
-		rule: ruleCopy,
-		ctx: ctx,
-		contextEntries: ruleCopy.Context,
+		log:              log,
+		rule:             ruleCopy,
+		ctx:              ctx,
+		contextEntries:   ruleCopy.Context,
 		anyAllConditions: ruleCopy.AnyAllConditions,
-		pattern: ruleCopy.Validation.Pattern,
-		anyPattern: ruleCopy.Validation.AnyPattern,
-		deny: ruleCopy.Validation.Deny,
+		pattern:          ruleCopy.Validation.Pattern,
+		anyPattern:       ruleCopy.Validation.AnyPattern,
+		deny:             ruleCopy.Validation.Deny,
 	}
 }
 
 func newForeachValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *validator {
 	ruleCopy := rule.DeepCopy()
+
+	// Variable substitution expects JSON data, so we convert to a map
+	anyAllConditions, err := common.ToMap(ruleCopy.Validation.ForEachValidation.AnyAllConditions)
+	if err != nil {
+		log.Error(err, "failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions")
+	}
+
 	return &validator{
-		log: log,
-		ctx: ctx,
-		rule: ruleCopy,
-		contextEntries: ruleCopy.Validation.ForEachValidation.Context,
-		anyAllConditions: ruleCopy.Validation.ForEachValidation.AnyAllConditions,
-		pattern: ruleCopy.Validation.ForEachValidation.Pattern,
-		anyPattern: ruleCopy.Validation.ForEachValidation.AnyPattern,
-		deny: ruleCopy.Validation.ForEachValidation.Deny,
+		log:              log,
+		ctx:              ctx,
+		rule:             ruleCopy,
+		contextEntries:   ruleCopy.Validation.ForEachValidation.Context,
+		anyAllConditions: anyAllConditions,
+		pattern:          ruleCopy.Validation.ForEachValidation.Pattern,
+		anyPattern:       ruleCopy.Validation.ForEachValidation.AnyPattern,
+		deny:             ruleCopy.Validation.ForEachValidation.Deny,
 	}
 }
 
@@ -233,6 +239,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	v.ctx.JSONContext.Checkpoint()
 	defer v.ctx.JSONContext.Restore()
 
+	applyCount := 0
 	for _, e := range elements {
 		v.ctx.JSONContext.Reset()
 
@@ -246,14 +253,20 @@ func (v *validator) validateForEach() *response.RuleResponse {
 		r := foreachValidator.validate()
 		if r == nil {
 			v.log.Info("skipping rule due to empty result")
-
+			continue
 		} else if r.Status == response.RuleStatusSkip {
 			v.log.Info("skipping rule as preconditions were not met")
-
+			continue
 		} else if r.Status != response.RuleStatusPass {
-			msg := fmt.Sprintf("validation failed in foreach rule for %v", e)
+			msg := fmt.Sprintf("validation failed in foreach rule for %v", r.Message)
 			return ruleResponse(v.rule, msg, r.Status)
 		}
+
+		applyCount++
+	}
+
+	if applyCount == 0 {
+		return ruleResponse(v.rule, "", response.RuleStatusSkip)
 	}
 
 	return ruleResponse(v.rule, "", response.RuleStatusPass)
@@ -289,7 +302,6 @@ func (v *validator) evaluateList(jmesPath string) ([]interface{}, error) {
 
 	return l, nil
 }
-
 
 func (v *validator) loadContext() error {
 	if err := LoadContext(v.log, v.contextEntries, v.ctx.ResourceCache, v.ctx, v.rule.Name); err != nil {
@@ -481,7 +493,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 	return ruleResponse(v.rule, v.rule.Validation.Message, response.RuleStatusPass)
 }
 
-func deserializeAnyPattern(anyPattern apiextensions.JSON ) ([]interface{}, error) {
+func deserializeAnyPattern(anyPattern apiextensions.JSON) ([]interface{}, error) {
 	if anyPattern == nil {
 		return nil, nil
 	}
@@ -538,7 +550,7 @@ func buildAnyPatternErrorMessage(rule *kyverno.Rule, errors []string) string {
 	return fmt.Sprintf("validation error: %s. %s", rule.Validation.Message, errStr)
 }
 
-func  (v *validator) substitutePatterns() error {
+func (v *validator) substitutePatterns() error {
 	if v.pattern != nil {
 		i, err := variables.SubstituteAll(v.log, v.ctx.JSONContext, v.pattern)
 		if err != nil {
@@ -562,7 +574,7 @@ func  (v *validator) substitutePatterns() error {
 	return nil
 }
 
-func  (v *validator) substituteDeny() error {
+func (v *validator) substituteDeny() error {
 	if v.deny == nil {
 		return nil
 	}
@@ -586,6 +598,6 @@ func ruleResponse(rule *kyverno.Rule, msg string, status response.RuleStatus) *r
 		Name:    rule.Name,
 		Type:    utils.Validation.String(),
 		Message: msg,
-		Status: status,
+		Status:  status,
 	}
 }

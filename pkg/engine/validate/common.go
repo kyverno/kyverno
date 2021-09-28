@@ -40,4 +40,3 @@ func getRawKeyIfWrappedWithAttributes(str string) string {
 		return str
 	}
 }
-

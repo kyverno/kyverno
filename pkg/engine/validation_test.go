@@ -1921,9 +1921,9 @@ func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.
 
 func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 	tests := []struct {
-		name            string
-		policyRaw       []byte
-		resourceRaw     []byte
+		name             string
+		policyRaw        []byte
+		resourceRaw      []byte
 		expectedResults  []response.RuleStatus
 		expectedMessages []string
 	}{
@@ -1931,7 +1931,7 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 			name:      "path-not-present",
 			policyRaw: []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"flux-multi-tenancy"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"serviceAccountName","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":".spec.serviceAccountName is required","pattern":{"spec":{"serviceAccountName":"?*"}}}},{"name":"sourceRefNamespace","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":"spec.sourceRef.namespace must be the same as metadata.namespace","deny":{"conditions":[{"key":"{{request.object.spec.sourceRef.namespace}}","operator":"NotEquals","value":"{{request.object.metadata.namespace}}"}]}}}]}}`),
 			// referred variable path not present
-			resourceRaw:     []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team"},"prune":true,"validation":"client"}}`),
+			resourceRaw:      []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team"},"prune":true,"validation":"client"}}`),
 			expectedResults:  []response.RuleStatus{response.RuleStatusPass, response.RuleStatusError},
 			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "failed to substitute variables in deny conditions: Unknown key \"namespace\" in path"},
 		},
@@ -1939,7 +1939,7 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 			name:      "resource-with-violation",
 			policyRaw: []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"flux-multi-tenancy"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"serviceAccountName","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":".spec.serviceAccountName is required","pattern":{"spec":{"serviceAccountName":"?*"}}}},{"name":"sourceRefNamespace","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":"spec.sourceRef.namespace {{request.object.spec.sourceRef.namespace}} must be the same as metadata.namespace {{request.object.metadata.namespace}}","deny":{"conditions":[{"key":"{{request.object.spec.sourceRef.namespace}}","operator":"NotEquals","value":"{{request.object.metadata.namespace}}"}]}}}]}}`),
 			// referred variable path present with different value
-			resourceRaw:     []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team","namespace":"default"},"prune":true,"validation":"client"}}`),
+			resourceRaw:      []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team","namespace":"default"},"prune":true,"validation":"client"}}`),
 			expectedResults:  []response.RuleStatus{response.RuleStatusPass, response.RuleStatusFail},
 			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "spec.sourceRef.namespace default must be the same as metadata.namespace apps"},
 		},
@@ -1947,7 +1947,7 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 			name:      "resource-comply",
 			policyRaw: []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"flux-multi-tenancy"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"serviceAccountName","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":".spec.serviceAccountName is required","pattern":{"spec":{"serviceAccountName":"?*"}}}},{"name":"sourceRefNamespace","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":"spec.sourceRef.namespace must be the same as metadata.namespace","deny":{"conditions":[{"key":"{{request.object.spec.sourceRef.namespace}}","operator":"NotEquals","value":"{{request.object.metadata.namespace}}"}]}}}]}}`),
 			// referred variable path present with same value - validate passes
-			resourceRaw:     []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team","namespace":"apps"},"prune":true,"validation":"client"}}`),
+			resourceRaw:      []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team","namespace":"apps"},"prune":true,"validation":"client"}}`),
 			expectedResults:  []response.RuleStatus{response.RuleStatusPass, response.RuleStatusPass},
 			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "validation rule 'sourceRefNamespace' passed."},
 		},
@@ -2603,10 +2603,8 @@ func Test_foreach_context_preconditions(t *testing.T) {
 		"metadata": {"name": "test"},
 		"spec": { "template": { "spec": {
 			"containers": [
-				{"name": "pod1-valid", "image": "nginx/nginx:v1"},
-				{"name": "pod2-valid", "image": "nginx/nginx:v2"},
-				{"name": "pod3-valid", "image": "nginx/nginx:v3"},
-				{"name": "pod4-valid", "image": "nginx/nginx:v4"}
+				{"name": "podvalid", "image": "nginx/nginx:v1"},
+				{"name": "podinvalid", "image": "nginx/nginx:v2"}
 			]
 		}}}}`)
 
@@ -2622,17 +2620,17 @@ func Test_foreach_context_preconditions(t *testing.T) {
 			  "validate": {
 				"foreach": {
 				  "list": "request.object.spec.template.spec.containers",
-                  "context": [{"name": "tags", "configMap": {"name": "mycmap", "namespace": "default"}}],
+                  "context": [{"name": "img", "configMap": {"name": "mycmap", "namespace": "default"}}],
 				  "preconditions": { "all": [
 					{
 					  "key": "{{request.object.name}}",
-					  "operator": "Equals",
-					  "value": "pod1-valid | pod2-valid | pod3-valid"
+					  "operator": "In",
+					  "value": ["podvalid"]
 					}
 				  ]},
 				  "deny": {
 				    "conditions": [
-					  {"key": "images.{{ request.object.name }}.tag", "operator": "NotEquals", "value": "{{ tags.data.{{ request.object.name }} }}"}
+					  {"key": "{{ request.object.image }}", "operator": "NotEquals", "value": "{{ img.data.{{ request.object.name }} }}"}
                     ]
 				  }
 				}
@@ -2646,9 +2644,8 @@ func Test_foreach_context_preconditions(t *testing.T) {
 					{
 						Name: "test",
 						Values: map[string]string{
-							"tags.data.pod1-valid": "v1",
-							"tags.data.pod2-valid": "v2",
-							"tags.data.pod3-valid": "v3",
+							"img.data.podvalid":   "nginx/nginx:v1",
+							"img.data.podinvalid": "nginx/nginx:v2",
 						},
 					},
 				},
@@ -2670,10 +2667,8 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 		"metadata": {"name": "test"},
 		"spec": { "template": { "spec": {
 			"containers": [
-				{"name": "pod1-valid", "image": "nginx/nginx:v1"},
-				{"name": "pod2-valid", "image": "nginx/nginx:v2"},
-				{"name": "pod3-valid", "image": "nginx/nginx:v3"},
-				{"name": "pod4-valid", "image": "nginx/nginx:v4"}
+				{"name": "podvalid", "image": "nginx/nginx:v1"},
+				{"name": "podinvalid", "image": "nginx/nginx:v2"}
 			]
 		}}}}`)
 
@@ -2689,17 +2684,17 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 			  "validate": {
 				"foreach": {
 				  "list": "request.object.spec.template.spec.containers",
-                  "context": [{"name": "tags", "configMap": {"name": "mycmap", "namespace": "default"}}],
+                  "context": [{"name": "img", "configMap": {"name": "mycmap", "namespace": "default"}}],
 				  "preconditions": { "all": [
 					{
 					  "key": "{{request.object.name}}",
-					  "operator": "Equals",
-					  "value": "pod1-valid | pod2-valid | pod3-valid"
+					  "operator": "In",
+					  "value": ["podvalid", "podinvalid"]
 					}
 				  ]},
 				  "deny": {
 				    "conditions": [
-					  {"key": "images.{{ request.object.name }}.tag", "operator": "NotEquals", "value": "{{ tags.data.{{ request.object.name }} }}"}
+					  {"key": "{{ request.object.image }}", "operator": "NotEquals", "value": "{{ img.data.{{ request.object.name }} }}"}
                     ]
 				  }
 				}
@@ -2713,9 +2708,8 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 					{
 						Name: "test",
 						Values: map[string]string{
-							"tags.data.pod1-valid": "v1",
-							"tags.data.pod2-valid": "v22",
-							"tags.data.pod3-valid": "v3",
+							"img.data.podvalid":   "nginx/nginx:v1",
+							"img.data.podinvalid": "nginx/nginx:v1",
 						},
 					},
 				},

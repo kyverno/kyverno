@@ -51,7 +51,6 @@ func Test_parse_file(t *testing.T) {
 	assert.Equal(t, response.RuleStatusFail, s.TestCases[0].Expected.Validation.PolicyResponse.Rules[0].Status, "invalid status")
 }
 
-
 func Test_parse_file2(t *testing.T) {
 	path := getRelativePath("test/scenarios/samples/best_practices/disallow_bind_mounts_fail.yaml")
 	data, err := ioutil.ReadFile(path)

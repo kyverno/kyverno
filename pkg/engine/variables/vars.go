@@ -52,6 +52,8 @@ func newPreconditionsVariableResolver(log logr.Logger) VariableResolver {
 	}
 }
 
+// SubstituteAll substitutes variables and references in the document. The document must be JSON data
+// i.e. string, []interface{}, map[string]interface{}
 func SubstituteAll(log logr.Logger, ctx context.EvalInterface, document interface{}) (_ interface{}, err error) {
 	return substituteAll(log, ctx, document, DefaultVariableResolver)
 }
@@ -139,8 +141,6 @@ func SubstituteAllForceMutate(log logr.Logger, ctx context.EvalInterface, typedR
 	return UntypedToRule(rule)
 }
 
-//SubstituteVars replaces the variables with the values defined in the context
-// - if any variable is invalid or has nil value, it is considered as a failed variable substitution
 func substituteVars(log logr.Logger, ctx context.EvalInterface, rule interface{}, vr VariableResolver) (interface{}, error) {
 	return jsonUtils.NewTraversal(rule, substituteVariablesIfAny(log, ctx, vr)).TraverseJSON()
 }

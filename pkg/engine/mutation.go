@@ -118,7 +118,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 				Name:    ruleCopy.Name,
 				Type:    utils.Validation.String(),
 				Message: fmt.Sprintf("variable substitution failed: %s", err.Error()),
-				Status: response.RuleStatusPass,
+				Status:  response.RuleStatusPass,
 			}
 
 			incrementAppliedCount(resp)

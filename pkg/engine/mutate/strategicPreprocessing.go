@@ -325,7 +325,7 @@ func convertRNodeToInterface(document *yaml.RNode) (interface{}, error) {
 }
 
 func checkCondition(logger logr.Logger, pattern *yaml.RNode, resource *yaml.RNode) error {
-	patternInterface, err := convertRNodeToInterface(pattern);
+	patternInterface, err := convertRNodeToInterface(pattern)
 	if err != nil {
 		return err
 	}
@@ -336,7 +336,7 @@ func checkCondition(logger logr.Logger, pattern *yaml.RNode, resource *yaml.RNod
 	}
 
 	err, _ = validate.MatchPattern(logger, resourceInterface, patternInterface)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 

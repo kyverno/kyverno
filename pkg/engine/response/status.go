@@ -9,16 +9,21 @@ import (
 // RuleStatus represents the status of rule execution
 type RuleStatus int
 
+// RuleStatusPass is used to report the result of processing a rule.
 const (
-	// RuleStatusPass indicates that the policy rule requirements are met
+	// RuleStatusPass indicates that the resources meets the policy rule requirements
 	RuleStatusPass RuleStatus = iota
-	// Fail indicates that the policy rule requirements are not met
+	// Fail indicates that the resource does not meet the policy rule requirements
 	RuleStatusFail
-	// Warn indicates that the policy rule requirements are not met, and the policy is not scored
+	// Warn indicates that the the resource does not meet the policy rule requirements, but the policy is not scored
 	RuleStatusWarn
-	// Error indicates that the policy rule could not be evaluated due to a processing error
+	// Error indicates that the policy rule could not be evaluated due to a processing error, for
+	// example when a variable cannot be resolved  in the policy rule definition. Note that variables
+	// that cannot be resolved in preconditions are replaced with empty values to allow existence
+	// checks.
 	RuleStatusError
-	// Skip indicates that the policy rule was not selected based on user inputs or applicability
+	// Skip indicates that the policy rule was not selected based on user inputs or applicability, for example
+	// when preconditions are not met, or when conditional or global anchors are not satistied.
 	RuleStatusSkip
 )
 
@@ -28,18 +33,18 @@ func (s *RuleStatus) String() string {
 
 var toString = map[RuleStatus]string{
 	RuleStatusPass:  "Pass",
-	RuleStatusFail: "Fail",
-	RuleStatusWarn: "Warning",
+	RuleStatusFail:  "Fail",
+	RuleStatusWarn:  "Warning",
 	RuleStatusError: "Error",
-	RuleStatusSkip: "Skip",
+	RuleStatusSkip:  "Skip",
 }
 
 var toID = map[string]RuleStatus{
-	"Pass":  RuleStatusPass,
-	"Fail":  RuleStatusFail,
+	"Pass":    RuleStatusPass,
+	"Fail":    RuleStatusFail,
 	"Warning": RuleStatusWarn,
-	"Error": RuleStatusError,
-	"Skip": RuleStatusSkip,
+	"Error":   RuleStatusError,
+	"Skip":    RuleStatusSkip,
 }
 
 // MarshalJSON marshals the enum as a quoted json string
@@ -66,7 +71,7 @@ func (s *RuleStatus) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func getRuleStatus(s string) (*RuleStatus, error){
+func getRuleStatus(s string) (*RuleStatus, error) {
 	for k, v := range toID {
 		if s == k {
 			return &v, nil

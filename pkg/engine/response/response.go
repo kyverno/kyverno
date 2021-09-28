@@ -87,7 +87,7 @@ type RuleResponse struct {
 	Status RuleStatus `json:"status"`
 
 	// statistics
-	RuleStats  `json:",inline"`
+	RuleStats `json:",inline"`
 }
 
 //ToString ...
@@ -161,7 +161,7 @@ func (er EngineResponse) GetResourceSpec() ResourceSpec {
 func (er EngineResponse) getRules(status RuleStatus) []string {
 	var rules []string
 	for _, r := range er.PolicyResponse.Rules {
-		if r.Status ==  status {
+		if r.Status == status {
 			rules = append(rules, r.Name)
 		}
 	}

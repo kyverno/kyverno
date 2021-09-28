@@ -1516,7 +1516,7 @@ func Test_global_anchor(t *testing.T) {
 		pattern  []byte
 		resource []byte
 		nilErr   bool
-	} {
+	}{
 		{
 			name:     "check global anchor_skip",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
@@ -1535,7 +1535,12 @@ func Test_global_anchor(t *testing.T) {
 	testMatchPattern(t, testCases[1])
 }
 
-func testMatchPattern(t *testing.T, testCase struct {name string;pattern []byte;resource []byte;nilErr bool}) {
+func testMatchPattern(t *testing.T, testCase struct {
+	name     string
+	pattern  []byte
+	resource []byte
+	nilErr   bool
+}) {
 	var pattern, resource interface{}
 	err := json.Unmarshal(testCase.pattern, &pattern)
 	assert.NilError(t, err)

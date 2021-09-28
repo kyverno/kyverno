@@ -80,8 +80,8 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 		// if the oldResource matched, return "false" to delete GR for it
 		if err = MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels); err == nil {
 			return &response.RuleResponse{
-				Name:    rule.Name,
-				Type:    "Generation",
+				Name:   rule.Name,
+				Type:   "Generation",
 				Status: response.RuleStatusFail,
 				RuleStats: response.RuleStats{
 					ProcessingTime:         time.Since(startTime),
@@ -123,8 +123,8 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 
 	// build rule Response
 	return &response.RuleResponse{
-		Name:    ruleCopy.Name,
-		Type:    "Generation",
+		Name:   ruleCopy.Name,
+		Type:   "Generation",
 		Status: response.RuleStatusPass,
 		RuleStats: response.RuleStats{
 			ProcessingTime:         time.Since(startTime),
