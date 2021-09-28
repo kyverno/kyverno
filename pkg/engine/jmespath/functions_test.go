@@ -301,3 +301,63 @@ func Test_labelMatch(t *testing.T) {
 	}
 
 }
+
+func TestJMESPathFunctions_Add(t *testing.T) {
+	jp, err := New("add(`12`, `13`)")
+	assert.NilError(t, err)
+
+	result, err := jp.Search("")
+	assert.NilError(t, err)
+
+	equal, ok := result.(float64)
+	assert.Assert(t, ok)
+	assert.Equal(t, equal, 25.0)
+}
+
+func TestJMESPathFunctions_Subtract(t *testing.T) {
+	jp, err := New("subtract(`12`, `7`)")
+	assert.NilError(t, err)
+
+	result, err := jp.Search("")
+	assert.NilError(t, err)
+
+	equal, ok := result.(float64)
+	assert.Assert(t, ok)
+	assert.Equal(t, equal, 5.0)
+}
+
+func TestJMESPathFunctions_Multiply(t *testing.T) {
+	jp, err := New("multiply(`3`, `2.5`)")
+	assert.NilError(t, err)
+
+	result, err := jp.Search("")
+	assert.NilError(t, err)
+
+	equal, ok := result.(float64)
+	assert.Assert(t, ok)
+	assert.Equal(t, equal, 7.5)
+}
+
+func TestJMESPathFunctions_Divide(t *testing.T) {
+	jp, err := New("divide(`12`, `1.5`)")
+	assert.NilError(t, err)
+
+	result, err := jp.Search("")
+	assert.NilError(t, err)
+
+	equal, ok := result.(float64)
+	assert.Assert(t, ok)
+	assert.Equal(t, equal, 8.0)
+}
+
+func TestJMESPathFunctions_Modulo(t *testing.T) {
+	jp, err := New("modulo(`12`, `7`)")
+	assert.NilError(t, err)
+
+	result, err := jp.Search("")
+	assert.NilError(t, err)
+
+	equal, ok := result.(int64)
+	assert.Assert(t, ok)
+	assert.Equal(t, equal, int64(5))
+}

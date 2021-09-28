@@ -33,7 +33,10 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 
 	for _, policy := range policies {
 		for _, rule := range policy.Spec.Rules {
-			resourceTypesMap = getKindsFromPolicy(rule)
+			resourceTypesInRule := getKindsFromPolicy(rule)
+			for resourceKind := range resourceTypesInRule {
+				resourceTypesMap[resourceKind] = true
+			}
 		}
 	}
 

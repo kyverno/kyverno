@@ -3,6 +3,7 @@ policies:
   - cm-variable-example.yaml
   - cm-array-example.yaml
   - cm-blk-scalar-example.yaml
+  - cm-globalval-example.yaml
 resources:
   - resources.yaml
 variables: variables.yaml
@@ -31,3 +32,11 @@ results:
     rule: validate-blk-role-annotation
     resource: test-blk-app
     result: pass
+  - policy: cm-globalval-example
+    rule: validate-mode
+    resource: test-global-dev
+    result: pass
+  - policy: cm-globalval-example
+    rule: validate-mode
+    resource: test-global-prod
+    result: fail

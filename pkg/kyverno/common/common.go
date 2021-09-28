@@ -57,6 +57,7 @@ type Rule struct {
 
 type Values struct {
 	Policies           []Policy            `json:"policies"`
+	GlobalValues       map[string]string   `json:"globalValues"`
 	NamespaceSelectors []NamespaceSelector `json:"namespaceSelector"`
 }
 
@@ -392,11 +393,12 @@ func RemoveDuplicateAndObjectVariables(matches [][]string) string {
 	return variableStr
 }
 
-func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyResourcePath string) (map[string]string, map[string]map[string]Resource, map[string]map[string]string, error) {
+func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyResourcePath string) (map[string]string, map[string]string, map[string]map[string]Resource, map[string]map[string]string, error) {
 	valuesMapResource := make(map[string]map[string]Resource)
 	valuesMapRule := make(map[string]map[string]Rule)
 	namespaceSelectorMap := make(map[string]map[string]string)
 	variables := make(map[string]string)
+	globalValMap := make(map[string]string)
 	reqObjVars := ""
 
 	var yamlFile []byte
@@ -431,18 +433,20 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		}
 
 		if err != nil {
-			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("unable to read yaml", err)
+			return variables, globalValMap, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("unable to read yaml", err)
 		}
 
 		valuesBytes, err := yaml.ToJSON(yamlFile)
 		if err != nil {
-			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to convert json", err)
+			return variables, globalValMap, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to convert json", err)
 		}
 
 		values := &Values{}
 		if err := json.Unmarshal(valuesBytes, values); err != nil {
-			return variables, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to decode yaml", err)
+			return variables, globalValMap, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to decode yaml", err)
 		}
+
+		globalValMap = values.GlobalValues
 
 		for _, p := range values.Policies {
 			resourceMap := make(map[string]Resource)
@@ -497,7 +501,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		Policies: storePolices,
 	})
 
-	return variables, valuesMapResource, namespaceSelectorMap, nil
+	return variables, globalValMap, valuesMapResource, namespaceSelectorMap, nil
 }
 
 // MutatePolices - function to apply mutation on policies
@@ -947,14 +951,25 @@ func PrintMutatedPolicy(mutatedPolicies []*v1.ClusterPolicy) error {
 	return nil
 }
 
-func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]string, error) {
+func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValMap map[string]string, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]string, error) {
 	// get values from file for this policy resource combination
 	thisPolicyResourceValues := make(map[string]string)
 	if len(valuesMap[policyName]) != 0 && !reflect.DeepEqual(valuesMap[policyName][resourceName], Resource{}) {
 		thisPolicyResourceValues = valuesMap[policyName][resourceName].Values
 	}
+
 	for k, v := range variables {
 		thisPolicyResourceValues[k] = v
+	}
+
+	if thisPolicyResourceValues == nil && len(globalValMap) > 0 {
+		thisPolicyResourceValues = make(map[string]string)
+	}
+
+	for k, v := range globalValMap {
+		if _, ok := thisPolicyResourceValues[k]; !ok {
+			thisPolicyResourceValues[k] = v
+		}
 	}
 
 	// skipping the variable check for non matching kind
