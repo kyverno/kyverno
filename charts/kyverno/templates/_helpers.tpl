@@ -42,6 +42,17 @@ helm.sh/chart: {{ template "kyverno.chart" . }}
 {{- end }}
 {{- end -}}
 
+{{/* Helm required labels */}}
+{{- define "kyverno.test-labels" -}}
+app.kubernetes.io/component: kyverno
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/name: {{ template "kyverno.name" . }}-test
+app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
+app.kubernetes.io/version: "{{ .Chart.Version }}"
+helm.sh/chart: {{ template "kyverno.chart" . }}
+{{- end -}}
+
 {{/* matchLabels */}}
 {{- define "kyverno.matchLabels" -}}
 app.kubernetes.io/name: {{ template "kyverno.name" . }}
@@ -78,27 +89,5 @@ app.kubernetes.io/instance: {{ .Release.Name }}
     {{ default (include "kyverno.fullname" .) .Values.rbac.serviceAccount.name }}
 {{- else -}}
     {{ default "default" .Values.rbac.serviceAccount.name }}
-{{- end -}}
-{{- end -}}
-
-{{/* Set if a baseline policy is managed */}}
-{{- define "kyverno.podSecurityBaseline" -}}
-{{- if or (eq .Values.podSecurityStandard "baseline") (eq .Values.podSecurityStandard "restricted") }}
-{{- true }}
-{{- else if and (eq .Values.podSecurityStandard "custom") (has .name .Values.podSecurityPolicies) }}
-{{- true }}
-{{- else -}}
-{{- false }}
-{{- end -}}
-{{- end -}}
-
-{{/* Set if a restricted policy is managed */}}
-{{- define "kyverno.podSecurityRestricted" -}}
-{{- if eq .Values.podSecurityStandard "restricted" }}
-{{- true }}
-{{- else if and (eq .Values.podSecurityStandard "custom") (has .name .Values.podSecurityPolicies) }}
-{{- true }}
-{{- else -}}
-{{- false }}
 {{- end -}}
 {{- end -}}

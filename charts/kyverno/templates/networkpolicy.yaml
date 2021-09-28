@@ -15,20 +15,20 @@ spec:
   ingress:
   - from:
       {{- with .Values.networkPolicy }}
-      namespaceSelector:
-        matchExpressions:
-          {{- toYaml .namespaceExpressions | nindent 8 }}
-        matchLabels:
-          {{- range $key, $value := .namespaceLabels }}
-          {{ $key | quote }}: {{ $value | quote }}
-          {{- end }}
-      podSelector:
-        matchExpressions:
-          {{- toYaml .podExpressions | nindent 8 }}
-        matchLabels:
-          {{- range $key, $value := .podLabels }}
-          {{ $key | quote }}: {{ $value | quote }}
-          {{- end }}
+      - namespaceSelector:
+          matchExpressions:
+            {{- toYaml .namespaceExpressions | nindent 10 }}
+          matchLabels:
+            {{- range $key, $value := .namespaceLabels }}
+            {{ $key | quote }}: {{ $value | quote }}
+            {{- end }}
+        podSelector:
+          matchExpressions:
+            {{- toYaml .podExpressions | nindent 10 }}
+          matchLabels:
+            {{- range $key, $value := .podLabels }}
+            {{ $key | quote }}: {{ $value | quote }}
+            {{- end }}
       {{- end }}
     ports:
     - protocol: TCP

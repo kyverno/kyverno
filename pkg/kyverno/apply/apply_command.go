@@ -150,7 +150,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError("pass the values either using set flag or values_file flag", err)
 	}
 
-	variables, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
+	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
 
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
@@ -281,7 +281,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
 
 		for _, resource := range resources {
-			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
+			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
 			if err != nil {
 				return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.Name, resource.GetName()), err)
 			}

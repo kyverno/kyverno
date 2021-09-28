@@ -23,8 +23,7 @@ require (
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
-	github.com/minio/minio v0.0.0-20200114012931-30922148fbb5
-	github.com/minio/pkg v1.0.7
+	github.com/minio/pkg v1.1.3
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/onsi/ginkgo v1.15.0
 	github.com/onsi/gomega v1.11.0

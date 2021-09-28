@@ -21,6 +21,18 @@ spec:
         # do not remove
         app.kubernetes.io/name: kyverno
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                  - kyverno
+              topologyKey: "kubernetes.io/hostname"
       serviceAccountName: kyverno-service-account
       securityContext:
         runAsNonRoot: true
