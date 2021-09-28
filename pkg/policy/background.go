@@ -40,22 +40,6 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 			}
 		}
 
-		if len(rule.ExcludeResources.All) > 0 {
-			for i, value := range rule.ExcludeResources.All {
-				if path := userInfoDefined(value.UserInfo); path != "" {
-					return fmt.Errorf("invalid variable used at path: spec/rules[%d]/match/any[%d]/%s", idx, i, path)
-				}
-			}
-		}
-
-		if len(rule.ExcludeResources.Any) > 0 {
-			for i, value := range rule.ExcludeResources.Any {
-				if path := userInfoDefined(value.UserInfo); path != "" {
-					return fmt.Errorf("invalid variable used at path: spec/rules[%d]/match/all[%d]/%s", idx, i, path)
-				}
-			}
-		}
-
 		filterVars := []string{"request.object", "request.namespace", "images"}
 		ctx := context.NewContext(filterVars...)
 
