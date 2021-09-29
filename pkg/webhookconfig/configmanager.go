@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -26,7 +25,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-var defaultWebhookTimeout int32 = 3
+var defaultWebhookTimeout int64 = 3
 
 // TODO:
 // 1. configure timeout
@@ -221,7 +220,7 @@ const (
 // based on kind, failurePolicy and webhookTimeout
 type webhook struct {
 	kind              string
-	maxWebhookTimeout *int32
+	maxWebhookTimeout int64
 	failurePolicy     kyverno.FailurePolicyType
 
 	// rule represents the same rule struct of the webhook using a map object
@@ -248,7 +247,11 @@ func (m *webhookConfigManager) updateWebhookConfig(webhooks []*webhook) error {
 		errs = append(errs, err.Error())
 	}
 
-	return errors.New(strings.Join(errs, "\n"))
+	if len(errs) != 0 {
+		return errors.New(strings.Join(errs, "\n"))
+	}
+
+	return nil
 }
 
 func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName string, webhooksMap map[string]interface{}) error {
@@ -287,7 +290,6 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 			continue
 		}
 
-		var newRules []interface{}
 		newWebhook := webhooksMap[strings.Join([]string{webhookKind, failurePolicy}, "/")]
 		w, ok := newWebhook.(*webhook)
 		if !ok {
@@ -295,27 +297,37 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 			continue
 		}
 
-		newRules = []interface{}{w.rule}
-		if !reflect.DeepEqual(rules, newRules) {
+		if !reflect.DeepEqual(w.rule, map[string]interface{}{}) && !reflect.DeepEqual(rules, []interface{}{w.rule}) {
 			changed = true
-			if err = unstructured.SetNestedSlice(newWebooks[i].(map[string]interface{}), newRules, "rules"); err != nil {
-				fmt.Println("===========1 err", err)
+
+			tmpRules := newWebooks[i].(map[string]interface{})["rules"].([]interface{})
+			if err = unstructured.SetNestedStringSlice(tmpRules[0].(map[string]interface{}), w.rule[apiGroups].([]string), apiGroups); err != nil {
+				return errors.Wrapf(err, "unable to set webhooks[%d].rules[0].%s", i, apiGroups)
 			}
+			if err = unstructured.SetNestedStringSlice(tmpRules[0].(map[string]interface{}), w.rule[apiVersions].([]string), apiVersions); err != nil {
+				return errors.Wrapf(err, "unable to set webhooks[%d].rules[0].%s", i, apiVersions)
+			}
+			if err = unstructured.SetNestedStringSlice(tmpRules[0].(map[string]interface{}), w.rule[resources].([]string), resources); err != nil {
+				return errors.Wrapf(err, "unable to set webhooks[%d].rules[0].%s", i, resources)
+			}
+
 		}
 
-		if err = unstructured.SetNestedField(newWebooks[i].(map[string]interface{}), strconv.Itoa(int(*w.maxWebhookTimeout)), "timeoutSeconds"); err != nil {
-			fmt.Println("===========2 err", err)
+		if err = unstructured.SetNestedField(newWebooks[i].(map[string]interface{}), w.maxWebhookTimeout, "timeoutSeconds"); err != nil {
+			return errors.Wrapf(err, "unable to set webhooks[%d].timeoutSeconds to %v", i, w.maxWebhookTimeout)
 		}
 	}
 
 	if changed {
+		logger.V(4).Info("webhook configuration has been changed, updating")
 		if err := unstructured.SetNestedSlice(resourceWebhook.UnstructuredContent(), newWebooks, "webhooks"); err != nil {
 			return errors.Wrap(err, "unable to set new webhooks")
 		}
 
-		if _, err := m.client.UpdateResource(resourceWebhook.GetAPIVersion(), resourceWebhook.GetKind(), resourceWebhook.GetName(), resourceWebhook, false); err != nil {
-			return errors.Wrapf(err, "unable to update %s/%s", webhookKind, webhookName)
+		if _, err := m.client.UpdateResource(resourceWebhook.GetAPIVersion(), resourceWebhook.GetKind(), "", resourceWebhook, false); err != nil {
+			return errors.Wrapf(err, "unable to update %s/%s: %s", resourceWebhook.GetAPIVersion(), resourceWebhook.GetKind(), resourceWebhook.GetName())
 		}
+		logger.Info("successfully updated the webhook configuration")
 	}
 
 	return nil
@@ -493,9 +505,16 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.Cluster
 	}
 
 	var groups, versions, rsrcs []string
-	copy(groups, dst.rule[apiGroups].([]string))
-	copy(versions, dst.rule[apiVersions].([]string))
-	copy(rsrcs, dst.rule[resources].([]string))
+	if val, ok := dst.rule[apiGroups]; ok {
+		copy(groups, val.([]string))
+	}
+
+	if val, ok := dst.rule[apiVersions]; ok {
+		copy(groups, val.([]string))
+	}
+	if val, ok := dst.rule[resources]; ok {
+		copy(groups, val.([]string))
+	}
 
 	for _, gvr := range gvrList {
 		groups = append(groups, gvr.Group)
@@ -508,8 +527,8 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.Cluster
 	dst.rule[resources] = removeDuplicates(rsrcs)
 
 	if policy.Spec.WebhookTimeoutSeconds != nil {
-		if *dst.maxWebhookTimeout < *policy.Spec.WebhookTimeoutSeconds {
-			*dst.maxWebhookTimeout = *policy.Spec.WebhookTimeoutSeconds
+		if dst.maxWebhookTimeout < int64(*policy.Spec.WebhookTimeoutSeconds) {
+			dst.maxWebhookTimeout = int64(*policy.Spec.WebhookTimeoutSeconds)
 		}
 	}
 }
@@ -525,15 +544,11 @@ func removeDuplicates(items []string) (res []string) {
 	return
 }
 
-func newWebhook(kind string, timeout int32, failurePolicy kyverno.FailurePolicyType) *webhook {
+func newWebhook(kind string, timeout int64, failurePolicy kyverno.FailurePolicyType) *webhook {
 	return &webhook{
 		kind:              kind,
-		maxWebhookTimeout: &timeout,
+		maxWebhookTimeout: timeout,
 		failurePolicy:     failurePolicy,
-		rule: map[string]interface{}{
-			apiVersions: make([]string, 0),
-			apiGroups:   make([]string, 0),
-			resources:   make([]string, 0),
-		},
+		rule:              make(map[string]interface{}),
 	}
 }
