@@ -230,6 +230,7 @@ func (c *Controller) updateGenericResource(old, cur interface{}) {
 
 	// re-evaluate the GR as the resource was updated
 	for _, gr := range grs {
+		gr.Spec.Context.AdmissionRequestInfo.Operation = "update"
 		c.enqueueGenerateRequest(gr)
 	}
 }
@@ -286,6 +287,7 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 
 	// re-evaluate the GR as the policy was updated
 	for _, gr := range grs {
+		gr.Spec.Context.AdmissionRequestInfo.Operation = "update"
 		c.enqueueGenerateRequest(gr)
 	}
 }
