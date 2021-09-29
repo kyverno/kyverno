@@ -13,6 +13,7 @@ import (
 // +kubebuilder:resource:path=clusterpolicies,scope="Cluster",shortName=cpol
 // +kubebuilder:printcolumn:name="Background",type="string",JSONPath=".spec.background"
 // +kubebuilder:printcolumn:name="Action",type="string",JSONPath=".spec.validationFailureAction"
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`
 type ClusterPolicy struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
