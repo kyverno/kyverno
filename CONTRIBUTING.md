@@ -2,52 +2,68 @@
 
 We welcome all contributions, suggestions, and feedback, so please do not hesitate to reach out!
 
-The easiest way to reach us is on the [Kubernetes slack #kyverno channel](https://app.slack.com/client/T09NY5SBT/CLGR9BJU9). 
 
 ## Ways you can contribute
-- Report potential bugs
-- Request a feature
-- Request a sample policy
-- Join our community meetings
-- Submit a PR for [open issues](https://github.com/kyverno/kyverno/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
-- Fix or improve documentation
+### Report issues
+   - Report potential bugs
+   - Request a feature
+   - Request a sample policy
 
-The [Kyverno Wiki](https://github.com/kyverno/kyverno/wiki) contains details on code design, building, and testing. Please review all sections.
+### Submit Pull Requests
+   #### Get started
 
-Before you contribute, please review and agree to abide by our community [Code of Conduct](/CODE_OF_CONDUCT.md).
+Head over to project repository on github and click the **"Fork"** button. With the forked copy, you can try new ideas and implement changes to the project.
 
-## Contribution Steps
-Head over to project repository on github and click the "Fork" button. With the forked copy, you can try new ideas and implement changes to the project.
-
-**Clone the repository to your device:**
+ -  **Clone the repository to your device:**
 
 Get the link of your forked repository, paste it in your device terminal and clone it using the command.
 
-```git clone https://hostname/YOUR-USERNAME/YOUR-REPOSITORY```
+```
+$ git clone https://hostname/YOUR-USERNAME/YOUR-REPOSITORY
+```
 
- **Create a branch:** 
+ - **Create a branch:** 
 
  Create a new brach and navigate to the branch using this command.
 
- ```git checkout -b <new-branch>```
+ ```
+ $ git checkout -b <new-branch>
+ ```
 
  Great, its time to start hacking, You can now go ahead to make all the changes you want.
 
 
- **Stage, Commit and Push changes:**
+ - **Stage, Commit and Push changes:**
 
  Now that we have implemented the required changes, use the command below to stage the changes and commit them
 
- ```git add .```
+ ```
+ $ git add .
+ ```
 
- ```git commit -s -m "Commit message"```
+ ```
+ $ git commit -s -m "Commit message"
+ ```
 
  The -s signifies that you have signed off the the commit.
 
  Go ahead and push your changes to github using this command.
  
- ``` git push ```
- 
+ ``` 
+ $ git push 
+ ```
+#### Setup local development environments 
+-  Build Kyverno CLI using this [link](https://kyverno.io/docs/kyverno-cli/#building-the-cli-from-source) 
+-  The [Kyverno Wiki](https://github.com/kyverno/kyverno/wiki) contains details on code design, building, and testing. Please review all sections.
+####  Submit a PR for [open issues](https://github.com/kyverno/kyverno/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+### Fix or improve documentation
+   - [Kyverno Docs](https://github.com/kyverno/website)
+
+
+
+Before you contribute, please review and agree to abide by our community [Code of Conduct](/CODE_OF_CONDUCT.md).
+### Join our community meetings
+ The easiest way to reach us is on the [Kubernetes slack #kyverno channel](https://app.slack.com/client/T09NY5SBT/CLGR9BJU9). 
 ## Developer Certificate of Origin (DCO) Sign off
 
 For contributors to certify that they wrote or otherwise have the right to submit the code they are contributing to the project, we are requiring everyone to acknowledge this by signing their work.
