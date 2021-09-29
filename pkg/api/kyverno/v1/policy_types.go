@@ -60,6 +60,12 @@ type Spec struct {
 	// Optional. The default value is set to "true", it must be set to "false" to disable the validation checks.
 	// +optional
 	SchemaValidation *bool `json:"schemaValidation,omitempty" yaml:"schemaValidation,omitempty"`
+
+	// WebhookTimeoutSeconds specifies the webhook timeout for this policy.
+	// After the timeout passes, the admission request will fail based on the failure policy.
+	// The default timeout is 3s, the value must be between 1 and 30 seconds.
+	// Default to 10 seconds.
+	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
 }
 
 // Rule defines a validation, mutation, or generation control for matching resources.

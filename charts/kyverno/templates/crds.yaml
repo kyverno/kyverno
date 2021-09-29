@@ -956,6 +956,10 @@ spec:
               validationFailureAction:
                 description: ValidationFailureAction controls if a validation policy rule failure should disallow the admission review request (enforce), or allow (audit) the admission review request and report an error in a policy report. Optional. The default value is "audit".
                 type: string
+              webhookTimeoutSeconds:
+                description: WebhookTimeoutSeconds specifies the webhook timeout for this policy. After the timeout passes, the admission request will fail based on the failure policy. The default timeout is 3s, the value must be between 1 and 30 seconds. Default to 10 seconds.
+                format: int32
+                type: integer
             type: object
           status:
             description: Status contains policy runtime data.
@@ -3097,6 +3101,10 @@ spec:
               validationFailureAction:
                 description: ValidationFailureAction controls if a validation policy rule failure should disallow the admission review request (enforce), or allow (audit) the admission review request and report an error in a policy report. Optional. The default value is "audit".
                 type: string
+              webhookTimeoutSeconds:
+                description: WebhookTimeoutSeconds specifies the webhook timeout for this policy. After the timeout passes, the admission request will fail based on the failure policy. The default timeout is 3s, the value must be between 1 and 30 seconds. Default to 10 seconds.
+                format: int32
+                type: integer
             type: object
           status:
             description: Status contains policy runtime information. Deprecated. Policy metrics are available via the metrics endpoint
