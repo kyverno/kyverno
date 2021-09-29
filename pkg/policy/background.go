@@ -25,6 +25,38 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 			return fmt.Errorf("invalid variable used at path: spec/rules[%d]/exclude/%s", idx, path)
 		}
 
+		if len(rule.MatchResources.Any) > 0 {
+			for i, value := range rule.MatchResources.Any {
+				if path := userInfoDefined(value.UserInfo); path != "" {
+					return fmt.Errorf("invalid variable used at path: spec/rules[%d]/match/any[%d]/%s", idx, i, path)
+				}
+			}
+		}
+
+		if len(rule.MatchResources.All) > 0 {
+			for i, value := range rule.MatchResources.All {
+				if path := userInfoDefined(value.UserInfo); path != "" {
+					return fmt.Errorf("invalid variable used at path: spec/rules[%d]/match/all[%d]/%s", idx, i, path)
+				}
+			}
+		}
+
+		if len(rule.ExcludeResources.All) > 0 {
+			for i, value := range rule.ExcludeResources.All {
+				if path := userInfoDefined(value.UserInfo); path != "" {
+					return fmt.Errorf("invalid variable used at path: spec/rules[%d]/exclude/any[%d]/%s", idx, i, path)
+				}
+			}
+		}
+
+		if len(rule.ExcludeResources.Any) > 0 {
+			for i, value := range rule.ExcludeResources.Any {
+				if path := userInfoDefined(value.UserInfo); path != "" {
+					return fmt.Errorf("invalid variable used at path: spec/rules[%d]/exclude/all[%d]/%s", idx, i, path)
+				}
+			}
+		}
+
 		filterVars := []string{"request.object", "request.namespace", "images"}
 		ctx := context.NewContext(filterVars...)
 
