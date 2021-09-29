@@ -2,7 +2,6 @@ package validate
 
 import (
 	"container/list"
-	"fmt"
 
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 )
@@ -11,7 +10,6 @@ import (
 func hasNestedAnchors(pattern interface{}) bool {
 	switch typed := pattern.(type) {
 	case map[string]interface{}:
-		fmt.Println("map[string]interface{}......")
 		if anchors := getAnchorsFromMap(typed); len(anchors) > 0 {
 			return true
 		}
@@ -22,7 +20,6 @@ func hasNestedAnchors(pattern interface{}) bool {
 		}
 		return false
 	case []interface{}:
-		fmt.Println("[]interface{}......")
 		for _, value := range typed {
 			if hasNestedAnchors(value) {
 				return true
@@ -30,7 +27,6 @@ func hasNestedAnchors(pattern interface{}) bool {
 		}
 		return false
 	default:
-		fmt.Println("default......")
 		return false
 	}
 }
@@ -38,20 +34,15 @@ func hasNestedAnchors(pattern interface{}) bool {
 // getSortedNestedAnchorResource - sorts anchors key
 func getSortedNestedAnchorResource(resources map[string]interface{}) *list.List {
 	sortedResourceKeys := list.New()
-	fmt.Println("\n-----------getSortedNestedAnchorResource------------")
-	fmt.Println("resources: ", resources)
 	for k, v := range resources {
-		fmt.Println("k: ", k, "                 v:", v)
 		if commonAnchors.IsGlobalAnchor(k) {
 			sortedResourceKeys.PushFront(k)
 			continue
 		}
 		if hasNestedAnchors(v) {
 			sortedResourceKeys.PushFront(k)
-			fmt.Println("PushFront")
 		} else {
 			sortedResourceKeys.PushBack(k)
-			fmt.Println("PushBack")
 		}
 	}
 	return sortedResourceKeys
