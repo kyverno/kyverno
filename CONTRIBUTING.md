@@ -16,6 +16,38 @@ The [Kyverno Wiki](https://github.com/kyverno/kyverno/wiki) contains details on 
 
 Before you contribute, please review and agree to abide by our community [Code of Conduct](/CODE_OF_CONDUCT.md).
 
+## Contribution Steps
+Head over to project repository on github and click the "Fork" button. With the forked copy, you can try new ideas and implement changes to the project.
+
+**Clone the repository to your device:**
+
+Get the link of your forked repository, paste it in your device terminal and clone it using the command.
+
+```git clone https://hostname/YOUR-USERNAME/YOUR-REPOSITORY```
+
+ **Create a branch:** 
+
+ Create a new brach and navigate to the branch using this command.
+
+ ```git checkout -b <new-branch>```
+
+ Great, its time to start hacking, You can now go ahead to make all the changes you want.
+
+
+ **Stage, Commit and Push changes:**
+
+ Now that we have implemented the required changes, use the command below to stage the changes and commit them
+
+ ```git add .```
+
+ ```git commit -s -m "Commit message"```
+
+ The -s signifies that you have signed off the the commit.
+
+ Go ahead and push your changes to github using this command.
+ 
+ ``` git push ```
+ 
 ## Developer Certificate of Origin (DCO) Sign off
 
 For contributors to certify that they wrote or otherwise have the right to submit the code they are contributing to the project, we are requiring everyone to acknowledge this by signing their work.
