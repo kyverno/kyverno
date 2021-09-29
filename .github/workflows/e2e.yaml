@@ -5,7 +5,6 @@ on:
       - 'main'
     paths-ignore:
       - 'README.md'
-      - 'charts/**'
       - 'docs/**'
       - '.github/config.yml'
   pull_request:
@@ -13,7 +12,6 @@ on:
       - 'main'
     paths-ignore:
       - 'README.md'
-      - 'charts/**'
       - 'docs/**'
       - '.github/config.yml'
 
@@ -96,13 +94,17 @@ jobs:
           sed -i -e "s|nameOverride:.*|nameOverride: kyverno|g" charts/kyverno/values.yaml
           sed -i -e "s|fullnameOverride:.*|fullnameOverride: kyverno|g" charts/kyverno/values.yaml
           sed -i -e "s|namespace:.*|namespace: kyverno|g" charts/kyverno/values.yaml
-          sed -i -e "s|tag:.*|tag: $(git describe --match "v[0-9]*")|g" charts/kyverno/values.yaml
+          sed -i -e "s|tag:  # replaced in e2e tests|tag: $(git describe --match "v[0-9]*")|" charts/kyverno/values.yaml
 
       - name: Run chart-testing (install)
         run: |
           kubectl create namespace kyverno
-          helm install kyverno-crds charts/kyverno-crds -n kyverno
           ct install --target-branch=main --namespace=kyverno --charts charts/kyverno
+
+      - name: Run chart-testing (policies)
+        run: |
+          helm install kyverno charts/kyverno -n kyverno
+          helm install kyverno-policies charts/kyverno-policies -n kyverno
 
       - name: Debug failure
         if: failure()
