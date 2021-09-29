@@ -3,7 +3,13 @@
 We welcome all contributions, suggestions, and feedback, so please do not hesitate to reach out!
 
 
-## Ways you can contribute
+## Ways you can contribute:
+**This page contains:**
+   - [Report Issues](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md#report-issues)
+   - [Submit Pull Requests](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md#submit-pull-requests)
+   - [Fix or improve documentation](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md#fix-or-improve-documentation) 
+   - [Join our community meetings](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md#join-our-community-meetings) 
+
 ### Report issues
    - Report potential bugs
    - Request a feature
@@ -53,8 +59,8 @@ $ git clone https://hostname/YOUR-USERNAME/YOUR-REPOSITORY
  $ git push 
  ```
 #### Setup local development environments 
--  Build Kyverno CLI using this [link](https://kyverno.io/docs/kyverno-cli/#building-the-cli-from-source) 
--  The [Kyverno Wiki](https://github.com/kyverno/kyverno/wiki) contains details on code design, building, and testing. Please review all sections.
+-  Please refer to [Running in development mode](https://github.com/kyverno/kyverno/wiki/Running-in-development-mode) for local setup.
+
 ####  Submit a PR for [open issues](https://github.com/kyverno/kyverno/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 ### Fix or improve documentation
    - [Kyverno Docs](https://github.com/kyverno/website)
