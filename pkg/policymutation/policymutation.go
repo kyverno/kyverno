@@ -371,7 +371,7 @@ func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bo
 			return false, "none"
 		}
 
-		for _, value := range match.All {
+		for _, value := range match.Any {
 			if value.Name != "" || value.Selector != nil {
 				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in match any block not be applicable.", "rule", rule.Name)
 				return false, "none"
@@ -391,7 +391,7 @@ func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bo
 		}
 		for _, value := range exclude.All {
 			if value.Name != "" || value.Selector != nil {
-				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclud any block not be applicable.", "rule", rule.Name)
+				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclud all block not be applicable.", "rule", rule.Name)
 				return false, "none"
 			}
 		}

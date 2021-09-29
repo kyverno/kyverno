@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	c "github.com/kyverno/kyverno/pkg/common"
+	common "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/minio/pkg/wildcard"
@@ -46,7 +46,7 @@ func ContainsString(list []string, element string) bool {
 
 func ContainsPod(list []string, element string) bool {
 	for _, e := range list {
-		_, k := c.GetKindFromGVK(e)
+		_, k := common.GetKindFromGVK(e)
 		if k == element {
 			return true
 		}
