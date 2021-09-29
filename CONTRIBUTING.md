@@ -4,11 +4,10 @@ We welcome all contributions, suggestions, and feedback, so please do not hesita
 
 
 ## Ways you can contribute:
-**This page contains:**
    - [Report Issues](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md#report-issues)
    - [Submit Pull Requests](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md#submit-pull-requests)
-   - [Fix or improve documentation](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md#fix-or-improve-documentation) 
-   - [Join our community meetings](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md#join-our-community-meetings) 
+   - [Fix or Improve Documentation](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md#fix-or-improve-documentation) 
+   - [Join Our Community Meetings](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md#join-our-community-meetings) 
 
 ### Report issues
    - Report potential bugs
@@ -16,6 +15,12 @@ We welcome all contributions, suggestions, and feedback, so please do not hesita
    - Request a sample policy
 
 ### Submit Pull Requests
+#### Setup local development environments 
+-  Please refer to [Running in development mode](https://github.com/kyverno/kyverno/wiki/Running-in-development-mode) for local setup.
+
+####  Submit a PR for [open issues](https://github.com/kyverno/kyverno/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+### Fix or Improve Documentation
+   - [Kyverno Docs](https://github.com/kyverno/website)
    #### Get started
 
 Head over to project repository on github and click the **"Fork"** button. With the forked copy, you can try new ideas and implement changes to the project.
@@ -58,17 +63,12 @@ $ git clone https://hostname/YOUR-USERNAME/YOUR-REPOSITORY
  ``` 
  $ git push 
  ```
-#### Setup local development environments 
--  Please refer to [Running in development mode](https://github.com/kyverno/kyverno/wiki/Running-in-development-mode) for local setup.
 
-####  Submit a PR for [open issues](https://github.com/kyverno/kyverno/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
-### Fix or improve documentation
-   - [Kyverno Docs](https://github.com/kyverno/website)
 
 
 
 Before you contribute, please review and agree to abide by our community [Code of Conduct](/CODE_OF_CONDUCT.md).
-### Join our community meetings
+### Join Our Community Meetings
  The easiest way to reach us is on the [Kubernetes slack #kyverno channel](https://app.slack.com/client/T09NY5SBT/CLGR9BJU9). 
 ## Developer Certificate of Origin (DCO) Sign off
 
