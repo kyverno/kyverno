@@ -16,4 +16,4 @@ expected:
       rules:
         - name: validate-automountServiceAccountToken
           type: Validation
-          status: Pass
+          status: pass

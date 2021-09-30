@@ -18,4 +18,4 @@ expected:
         - name: validate-volumes-whitelist
           type: Validation
           message: "validation rule 'validate-volumes-whitelist' anyPattern[2] passed."
-          status: Pass
+          status: pass

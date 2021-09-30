@@ -17,4 +17,4 @@ expected:
       rules:
         - name: validate-sysctls
           type: Validation
-          status: Fail
+          status: fail

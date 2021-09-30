@@ -16,4 +16,4 @@ expected:
       rules:
         - name: validate-hostPath
           type: Validation
-          status: Pass
+          status: pass

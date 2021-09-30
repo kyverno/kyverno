@@ -7,4 +7,4 @@ results:
   - policy: disallow-latest-tag
     rule: missing
     resource: test
-    status: Pass
+    status: pass

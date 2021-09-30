@@ -16,4 +16,4 @@ expected:
       rules:
         - name: validate-hostPID-hostIPC
           type: Validation
-          status: Fail
+          status: fail

@@ -32,19 +32,19 @@ func (s *RuleStatus) String() string {
 }
 
 var toString = map[RuleStatus]string{
-	RuleStatusPass:  "Pass",
-	RuleStatusFail:  "Fail",
-	RuleStatusWarn:  "Warning",
-	RuleStatusError: "Error",
-	RuleStatusSkip:  "Skip",
+	RuleStatusPass:  "pass",
+	RuleStatusFail:  "fail",
+	RuleStatusWarn:  "warning",
+	RuleStatusError: "error",
+	RuleStatusSkip:  "skip",
 }
 
 var toID = map[string]RuleStatus{
-	"Pass":    RuleStatusPass,
-	"Fail":    RuleStatusFail,
-	"Warning": RuleStatusWarn,
-	"Error":   RuleStatusError,
-	"Skip":    RuleStatusSkip,
+	"pass":    RuleStatusPass,
+	"fail":    RuleStatusFail,
+	"warning": RuleStatusWarn,
+	"error":   RuleStatusError,
+	"skip":    RuleStatusSkip,
 }
 
 // MarshalJSON marshals the enum as a quoted json string

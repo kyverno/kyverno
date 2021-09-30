@@ -16,7 +16,7 @@ expected:
       rules:
         - name: validate-privileged
           type: Validation
-          status: Fail
+          status: fail
         - name: validate-allowPrivilegeEscalation
           type: Validation
-          status: Fail
+          status: fail

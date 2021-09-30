@@ -17,7 +17,7 @@ expected:
       rules:
         - name: add-memory-limit
           type: Mutation
-          status: Pass
+          status: pass
           message: successfully processed strategic merge patch
   validation:
     policyresponse:
@@ -33,4 +33,4 @@ expected:
         - name: check-cpu-memory-limits
           type: Validation
           message: validation rule 'check-cpu-memory-limits' passed.
-          status: Pass
+          status: pass

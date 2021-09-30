@@ -7,11 +7,11 @@ results:
   - policy: disallow-latest-tag
     rule: require-image-tag
     resource: test-require-image-tag-pass
-    status: Pass
+    status: pass
   - policy: disallow-latest-tag
     rule: require-image-tag
     resource: test-require-image-tag-fail
-    status: Fail
+    status: fail
   - policy: disallow-latest-tag
     rule: validate-image-tag
     resource: test-validate-image-tag-ignore
@@ -19,8 +19,8 @@ results:
   - policy: disallow-latest-tag
     rule: validate-image-tag
     resource: test-validate-image-tag-fail
-    status: Fail
+    status: fail
   - policy: disallow-latest-tag
     rule: validate-image-tag
     resource: test-validate-image-tag-pass
-    status: Pass
+    status: pass

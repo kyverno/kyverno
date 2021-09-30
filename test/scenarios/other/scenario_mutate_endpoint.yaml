@@ -17,5 +17,5 @@ expected:
       rules:
         - name: pEP
           type: Mutation
-          status: Pass
+          status: pass
           message: successfully process JSON patches

@@ -16,7 +16,7 @@ expected:
       rules:
         - name: validate-host-network
           type: Validation
-          status: Pass
+          status: pass
         - name: validate-host-port
           type: Validation
-          status: Fail
+          status: fail

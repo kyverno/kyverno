@@ -26,7 +26,7 @@ expected:
       rules:
         - name: validate-hostPath
           type: Validation
-          status: Fail
+          status: fail
 `
 
 func Test_parse_yaml(t *testing.T) {
