@@ -107,6 +107,10 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		logger.Error(err, "error parsing the request string")
 	}
 
+	if gr.Spec.Context.AdmissionRequestInfo.Operation == v1beta1.Update {
+		request.Operation = gr.Spec.Context.AdmissionRequestInfo.Operation
+	}
+
 	if err := ctx.AddRequest(&request); err != nil {
 		logger.Error(err, "failed to load request in context")
 		return nil, err
