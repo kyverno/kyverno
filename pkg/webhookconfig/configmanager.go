@@ -16,6 +16,7 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/pkg/errors"
+	admregapi "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -30,6 +31,8 @@ var defaultWebhookTimeout int64 = 3
 // TODO:
 // 1. configure timeout
 // 2.wildcard support
+// 3. resourceFilters
+
 // webhookConfigManager manges the webhook configuration dynamically
 // it is NOT multi-thread safe
 type webhookConfigManager struct {
@@ -151,33 +154,42 @@ func (m *webhookConfigManager) sync(key string) error {
 		return nil
 	}
 
-	policy, err := m.getPolicy(namespace, name)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return err
-	}
-
-	return m.reconcileWebhook(policy)
+	return m.reconcileWebhook(namespace, name)
 }
 
-func (m *webhookConfigManager) reconcileWebhook(policy *kyverno.ClusterPolicy) error {
-	logger := m.log.WithName("reconcileWebhook").WithValues("namespace", policy.GetNamespace(), "policy", policy.GetName())
+func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
+	logger := m.log.WithName("reconcileWebhook").WithValues("namespace", namespace, "policy", name)
 
-	policies, err := m.listPolicies(policy.GetNamespace(), *policy.Spec.FailurePolicy)
+	policy, err := m.getPolicy(namespace, name)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return errors.Wrapf(err, "unable to get policy object %s/%s", namespace, name)
+	}
+
+	failurePolicy := kyverno.Fail
+	if policy != nil {
+		failurePolicy = *policy.Spec.FailurePolicy
+	}
+	policies, err := m.listPolicies(namespace, failurePolicy)
 	if err != nil {
-		logger.Error(err, "cannot list current policies")
+		logger.Error(err, "unable to list current policies")
 		return err
 	}
 
 	webhooks := m.buildWebhooks(policies)
 	if err = m.updateWebhookConfig(webhooks); err != nil {
-		return errors.Wrapf(err, "failed to update webhook configurations for policy %s/$s", policy.GetNamespace(), policy.GetName())
+		return errors.Wrapf(err, "failed to update webhook configurations for policy %s/%s", namespace, name)
+	}
+
+	// DELETION of the policy
+	if policy == nil {
+		return nil
 	}
 
 	if err := m.updateStatus(policy); err != nil {
-		return errors.Wrapf(err, "failed to update policy status %s/$s", policy.GetNamespace(), policy.GetName())
+		return errors.Wrapf(err, "failed to update policy status %s/%s", namespace, name)
 	}
 
-	logger.Info("policy %s/%s is ready to serve admission requests", policy.GetNamespace(), policy.GetName())
+	logger.Info("policy is ready to serve admission requests")
 	return nil
 }
 
@@ -301,7 +313,20 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 		if !reflect.DeepEqual(w.rule, map[string]interface{}{}) && !reflect.DeepEqual(rules, []interface{}{w.rule}) {
 			changed = true
 
-			tmpRules := newWebooks[i].(map[string]interface{})["rules"].([]interface{})
+			tmpRules, ok := newWebooks[i].(map[string]interface{})["rules"].([]interface{})
+			// init operations
+			if !ok {
+				ops := []string{string(admregapi.Create), string(admregapi.Update), string(admregapi.Delete), string(admregapi.Connect)}
+				if webhookKind == kindMutating {
+					ops = []string{string(admregapi.Create), string(admregapi.Update)}
+				}
+
+				tmpRules = []interface{}{map[string]interface{}{}}
+				if err = unstructured.SetNestedStringSlice(tmpRules[0].(map[string]interface{}), ops, "operations"); err != nil {
+					return errors.Wrapf(err, "unable to set webhooks[%d].rules[0].%s", i, apiGroups)
+				}
+			}
+
 			if err = unstructured.SetNestedStringSlice(tmpRules[0].(map[string]interface{}), w.rule[apiGroups].([]string), apiGroups); err != nil {
 				return errors.Wrapf(err, "unable to set webhooks[%d].rules[0].%s", i, apiGroups)
 			}
@@ -312,6 +337,7 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 				return errors.Wrapf(err, "unable to set webhooks[%d].rules[0].%s", i, resources)
 			}
 
+			newWebooks[i].(map[string]interface{})["rules"] = tmpRules
 		}
 
 		if err = unstructured.SetNestedField(newWebooks[i].(map[string]interface{}), w.maxWebhookTimeout, "timeoutSeconds"); err != nil {

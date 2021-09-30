@@ -12,11 +12,7 @@ import (
 
 func (wrc *Register) defaultResourceWebhookRule() admregapi.Rule {
 	if wrc.autoUpdateWebhooks {
-		return admregapi.Rule{
-			Resources:   []string{""},
-			APIGroups:   []string{""},
-			APIVersions: []string{""},
-		}
+		return admregapi.Rule{}
 	}
 
 	return admregapi.Rule{
