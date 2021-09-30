@@ -10,6 +10,22 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func (wrc *Register) defaultResourceWebhookRule() admregapi.Rule {
+	if wrc.autoUpdateWebhooks {
+		return admregapi.Rule{
+			Resources:   []string{""},
+			APIGroups:   []string{""},
+			APIVersions: []string{""},
+		}
+	}
+
+	return admregapi.Rule{
+		Resources:   []string{"*/*"},
+		APIGroups:   []string{"*"},
+		APIVersions: []string{"*"},
+	}
+}
+
 func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
 	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.MutatingWebhookServicePath)
@@ -25,9 +41,7 @@ func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				[]string{"*/*"},
-				"*",
-				"*",
+				wrc.defaultResourceWebhookRule(),
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
 				admregapi.Ignore,
 			),
@@ -37,9 +51,7 @@ func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				[]string{"*/*"},
-				"*",
-				"*",
+				wrc.defaultResourceWebhookRule(),
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
 				admregapi.Fail,
 			),
@@ -62,9 +74,7 @@ func (wrc *Register) constructDefaultMutatingWebhookConfig(caData []byte) *admre
 				caData,
 				false,
 				wrc.timeoutSeconds,
-				[]string{"*/*"},
-				"*",
-				"*",
+				wrc.defaultResourceWebhookRule(),
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
 				admregapi.Ignore,
 			),
@@ -74,9 +84,7 @@ func (wrc *Register) constructDefaultMutatingWebhookConfig(caData []byte) *admre
 				caData,
 				false,
 				wrc.timeoutSeconds,
-				[]string{"*/*"},
-				"*",
-				"*",
+				wrc.defaultResourceWebhookRule(),
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
 				admregapi.Fail,
 			),
@@ -134,9 +142,7 @@ func (wrc *Register) constructDefaultDebugValidatingWebhookConfig(caData []byte)
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				[]string{"*/*"},
-				"*",
-				"*",
+				wrc.defaultResourceWebhookRule(),
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete, admregapi.Connect},
 				admregapi.Ignore,
 			),
@@ -146,9 +152,7 @@ func (wrc *Register) constructDefaultDebugValidatingWebhookConfig(caData []byte)
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				[]string{"*/*"},
-				"*",
-				"*",
+				wrc.defaultResourceWebhookRule(),
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete, admregapi.Connect},
 				admregapi.Fail,
 			),
@@ -171,9 +175,7 @@ func (wrc *Register) constructDefaultValidatingWebhookConfig(caData []byte) *adm
 				caData,
 				false,
 				wrc.timeoutSeconds,
-				[]string{"*/*"},
-				"*",
-				"*",
+				wrc.defaultResourceWebhookRule(),
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete, admregapi.Connect},
 				admregapi.Ignore,
 			),
@@ -183,9 +185,7 @@ func (wrc *Register) constructDefaultValidatingWebhookConfig(caData []byte) *adm
 				caData,
 				false,
 				wrc.timeoutSeconds,
-				[]string{"*/*"},
-				"*",
-				"*",
+				wrc.defaultResourceWebhookRule(),
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete, admregapi.Connect},
 				admregapi.Fail,
 			),

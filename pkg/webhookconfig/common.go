@@ -95,7 +95,7 @@ func (wrc *Register) GetKubePolicyDeployment() (*apps.Deployment, *unstructured.
 }
 
 // debug mutating webhook
-func generateDebugMutatingWebhook(name, url string, caData []byte, validate bool, timeoutSeconds int32, resources []string, apiGroups, apiVersions string, operationTypes []admregapi.OperationType, failurePolicy admregapi.FailurePolicyType) admregapi.MutatingWebhook {
+func generateDebugMutatingWebhook(name, url string, caData []byte, validate bool, timeoutSeconds int32, rule admregapi.Rule, operationTypes []admregapi.OperationType, failurePolicy admregapi.FailurePolicyType) admregapi.MutatingWebhook {
 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
 	reinvocationPolicy := admregapi.NeverReinvocationPolicy
 
@@ -110,15 +110,7 @@ func generateDebugMutatingWebhook(name, url string, caData []byte, validate bool
 		Rules: []admregapi.RuleWithOperations{
 			{
 				Operations: operationTypes,
-				Rule: admregapi.Rule{
-					APIGroups: []string{
-						apiGroups,
-					},
-					APIVersions: []string{
-						apiVersions,
-					},
-					Resources: resources,
-				},
+				Rule:       rule,
 			},
 		},
 		AdmissionReviewVersions: []string{"v1beta1"},
@@ -127,7 +119,7 @@ func generateDebugMutatingWebhook(name, url string, caData []byte, validate bool
 	}
 }
 
-func generateDebugValidatingWebhook(name, url string, caData []byte, validate bool, timeoutSeconds int32, resources []string, apiGroups, apiVersions string, operationTypes []admregapi.OperationType, failurePolicy admregapi.FailurePolicyType) admregapi.ValidatingWebhook {
+func generateDebugValidatingWebhook(name, url string, caData []byte, validate bool, timeoutSeconds int32, rule admregapi.Rule, operationTypes []admregapi.OperationType, failurePolicy admregapi.FailurePolicyType) admregapi.ValidatingWebhook {
 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
 	return admregapi.ValidatingWebhook{
 		Name: name,
@@ -139,15 +131,7 @@ func generateDebugValidatingWebhook(name, url string, caData []byte, validate bo
 		Rules: []admregapi.RuleWithOperations{
 			{
 				Operations: operationTypes,
-				Rule: admregapi.Rule{
-					APIGroups: []string{
-						apiGroups,
-					},
-					APIVersions: []string{
-						apiVersions,
-					},
-					Resources: resources,
-				},
+				Rule:       rule,
 			},
 		},
 		AdmissionReviewVersions: []string{"v1beta1"},
@@ -157,7 +141,7 @@ func generateDebugValidatingWebhook(name, url string, caData []byte, validate bo
 }
 
 // mutating webhook
-func generateMutatingWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, resources []string, apiGroups, apiVersions string, operationTypes []admregapi.OperationType, failurePolicy admregapi.FailurePolicyType) admregapi.MutatingWebhook {
+func generateMutatingWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, rule admregapi.Rule, operationTypes []admregapi.OperationType, failurePolicy admregapi.FailurePolicyType) admregapi.MutatingWebhook {
 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
 	reinvocationPolicy := admregapi.IfNeededReinvocationPolicy
 
@@ -176,15 +160,7 @@ func generateMutatingWebhook(name, servicePath string, caData []byte, validation
 		Rules: []admregapi.RuleWithOperations{
 			{
 				Operations: operationTypes,
-				Rule: admregapi.Rule{
-					APIGroups: []string{
-						apiGroups,
-					},
-					APIVersions: []string{
-						apiVersions,
-					},
-					Resources: resources,
-				},
+				Rule:       rule,
 			},
 		},
 		AdmissionReviewVersions: []string{"v1beta1"},
@@ -194,7 +170,7 @@ func generateMutatingWebhook(name, servicePath string, caData []byte, validation
 }
 
 // validating webhook
-func generateValidatingWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, resources []string, apiGroups, apiVersions string, operationTypes []admregapi.OperationType, failurePolicy admregapi.FailurePolicyType) admregapi.ValidatingWebhook {
+func generateValidatingWebhook(name, servicePath string, caData []byte, validation bool, timeoutSeconds int32, rule admregapi.Rule, operationTypes []admregapi.OperationType, failurePolicy admregapi.FailurePolicyType) admregapi.ValidatingWebhook {
 	sideEffect := admregapi.SideEffectClassNoneOnDryRun
 	return admregapi.ValidatingWebhook{
 		Name: name,
@@ -210,15 +186,7 @@ func generateValidatingWebhook(name, servicePath string, caData []byte, validati
 		Rules: []admregapi.RuleWithOperations{
 			{
 				Operations: operationTypes,
-				Rule: admregapi.Rule{
-					APIGroups: []string{
-						apiGroups,
-					},
-					APIVersions: []string{
-						apiVersions,
-					},
-					Resources: resources,
-				},
+				Rule:       rule,
 			},
 		},
 		AdmissionReviewVersions: []string{"v1beta1"},

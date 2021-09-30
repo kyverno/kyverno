@@ -159,10 +159,6 @@ func (m *webhookConfigManager) sync(key string) error {
 	return m.reconcileWebhook(policy)
 }
 
-// - list current policies
-// - build webhook object
-// - fetch and compare with fetched webhook configuration, update if not the same
-// - update current policy status
 func (m *webhookConfigManager) reconcileWebhook(policy *kyverno.ClusterPolicy) error {
 	logger := m.log.WithName("reconcileWebhook").WithValues("namespace", policy.GetNamespace(), "policy", policy.GetName())
 
@@ -174,10 +170,15 @@ func (m *webhookConfigManager) reconcileWebhook(policy *kyverno.ClusterPolicy) e
 
 	webhooks := m.buildWebhooks(policies)
 	if err = m.updateWebhookConfig(webhooks); err != nil {
-		return err
+		return errors.Wrapf(err, "failed to update webhook configurations for policy %s/$s", policy.GetNamespace(), policy.GetName())
 	}
 
-	return m.updateStatus(policy)
+	if err := m.updateStatus(policy); err != nil {
+		return errors.Wrapf(err, "failed to update policy status %s/$s", policy.GetNamespace(), policy.GetName())
+	}
+
+	logger.Info("policy %s/%s is ready to serve admission requests", policy.GetNamespace(), policy.GetName())
+	return nil
 }
 
 func (m *webhookConfigManager) listPolicies(namespace string, failurePolicy kyverno.FailurePolicyType) ([]kyverno.ClusterPolicy, error) {
@@ -327,7 +328,7 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 		if _, err := m.client.UpdateResource(resourceWebhook.GetAPIVersion(), resourceWebhook.GetKind(), "", resourceWebhook, false); err != nil {
 			return errors.Wrapf(err, "unable to update %s/%s: %s", resourceWebhook.GetAPIVersion(), resourceWebhook.GetKind(), resourceWebhook.GetName())
 		}
-		logger.Info("successfully updated the webhook configuration")
+		logger.V(4).Info("successfully updated the webhook configuration")
 	}
 
 	return nil
