@@ -1568,6 +1568,13 @@ spec:
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. The default value is "audit".
                 type: string
+              webhookTimeoutSeconds:
+                description: WebhookTimeoutSeconds specifies the webhook timeout for
+                  this policy. After the timeout passes, the admission request will
+                  fail based on the failure policy. The default timeout is 3s, the
+                  value must be between 1 and 30 seconds. Default to 10 seconds.
+                format: int32
+                type: integer
             type: object
           status:
             description: Status contains policy runtime data.
@@ -4700,6 +4707,13 @@ spec:
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. The default value is "audit".
                 type: string
+              webhookTimeoutSeconds:
+                description: WebhookTimeoutSeconds specifies the webhook timeout for
+                  this policy. After the timeout passes, the admission request will
+                  fail based on the failure policy. The default timeout is 3s, the
+                  value must be between 1 and 30 seconds. Default to 10 seconds.
+                format: int32
+                type: integer
             type: object
           status:
             description: Status contains policy runtime information. Deprecated. Policy
@@ -6614,14 +6628,16 @@ spec:
     spec:
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: app.kubernetes.io/name
-                operator: In
-                values:
-                - kyverno
-            topologyKey: kubernetes.io/hostname
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                  - kyverno
+              topologyKey: kubernetes.io/hostname
+            weight: 1
       containers:
       - args:
         - --filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]
