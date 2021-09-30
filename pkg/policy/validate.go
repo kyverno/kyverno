@@ -178,7 +178,11 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 		// Validate Kind with match resource kinds
 		for _, kind := range rule.MatchResources.Kinds {
-			_, k := c.GetKindFromGVK(kind)
+			gv, k := c.GetKindFromGVK(kind)
+			_, _, err := client.DiscoveryClient.FindResource(gv, k)
+			if err != nil || strings.ToLower(k) == k {
+				return fmt.Errorf("match resource kind  %s is invalid ", k)
+			}
 			if k == p.Kind {
 				return fmt.Errorf("kind and match resource kind should not be the same.")
 			}
