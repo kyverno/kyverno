@@ -30,8 +30,8 @@ var defaultWebhookTimeout int64 = 3
 
 // TODO:
 // 1. configure timeout
-// 2.wildcard support
-// 3. resourceFilters
+// 2. wildcard support
+// 3. resourceFilters: the resourceFilters only filters out resources if autoUpdate is disabled
 
 // webhookConfigManager manges the webhook configuration dynamically
 // it is NOT multi-thread safe
@@ -58,8 +58,8 @@ type webhookConfigManager struct {
 
 	queue workqueue.RateLimitingInterface
 
-	// matchAllKinds indicates whether the existing policies has * defined for the matching kind
-	matchAllKinds bool
+	// wildcardPolicy indicates the number of policies that matches all kinds (*) defined
+	wildcardPolicy int
 
 	stopCh <-chan struct{}
 
@@ -97,6 +97,96 @@ func newWebhookConfigManager(
 	m.npListerSynced = npInformer.Informer().HasSynced
 
 	return m
+}
+
+func (m *webhookConfigManager) handleErr(err error, key interface{}) {
+	logger := m.log
+	if err == nil {
+		m.queue.Forget(key)
+		return
+	}
+
+	if m.queue.NumRequeues(key) < 3 {
+		logger.Error(err, "failed to sync policy", "key", key)
+		m.queue.AddRateLimited(key)
+		return
+	}
+
+	utilruntime.HandleError(err)
+	logger.V(2).Info("dropping policy out of queue", "key", key)
+	m.queue.Forget(key)
+}
+
+func (m *webhookConfigManager) handleClusterPolicy(obj interface{}) {
+	p, ok := obj.(*kyverno.ClusterPolicy)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			utilruntime.HandleError(fmt.Errorf("error decoding object, invalid type"))
+			return
+		}
+		p, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
+		if !ok {
+			utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
+			return
+		}
+		m.log.V(4).Info("Recovered deleted ClusterPolicy '%s' from tombstone", "name", p.GetName())
+	}
+
+	m.enqueue(p)
+}
+
+func (m *webhookConfigManager) updatePolicy(old, cur interface{}) {
+	oldP := old.(*kyverno.ClusterPolicy)
+	curP := cur.(*kyverno.ClusterPolicy)
+
+	if reflect.DeepEqual(oldP.Spec, curP.Spec) {
+		return
+	}
+
+	m.enqueue(curP)
+}
+
+func (m *webhookConfigManager) handlePolicy(obj interface{}) {
+	p, ok := obj.(*kyverno.Policy)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			utilruntime.HandleError(fmt.Errorf("error decoding object, invalid type"))
+			return
+		}
+		p, ok = tombstone.Obj.(*kyverno.Policy)
+		if !ok {
+			utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
+			return
+		}
+		m.log.V(4).Info("Recovered deleted Policy '%s' from tombstone", "name", p.GetName())
+	}
+
+	pol := kyverno.ClusterPolicy(*p)
+	m.enqueue(&pol)
+}
+
+func (m *webhookConfigManager) updateNsPolicy(old, cur interface{}) {
+	oldP := old.(*kyverno.Policy)
+	curP := cur.(*kyverno.Policy)
+
+	if reflect.DeepEqual(oldP.Spec, curP.Spec) {
+		return
+	}
+
+	pol := kyverno.ClusterPolicy(*curP)
+	m.enqueue(&pol)
+}
+
+func (m *webhookConfigManager) enqueue(policy *kyverno.ClusterPolicy) {
+	logger := m.log
+	key, err := cache.MetaNamespaceKeyFunc(policy)
+	if err != nil {
+		logger.Error(err, "failed to enqueue policy")
+		return
+	}
+	m.queue.Add(key)
 }
 
 // start is a blocking call to configure webhook
@@ -193,6 +283,21 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 	return nil
 }
 
+func (m *webhookConfigManager) getPolicy(namespace, name string) (*kyverno.ClusterPolicy, error) {
+	// TODO: test default/policy
+	if namespace == "" {
+		return m.pLister.Get(name)
+	}
+
+	nsPolicy, err := m.npLister.Policies(namespace).Get(name)
+	if err == nil && nsPolicy != nil {
+		p := kyverno.ClusterPolicy(*nsPolicy)
+		return &p, err
+	}
+
+	return nil, err
+}
+
 func (m *webhookConfigManager) listPolicies(namespace string, failurePolicy kyverno.FailurePolicyType) ([]kyverno.ClusterPolicy, error) {
 	if namespace != "" {
 		polList, err := m.kyvernoClient.KyvernoV1().Policies(namespace).List(context.TODO(), v1.ListOptions{})
@@ -201,9 +306,10 @@ func (m *webhookConfigManager) listPolicies(namespace string, failurePolicy kyve
 		}
 
 		policies := make([]kyverno.ClusterPolicy, len(polList.Items))
-		for _, pol := range polList.Items {
-			if *pol.Spec.FailurePolicy == failurePolicy {
-				policies = append(policies, kyverno.ClusterPolicy(pol))
+		for i, pol := range polList.Items {
+			if (pol.Spec.FailurePolicy == nil && failurePolicy == kyverno.Fail) ||
+				*pol.Spec.FailurePolicy == failurePolicy {
+				policies[i] = kyverno.ClusterPolicy(pol)
 			}
 		}
 		return policies, nil
@@ -215,11 +321,13 @@ func (m *webhookConfigManager) listPolicies(namespace string, failurePolicy kyve
 	}
 
 	policies := make([]kyverno.ClusterPolicy, len(cpolList.Items))
-	for _, cpol := range cpolList.Items {
-		if *cpol.Spec.FailurePolicy == failurePolicy {
-			policies = append(policies, cpol)
+	for i, cpol := range cpolList.Items {
+		if (cpol.Spec.FailurePolicy == nil && failurePolicy == kyverno.Fail) ||
+			*cpol.Spec.FailurePolicy == failurePolicy {
+			policies[i] = cpol
 		}
 	}
+
 	return policies, nil
 }
 
@@ -241,11 +349,39 @@ type webhook struct {
 	rule map[string]interface{}
 }
 
+func (m *webhookConfigManager) buildWebhooks(policies []kyverno.ClusterPolicy) (res []*webhook) {
+	mutateIgnore := newWebhook(kindMutating, defaultWebhookTimeout, kyverno.Ignore)
+	mutateFail := newWebhook(kindMutating, defaultWebhookTimeout, kyverno.Fail)
+	validateIgnore := newWebhook(kindValidating, defaultWebhookTimeout, kyverno.Ignore)
+	validateFail := newWebhook(kindValidating, defaultWebhookTimeout, kyverno.Fail)
+
+	for _, p := range policies {
+		if p.HasValidate() {
+			if p.Spec.FailurePolicy != nil && *p.Spec.FailurePolicy == kyverno.Ignore {
+				m.mergeWebhook(validateIgnore, p, true)
+			} else {
+				m.mergeWebhook(validateFail, p, true)
+			}
+		}
+
+		if p.HasMutate() || p.HasGenerate() {
+			if p.Spec.FailurePolicy != nil && *p.Spec.FailurePolicy == kyverno.Ignore {
+				m.mergeWebhook(mutateIgnore, p, false)
+			} else {
+				m.mergeWebhook(mutateFail, p, false)
+			}
+		}
+	}
+
+	res = append(res, mutateIgnore, mutateFail, validateIgnore, validateFail)
+	return res
+}
+
 func (m *webhookConfigManager) updateWebhookConfig(webhooks []*webhook) error {
 	logger := m.log.WithName("updateWebhookConfig")
 	webhooksMap := make(map[string]interface{}, len(webhooks))
 	for _, w := range webhooks {
-		key := strings.Join([]string{w.kind, string(w.failurePolicy)}, "/")
+		key := webhookKey(w.kind, string(w.failurePolicy))
 		webhooksMap[key] = w
 	}
 
@@ -303,19 +439,19 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 			continue
 		}
 
-		newWebhook := webhooksMap[strings.Join([]string{webhookKind, failurePolicy}, "/")]
+		newWebhook := webhooksMap[webhookKey(webhookKind, failurePolicy)]
 		w, ok := newWebhook.(*webhook)
 		if !ok {
 			logger.Error(errors.New("type mismatched"), "expected *webhook, got %T", newWebooks)
 			continue
 		}
 
-		if !reflect.DeepEqual(w.rule, map[string]interface{}{}) && !reflect.DeepEqual(rules, []interface{}{w.rule}) {
+		if !reflect.DeepEqual(rules, []interface{}{w.rule}) {
 			changed = true
 
 			tmpRules, ok := newWebooks[i].(map[string]interface{})["rules"].([]interface{})
-			// init operations
 			if !ok {
+				// init operations
 				ops := []string{string(admregapi.Create), string(admregapi.Update), string(admregapi.Delete), string(admregapi.Connect)}
 				if webhookKind == kindMutating {
 					ops = []string{string(admregapi.Create), string(admregapi.Update)}
@@ -325,6 +461,12 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 				if err = unstructured.SetNestedStringSlice(tmpRules[0].(map[string]interface{}), ops, "operations"); err != nil {
 					return errors.Wrapf(err, "unable to set webhooks[%d].rules[0].%s", i, apiGroups)
 				}
+			}
+
+			if w.rule == nil || reflect.DeepEqual(w.rule, map[string]interface{}{}) {
+				// zero kyverno policy with the current failurePolicy, reset webhook rules to empty
+				newWebooks[i].(map[string]interface{})["rules"] = []interface{}{}
+				continue
 			}
 
 			if err = unstructured.SetNestedStringSlice(tmpRules[0].(map[string]interface{}), w.rule[apiGroups].([]string), apiGroups); err != nil {
@@ -372,138 +514,6 @@ func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy) error
 	return err
 }
 
-func (m *webhookConfigManager) getPolicy(namespace, name string) (*kyverno.ClusterPolicy, error) {
-	// TODO: test default/policy
-	if namespace == "" {
-		return m.pLister.Get(name)
-	}
-
-	nsPolicy, err := m.npLister.Policies(namespace).Get(name)
-	if err == nil && nsPolicy != nil {
-		p := kyverno.ClusterPolicy(*nsPolicy)
-		return &p, err
-	}
-
-	return nil, err
-}
-func (m *webhookConfigManager) handleErr(err error, key interface{}) {
-	logger := m.log
-	if err == nil {
-		m.queue.Forget(key)
-		return
-	}
-
-	if m.queue.NumRequeues(key) < 3 {
-		logger.Error(err, "failed to sync policy", "key", key)
-		m.queue.AddRateLimited(key)
-		return
-	}
-
-	utilruntime.HandleError(err)
-	logger.V(2).Info("dropping policy out of queue", "key", key)
-	m.queue.Forget(key)
-}
-
-func (m *webhookConfigManager) handleClusterPolicy(obj interface{}) {
-	p, ok := obj.(*kyverno.ClusterPolicy)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object, invalid type"))
-			return
-		}
-		p, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
-			return
-		}
-		m.log.V(4).Info("Recovered deleted ClusterPolicy '%s' from tombstone", "name", p.GetName())
-	}
-
-	m.enqueue(p)
-}
-
-func (m *webhookConfigManager) updatePolicy(old, cur interface{}) {
-	oldP := old.(*kyverno.ClusterPolicy)
-	curP := cur.(*kyverno.ClusterPolicy)
-
-	if reflect.DeepEqual(oldP.Spec, curP.Spec) {
-		return
-	}
-
-	m.enqueue(curP)
-}
-
-func (m *webhookConfigManager) handlePolicy(obj interface{}) {
-	p, ok := obj.(*kyverno.Policy)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object, invalid type"))
-			return
-		}
-		p, ok = tombstone.Obj.(*kyverno.Policy)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
-			return
-		}
-		m.log.V(4).Info("Recovered deleted Policy '%s' from tombstone", "name", p.GetName())
-	}
-
-	pol := kyverno.ClusterPolicy(*p)
-	m.enqueue(&pol)
-}
-
-func (m *webhookConfigManager) updateNsPolicy(old, cur interface{}) {
-	oldP := old.(*kyverno.Policy)
-	curP := cur.(*kyverno.Policy)
-
-	if reflect.DeepEqual(oldP.Spec, curP.Spec) {
-		return
-	}
-
-	pol := kyverno.ClusterPolicy(*curP)
-	m.enqueue(&pol)
-}
-
-func (m *webhookConfigManager) enqueue(policy *kyverno.ClusterPolicy) {
-	logger := m.log
-	key, err := cache.MetaNamespaceKeyFunc(policy)
-	if err != nil {
-		logger.Error(err, "failed to enqueue policy")
-		return
-	}
-	m.queue.Add(key)
-}
-
-func (m *webhookConfigManager) buildWebhooks(policies []kyverno.ClusterPolicy) (res []*webhook) {
-	mutateIgnore := newWebhook(kindMutating, defaultWebhookTimeout, kyverno.Ignore)
-	mutateFail := newWebhook(kindMutating, defaultWebhookTimeout, kyverno.Fail)
-	validateIgnore := newWebhook(kindValidating, defaultWebhookTimeout, kyverno.Ignore)
-	validateFail := newWebhook(kindValidating, defaultWebhookTimeout, kyverno.Fail)
-
-	for _, p := range policies {
-		if p.HasValidate() {
-			if p.Spec.FailurePolicy != nil && *p.Spec.FailurePolicy == kyverno.Ignore {
-				m.mergeWebhook(validateIgnore, p, true)
-			} else {
-				m.mergeWebhook(validateFail, p, true)
-			}
-		}
-
-		if p.HasMutate() || p.HasGenerate() {
-			if p.Spec.FailurePolicy != nil && *p.Spec.FailurePolicy == kyverno.Ignore {
-				m.mergeWebhook(mutateIgnore, p, false)
-			} else {
-				m.mergeWebhook(mutateFail, p, false)
-			}
-		}
-	}
-
-	res = append(res, mutateIgnore, mutateFail, validateIgnore, validateFail)
-	return res
-}
-
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
 func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.ClusterPolicy, isValidate bool) {
 	matchedGVK := make([]string, 0)
@@ -533,14 +543,17 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.Cluster
 
 	var groups, versions, rsrcs []string
 	if val, ok := dst.rule[apiGroups]; ok {
+		groups = make([]string, len(val.([]string)))
 		copy(groups, val.([]string))
 	}
 
 	if val, ok := dst.rule[apiVersions]; ok {
-		copy(groups, val.([]string))
+		versions = make([]string, len(val.([]string)))
+		copy(versions, val.([]string))
 	}
 	if val, ok := dst.rule[resources]; ok {
-		copy(groups, val.([]string))
+		rsrcs = make([]string, len(val.([]string)))
+		copy(rsrcs, val.([]string))
 	}
 
 	for _, gvr := range gvrList {
@@ -578,4 +591,8 @@ func newWebhook(kind string, timeout int64, failurePolicy kyverno.FailurePolicyT
 		failurePolicy:     failurePolicy,
 		rule:              make(map[string]interface{}),
 	}
+}
+
+func webhookKey(webhookKind, failurePolicy string) string {
+	return strings.Join([]string{webhookKind, failurePolicy}, "/")
 }
