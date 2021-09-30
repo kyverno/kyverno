@@ -3,15 +3,16 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/minio/minio/pkg/wildcard"
+	"github.com/minio/pkg/wildcard"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"time"
 )
 
 func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineResponse) {

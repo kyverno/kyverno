@@ -88,7 +88,6 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 // If validateResourceElement detects map element inside resource and pattern trees, it goes to validateMap
 // For each element of the map we must detect the type again, so we pass these elements to validateResourceElement
 func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string, ac *common.AnchorKey) (string, error) {
-
 	patternMap = wildcards.ExpandInMetadata(patternMap, resourceMap)
 	// check if there is anchor in pattern
 	// Phase 1 : Evaluate all the anchors

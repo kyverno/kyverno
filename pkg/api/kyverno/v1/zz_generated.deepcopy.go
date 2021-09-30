@@ -657,6 +657,11 @@ func (in *Spec) DeepCopyInto(out *Spec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.FailurePolicy != nil {
+		in, out := &in.FailurePolicy, &out.FailurePolicy
+		*out = new(FailurePolicyType)
+		**out = **in
+	}
 	if in.Background != nil {
 		in, out := &in.Background, &out.Background
 		*out = new(bool)
@@ -665,6 +670,11 @@ func (in *Spec) DeepCopyInto(out *Spec) {
 	if in.SchemaValidation != nil {
 		in, out := &in.SchemaValidation, &out.SchemaValidation
 		*out = new(bool)
+		**out = **in
+	}
+	if in.WebhookTimeoutSeconds != nil {
+		in, out := &in.WebhookTimeoutSeconds, &out.WebhookTimeoutSeconds
+		*out = new(int32)
 		**out = **in
 	}
 	return

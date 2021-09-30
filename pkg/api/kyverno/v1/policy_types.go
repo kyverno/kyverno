@@ -22,6 +22,7 @@ type PolicyList struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Background",type="string",JSONPath=".spec.background"
 // +kubebuilder:printcolumn:name="Action",type="string",JSONPath=".spec.validationFailureAction"
+// +kubebuilder:printcolumn:name="Failure Policy",type="string",JSONPath=".spec.failurePolicy"
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`
 // +kubebuilder:resource:shortName=pol
 type Policy struct {
@@ -44,6 +45,12 @@ type Spec struct {
 	// each rule can validate, mutate, or generate resources.
 	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
 
+	// FailurePolicy defines how unrecognized errors from the admission endpoint are handled.
+	// Rules within the same policy share the same failure behavior.
+	// Allowed values are Ignore or Fail. Defaults to Fail.
+	// +optional
+	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
+
 	// ValidationFailureAction controls if a validation policy rule failure should disallow
 	// the admission review request (enforce), or allow (audit) the admission review request
 	// and report an error in a policy report. Optional. The default value is "audit".
@@ -60,6 +67,12 @@ type Spec struct {
 	// Optional. The default value is set to "true", it must be set to "false" to disable the validation checks.
 	// +optional
 	SchemaValidation *bool `json:"schemaValidation,omitempty" yaml:"schemaValidation,omitempty"`
+
+	// WebhookTimeoutSeconds specifies the webhook timeout for this policy.
+	// After the timeout passes, the admission request will fail based on the failure policy.
+	// The default timeout is 3s, the value must be between 1 and 30 seconds.
+	// Default to 10 seconds.
+	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
 }
 
 // Rule defines a validation, mutation, or generation control for matching resources.
@@ -112,6 +125,17 @@ type Rule struct {
 	// +optional
 	VerifyImages []*ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
+
+// FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
+// +kubebuilder:validation:Enum=Ignore;Fail
+type FailurePolicyType string
+
+const (
+	// Ignore means that an error calling the webhook is ignored.
+	Ignore FailurePolicyType = "Ignore"
+	// Fail means that an error calling the webhook causes the admission to fail.
+	Fail FailurePolicyType = "Fail"
+)
 
 // AnyAllCondition consists of conditions wrapped denoting a logical criteria to be fulfilled.
 // AnyConditions get fulfilled when at least one of its sub-conditions passes.
