@@ -177,17 +177,31 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 		// Validate Kind with match resource kinds
 		match := rule.MatchResources
+		exclude := rule.MatchResources
 		for _, value := range match.Any {
 			err := validateKinds(value.ResourceDescription.Kinds, mock, client, p)
 
 			if err != nil {
-				return fmt.Errorf("match resource kind is invalid ")
+				return fmt.Errorf("the kind defined in the any match resource is invalid")
 			}
 		}
 		for _, value := range match.All {
 			err := validateKinds(value.ResourceDescription.Kinds, mock, client, p)
 			if err != nil {
-				return fmt.Errorf("match resource kind is invalid ")
+				return fmt.Errorf("the kind defined in the all match resource is invalid")
+			}
+		}
+		for _, value := range exclude.Any {
+			err := validateKinds(value.ResourceDescription.Kinds, mock, client, p)
+
+			if err != nil {
+				return fmt.Errorf("the kind defined in the any exclude resource is invalid")
+			}
+		}
+		for _, value := range exclude.All {
+			err := validateKinds(value.ResourceDescription.Kinds, mock, client, p)
+			if err != nil {
+				return fmt.Errorf("the kind defined in the all exclude resource is invalid")
 			}
 		}
 		err := validateKinds(rule.MatchResources.Kinds, mock, client, p)
