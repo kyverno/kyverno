@@ -39,22 +39,22 @@ import (
 )
 
 var longHelp = `
-Test command provides a facility to test policies on resources. For that, user needs to provide the path of the folder containing test.yaml file. 
+Test command provides a facility to test policies on resources. User should provide the path of the folder containing test.yaml file. 
 
-	kyverno test  /path/to/folderContaningTestYamls
+	kyverno test  <path_to_folder_Contaning_test.yamls>
 				   or
-	kyverno test  /path/to/githubRepository
+	kyverno test  <path_to_githubRepository>
 
-The test.yaml file is configuration file for test command. It consists of 4 parts:-
-  "policies"  (required) --> element lists one or more path of policies 
-  "resources" (required) --> element lists one or more path of resources.
-  "variables" (optional) --> element with one variables files
-  "results"   (required)  --> element lists one more expected result. 
+The test.yaml have 4 parts:
+  "policies"   --> list of policies which are applied
+  "resources"  --> list of resources on which the policies are applied
+  "variables"  --> variable file path (this is an optinal parameter)
+  "results"    --> list of result expected on applying the policies on the resources
 `
 var exampleHelp = `
-For Validate Policy 
-  test.yaml
+test.yaml format:
 
+For Validate Policy 
 - name: test-1
   policies:
   - <path>
@@ -70,14 +70,10 @@ For Validate Policy
     kind: <name> 
     result: <pass/fail/skip>
 
-For more visit --> https://kyverno.io/docs/kyverno-cli/#test
 
+For Mutate Policy
 
-For Mutate Policy 
 1) Policy (Namespaced-policy)
-
-  test.yaml
-
 - name: test-1
   policies:
   - <path>
@@ -90,15 +86,11 @@ For Mutate Policy
     rule: <name>
     resource: <name>
     namespace: <name> (OPTIONAL)
+	kind: <name> 
     patchedResource: <path>
-    kind: <name> 
     result: <pass/fail/skip>
-  
 
-2) ClusterPolicy(cluster-wide policy)
-
-  test.yaml
-  
+2) ClusterPolicy(Cluster-wide policy)
 - name: test-1
   policies:
   - <path>
@@ -115,12 +107,12 @@ For Mutate Policy
     patchedResource: <path>
     result: <pass/fail/skip>
 
-NOTE:- 
-In the results section, policy(if ClusterPolicy) or <policy_namespace>/<policy_name>(if Policy), rule, resource, kind and result are mandatory fields for all type of policy.
-
+Result description:
 pass  --> patched Resource generated from engine equals to patched Resource provided by the user.
 fail  --> patched Resource generated from engine is not equals to patched provided by the user. 
 skip  --> rule is not applied.
+
+For more visit --> https://kyverno.io/docs/kyverno-cli/#test
 `
 
 // Command returns version command
@@ -515,25 +507,17 @@ func getAndComparePatchedResource(path string, enginePatchedResource unstructure
 	return status
 }
 
-func getPolicyResourceFullPaths(path []string, policyResourcePath string, isGit bool) []string {
-	var pol []string
-	if !isGit {
-		for _, p := range path {
-			pol = append(pol, getPolicyResourceFullPath(p, policyResourcePath, isGit))
-		}
-		return pol
-	}
-	return path
-}
-
-func getPolicyResourceFullPath(path string, policyResourcePath string, isGit bool) string {
+func getFullPath(paths []string, policyResourcePath string, isGit bool) []string {
+	var pols []string
 	var pol string
 	if !isGit {
-		pol = filepath.Join(policyResourcePath, path)
-
-		return pol
+		for _, path := range paths {
+			pol = filepath.Join(policyResourcePath, path)
+			pols = append(pols, pol)
+		}
+		return pols
 	}
-	return path
+	return paths
 }
 
 func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts) (err error) {
@@ -560,16 +544,16 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		return err
 	}
 
-	fullPolicyPath := getPolicyResourceFullPaths(values.Policies, policyResourcePath, isGit)
-	fullResourcePath := getPolicyResourceFullPaths(values.Resources, policyResourcePath, isGit)
+	policyFullPath := getFullPath(values.Policies, policyResourcePath, isGit)
+	resourceFullPath := getFullPath(values.Resources, policyResourcePath, isGit)
 
 	for i, result := range values.Results {
-		var a []string
-		a = append(a, result.PatchedResource)
-		a = getPolicyResourceFullPaths(a, policyResourcePath, isGit)
-		values.Results[i].PatchedResource = a[0]
+		arrPatchedResource := []string{result.PatchedResource}
+		patchedResourceFullPath := getFullPath(arrPatchedResource, policyResourcePath, isGit)
+		values.Results[i].PatchedResource = patchedResourceFullPath[0]
 	}
-	policies, err := common.GetPoliciesFromPaths(fs, fullPolicyPath, isGit, policyResourcePath)
+
+	policies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		os.Exit(1)
@@ -587,7 +571,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		return sanitizederror.NewWithError("failed to print mutated policy", err)
 	}
 
-	resources, err := common.GetResourceAccordingToResourcePath(fs, fullResourcePath, false, mutatedPolicies, dClient, "", false, isGit, policyResourcePath)
+	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, mutatedPolicies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		os.Exit(1)
@@ -638,7 +622,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
 			}
-			engineResponses = append(engineResponses, ers)
+			engineResponses = append(engineResponses, ers...)
 			pvInfos = append(pvInfos, info)
 		}
 	}
