@@ -408,7 +408,6 @@ func loadObjects(t *testing.T, path string) []runtime.Object {
 			continue
 		}
 		t.Log(gvk)
-		//TODO: add more details
 		t.Logf("loaded object %s", gvk.Kind)
 		resources = append(resources, obj)
 	}

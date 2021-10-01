@@ -28,12 +28,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-var defaultWebhookTimeout int64 = 3
-
-// TODO:
-// 1. configure timeout
-// 2. wildcard support
-// 3. resourceFilters: the resourceFilters only filters out resources if autoUpdate is disabled
+var DefaultWebhookTimeout int64 = 10
 
 // webhookConfigManager manges the webhook configuration dynamically
 // it is NOT multi-thread safe
@@ -123,6 +118,7 @@ func (m *webhookConfigManager) handleErr(err error, key interface{}) {
 func (m *webhookConfigManager) addClusterPolicy(obj interface{}) {
 	p := obj.(*kyverno.ClusterPolicy)
 	if hasWildcard(p) {
+		fmt.Println("====addClusterPolicy")
 		atomic.AddInt64(&m.wildcardPolicy, int64(1))
 	}
 	m.enqueue(p)
@@ -137,8 +133,10 @@ func (m *webhookConfigManager) updateClusterPolicy(old, cur interface{}) {
 	}
 
 	if hasWildcard(oldP) && !hasWildcard(curP) {
+		fmt.Println("====updateClusterPolicy 1")
 		atomic.AddInt64(&m.wildcardPolicy, ^int64(0))
 	} else if !hasWildcard(oldP) && hasWildcard(curP) {
+		fmt.Println("====updateClusterPolicy 2")
 		atomic.AddInt64(&m.wildcardPolicy, int64(1))
 	}
 
@@ -378,11 +376,12 @@ type webhook struct {
 }
 
 func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, err error) {
-	mutateIgnore := newWebhook(kindMutating, defaultWebhookTimeout, kyverno.Ignore)
-	mutateFail := newWebhook(kindMutating, defaultWebhookTimeout, kyverno.Fail)
-	validateIgnore := newWebhook(kindValidating, defaultWebhookTimeout, kyverno.Ignore)
-	validateFail := newWebhook(kindValidating, defaultWebhookTimeout, kyverno.Fail)
+	mutateIgnore := newWebhook(kindMutating, DefaultWebhookTimeout, kyverno.Ignore)
+	mutateFail := newWebhook(kindMutating, DefaultWebhookTimeout, kyverno.Fail)
+	validateIgnore := newWebhook(kindValidating, DefaultWebhookTimeout, kyverno.Ignore)
+	validateFail := newWebhook(kindValidating, DefaultWebhookTimeout, kyverno.Fail)
 
+	fmt.Println("=====atomic.LoadInt64(&m.wildcardPolicy)", atomic.LoadInt64(&m.wildcardPolicy))
 	if atomic.LoadInt64(&m.wildcardPolicy) != 0 {
 		for _, w := range []*webhook{mutateIgnore, mutateFail, validateIgnore, validateFail} {
 			setWildcardConfig(w)

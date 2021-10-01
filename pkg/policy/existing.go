@@ -154,7 +154,6 @@ type resourceManager interface {
 }
 
 //Drop drop the cache after every rebuild interval mins
-//TODO: or drop based on the size
 func (rm *ResourceManager) Drop() {
 	timeSince := time.Since(rm.time)
 	if timeSince > time.Duration(rm.rebuildTime)*time.Second {

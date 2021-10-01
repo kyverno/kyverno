@@ -52,7 +52,6 @@ func ProcessPatches(log logr.Logger, ruleName string, mutation kyverno.Mutation,
 			continue
 		}
 		patchResource, err := applyPatch(resourceRaw, patchRaw)
-		// TODO: continue on error if one of the patches fails, will add the failure event in such case
 		if err != nil && patch.Operation == "remove" {
 			log.Error(err, "failed to process JSON path or patch is a 'remove' operation")
 			continue
