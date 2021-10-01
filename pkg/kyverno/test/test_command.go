@@ -336,6 +336,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 		for _, rule := range resp.PolicyResponse.Rules {
 			rules = append(rules, rule.Name)
 		}
+
 		result := report.PolicyReportResult{
 			Policy: policyName,
 			Resources: []*corev1.ObjectReference{
@@ -344,11 +345,17 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 				},
 			},
 		}
+
 		var patcheResourcePath []string
 		for i, test := range testResults {
 			var userDefinedPolicyNamespace string
 			var userDefinedPolicyName string
-			found, _ := isNamespacedPolicy(test.Policy)
+			found, err := isNamespacedPolicy(test.Policy)
+			if err != nil {
+				log.Log.V(3).Info("error while checking the policy is namespaced or not", "policy: ", test.Policy, "error: ", err)
+				continue
+			}
+
 			if found {
 				userDefinedPolicyNamespace, userDefinedPolicyName = getUserDefinedPolicyNameAndNamespace(test.Policy)
 				test.Policy = userDefinedPolicyName
@@ -358,6 +365,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 				var resultsKey string
 				resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource)
 				if !util.ContainsString(rules, test.Rule) {
+
 					if !util.ContainsString(rules, "autogen-"+test.Rule) {
 						if !util.ContainsString(rules, "autogen-cronjob-"+test.Rule) {
 							result.Result = report.StatusSkip
@@ -371,6 +379,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 						test.Rule = "autogen-" + test.Rule
 						resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource)
 					}
+
 					if results[resultsKey].Result == "" {
 						result.Result = report.StatusSkip
 						results[resultsKey] = result
@@ -448,29 +457,26 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	return results, testResults
 }
 
-func GetAllPossibleResultsKey(policyNamespace, policy, rule, namespace, kind, resource string) []string {
+func GetAllPossibleResultsKey(policyNs, policy, rule, resourceNsnamespace, kind, resource string) []string {
 	var resultsKey []string
 	resultKey1 := fmt.Sprintf("%s-%s-%s-%s", policy, rule, kind, resource)
-	resultKey2 := fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, namespace, kind, resource)
-	resultKey3 := fmt.Sprintf("%s-%s-%s-%s-%s", policyNamespace, policy, rule, kind, resource)
-	resultKey4 := fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNamespace, policy, rule, namespace, kind, resource)
+	resultKey2 := fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, resourceNsnamespace, kind, resource)
+	resultKey3 := fmt.Sprintf("%s-%s-%s-%s-%s", policyNs, policy, rule, kind, resource)
+	resultKey4 := fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNs, policy, rule, resourceNsnamespace, kind, resource)
 	resultsKey = append(resultsKey, resultKey1, resultKey2, resultKey3, resultKey4)
 	return resultsKey
 }
 
-func GetResultKeyAccordingToTestResults(policyNs, policy, rule, namespace, kind, resource string) string {
+func GetResultKeyAccordingToTestResults(policyNs, policy, rule, resourceNs, kind, resource string) string {
 	var resultKey string
 	resultKey = fmt.Sprintf("%s-%s-%s-%s", policy, rule, kind, resource)
 
-	if namespace != "" || policyNs != "" {
-		if policyNs != "" {
-			resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", policyNs, policy, rule, kind, resource)
-			if namespace != "" {
-				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNs, policy, rule, namespace, kind, resource)
-			}
-		} else {
-			resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, namespace, kind, resource)
-		}
+	if policyNs != "" && resourceNs != "" {
+		resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNs, policy, rule, resourceNs, kind, resource)
+	} else if policyNs != "" {
+		resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", policyNs, policy, rule, kind, resource)
+	} else if resourceNs != "" {
+		resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, resourceNs, kind, resource)
 	}
 	return resultKey
 }
@@ -480,10 +486,9 @@ func isNamespacedPolicy(policyNames string) (bool, error) {
 }
 
 func getUserDefinedPolicyNameAndNamespace(policyName string) (string, string) {
-	policy := policyName
 	policy_n_ns := strings.Split(policyName, "/")
 	namespace := policy_n_ns[0]
-	policy = policy_n_ns[1]
+	policy := policy_n_ns[1]
 	return namespace, policy
 }
 
@@ -641,15 +646,18 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 	boldRed := color.New(color.FgRed).Add(color.Bold)
 	boldYellow := color.New(color.FgYellow).Add(color.Bold)
 	boldFgCyan := color.New(color.FgCyan).Add(color.Bold)
+
 	for i, v := range testResults {
 		res := new(Table)
 		res.ID = i + 1
 		res.Policy = boldFgCyan.Sprintf(v.Policy)
 		res.Rule = boldFgCyan.Sprintf(v.Rule)
+
 		namespace := "default"
 		if v.Namespace != "" {
 			namespace = v.Namespace
 		}
+
 		res.Resource = boldFgCyan.Sprintf(namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
 		var ruleNameInResultKey string
 		if v.AutoGeneratedRule != "" {
@@ -657,23 +665,23 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 		} else {
 			ruleNameInResultKey = v.Rule
 		}
+
 		resultKey := fmt.Sprintf("%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Kind, v.Resource)
 		found, _ := isNamespacedPolicy(v.Policy)
-		if found || v.Namespace != "" {
-			if found {
-				var ns string
-				ns, v.Policy = getUserDefinedPolicyNameAndNamespace(v.Policy)
-				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Kind, v.Resource)
-				res.Policy = boldFgCyan.Sprintf(ns) + "/" + boldFgCyan.Sprintf(v.Policy)
-				res.Resource = boldFgCyan.Sprintf(namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
-				if v.Namespace != "" {
-					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
-				}
-			} else {
-				res.Resource = boldFgCyan.Sprintf(namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
-				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
-			}
+
+		var ns string
+		ns, v.Policy = getUserDefinedPolicyNameAndNamespace(v.Policy)
+		if found && v.Namespace != "" {
+			resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
+		} else if found {
+			resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Kind, v.Resource)
+			res.Policy = boldFgCyan.Sprintf(ns) + "/" + boldFgCyan.Sprintf(v.Policy)
+			res.Resource = boldFgCyan.Sprintf(namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
+		} else if v.Namespace != "" {
+			res.Resource = boldFgCyan.Sprintf(namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
+			resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
 		}
+
 		var testRes report.PolicyReportResult
 		if val, ok := resps[resultKey]; ok {
 			testRes = val
@@ -683,9 +691,11 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 			table = append(table, res)
 			continue
 		}
+
 		if v.Result == "" && v.Status != "" {
 			v.Result = v.Status
 		}
+
 		if testRes.Result == v.Result {
 			if testRes.Result == report.StatusSkip {
 				res.Result = boldYellow.Sprintf("Skip")
@@ -698,8 +708,10 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 			res.Result = boldRed.Sprintf("Fail")
 			rc.Fail++
 		}
+
 		table = append(table, res)
 	}
+
 	printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
 	printer.CenterSeparator = "│"
 	printer.ColumnSeparator = "│"
@@ -708,6 +720,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 	printer.RowLengthTitle = func(rowsLength int) bool {
 		return rowsLength > 10
 	}
+
 	printer.HeaderBgColor = tablewriter.BgBlackColor
 	printer.HeaderFgColor = tablewriter.FgGreenColor
 	fmt.Printf("\n")
