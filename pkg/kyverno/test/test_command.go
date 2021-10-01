@@ -486,10 +486,13 @@ func isNamespacedPolicy(policyNames string) (bool, error) {
 }
 
 func getUserDefinedPolicyNameAndNamespace(policyName string) (string, string) {
-	policy_n_ns := strings.Split(policyName, "/")
-	namespace := policy_n_ns[0]
-	policy := policy_n_ns[1]
-	return namespace, policy
+	if strings.Contains(policyName, "/") {
+		policy_n_ns := strings.Split(policyName, "/")
+		namespace := policy_n_ns[0]
+		policy := policy_n_ns[1]
+		return namespace, policy
+	}
+	return "", policyName
 }
 
 // getAndComparePatchedResource --> Get the patchedResource from the path provided by user
