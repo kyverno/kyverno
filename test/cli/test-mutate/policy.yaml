@@ -1,0 +1,62 @@
+# Below there are both type of olicies: ClusterPolicy and Policy(Namespaced-Policy)
+
+#ClusterPolicy
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-label
+  annotations:
+    policies.kyverno.io/title: Add nodeSelector
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Labels are used as an important source of metadata describing objects in various ways
+      or triggering other functionality. Labels are also a very basic concept and should be
+      used throughout Kubernetes. This policy performs a simple mutation which adds a label
+      `color=orange` to Pods, Services, ConfigMaps, and Secrets.
+spec:
+  background: false
+  validationFailureAction:
+  rules:
+  - name: add-label
+    match:
+      resources:
+        kinds:
+        - Pod
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            color: orange
+
+---
+
+# Policy ( In testing namespace )
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: add-ndots
+  namespace: testing
+  annotations:
+    policies.kyverno.io/title: Add ndots
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      The ndots value controls where DNS lookups are first performed in a cluster
+      and needs to be set to a lower value than the default of 5 in some cases.
+      This policy mutates all Pods to add the ndots option with a value of 1.
+spec:
+  background: false
+  rules:
+  - name: add-ndots
+    match:
+      resources:
+        kinds:
+        - Pod
+    mutate:
+      patchStrategicMerge:
+        spec:
+          dnsConfig:
+            options:
+              - name: ndots
+                value: "1"

@@ -524,7 +524,7 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts) (*response.EngineResponse, policyreport.Info, error) {
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts, printPatchResource bool) (*response.EngineResponse, policyreport.Info, error) {
 
 	operationIsDelete := false
 
@@ -533,7 +533,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	}
 
 	namespaceLabels := make(map[string]string)
-
+	var engineResponse *response.EngineResponse
 	policyWithNamespaceSelector := false
 	for _, p := range policy.Spec.Rules {
 		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
@@ -547,7 +547,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		resourceNamespace := resource.GetNamespace()
 		namespaceLabels = namespaceSelectorMap[resource.GetNamespace()]
 		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-			return &response.EngineResponse{}, policyreport.Info{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
+			return engineResponse, policyreport.Info{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
 		}
 	}
 
@@ -575,10 +575,14 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	}
 
 	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
-	err = processMutateEngineResponse(policy, mutateResponse, resPath, rc, mutateLogPath, stdin, mutateLogPathIsDir, resource.GetName())
+
+	if mutateResponse != nil {
+		engineResponse = mutateResponse
+	}
+	err = processMutateEngineResponse(policy, mutateResponse, resPath, rc, mutateLogPath, stdin, mutateLogPathIsDir, resource.GetName(), printPatchResource)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
-			return &response.EngineResponse{}, policyreport.Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
+			return engineResponse, policyreport.Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
 		}
 	}
 
@@ -604,6 +608,9 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		validateResponse = engine.Validate(policyCtx)
 		info = ProcessValidateEngineResponse(policy, validateResponse, resPath, rc, policyReport)
 	}
+	if validateResponse != nil {
+		engineResponse = validateResponse
+	}
 
 	var policyHasGenerate bool
 	for _, rule := range policy.Spec.Rules {
@@ -624,10 +631,13 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			NamespaceLabels: namespaceLabels,
 		}
 		generateResponse := engine.Generate(policyContext)
+		if validateResponse != nil {
+			engineResponse = generateResponse
+		}
 		processGenerateEngineResponse(policy, generateResponse, resPath, rc)
 	}
 
-	return validateResponse, info, nil
+	return engineResponse, info, nil
 }
 
 // PrintMutatedOutput - function to print output in provided file or directory
@@ -876,7 +886,7 @@ func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string
 	return variables
 }
 
-func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *response.EngineResponse, resPath string, rc *ResultCounts, mutateLogPath string, stdin bool, mutateLogPathIsDir bool, resourceName string) error {
+func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *response.EngineResponse, resPath string, rc *ResultCounts, mutateLogPath string, stdin bool, mutateLogPathIsDir bool, resourceName string, printPatchResource bool) error {
 	var policyHasMutate bool
 	for _, rule := range policy.Spec.Rules {
 		if rule.HasMutate() {
@@ -922,11 +932,12 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 		if mutateLogPath == "" {
 			mutatedResource := string(yamlEncodedResource) + string("\n---")
 			if len(strings.TrimSpace(mutatedResource)) > 0 {
-				if !stdin {
+				if !stdin && printPatchResource {
 					fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
 				}
-				fmt.Printf("\n" + mutatedResource)
-				fmt.Printf("\n")
+				if printPatchResource {
+					fmt.Printf("\n" + mutatedResource)
+				}
 			}
 		} else {
 			err := PrintMutatedOutput(mutateLogPath, mutateLogPathIsDir, string(yamlEncodedResource), resourceName+"-mutated")
@@ -992,4 +1003,32 @@ func GetKindsFromPolicy(policy *v1.ClusterPolicy) map[string]struct{} {
 		}
 	}
 	return kindOnwhichPolicyIsApplied
+}
+
+//GetPatchedResourceFromPath - get patchedResource from given path
+func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (unstructured.Unstructured, error) {
+	var patchedResourceBytes []byte
+	var patchedResource unstructured.Unstructured
+	var err error
+	if isGit {
+		if len(path) > 0 {
+			filep, err := fs.Open(filepath.Join(policyResourcePath, path))
+			if err != nil {
+				fmt.Printf("Unable to open patchedResource file: %s. \nerror: %s", path, err)
+			}
+			patchedResourceBytes, err = ioutil.ReadAll(filep)
+		}
+	} else {
+		patchedResourceBytes, err = getFileBytes(path)
+
+	}
+	if err != nil {
+		fmt.Printf("\n----------------------------------------------------------------------\nfailed to load patchedResource: %s. \nerror: %s\n----------------------------------------------------------------------\n", path, err)
+		return patchedResource, err
+	}
+	patchedResource, err = GetPatchedResource(patchedResourceBytes)
+	if err != nil {
+		return patchedResource, err
+	}
+	return patchedResource, nil
 }
