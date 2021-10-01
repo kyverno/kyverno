@@ -24,29 +24,27 @@ require (
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
 	github.com/minio/pkg v1.1.3
-	github.com/nxadm/tail v1.4.8 // indirect
-	github.com/onsi/ginkgo v1.15.0
-	github.com/onsi/gomega v1.11.0
+	github.com/onsi/ginkgo v1.16.4
+	github.com/onsi/gomega v1.15.0
 	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/sigstore/cosign v1.0.0
-	github.com/sigstore/rekor v0.3.0 // indirect
-	github.com/sigstore/sigstore v0.0.0-20210726180807-7e34e36ecda1
+	github.com/sigstore/cosign v1.2.1
+	github.com/sigstore/sigstore v0.0.0-20210729211320-56a91f560f44
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.0
 	github.com/xanzy/ssh-agent v0.3.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.21.3
-	k8s.io/apiextensions-apiserver v0.21.1
-	k8s.io/apimachinery v0.21.3
+	k8s.io/api v0.21.4
+	k8s.io/apiextensions-apiserver v0.21.4
+	k8s.io/apimachinery v0.21.4
 	k8s.io/cli-runtime v0.21.1
-	k8s.io/client-go v0.21.3
-	k8s.io/klog/v2 v2.9.0
+	k8s.io/client-go v0.21.4
+	k8s.io/klog/v2 v2.10.0
 	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
 	sigs.k8s.io/controller-runtime v0.8.1
 	sigs.k8s.io/kustomize/api v0.8.8

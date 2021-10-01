@@ -3,8 +3,11 @@ package cosign
 import (
 	"context"
 	"crypto"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
+	"github.com/sigstore/sigstore/pkg/signature/dsse"
 	"strings"
 
 	"github.com/gardener/controller-manager-library/pkg/logger"
@@ -20,7 +23,7 @@ import (
 )
 
 var (
-	// Alternate signature repository
+	// ImageSignatureRepository is an alternate signature repository
 	ImageSignatureRepository string
 )
 
@@ -42,13 +45,14 @@ func Initialize(client kubernetes.Interface, namespace, serviceAccount string, i
 	return nil
 }
 
-func Verify(imageRef string, key []byte, repository string, log logr.Logger) (digest string, err error) {
+func VerifySignature(imageRef string, key []byte, repository string, log logr.Logger) (digest string, err error) {
 	pubKey, err := decodePEM(key)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to decode PEM %v", string(key))
 	}
 
 	cosignOpts := &cosign.CheckOpts{
+		RootCerts:          fulcio.GetRoots(),
 		Annotations: map[string]interface{}{},
 		SigVerifier: pubKey,
 		RegistryClientOpts: []remote.Option{
@@ -90,6 +94,82 @@ func Verify(imageRef string, key []byte, repository string, log logr.Logger) (di
 	}
 
 	return digest, nil
+}
+
+func FetchAttestations(imageRef string, key []byte, repository string) (map[string]interface{}, error) {
+	pubKey, err := decodePEM(key)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to decode PEM %v", string(key))
+	}
+
+	ref, err := name.ParseReference(imageRef)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse image")
+	}
+
+	cosignOpts := &cosign.CheckOpts{
+		RootCerts:            fulcio.GetRoots(),
+		ClaimVerifier:        cosign.IntotoSubjectClaimVerifier,
+		SigTagSuffixOverride: cosign.AttestationTagSuffix,
+		SigVerifier:          dsse.WrapVerifier(pubKey),
+		VerifyBundle:         false,
+	}
+
+	if err := setSignatureRepo(cosignOpts, ref, repository); err != nil {
+		return nil, errors.Wrap(err, "failed to set signature repository")
+	}
+
+	verified, err := cosign.Verify(context.Background(), ref, cosignOpts)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to verify image attestations")
+	}
+
+	inTotoAttestation, err := decodeAttestation(verified)
+	if err != nil {
+		return nil, err
+	}
+
+	return inTotoAttestation, nil
+}
+
+func decodeAttestation(payloads []cosign.SignedPayload) (map[string]interface{}, error) {
+	if len(payloads) == 0 {
+		return nil, fmt.Errorf("empty payloads")
+	}
+
+	payload := payloads[0].Payload
+
+	data, err := base64.StdEncoding.DecodeString(string(payload))
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to base64 decode payload")
+	}
+
+	inTotoAttestation := make(map[string]interface{})
+	if err := json.Unmarshal(data, &inTotoAttestation); err != nil {
+		return nil, errors.Wrapf(err, "failed to unmarshal JSON payload")
+	}
+
+	attestationPayloadBase64 := inTotoAttestation["payload"].(string)
+	statement, err := base64.StdEncoding.DecodeString(attestationPayloadBase64)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to base64 decode payload")
+	}
+
+	inTotoAttestation["payload"] = statement
+	return inTotoAttestation, nil
+}
+
+func setSignatureRepo(cosignOpts *cosign.CheckOpts, ref name.Reference, repository string) error {
+	cosignOpts.SignatureRepo = ref.Context()
+	if repository != "" {
+		signatureRepo, err := name.NewRepository(repository)
+		if err != nil {
+			return errors.Wrapf(err, "failed to parse signature repository %s", repository)
+		}
+
+		cosignOpts.SignatureRepo = signatureRepo
+	}
+	return nil
 }
 
 func decodePEM(raw []byte) (signature.Verifier, error) {

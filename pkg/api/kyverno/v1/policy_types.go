@@ -458,12 +458,16 @@ type ImageVerification struct {
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	Image string `json:"image,omitempty" yaml:"image,omitempty"`
 
-	// Key is the PEM encoded public key that the image is signed with.
+	// Key is the PEM encoded public key that the image or attestation is signed with.
+	// Deprecated. Use Keys instead.
 	Key string `json:"key,omitempty" yaml:"key,omitempty"`
 
 	// Repository is an optional alternate OCI repository to use for image signatures that match this rule.
 	// If specified Repository will override the default OCI image repository configured for the installation.
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
+
+	// Attestations are optional statements used to verify the image.
+	Attestations []*AnyAllConditions `json:"attestations,omitempty" yaml:"attestations,omitempty"`
 }
 
 // Generation defines how new resources should be created and managed.
