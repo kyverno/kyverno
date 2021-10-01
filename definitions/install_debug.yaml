@@ -2995,6 +2995,16 @@ spec:
               context:
                 description: Context ...
                 properties:
+                  admissionRequestInfo:
+                    description: Adding required request information to GR
+                    properties:
+                      admissionRequest:
+                        description: Adding Admission Request to GR.
+                        type: string
+                      operation:
+                        description: Current request operation
+                        type: string
+                    type: object
                   userInfo:
                     description: RequestInfo contains permission info carried in an
                       admission request.
