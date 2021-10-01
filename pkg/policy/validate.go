@@ -10,13 +10,12 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/jmespath/go-jmespath"
-	c "github.com/kyverno/kyverno/pkg/common"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	comn "github.com/kyverno/kyverno/pkg/common"
+	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
-
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/pkg/wildcard"
@@ -177,18 +176,23 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 
 		// Validate Kind with match resource kinds
-		for _, kind := range rule.MatchResources.Kinds {
-			gv, k := c.GetKindFromGVK(kind)
-			if !mock {
-				_, _, err := client.DiscoveryClient.FindResource(gv, k)
-				if err != nil || strings.ToLower(k) == k {
-					return fmt.Errorf("match resource kind  %s is invalid ", k)
-				}
-			}
+		match := rule.MatchResources
+		for _, value := range match.Any {
+			err := validateKinds(value.ResourceDescription.Kinds, mock, client, p)
 
-			if k == p.Kind {
-				return fmt.Errorf("kind and match resource kind should not be the same.")
+			if err != nil {
+				return fmt.Errorf("match resource kind is invalid ")
 			}
+		}
+		for _, value := range match.All {
+			err := validateKinds(value.ResourceDescription.Kinds, mock, client, p)
+			if err != nil {
+				return fmt.Errorf("match resource kind is invalid ")
+			}
+		}
+		err := validateKinds(rule.MatchResources.Kinds, mock, client, p)
+		if err != nil {
+			return fmt.Errorf("match resource kind is invalid ")
 		}
 
 		// Validate string values in labels
@@ -1033,4 +1037,20 @@ func jsonPatchOnPod(rule kyverno.Rule) bool {
 	}
 
 	return false
+}
+
+func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.ClusterPolicy) error {
+	for _, kind := range kinds {
+		gv, k := comn.GetKindFromGVK(kind)
+		if !mock {
+			_, _, err := client.DiscoveryClient.FindResource(gv, k)
+			if err != nil || strings.ToLower(k) == k {
+				return fmt.Errorf("match resource kind  %s is invalid ", k)
+			}
+		}
+		if k == p.Kind {
+			return fmt.Errorf("kind and match resource kind should not be the same")
+		}
+	}
+	return nil
 }
