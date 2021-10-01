@@ -37,7 +37,6 @@ const (
 // 5. Webhook Status Mutation
 type Register struct {
 	client             *client.Client
-	kyvernoClient      *kyvernoclient.Clientset
 	clientConfig       *rest.Config
 	resCache           resourcecache.ResourceCache
 	serverIP           string // when running outside a cluster
