@@ -193,7 +193,7 @@ func (v *validator) validate() *response.RuleResponse {
 	if err != nil {
 		return ruleError(v.rule, "failed to evaluate preconditions", err)
 	} else if !preconditionsPassed {
-		return ruleResponse(v.rule, "", response.RuleStatusSkip)
+		return ruleResponse(v.rule, "preconditions not met", response.RuleStatusSkip)
 	}
 
 	if v.pattern != nil || v.anyPattern != nil {
@@ -222,7 +222,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	if err != nil {
 		return ruleError(v.rule, "failed to evaluate preconditions", err)
 	} else if !preconditionsPassed {
-		return ruleResponse(v.rule, "", response.RuleStatusSkip)
+		return ruleResponse(v.rule, "preconditions not met", response.RuleStatusSkip)
 	}
 
 	foreach := v.rule.Validation.ForEachValidation
@@ -266,10 +266,10 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	}
 
 	if applyCount == 0 {
-		return ruleResponse(v.rule, "", response.RuleStatusSkip)
+		return ruleResponse(v.rule, "rule skipped", response.RuleStatusSkip)
 	}
 
-	return ruleResponse(v.rule, "", response.RuleStatusPass)
+	return ruleResponse(v.rule, "rule passed", response.RuleStatusPass)
 }
 
 func addElementToContext(ctx *PolicyContext, e interface{}) error {
@@ -436,13 +436,16 @@ func isSameRuleResponse(r1 *response.RuleResponse, r2 *response.RuleResponse) bo
 // validatePatterns validate pattern and anyPattern
 func (v *validator) validatePatterns(resource unstructured.Unstructured) *response.RuleResponse {
 	if v.pattern != nil {
-		if err, path := validate.MatchPattern(v.log, resource.Object, v.pattern); err != nil {
-			v.log.V(3).Info("validation error", "path", path, "error", err.Error())
-			if path == "" {
-				return ruleResponse(v.rule, v.buildErrorMessage(err, ""), response.RuleStatusError)
-			}
+		if err := validate.MatchPattern(v.log, resource.Object, v.pattern); err != nil {
 
-			return ruleResponse(v.rule, v.buildErrorMessage(err, path), response.RuleStatusFail)
+			if pe, ok := err.(*validate.PatternError); ok{
+				v.log.V(3).Info("validation error", "path", pe.Path, "error", err.Error())
+				if pe.Path == "" {
+					return ruleResponse(v.rule, v.buildErrorMessage(err, ""), response.RuleStatusError)
+				}
+
+				return ruleResponse(v.rule, v.buildErrorMessage(err, pe.Path), response.RuleStatusFail)
+			}
 		}
 
 		v.log.V(4).Info("successfully processed rule")
@@ -461,19 +464,21 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 		}
 
 		for idx, pattern := range anyPatterns {
-			err, path := validate.MatchPattern(v.log, resource.Object, pattern)
+			err := validate.MatchPattern(v.log, resource.Object, pattern)
 			if err == nil {
 				msg := fmt.Sprintf("validation rule '%s' anyPattern[%d] passed.", v.rule.Name, idx)
 				return ruleResponse(v.rule, msg, response.RuleStatusPass)
 			}
 
-			v.log.V(3).Info("validation rule failed", "anyPattern[%d]", idx, "path", path)
-			if path == "" {
-				patternErr := fmt.Errorf("Rule %s[%d] failed: %s.", v.rule.Name, idx, err.Error())
-				failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
-			} else {
-				patternErr := fmt.Errorf("Rule %s[%d] failed at path %s.", v.rule.Name, idx, path)
-				failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
+			if pe, ok := err.(*validate.PatternError); ok {
+				v.log.V(3).Info("validation rule failed", "anyPattern[%d]", idx, "path", pe.Path)
+				if pe.Path == "" {
+					patternErr := fmt.Errorf("Rule %s[%d] failed: %s.", v.rule.Name, idx, err.Error())
+					failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
+				} else {
+					patternErr := fmt.Errorf("Rule %s[%d] failed at path %s.", v.rule.Name, idx, pe.Path)
+					failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
+				}
 			}
 		}
 

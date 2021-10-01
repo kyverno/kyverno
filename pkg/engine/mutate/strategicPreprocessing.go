@@ -335,7 +335,7 @@ func checkCondition(logger logr.Logger, pattern *yaml.RNode, resource *yaml.RNod
 		return err
 	}
 
-	err, _ = validate.MatchPattern(logger, resourceInterface, patternInterface)
+	err = validate.MatchPattern(logger, resourceInterface, patternInterface)
 	if err != nil {
 		return err
 	}

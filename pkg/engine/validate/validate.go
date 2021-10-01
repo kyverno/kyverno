@@ -12,9 +12,24 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 )
 
+
+type PatternError struct {
+	Err error
+	Path string
+	Skip bool
+}
+
+func (e *PatternError) Error() string {
+	if e.Err == nil {
+		return ""
+	}
+
+	return e.Err.Error()
+}
+
 // MatchPattern is a start of element-by-element pattern validation process.
 // It assumes that validation is started from root, so "/" is passed
-func MatchPattern(logger logr.Logger, resource, pattern interface{}) (error, string) {
+func MatchPattern(logger logr.Logger, resource, pattern interface{}) error {
 	// newAnchorMap - to check anchor key has values
 	ac := common.NewAnchorMap()
 	elemPath, err := validateResourceElement(logger, resource, pattern, pattern, "/", ac)
@@ -22,19 +37,19 @@ func MatchPattern(logger logr.Logger, resource, pattern interface{}) (error, str
 		// if conditional or global anchors report errors, the rule does not apply to the resource
 		if common.IsConditionalAnchorError(err.Error()) || common.IsGlobalAnchorError(err.Error()) {
 			logger.V(3).Info("skipping resource as anchor does not apply", "msg", ac.AnchorError.Error())
-			return nil, ""
+			return &PatternError{nil, "", true}
 		}
 
 		// check if an anchor defined in the policy rule is missing in the resource
 		if ac.IsAnchorError() {
 			logger.V(3).Info("missing anchor in resource")
-			return err, ""
+			return &PatternError{err, "", false}
 		}
 
-		return err, elemPath
+		return &PatternError{err, elemPath, false}
 	}
 
-	return nil, ""
+	return &PatternError{nil, "", false}
 }
 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)
