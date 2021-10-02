@@ -21,7 +21,11 @@ type Validation interface {
 // - Mutate
 // - Validation
 // - Generate
-func validateActions(idx int, rule kyverno.Rule, client *dclient.Client, mock bool) error {
+func validateActions(idx int, rule *kyverno.Rule, client *dclient.Client, mock bool) error {
+	if rule == nil {
+		return nil
+	}
+
 	var checker Validation
 
 	// Mutate
@@ -34,7 +38,7 @@ func validateActions(idx int, rule kyverno.Rule, client *dclient.Client, mock bo
 
 	// Validate
 	if rule.HasValidate() {
-		checker = validate.NewValidateFactory(rule.Validation)
+		checker = validate.NewValidateFactory(&rule.Validation)
 		if path, err := checker.Validate(); err != nil {
 			return fmt.Errorf("path: spec.rules[%d].validate.%s.: %v", idx, path, err)
 		}

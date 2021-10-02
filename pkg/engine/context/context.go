@@ -99,6 +99,16 @@ func (ctx *Context) AddJSON(dataRaw []byte) error {
 	return nil
 }
 
+// AddJSON merges json data
+func (ctx *Context) AddJSONObject(jsonData interface{}) error {
+	jsonBytes, err := json.Marshal(jsonData)
+	if err != nil {
+		return err
+	}
+
+	return ctx.AddJSON(jsonBytes)
+}
+
 // AddRequest adds an admission request to context
 func (ctx *Context) AddRequest(request *v1beta1.AdmissionRequest) error {
 	modifiedResource := struct {

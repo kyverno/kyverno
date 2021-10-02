@@ -278,13 +278,17 @@ func addElementToContext(ctx *PolicyContext, e interface{}) error {
 		return err
 	}
 
+	jsonData := map[string]interface{}{
+		"element": data,
+	}
+
+	if err := ctx.JSONContext.AddJSONObject(jsonData); err != nil {
+		return errors.Wrapf(err, "failed to add element (%v) to JSON context", e)
+	}
+
 	u := unstructured.Unstructured{}
 	u.SetUnstructuredContent(data)
-	ctx.NewResource = u
-
-	if err := ctx.JSONContext.AddResourceAsObject(e); err != nil {
-		return errors.Wrapf(err, "failed to add resource (%v) to JSON context", e)
-	}
+	ctx.Element = u
 
 	return nil
 }
@@ -375,12 +379,17 @@ func (v *validator) getDenyMessage(deny bool) string {
 }
 
 func (v *validator) validateResourceWithRule() *response.RuleResponse {
-	if reflect.DeepEqual(v.ctx.OldResource, unstructured.Unstructured{}) {
+	if !isEmptyUnstructured(&v.ctx.Element) {
+		resp := v.validatePatterns(v.ctx.Element)
+		return resp
+	}
+
+	if !isEmptyUnstructured(&v.ctx.OldResource) {
 		resp := v.validatePatterns(v.ctx.NewResource)
 		return resp
 	}
 
-	if reflect.DeepEqual(v.ctx.NewResource, unstructured.Unstructured{}) {
+	if isEmptyUnstructured(&v.ctx.NewResource) {
 		v.log.V(3).Info("skipping validation on deleted resource")
 		return nil
 	}
@@ -393,6 +402,18 @@ func (v *validator) validateResourceWithRule() *response.RuleResponse {
 	}
 
 	return newResp
+}
+
+func isEmptyUnstructured(u *unstructured.Unstructured) bool {
+	if u == nil {
+		return true
+	}
+
+	if reflect.DeepEqual(*u, unstructured.Unstructured{}) {
+		return true
+	}
+
+	return false
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
@@ -525,9 +546,9 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 		return fmt.Sprintf("validation error: rule %s execution error: %s", v.rule.Name, err.Error())
 	}
 
-	msgRaw, err := variables.SubstituteAll(v.log, v.ctx.JSONContext, v.rule.Validation.Message)
-	if err != nil {
-		v.log.Info("failed to substitute variables in message: %v", err)
+	msgRaw, sErr := variables.SubstituteAll(v.log, v.ctx.JSONContext, v.rule.Validation.Message)
+	if sErr != nil {
+		v.log.Info("failed to substitute variables in message: %v", sErr)
 	}
 
 	msg := msgRaw.(string)

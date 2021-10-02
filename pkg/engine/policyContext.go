@@ -20,6 +20,9 @@ type PolicyContext struct {
 	// OldResource is the prior resource for an update, or nil
 	OldResource unstructured.Unstructured
 
+	// Element is set when the context is used for processing a foreach loop
+	Element unstructured.Unstructured
+
 	// AdmissionInfo contains the admission request information
 	AdmissionInfo kyverno.RequestInfo
 
