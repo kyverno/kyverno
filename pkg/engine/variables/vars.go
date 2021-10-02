@@ -126,7 +126,7 @@ func SubstituteAllInConditions(log logr.Logger, ctx context.EvalInterface, condi
 	return JSONObjectToConditions(i)
 }
 
-func ConditionsToJSONObject(conditions []*kyverno.AnyAllConditions) ([]map[string]interface{}, error){
+func ConditionsToJSONObject(conditions []*kyverno.AnyAllConditions) ([]map[string]interface{}, error) {
 	bytes, err := json.Marshal(conditions)
 	if err != nil {
 		return nil, err

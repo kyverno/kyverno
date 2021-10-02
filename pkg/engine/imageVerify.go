@@ -174,7 +174,7 @@ func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.
 	attestations, err := cosign.FetchAttestations(image, []byte(key), repository)
 	if err != nil {
 		iv.logger.Info("failed to fetch attestations", "image", image, "error", err, "duration", time.Since(start).Seconds())
-		return ruleError(iv.rule,  fmt.Sprintf("failed to fetch attestations for %s", image), err)
+		return ruleError(iv.rule, fmt.Sprintf("failed to fetch attestations for %s", image), err)
 	}
 
 	iv.logger.Info("received attestation", "attestations", attestations)
@@ -182,21 +182,20 @@ func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.
 	iv.policyContext.JSONContext.Checkpoint()
 	defer iv.policyContext.JSONContext.Restore()
 	if err := iv.policyContext.JSONContext.AddJSONObject(attestations); err != nil {
-		return ruleError(iv.rule,  fmt.Sprintf("failed to add attestations to the context %v", attestations), err)
+		return ruleError(iv.rule, fmt.Sprintf("failed to add attestations to the context %v", attestations), err)
 	}
 
 	passed, err := iv.checkConditions(attestationChecks)
 	if err != nil {
-		return ruleError(iv.rule,  "failed to check attestation", err)
+		return ruleError(iv.rule, "failed to check attestation", err)
 	}
 
 	if !passed {
-		return ruleResponse(iv.rule,  "attestation checks failed", response.RuleStatusFail)
+		return ruleResponse(iv.rule, "attestation checks failed", response.RuleStatusFail)
 	}
 
-	return ruleResponse(iv.rule,  "attestation checks passed", response.RuleStatusPass)
+	return ruleResponse(iv.rule, "attestation checks passed", response.RuleStatusPass)
 }
-
 
 func (iv *imageVerifier) checkConditions(attestationChecks []*v1.AnyAllConditions) (bool, error) {
 	conditions, err := variables.SubstituteAllInConditions(iv.logger, iv.policyContext.JSONContext, attestationChecks)
@@ -207,4 +206,3 @@ func (iv *imageVerifier) checkConditions(attestationChecks []*v1.AnyAllCondition
 	pass := variables.EvaluateConditions(iv.logger, iv.policyContext.JSONContext, conditions)
 	return pass, nil
 }
-
