@@ -459,7 +459,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 	if v.pattern != nil {
 		if err := validate.MatchPattern(v.log, resource.Object, v.pattern); err != nil {
 
-			if pe, ok := err.(*validate.PatternError); ok{
+			if pe, ok := err.(*validate.PatternError); ok {
 				v.log.V(3).Info("validation error", "path", pe.Path, "error", err.Error())
 				if pe.Path == "" {
 					return ruleResponse(v.rule, v.buildErrorMessage(err, ""), response.RuleStatusError)

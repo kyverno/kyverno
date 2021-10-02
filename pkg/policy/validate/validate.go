@@ -60,7 +60,7 @@ func (v *Validate) Validate() (string, error) {
 
 func (v *Validate) validateElements() error {
 	count := validationElemCount(v.rule)
-	if  count == 0 {
+	if count == 0 {
 		return fmt.Errorf("one of pattern, anyPattern, deny, foreach must be specified")
 	}
 
@@ -106,7 +106,7 @@ func (v *Validate) validateForEach(foreach *kyverno.ForEachValidation) error {
 	}
 
 	count := foreachElemCount(foreach)
-	if  count == 0 {
+	if count == 0 {
 		return fmt.Errorf("one of pattern, anyPattern, deny must be specified")
 	}
 

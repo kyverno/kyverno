@@ -12,9 +12,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 )
 
-
 type PatternError struct {
-	Err error
+	Err  error
 	Path string
 	Skip bool
 }
