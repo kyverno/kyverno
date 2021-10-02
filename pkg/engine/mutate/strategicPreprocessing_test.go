@@ -913,7 +913,7 @@ func Test_CheckConditionAnchor_Matches(t *testing.T) {
 	resource := yaml.MustParse(string(resourceRaw))
 
 	err := checkCondition(log.Log, pattern, resource)
-	assert.NilError(t, err)
+	assert.Equal(t, err, nil)
 }
 
 func Test_CheckConditionAnchor_DoesNotMatch(t *testing.T) {

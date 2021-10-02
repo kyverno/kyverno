@@ -392,7 +392,8 @@ func transformConditions(original apiextensions.JSON) (interface{}, error) {
 	case []kyverno.Condition: // backwards compatibility
 		return copyOldConditions(typedValue), nil
 	}
-	return nil, fmt.Errorf("wrongfully configured data")
+
+	return nil, fmt.Errorf("invalid preconditions")
 }
 
 // excludeResource checks if the resource has ownerRef set

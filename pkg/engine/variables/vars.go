@@ -43,22 +43,13 @@ func ReplaceAllVars(src string, repl func(string) string) string {
 	return RegexVariables.ReplaceAllStringFunc(src, repl)
 }
 
-func SubstituteAll(log logr.Logger, ctx context.EvalInterface, document interface{}) (_ interface{}, err error) {
-	document, err = substituteReferences(log, document)
-	if err != nil {
-		return kyverno.Rule{}, err
-	}
-
-	return substituteVars(log, ctx, document, DefaultVariableResolver)
-}
-
 func newPreconditionsVariableResolver(log logr.Logger) VariableResolver {
 	// PreconditionsVariableResolver is used to substitute vars in preconditions.
-	// It returns empty string if error occured during substitution
+	// It returns an empty string if an error occurs during the substitution.
 	return func(ctx context.EvalInterface, variable string) (interface{}, error) {
 		value, err := DefaultVariableResolver(ctx, variable)
 		if err != nil {
-			log.V(4).Info(fmt.Sprintf("Variable \"%s\" is not resolved in preconditions. Considering it as an empty string", variable))
+			log.V(4).Info(fmt.Sprintf("using empty string for unresolved variable \"%s\" in preconditions", variable))
 			return "", nil
 		}
 
@@ -66,13 +57,110 @@ func newPreconditionsVariableResolver(log logr.Logger) VariableResolver {
 	}
 }
 
+// SubstituteAll substitutes variables and references in the document. The document must be JSON data
+// i.e. string, []interface{}, map[string]interface{}
+func SubstituteAll(log logr.Logger, ctx context.EvalInterface, document interface{}) (_ interface{}, err error) {
+	return substituteAll(log, ctx, document, DefaultVariableResolver)
+}
+
 func SubstituteAllInPreconditions(log logr.Logger, ctx context.EvalInterface, document interface{}) (_ interface{}, err error) {
-	document, err = substituteReferences(log, document)
+	return substituteAll(log, ctx, document, newPreconditionsVariableResolver(log))
+}
+
+func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
+	var rule interface{}
+	rule, err = RuleToUntyped(typedRule)
+	if err != nil {
+		return typedRule, err
+	}
+
+	rule, err = SubstituteAll(log, ctx, rule)
+	if err != nil {
+		return typedRule, err
+	}
+
+	return UntypedToRule(rule)
+}
+
+func RuleToUntyped(rule kyverno.Rule) (interface{}, error) {
+	jsonRule, err := json.Marshal(rule)
+	if err != nil {
+		return nil, err
+	}
+
+	var untyped interface{}
+	err = json.Unmarshal(jsonRule, &untyped)
+	if err != nil {
+		return nil, err
+	}
+
+	return untyped, nil
+}
+
+func UntypedToRule(untyped interface{}) (kyverno.Rule, error) {
+	jsonRule, err := json.Marshal(untyped)
 	if err != nil {
 		return kyverno.Rule{}, err
 	}
 
-	return substituteVars(log, ctx, document, newPreconditionsVariableResolver(log))
+	var rule kyverno.Rule
+	err = json.Unmarshal(jsonRule, &rule)
+	if err != nil {
+		return kyverno.Rule{}, err
+	}
+
+	return rule, nil
+}
+
+func SubstituteAllInConditions(log logr.Logger, ctx context.EvalInterface, conditions []*kyverno.AnyAllConditions) ([]*kyverno.AnyAllConditions, error) {
+	c, err := ConditionsToJSONObject(conditions)
+	if err != nil {
+		return nil, err
+	}
+
+	i, err := SubstituteAll(log, ctx, c)
+	if err != nil {
+		return nil, err
+	}
+
+	return JSONObjectToConditions(i)
+}
+
+func ConditionsToJSONObject(conditions []*kyverno.AnyAllConditions) ([]map[string]interface{}, error){
+	bytes, err := json.Marshal(conditions)
+	if err != nil {
+		return nil, err
+	}
+
+	var m = []map[string]interface{}{}
+	if err := json.Unmarshal(bytes, &m); err != nil {
+		return nil, err
+	}
+
+	return m, nil
+}
+
+func JSONObjectToConditions(data interface{}) ([]*kyverno.AnyAllConditions, error) {
+	bytes, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	var c []*kyverno.AnyAllConditions
+	if err := json.Unmarshal(bytes, &c); err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+func substituteAll(log logr.Logger, ctx context.EvalInterface, document interface{}, resolver VariableResolver) (_ interface{}, err error) {
+	document, err = substituteReferences(log, document)
+	if err != nil {
+		return document, err
+	}
+
+	return substituteVars(log, ctx, document, resolver)
 }
 
 func SubstituteAllForceMutate(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
@@ -100,8 +188,6 @@ func SubstituteAllForceMutate(log logr.Logger, ctx context.EvalInterface, typedR
 	return UntypedToRule(rule)
 }
 
-//SubstituteVars replaces the variables with the values defined in the context
-// - if any variable is invalid or has nil value, it is considered as a failed variable substitution
 func substituteVars(log logr.Logger, ctx context.EvalInterface, rule interface{}, vr VariableResolver) (interface{}, error) {
 	return jsonUtils.NewTraversal(rule, substituteVariablesIfAny(log, ctx, vr)).TraverseJSON()
 }
@@ -409,57 +495,6 @@ func getValueFromReference(fullDocument interface{}, path string) (interface{}, 
 	}
 
 	return element, nil
-}
-
-func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
-	var rule interface{}
-
-	rule, err = RuleToUntyped(typedRule)
-	if err != nil {
-		return typedRule, err
-	}
-
-	rule, err = substituteReferences(log, rule)
-	if err != nil {
-		return typedRule, err
-	}
-
-	rule, err = substituteVars(log, ctx, rule, DefaultVariableResolver)
-	if err != nil {
-		return typedRule, err
-	}
-
-	return UntypedToRule(rule)
-}
-
-func RuleToUntyped(rule kyverno.Rule) (interface{}, error) {
-	jsonRule, err := json.Marshal(rule)
-	if err != nil {
-		return nil, err
-	}
-
-	var untyped interface{}
-	err = json.Unmarshal(jsonRule, &untyped)
-	if err != nil {
-		return nil, err
-	}
-
-	return untyped, nil
-}
-
-func UntypedToRule(untyped interface{}) (kyverno.Rule, error) {
-	jsonRule, err := json.Marshal(untyped)
-	if err != nil {
-		return kyverno.Rule{}, err
-	}
-
-	var rule kyverno.Rule
-	err = json.Unmarshal(jsonRule, &rule)
-	if err != nil {
-		return kyverno.Rule{}, err
-	}
-
-	return rule, nil
 }
 
 func replaceSubstituteVariables(document interface{}) interface{} {

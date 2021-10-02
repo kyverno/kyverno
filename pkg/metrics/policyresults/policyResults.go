@@ -77,7 +77,7 @@ func (pc PromConfig) ProcessEngineResponse(policy kyverno.ClusterPolicy, engineR
 		ruleName := rule.Name
 		ruleType := ParseRuleTypeFromEngineRuleResponse(rule)
 		ruleResult := metrics.Fail
-		if rule.Success {
+		if rule.Status == response.RuleStatusPass {
 			ruleResult = metrics.Pass
 		}
 

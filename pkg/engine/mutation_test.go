@@ -157,7 +157,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Mutate(policyContext)
-	expectedErrorStr := "variable substitution failed for rule test-path-not-exist: Unknown key \"name1\" in path"
+	expectedErrorStr := "variable substitution failed: Unknown key \"name1\" in path"
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, expectedErrorStr)
 }
 

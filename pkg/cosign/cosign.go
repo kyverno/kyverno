@@ -52,7 +52,7 @@ func VerifySignature(imageRef string, key []byte, repository string, log logr.Lo
 	}
 
 	cosignOpts := &cosign.CheckOpts{
-		RootCerts:          fulcio.GetRoots(),
+		RootCerts:   fulcio.GetRoots(),
 		Annotations: map[string]interface{}{},
 		SigVerifier: pubKey,
 		RegistryClientOpts: []remote.Option{
@@ -139,7 +139,7 @@ func decodeAttestations(attestations []cosign.SignedPayload) (map[string]interfa
 
 	decodedAttestations := make([]map[string]interface{}, len(attestations))
 
-	for _, a := range  attestations {
+	for _, a := range attestations {
 		payload := a.Payload
 		data, err := base64.StdEncoding.DecodeString(string(payload))
 		if err != nil {

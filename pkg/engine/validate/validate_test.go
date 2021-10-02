@@ -1590,19 +1590,53 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		var pattern, resource interface{}
-		err := json.Unmarshal(testCase.pattern, &pattern)
-		assert.NilError(t, err)
-		err = json.Unmarshal(testCase.resource, &resource)
-		assert.NilError(t, err)
+		testMatchPattern(t, testCase)
+	}
+}
 
-		_, err = ValidateResourceWithPattern(log.Log, resource, pattern)
-		if testCase.nilErr {
-			assert.NilError(t, err, fmt.Sprintf("\ntest: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
-		} else {
-			assert.Assert(t,
-				err != nil,
-				fmt.Sprintf("\ntest: %s\npattern: %s\nresource: %s\nmsg: %v", testCase.name, pattern, resource, err))
-		}
+func Test_global_anchor(t *testing.T) {
+	testCases := []struct {
+		name     string
+		pattern  []byte
+		resource []byte
+		nilErr   bool
+	}{
+		{
+			name:     "check global anchor_skip",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:v1", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "check global anchor_apply",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+	}
+
+	testMatchPattern(t, testCases[0])
+	testMatchPattern(t, testCases[1])
+}
+
+func testMatchPattern(t *testing.T, testCase struct {
+	name     string
+	pattern  []byte
+	resource []byte
+	nilErr   bool
+}) {
+	var pattern, resource interface{}
+	err := json.Unmarshal(testCase.pattern, &pattern)
+	assert.NilError(t, err)
+	err = json.Unmarshal(testCase.resource, &resource)
+	assert.NilError(t, err)
+
+	err, _ = MatchPattern(log.Log, resource, pattern)
+	if testCase.nilErr {
+		assert.NilError(t, err, fmt.Sprintf("\ntest: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
+	} else {
+		assert.Assert(t,
+			err != nil,
+			fmt.Sprintf("\ntest: %s\npattern: %s\nresource: %s\nmsg: %v", testCase.name, pattern, resource, err))
 	}
 }

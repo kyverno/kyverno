@@ -86,7 +86,7 @@ func (ws *WebhookServer) handleGenerate(
 			}
 			engineResponse := engine.Generate(policyContext)
 			for _, rule := range engineResponse.PolicyResponse.Rules {
-				if !rule.Success {
+				if rule.Status != response.RuleStatusPass {
 					ws.deleteGR(logger, engineResponse)
 					continue
 				}

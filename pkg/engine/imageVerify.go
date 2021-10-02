@@ -3,6 +3,8 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/pkg/errors"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -35,7 +37,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 
 	startTime := time.Now()
 	defer func() {
-		buildResponse(logger, policyContext, resp, startTime)
+		buildResponse(policyContext, resp, startTime)
 		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "rulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
@@ -54,11 +56,11 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 
 		policyContext.JSONContext.Restore()
 
-		iv := &imageVerifier {
-			logger: logger,
+		iv := &imageVerifier{
+			logger:        logger,
 			policyContext: policyContext,
-			rule: &rule,
-			resp: resp,
+			rule:          &rule,
+			resp:          resp,
 		}
 
 		for _, imageVerify := range rule.VerifyImages {
@@ -71,10 +73,10 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 }
 
 type imageVerifier struct {
-	logger logr.Logger
+	logger        logr.Logger
 	policyContext *PolicyContext
-	rule *v1.Rule
-	resp *response.EngineResponse
+	rule          *v1.Rule
+	resp          *response.EngineResponse
 }
 
 func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]*context.ImageInfo) {
@@ -100,11 +102,11 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 		if len(imageVerify.Attestations) == 0 {
 			var digest string
 			ruleResp, digest = iv.verifySignature(repository, key, imageInfo)
-			if ruleResp.Success {
+			if ruleResp.Status == response.RuleStatusPass {
 				iv.patchDigest(imageInfo, digest, ruleResp)
 			}
 		} else {
-			ruleResp = iv.attestImage(repository, key, imageInfo)
+			ruleResp = iv.attestImage(repository, key, imageInfo, imageVerify.Attestations)
 		}
 
 		iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
@@ -134,12 +136,12 @@ func (iv *imageVerifier) verifySignature(repository, key string, imageInfo *cont
 	digest, err := cosign.VerifySignature(image, []byte(key), repository, iv.logger)
 	if err != nil {
 		iv.logger.Info("failed to verify image signature", "image", image, "error", err, "duration", time.Since(start).Seconds())
-		ruleResp.Success = false
+		ruleResp.Status = response.RuleStatusFail
 		ruleResp.Message = fmt.Sprintf("image signature verification failed for %s: %v", image, err)
 		return ruleResp, ""
 	}
 
-	ruleResp.Success = true
+	ruleResp.Status = response.RuleStatusPass
 	ruleResp.Message = fmt.Sprintf("image %s verified", image)
 	iv.logger.V(3).Info("verified image", "image", image, "digest", digest, "duration", time.Since(start).Seconds())
 	return ruleResp, digest
@@ -165,28 +167,44 @@ func makeAddDigestPatch(imageInfo *context.ImageInfo, digest string) ([]byte, er
 	return json.Marshal(patch)
 }
 
-func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.ImageInfo) *response.RuleResponse {
+func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.ImageInfo, attestationChecks []*v1.AnyAllConditions) *response.RuleResponse {
 	image := imageInfo.String()
 
-	ruleResp := &response.RuleResponse{
-		Name: iv.rule.Name,
-		Type: utils.Validation.String(),
-	}
-
 	start := time.Now()
-	inTotoAttestation, err := cosign.FetchAttestations(image, []byte(key), repository)
+	attestations, err := cosign.FetchAttestations(image, []byte(key), repository)
 	if err != nil {
-		iv.logger.Info("failed to verify image attestations", "image", image, "error", err, "duration", time.Since(start).Seconds())
-		ruleResp.Success = false
-		ruleResp.Message = fmt.Sprintf("image attestation failed for %s: %v", image, err)
-		return ruleResp
+		iv.logger.Info("failed to fetch attestations", "image", image, "error", err, "duration", time.Since(start).Seconds())
+		return ruleError(iv.rule,  fmt.Sprintf("failed to fetch attestations for %s", image), err)
 	}
 
-	iv.logger.Info("received attestation", "in-toto-attestation", inTotoAttestation)
+	iv.logger.Info("received attestation", "attestations", attestations)
 
+	iv.policyContext.JSONContext.Checkpoint()
+	defer iv.policyContext.JSONContext.Restore()
+	if err := iv.policyContext.JSONContext.AddJSONObject(attestations); err != nil {
+		return ruleError(iv.rule,  fmt.Sprintf("failed to add attestations to the context %v", attestations), err)
+	}
 
-	// add to context
+	passed, err := iv.checkConditions(attestationChecks)
+	if err != nil {
+		return ruleError(iv.rule,  "failed to check attestation", err)
+	}
 
-	// process any / all conditions
-	return ruleResp
+	if !passed {
+		return ruleResponse(iv.rule,  "attestation checks failed", response.RuleStatusFail)
+	}
+
+	return ruleResponse(iv.rule,  "attestation checks passed", response.RuleStatusPass)
 }
+
+
+func (iv *imageVerifier) checkConditions(attestationChecks []*v1.AnyAllConditions) (bool, error) {
+	conditions, err := variables.SubstituteAllInConditions(iv.logger, iv.policyContext.JSONContext, attestationChecks)
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to substitute variables in conditions")
+	}
+
+	pass := variables.EvaluateConditions(iv.logger, iv.policyContext.JSONContext, conditions)
+	return pass, nil
+}
+
