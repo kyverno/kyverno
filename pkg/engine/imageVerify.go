@@ -53,16 +53,31 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 		}
 
 		policyContext.JSONContext.Restore()
+
+		iv := &imageVerifier {
+			logger: logger,
+			policyContext: policyContext,
+			rule: &rule,
+			resp: resp,
+		}
+
 		for _, imageVerify := range rule.VerifyImages {
-			verifyAndPatchImages(logger, policyContext, &rule, imageVerify, images.Containers, resp)
-			verifyAndPatchImages(logger, policyContext, &rule, imageVerify, images.InitContainers, resp)
+			iv.verify(imageVerify, images.Containers)
+			iv.verify(imageVerify, images.InitContainers)
 		}
 	}
 
 	return
 }
 
-func verifyAndPatchImages(logger logr.Logger, policyContext *PolicyContext, rule *v1.Rule, imageVerify *v1.ImageVerification, images map[string]*context.ImageInfo, resp *response.EngineResponse) {
+type imageVerifier struct {
+	logger logr.Logger
+	policyContext *PolicyContext
+	rule *v1.Rule
+	resp *response.EngineResponse
+}
+
+func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]*context.ImageInfo) {
 	imagePattern := imageVerify.Image
 	key := imageVerify.Key
 	repository := getSignatureRepository(imageVerify)
@@ -70,20 +85,30 @@ func verifyAndPatchImages(logger logr.Logger, policyContext *PolicyContext, rule
 	for _, imageInfo := range images {
 		image := imageInfo.String()
 		jmespath := utils.JsonPointerToJMESPath(imageInfo.JSONPointer)
-		changed, err := policyContext.JSONContext.HasChanged(jmespath)
+		changed, err := iv.policyContext.JSONContext.HasChanged(jmespath)
 		if err == nil && !changed {
-			logger.V(4).Info("no change in image, skipping check", "image", image)
+			iv.logger.V(4).Info("no change in image, skipping check", "image", image)
 			continue
 		}
 
 		if !wildcard.Match(imagePattern, image) {
-			logger.V(4).Info("image does not match pattern", "image", image, "pattern", imagePattern)
+			iv.logger.V(4).Info("image does not match pattern", "image", image, "pattern", imagePattern)
 			continue
 		}
 
-		ruleResp := verifyImage(logger, rule.Name, repository, key, imageInfo, imageVerify.Attestations)
-		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
-		incrementAppliedCount(resp)
+		var ruleResp *response.RuleResponse
+		if len(imageVerify.Attestations) == 0 {
+			var digest string
+			ruleResp, digest = iv.verifySignature(repository, key, imageInfo)
+			if ruleResp.Success {
+				iv.patchDigest(imageInfo, digest, ruleResp)
+			}
+		} else {
+			ruleResp = iv.attestImage(repository, key, imageInfo)
+		}
+
+		iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
+		incrementAppliedCount(iv.resp)
 	}
 }
 
@@ -96,59 +121,37 @@ func getSignatureRepository(imageVerify *v1.ImageVerification) string {
 	return repository
 }
 
-func verifyImage(logger logr.Logger, ruleName, repository, key string, imageInfo *context.ImageInfo, attestations []*v1.AnyAllConditions) *response.RuleResponse {
+func (iv *imageVerifier) verifySignature(repository, key string, imageInfo *context.ImageInfo) (*response.RuleResponse, string) {
 	image := imageInfo.String()
-	logger.Info("verifying image", "image", image)
+	iv.logger.Info("verifying image", "image", image)
 
 	ruleResp := &response.RuleResponse{
-		Name: ruleName,
+		Name: iv.rule.Name,
 		Type: utils.Validation.String(),
 	}
 
 	start := time.Now()
-	if len(attestations) == 0 {
-		digest, err := cosign.VerifySignature(image, []byte(key), repository, logger)
-		if err != nil {
-			logger.Info("failed to verify image signature", "image", image, "error", err, "duration", time.Since(start).Seconds())
-			ruleResp.Success = false
-			ruleResp.Message = fmt.Sprintf("image verification failed for %s: %v", image, err)
-			return ruleResp
-		}
-
-		ruleResp.Success = true
-		ruleResp.Message = fmt.Sprintf("image %s verified", image)
-		logger.V(3).Info("verified image", "image", image, "digest", digest, "duration", time.Since(start).Seconds())
-
-		addDigest(logger, imageInfo, digest, *ruleResp)
-		return ruleResp
-	}
-
-	inTotoAttestation, err := cosign.FetchAttestations(image, []byte(key), repository)
+	digest, err := cosign.VerifySignature(image, []byte(key), repository, iv.logger)
 	if err != nil {
-		logger.Info("failed to verify image attestations", "image", image, "error", err, "duration", time.Since(start).Seconds())
+		iv.logger.Info("failed to verify image signature", "image", image, "error", err, "duration", time.Since(start).Seconds())
 		ruleResp.Success = false
-		ruleResp.Message = fmt.Sprintf("image verification failed for %s: %v", image, err)
-		return ruleResp
+		ruleResp.Message = fmt.Sprintf("image signature verification failed for %s: %v", image, err)
+		return ruleResp, ""
 	}
 
-	logger.Info("received attestation", "in-toto-attestation", inTotoAttestation)
-
-
-	// add to context
-
-	// process any / all conditions
-
-
-	return ruleResp
+	ruleResp.Success = true
+	ruleResp.Message = fmt.Sprintf("image %s verified", image)
+	iv.logger.V(3).Info("verified image", "image", image, "digest", digest, "duration", time.Since(start).Seconds())
+	return ruleResp, digest
 }
 
-func addDigest(logger logr.Logger, imageInfo *context.ImageInfo, digest string, ruleResp response.RuleResponse) {
+func (iv *imageVerifier) patchDigest(imageInfo *context.ImageInfo, digest string, ruleResp *response.RuleResponse) {
 	if imageInfo.Digest == "" {
 		patch, err := makeAddDigestPatch(imageInfo, digest)
 		if err != nil {
-			logger.Error(err, "failed to patch image with digest", "image", imageInfo.String(), "jsonPath", imageInfo.JSONPointer)
+			iv.logger.Error(err, "failed to patch image with digest", "image", imageInfo.String(), "jsonPath", imageInfo.JSONPointer)
 		} else {
-			logger.V(4).Info("patching verified image with digest", "patch", string(patch))
+			iv.logger.V(4).Info("patching verified image with digest", "patch", string(patch))
 			ruleResp.Patches = [][]byte{patch}
 		}
 	}
@@ -160,4 +163,30 @@ func makeAddDigestPatch(imageInfo *context.ImageInfo, digest string) ([]byte, er
 	patch["path"] = imageInfo.JSONPointer
 	patch["value"] = imageInfo.String() + "@" + digest
 	return json.Marshal(patch)
+}
+
+func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.ImageInfo) *response.RuleResponse {
+	image := imageInfo.String()
+
+	ruleResp := &response.RuleResponse{
+		Name: iv.rule.Name,
+		Type: utils.Validation.String(),
+	}
+
+	start := time.Now()
+	inTotoAttestation, err := cosign.FetchAttestations(image, []byte(key), repository)
+	if err != nil {
+		iv.logger.Info("failed to verify image attestations", "image", image, "error", err, "duration", time.Since(start).Seconds())
+		ruleResp.Success = false
+		ruleResp.Message = fmt.Sprintf("image attestation failed for %s: %v", image, err)
+		return ruleResp
+	}
+
+	iv.logger.Info("received attestation", "in-toto-attestation", inTotoAttestation)
+
+
+	// add to context
+
+	// process any / all conditions
+	return ruleResp
 }

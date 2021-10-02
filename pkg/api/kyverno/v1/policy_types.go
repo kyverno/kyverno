@@ -459,7 +459,6 @@ type ImageVerification struct {
 	Image string `json:"image,omitempty" yaml:"image,omitempty"`
 
 	// Key is the PEM encoded public key that the image or attestation is signed with.
-	// Deprecated. Use Keys instead.
 	Key string `json:"key,omitempty" yaml:"key,omitempty"`
 
 	// Repository is an optional alternate OCI repository to use for image signatures that match this rule.

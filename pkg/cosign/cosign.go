@@ -124,39 +124,48 @@ func FetchAttestations(imageRef string, key []byte, repository string) (map[stri
 		return nil, errors.Wrap(err, "failed to verify image attestations")
 	}
 
-	inTotoAttestation, err := decodeAttestation(verified)
+	inTotoAttestations, err := decodeAttestations(verified)
 	if err != nil {
 		return nil, err
 	}
 
-	return inTotoAttestation, nil
+	return inTotoAttestations, nil
 }
 
-func decodeAttestation(payloads []cosign.SignedPayload) (map[string]interface{}, error) {
-	if len(payloads) == 0 {
-		return nil, fmt.Errorf("empty payloads")
+func decodeAttestations(attestations []cosign.SignedPayload) (map[string]interface{}, error) {
+	if len(attestations) == 0 {
+		return map[string]interface{}{}, nil
 	}
 
-	payload := payloads[0].Payload
+	decodedAttestations := make([]map[string]interface{}, len(attestations))
 
-	data, err := base64.StdEncoding.DecodeString(string(payload))
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to base64 decode payload")
+	for _, a := range  attestations {
+		payload := a.Payload
+		data, err := base64.StdEncoding.DecodeString(string(payload))
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to base64 decode payload for attestation: %v", a)
+		}
+
+		inTotoAttestation := make(map[string]interface{})
+		if err := json.Unmarshal(data, &inTotoAttestation); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal JSON payload for attestation: %v", a)
+		}
+
+		attestationPayloadBase64 := inTotoAttestation["payload"].(string)
+		statement, err := base64.StdEncoding.DecodeString(attestationPayloadBase64)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to base64 decode payload for ")
+		}
+
+		inTotoAttestation["payload"] = statement
+		decodedAttestations = append(decodedAttestations, inTotoAttestation)
 	}
 
-	inTotoAttestation := make(map[string]interface{})
-	if err := json.Unmarshal(data, &inTotoAttestation); err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal JSON payload")
+	results := map[string]interface{}{
+		"attestations": decodedAttestations,
 	}
 
-	attestationPayloadBase64 := inTotoAttestation["payload"].(string)
-	statement, err := base64.StdEncoding.DecodeString(attestationPayloadBase64)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to base64 decode payload")
-	}
-
-	inTotoAttestation["payload"] = statement
-	return inTotoAttestation, nil
+	return results, nil
 }
 
 func setSignatureRepo(cosignOpts *cosign.CheckOpts, ref name.Reference, repository string) error {
