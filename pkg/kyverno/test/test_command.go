@@ -255,6 +255,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 					Name: resourceName,
 				},
 			},
+			Message: buildMessage(resp),
 		}
 
 		for i, test := range testResults {
@@ -297,7 +298,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 				}
 
 				result.Rule = rule.Name
-				result.Result = report.PolicyResult(rule.Check)
+				result.Result = report.PolicyResult(rule.Status)
 				result.Source = policyreport.SourceValue
 				result.Timestamp = now
 				results[resultsKey] = result
@@ -306,6 +307,16 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	}
 
 	return results, testResults
+}
+
+func buildMessage(resp *response.EngineResponse) string {
+	var bldr strings.Builder
+	for _, ruleResp := range resp.PolicyResponse.Rules {
+		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.Name, ruleResp.Status.String())
+		fmt.Fprintf(&bldr, "    %s \n", ruleResp.Message)
+	}
+
+	return bldr.String()
 }
 
 func getPolicyResourceFullPath(path []string, policyResourcePath string, isGit bool) []string {
@@ -464,17 +475,20 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 			v.Result = v.Status
 		}
 		if testRes.Result == v.Result {
+			res.Result = boldGreen.Sprintf("Pass")
 			if testRes.Result == report.StatusSkip {
-				res.Result = boldGreen.Sprintf("Pass")
 				rc.Skip++
 			} else {
-				res.Result = boldGreen.Sprintf("Pass")
 				rc.Pass++
 			}
 		} else {
+			fmt.Printf("test failed for policy=%s, rule=%s, resource=%s, expected=%s, recieved=%s \n",
+				v.Policy, v.Rule, v.Resource, v.Result, testRes.Result)
+			fmt.Printf("%s \n", testRes.Message)
 			res.Result = boldRed.Sprintf("Fail")
 			rc.Fail++
 		}
+
 		table = append(table, res)
 	}
 	printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
