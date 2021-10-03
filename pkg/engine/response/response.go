@@ -106,7 +106,7 @@ type RuleStats struct {
 //IsSuccessful checks if any rule has failed or not
 func (er EngineResponse) IsSuccessful() bool {
 	for _, r := range er.PolicyResponse.Rules {
-		if r.Status == RuleStatusFail {
+		if r.Status == RuleStatusFail || r.Status == RuleStatusError {
 			return false
 		}
 	}

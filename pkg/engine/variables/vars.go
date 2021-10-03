@@ -320,6 +320,10 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 }
 
 func isDeleteRequest(ctx context.EvalInterface) bool {
+	if ctx == nil {
+		return false
+	}
+
 	operation, err := ctx.Query("request.operation")
 	if err == nil && operation == "DELETE" {
 		return true

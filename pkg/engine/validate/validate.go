@@ -82,19 +82,19 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 		case []interface{}:
 			for _, res := range resource {
 				if !ValidateValueWithPattern(log, res, patternElement) {
-					return path, fmt.Errorf("Validation rule failed at '%s' to validate value '%v' with pattern '%v'", path, resourceElement, patternElement)
+					return path, fmt.Errorf("resource value '%v' does not match '%v' at path %s", resourceElement, patternElement, path)
 				}
 			}
 			return "", nil
 		default:
 			if !ValidateValueWithPattern(log, resourceElement, patternElement) {
-				return path, fmt.Errorf("Validation rule failed at '%s' to validate value '%v' with pattern '%v'", path, resourceElement, patternElement)
+				return path, fmt.Errorf("resource value '%v' does not match '%v' at path %s", resourceElement, patternElement, path)
 			}
 		}
 
 	default:
 		log.V(4).Info("Pattern contains unknown type", "path", path, "current", fmt.Sprintf("%T", patternElement))
-		return path, fmt.Errorf("Validation rule failed at '%s', pattern contains unknown type", path)
+		return path, fmt.Errorf("failed at '%s', pattern contains unknown type", path)
 	}
 	return "", nil
 }

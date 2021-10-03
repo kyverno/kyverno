@@ -58,7 +58,7 @@ func (nh NegationHandler) Handle(handler resourceElementHandler, resourceMap map
 	// if anchor is present in the resource then fail
 	if _, ok := resourceMap[anchorKey]; ok {
 		// no need to process elements in value as key cannot be present in resource
-		return currentPath, fmt.Errorf("Validation rule failed at %s, field %s is disallowed", currentPath, anchorKey)
+		return currentPath, fmt.Errorf("%s/%s is not allowed", currentPath, anchorKey)
 	}
 	// key is not defined in the resource
 	return "", nil
@@ -118,7 +118,7 @@ func (dh DefaultHandler) Handle(handler resourceElementHandler, resourceMap map[
 	if dh.pattern == "*" && resourceMap[dh.element] != nil {
 		return "", nil
 	} else if dh.pattern == "*" && resourceMap[dh.element] == nil {
-		return dh.path, fmt.Errorf("Validation rule failed at %s, Field %s is not present", dh.path, dh.element)
+		return dh.path, fmt.Errorf("%s/%s not found", dh.path, dh.element)
 	} else {
 		path, err := handler(log.Log, resourceMap[dh.element], dh.pattern, originPattern, currentPath, ac)
 		if err != nil {
