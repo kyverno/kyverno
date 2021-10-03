@@ -106,7 +106,7 @@ type RuleStats struct {
 //IsSuccessful checks if any rule has failed or not
 func (er EngineResponse) IsSuccessful() bool {
 	for _, r := range er.PolicyResponse.Rules {
-		if r.Status != RuleStatusPass {
+		if r.Status == RuleStatusFail {
 			return false
 		}
 	}
@@ -117,12 +117,12 @@ func (er EngineResponse) IsSuccessful() bool {
 //IsFailed checks if any rule has succeeded or not
 func (er EngineResponse) IsFailed() bool {
 	for _, r := range er.PolicyResponse.Rules {
-		if r.Status == RuleStatusPass {
-			return false
+		if r.Status == RuleStatusFail {
+			return true
 		}
 	}
 
-	return true
+	return false
 }
 
 //GetPatches returns all the patches joined

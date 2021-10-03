@@ -451,6 +451,7 @@ type Deny struct {
 	AnyAllConditions apiextensions.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
+// ForEach applies policy rule checks to nested elements.
 type ForEachValidation struct {
 
 	// List specifies a JMESPath expression that results in one or more elements
