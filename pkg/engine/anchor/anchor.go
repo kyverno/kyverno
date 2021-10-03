@@ -153,7 +153,7 @@ func (ch ConditionAnchorHandler) Handle(handler resourceElementHandler, resource
 		// validate the values of the pattern
 		returnPath, err := handler(log.Log, value, ch.pattern, originPattern, currentPath, ac)
 		if err != nil {
-			ac.AnchorError = common.NewConditionalAnchorError(fmt.Sprintf("condition anchor did not satisfy: %s", err.Error()))
+			ac.AnchorError = common.NewConditionalAnchorError(err.Error())
 			return returnPath, ac.AnchorError.Error()
 		}
 		return "", nil
@@ -187,7 +187,7 @@ func (gh GlobalAnchorHandler) Handle(handler resourceElementHandler, resourceMap
 		// validate the values of the pattern
 		returnPath, err := handler(log.Log, value, gh.pattern, originPattern, currentPath, ac)
 		if err != nil {
-			ac.AnchorError = common.NewGlobalAnchorError(fmt.Sprintf("global anchor did not satisfy: %s", err.Error()))
+			ac.AnchorError = common.NewGlobalAnchorError(err.Error())
 			return returnPath, ac.AnchorError.Error()
 		}
 		return "", nil

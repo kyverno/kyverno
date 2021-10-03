@@ -482,7 +482,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 				rc.Pass++
 			}
 		} else {
-			fmt.Printf("test failed for policy=%s, rule=%s, resource=%s, expected=%s, recieved=%s \n",
+			fmt.Printf("test failed for policy=%s, rule=%s, resource=%s, expected=%s, received=%s \n",
 				v.Policy, v.Rule, v.Resource, v.Result, testRes.Result)
 			fmt.Printf("%s \n", testRes.Message)
 			res.Result = boldRed.Sprintf("Fail")
