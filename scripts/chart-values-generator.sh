@@ -5,7 +5,7 @@ NAME_OVERRIDE_VALUE=""
 FULLNAME_OVERRIDE_VALUE=""
 NAMESPACE_VALUE=""
 TAG_VALUE=""
-
+CHART_LOCATION="${BASH_SOURCE%/*}/../charts/kyverno/values.yaml"
 
 print_usage(){
     echo "
@@ -35,7 +35,6 @@ fi
 
 echo "
 The recieved variables are:
-
 Name Override Value: ${NAME_OVERRIDE_VALUE} 
 Fullname Override Value: ${FULLNAME_OVERRIDE_VALUE}
 Namespace Value: ${NAMESPACE_VALUE}
@@ -47,10 +46,8 @@ echo "
 nameOverride: ${NAME_OVERRIDE_VALUE}
 fullnameOverride: ${FULLNAME_OVERRIDE_VALUE}
 namespace: ${NAMESPACE_VALUE}
-
 # -- Additional labels
 customLabels: {}
-
 rbac:
   create: true
   serviceAccount:
@@ -58,7 +55,6 @@ rbac:
     name:
     annotations: {}
     #   example.com/annotation: value
-
 image:
   repository: ghcr.io/kyverno/kyverno
   # Defaults to appVersion in Chart.yaml if omitted
@@ -78,55 +74,58 @@ testImage:
   repository:
   # testImage.tag defaults to \"latest\" if omitted
   tag:
-  # testImage.pullPolicy defaults to image.pullPolicy if ommitted
+  # testImage.pullPolicy defaults to image.pullPolicy if omitted
   pullPolicy:
-
 replicaCount: 1
-
 podLabels: {}
 #   example.com/label: foo
-
 podAnnotations: {}
 #   example.com/annotation: foo
-
 podSecurityContext: {}
-
+# Optional priority class to be used for kyverno pods
+priorityClassName: \"\"
 antiAffinity:
   # This can be disabled in a 1 node cluster.
   enable: true
-  # By default this will make sure two pods don't end up on the same node
-  # Changing this to a region would allow you to spread pods across regions
-  topologyKey: \"kubernetes.io/hostname\"
-
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 1
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - kyverno
+        topologyKey: kubernetes.io/hostname
+podDisruptionBudget:
+  minAvailable: 1
+  # maxUnavailable: 1
+  # minAvailable and maxUnavailable can either be set to an integer (e.g. 1)
+  # or a percentage value (e.g. 25%)
 nodeSelector: {}
 tolerations: []
-
 # change hostNetwork to true when you want the kyverno's pod to share its host's network namespace
 # useful for situations like when you end up dealing with a custom CNI over Amazon EKS
 # update the 'dnsPolicy' accordingly as well to suit the host network mode
 hostNetwork: false
-
 # dnsPolicy determines the manner in which DNS resolution happens in the cluster
 # in case of hostNetwork: true, usually, the dnsPolicy is suitable to be \"ClusterFirstWithHostNet\"
 # for further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
 dnsPolicy: \"ClusterFirst\"
-
 # env variables for initContainers
 envVarsInit: {}
-
 # env variables for containers
 envVars: {}
-
 extraArgs: []
-# - --webhooktimeout=4
-
+# - --webhookTimeout=4
 resources:
   limits:
-    memory: 256Mi
+    memory: 384Mi
   requests:
     cpu: 100m
-    memory: 50Mi
-
+    memory: 128Mi
 initResources:
   limits:
     cpu: 100m
@@ -134,7 +133,6 @@ initResources:
   requests:
     cpu: 10m
     memory: 64Mi
-
 ## Liveness Probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
 ##
@@ -148,7 +146,6 @@ livenessProbe:
   timeoutSeconds: 5
   failureThreshold: 2
   successThreshold: 1
-
 ## Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
 ##
@@ -162,13 +159,11 @@ readinessProbe:
   timeoutSeconds: 5
   failureThreshold: 6
   successThreshold: 1
-
 # TODO(mbarrien): Should we just list all resources for the
 # generatecontroller in here rather than having defaults hard-coded?
 generatecontrollerExtraResources:
 # - ResourceA
 # - ResourceB
-
 config:
   # resource types to be skipped by kyverno policy engine
   # Make sure to surround each entry in quotes so that it doesn't get parsed
@@ -198,23 +193,20 @@ config:
   # Note that it takes a list of namespaceSelector in the JSON format, and only the first element
   # will be forwarded to the webhookconfigurations.
   webhooks:
-  # webhooks: [{\"namespaceSelector\":{\"matchExpressions\":[{\"key\":\"environment\",\"operator\":\"In\",\"values\":[\"prod\"]}]}}]
+  # webhooks: [{"namespaceSelector":{"matchExpressions":[{"key":"environment","operator":"In","values":["prod"]}]}}]
   generateSuccessEvents: 'false'
-  # existingConfig: init-config
+  # existingConfig: kyverno
   metricsConfig:
     namespaces: {
-      \"include\": [],
-      \"exclude\": []
+      "include": [],
+      "exclude": []
     }
     # 'namespaces.include': list of namespaces to capture metrics for. Default: metrics being captured for all namespaces except excludeNamespaces.
     # 'namespaces.exclude': list of namespaces to NOT capture metrics for. Default: []
-
     # metricsRefreshInterval: 24h
     # rate at which metrics should reset so as to clean up the memory footprint of kyverno metrics, if you might be expecting high memory footprint of Kyverno's metrics. Default: 0, no refresh of metrics
-
   # Or provide an existing metrics config-map by uncommenting the below line
   # existingMetricsConfig: sample-metrics-configmap. Refer to the ./templates/metricsconfigmap.yaml for the structure of metrics configmap.
-
 ## Deployment update strategy
 ## Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
 updateStrategy:
@@ -222,16 +214,13 @@ updateStrategy:
     maxSurge: 1
     maxUnavailable: 40%
   type: RollingUpdate
-
 service:
   port: 443
   type: ClusterIP
   # Only used if service.type is NodePort
   nodePort:
   annotations: {}
-
 topologySpreadConstraints: []
-
 metricsService:
   create: true
   type: ClusterIP
@@ -244,7 +233,6 @@ metricsService:
   ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#internal-load-balancer
   ##
   annotations: {}
-
 # Service Monitor to collect Prometheus Metrics
 serviceMonitor:
   enabled: false
@@ -253,7 +241,6 @@ serviceMonitor:
     # key: value
   # Override namespace (default is same than kyverno)
   namespace: ${NAMESPACE_VALUE}
-
   # Interval to scrape metrics
   interval: 30s
   # Timeout if metrics can't be retrieved in given time interval
@@ -262,7 +249,6 @@ serviceMonitor:
   secure: false
   # TLS Configuration for endpoint
   tlsConfig: {}
-
 # Kyverno requires a certificate key pair and corresponding certificate authority
 # to properly register its webhooks. This can be done in one of 3 ways:
 # 1) Use kube-controller-manager to generate a CA-signed certificate (preferred)
@@ -274,15 +260,18 @@ serviceMonitor:
 # 3) Let Helm generate a self signed cert, by setting createSelfSignedCert true
 # If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false
 createSelfSignedCert: false
-
+# Whether to have Helm install the Kyverno CRDs
+# If the CRDs are not installed by Helm, they must be added
+# before policies can be created
+installCRDs: true
 # When true, use a NetworkPolicy to allow ingress to the webhook
 # This is useful on clusters using Calico and/or native k8s network
 # policies in a default-deny setup.
 networkPolicy:
   enabled: false
-  namespaceExpressions: [{}]
+  namespaceExpressions: []
   namespaceLabels: {}
-  podExpressions: [{}]
+  podExpressions: []
   podLabels: {}
-" > ../charts/kyverno/values.yaml
+" > $CHART_LOCATION
 echo "Values generated"

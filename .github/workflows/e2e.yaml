@@ -91,10 +91,7 @@ jobs:
 
       - name: Update chart values
         run: |
-          sed -i -e "s|nameOverride:.*|nameOverride: kyverno|g" charts/kyverno/values.yaml
-          sed -i -e "s|fullnameOverride:.*|fullnameOverride: kyverno|g" charts/kyverno/values.yaml
-          sed -i -e "s|namespace:.*|namespace: kyverno|g" charts/kyverno/values.yaml
-          sed -i -e "s|tag:  # replaced in e2e tests|tag: $(git describe --match "v[0-9]*")|" charts/kyverno/values.yaml
+          ./scripts/chart-values-generator.sh -v kyverno -f kyverno -n kyverno -t $(git describe --match "v[0-9]*")
 
       - name: Run chart-testing (install)
         run: |
