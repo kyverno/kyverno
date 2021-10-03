@@ -809,7 +809,7 @@ func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *r
 				Name:    policyRule.Name,
 				Type:    "Validation",
 				Message: policyRule.Validation.Message,
-				Status:   report.StatusSkip,
+				Status:  report.StatusSkip,
 			}
 			violatedRules = append(violatedRules, vruleSkip)
 		}
