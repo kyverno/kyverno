@@ -31,16 +31,20 @@ results:
   - policy: cm-blk-scalar-example
     rule: validate-blk-role-annotation
     resource: test-blk-web
+    kind: Pod
     result: fail
   - policy: cm-blk-scalar-example
     rule: validate-blk-role-annotation
     resource: test-blk-app
+    kind: Pod
     result: pass
   - policy: cm-globalval-example
     rule: validate-mode
     resource: test-global-dev
+    kind: Pod
     result: pass
   - policy: cm-globalval-example
     rule: validate-mode
     resource: test-global-prod
+    kind: Pod
     result: fail

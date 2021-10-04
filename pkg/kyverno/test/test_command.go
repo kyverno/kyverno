@@ -386,6 +386,8 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 					}
 				}
 
+				// fmt.Println("3*****resultsKey: ", resultsKey)
+
 				patcheResourcePath = append(patcheResourcePath, test.PatchedResource)
 
 				if _, ok := results[resultsKey]; !ok {
@@ -464,6 +466,7 @@ func GetAllPossibleResultsKey(policyNs, policy, rule, resourceNsnamespace, kind,
 	resultKey3 := fmt.Sprintf("%s-%s-%s-%s-%s", policyNs, policy, rule, kind, resource)
 	resultKey4 := fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNs, policy, rule, resourceNsnamespace, kind, resource)
 	resultsKey = append(resultsKey, resultKey1, resultKey2, resultKey3, resultKey4)
+	// fmt.Println("resultsKey: ", resultsKey)
 	return resultsKey
 }
 
@@ -642,7 +645,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	// rm, _ := json.Marshal(resultsMap)
 	// fmt.Println("\nresultsMap: ", string(rm))
 	// tr, _ := json.Marshal(testResults)
-	// fmt.Println("\ntestResults: ", string(tr))
+	// fmt.Println("\testResults: ", string(tr))
 	resultErr := printTestResult(resultsMap, testResults, rc)
 	if resultErr != nil {
 		return sanitizederror.NewWithError("Unable to genrate result. Error:", resultErr)
@@ -692,6 +695,8 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 		ns, v.Policy = getUserDefinedPolicyNameAndNamespace(v.Policy)
 		// fmt.Println("nas: ", ns, "\nv.policy: ", v.Policy)
 
+		// fmt.Println("found: ", found, "             v.Namespace: ", v.Namespace)
+		// fmt.Println("1*******resultKey: ", resultKey)
 		if found && v.Namespace != "" {
 			resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
 			// fmt.Println("1...\n resultKey: ", resultKey)
@@ -708,6 +713,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 			// fmt.Println("3...\n resultKey: ", resultKey)
 			// fmt.Println("res.Resource: ", res.Resource)
 		}
+		// fmt.Println("2*******resultKey: ", resultKey)
 
 		var testRes report.PolicyReportResult
 		if val, ok := resps[resultKey]; ok {
@@ -718,7 +724,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 			rc.Fail++
 			table = append(table, res)
 			// fmt.Println("2--- ")
-			// continue
+			continue
 		}
 
 		// fmt.Println("v.Result: ", v.Result, "          v.Status: ", v.Status)
