@@ -72,7 +72,7 @@ envVarsInit: {}
 envVars: {}
 
 extraArgs: []
-# - --webhooktimeout=4
+# - --webhookTimeout=4
 
 resources:
   limits:
