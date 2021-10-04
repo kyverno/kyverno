@@ -14,6 +14,7 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
+	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -22,6 +23,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
@@ -53,10 +55,17 @@ type webhookConfigManager struct {
 
 	resCache resourcecache.ResourceCache
 
+	mutateInformer         cache.SharedIndexInformer
+	validateInformer       cache.SharedIndexInformer
+	mutateInformerSynced   cache.InformerSynced
+	validateInformerSynced cache.InformerSynced
+
 	queue workqueue.RateLimitingInterface
 
 	// wildcardPolicy indicates the number of policies that matches all kinds (*) defined
 	wildcardPolicy int64
+
+	createDefaultWebhook chan<- string
 
 	stopCh <-chan struct{}
 
@@ -73,19 +82,21 @@ func newWebhookConfigManager(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	resCache resourcecache.ResourceCache,
+	createDefaultWebhook chan<- string,
 	stopCh <-chan struct{},
 	log logr.Logger) manage {
 
 	m := &webhookConfigManager{
-		client:         client,
-		kyvernoClient:  kyvernoClient,
-		pInformer:      pInformer,
-		npInformer:     npInformer,
-		resCache:       resCache,
-		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "configmanager"),
-		wildcardPolicy: 0,
-		stopCh:         stopCh,
-		log:            log,
+		client:               client,
+		kyvernoClient:        kyvernoClient,
+		pInformer:            pInformer,
+		npInformer:           npInformer,
+		resCache:             resCache,
+		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "configmanager"),
+		wildcardPolicy:       0,
+		createDefaultWebhook: createDefaultWebhook,
+		stopCh:               stopCh,
+		log:                  log,
 	}
 
 	m.pLister = pInformer.Lister()
@@ -93,6 +104,14 @@ func newWebhookConfigManager(
 
 	m.pListerSynced = pInformer.Informer().HasSynced
 	m.npListerSynced = npInformer.Informer().HasSynced
+
+	mutateCache, _ := m.resCache.GetGVRCache(kindMutating)
+	m.mutateInformer = mutateCache.GetInformer()
+	m.mutateInformerSynced = mutateCache.GetInformer().HasSynced
+
+	validateCache, _ := m.resCache.GetGVRCache(kindValidating)
+	m.validateInformer = validateCache.GetInformer()
+	m.validateInformerSynced = validateCache.GetInformer().HasSynced
 
 	return m
 }
@@ -118,7 +137,6 @@ func (m *webhookConfigManager) handleErr(err error, key interface{}) {
 func (m *webhookConfigManager) addClusterPolicy(obj interface{}) {
 	p := obj.(*kyverno.ClusterPolicy)
 	if hasWildcard(p) {
-		fmt.Println("====addClusterPolicy")
 		atomic.AddInt64(&m.wildcardPolicy, int64(1))
 	}
 	m.enqueue(p)
@@ -133,10 +151,8 @@ func (m *webhookConfigManager) updateClusterPolicy(old, cur interface{}) {
 	}
 
 	if hasWildcard(oldP) && !hasWildcard(curP) {
-		fmt.Println("====updateClusterPolicy 1")
 		atomic.AddInt64(&m.wildcardPolicy, ^int64(0))
 	} else if !hasWildcard(oldP) && hasWildcard(curP) {
-		fmt.Println("====updateClusterPolicy 2")
 		atomic.AddInt64(&m.wildcardPolicy, int64(1))
 	}
 
@@ -217,6 +233,57 @@ func (m *webhookConfigManager) deletePolicy(obj interface{}) {
 	m.enqueue(&pol)
 }
 
+func (m *webhookConfigManager) deleteWebhook(obj interface{}) {
+	m.log.WithName("deleteWebhook").Info("resource webhook configuration was deleted, recreating...")
+	if webhook, ok := obj.(*unstructured.Unstructured); ok {
+		k := webhook.GetKind()
+		if (k == kindMutating && webhook.GetName() == config.MutatingWebhookConfigurationName) ||
+			(k == kindValidating && webhook.GetName() == config.ValidatingWebhookConfigurationName) {
+			m.enqueueAllPolicies()
+		}
+	}
+}
+
+func (m *webhookConfigManager) enqueueAllPolicies() {
+	logger := m.log.WithName("enqueueAllPolicies")
+
+	cpols, err := m.listPolicies("")
+	if err != nil {
+		logger.Error(err, "unabled to list clusterpolicies")
+	}
+	for _, cpol := range cpols {
+		m.enqueue(cpol)
+		logger.V(4).Info("added CLusterPolicy to the queue", "name", cpol.GetName())
+	}
+
+	nsCache, ok := m.resCache.GetGVRCache("Namespace")
+	if !ok {
+		nsCache, err = m.resCache.CreateGVKInformer("Namespace")
+		if err != nil {
+			logger.Error(err, "unabled to create Namespace listser")
+			return
+		}
+	}
+
+	namespaces, err := nsCache.Lister().List(labels.Everything())
+	if err != nil {
+		logger.Error(err, "unabled to list namespaces")
+		return
+	}
+
+	for _, ns := range namespaces {
+		pols, err := m.listPolicies(ns.GetName())
+		if err != nil {
+			logger.Error(err, "unabled to list policies", "namespace", ns.GetName())
+		}
+
+		for _, p := range pols {
+			m.enqueue(p)
+			logger.V(4).Info("added Policy to the queue", "namespace", p.GetName(), "name", p.GetName())
+		}
+	}
+}
+
 func (m *webhookConfigManager) enqueue(policy *kyverno.ClusterPolicy) {
 	logger := m.log
 	key, err := cache.MetaNamespaceKeyFunc(policy)
@@ -235,7 +302,7 @@ func (m *webhookConfigManager) start() {
 	m.log.Info("starting")
 	defer m.log.Info("shutting down")
 
-	if !cache.WaitForCacheSync(m.stopCh, m.pListerSynced, m.npListerSynced) {
+	if !cache.WaitForCacheSync(m.stopCh, m.pListerSynced, m.npListerSynced, m.mutateInformerSynced, m.validateInformerSynced) {
 		m.log.Info("failed to sync informer cache")
 		return
 	}
@@ -250,6 +317,14 @@ func (m *webhookConfigManager) start() {
 		AddFunc:    m.addPolicy,
 		UpdateFunc: m.updatePolicy,
 		DeleteFunc: m.deletePolicy,
+	})
+
+	m.mutateInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: m.deleteWebhook,
+	})
+
+	m.validateInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: m.deleteWebhook,
 	})
 
 	for m.processNextWorkItem() {
@@ -330,27 +405,28 @@ func (m *webhookConfigManager) getPolicy(namespace, name string) (*kyverno.Clust
 	return nil, err
 }
 
-func (m *webhookConfigManager) listPolicies(namespace string) ([]kyverno.ClusterPolicy, error) {
+func (m *webhookConfigManager) listPolicies(namespace string) ([]*kyverno.ClusterPolicy, error) {
 	if namespace != "" {
-		polList, err := m.kyvernoClient.KyvernoV1().Policies(namespace).List(context.TODO(), v1.ListOptions{})
+		polList, err := m.npLister.Policies(namespace).List(labels.Everything())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to list Policy")
 		}
 
-		policies := make([]kyverno.ClusterPolicy, len(polList.Items))
-		for i, pol := range polList.Items {
-			policies[i] = kyverno.ClusterPolicy(pol)
+		policies := make([]*kyverno.ClusterPolicy, len(polList))
+		for i, pol := range polList {
+			p := kyverno.ClusterPolicy(*pol)
+			policies[i] = &p
 		}
 		return policies, nil
 	}
 
-	cpolList, err := m.kyvernoClient.KyvernoV1().ClusterPolicies().List(context.TODO(), v1.ListOptions{})
+	cpolList, err := m.pLister.List(labels.Everything())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to list ClusterPolicy")
 	}
 
-	policies := make([]kyverno.ClusterPolicy, len(cpolList.Items))
-	for i, cpol := range cpolList.Items {
+	policies := make([]*kyverno.ClusterPolicy, len(cpolList))
+	for i, cpol := range cpolList {
 		policies[i] = cpol
 	}
 
@@ -381,7 +457,6 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 	validateIgnore := newWebhook(kindValidating, DefaultWebhookTimeout, kyverno.Ignore)
 	validateFail := newWebhook(kindValidating, DefaultWebhookTimeout, kyverno.Fail)
 
-	fmt.Println("=====atomic.LoadInt64(&m.wildcardPolicy)", atomic.LoadInt64(&m.wildcardPolicy))
 	if atomic.LoadInt64(&m.wildcardPolicy) != 0 {
 		for _, w := range []*webhook{mutateIgnore, mutateFail, validateIgnore, validateFail} {
 			setWildcardConfig(w)
@@ -444,12 +519,33 @@ func (m *webhookConfigManager) updateWebhookConfig(webhooks []*webhook) error {
 	return nil
 }
 
+func (m *webhookConfigManager) getWebhook(webhookKind, webhookName string) (resourceWebhook *unstructured.Unstructured, err error) {
+	get := func() error {
+		webhookCache, _ := m.resCache.GetGVRCache(webhookKind)
+
+		resourceWebhook, err = webhookCache.Lister().Get(webhookName)
+		if err != nil && !apierrors.IsNotFound(err) {
+			return errors.Wrapf(err, "unable to get %s/%s", webhookKind, webhookName)
+		} else if apierrors.IsNotFound(err) {
+			m.createDefaultWebhook <- webhookKind
+			return err
+		}
+		return nil
+	}
+
+	retryGetWebhook := common.RetryFunc(time.Second, 10*time.Second, get, m.log)
+	if err := retryGetWebhook(); err != nil {
+		return nil, err
+	}
+
+	return resourceWebhook, nil
+}
+
 func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName string, webhooksMap map[string]interface{}) error {
 	logger := m.log.WithName("compareAndUpdateWebhook").WithValues("kind", webhookKind, "name", webhookName)
-	webhookCache, _ := m.resCache.GetGVRCache(webhookKind)
-	resourceWebhook, err := webhookCache.Lister().Get(webhookName)
+	resourceWebhook, err := m.getWebhook(webhookKind, webhookName)
 	if err != nil {
-		return errors.Wrapf(err, "unable to get %s/%s", webhookKind, webhookName)
+		return err
 	}
 
 	webhooksUntyped, _, err := unstructured.NestedSlice(resourceWebhook.UnstructuredContent(), "webhooks")
@@ -537,6 +633,7 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 		if _, err := m.client.UpdateResource(resourceWebhook.GetAPIVersion(), resourceWebhook.GetKind(), "", resourceWebhook, false); err != nil {
 			return errors.Wrapf(err, "unable to update %s/%s: %s", resourceWebhook.GetAPIVersion(), resourceWebhook.GetKind(), resourceWebhook.GetName())
 		}
+
 		logger.V(4).Info("successfully updated the webhook configuration")
 	}
 
@@ -556,7 +653,7 @@ func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy) error
 }
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
-func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.ClusterPolicy, isValidate bool) {
+func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.ClusterPolicy, isValidate bool) {
 	matchedGVK := make([]string, 0)
 	for _, rule := range policy.Spec.Rules {
 		if isValidate && rule.HasValidate() {

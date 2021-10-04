@@ -45,6 +45,7 @@ spec:
       type: string
     - jsonPath: .spec.failurePolicy
       name: Failure Policy
+      priority: 1
       type: string
     - jsonPath: .status.ready
       name: Ready
@@ -1571,8 +1572,8 @@ spec:
               webhookTimeoutSeconds:
                 description: WebhookTimeoutSeconds specifies the webhook timeout for
                   this policy. After the timeout passes, the admission request will
-                  fail based on the failure policy. The default timeout is 3s, the
-                  value must be between 1 and 30 seconds. Default to 10 seconds.
+                  fail based on the failure policy. The default timeout is 10s, the
+                  value must be between 1 and 30 seconds.
                 format: int32
                 type: integer
             type: object
@@ -3183,6 +3184,7 @@ spec:
       type: string
     - jsonPath: .spec.failurePolicy
       name: Failure Policy
+      priority: 1
       type: string
     - jsonPath: .status.ready
       name: Ready
@@ -4710,8 +4712,8 @@ spec:
               webhookTimeoutSeconds:
                 description: WebhookTimeoutSeconds specifies the webhook timeout for
                   this policy. After the timeout passes, the admission request will
-                  fail based on the failure policy. The default timeout is 3s, the
-                  value must be between 1 and 30 seconds. Default to 10 seconds.
+                  fail based on the failure policy. The default timeout is 10s, the
+                  value must be between 1 and 30 seconds.
                 format: int32
                 type: integer
             type: object

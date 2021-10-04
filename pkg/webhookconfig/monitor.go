@@ -74,7 +74,7 @@ func (t *Monitor) SetTime(tm time.Time) {
 
 // Run runs the checker and verify the resource update
 func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen event.Interface, stopCh <-chan struct{}) {
-	logger := t.log
+	logger := t.log.WithName("webhookMonitor")
 
 	logger.V(4).Info("starting webhook monitor", "interval", idleCheckInterval.String())
 	status := newStatusControl(register, eventGen, t.log.WithName("WebhookStatusControl"))
@@ -82,8 +82,23 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 	ticker := time.NewTicker(tickerInterval)
 	defer ticker.Stop()
 
+	createDefaultWebhook := register.createDefaultWebhook
 	for {
 		select {
+		case webhookKind := <-createDefaultWebhook:
+			logger.Info("received recreation request for resource webhook")
+			if webhookKind == kindMutating {
+				err := register.createResourceMutatingWebhookConfiguration(register.readCaData())
+				if err != nil {
+					logger.Error(err, "failed to create default MutatingWebhookConfiguration for resources, the webhook will be reconciled", "interval", tickerInterval)
+				}
+			} else if webhookKind == kindValidating {
+				err := register.createResourceValidatingWebhookConfiguration(register.readCaData())
+				if err != nil {
+					logger.Error(err, "failed to create default ValidatingWebhookConfiguration for resources, the webhook will be reconciled", "interval", tickerInterval)
+				}
+			}
+
 		case <-ticker.C:
 
 			err := registerWebhookIfNotPresent(register, t.log.WithName("registerWebhookIfNotPresent"))

@@ -45,7 +45,8 @@ type Register struct {
 	debug              bool
 	autoUpdateWebhooks bool
 
-	UpdateWebhookChan chan bool
+	UpdateWebhookChan    chan bool
+	createDefaultWebhook chan string
 
 	// manage implements methods to manage webhook configurations
 	manage
@@ -66,19 +67,20 @@ func NewRegister(
 	stopCh <-chan struct{},
 	log logr.Logger) *Register {
 	register := &Register{
-		clientConfig:       clientConfig,
-		client:             client,
-		resCache:           resCache,
-		serverIP:           serverIP,
-		timeoutSeconds:     webhookTimeout,
-		log:                log.WithName("Register"),
-		debug:              debug,
-		autoUpdateWebhooks: autoUpdateWebhooks,
-		UpdateWebhookChan:  make(chan bool),
+		clientConfig:         clientConfig,
+		client:               client,
+		resCache:             resCache,
+		serverIP:             serverIP,
+		timeoutSeconds:       webhookTimeout,
+		log:                  log.WithName("Register"),
+		debug:                debug,
+		autoUpdateWebhooks:   autoUpdateWebhooks,
+		UpdateWebhookChan:    make(chan bool),
+		createDefaultWebhook: make(chan string),
 	}
 
 	if register.autoUpdateWebhooks {
-		register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, resCache, stopCh, log.WithName("WebhookConfigManager"))
+		register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, resCache, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
 	}
 
 	return register

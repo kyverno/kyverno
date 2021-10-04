@@ -32,7 +32,7 @@ testImage:
   repository:
   # testImage.tag defaults to "latest" if omitted
   tag:
-  # testImage.pullPolicy defaults to image.pullPolicy if ommitted
+  # testImage.pullPolicy defaults to image.pullPolicy if omitted
   pullPolicy:
 
 replicaCount: 1
