@@ -27,7 +27,7 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
-		resp.Success = false
+		resp.Status = response.RuleStatusFail
 		logger.Error(err, "failed to marshal resource")
 		resp.Message = fmt.Sprintf("failed to marshal resource: %v", err)
 		return resp, resource
@@ -35,7 +35,7 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 
 	patchedResourceRaw, err := applyPatchesWithOptions(resourceRaw, patchesJSON6902)
 	if err != nil {
-		resp.Success = false
+		resp.Status = response.RuleStatusFail
 		logger.Error(err, "unable to apply RFC 6902 patches")
 		resp.Message = fmt.Sprintf("unable to apply RFC 6902 patches: %v", err)
 		return resp, resource
@@ -43,7 +43,7 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 
 	patchesBytes, err := generatePatches(resourceRaw, patchedResourceRaw)
 	if err != nil {
-		resp.Success = false
+		resp.Status = response.RuleStatusFail
 		logger.Error(err, "unable generate patch bytes from base and patched document, apply patchesJSON6902 directly")
 		resp.Message = fmt.Sprintf("unable generate patch bytes from base and patched document, apply patchesJSON6902 directly: %v", err)
 		return resp, resource
@@ -56,12 +56,12 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 	err = patchedResource.UnmarshalJSON(patchedResourceRaw)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal resource")
-		resp.Success = false
+		resp.Status = response.RuleStatusFail
 		resp.Message = fmt.Sprintf("failed to unmarshal resource: %v", err)
 		return resp, resource
 	}
 
-	resp.Success = true
+	resp.Status = response.RuleStatusPass
 	resp.Message = fmt.Sprintf("successfully process JSON6902 patches")
 	resp.Patches = patchesBytes
 	return resp, patchedResource

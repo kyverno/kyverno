@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"time"
 
+	"k8s.io/api/admission/v1beta1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/go-logr/logr"
@@ -230,6 +231,7 @@ func (c *Controller) updateGenericResource(old, cur interface{}) {
 
 	// re-evaluate the GR as the resource was updated
 	for _, gr := range grs {
+		gr.Spec.Context.AdmissionRequestInfo.Operation = v1beta1.Update
 		c.enqueueGenerateRequest(gr)
 	}
 }
@@ -286,6 +288,7 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 
 	// re-evaluate the GR as the policy was updated
 	for _, gr := range grs {
+		gr.Spec.Context.AdmissionRequestInfo.Operation = v1beta1.Update
 		c.enqueueGenerateRequest(gr)
 	}
 }

@@ -55,12 +55,12 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 	// elementary values
 	case string, float64, int, int64, bool, nil:
 		if !validate.ValidateValueWithPattern(log, resourceElement, patternElement) {
-			return path, fmt.Errorf("Validation rule failed at '%s' to validate value '%v' with pattern '%v'", path, resourceElement, patternElement)
+			return path, fmt.Errorf("value '%v' does not match '%v' at path %s", resourceElement, patternElement, path)
 		}
 
 	default:
 		log.V(4).Info("Pattern contains unknown type", "path", path, "current", fmt.Sprintf("%T", patternElement))
-		return path, fmt.Errorf("Validation rule failed at '%s', pattern contains unknown type", path)
+		return path, fmt.Errorf("failed at path '%s', pattern contains unknown type", path)
 	}
 	return "", nil
 }
@@ -145,7 +145,7 @@ func (dh Handler) Handle(handler resourceElementHandler, resourceMap map[string]
 	if dh.pattern == "*" && resourceMap[dh.element] != nil {
 		return "", nil
 	} else if dh.pattern == "*" && resourceMap[dh.element] == nil {
-		return dh.path, fmt.Errorf("Validation rule failed at %s, Field %s is not present", dh.path, dh.element)
+		return dh.path, fmt.Errorf("failed at path %s, field %s is not present", dh.path, dh.element)
 	} else {
 		path, err := handler(log.Log, resourceMap[dh.element], dh.pattern, originPattern, currentPath)
 		if err != nil {

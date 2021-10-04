@@ -17,8 +17,8 @@ expected:
         - name: check-readinessProbe-exists
           type: Validation
           message: validation rule 'check-readinessProbe-exists' passed.
-          success: true     
+          status: pass
         - name: check-livenessProbe-exists
           type: Validation
           message: validation rule 'check-livenessProbe-exists' passed.
-          success: true     
+          status: pass

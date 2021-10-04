@@ -20,7 +20,7 @@ expected:
       rules:
         - name: generate-resourcequota
           type: Generation
-          success: true
+          status: pass
         - name: generate-limitrange
           type: Generation
-          success: true
+          status: pass

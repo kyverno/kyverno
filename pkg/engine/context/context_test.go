@@ -115,6 +115,6 @@ func Test_addResourceAndUserContext(t *testing.T) {
 	expectedResult = "nirmata"
 	t.Log(result)
 	if !reflect.DeepEqual(expectedResult, result) {
-		t.Error("exected result does not match")
+		t.Error("expected result does not match")
 	}
 }
