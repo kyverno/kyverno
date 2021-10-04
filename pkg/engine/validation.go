@@ -92,7 +92,8 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	ctx.JSONContext.Checkpoint()
 	defer ctx.JSONContext.Restore()
 
-	for _, rule := range ctx.Policy.Spec.Rules {
+	for i := range ctx.Policy.Spec.Rules {
+		rule := &ctx.Policy.Spec.Rules[i]
 		if !rule.HasValidate() {
 			continue
 		}
@@ -106,7 +107,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		ctx.JSONContext.Reset()
 		startTime := time.Now()
 
-		ruleResp := processValidationRule(log, ctx, &rule)
+		ruleResp := processValidationRule(log, ctx, rule)
 		if ruleResp != nil {
 			addRuleResponse(log, resp, ruleResp, startTime)
 		}
@@ -417,7 +418,7 @@ func isEmptyUnstructured(u *unstructured.Unstructured) bool {
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
-func matches(logger logr.Logger, rule kyverno.Rule, ctx *PolicyContext) bool {
+func matches(logger logr.Logger, rule *kyverno.Rule, ctx *PolicyContext) bool {
 	err := MatchesResourceDescription(ctx.NewResource, rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, ctx.NamespaceLabels)
 	if err == nil {
 		return true

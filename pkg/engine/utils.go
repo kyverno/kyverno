@@ -256,15 +256,15 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 }
 
 //MatchesResourceDescription checks if the resource matches resource description of the rule or not
-func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string) error {
+func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef *kyverno.Rule, admissionInfoRef kyverno.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string) error {
 
-	rule := *ruleRef.DeepCopy()
+	rule := ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()
 
 	var reasonsForFailure []error
 	if len(rule.MatchResources.Any) > 0 {
-		// inlcude object if ANY of the criterias match
+		// include object if ANY of the criteria match
 		// so if one matches then break from loop
 		oneMatched := false
 		for _, rmr := range rule.MatchResources.Any {
