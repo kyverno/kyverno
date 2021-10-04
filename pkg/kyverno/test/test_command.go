@@ -50,11 +50,13 @@ func Command() *cobra.Command {
 					}
 				}
 			}()
+
 			_, err = testCommandExecute(dirPath, valuesFile, fileName)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
 				return err
 			}
+
 			return nil
 		},
 	}
@@ -192,14 +194,16 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 	}
 
 	if len(errors) > 0 && log.Log.V(1).Enabled() {
-		fmt.Printf("ignoring errors: \n")
+		fmt.Printf("test errors: \n")
 		for _, e := range errors {
 			fmt.Printf("    %v \n", e.Error())
 		}
 	}
+
 	if rc.Fail > 0 {
 		os.Exit(1)
 	}
+
 	os.Exit(0)
 	return rc, nil
 }
@@ -255,6 +259,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 					Name: resourceName,
 				},
 			},
+			Message: buildMessage(resp),
 		}
 
 		for i, test := range testResults {
@@ -297,7 +302,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 				}
 
 				result.Rule = rule.Name
-				result.Result = report.PolicyResult(rule.Check)
+				result.Result = report.PolicyResult(rule.Status)
 				result.Source = policyreport.SourceValue
 				result.Timestamp = now
 				results[resultsKey] = result
@@ -306,6 +311,16 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	}
 
 	return results, testResults
+}
+
+func buildMessage(resp *response.EngineResponse) string {
+	var bldr strings.Builder
+	for _, ruleResp := range resp.PolicyResponse.Rules {
+		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.Name, ruleResp.Status.String())
+		fmt.Fprintf(&bldr, "    %s \n", ruleResp.Message)
+	}
+
+	return bldr.String()
 }
 
 func getPolicyResourceFullPath(path []string, policyResourcePath string, isGit bool) []string {
@@ -419,12 +434,13 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			pvInfos = append(pvInfos, info)
 		}
 	}
-	resultsMap, testResults := buildPolicyResults(validateEngineResponses, values.Results, pvInfos)
 
+	resultsMap, testResults := buildPolicyResults(validateEngineResponses, values.Results, pvInfos)
 	resultErr := printTestResult(resultsMap, testResults, rc)
 	if resultErr != nil {
-		return sanitizederror.NewWithError("Unable to genrate result. Error:", resultErr)
+		return sanitizederror.NewWithError("failed to print test result:", resultErr)
 	}
+
 	return
 }
 
@@ -464,17 +480,20 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 			v.Result = v.Status
 		}
 		if testRes.Result == v.Result {
+			res.Result = boldGreen.Sprintf("Pass")
 			if testRes.Result == report.StatusSkip {
-				res.Result = boldGreen.Sprintf("Pass")
 				rc.Skip++
 			} else {
-				res.Result = boldGreen.Sprintf("Pass")
 				rc.Pass++
 			}
 		} else {
+			fmt.Printf("test failed for policy=%s, rule=%s, resource=%s, expected=%s, received=%s \n",
+				v.Policy, v.Rule, v.Resource, v.Result, testRes.Result)
+			fmt.Printf("%s \n", testRes.Message)
 			res.Result = boldRed.Sprintf("Fail")
 			rc.Fail++
 		}
+
 		table = append(table, res)
 	}
 	printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true

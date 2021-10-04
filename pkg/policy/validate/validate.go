@@ -2,42 +2,43 @@ package validate
 
 import (
 	"fmt"
+	"strings"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"github.com/kyverno/kyverno/pkg/policy/common"
 )
 
-// Validate provides implementation to validate 'validate' rule
+// Validate validates a 'validate' rule
 type Validate struct {
 	// rule to hold 'validate' rule specifications
-	rule kyverno.Validation
+	rule *kyverno.Validation
 }
 
 //NewValidateFactory returns a new instance of Mutate validation checker
-func NewValidateFactory(rule kyverno.Validation) *Validate {
+func NewValidateFactory(rule *kyverno.Validation) *Validate {
 	m := Validate{
 		rule: rule,
 	}
+
 	return &m
 }
 
 //Validate validates the 'validate' rule
 func (v *Validate) Validate() (string, error) {
-	rule := v.rule
-	if err := v.validateOverlayPattern(); err != nil {
+	if err := v.validateElements(); err != nil {
 		// no need to proceed ahead
 		return "", err
 	}
 
-	if rule.Pattern != nil {
-		if path, err := common.ValidatePattern(rule.Pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor, commonAnchors.IsGlobalAnchor}); err != nil {
+	if v.rule.Pattern != nil {
+		if path, err := common.ValidatePattern(v.rule.Pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor, commonAnchors.IsGlobalAnchor}); err != nil {
 			return fmt.Sprintf("pattern.%s", path), err
 		}
 	}
 
-	if rule.AnyPattern != nil {
-		anyPattern, err := rule.DeserializeAnyPattern()
+	if v.rule.AnyPattern != nil {
+		anyPattern, err := v.rule.DeserializeAnyPattern()
 		if err != nil {
 			return "anyPattern", fmt.Errorf("failed to deserialize anyPattern, expect array: %v", err)
 		}
@@ -47,19 +48,92 @@ func (v *Validate) Validate() (string, error) {
 			}
 		}
 	}
+
+	if v.rule.ForEachValidation != nil {
+		if err := v.validateForEach(v.rule.ForEachValidation); err != nil {
+			return "", err
+		}
+	}
+
 	return "", nil
 }
 
-// validateOverlayPattern checks one of pattern/anyPattern must exist
-func (v *Validate) validateOverlayPattern() error {
-	rule := v.rule
-	if rule.Pattern == nil && rule.AnyPattern == nil && rule.Deny == nil {
-		return fmt.Errorf("pattern, anyPattern or deny must be specified")
+func (v *Validate) validateElements() error {
+	count := validationElemCount(v.rule)
+	if count == 0 {
+		return fmt.Errorf("one of pattern, anyPattern, deny, foreach must be specified")
 	}
 
-	if rule.Pattern != nil && rule.AnyPattern != nil {
-		return fmt.Errorf("only one operation allowed per validation rule(pattern or anyPattern)")
+	if count > 1 {
+		return fmt.Errorf("only one of pattern, anyPattern, deny, foreach can be specified")
 	}
 
 	return nil
+}
+
+func validationElemCount(v *kyverno.Validation) int {
+	if v == nil {
+		return 0
+	}
+
+	count := 0
+	if v.Pattern != nil {
+		count++
+	}
+
+	if v.AnyPattern != nil {
+		count++
+	}
+
+	if v.Deny != nil {
+		count++
+	}
+
+	if v.ForEachValidation != nil {
+		count++
+	}
+
+	return count
+}
+
+func (v *Validate) validateForEach(foreach *kyverno.ForEachValidation) error {
+	if foreach.List == "" {
+		return fmt.Errorf("foreach.list is required")
+	}
+
+	if !strings.HasPrefix(foreach.List, "request.object") {
+		return fmt.Errorf("foreach.list must start with 'request.object' e.g. 'request.object.spec.containers'.")
+	}
+
+	count := foreachElemCount(foreach)
+	if count == 0 {
+		return fmt.Errorf("one of pattern, anyPattern, deny must be specified")
+	}
+
+	if count > 1 {
+		return fmt.Errorf("only one of pattern, anyPattern, deny can be specified")
+	}
+
+	return nil
+}
+
+func foreachElemCount(foreach *kyverno.ForEachValidation) int {
+	if foreach == nil {
+		return 0
+	}
+
+	count := 0
+	if foreach.Pattern != nil {
+		count++
+	}
+
+	if foreach.AnyPattern != nil {
+		count++
+	}
+
+	if foreach.Deny != nil {
+		count++
+	}
+
+	return count
 }

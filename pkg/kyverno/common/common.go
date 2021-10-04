@@ -768,20 +768,36 @@ func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *r
 					Message: valResponseRule.Message,
 				}
 
-				if valResponseRule.Success {
+				switch valResponseRule.Status {
+				case response.RuleStatusPass:
 					rc.Pass++
-					vrule.Check = report.StatusPass
-				} else {
+					vrule.Status = report.StatusPass
+
+				case response.RuleStatusFail:
+					rc.Fail++
+					vrule.Status = report.StatusFail
 					if !policyReport {
 						if printCount < 1 {
 							fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.Name, resPath)
 							printCount++
 						}
+
 						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name, valResponseRule.Message)
 					}
-					rc.Fail++
-					vrule.Check = report.StatusFail
+
+				case response.RuleStatusError:
+					rc.Error++
+					vrule.Status = report.StatusError
+
+				case response.RuleStatusWarn:
+					rc.Warn++
+					vrule.Status = report.StatusWarn
+
+				case response.RuleStatusSkip:
+					rc.Skip++
+					vrule.Status = report.StatusSkip
 				}
+
 				violatedRules = append(violatedRules, vrule)
 				continue
 			}
@@ -793,7 +809,7 @@ func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *r
 				Name:    policyRule.Name,
 				Type:    "Validation",
 				Message: policyRule.Validation.Message,
-				Check:   report.StatusSkip,
+				Status:  report.StatusSkip,
 			}
 			violatedRules = append(violatedRules, vruleSkip)
 		}
@@ -823,7 +839,7 @@ func processGenerateEngineResponse(policy *v1.ClusterPolicy, generateResponse *r
 		for i, genResponseRule := range generateResponse.PolicyResponse.Rules {
 			if policyRule.Name == genResponseRule.Name {
 				ruleFoundInEngineResponse = true
-				if genResponseRule.Success {
+				if genResponseRule.Status == response.RuleStatusPass {
 					rc.Pass++
 				} else {
 					if printCount < 1 {
@@ -894,7 +910,7 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 		for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.Name {
 				ruleFoundInEngineResponse = true
-				if mutateResponseRule.Success {
+				if mutateResponseRule.Status == response.RuleStatusPass {
 					rc.Pass++
 					printMutatedRes = true
 				} else {
