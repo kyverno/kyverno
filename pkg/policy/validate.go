@@ -177,7 +177,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 		// Validate Kind with match resource kinds
 		match := rule.MatchResources
-		exclude := rule.MatchResources
+		exclude := rule.ExcludeResources
 		for _, value := range match.Any {
 			err := validateKinds(value.ResourceDescription.Kinds, mock, client, p)
 			if err != nil {
