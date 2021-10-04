@@ -43,7 +43,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 	defer policyContext.JSONContext.Restore()
 
 	for i := range policyContext.Policy.Spec.Rules {
-		rule := policyContext.Policy.Spec.Rules[i]
+		rule := &policyContext.Policy.Spec.Rules[i]
 		if len(rule.VerifyImages) == 0 {
 			continue
 		}
@@ -54,8 +54,8 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 
 		policyContext.JSONContext.Restore()
 		for _, imageVerify := range rule.VerifyImages {
-			verifyAndPatchImages(logger, policyContext, &rule, imageVerify, images.Containers, resp)
-			verifyAndPatchImages(logger, policyContext, &rule, imageVerify, images.InitContainers, resp)
+			verifyAndPatchImages(logger, policyContext, rule, imageVerify, images.Containers, resp)
+			verifyAndPatchImages(logger, policyContext, rule, imageVerify, images.InitContainers, resp)
 		}
 	}
 
