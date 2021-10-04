@@ -50,11 +50,13 @@ func Command() *cobra.Command {
 					}
 				}
 			}()
+
 			_, err = testCommandExecute(dirPath, valuesFile, fileName)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
 				return err
 			}
+
 			return nil
 		},
 	}
@@ -192,14 +194,16 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 	}
 
 	if len(errors) > 0 && log.Log.V(1).Enabled() {
-		fmt.Printf("ignoring errors: \n")
+		fmt.Printf("test errors: \n")
 		for _, e := range errors {
 			fmt.Printf("    %v \n", e.Error())
 		}
 	}
+
 	if rc.Fail > 0 {
 		os.Exit(1)
 	}
+
 	os.Exit(0)
 	return rc, nil
 }
@@ -430,12 +434,13 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			pvInfos = append(pvInfos, info)
 		}
 	}
-	resultsMap, testResults := buildPolicyResults(validateEngineResponses, values.Results, pvInfos)
 
+	resultsMap, testResults := buildPolicyResults(validateEngineResponses, values.Results, pvInfos)
 	resultErr := printTestResult(resultsMap, testResults, rc)
 	if resultErr != nil {
-		return sanitizederror.NewWithError("Unable to genrate result. Error:", resultErr)
+		return sanitizederror.NewWithError("failed to print test result:", resultErr)
 	}
+
 	return
 }
 
