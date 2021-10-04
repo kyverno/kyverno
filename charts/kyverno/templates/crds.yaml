@@ -967,7 +967,7 @@ spec:
                 description: ValidationFailureAction controls if a validation policy rule failure should disallow the admission review request (enforce), or allow (audit) the admission review request and report an error in a policy report. Optional. The default value is "audit".
                 type: string
               webhookTimeoutSeconds:
-                description: WebhookTimeoutSeconds specifies the webhook timeout for this policy. After the timeout passes, the admission request will fail based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
+                description: WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy. After the configured time expires, the admission request may fail, or may simply ignore the policy results, based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
                 format: int32
                 type: integer
             type: object
@@ -3122,7 +3122,7 @@ spec:
                 description: ValidationFailureAction controls if a validation policy rule failure should disallow the admission review request (enforce), or allow (audit) the admission review request and report an error in a policy report. Optional. The default value is "audit".
                 type: string
               webhookTimeoutSeconds:
-                description: WebhookTimeoutSeconds specifies the webhook timeout for this policy. After the timeout passes, the admission request will fail based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
+                description: WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy. After the configured time expires, the admission request may fail, or may simply ignore the policy results, based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
                 format: int32
                 type: integer
             type: object

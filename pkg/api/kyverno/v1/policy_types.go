@@ -68,9 +68,9 @@ type Spec struct {
 	// +optional
 	SchemaValidation *bool `json:"schemaValidation,omitempty" yaml:"schemaValidation,omitempty"`
 
-	// WebhookTimeoutSeconds specifies the webhook timeout for this policy.
-	// After the timeout passes, the admission request will fail based on the failure policy.
-	// The default timeout is 10s, the value must be between 1 and 30 seconds.
+	// WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
 	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
 }
 
