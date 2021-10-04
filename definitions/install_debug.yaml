@@ -361,7 +361,10 @@ spec:
                             type: string
                           type: array
                         resources:
-                          description: ResourceDescription contains information about the resource being created or modified.
+                          description: ResourceDescription contains information about
+                            the resource being created or modified. Specifying ResourceDescription
+                            directly under exclude is being deprecated. Please specify
+                            under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
@@ -768,7 +771,11 @@ spec:
                             type: string
                           type: array
                         resources:
-                          description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources.
+                          description: ResourceDescription contains information about
+                            the resource being created or modified. Requires at least
+                            one tag to be specified when under MatchResources. Specifying
+                            ResourceDescription directly under match is being deprecated.
+                            Please specify under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
@@ -2120,13 +2127,12 @@ spec:
                 description: Context ...
                 properties:
                   admissionRequestInfo:
-                    description: Adding required request information to GR
                     properties:
                       admissionRequest:
-                        description: Adding Admission Request to GR.
                         type: string
                       operation:
-                        description: Current request operation
+                        description: Operation is the type of resource operation being
+                          checked for admission control
                         type: string
                     type: object
                   userInfo:
@@ -2594,7 +2600,10 @@ spec:
                             type: string
                           type: array
                         resources:
-                          description: ResourceDescription contains information about the resource being created or modified.
+                          description: ResourceDescription contains information about
+                            the resource being created or modified. Specifying ResourceDescription
+                            directly under exclude is being deprecated. Please specify
+                            under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
@@ -3001,7 +3010,11 @@ spec:
                             type: string
                           type: array
                         resources:
-                          description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources.
+                          description: ResourceDescription contains information about
+                            the resource being created or modified. Requires at least
+                            one tag to be specified when under MatchResources. Specifying
+                            ResourceDescription directly under match is being deprecated.
+                            Please specify under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
