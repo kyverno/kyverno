@@ -2,6 +2,7 @@ package mutate
 
 import (
 	"fmt"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	"testing"
 
 	"github.com/ghodss/yaml"
@@ -50,7 +51,7 @@ func TestTypeConversion(t *testing.T) {
 	assert.Nil(t, err)
 	// apply patches
 	resp, _ := ProcessPatchJSON6902("type-conversion", jsonPatches, resource, log.Log)
-	if !assert.Equal(t, true, resp.Success) {
+	if !assert.Equal(t, response.RuleStatusPass, resp.Status) {
 		t.Fatal(resp.Message)
 	}
 

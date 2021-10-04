@@ -16,4 +16,4 @@ expected:
       rules:
         - name: validate-ingress
           type: Validation
-          success: false
+          status: fail
