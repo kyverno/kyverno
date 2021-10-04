@@ -148,7 +148,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		// - Mutate
 		// - Validate
 		// - Generate
-		if err := validateActions(i, &rule, client, mock); err != nil {
+		if err := validateActions(i, &p.Spec.Rules[i], client, mock); err != nil {
 			return err
 		}
 
