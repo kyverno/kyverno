@@ -104,25 +104,3 @@ minAvailable: {{ default 0 .Values.podDisruptionBudget.minAvailable }}
 maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
 {{- end }}
 {{- end }}
-
-{{/* Set if a default policy is managed */}}
-{{- define "kyverno.podSecurityDefault" -}}
-{{- if or (eq .Values.podSecurityStandard "default") (eq .Values.podSecurityStandard "restricted") }}
-{{- true }}
-{{- else if and (eq .Values.podSecurityStandard "custom") (has .name .Values.podSecurityPolicies) }}
-{{- true }}
-{{- else -}}
-{{- false }}
-{{- end -}}
-{{- end -}}
-
-{{/* Set if a restricted policy is managed */}}
-{{- define "kyverno.podSecurityRestricted" -}}
-{{- if eq .Values.podSecurityStandard "restricted" }}
-{{- true }}
-{{- else if and (eq .Values.podSecurityStandard "custom") (has .name .Values.podSecurityPolicies) }}
-{{- true }}
-{{- else -}}
-{{- false }}
-{{- end -}}
-{{- end -}}
