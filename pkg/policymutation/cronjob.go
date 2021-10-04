@@ -34,9 +34,22 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 	}
 	cronJobRule.Name = name
 
-	cronJobRule.MatchResources.Kinds = []string{engine.PodControllerCronJob}
-	if (jobRule.ExcludeResources) != nil && (len(jobRule.ExcludeResources.Kinds) > 0) {
-		cronJobRule.ExcludeResources.Kinds = []string{engine.PodControllerCronJob}
+	if len(jobRule.MatchResources.Any) > 0 {
+		cronJobRule.MatchResources.Any[0].Kinds = []string{engine.PodControllerCronJob}
+	} else if len(jobRule.MatchResources.All) > 0 {
+		cronJobRule.MatchResources.All[0].Kinds = []string{engine.PodControllerCronJob}
+	} else {
+		cronJobRule.MatchResources.Kinds = []string{engine.PodControllerCronJob}
+	}
+
+	if (jobRule.ExcludeResources) != nil && len(jobRule.ExcludeResources.Any) > 0 {
+		cronJobRule.ExcludeResources.Any[0].Kinds = []string{engine.PodControllerCronJob}
+	} else if (jobRule.ExcludeResources) != nil && len(jobRule.ExcludeResources.All) > 0 {
+		cronJobRule.ExcludeResources.All[0].Kinds = []string{engine.PodControllerCronJob}
+	} else {
+		if (jobRule.ExcludeResources) != nil && (len(jobRule.ExcludeResources.Kinds) > 0) {
+			cronJobRule.ExcludeResources.Kinds = []string{engine.PodControllerCronJob}
+		}
 	}
 
 	if (jobRule.Mutation != nil) && (jobRule.Mutation.Overlay != nil) {
