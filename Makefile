@@ -148,21 +148,25 @@ create-e2e-infrastruture:
 
 ## variables
 BIN_DIR := $(GOPATH)/bin
-GO_ACC := $(BIN_DIR)/go-acc
+GO_ACC := $(BIN_DIR)/go-acc@latest
 CODE_COVERAGE_FILE:= coverage
 CODE_COVERAGE_FILE_TXT := $(CODE_COVERAGE_FILE).txt
 CODE_COVERAGE_FILE_HTML := $(CODE_COVERAGE_FILE).html
 
 ## targets
 $(GO_ACC):
-	@echo "	downloading testing tools"
-	go get -v github.com/ory/go-acc
+	@echo "	installing testing tools"
+	go install -v github.com/ory/go-acc@latest
 	$(eval export PATH=$(GO_ACC):$(PATH))
 # go test provides code coverage per packages only.
 # go-acc merges the result for pks so that it be used by
 # go tool cover for reporting
 
-test: test-unit test-e2e test-cmd
+test: test-clean test-unit test-e2e test-cmd
+
+test-clean:
+	@echo "	cleaning test cache"
+	go clean -testcache ./...
 
 
 # go get downloads and installs the binary
@@ -198,6 +202,7 @@ test-e2e-local:
 #Test TestCmd Policy
 test-cmd: cli
 	$(PWD)/$(CLI_PATH)/kyverno test https://github.com/kyverno/policies/main
+	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-mutate
 	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test
 	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
 	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-rule && exit 1 || exit 0

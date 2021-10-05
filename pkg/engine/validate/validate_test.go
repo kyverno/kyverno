@@ -1384,21 +1384,10 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 			nilErr:   false,
 		},
 		{
-			name:     "test-x",
-			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "!*:* | *:latest","imagePullPolicy": "!Always"}]}}`),
-			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   false,
-		},
-		{
 			name:     "test-3",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
 			nilErr:   false,
-		}, {
-			name:     "check global anchor",
-			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
-			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   true,
 		},
 		{
 			name:     "test-4",
@@ -1508,22 +1497,146 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.2.3", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Always"}]}}`),
 			nilErr:   true,
 		},
+		{
+			name:     "test-22",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "!*:* | *:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-23",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-24",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-25",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "nginx", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo1", "value": "bar" }],"imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-26",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "nginx", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo", "value": "bar" }],"imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-27",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo1", "value": "bar" }],"imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-28",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo", "value": "bar" }],"imagePullPolicy": "IfNotpresent"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-29",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo", "value": "bar" }],"imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-30",
+			pattern:  []byte(`{"metadata": {"<(name)": "nginx"},"spec": {"imagePullSecrets": [{"name": "regcred"}]}}`),
+			resource: []byte(`{"metadata": {"name": "somename"},"spec": {"containers": [{"name": "nginx","image": "nginx:latest"}], "imagePullSecrets": [{"name": "cred"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-31",
+			pattern:  []byte(`{"metadata": {"<(name)": "nginx"},"spec": {"imagePullSecrets": [{"name": "regcred"}]}}`),
+			resource: []byte(`{"metadata": {"name": "nginx"},"spec": {"containers": [{"name": "nginx","image": "nginx:latest"}], "imagePullSecrets": [{"name": "cred"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-32",
+			pattern:  []byte(`{"metadata": {"labels": {"<(foo)": "bar"}},"spec": {"containers": [{"name": "nginx","image": "!*:latest"}]}}`),
+			resource: []byte(`{"metadata": {"name": "nginx","labels": {"foo": "bar"}},"spec": {"containers": [{"name": "nginx","image": "nginx"}]}}`),
+			nilErr:   true,
+		},
+		{
+			name:     "test-33",
+			pattern:  []byte(`{"metadata": {"labels": {"<(foo)": "bar"}},"spec": {"containers": [{"name": "nginx","image": "!*:latest"}]}}`),
+			resource: []byte(`{"metadata": {"name": "nginx","labels": {"foo": "bar"}},"spec": {"containers": [{"name": "nginx","image": "nginx:latest"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-34",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "nginx"}],"imagePullSecrets": [{"name": "my-registry-secret"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx"}], "imagePullSecrets": [{"name": "cred"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-35",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "nginx"}],"imagePullSecrets": [{"name": "my-registry-secret"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "somepod"}], "imagePullSecrets": [{"name": "cred"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "test-36",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "nginx"}],"imagePullSecrets": [{"name": "my-registry-secret"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx"}], "imagePullSecrets": [{"name": "my-registry-secret"}]}}`),
+			nilErr:   true,
+		},
 	}
 
 	for _, testCase := range testCases {
-		var pattern, resource interface{}
-		err := json.Unmarshal(testCase.pattern, &pattern)
-		assert.NilError(t, err)
-		err = json.Unmarshal(testCase.resource, &resource)
-		assert.NilError(t, err)
+		testMatchPattern(t, testCase)
+	}
+}
 
-		_, err = ValidateResourceWithPattern(log.Log, resource, pattern)
-		if testCase.nilErr {
-			assert.NilError(t, err, fmt.Sprintf("\ntest: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
-		} else {
-			assert.Assert(t,
-				err != nil,
-				fmt.Sprintf("\ntest: %s\npattern: %s\nresource: %s\nmsg: %v", testCase.name, pattern, resource, err))
-		}
+func Test_global_anchor(t *testing.T) {
+	testCases := []struct {
+		name     string
+		pattern  []byte
+		resource []byte
+		nilErr   bool
+	}{
+		{
+			name:     "check global anchor_skip",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:v1", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+		{
+			name:     "check global anchor_apply",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
+			nilErr:   false,
+		},
+	}
+
+	testMatchPattern(t, testCases[0])
+	testMatchPattern(t, testCases[1])
+}
+
+func testMatchPattern(t *testing.T, testCase struct {
+	name     string
+	pattern  []byte
+	resource []byte
+	nilErr   bool
+}) {
+	var pattern, resource interface{}
+	err := json.Unmarshal(testCase.pattern, &pattern)
+	assert.NilError(t, err)
+	err = json.Unmarshal(testCase.resource, &resource)
+	assert.NilError(t, err)
+
+	err = MatchPattern(log.Log, resource, pattern)
+	if testCase.nilErr {
+		assert.NilError(t, err, fmt.Sprintf("\ntest: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
+	} else {
+		assert.Assert(t,
+			err != nil,
+			fmt.Sprintf("\ntest: %s\npattern: %s\nresource: %s\nmsg: %v", testCase.name, pattern, resource, err))
 	}
 }

@@ -54,26 +54,38 @@ func (rs ResourceSpec) GetKey() string {
 
 //PolicyStats stores statistics for the single policy application
 type PolicyStats struct {
+
 	// time required to process the policy rules on a resource
 	ProcessingTime time.Duration `json:"processingTime"`
+
 	// Count of rules that were applied successfully
 	RulesAppliedCount int `json:"rulesAppliedCount"`
+
+	// Count of rules that with execution errors
+	RulesErrorCount int `json:"rulesErrorCount"`
+
 	// Timestamp of the instant the Policy was triggered
 	PolicyExecutionTimestamp int64 `json:"policyExecutionTimestamp"`
 }
 
 //RuleResponse details for each rule application
 type RuleResponse struct {
+
 	// rule name specified in policy
 	Name string `json:"name"`
+
 	// rule type (Mutation,Generation,Validation) for Kyverno Policy
 	Type string `json:"type"`
+
 	// message response from the rule application
 	Message string `json:"message"`
+
 	// JSON patches, for mutation rules
 	Patches [][]byte `json:"patches,omitempty"`
-	// success/fail
-	Success bool `json:"success"`
+
+	// rule status
+	Status RuleStatus `json:"status"`
+
 	// statistics
 	RuleStats `json:",inline"`
 }
@@ -94,21 +106,23 @@ type RuleStats struct {
 //IsSuccessful checks if any rule has failed or not
 func (er EngineResponse) IsSuccessful() bool {
 	for _, r := range er.PolicyResponse.Rules {
-		if !r.Success {
+		if r.Status == RuleStatusFail || r.Status == RuleStatusError {
 			return false
 		}
 	}
+
 	return true
 }
 
 //IsFailed checks if any rule has succeeded or not
 func (er EngineResponse) IsFailed() bool {
 	for _, r := range er.PolicyResponse.Rules {
-		if r.Success {
-			return false
+		if r.Status == RuleStatusFail {
+			return true
 		}
 	}
-	return true
+
+	return false
 }
 
 //GetPatches returns all the patches joined
@@ -125,12 +139,12 @@ func (er EngineResponse) GetPatches() [][]byte {
 
 //GetFailedRules returns failed rules
 func (er EngineResponse) GetFailedRules() []string {
-	return er.getRules(false)
+	return er.getRules(RuleStatusFail)
 }
 
 //GetSuccessRules returns success rules
 func (er EngineResponse) GetSuccessRules() []string {
-	return er.getRules(true)
+	return er.getRules(RuleStatusPass)
 }
 
 // GetResourceSpec returns resourceSpec of er
@@ -144,10 +158,10 @@ func (er EngineResponse) GetResourceSpec() ResourceSpec {
 	}
 }
 
-func (er EngineResponse) getRules(success bool) []string {
+func (er EngineResponse) getRules(status RuleStatus) []string {
 	var rules []string
 	for _, r := range er.PolicyResponse.Rules {
-		if r.Success == success {
+		if r.Status == status {
 			rules = append(rules, r.Name)
 		}
 	}

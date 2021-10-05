@@ -524,15 +524,15 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts) (*response.EngineResponse, policyreport.Info, error) {
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts, printPatchResource bool) ([]*response.EngineResponse, policyreport.Info, error) {
 
+	var engineResponses []*response.EngineResponse
+	namespaceLabels := make(map[string]string)
 	operationIsDelete := false
 
 	if variables["request.operation"] == "DELETE" {
 		operationIsDelete = true
 	}
-
-	namespaceLabels := make(map[string]string)
 
 	policyWithNamespaceSelector := false
 	for _, p := range policy.Spec.Rules {
@@ -547,7 +547,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		resourceNamespace := resource.GetNamespace()
 		namespaceLabels = namespaceSelectorMap[resource.GetNamespace()]
 		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-			return &response.EngineResponse{}, policyreport.Info{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
+			return engineResponses, policyreport.Info{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
 		}
 	}
 
@@ -575,10 +575,14 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	}
 
 	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
-	err = processMutateEngineResponse(policy, mutateResponse, resPath, rc, mutateLogPath, stdin, mutateLogPathIsDir, resource.GetName())
+	if mutateResponse != nil {
+		engineResponses = append(engineResponses, mutateResponse)
+	}
+
+	err = processMutateEngineResponse(policy, mutateResponse, resPath, rc, mutateLogPath, stdin, mutateLogPathIsDir, resource.GetName(), printPatchResource)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
-			return &response.EngineResponse{}, policyreport.Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
+			return engineResponses, policyreport.Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
 		}
 	}
 
@@ -604,6 +608,9 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		validateResponse = engine.Validate(policyCtx)
 		info = ProcessValidateEngineResponse(policy, validateResponse, resPath, rc, policyReport)
 	}
+	if validateResponse != nil {
+		engineResponses = append(engineResponses, validateResponse)
+	}
 
 	var policyHasGenerate bool
 	for _, rule := range policy.Spec.Rules {
@@ -624,10 +631,13 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			NamespaceLabels: namespaceLabels,
 		}
 		generateResponse := engine.Generate(policyContext)
+		if generateResponse != nil {
+			engineResponses = append(engineResponses, generateResponse)
+		}
 		processGenerateEngineResponse(policy, generateResponse, resPath, rc)
 	}
 
-	return validateResponse, info, nil
+	return engineResponses, info, nil
 }
 
 // PrintMutatedOutput - function to print output in provided file or directory
@@ -768,20 +778,36 @@ func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *r
 					Message: valResponseRule.Message,
 				}
 
-				if valResponseRule.Success {
+				switch valResponseRule.Status {
+				case response.RuleStatusPass:
 					rc.Pass++
-					vrule.Check = report.StatusPass
-				} else {
+					vrule.Status = report.StatusPass
+
+				case response.RuleStatusFail:
+					rc.Fail++
+					vrule.Status = report.StatusFail
 					if !policyReport {
 						if printCount < 1 {
 							fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.Name, resPath)
 							printCount++
 						}
+
 						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name, valResponseRule.Message)
 					}
-					rc.Fail++
-					vrule.Check = report.StatusFail
+
+				case response.RuleStatusError:
+					rc.Error++
+					vrule.Status = report.StatusError
+
+				case response.RuleStatusWarn:
+					rc.Warn++
+					vrule.Status = report.StatusWarn
+
+				case response.RuleStatusSkip:
+					rc.Skip++
+					vrule.Status = report.StatusSkip
 				}
+
 				violatedRules = append(violatedRules, vrule)
 				continue
 			}
@@ -793,7 +819,7 @@ func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *r
 				Name:    policyRule.Name,
 				Type:    "Validation",
 				Message: policyRule.Validation.Message,
-				Check:   report.StatusSkip,
+				Status:  report.StatusSkip,
 			}
 			violatedRules = append(violatedRules, vruleSkip)
 		}
@@ -823,7 +849,7 @@ func processGenerateEngineResponse(policy *v1.ClusterPolicy, generateResponse *r
 		for i, genResponseRule := range generateResponse.PolicyResponse.Rules {
 			if policyRule.Name == genResponseRule.Name {
 				ruleFoundInEngineResponse = true
-				if genResponseRule.Success {
+				if genResponseRule.Status == response.RuleStatusPass {
 					rc.Pass++
 				} else {
 					if printCount < 1 {
@@ -876,7 +902,7 @@ func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string
 	return variables
 }
 
-func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *response.EngineResponse, resPath string, rc *ResultCounts, mutateLogPath string, stdin bool, mutateLogPathIsDir bool, resourceName string) error {
+func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *response.EngineResponse, resPath string, rc *ResultCounts, mutateLogPath string, stdin bool, mutateLogPathIsDir bool, resourceName string, printPatchResource bool) error {
 	var policyHasMutate bool
 	for _, rule := range policy.Spec.Rules {
 		if rule.HasMutate() {
@@ -894,7 +920,7 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 		for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.Name {
 				ruleFoundInEngineResponse = true
-				if mutateResponseRule.Success {
+				if mutateResponseRule.Status == response.RuleStatusPass {
 					rc.Pass++
 					printMutatedRes = true
 				} else {
@@ -913,7 +939,7 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 		}
 	}
 
-	if printMutatedRes {
+	if printMutatedRes && printPatchResource {
 		yamlEncodedResource, err := yamlv2.Marshal(mutateResponse.PatchedResource.Object)
 		if err != nil {
 			return sanitizederror.NewWithError("failed to marshal", err)
@@ -925,8 +951,7 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 				if !stdin {
 					fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
 				}
-				fmt.Printf("\n" + mutatedResource)
-				fmt.Printf("\n")
+				fmt.Printf("\n" + mutatedResource + "\n")
 			}
 		} else {
 			err := PrintMutatedOutput(mutateLogPath, mutateLogPathIsDir, string(yamlEncodedResource), resourceName+"-mutated")
@@ -992,4 +1017,35 @@ func GetKindsFromPolicy(policy *v1.ClusterPolicy) map[string]struct{} {
 		}
 	}
 	return kindOnwhichPolicyIsApplied
+}
+
+//GetPatchedResourceFromPath - get patchedResource from given path
+func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (unstructured.Unstructured, error) {
+	var patchedResourceBytes []byte
+	var patchedResource unstructured.Unstructured
+	var err error
+
+	if isGit {
+		if len(path) > 0 {
+			filep, err := fs.Open(filepath.Join(policyResourcePath, path))
+			if err != nil {
+				fmt.Printf("Unable to open patchedResource file: %s. \nerror: %s", path, err)
+			}
+			patchedResourceBytes, err = ioutil.ReadAll(filep)
+		}
+	} else {
+		patchedResourceBytes, err = getFileBytes(path)
+	}
+
+	if err != nil {
+		fmt.Printf("\n----------------------------------------------------------------------\nfailed to load patchedResource: %s. \nerror: %s\n----------------------------------------------------------------------\n", path, err)
+		return patchedResource, err
+	}
+
+	patchedResource, err = GetPatchedResource(patchedResourceBytes)
+	if err != nil {
+		return patchedResource, err
+	}
+
+	return patchedResource, nil
 }

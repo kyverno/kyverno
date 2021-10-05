@@ -1,0 +1,100 @@
+# resource == patchedResource
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    foo: bar
+    color: orange
+  name: resource-equal-to-patch-res-for-cp
+  namespace: practice
+spec:
+  containers:
+  - image: nginx:latest
+    name: nginx
+
+---
+#  Resource with same name and diff. namespace 
+#  Same namespace as namespaced-policy
+apiVersion: v1
+kind: Pod
+metadata:
+  name: same-name-but-diff-namespace
+  labels:
+    foo: bar
+  namespace: testing
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+
+---
+#  Resource with same name and diff. namespace 
+#  Namespace differ from namespaced-policy
+apiVersion: v1
+kind: Pod
+metadata:
+  name: same-name-but-diff-namespace
+  labels:
+    foo: bar
+  namespace: production
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+
+---
+
+# Deployment in default namespace
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mydeploy
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+
+---
+
+# Resource (Service) with same name but different kind
+apiVersion: v1
+kind: Service
+metadata:
+  name: same-name-but-diff-kind
+spec:
+  selector:
+    app: MyApp
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30007
+  type: NodePort
+
+---
+
+# Resource (Pod) with same name but different kind
+apiVersion: v1
+kind: Pod
+metadata:
+  name: same-name-but-diff-kind
+  labels:
+    foo: bar
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+
+

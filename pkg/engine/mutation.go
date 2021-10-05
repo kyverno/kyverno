@@ -65,7 +65,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			excludeResource = policyContext.ExcludeGroupRole
 		}
 
-		if err = MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, policyContext.NamespaceLabels); err != nil {
+		if err = MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, policyContext.NamespaceLabels, policyContext.Policy.Namespace); err != nil {
 			logger.V(4).Info("rule not matched", "reason", err.Error())
 			continue
 		}
@@ -75,13 +75,13 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		// Restore() is meant for restoring context loaded from external lookup (APIServer & ConfigMap)
 		// while we need to keep updated resource in the JSON context as rules can be chained
 		resource, err := policyContext.JSONContext.Query("request.object")
-		policyContext.JSONContext.Restore()
+		policyContext.JSONContext.Reset()
 		if err == nil && resource != nil {
 			if err := ctx.AddResourceAsObject(resource.(map[string]interface{})); err != nil {
 				logger.WithName("RestoreContext").Error(err, "unable to update resource object")
 			}
 		} else {
-			logger.WithName("RestoreContext").Error(err, "failed to quey resource object")
+			logger.WithName("RestoreContext").Error(err, "failed to query resource object")
 		}
 
 		if err := LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
@@ -116,9 +116,9 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		if *ruleCopy, err = variables.SubstituteAllInRule(logger, ctx, *ruleCopy); err != nil {
 			ruleResp := response.RuleResponse{
 				Name:    ruleCopy.Name,
-				Type:    utils.Validation.String(),
-				Message: fmt.Sprintf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error()),
-				Success: true,
+				Type:    utils.Mutation.String(),
+				Message: fmt.Sprintf("variable substitution failed: %s", err.Error()),
+				Status:  response.RuleStatusPass,
 			}
 
 			incrementAppliedCount(resp)
@@ -131,7 +131,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		mutation := ruleCopy.Mutation.DeepCopy()
 		mutateHandler := mutate.CreateMutateHandler(ruleCopy.Name, mutation, patchedResource, ctx, logger)
 		ruleResponse, patchedResource = mutateHandler.Handle()
-		if ruleResponse.Success {
+		if ruleResponse.Status == response.RuleStatusPass {
 			// - overlay pattern does not match the resource conditions
 			if ruleResponse.Patches == nil {
 				continue

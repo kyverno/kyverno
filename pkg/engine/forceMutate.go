@@ -83,7 +83,7 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 		if rule.Mutation.Patches != nil {
 			var resp response.RuleResponse
 			resp, resource = mutate.ProcessPatches(logger.WithValues("rule", rule.Name), rule.Name, rule.Mutation, resource)
-			if !resp.Success {
+			if resp.Status != response.RuleStatusPass {
 				return unstructured.Unstructured{}, fmt.Errorf(resp.Message)
 			}
 		}
@@ -91,7 +91,7 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 		if rule.Mutation.PatchStrategicMerge != nil {
 			var resp response.RuleResponse
 			resp, resource = mutate.ProcessStrategicMergePatch(rule.Name, rule.Mutation.PatchStrategicMerge, resource, logger.WithValues("rule", rule.Name))
-			if !resp.Success {
+			if resp.Status != response.RuleStatusPass {
 				return unstructured.Unstructured{}, fmt.Errorf(resp.Message)
 			}
 		}
@@ -104,11 +104,10 @@ func ForceMutate(ctx context.EvalInterface, policy kyverno.ClusterPolicy, resour
 			}
 
 			resp, resource = mutate.ProcessPatchJSON6902(rule.Name, jsonPatches, resource, logger.WithValues("rule", rule.Name))
-			if !resp.Success {
+			if resp.Status != response.RuleStatusPass {
 				return unstructured.Unstructured{}, fmt.Errorf(resp.Message)
 			}
 		}
-
 	}
 
 	return resource, nil
