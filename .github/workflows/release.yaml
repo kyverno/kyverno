@@ -84,6 +84,16 @@ jobs:
         run: |
           make docker-publish-kyverno
 
+      - name: Trivy Scan Image
+        uses: aquasecurity/trivy-action@master
+        with: 
+          image-ref: 'ghcr.io/kyverno/kyverno:latest'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
   release-kyverno-cli:
     runs-on: ubuntu-latest
     steps:
