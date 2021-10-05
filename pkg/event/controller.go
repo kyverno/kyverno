@@ -188,7 +188,6 @@ func (gen *Generator) syncHandler(key Info) error {
 	var err error
 	switch key.Kind {
 	case "ClusterPolicy":
-		//TODO: policy is clustered resource so wont need namespace
 		robj, err = gen.cpLister.Get(key.Name)
 		if err != nil {
 			logger.Error(err, "failed to get cluster policy", "name", key.Name)

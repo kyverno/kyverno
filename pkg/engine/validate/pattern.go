@@ -42,10 +42,8 @@ func ValidateValueWithPattern(log logr.Logger, value, pattern interface{}) bool 
 	case nil:
 		return validateValueWithNilPattern(log, value)
 	case map[string]interface{}:
-		// TODO: check if this is ever called?
 		return validateValueWithMapPattern(log, value, typedPattern)
 	case []interface{}:
-		// TODO: check if this is ever called?
 		log.Info("arrays are not supported as patterns")
 		return false
 	default:
@@ -57,7 +55,6 @@ func ValidateValueWithPattern(log logr.Logger, value, pattern interface{}) bool 
 func validateValueWithMapPattern(log logr.Logger, value interface{}, typedPattern map[string]interface{}) bool {
 	// verify the type of the resource value is map[string]interface,
 	// we only check for existence of object, not the equality of content and value
-	//TODO: check if adding
 	_, ok := value.(map[string]interface{})
 	if !ok {
 		log.Info("Expected type map[string]interface{}", "type", fmt.Sprintf("%T", value), "value", value)

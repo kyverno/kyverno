@@ -76,8 +76,6 @@ func (c *Client) NewDynamicSharedInformerFactory(defaultResync time.Duration) dy
 }
 
 //GetEventsInterface provides typed interface for events
-//TODO: can we use dynamic client to fetch the typed interface
-// or generate a kube client value to access the interface
 func (c *Client) GetEventsInterface() (event.EventInterface, error) {
 	return c.kclient.CoreV1().Events(""), nil
 }
