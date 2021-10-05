@@ -403,8 +403,33 @@ func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bo
 			return false, "none"
 		}
 
-		if (len(match.Kinds) > 1 && utils.ContainsString(match.Kinds, "Pod")) ||
-			(len(exclude.Kinds) > 1 && utils.ContainsString(exclude.Kinds, "Pod")) {
+		for _, value := range match.Any {
+			if value.Name != "" || value.Selector != nil {
+				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in match any block not be applicable.", "rule", rule.Name)
+				return false, "none"
+			}
+		}
+		for _, value := range match.All {
+			if value.Name != "" || value.Selector != nil {
+				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in match all block not be applicable.", "rule", rule.Name)
+				return false, "none"
+			}
+		}
+		for _, value := range exclude.Any {
+			if value.Name != "" || value.Selector != nil {
+				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclude any not be applicable.", "rule", rule.Name)
+				return false, "none"
+			}
+		}
+		for _, value := range exclude.All {
+			if value.Name != "" || value.Selector != nil {
+				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclud all block not be applicable.", "rule", rule.Name)
+				return false, "none"
+			}
+		}
+
+		if (len(match.Kinds) > 1 && utils.ContainsPod(match.Kinds, "Pod")) ||
+			(len(exclude.Kinds) > 1 && utils.ContainsPod(exclude.Kinds, "Pod")) {
 			return false, "none"
 		}
 
@@ -570,8 +595,8 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	matchResourceDescriptionsKinds := rule.MatchKinds()
 	excludeResourceDescriptionsKinds := rule.ExcludeKinds()
 
-	if !utils.ContainsString(matchResourceDescriptionsKinds, "Pod") ||
-		(len(excludeResourceDescriptionsKinds) != 0 && !utils.ContainsString(excludeResourceDescriptionsKinds, "Pod")) {
+	if !utils.ContainsPod(matchResourceDescriptionsKinds, "Pod") ||
+		(len(excludeResourceDescriptionsKinds) != 0 && !utils.ContainsPod(excludeResourceDescriptionsKinds, "Pod")) {
 		return kyvernoRule{}
 	}
 
@@ -631,9 +656,22 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	}
 
 	// overwrite Kinds by pod controllers defined in the annotation
-	controllerRule.MatchResources.Kinds = strings.Split(controllers, ",")
-	if len(exclude.Kinds) != 0 {
-		controllerRule.ExcludeResources.Kinds = strings.Split(controllers, ",")
+	if len(rule.MatchResources.Any) > 0 {
+		controllerRule.MatchResources.Any[0].Kinds = strings.Split(controllers, ",")
+	} else if len(rule.MatchResources.All) > 0 {
+		controllerRule.MatchResources.Any[0].Kinds = strings.Split(controllers, ",")
+	} else {
+		controllerRule.MatchResources.Kinds = strings.Split(controllers, ",")
+	}
+
+	if len(rule.ExcludeResources.Any) > 0 {
+		controllerRule.ExcludeResources.Any[0].Kinds = strings.Split(controllers, ",")
+	} else if len(rule.ExcludeResources.All) > 0 {
+		controllerRule.ExcludeResources.Any[0].Kinds = strings.Split(controllers, ",")
+	} else {
+		if len(exclude.Kinds) != 0 {
+			controllerRule.ExcludeResources.Kinds = strings.Split(controllers, ",")
+		}
 	}
 
 	if rule.Mutation.Overlay != nil {
