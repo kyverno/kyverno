@@ -29,15 +29,8 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 			continue
 		}
 
-		match := rule.MatchResources
-
-		for _, value := range match.Any {
-			pc.processExistingKinds(value.ResourceDescription.Kinds, policy, rule, logger)
-		}
-		for _, value := range match.All {
-			pc.processExistingKinds(value.ResourceDescription.Kinds, policy, rule, logger)
-		}
-		pc.processExistingKinds(match.Kinds, policy, rule, logger)
+		matchKinds := rule.MatchKinds()
+		pc.processExistingKinds(matchKinds, policy, rule, logger)
 	}
 }
 
@@ -161,7 +154,6 @@ type resourceManager interface {
 }
 
 //Drop drop the cache after every rebuild interval mins
-//TODO: or drop based on the size
 func (rm *ResourceManager) Drop() {
 	timeSince := time.Since(rm.time)
 	if timeSince > time.Duration(rm.rebuildTime)*time.Second {

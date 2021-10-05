@@ -116,7 +116,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		if *ruleCopy, err = variables.SubstituteAllInRule(logger, ctx, *ruleCopy); err != nil {
 			ruleResp := response.RuleResponse{
 				Name:    ruleCopy.Name,
-				Type:    utils.Validation.String(),
+				Type:    utils.Mutation.String(),
 				Message: fmt.Sprintf("variable substitution failed: %s", err.Error()),
 				Status:  response.RuleStatusPass,
 			}

@@ -144,8 +144,6 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 
 	cd.restrictDevelopmentUsername = []string{"minikube-user", "kubernetes-admin"}
 
-	//TODO: this has been added to backward support command line arguments
-	// will be removed in future and the configuration will be set only via configmaps
 	if filterK8sResources != "" {
 		cd.log.Info("init configuration from commandline arguments for filterK8sResources")
 		cd.initFilters(filterK8sResources)
@@ -320,8 +318,6 @@ func (cd *ConfigData) load(cm v1.ConfigMap) (reconcilePolicyReport, updateWebhoo
 	return
 }
 
-//TODO: this has been added to backward support command line arguments
-// will be removed in future and the configuration will be set only via configmaps
 func (cd *ConfigData) initFilters(filters string) {
 	logger := cd.log
 	// parse and load the configuration
@@ -380,7 +376,6 @@ func parseKinds(list string) []k8Resource {
 		element = strings.Trim(element, "[")
 		element = strings.Trim(element, "]")
 		elements := strings.Split(element, ",")
-		//TODO: wildcards for namespace and name
 		if len(elements) == 0 {
 			continue
 		}
