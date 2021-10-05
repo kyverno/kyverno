@@ -659,7 +659,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	if len(rule.MatchResources.Any) > 0 {
 		controllerRule.MatchResources.Any[0].Kinds = strings.Split(controllers, ",")
 	} else if len(rule.MatchResources.All) > 0 {
-		controllerRule.MatchResources.Any[0].Kinds = strings.Split(controllers, ",")
+		controllerRule.MatchResources.All[0].Kinds = strings.Split(controllers, ",")
 	} else {
 		controllerRule.MatchResources.Kinds = strings.Split(controllers, ",")
 	}
@@ -667,7 +667,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	if len(rule.ExcludeResources.Any) > 0 {
 		controllerRule.ExcludeResources.Any[0].Kinds = strings.Split(controllers, ",")
 	} else if len(rule.ExcludeResources.All) > 0 {
-		controllerRule.ExcludeResources.Any[0].Kinds = strings.Split(controllers, ",")
+		controllerRule.ExcludeResources.All[0].Kinds = strings.Split(controllers, ",")
 	} else {
 		if len(exclude.Kinds) != 0 {
 			controllerRule.ExcludeResources.Kinds = strings.Split(controllers, ",")
