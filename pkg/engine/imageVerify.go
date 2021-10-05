@@ -35,7 +35,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 
 	startTime := time.Now()
 	defer func() {
-		buildResponse(logger, policyContext, resp, startTime)
+		buildResponse(policyContext, resp, startTime)
 		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "rulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
@@ -43,7 +43,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 	defer policyContext.JSONContext.Restore()
 
 	for i := range policyContext.Policy.Spec.Rules {
-		rule := policyContext.Policy.Spec.Rules[i]
+		rule := &policyContext.Policy.Spec.Rules[i]
 		if len(rule.VerifyImages) == 0 {
 			continue
 		}
@@ -54,8 +54,8 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 
 		policyContext.JSONContext.Restore()
 		for _, imageVerify := range rule.VerifyImages {
-			verifyAndPatchImages(logger, policyContext, &rule, imageVerify, images.Containers, resp)
-			verifyAndPatchImages(logger, policyContext, &rule, imageVerify, images.InitContainers, resp)
+			verifyAndPatchImages(logger, policyContext, rule, imageVerify, images.Containers, resp)
+			verifyAndPatchImages(logger, policyContext, rule, imageVerify, images.InitContainers, resp)
 		}
 	}
 
@@ -96,11 +96,11 @@ func verifyAndPatchImages(logger logr.Logger, policyContext *PolicyContext, rule
 		digest, err := cosign.Verify(image, []byte(key), repository, logger)
 		if err != nil {
 			logger.Info("failed to verify image", "image", image, "key", key, "error", err, "duration", time.Since(start).Seconds())
-			ruleResp.Success = false
+			ruleResp.Status = response.RuleStatusFail
 			ruleResp.Message = fmt.Sprintf("image verification failed for %s: %v", image, err)
 		} else {
 			logger.V(3).Info("verified image", "image", image, "digest", digest, "duration", time.Since(start).Seconds())
-			ruleResp.Success = true
+			ruleResp.Status = response.RuleStatusPass
 			ruleResp.Message = fmt.Sprintf("image %s verified", image)
 
 			// add digest to image

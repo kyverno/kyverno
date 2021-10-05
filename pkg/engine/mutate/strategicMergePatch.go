@@ -31,7 +31,7 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 
 	overlayBytes, err := json.Marshal(overlay)
 	if err != nil {
-		resp.Success = false
+		resp.Status = response.RuleStatusFail
 		logger.Error(err, "failed to marshal resource")
 		resp.Message = fmt.Sprintf("failed to process patchStrategicMerge: %v", err)
 		return resp, resource
@@ -39,7 +39,7 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 
 	base, err := json.Marshal(resource.Object)
 	if err != nil {
-		resp.Success = false
+		resp.Status = response.RuleStatusFail
 		logger.Error(err, "failed to marshal resource")
 		resp.Message = fmt.Sprintf("failed to process patchStrategicMerge: %v", err)
 		return resp, resource
@@ -48,7 +48,7 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 	if err != nil {
 		log.Error(err, "failed to apply patchStrategicMerge")
 		msg := fmt.Sprintf("failed to apply patchStrategicMerge: %v", err)
-		resp.Success = false
+		resp.Status = response.RuleStatusFail
 		resp.Message = msg
 		return resp, resource
 	}
@@ -56,7 +56,7 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 	err = patchedResource.UnmarshalJSON(patchedBytes)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal resource")
-		resp.Success = false
+		resp.Status = response.RuleStatusFail
 		resp.Message = fmt.Sprintf("failed to process patchStrategicMerge: %v", err)
 		return resp, resource
 	}
@@ -66,7 +66,7 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 	jsonPatches, err := generatePatches(base, patchedBytes)
 	if err != nil {
 		msg := fmt.Sprintf("failed to generated JSON patches from patched resource: %v", err.Error())
-		resp.Success = false
+		resp.Status = response.RuleStatusFail
 		log.Info(msg)
 		resp.Message = msg
 		return resp, patchedResource
@@ -76,7 +76,7 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 		log.V(5).Info("generated patch", "patch", string(p))
 	}
 
-	resp.Success = true
+	resp.Status = response.RuleStatusPass
 	resp.Patches = jsonPatches
 	resp.Message = "successfully processed strategic merge patch"
 	return resp, patchedResource

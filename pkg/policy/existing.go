@@ -30,7 +30,6 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 		}
 
 		match := rule.MatchResources
-		exclude := rule.ExcludeResources
 
 		for _, value := range match.Any {
 			pc.processExistingKinds(value.ResourceDescription.Kinds, policy, rule, logger)
@@ -38,13 +37,6 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 		for _, value := range match.All {
 			pc.processExistingKinds(value.ResourceDescription.Kinds, policy, rule, logger)
 		}
-		for _, value := range exclude.All {
-			pc.processExistingKinds(value.ResourceDescription.Kinds, policy, rule, logger)
-		}
-		for _, value := range exclude.Any {
-			pc.processExistingKinds(value.ResourceDescription.Kinds, policy, rule, logger)
-		}
-
 		pc.processExistingKinds(match.Kinds, policy, rule, logger)
 	}
 }

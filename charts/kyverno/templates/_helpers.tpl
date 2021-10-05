@@ -91,3 +91,16 @@ app.kubernetes.io/instance: {{ .Release.Name }}
     {{ default "default" .Values.rbac.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
+
+{{/* Create the default PodDisruptionBudget to use */}}
+{{- define "podDisruptionBudget.spec" -}}
+{{- if and .Values.podDisruptionBudget.minAvailable .Values.podDisruptionBudget.maxUnavailable }}
+{{- fail "Cannot set both .Values.podDisruptionBudget.minAvailable and .Values.podDisruptionBudget.maxUnavailable" -}}
+{{- end }}
+{{- if not .Values.podDisruptionBudget.maxUnavailable }}
+minAvailable: {{ default 0 .Values.podDisruptionBudget.minAvailable }}
+{{- end }}
+{{- if .Values.podDisruptionBudget.maxUnavailable }}
+maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+{{- end }}
+{{- end }}

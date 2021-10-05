@@ -199,6 +199,6 @@ type ViolatedRule struct {
 	// +optional
 	Message string `json:"message" yaml:"message"`
 
-	// +optional
-	Check string `json:"check" yaml:"check"`
+	// Status shows the rule response status
+	Status string `json:"status" yaml:"status"`
 }

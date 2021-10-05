@@ -8,10 +8,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var (
-	projectPath = envOr("PROJECT_PATH", "src/github.com/kyverno/kyverno")
-)
-
 // LoadFile loads file in byte buffer
 func LoadFile(path string) ([]byte, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
