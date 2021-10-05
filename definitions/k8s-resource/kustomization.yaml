@@ -8,3 +8,4 @@ resources:
 - ./metricsconfigmap.yaml
 - ./service.yaml
 - ./serviceaccount.yaml
+- ./poddisruptionbudget.yaml

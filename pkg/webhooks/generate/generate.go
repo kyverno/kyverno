@@ -116,8 +116,6 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.Generate
 
 		gr.SetNamespace(config.KyvernoNamespace)
 		// Initial state "Pending"
-		// TODO: status is not updated
-		// gr.Status.State = kyverno.Pending
 		// generate requests created in kyverno namespace
 		isExist := false
 		if action == v1beta1.Create || action == v1beta1.Update {

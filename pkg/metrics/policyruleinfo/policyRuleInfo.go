@@ -15,6 +15,7 @@ func (pc PromConfig) registerPolicyRuleInfoMetric(
 	policyNamespace, policyName, ruleName string,
 	ruleType metrics.RuleType,
 	metricChangeType PolicyRuleInfoMetricChangeType,
+	ready bool,
 ) error {
 	var metricValue float64
 	switch metricChangeType {
@@ -40,6 +41,11 @@ func (pc PromConfig) registerPolicyRuleInfoMetric(
 		policyNamespace = "-"
 	}
 
+	status := "false"
+	if ready {
+		status = "true"
+	}
+
 	pc.Metrics.PolicyRuleInfo.With(prom.Labels{
 		"policy_validation_mode": string(policyValidationMode),
 		"policy_type":            string(policyType),
@@ -48,6 +54,7 @@ func (pc PromConfig) registerPolicyRuleInfoMetric(
 		"policy_name":            policyName,
 		"rule_name":              ruleName,
 		"rule_type":              string(ruleType),
+		"status_ready":           status,
 	}).Set(metricValue)
 
 	return nil
@@ -64,12 +71,13 @@ func (pc PromConfig) AddPolicy(policy interface{}) error {
 		policyType := metrics.Cluster
 		policyNamespace := "" // doesn't matter for cluster policy
 		policyName := inputPolicy.ObjectMeta.Name
+		ready := inputPolicy.Status.Ready
 		// registering the metrics on a per-rule basis
 		for _, rule := range inputPolicy.Spec.Rules {
 			ruleName := rule.Name
 			ruleType := metrics.ParseRuleType(rule)
 
-			if err = pc.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleCreated); err != nil {
+			if err = pc.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleCreated, ready); err != nil {
 				return err
 			}
 		}
@@ -83,12 +91,13 @@ func (pc PromConfig) AddPolicy(policy interface{}) error {
 		policyType := metrics.Namespaced
 		policyNamespace := inputPolicy.ObjectMeta.Namespace
 		policyName := inputPolicy.ObjectMeta.Name
+		ready := inputPolicy.Status.Ready
 		// registering the metrics on a per-rule basis
 		for _, rule := range inputPolicy.Spec.Rules {
 			ruleName := rule.Name
 			ruleType := metrics.ParseRuleType(rule)
 
-			if err = pc.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleCreated); err != nil {
+			if err = pc.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleCreated, ready); err != nil {
 				return err
 			}
 		}
@@ -112,8 +121,9 @@ func (pc PromConfig) RemovePolicy(policy interface{}) error {
 			policyName := inputPolicy.ObjectMeta.Name
 			ruleName := rule.Name
 			ruleType := metrics.ParseRuleType(rule)
+			ready := inputPolicy.Status.Ready
 
-			if err = pc.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleDeleted); err != nil {
+			if err = pc.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleDeleted, ready); err != nil {
 				return err
 			}
 		}
@@ -130,8 +140,9 @@ func (pc PromConfig) RemovePolicy(policy interface{}) error {
 			policyName := inputPolicy.ObjectMeta.Name
 			ruleName := rule.Name
 			ruleType := metrics.ParseRuleType(rule)
+			ready := inputPolicy.Status.Ready
 
-			if err = pc.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleDeleted); err != nil {
+			if err = pc.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleDeleted, ready); err != nil {
 				return err
 			}
 		}

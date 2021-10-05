@@ -32,6 +32,7 @@ spec:
       type: string
     - jsonPath: .spec.failurePolicy
       name: Failure Policy
+      priority: 1
       type: string
     - jsonPath: .status.ready
       name: Ready
@@ -361,7 +362,10 @@ spec:
                             type: string
                           type: array
                         resources:
-                          description: ResourceDescription contains information about the resource being created or modified.
+                          description: ResourceDescription contains information about
+                            the resource being created or modified. Specifying ResourceDescription
+                            directly under exclude is being deprecated. Please specify
+                            under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
@@ -768,7 +772,11 @@ spec:
                             type: string
                           type: array
                         resources:
-                          description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources.
+                          description: ResourceDescription contains information about
+                            the resource being created or modified. Requires at least
+                            one tag to be specified when under MatchResources. Specifying
+                            ResourceDescription directly under match is being deprecated.
+                            Please specify under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
@@ -1066,7 +1074,11 @@ spec:
                 description: ValidationFailureAction controls if a validation policy rule failure should disallow the admission review request (enforce), or allow (audit) the admission review request and report an error in a policy report. Optional. The default value is "audit".
                 type: string
               webhookTimeoutSeconds:
-                description: WebhookTimeoutSeconds specifies the webhook timeout for this policy. After the timeout passes, the admission request will fail based on the failure policy. The default timeout is 3s, the value must be between 1 and 30 seconds. Default to 10 seconds.
+                description: WebhookTimeoutSeconds specifies the maximum time in seconds
+                  allowed to apply this policy. After the configured time expires,
+                  the admission request may fail, or may simply ignore the policy
+                  results, based on the failure policy. The default timeout is 10s,
+                  the value must be between 1 and 30 seconds.
                 format: int32
                 type: integer
             type: object
@@ -2120,13 +2132,12 @@ spec:
                 description: Context ...
                 properties:
                   admissionRequestInfo:
-                    description: Adding required request information to GR
                     properties:
                       admissionRequest:
-                        description: Adding Admission Request to GR.
                         type: string
                       operation:
-                        description: Current request operation
+                        description: Operation is the type of resource operation being
+                          checked for admission control
                         type: string
                     type: object
                   userInfo:
@@ -2265,6 +2276,7 @@ spec:
       type: string
     - jsonPath: .spec.failurePolicy
       name: Failure Policy
+      priority: 1
       type: string
     - jsonPath: .status.ready
       name: Ready
@@ -2594,7 +2606,10 @@ spec:
                             type: string
                           type: array
                         resources:
-                          description: ResourceDescription contains information about the resource being created or modified.
+                          description: ResourceDescription contains information about
+                            the resource being created or modified. Specifying ResourceDescription
+                            directly under exclude is being deprecated. Please specify
+                            under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
@@ -3001,7 +3016,11 @@ spec:
                             type: string
                           type: array
                         resources:
-                          description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources.
+                          description: ResourceDescription contains information about
+                            the resource being created or modified. Requires at least
+                            one tag to be specified when under MatchResources. Specifying
+                            ResourceDescription directly under match is being deprecated.
+                            Please specify under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
@@ -3299,7 +3318,11 @@ spec:
                 description: ValidationFailureAction controls if a validation policy rule failure should disallow the admission review request (enforce), or allow (audit) the admission review request and report an error in a policy report. Optional. The default value is "audit".
                 type: string
               webhookTimeoutSeconds:
-                description: WebhookTimeoutSeconds specifies the webhook timeout for this policy. After the timeout passes, the admission request will fail based on the failure policy. The default timeout is 3s, the value must be between 1 and 30 seconds. Default to 10 seconds.
+                description: WebhookTimeoutSeconds specifies the maximum time in seconds
+                  allowed to apply this policy. After the configured time expires,
+                  the admission request may fail, or may simply ignore the policy
+                  results, based on the failure policy. The default timeout is 10s,
+                  the value must be between 1 and 30 seconds.
                 format: int32
                 type: integer
             type: object
@@ -4666,3 +4689,17 @@ spec:
   selector:
     app: kyverno
     app.kubernetes.io/name: kyverno
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app: kyverno
+  name: kyverno
+  namespace: kyverno
+spec:
+  minAvailable: 0
+  selector:
+    matchLabels:
+      app: kyverno
+      app.kubernetes.io/name: kyverno
