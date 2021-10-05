@@ -202,6 +202,7 @@ test-e2e-local:
 #Test TestCmd Policy
 test-cmd: cli
 	$(PWD)/$(CLI_PATH)/kyverno test https://github.com/kyverno/policies/main
+	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-mutate
 	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test
 	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
 	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-rule && exit 1 || exit 0

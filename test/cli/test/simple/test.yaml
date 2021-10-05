@@ -7,20 +7,25 @@ results:
   - policy: disallow-latest-tag
     rule: require-image-tag
     resource: test-require-image-tag-pass
+    kind: Pod
     status: pass
   - policy: disallow-latest-tag
     rule: require-image-tag
     resource: test-require-image-tag-fail
+    kind: Pod
     status: fail
   - policy: disallow-latest-tag
     rule: validate-image-tag
     resource: test-validate-image-tag-ignore
+    kind: Pod
     status: skip
   - policy: disallow-latest-tag
     rule: validate-image-tag
     resource: test-validate-image-tag-fail
+    kind: Pod
     status: fail
   - policy: disallow-latest-tag
     rule: validate-image-tag
     resource: test-validate-image-tag-pass
+    kind: Pod
     status: pass
