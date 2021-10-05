@@ -3,12 +3,13 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kyverno/kyverno/pkg/engine/common"
-	"github.com/pkg/errors"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/pkg/errors"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
@@ -419,13 +420,13 @@ func isEmptyUnstructured(u *unstructured.Unstructured) bool {
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
 func matches(logger logr.Logger, rule *kyverno.Rule, ctx *PolicyContext) bool {
-	err := MatchesResourceDescription(ctx.NewResource, *rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, ctx.NamespaceLabels)
+	err := MatchesResourceDescription(ctx.NewResource, *rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, ctx.NamespaceLabels, "")
 	if err == nil {
 		return true
 	}
 
 	if !reflect.DeepEqual(ctx.OldResource, unstructured.Unstructured{}) {
-		err := MatchesResourceDescription(ctx.OldResource, *rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, ctx.NamespaceLabels)
+		err := MatchesResourceDescription(ctx.OldResource, *rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, ctx.NamespaceLabels, "")
 		if err == nil {
 			return true
 		}
