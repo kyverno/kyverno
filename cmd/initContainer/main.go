@@ -231,7 +231,7 @@ func removeClusterPolicyReport(client *client.Client, kind string) error {
 	}
 
 	for _, cpolr := range cpolrs.Items {
-		deleteResource(client, cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName(), nil)
+		deleteResource(client, cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName())
 	}
 	return nil
 }
@@ -247,20 +247,19 @@ func removePolicyReport(client *client.Client, kind string) error {
 
 	// name of namespace policy report follows the name convention
 	// pr-ns-<namespace name>
+	var wg sync.WaitGroup
+	reportNamePrefixes := []string{"policyreport-ns", "pr-ns", "polr-ns"}
+	wg.Add(len(namespaces.Items) * len(reportNamePrefixes))
 	for _, ns := range namespaces.Items {
-		reportNames := []string{
-			fmt.Sprintf("policyreport-ns-%s", ns.GetName()),
-			fmt.Sprintf("pr-ns-%s", ns.GetName()),
-			fmt.Sprintf("polr-ns-%s", ns.GetName()),
+		for _, reportNamePrefix := range reportNamePrefixes {
+			reportName := fmt.Sprintf("%s-%s", reportNamePrefix, ns.GetName())
+			go func(reportName string, namespaceName string) {
+				defer wg.Done()
+				deleteResource(client, "", kind, namespaceName, reportName)
+			}(reportName, ns.GetName())
 		}
-
-		var wg sync.WaitGroup
-		wg.Add(len(reportNames))
-		for _, reportName := range reportNames {
-			go deleteResource(client, "", kind, ns.GetName(), reportName, &wg)
-		}
-		wg.Wait()
 	}
+	wg.Wait()
 
 	return nil
 }
@@ -276,7 +275,7 @@ func removeReportChangeRequest(client *client.Client, kind string) error {
 	}
 
 	for _, rcr := range rcrList.Items {
-		deleteResource(client, rcr.GetAPIVersion(), rcr.GetKind(), rcr.GetNamespace(), rcr.GetName(), nil)
+		deleteResource(client, rcr.GetAPIVersion(), rcr.GetKind(), rcr.GetNamespace(), rcr.GetName())
 	}
 
 	return nil
@@ -290,7 +289,7 @@ func removeClusterReportChangeRequest(client *client.Client, kind string) error 
 	}
 
 	for _, crcr := range crcrList.Items {
-		deleteResource(client, crcr.GetAPIVersion(), crcr.GetKind(), "", crcr.GetName(), nil)
+		deleteResource(client, crcr.GetAPIVersion(), crcr.GetKind(), "", crcr.GetName())
 	}
 	return nil
 }
@@ -319,11 +318,7 @@ func getKyvernoNameSpace() string {
 	return kyvernoNamespace
 }
 
-func deleteResource(client *client.Client, apiversion, kind, ns, name string, wg *sync.WaitGroup) {
-	if wg != nil {
-		defer wg.Done()
-	}
-
+func deleteResource(client *client.Client, apiversion, kind, ns, name string) {
 	err := client.DeleteResource(apiversion, kind, ns, name, false)
 	if err != nil && !errors.IsNotFound(err) {
 		log.Log.Error(err, "failed to delete resource", "kind", kind, "name", name)
