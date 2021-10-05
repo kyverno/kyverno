@@ -4679,3 +4679,17 @@ spec:
   selector:
     app: kyverno
     app.kubernetes.io/name: kyverno
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app: kyverno
+  name: kyverno
+  namespace: kyverno
+spec:
+  minAvailable: 0
+  selector:
+    matchLabels:
+      app: kyverno
+      app.kubernetes.io/name: kyverno
