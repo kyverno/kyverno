@@ -11,7 +11,7 @@ import (
 
 func CallMetrics() (string, error) {
 	requestObj := e2e.APIRequest{
-		URL:  "http://localhost:8000/metrics",
+		URL:  "http://kubernetes.docker.internal:8000/metrics",
 		Type: "GET",
 	}
 
@@ -34,7 +34,7 @@ func CallMetrics() (string, error) {
 func ProcessMetrics(newStr, e2ePolicyName string) error {
 	splitByNewLine := strings.Split(newStr, "\n")
 	for _, lineSplitByNewLine := range splitByNewLine {
-		// kyverno_policy_rule_info_total{policy_background_mode=\"false\",policy_name=\"gen-cluster-policy\",policy_namespace=\"-\",policy_type=\"cluster\",policy_validation_mode=\"audit\",rule_name=\"gen-cluster-role\",rule_type=\"generate\"} 1
+		// kyverno_policy_rule_info_total{policy_background_mode=\"false\",policy_name=\"gen-cluster-policy\",policy_namespace=\"-\",policy_type=\"cluster\",policy_validation_mode=\"audit\",rule_name=\"gen-cluster-role\",rule_type=\"generate\",status_ready="false"} 1
 		if !strings.HasPrefix(lineSplitByNewLine, "kyverno_policy_rule_info_total{") {
 			continue
 		}
@@ -48,10 +48,18 @@ func ProcessMetrics(newStr, e2ePolicyName string) error {
 			if strings.HasPrefix(lineSplitByComma, "policy_name=") {
 				splitByQuote := strings.Split(lineSplitByComma, "\"")
 				policyName := splitByQuote[1]
-				if policyName == e2ePolicyName {
+				if policyName != e2ePolicyName {
+					continue
+				}
+			}
+			if strings.HasPrefix(lineSplitByComma, "status_ready=") {
+				splitByQuote := strings.Split(lineSplitByComma, "\"")
+				status := splitByQuote[1]
+				if status == "true" {
 					return nil
 				}
 			}
+
 		}
 	}
 
