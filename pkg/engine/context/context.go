@@ -53,21 +53,22 @@ type EvalInterface interface {
 
 //Context stores the data resources as JSON
 type Context struct {
-	mutex             sync.RWMutex
-	jsonRaw           []byte
-	jsonRawCheckpoint []byte
-	builtInVars       []string
-	images            *Images
-	log               logr.Logger
+	mutex              sync.RWMutex
+	jsonRaw            []byte
+	jsonRawCheckpoints [][]byte
+	builtInVars        []string
+	images             *Images
+	log                logr.Logger
 }
 
 //NewContext returns a new context
 // builtInVars is the list of known variables (e.g. serviceAccountName)
 func NewContext(builtInVars ...string) *Context {
 	ctx := Context{
-		jsonRaw:     []byte(`{}`), // empty json struct
-		builtInVars: builtInVars,
-		log:         log.Log.WithName("context"),
+		jsonRaw:            []byte(`{}`), // empty json struct
+		builtInVars:        builtInVars,
+		log:                log.Log.WithName("context"),
+		jsonRawCheckpoints: make([][]byte, 0),
 	}
 
 	return &ctx
@@ -96,6 +97,16 @@ func (ctx *Context) AddJSON(dataRaw []byte) error {
 		return err
 	}
 	return nil
+}
+
+// AddJSON merges json data
+func (ctx *Context) AddJSONObject(jsonData interface{}) error {
+	jsonBytes, err := json.Marshal(jsonData)
+	if err != nil {
+		return err
+	}
+
+	return ctx.AddJSON(jsonBytes)
 }
 
 // AddRequest adds an admission request to context
@@ -187,6 +198,7 @@ func (ctx *Context) AddResourceAsObject(data interface{}) error {
 		ctx.log.Error(err, "failed to marshal the resource")
 		return err
 	}
+
 	return ctx.AddJSON(objRaw)
 }
 
@@ -306,28 +318,45 @@ func (ctx *Context) ImageInfo() *Images {
 	return ctx.images
 }
 
-// Checkpoint creates a copy of the internal state.
-// Prior checkpoints will be overridden.
+// Checkpoint creates a copy of the current internal state and
+// pushes it into a stack of stored states.
 func (ctx *Context) Checkpoint() {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 
-	ctx.jsonRawCheckpoint = make([]byte, len(ctx.jsonRaw))
-	copy(ctx.jsonRawCheckpoint, ctx.jsonRaw)
+	jsonRawCheckpoint := make([]byte, len(ctx.jsonRaw))
+	copy(jsonRawCheckpoint, ctx.jsonRaw)
+
+	ctx.jsonRawCheckpoints = append(ctx.jsonRawCheckpoints, jsonRawCheckpoint)
 }
 
-// Restore restores internal state from a prior checkpoint, if one exists.
-// If a prior checkpoint does not exist, the state will not be changed.
+// Restore sets the internal state to the last checkpoint, and removes the checkpoint.
 func (ctx *Context) Restore() {
+	ctx.reset(true)
+}
+
+// Reset sets the internal state to the last checkpoint, but does not remove the checkpoint.
+func (ctx *Context) Reset() {
+	ctx.reset(false)
+}
+
+func (ctx *Context) reset(remove bool) {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 
-	if ctx.jsonRawCheckpoint == nil || len(ctx.jsonRawCheckpoint) == 0 {
+	if len(ctx.jsonRawCheckpoints) == 0 {
 		return
 	}
 
-	ctx.jsonRaw = make([]byte, len(ctx.jsonRawCheckpoint))
-	copy(ctx.jsonRaw, ctx.jsonRawCheckpoint)
+	n := len(ctx.jsonRawCheckpoints) - 1
+	jsonRawCheckpoint := ctx.jsonRawCheckpoints[n]
+
+	ctx.jsonRaw = make([]byte, len(jsonRawCheckpoint))
+	copy(ctx.jsonRaw, jsonRawCheckpoint)
+
+	if remove {
+		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
+	}
 }
 
 // AddBuiltInVars adds given pattern to the builtInVars

@@ -60,6 +60,15 @@ spec:
               context:
                 description: Context ...
                 properties:
+                  admissionRequestInfo:
+                    properties:
+                      admissionRequest:
+                        type: string
+                      operation:
+                        description: Operation is the type of resource operation being
+                          checked for admission control
+                        type: string
+                    type: object
                   userInfo:
                     description: RequestInfo contains permission info carried in an
                       admission request.

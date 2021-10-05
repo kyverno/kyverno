@@ -35,7 +35,7 @@ func ProcessPatches(log logr.Logger, ruleName string, mutation kyverno.Mutation,
 	// convert to RAW
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
-		resp.Success = false
+		resp.Status = response.RuleStatusFail
 		logger.Error(err, "failed to marshal resource")
 		resp.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
 		return resp, resource
@@ -66,7 +66,7 @@ func ProcessPatches(log logr.Logger, ruleName string, mutation kyverno.Mutation,
 
 	// error while processing JSON patches
 	if len(errs) > 0 {
-		resp.Success = false
+		resp.Status = response.RuleStatusFail
 		resp.Message = fmt.Sprintf("failed to process JSON patches: %v", func() string {
 			var str []string
 			for _, err := range errs {
@@ -79,13 +79,13 @@ func ProcessPatches(log logr.Logger, ruleName string, mutation kyverno.Mutation,
 	err = patchedResource.UnmarshalJSON(resourceRaw)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal resource")
-		resp.Success = false
+		resp.Status = response.RuleStatusFail
 		resp.Message = fmt.Sprintf("failed to process JSON patches: %v", err)
 		return resp, resource
 	}
 
 	// JSON patches processed successfully
-	resp.Success = true
+	resp.Status = response.RuleStatusPass
 	resp.Message = fmt.Sprintf("successfully process JSON patches")
 	resp.Patches = patches
 	return resp, patchedResource

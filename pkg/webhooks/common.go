@@ -47,7 +47,7 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 		if !er.IsSuccessful() && er.PolicyResponse.ValidationFailureAction == common.Enforce {
 			ruleToReason := make(map[string]string)
 			for _, rule := range er.PolicyResponse.Rules {
-				if !rule.Success {
+				if rule.Status != response.RuleStatusPass {
 					ruleToReason[rule.Name] = rule.Message
 				}
 			}
@@ -72,7 +72,7 @@ func getErrorMsg(engineReponses []*response.EngineResponse) string {
 			resourceInfo = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
 			str = append(str, fmt.Sprintf("failed policy %s:", er.PolicyResponse.Policy.Name))
 			for _, rule := range er.PolicyResponse.Rules {
-				if !rule.Success {
+				if rule.Status != response.RuleStatusPass {
 					str = append(str, rule.ToString())
 				}
 			}

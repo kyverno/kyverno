@@ -101,7 +101,7 @@ func (h patchesJSON6902Handler) Handle() (resp response.RuleResponse, patchedRes
 
 	patchesJSON6902, err := convertPatchesToJSON(h.mutation.PatchesJSON6902)
 	if err != nil {
-		resp.Success = false
+		resp.Status = response.RuleStatusFail
 		h.logger.Error(err, "error in type conversion")
 		resp.Message = err.Error()
 		return resp, h.patchedResource
