@@ -38,6 +38,28 @@ func (p *ClusterPolicy) HasMutate() bool {
 	return false
 }
 
+// HasValidate checks for validate rule types
+func (p *ClusterPolicy) HasValidate() bool {
+	for _, rule := range p.Spec.Rules {
+		if rule.HasValidate() {
+			return true
+		}
+	}
+
+	return false
+}
+
+// HasGenerate checks for generate rule types
+func (p *ClusterPolicy) HasGenerate() bool {
+	for _, rule := range p.Spec.Rules {
+		if rule.HasGenerate() {
+			return true
+		}
+	}
+
+	return false
+}
+
 //HasVerifyImages checks for image verification rule types
 func (p *ClusterPolicy) HasVerifyImages() bool {
 	for _, rule := range p.Spec.Rules {
@@ -76,6 +98,29 @@ func (r Rule) HasValidate() bool {
 // HasGenerate checks for generate rule
 func (r Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
+}
+
+func (r Rule) MatchKinds() []string {
+	matchKinds := r.MatchResources.ResourceDescription.Kinds
+	for _, value := range r.MatchResources.All {
+		matchKinds = append(matchKinds, value.ResourceDescription.Kinds...)
+	}
+	for _, value := range r.MatchResources.Any {
+		matchKinds = append(matchKinds, value.ResourceDescription.Kinds...)
+	}
+
+	return matchKinds
+}
+
+func (r Rule) ExcludeKinds() []string {
+	excludeKinds := r.ExcludeResources.ResourceDescription.Kinds
+	for _, value := range r.ExcludeResources.All {
+		excludeKinds = append(excludeKinds, value.ResourceDescription.Kinds...)
+	}
+	for _, value := range r.ExcludeResources.Any {
+		excludeKinds = append(excludeKinds, value.ResourceDescription.Kinds...)
+	}
+	return excludeKinds
 }
 
 // DeserializeAnyPattern deserialize apiextensions.JSON to []interface{}
@@ -199,6 +244,6 @@ type ViolatedRule struct {
 	// +optional
 	Message string `json:"message" yaml:"message"`
 
-	// +optional
-	Check string `json:"check" yaml:"check"`
+	// Status shows the rule response status
+	Status string `json:"status" yaml:"status"`
 }

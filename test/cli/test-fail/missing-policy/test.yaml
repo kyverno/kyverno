@@ -7,4 +7,5 @@ results:
   - policy: missing
     rule: validate-image-tag
     resource: test
+    kind: Pod
     result: pass

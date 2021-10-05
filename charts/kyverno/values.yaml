@@ -32,7 +32,7 @@ testImage:
   repository:
   # testImage.tag defaults to "latest" if omitted
   tag:
-  # testImage.pullPolicy defaults to image.pullPolicy if ommitted
+  # testImage.pullPolicy defaults to image.pullPolicy if omitted
   pullPolicy:
 
 replicaCount: 1
@@ -51,6 +51,14 @@ antiAffinity:
   # By default this will make sure two pods don't end up on the same node
   # Changing this to a region would allow you to spread pods across regions
   topologyKey: "kubernetes.io/hostname"
+
+podDisruptionBudget:
+  enabled: false
+  # minAvailable: 1
+  # maxUnavailable: 1
+
+  # minAvailable and maxUnavailable can either be set to an integer (e.g. 1)
+  # or a percentage value (e.g. 25%)
 
 nodeSelector: {}
 tolerations: []

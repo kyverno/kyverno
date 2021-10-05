@@ -47,7 +47,7 @@ func NewPromConfig(metricsConfigData *config.MetricsConfigData, log logr.Logger)
 	)
 
 	policyRuleInfoLabels := []string{
-		"policy_validation_mode", "policy_type", "policy_background_mode", "policy_namespace", "policy_name", "rule_name", "rule_type",
+		"policy_validation_mode", "policy_type", "policy_background_mode", "policy_namespace", "policy_name", "rule_name", "rule_type", "status_ready",
 	}
 	policyRuleInfoMetric := prom.NewGaugeVec(
 		prom.GaugeOpts{

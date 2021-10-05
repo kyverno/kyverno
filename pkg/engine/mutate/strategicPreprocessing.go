@@ -335,9 +335,12 @@ func checkCondition(logger logr.Logger, pattern *yaml.RNode, resource *yaml.RNod
 		return err
 	}
 
-	_, err = validate.ValidateResourceWithPattern(logger, resourceInterface, patternInterface)
+	err = validate.MatchPattern(logger, resourceInterface, patternInterface)
+	if err != nil {
+		return err
+	}
 
-	return err
+	return nil
 }
 
 func deleteConditionsFromNestedMaps(pattern *yaml.RNode) (bool, error) {

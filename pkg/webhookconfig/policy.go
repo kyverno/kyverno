@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/config"
-	admregapi "k8s.io/api/admissionregistration/v1beta1"
+	admregapi "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (wrc *Register) contructPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
+func (wrc *Register) constructPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
 
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
@@ -24,16 +24,19 @@ func (wrc *Register) contructPolicyValidatingWebhookConfig(caData []byte) *admre
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				[]string{"clusterpolicies/*", "policies/*"},
-				"kyverno.io",
-				"v1",
+				admregapi.Rule{
+					Resources:   []string{"clusterpolicies/*", "policies/*"},
+					APIGroups:   []string{"kyverno.io"},
+					APIVersions: []string{"v1"},
+				},
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				admregapi.Ignore,
 			),
 		},
 	}
 }
 
-func (wrc *Register) contructDebugPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
+func (wrc *Register) constructDebugPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
 	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.PolicyValidatingWebhookServicePath)
 	logger.V(4).Info("Debug PolicyValidatingWebhookConfig is registered with url ", "url", url)
@@ -49,16 +52,19 @@ func (wrc *Register) contructDebugPolicyValidatingWebhookConfig(caData []byte) *
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				[]string{"clusterpolicies/*", "policies/*"},
-				"kyverno.io",
-				"v1",
+				admregapi.Rule{
+					Resources:   []string{"clusterpolicies/*", "policies/*"},
+					APIGroups:   []string{"kyverno.io"},
+					APIVersions: []string{"v1"},
+				},
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				admregapi.Ignore,
 			),
 		},
 	}
 }
 
-func (wrc *Register) contructPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+func (wrc *Register) constructPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.PolicyMutatingWebhookConfigurationName,
@@ -73,16 +79,19 @@ func (wrc *Register) contructPolicyMutatingWebhookConfig(caData []byte) *admrega
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				[]string{"clusterpolicies/*", "policies/*"},
-				"kyverno.io",
-				"v1",
+				admregapi.Rule{
+					Resources:   []string{"clusterpolicies/*", "policies/*"},
+					APIGroups:   []string{"kyverno.io"},
+					APIVersions: []string{"v1"},
+				},
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				admregapi.Ignore,
 			),
 		},
 	}
 }
 
-func (wrc *Register) contructDebugPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
+func (wrc *Register) constructDebugPolicyMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
 	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.PolicyMutatingWebhookServicePath)
 	logger.V(4).Info("Debug PolicyMutatingWebhookConfig is registered with url ", "url", url)
@@ -98,10 +107,13 @@ func (wrc *Register) contructDebugPolicyMutatingWebhookConfig(caData []byte) *ad
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				[]string{"clusterpolicies/*", "policies/*"},
-				"kyverno.io",
-				"v1",
+				admregapi.Rule{
+					Resources:   []string{"clusterpolicies/*", "policies/*"},
+					APIGroups:   []string{"kyverno.io"},
+					APIVersions: []string{"v1"},
+				},
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				admregapi.Ignore,
 			),
 		},
 	}
