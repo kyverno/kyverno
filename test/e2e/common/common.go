@@ -11,7 +11,7 @@ import (
 
 func CallMetrics() (string, error) {
 	requestObj := e2e.APIRequest{
-		URL:  "http://kubernetes.docker.internal:8000/metrics",
+		URL:  "http://localhost:8000/metrics",
 		Type: "GET",
 	}
 
