@@ -14,8 +14,10 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/utils"
+	coord "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rest "k8s.io/client-go/rest"
@@ -95,29 +97,70 @@ func main() {
 		{clusterPolicyViolation, ""},
 	}
 
+	kubeClientLeaderElection, err := utils.NewKubeClient(clientConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		<-stopCh
+		cancel()
+	}()
+
 	done := make(chan struct{})
 	defer close(done)
 	failure := false
-	// use pipline to pass request to cleanup resources
-	// generate requests
-	in := gen(done, stopCh, requests...)
-	// process requests
-	// processing routine count : 2
-	p1 := process(client, pclient, done, stopCh, in)
-	p2 := process(client, pclient, done, stopCh, in)
-	// merge results from processing routines
-	for err := range merge(done, stopCh, p1, p2) {
+
+	run := func() {
+		_, err := kubeClientLeaderElection.CoordinationV1().Leases("kyverno").Get(ctx, "kyvernopre-lock", v1.GetOptions{})
+
 		if err != nil {
-			failure = true
-			log.Log.Error(err, "failed to cleanup resource")
+			log.Log.Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
+		} else {
+			log.Log.Info("Clean-up complete. Leader exiting...")
+			os.Exit(0)
 		}
+
+		// use pipline to pass request to cleanup resources
+		// generate requests
+		in := gen(done, stopCh, requests...)
+		// process requests
+		// processing routine count : 2
+		p1 := process(client, pclient, done, stopCh, in)
+		p2 := process(client, pclient, done, stopCh, in)
+		// merge results from processing routines
+		for err := range merge(done, stopCh, p1, p2) {
+			if err != nil {
+				failure = true
+				log.Log.Error(err, "failed to cleanup resource")
+			}
+		}
+		// if there is any failure then we fail process
+		if failure {
+			log.Log.Info("failed to cleanup prior configurations")
+			os.Exit(1)
+		}
+
+		// kubeClientLeaderElection.CoordinationV1().Leases("kyverno").Delete(ctx, "kyvernopre", *meta.NewDeleteOptions(0))
+		lease := coord.Lease{}
+		lease.ObjectMeta.Name = "kyvernopre-lock"
+		kubeClientLeaderElection.CoordinationV1().Leases("kyverno").Create(ctx, &lease, v1.CreateOptions{})
+
+		log.Log.Info("Clean-up complete. Leader exiting...")
+
+		os.Exit(0)
 	}
 
-	// if there is any failure then we fail process
-	if failure {
-		log.Log.Info("failed to cleanup prior configurations")
+	le, err := leaderelection.New("kyvernopre", getKyvernoNameSpace(), kubeClientLeaderElection, run, nil, log.Log.WithName("kyvernopre/LeaderElection"))
+	if err != nil {
+		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
 	}
+
+	le.Run(ctx)
 }
 
 func executeRequest(client *client.Client, pclient *kyvernoclient.Clientset, req request) error {
