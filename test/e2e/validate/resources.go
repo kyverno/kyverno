@@ -631,3 +631,52 @@ spec:
         drop:
         - CAP_SOMETHING
 `)
+
+var kyverno_global_anchor_validate_policy = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sample
+spec:
+  validationFailureAction: enforce
+  rules:
+  - name: check-container-image
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      pattern:
+        spec:
+          containers:
+          - name: "*"
+            <(image): "nginx"
+          imagePullSecrets:
+          - name: my-registry-secret
+`)
+
+var kyverno_global_anchor_validate_resource_1 = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-nginx-allowed-registory
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+  imagePullSecrets:
+  - name: my-registry-secret
+`)
+
+var kyverno_global_anchor_validate_resource_2 = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-nginx-disallowed-registory
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+  imagePullSecrets:
+  - name: other-registory-secret
+`)
