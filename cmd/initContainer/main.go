@@ -115,7 +115,7 @@ func main() {
 	failure := false
 
 	run := func() {
-		_, err := kubeClientLeaderElection.CoordinationV1().Leases("kyverno").Get(ctx, "kyvernopre-lock", v1.GetOptions{})
+		_, err := kubeClientLeaderElection.CoordinationV1().Leases(getKyvernoNameSpace()).Get(ctx, "kyvernopre-lock", v1.GetOptions{})
 
 		if err != nil {
 			log.Log.Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
@@ -144,10 +144,12 @@ func main() {
 			os.Exit(1)
 		}
 
-		// kubeClientLeaderElection.CoordinationV1().Leases("kyverno").Delete(ctx, "kyvernopre", *meta.NewDeleteOptions(0))
 		lease := coord.Lease{}
 		lease.ObjectMeta.Name = "kyvernopre-lock"
-		kubeClientLeaderElection.CoordinationV1().Leases("kyverno").Create(ctx, &lease, v1.CreateOptions{})
+		_, err = kubeClientLeaderElection.CoordinationV1().Leases(getKyvernoNameSpace()).Create(ctx, &lease, v1.CreateOptions{})
+		if err != nil {
+			log.Log.Info("Failed to create lease 'kyvernopre-lock'")
+		}
 
 		log.Log.Info("Clean-up complete. Leader exiting...")
 
