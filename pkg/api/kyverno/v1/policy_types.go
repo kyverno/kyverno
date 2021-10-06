@@ -22,7 +22,7 @@ type PolicyList struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Background",type="string",JSONPath=".spec.background"
 // +kubebuilder:printcolumn:name="Action",type="string",JSONPath=".spec.validationFailureAction"
-// +kubebuilder:printcolumn:name="Failure Policy",type="string",JSONPath=".spec.failurePolicy"
+// +kubebuilder:printcolumn:name="Failure Policy",type="string",JSONPath=".spec.failurePolicy",priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`
 // +kubebuilder:resource:shortName=pol
 type Policy struct {
@@ -68,10 +68,9 @@ type Spec struct {
 	// +optional
 	SchemaValidation *bool `json:"schemaValidation,omitempty" yaml:"schemaValidation,omitempty"`
 
-	// WebhookTimeoutSeconds specifies the webhook timeout for this policy.
-	// After the timeout passes, the admission request will fail based on the failure policy.
-	// The default timeout is 3s, the value must be between 1 and 30 seconds.
-	// Default to 10 seconds.
+	// WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
 	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
 }
 
@@ -267,11 +266,15 @@ type MatchResources struct {
 	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
 
 	// UserInfo contains information about the user performing the operation.
+	// Specifying UserInfo directly under match is being deprecated.
+	// Please specify under "any" or "all" instead.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
 	// Requires at least one tag to be specified when under MatchResources.
+	// Specifying ResourceDescription directly under match is being deprecated.
+	// Please specify under "any" or "all" instead.
 	// +optional
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
@@ -288,10 +291,14 @@ type ExcludeResources struct {
 	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
 
 	// UserInfo contains information about the user performing the operation.
+	// Specifying UserInfo directly under exclude is being deprecated.
+	// Please specify under "any" or "all" instead.
 	// +optional
 	UserInfo `json:",omitempty" yaml:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
+	// Specifying ResourceDescription directly under exclude is being deprecated.
+	// Please specify under "any" or "all" instead.
 	// +optional
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }

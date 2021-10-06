@@ -33,6 +33,7 @@ spec:
       type: string
     - jsonPath: .spec.failurePolicy
       name: Failure Policy
+      priority: 1
       type: string
     - jsonPath: .status.ready
       name: Ready
@@ -576,7 +577,9 @@ spec:
                           type: array
                         resources:
                           description: ResourceDescription contains information about
-                            the resource being created or modified.
+                            the resource being created or modified. Specifying ResourceDescription
+                            directly under exclude is being deprecated. Please specify
+                            under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
@@ -1250,7 +1253,9 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified. Requires at least
-                            one tag to be specified when under MatchResources.
+                            one tag to be specified when under MatchResources. Specifying
+                            ResourceDescription directly under match is being deprecated.
+                            Please specify under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
@@ -1812,10 +1817,11 @@ spec:
                   in a policy report. Optional. The default value is "audit".
                 type: string
               webhookTimeoutSeconds:
-                description: WebhookTimeoutSeconds specifies the webhook timeout for
-                  this policy. After the timeout passes, the admission request will
-                  fail based on the failure policy. The default timeout is 3s, the
-                  value must be between 1 and 30 seconds. Default to 10 seconds.
+                description: WebhookTimeoutSeconds specifies the maximum time in seconds
+                  allowed to apply this policy. After the configured time expires,
+                  the admission request may fail, or may simply ignore the policy
+                  results, based on the failure policy. The default timeout is 10s,
+                  the value must be between 1 and 30 seconds.
                 format: int32
                 type: integer
             type: object
@@ -3439,6 +3445,7 @@ spec:
       type: string
     - jsonPath: .spec.failurePolicy
       name: Failure Policy
+      priority: 1
       type: string
     - jsonPath: .status.ready
       name: Ready
@@ -3983,7 +3990,9 @@ spec:
                           type: array
                         resources:
                           description: ResourceDescription contains information about
-                            the resource being created or modified.
+                            the resource being created or modified. Specifying ResourceDescription
+                            directly under exclude is being deprecated. Please specify
+                            under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
@@ -4657,7 +4666,9 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified. Requires at least
-                            one tag to be specified when under MatchResources.
+                            one tag to be specified when under MatchResources. Specifying
+                            ResourceDescription directly under match is being deprecated.
+                            Please specify under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
@@ -5219,10 +5230,11 @@ spec:
                   in a policy report. Optional. The default value is "audit".
                 type: string
               webhookTimeoutSeconds:
-                description: WebhookTimeoutSeconds specifies the webhook timeout for
-                  this policy. After the timeout passes, the admission request will
-                  fail based on the failure policy. The default timeout is 3s, the
-                  value must be between 1 and 30 seconds. Default to 10 seconds.
+                description: WebhookTimeoutSeconds specifies the maximum time in seconds
+                  allowed to apply this policy. After the configured time expires,
+                  the admission request may fail, or may simply ignore the policy
+                  results, based on the failure policy. The default timeout is 10s,
+                  the value must be between 1 and 30 seconds.
                 format: int32
                 type: integer
             type: object

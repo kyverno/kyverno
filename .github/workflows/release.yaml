@@ -17,6 +17,11 @@ jobs:
         with:
           go-version: 1.16
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@main
+        with:
+          cosign-release: 'v1.2.1'
+
       - name: Cache Go modules
         uses: actions/cache@v1
         with:
@@ -40,9 +45,17 @@ jobs:
         with:
           install: true
 
+      - name: Set version
+        run: |
+          echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*")"
+
       - name :  docker images publish
         run: |
           make docker-publish-initContainer
+
+      - name: Sign image
+        run: |
+          echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyvernopre:${KYVERNO_VERSION}
 
   release-kyverno:
     runs-on: ubuntu-latest
@@ -57,6 +70,11 @@ jobs:
         with:
           go-version: 1.16
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@main
+        with:
+          cosign-release: 'v1.2.1'
+
       - name: Cache Go modules
         uses: actions/cache@v1
         with:
@@ -80,9 +98,40 @@ jobs:
         with:
           install: true
 
+      - name: Set version
+        run: |
+          echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*")"
+
+      - name: Generate SBOM JSON
+        uses: CycloneDX/gh-gomod-generate-sbom@v0.3.0
+        with:
+          json: true
+          output: kyverno-v${{ env.KYVERNO_VERSION }}-bom.cdx.json
+          resolve-licenses: true
+          version: ^v0
+      - uses: actions/upload-artifact@v2
+        with:
+          name: kyverno-bom-cdx
+          path: kyverno-v*-bom.cdx.json
+
       - name :  docker images publish
         run: |
           make docker-publish-kyverno
+
+      - name: Sign image and SBOM
+        run: |
+          echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno:${KYVERNO_VERSION}
+          cosign attach sbom -sbom ./*-bom.cdx.json -type cyclonedx ghcr.io/kyverno/kyverno:latest
+          
+      - name: Trivy Scan Image
+        uses: aquasecurity/trivy-action@master
+        with: 
+          image-ref: 'ghcr.io/kyverno/kyverno:latest'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
 
   release-kyverno-cli:
     runs-on: ubuntu-latest
@@ -97,6 +146,11 @@ jobs:
         with:
           go-version: 1.16
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@main
+        with:
+          cosign-release: 'v1.2.1'
+
       - name: Cache Go modules
         uses: actions/cache@v1
         with:
@@ -120,9 +174,17 @@ jobs:
         with:
           install: true
 
+      - name: Set version
+        run: |
+          echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*")"
+
       - name :  docker images publish
         run: |
           make docker-publish-cli
+
+      - name: Sign image
+        run: |
+          echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno-cli:${KYVERNO_VERSION}
   
   create-release:
     runs-on: ubuntu-latest

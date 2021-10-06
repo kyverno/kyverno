@@ -65,7 +65,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			excludeResource = policyContext.ExcludeGroupRole
 		}
 
-		if err = MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, policyContext.NamespaceLabels); err != nil {
+		if err = MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, policyContext.NamespaceLabels, policyContext.Policy.Namespace); err != nil {
 			logger.V(4).Info("rule not matched", "reason", err.Error())
 			continue
 		}
@@ -116,7 +116,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		if *ruleCopy, err = variables.SubstituteAllInRule(logger, ctx, *ruleCopy); err != nil {
 			ruleResp := response.RuleResponse{
 				Name:    ruleCopy.Name,
-				Type:    utils.Validation.String(),
+				Type:    utils.Mutation.String(),
 				Message: fmt.Sprintf("variable substitution failed: %s", err.Error()),
 				Status:  response.RuleStatusPass,
 			}

@@ -64,7 +64,6 @@ type Controller struct {
 	// dynamic shared informer factory
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
 
-	//TODO: list of generic informers
 	// only support Namespaces for re-evaluation on resource updates
 	nsInformer informers.GenericInformer
 	log        logr.Logger

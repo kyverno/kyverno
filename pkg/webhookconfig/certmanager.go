@@ -9,7 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/tls"
 	ktls "github.com/kyverno/kyverno/pkg/tls"
 	v1 "k8s.io/api/core/v1"
 	informerv1 "k8s.io/client-go/informers/core/v1"
@@ -29,14 +28,14 @@ type Interface interface {
 	GetTLSPemPair() (*ktls.PemPair, error)
 }
 type certManager struct {
-	renewer        *tls.CertRenewer
+	renewer        *ktls.CertRenewer
 	secretInformer informerv1.SecretInformer
 	secretQueue    chan bool
 	stopCh         <-chan struct{}
 	log            logr.Logger
 }
 
-func NewCertManager(secretInformer informerv1.SecretInformer, kubeClient kubernetes.Interface, certRenewer *tls.CertRenewer, log logr.Logger, stopCh <-chan struct{}) (Interface, error) {
+func NewCertManager(secretInformer informerv1.SecretInformer, kubeClient kubernetes.Interface, certRenewer *ktls.CertRenewer, log logr.Logger, stopCh <-chan struct{}) (Interface, error) {
 	manager := &certManager{
 		renewer:        certRenewer,
 		secretInformer: secretInformer,
@@ -59,7 +58,7 @@ func (m *certManager) addSecretFunc(obj interface{}) {
 		return
 	}
 
-	val, ok := secret.GetAnnotations()[tls.SelfSignedAnnotation]
+	val, ok := secret.GetAnnotations()[ktls.SelfSignedAnnotation]
 	if !ok || val != "true" {
 		return
 	}
@@ -74,7 +73,7 @@ func (m *certManager) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 		return
 	}
 
-	val, ok := new.GetAnnotations()[tls.SelfSignedAnnotation]
+	val, ok := new.GetAnnotations()[ktls.SelfSignedAnnotation]
 	if !ok || val != "true" {
 		return
 	}
@@ -127,7 +126,7 @@ func (m *certManager) Run(stopCh <-chan struct{}) {
 	})
 
 	m.log.Info("start managing certificate")
-	certsRenewalTicker := time.NewTicker(tls.CertRenewalInterval)
+	certsRenewalTicker := time.NewTicker(ktls.CertRenewalInterval)
 	defer certsRenewalTicker.Stop()
 
 	for {
@@ -137,7 +136,7 @@ func (m *certManager) Run(stopCh <-chan struct{}) {
 			if err != nil {
 				m.log.Error(err, "failed to validate cert")
 
-				if !strings.Contains(err.Error(), tls.ErrorsNotFound) {
+				if !strings.Contains(err.Error(), ktls.ErrorsNotFound) {
 					continue
 				}
 			}
@@ -157,7 +156,7 @@ func (m *certManager) Run(stopCh <-chan struct{}) {
 			if err != nil {
 				m.log.Error(err, "failed to validate cert")
 
-				if !strings.Contains(err.Error(), tls.ErrorsNotFound) {
+				if !strings.Contains(err.Error(), ktls.ErrorsNotFound) {
 					continue
 				}
 			}

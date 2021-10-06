@@ -7,4 +7,5 @@ results:
   - policy: disallow-latest-tag
     rule: missing
     resource: test
+    kind: Pod
     status: pass
