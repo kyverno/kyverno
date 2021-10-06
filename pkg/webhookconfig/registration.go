@@ -1,7 +1,6 @@
 package webhookconfig
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -15,7 +14,6 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/tls"
-	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	admregapi "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -172,11 +170,7 @@ func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 		return
 	}
 
-	ctx := context.Background()
-	kclient, err := utils.NewKubeClient(wrc.clientConfig)
-	if err == nil {
-		kclient.CoordinationV1().Leases("kyverno").Delete(ctx, "kyvernopre-lock", *v1.NewDeleteOptions(0))
-	}
+	wrc.client.DeleteResource("coordination.k8s.io/v1", "Lease", config.KyvernoNamespace, "kyvernopre-lock", false)
 
 	wrc.removeWebhookConfigurations()
 	wrc.removeSecrets()
