@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -95,6 +96,22 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		return *cronJobRule
 	}
 
+	if (jobRule.Validation != nil) && (jobRule.Validation.ForEachValidation.Pattern != nil) {
+		newValidate := &kyverno.Validation{
+			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "pattern"),
+			ForEachValidation: &v1.ForEachValidation{
+				List: strings.Replace(rule.Validation.ForEachValidation.List, "request.object.spec.containers", "request.object.spec.template.spec.containers", -1),
+				Pattern: map[string]interface{}{
+					"spec": map[string]interface{}{
+						"jobTemplate": jobRule.Validation.ForEachValidation.Pattern,
+					},
+				},
+			},
+		}
+		cronJobRule.Validation = newValidate.DeepCopy()
+		return *cronJobRule
+	}
+
 	if (jobRule.Validation != nil) && (jobRule.Validation.AnyPattern != nil) {
 		var patterns []interface{}
 		anyPatterns, err := jobRule.Validation.DeserializeAnyPattern()
@@ -115,6 +132,32 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		cronJobRule.Validation = &kyverno.Validation{
 			Message:    variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "anyPattern"),
 			AnyPattern: patterns,
+		}
+		return *cronJobRule
+	}
+
+	if (jobRule.Validation != nil) && (jobRule.Validation.ForEachValidation.AnyPattern != nil) {
+		var patterns []interface{}
+		anyPatterns, err := jobRule.Validation.DeserializeAnyPattern()
+		if err != nil {
+			logger.Error(err, "failed to deserialize anyPattern, expect type array")
+		}
+
+		for _, pattern := range anyPatterns {
+			newPattern := map[string]interface{}{
+				"spec": map[string]interface{}{
+					"jobTemplate": pattern,
+				},
+			}
+			patterns = append(patterns, newPattern)
+		}
+
+		cronJobRule.Validation = &kyverno.Validation{
+			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "anyPattern"),
+			ForEachValidation: &v1.ForEachValidation{
+				List:       strings.Replace(rule.Validation.ForEachValidation.List, "request.object.spec.containers", "request.object.spec.template.spec.containers", -1),
+				AnyPattern: patterns,
+			},
 		}
 		return *cronJobRule
 	}
