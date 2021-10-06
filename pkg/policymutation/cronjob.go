@@ -9,6 +9,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/utils"
 )
 
 func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger) kyvernoRule {
@@ -35,17 +36,21 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 	cronJobRule.Name = name
 
 	if len(jobRule.MatchResources.Any) > 0 {
-		cronJobRule.MatchResources.Any[0].Kinds = []string{engine.PodControllerCronJob}
+		rule := cronJobAnyAllAutogenRule(cronJobRule.MatchResources.Any)
+		cronJobRule.MatchResources.Any = rule
 	} else if len(jobRule.MatchResources.All) > 0 {
-		cronJobRule.MatchResources.All[0].Kinds = []string{engine.PodControllerCronJob}
+		rule := cronJobAnyAllAutogenRule(cronJobRule.MatchResources.All)
+		cronJobRule.MatchResources.All = rule
 	} else {
 		cronJobRule.MatchResources.Kinds = []string{engine.PodControllerCronJob}
 	}
 
 	if (jobRule.ExcludeResources) != nil && len(jobRule.ExcludeResources.Any) > 0 {
-		cronJobRule.ExcludeResources.Any[0].Kinds = []string{engine.PodControllerCronJob}
+		rule := cronJobAnyAllAutogenRule(cronJobRule.ExcludeResources.Any)
+		cronJobRule.MatchResources.Any = rule
 	} else if (jobRule.ExcludeResources) != nil && len(jobRule.ExcludeResources.All) > 0 {
-		cronJobRule.ExcludeResources.All[0].Kinds = []string{engine.PodControllerCronJob}
+		rule := cronJobAnyAllAutogenRule(cronJobRule.ExcludeResources.All)
+		cronJobRule.MatchResources.All = rule
 	} else {
 		if (jobRule.ExcludeResources) != nil && (len(jobRule.ExcludeResources.Kinds) > 0) {
 			cronJobRule.ExcludeResources.Kinds = []string{engine.PodControllerCronJob}
@@ -135,4 +140,14 @@ func stripCronJob(controllers string) string {
 	}
 
 	return strings.Join(newControllers, ",")
+}
+
+func cronJobAnyAllAutogenRule(v kyverno.ResourceFilters) kyverno.ResourceFilters {
+	anyKind := v.DeepCopy()
+	for i, value := range v {
+		if utils.ContainsPod(value.Kinds, "Pod") {
+			anyKind[i].Kinds = []string{engine.PodControllerCronJob}
+		}
+	}
+	return anyKind
 }
