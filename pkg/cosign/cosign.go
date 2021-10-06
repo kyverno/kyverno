@@ -166,19 +166,19 @@ func decodeStatement(payloadBase64 string) (map[string]interface{}, error) {
 		return nil, errors.Wrapf(err, "failed to base64 decode payload for %v", statementRaw)
 	}
 
-	 var statement in_toto.Statement
-	 if err := json.Unmarshal(statementRaw, &statement); err != nil {
-	 	return nil, err
-	 }
+	var statement in_toto.Statement
+	if err := json.Unmarshal(statementRaw, &statement); err != nil {
+		return nil, err
+	}
 
-	 if statement.PredicateType != attestation.CosignCustomProvenanceV01 {
-	 	// This assumes that the following statements are JSON objects:
-	 	// - in_toto.PredicateSLSAProvenanceV01
-	 	// - in_toto.PredicateLinkV1
-	 	// - in_toto.PredicateSPDX
-	 	// any other custom predicate
-		 return common.ToMap(statement)
-	 }
+	if statement.PredicateType != attestation.CosignCustomProvenanceV01 {
+		// This assumes that the following statements are JSON objects:
+		// - in_toto.PredicateSLSAProvenanceV01
+		// - in_toto.PredicateLinkV1
+		// - in_toto.PredicateSPDX
+		// any other custom predicate
+		return common.ToMap(statement)
+	}
 
 	return decodeCosignCustomProvenanceV01(statement)
 }

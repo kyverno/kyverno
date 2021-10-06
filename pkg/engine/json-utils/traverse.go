@@ -128,4 +128,3 @@ func (t *Traversal) traverseList(list []interface{}, path string) ([]interface{}
 	}
 	return list, nil
 }
-

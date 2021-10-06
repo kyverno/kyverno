@@ -16,11 +16,11 @@ func SetMock(image string, data [][]byte) error {
 	payloads := make([]cosign.SignedPayload, len(data))
 	for i, p := range data {
 		payloads[i] = cosign.SignedPayload{
-			Payload:  p,
+			Payload: p,
 		}
 	}
 
-	client = &mock{data: map[string][]cosign.SignedPayload {
+	client = &mock{data: map[string][]cosign.SignedPayload{
 		imgRef.String(): payloads,
 	}}
 
@@ -28,7 +28,7 @@ func SetMock(image string, data [][]byte) error {
 }
 
 type mock struct {
-	data map[string] []cosign.SignedPayload
+	data map[string][]cosign.SignedPayload
 }
 
 func (m *mock) Verify(_ context.Context, signedImgRef name.Reference, _ *cosign.CheckOpts) ([]cosign.SignedPayload, error) {
@@ -39,4 +39,3 @@ func (m *mock) Verify(_ context.Context, signedImgRef name.Reference, _ *cosign.
 
 	return results, nil
 }
-

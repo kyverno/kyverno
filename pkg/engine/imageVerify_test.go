@@ -109,7 +109,6 @@ var test_policy_bad = `{
   }
 }`
 
-
 var test_resource = `{
   "apiVersion": "v1",
   "kind": "Pod",
@@ -180,4 +179,3 @@ func buildContext(t *testing.T, policy, resource string) *PolicyContext {
 	}
 	return policyContext
 }
-

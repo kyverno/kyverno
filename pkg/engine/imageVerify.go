@@ -203,7 +203,7 @@ func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.
 	return ruleResponse(iv.rule, msg, response.RuleStatusPass)
 }
 
-func (iv *imageVerifier)  checkAttestations(a *v1.Attestation, s map[string]interface{}, img *context.ImageInfo ) (bool, error) {
+func (iv *imageVerifier) checkAttestations(a *v1.Attestation, s map[string]interface{}, img *context.ImageInfo) (bool, error) {
 	if len(a.Conditions) == 0 {
 		return true, nil
 	}
@@ -221,13 +221,13 @@ func (iv *imageVerifier)  checkAttestations(a *v1.Attestation, s map[string]inte
 	}
 
 	imgMap := map[string]interface{}{
-		"image":  map[string]interface{}{
-			"image": img.String(),
+		"image": map[string]interface{}{
+			"image":    img.String(),
 			"registry": img.Registry,
-			"path": img.Path,
-			"name": img.Name,
-			"tag": img.Tag,
-			"digest": img.Digest,
+			"path":     img.Path,
+			"name":     img.Name,
+			"tag":      img.Tag,
+			"digest":   img.Digest,
 		},
 	}
 
