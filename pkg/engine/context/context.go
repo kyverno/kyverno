@@ -215,7 +215,7 @@ func (ctx *Context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
 		ctx.log.Error(err, "failed to marshal the UserInfo")
 		return err
 	}
-	ctx.log.V(4).Info("Adding user info logs", "modifiedUserRequest", modifiedResource)
+	ctx.log.V(4).Info("Adding user info logs", "userRequestInfo", userRequestInfo)
 	return ctx.AddJSON(objRaw)
 }
 
