@@ -65,11 +65,11 @@ spec:
           args:
           - "--filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]"
           # customize webhook timeout
-          #- "--webhooktimeout=4"
+          #- "--webhookTimeout=4"
           # enable profiling
           # - "--profile"
           # configure the workers for generate controller
-          # - --gen-workers=20
+          # - --genWorkers=20
           - "-v=2"
           ports:
             - containerPort: 9443
