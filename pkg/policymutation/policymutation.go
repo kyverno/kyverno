@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
+	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
@@ -403,6 +404,10 @@ func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bo
 			return false, "none"
 		}
 
+		if isKindOtherthanPod(match.Kinds) || isKindOtherthanPod(exclude.Kinds) {
+			return false, "none"
+		}
+
 		for _, value := range match.Any {
 			if isKindOtherthanPod(value.Kinds) {
 				return false, "none"
@@ -440,10 +445,6 @@ func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bo
 				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not be applicable.", "rule", rule.Name)
 				return false, "none"
 			}
-		}
-
-		if isKindOtherthanPod(match.Kinds) || isKindOtherthanPod(exclude.Kinds) {
-			return false, "none"
 		}
 
 		if rule.Mutation.Patches != nil || rule.Mutation.PatchesJSON6902 != "" ||
@@ -725,53 +726,23 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	}
 
 	if rule.Validation.Pattern != nil {
-		newValidate := &kyverno.Validation{
-			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
-			Pattern: map[string]interface{}{
-				"spec": map[string]interface{}{
-					"template": rule.Validation.Pattern,
-				},
-			},
-		}
-		controllerRule.Validation = newValidate.DeepCopy()
-		return *controllerRule
+		pattern := validatePattern(rule.Validation.Pattern, rule.Validation.Message, log, controllerRule)
+		return *pattern
 	}
 
 	if rule.Validation.AnyPattern != nil {
-		var patterns []interface{}
-		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
-		if err != nil {
-			logger.Error(err, "failed to deserialize anyPattern, expect type array")
-		}
+		anyPattern := validateAnyPattern(rule, log, controllerRule, false)
+		return *anyPattern
+	}
 
-		for _, pattern := range anyPatterns {
-			newPattern := map[string]interface{}{
-				"spec": map[string]interface{}{
-					"template": pattern,
-				},
-			}
+	if rule.Validation.ForEachValidation.Pattern != nil {
+		foreachPattern := validatePattern(rule.Validation.ForEachValidation.Pattern, rule.Validation.Message, log, controllerRule)
+		return *foreachPattern
+	}
 
-			patterns = append(patterns, newPattern)
-		}
-
-		if rule.Validation.ForEachValidation != nil {
-			newValidate := &kyverno.Validation{
-				Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
-				Pattern: map[string]interface{}{
-					"spec": map[string]interface{}{
-						"template": rule.Validation.ForEachValidation,
-					},
-				},
-			}
-			controllerRule.Validation = newValidate.DeepCopy()
-			return *controllerRule
-		}
-
-		controllerRule.Validation = &kyverno.Validation{
-			Message:    variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "anyPattern"),
-			AnyPattern: patterns,
-		}
-		return *controllerRule
+	if rule.Validation.ForEachValidation.AnyPattern != nil {
+		anyPattern := validateAnyPattern(rule, log, controllerRule, true)
+		return *anyPattern
 	}
 
 	if rule.VerifyImages != nil {
@@ -787,8 +758,54 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	return kyvernoRule{}
 }
 
+func validatePattern(pattern apiextensions.JSON, message string, log logr.Logger, crule *kyvernoRule) *kyvernoRule {
+
+	newValidate := &kyverno.Validation{
+		Message: variables.FindAndShiftReferences(log, message, "spec/template", "pattern"),
+		Pattern: map[string]interface{}{
+			"spec": map[string]interface{}{
+				"template": pattern,
+			},
+		},
+	}
+	crule.Validation = newValidate.DeepCopy()
+	return crule
+}
+
+func validateAnyPattern(rule kyverno.Rule, log logr.Logger, controllerRule *kyvernoRule, isForeachPattern bool) *kyvernoRule {
+	var patterns []interface{}
+	var anyPatterns []interface{}
+	var err error
+
+	if isForeachPattern {
+		anyPatterns, err = rule.Validation.DeserializeForEachAnyPattern()
+	} else {
+		anyPatterns, err = rule.Validation.DeserializeAnyPattern()
+	}
+	if err != nil {
+		logger.Error(err, "failed to deserialize anyPattern, expect type array")
+	}
+
+	for _, pattern := range anyPatterns {
+		newPattern := map[string]interface{}{
+			"spec": map[string]interface{}{
+				"template": pattern,
+			},
+		}
+
+		patterns = append(patterns, newPattern)
+	}
+
+	controllerRule.Validation = &kyverno.Validation{
+		Message:    variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "anyPattern"),
+		AnyPattern: patterns,
+	}
+	return controllerRule
+}
+
 func getAnyAllAutogenRule(v kyverno.ResourceFilters, controllers string) kyverno.ResourceFilters {
 	anyKind := v.DeepCopy()
+
 	for i, value := range v {
 		if utils.ContainsPod(value.Kinds, "Pod") {
 			anyKind[i].Kinds = strings.Split(controllers, ",")

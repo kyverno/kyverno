@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"reflect"
 	"strings"
+
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 )
 
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
@@ -128,8 +130,20 @@ func (in *Validation) DeserializeAnyPattern() ([]interface{}, error) {
 	if in.AnyPattern == nil {
 		return nil, nil
 	}
+	res, nil := deserializePattern(in.AnyPattern)
+	return res, nil
+}
 
-	anyPattern, err := json.Marshal(in.AnyPattern)
+func (in *Validation) DeserializeForEachAnyPattern() ([]interface{}, error) {
+	if in.ForEachValidation.AnyPattern == nil {
+		return nil, nil
+	}
+	res, nil := deserializePattern(in.ForEachValidation.AnyPattern)
+	return res, nil
+}
+
+func deserializePattern(pattern apiextensions.JSON) ([]interface{}, error) {
+	anyPattern, err := json.Marshal(pattern)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +152,6 @@ func (in *Validation) DeserializeAnyPattern() ([]interface{}, error) {
 	if err := json.Unmarshal(anyPattern, &res); err != nil {
 		return nil, err
 	}
-
 	return res, nil
 }
 
