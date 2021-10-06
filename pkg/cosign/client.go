@@ -8,10 +8,6 @@ import (
 
 var client Cosign = &driver{}
 
-func setClient() {
-	client = &driver{}
-}
-
 type Cosign interface {
      Verify(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) ([]cosign.SignedPayload, error)
 }

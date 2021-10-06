@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/pkg/engine/common"
-	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/pkg/cosign/attestation"
 	"github.com/sigstore/sigstore/pkg/signature/dsse"
 	"strings"
@@ -49,14 +48,13 @@ func Initialize(client kubernetes.Interface, namespace, serviceAccount string, i
 }
 
 func VerifySignature(imageRef string, key []byte, repository string, log logr.Logger) (digest string, err error) {
-	setClient()
 	pubKey, err := decodePEM(key)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to decode PEM %v", string(key))
 	}
 
 	cosignOpts := &cosign.CheckOpts{
-		RootCerts:   fulcio.GetRoots(),
+		//RootCerts:   fulcio.GetRoots(),
 		Annotations: map[string]interface{}{},
 		SigVerifier: pubKey,
 		RegistryClientOpts: []remote.Option{
@@ -103,7 +101,6 @@ func VerifySignature(imageRef string, key []byte, repository string, log logr.Lo
 // FetchAttestations retrieves signed attestations and decodes them into in-toto statements
 // https://github.com/in-toto/attestation/blob/main/spec/README.md#statement
 func FetchAttestations(imageRef string, key []byte, repository string) ([]map[string]interface{}, error) {
-	setClient()
 	pubKey, err := decodePEM(key)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode PEM %v", string(key))
@@ -115,7 +112,7 @@ func FetchAttestations(imageRef string, key []byte, repository string) ([]map[st
 	}
 
 	cosignOpts := &cosign.CheckOpts{
-		RootCerts:            fulcio.GetRoots(),
+		//RootCerts:            fulcio.GetRoots(),
 		ClaimVerifier:        cosign.IntotoSubjectClaimVerifier,
 		SigTagSuffixOverride: cosign.AttestationTagSuffix,
 		SigVerifier:          dsse.WrapVerifier(pubKey),
