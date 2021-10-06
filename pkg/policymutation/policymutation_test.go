@@ -48,6 +48,7 @@ func Test_Any(t *testing.T) {
 	}
 
 	rulePatches, errs := generateRulePatches(*policy, engine.PodControllers, log.Log)
+	fmt.Println("utils.JoinPatches(patches)erterter", string(utils.JoinPatches(rulePatches)))
 	if len(errs) != 0 {
 		t.Log(errs)
 	}

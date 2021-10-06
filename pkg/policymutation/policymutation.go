@@ -688,10 +688,10 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 
 	if len(rule.ExcludeResources.Any) > 0 {
 		rule := getAnyAllAutogenRule(controllerRule.ExcludeResources.Any, controllers)
-		controllerRule.MatchResources.Any = rule
+		controllerRule.ExcludeResources.Any = rule
 	} else if len(rule.ExcludeResources.All) > 0 {
 		rule := getAnyAllAutogenRule(controllerRule.ExcludeResources.All, controllers)
-		controllerRule.MatchResources.All = rule
+		controllerRule.ExcludeResources.All = rule
 	} else {
 		if len(exclude.Kinds) != 0 {
 			controllerRule.ExcludeResources.Kinds = strings.Split(controllers, ",")

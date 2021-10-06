@@ -47,10 +47,10 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 
 	if (jobRule.ExcludeResources) != nil && len(jobRule.ExcludeResources.Any) > 0 {
 		rule := cronJobAnyAllAutogenRule(cronJobRule.ExcludeResources.Any)
-		cronJobRule.MatchResources.Any = rule
+		cronJobRule.ExcludeResources.Any = rule
 	} else if (jobRule.ExcludeResources) != nil && len(jobRule.ExcludeResources.All) > 0 {
 		rule := cronJobAnyAllAutogenRule(cronJobRule.ExcludeResources.All)
-		cronJobRule.MatchResources.All = rule
+		cronJobRule.ExcludeResources.All = rule
 	} else {
 		if (jobRule.ExcludeResources) != nil && (len(jobRule.ExcludeResources.Kinds) > 0) {
 			cronJobRule.ExcludeResources.Kinds = []string{engine.PodControllerCronJob}
@@ -145,7 +145,7 @@ func stripCronJob(controllers string) string {
 func cronJobAnyAllAutogenRule(v kyverno.ResourceFilters) kyverno.ResourceFilters {
 	anyKind := v.DeepCopy()
 	for i, value := range v {
-		if utils.ContainsPod(value.Kinds, "Pod") {
+		if utils.ContainsPod(value.Kinds, "Job") {
 			anyKind[i].Kinds = []string{engine.PodControllerCronJob}
 		}
 	}
