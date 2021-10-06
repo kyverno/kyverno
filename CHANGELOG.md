@@ -1,3 +1,10 @@
+## v1.5.0-rc1
+### Note
+- With the change of dynamic webhooks, the readiness of the policy is reflected by `.status.ready`, When ready, it means the policy is ready to serve the admission requests.
+
+### Deprecation
+- To add a consistent style in flag names the following flags have been deprecated `webhooktimeout`, `gen-workers`,`disable-metrics`, `background-scan`, `auto-update-webhooks` these will be removed in 1.6.0. The new flags are `webhookTimeout`, `genWorkers`, `disablMetrics`, `backgroundScan`, `autoUpdateWebhooks`.
+
 ## v1.4.3
 
 ## v1.4.3-rc2
