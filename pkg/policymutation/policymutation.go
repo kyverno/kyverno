@@ -744,6 +744,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 			ForEachValidation: &v1.ForEachValidation{
 				List:    rule.Validation.ForEachValidation.List,
 				Pattern: rule.Validation.ForEachValidation.Pattern,
+				Context: rule.Validation.ForEachValidation.Context,
 			},
 		}
 		controllerRule.Validation = newForeachValidate.DeepCopy()
@@ -769,7 +770,8 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		controllerRule.Validation = &kyverno.Validation{
 			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
 			ForEachValidation: &v1.ForEachValidation{
-				List:       strings.Replace(rule.Validation.ForEachValidation.List, "request.object.spec", "request.object.spec.template.spec", -1),
+				List:       rule.Validation.ForEachValidation.List,
+				Context:    rule.Validation.ForEachValidation.Context,
 				AnyPattern: rule.Validation.ForEachValidation.AnyPattern,
 			},
 		}
@@ -780,6 +782,8 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		controllerRule.Validation = &kyverno.Validation{
 			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
 			ForEachValidation: &v1.ForEachValidation{
+				List:    rule.Validation.ForEachValidation.List,
+				Context: rule.Validation.ForEachValidation.Context,
 				Deny: &v1.Deny{
 					AnyAllConditions: rule.Validation.ForEachValidation.Deny.AnyAllConditions,
 				},

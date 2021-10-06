@@ -100,8 +100,9 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		newValidate := &kyverno.Validation{
 			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "pattern"),
 			ForEachValidation: &v1.ForEachValidation{
-				List:    rule.Validation.ForEachValidation.List,
+				List:    jobRule.Validation.ForEachValidation.List,
 				Pattern: jobRule.Validation.ForEachValidation.Pattern,
+				Context: jobRule.Validation.ForEachValidation.Context,
 			},
 		}
 		cronJobRule.Validation = newValidate.DeepCopy()
@@ -136,8 +137,9 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		cronJobRule.Validation = &kyverno.Validation{
 			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "anyPattern"),
 			ForEachValidation: &v1.ForEachValidation{
-				List:       rule.Validation.ForEachValidation.List,
+				List:       jobRule.Validation.ForEachValidation.List,
 				AnyPattern: jobRule.Validation.ForEachValidation.AnyPattern,
+				Context:    jobRule.Validation.ForEachValidation.Context,
 			},
 		}
 		return *cronJobRule
@@ -147,7 +149,8 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		cronJobRule.Validation = &kyverno.Validation{
 			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "anyPattern"),
 			ForEachValidation: &v1.ForEachValidation{
-				List: rule.Validation.ForEachValidation.List,
+				List:    rule.Validation.ForEachValidation.List,
+				Context: jobRule.Validation.ForEachValidation.Context,
 				Deny: &v1.Deny{
 					AnyAllConditions: rule.Validation.ForEachValidation.Deny.AnyAllConditions,
 				},
