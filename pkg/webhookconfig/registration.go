@@ -170,10 +170,13 @@ func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 		return
 	}
 
-	wrc.client.DeleteResource("coordination.k8s.io/v1", "Lease", config.KyvernoNamespace, "kyvernopre-lock", false)
-
 	wrc.removeWebhookConfigurations()
 	wrc.removeSecrets()
+	err := wrc.client.DeleteResource("coordination.k8s.io/v1", "Lease", config.KyvernoNamespace, "kyvernopre-lock", false)
+	if err != nil && errorsapi.IsNotFound(err) {
+		wrc.log.WithName("cleanup").Error(err, "failed to clean up Lease lock")
+	}
+
 }
 
 // +deprecated
