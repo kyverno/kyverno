@@ -113,4 +113,4 @@ jobs:
       - name: Sign image
         run: |
           KYVERNO_IMAGE_VERSION=$(git describe --match "v[0-9]*")
-          echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/-cli:${KYVERNO_IMAGE_VERSION}
+          echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno-cli:${KYVERNO_IMAGE_VERSION}
