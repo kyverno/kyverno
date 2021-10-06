@@ -260,21 +260,13 @@ func removePolicyReport(client *client.Client, pclient *kyvernoclient.Clientset,
 		return err
 	}
 
-	// name of namespace policy report follows the name convention
-	// pr-ns-<namespace name>
-	var wg sync.WaitGroup
-	wg.Add(len(namespaces.Items))
 	for _, ns := range namespaces.Items {
-		go func(namespaceName string) {
-			defer wg.Done()
-			logger.Info("Removing policy reports", "namespace", namespaceName)
-			err := pclient.Wgpolicyk8sV1alpha2().PolicyReports(namespaceName).DeleteCollection(context.TODO(), v1.DeleteOptions{}, v1.ListOptions{})
-			if err != nil {
-				logger.Error(err, "Failed to delete policy reports", "namespace", namespaceName)
-			}
-		}(ns.GetName())
+		logger.Info("Removing policy reports", "namespace", ns.GetName())
+		err := pclient.Wgpolicyk8sV1alpha2().PolicyReports(ns.GetName()).DeleteCollection(context.TODO(), v1.DeleteOptions{}, v1.ListOptions{})
+		if err != nil {
+			logger.Error(err, "Failed to delete policy reports", "namespace", ns.GetName())
+		}
 	}
-	wg.Wait()
 
 	return nil
 }
