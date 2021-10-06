@@ -65,4 +65,26 @@ var ValidateTests = []struct {
 		ResourceRaw:       kyverno_2345_resource,
 		MustSucceed:       false,
 	},
+	{
+		// Case for https://github.com/kyverno/kyverno/issues/2390 issue
+		TestDescription:   "checks that policy contains global anchor fields",
+		PolicyName:        "check-image-pull-secret",
+		PolicyRaw:         kyverno_global_anchor_validate_policy,
+		ResourceName:      "pod-with-nginx-allowed-registory",
+		ResourceNamespace: "",
+		ResourceGVR:       podGVR,
+		ResourceRaw:       kyverno_global_anchor_validate_resource_1,
+		MustSucceed:       true,
+	},
+	{
+		// Case for https://github.com/kyverno/kyverno/issues/2390 issue
+		TestDescription:   "checks that policy contains global anchor fields",
+		PolicyName:        "check-image-pull-secret",
+		PolicyRaw:         kyverno_global_anchor_validate_policy,
+		ResourceName:      "pod-with-nginx-disallowed-registory",
+		ResourceNamespace: "",
+		ResourceGVR:       podGVR,
+		ResourceRaw:       kyverno_global_anchor_validate_resource_2,
+		MustSucceed:       false,
+	},
 }
