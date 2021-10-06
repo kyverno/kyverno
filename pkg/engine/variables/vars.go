@@ -312,6 +312,8 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 			return data.Element, nil
 		}
 
+		isDeleteRequest := isDeleteRequest(ctx)
+
 		vars := RegexVariables.FindAllString(value, -1)
 		for len(vars) > 0 {
 			originalPattern := value
@@ -323,8 +325,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 					variable = strings.Replace(variable, "@", fmt.Sprintf("request.object.%s", getJMESPath(data.Path)), -1)
 				}
 
-				operation, err := ctx.Query("request.operation")
-				if err == nil && operation == "DELETE" {
+				if isDeleteRequest {
 					variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
 				}
 
@@ -358,6 +359,19 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 
 		return value, nil
 	})
+}
+
+func isDeleteRequest(ctx context.EvalInterface) bool {
+	if ctx == nil {
+		return false
+	}
+
+	operation, err := ctx.Query("request.operation")
+	if err == nil && operation == "DELETE" {
+		return true
+	}
+
+	return false
 }
 
 // getJMESPath converts path to JMES format

@@ -924,7 +924,7 @@ func Test_CheckConditionAnchor_DoesNotMatch(t *testing.T) {
 	resource := yaml.MustParse(string(resourceRaw))
 
 	err := checkCondition(log.Log, pattern, resource)
-	assert.Error(t, err, "Validation rule failed at '/key1/' to validate value 'sample' with pattern 'value*'")
+	assert.Error(t, err, "resource value 'sample' does not match 'value*' at path /key1/")
 }
 
 func Test_ValidateConditions_MapWithOneCondition_Matches(t *testing.T) {

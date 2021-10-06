@@ -451,6 +451,7 @@ type Deny struct {
 	AnyAllConditions apiextensions.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
+// ForEach applies policy rule checks to nested elements.
 type ForEachValidation struct {
 
 	// List specifies a JMESPath expression that results in one or more elements
@@ -500,8 +501,24 @@ type ImageVerification struct {
 	// If specified Repository will override the default OCI image repository configured for the installation.
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
 
-	// Attestations are optional statements used to verify the image.
-	Attestations []*AnyAllConditions `json:"attestations,omitempty" yaml:"attestations,omitempty"`
+	// Attestations are optional checks for signed in-toto Statements used to verify the image.
+	// See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
+	// OCI registry and decodes them into a list of Statement declarations.
+	Attestations []*Attestation `json:"attestations,omitempty" yaml:"attestations,omitempty"`
+}
+
+// Attestation are checks for signed in-toto Statements that are used to verify the image.
+// See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
+// OCI registry and decodes them into a list of Statements.
+type Attestation struct {
+
+	// PredicateType defines the type of Predicate contained within the Statement.
+	PredicateType string `json:"predicateType,omitempty" yaml:"predicateType,omitempty"`
+
+	// Conditions are used to verify attributes within a Predicate. If no Conditions are specified
+	// the attestation check is satisfied as long there are predicates that match the predicate type.
+	// +optional
+	Conditions []*AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
 // Generation defines how new resources should be created and managed.

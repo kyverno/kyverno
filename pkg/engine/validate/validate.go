@@ -36,7 +36,7 @@ func MatchPattern(logger logr.Logger, resource, pattern interface{}) error {
 		// if conditional or global anchors report errors, the rule does not apply to the resource
 		if common.IsConditionalAnchorError(err.Error()) || common.IsGlobalAnchorError(err.Error()) {
 			logger.V(3).Info("skipping resource as anchor does not apply", "msg", ac.AnchorError.Error())
-			return &PatternError{nil, "", true}
+			return &PatternError{err, "", true}
 		}
 
 		// check if an anchor defined in the policy rule is missing in the resource
@@ -48,7 +48,7 @@ func MatchPattern(logger logr.Logger, resource, pattern interface{}) error {
 		return &PatternError{err, elemPath, false}
 	}
 
-	return &PatternError{nil, "", false}
+	return nil
 }
 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)
@@ -82,19 +82,19 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 		case []interface{}:
 			for _, res := range resource {
 				if !ValidateValueWithPattern(log, res, patternElement) {
-					return path, fmt.Errorf("Validation rule failed at '%s' to validate value '%v' with pattern '%v'", path, resourceElement, patternElement)
+					return path, fmt.Errorf("resource value '%v' does not match '%v' at path %s", resourceElement, patternElement, path)
 				}
 			}
 			return "", nil
 		default:
 			if !ValidateValueWithPattern(log, resourceElement, patternElement) {
-				return path, fmt.Errorf("Validation rule failed at '%s' to validate value '%v' with pattern '%v'", path, resourceElement, patternElement)
+				return path, fmt.Errorf("resource value '%v' does not match '%v' at path %s", resourceElement, patternElement, path)
 			}
 		}
 
 	default:
 		log.V(4).Info("Pattern contains unknown type", "path", path, "current", fmt.Sprintf("%T", patternElement))
-		return path, fmt.Errorf("Validation rule failed at '%s', pattern contains unknown type", path)
+		return path, fmt.Errorf("failed at '%s', pattern contains unknown type", path)
 	}
 	return "", nil
 }

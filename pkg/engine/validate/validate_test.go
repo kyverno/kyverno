@@ -1507,7 +1507,7 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 			name:     "test-23",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   true,
+			nilErr:   false,
 		},
 		{
 			name:     "test-24",
@@ -1519,7 +1519,7 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 			name:     "test-25",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "nginx", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo1", "value": "bar" }],"imagePullPolicy": "Always"}]}}`),
-			nilErr:   true,
+			nilErr:   false,
 		},
 		{
 			name:     "test-26",
@@ -1531,7 +1531,7 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 			name:     "test-27",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo1", "value": "bar" }],"imagePullPolicy": "Always"}]}}`),
-			nilErr:   true,
+			nilErr:   false,
 		},
 		{
 			name:     "test-28",
@@ -1549,7 +1549,7 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 			name:     "test-30",
 			pattern:  []byte(`{"metadata": {"<(name)": "nginx"},"spec": {"imagePullSecrets": [{"name": "regcred"}]}}`),
 			resource: []byte(`{"metadata": {"name": "somename"},"spec": {"containers": [{"name": "nginx","image": "nginx:latest"}], "imagePullSecrets": [{"name": "cred"}]}}`),
-			nilErr:   true,
+			nilErr:   false,
 		},
 		{
 			name:     "test-31",
@@ -1579,7 +1579,7 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 			name:     "test-35",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "nginx"}],"imagePullSecrets": [{"name": "my-registry-secret"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "somepod"}], "imagePullSecrets": [{"name": "cred"}]}}`),
-			nilErr:   true,
+			nilErr:   false,
 		},
 		{
 			name:     "test-36",
@@ -1605,7 +1605,7 @@ func Test_global_anchor(t *testing.T) {
 			name:     "check global anchor_skip",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:v1", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   true,
+			nilErr:   false,
 		},
 		{
 			name:     "check global anchor_apply",
@@ -1631,7 +1631,7 @@ func testMatchPattern(t *testing.T, testCase struct {
 	err = json.Unmarshal(testCase.resource, &resource)
 	assert.NilError(t, err)
 
-	err, _ = MatchPattern(log.Log, resource, pattern)
+	err = MatchPattern(log.Log, resource, pattern)
 	if testCase.nilErr {
 		assert.NilError(t, err, fmt.Sprintf("\ntest: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
 	} else {

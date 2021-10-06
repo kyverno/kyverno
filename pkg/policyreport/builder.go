@@ -160,7 +160,7 @@ func (builder *requestBuilder) buildRCRResult(policy string, resource response.R
 
 	result.Rule = rule.Name
 	result.Message = rule.Message
-	result.Result = report.PolicyResult(rule.Check)
+	result.Result = report.PolicyResult(rule.Status)
 	if result.Result == "fail" && !av.scored {
 		result.Result = "warn"
 	}
@@ -263,13 +263,29 @@ func buildViolatedRules(er *response.EngineResponse) []kyverno.ViolatedRule {
 			Type:    rule.Type,
 			Message: rule.Message,
 		}
-		vrule.Check = report.StatusFail
-		if rule.Status == response.RuleStatusPass {
-			vrule.Check = report.StatusPass
-		}
+
+		vrule.Status = toPolicyResult(rule.Status)
 		violatedRules = append(violatedRules, vrule)
 	}
+
 	return violatedRules
+}
+
+func toPolicyResult(status response.RuleStatus) string {
+	switch status {
+	case response.RuleStatusPass:
+		return report.StatusPass
+	case response.RuleStatusFail:
+		return report.StatusFail
+	case response.RuleStatusError:
+		return report.StatusError
+	case response.RuleStatusWarn:
+		return report.StatusWarn
+	case response.RuleStatusSkip:
+		return report.StatusSkip
+	}
+
+	return ""
 }
 
 const categoryLabel string = "policies.kyverno.io/category"

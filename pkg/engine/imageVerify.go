@@ -3,9 +3,10 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/pkg/errors"
-	"time"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -45,7 +46,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 	defer policyContext.JSONContext.Restore()
 
 	for i := range policyContext.Policy.Spec.Rules {
-		rule := policyContext.Policy.Spec.Rules[i]
+		rule := &policyContext.Policy.Spec.Rules[i]
 		if len(rule.VerifyImages) == 0 {
 			continue
 		}
@@ -59,7 +60,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 		iv := &imageVerifier{
 			logger:        logger,
 			policyContext: policyContext,
-			rule:          &rule,
+			rule:          rule,
 			resp:          resp,
 		}
 
@@ -167,42 +168,75 @@ func makeAddDigestPatch(imageInfo *context.ImageInfo, digest string) ([]byte, er
 	return json.Marshal(patch)
 }
 
-func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.ImageInfo, attestationChecks []*v1.AnyAllConditions) *response.RuleResponse {
+func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.ImageInfo, attestationChecks []*v1.Attestation) *response.RuleResponse {
 	image := imageInfo.String()
 
 	start := time.Now()
-	attestations, err := cosign.FetchAttestations(image, []byte(key), repository)
+	statements, err := cosign.FetchAttestations(image, []byte(key), repository)
 	if err != nil {
 		iv.logger.Info("failed to fetch attestations", "image", image, "error", err, "duration", time.Since(start).Seconds())
 		return ruleError(iv.rule, fmt.Sprintf("failed to fetch attestations for %s", image), err)
 	}
 
-	iv.logger.Info("received attestation", "attestations", attestations)
+	iv.logger.V(3).Info("received attested statements", "statements", statements)
 
-	iv.policyContext.JSONContext.Checkpoint()
-	defer iv.policyContext.JSONContext.Restore()
-	if err := iv.policyContext.JSONContext.AddJSONObject(attestations); err != nil {
-		return ruleError(iv.rule, fmt.Sprintf("failed to add attestations to the context %v", attestations), err)
-	}
+	for _, ac := range attestationChecks {
+		for _, s := range statements {
+			predicateType := s["predicateType"]
+			if ac.PredicateType == predicateType {
+				val, err := iv.checkAttestations(ac, s, imageInfo)
+				if err != nil {
+					return ruleError(iv.rule, "error while checking attestation", err)
+				}
 
-	passed, err := iv.checkConditions(attestationChecks)
-	if err != nil {
-		return ruleError(iv.rule, "failed to check attestation", err)
-	}
-
-	if !passed {
-		return ruleResponse(iv.rule, "attestation checks failed", response.RuleStatusFail)
+				if !val {
+					msg := fmt.Sprintf("attestation check failed for %s and predicate %s", imageInfo.String(), predicateType)
+					return ruleResponse(iv.rule, msg, response.RuleStatusFail)
+				}
+			}
+		}
 	}
 
 	return ruleResponse(iv.rule, "attestation checks passed", response.RuleStatusPass)
 }
 
-func (iv *imageVerifier) checkConditions(attestationChecks []*v1.AnyAllConditions) (bool, error) {
-	conditions, err := variables.SubstituteAllInConditions(iv.logger, iv.policyContext.JSONContext, attestationChecks)
-	if err != nil {
-		return false, errors.Wrapf(err, "failed to substitute variables in conditions")
+func (iv *imageVerifier)  checkAttestations(a *v1.Attestation, s map[string]interface{}, img *context.ImageInfo ) (bool, error) {
+	if len(a.Conditions) == 0 {
+		return true, nil
 	}
 
-	pass := variables.EvaluateConditions(iv.logger, iv.policyContext.JSONContext, conditions)
+	iv.policyContext.JSONContext.Checkpoint()
+	defer iv.policyContext.JSONContext.Restore()
+
+	predicate, ok := s["predicate"].(map[string]interface{})
+	if !ok {
+		return false, fmt.Errorf("failed to extract predicate from statement: %v", s)
+	}
+
+	if err := iv.policyContext.JSONContext.AddJSONObject(predicate); err != nil {
+		return false, errors.Wrapf(err, fmt.Sprintf("failed to add Statement to the context %v", s))
+	}
+
+	imgMap := map[string]interface{}{
+		"image":  map[string]interface{}{
+			"image": img.String(),
+			"registry": img.Registry,
+			"path": img.Path,
+			"name": img.Name,
+			"tag": img.Tag,
+			"digest": img.Digest,
+		},
+	}
+
+	if err := iv.policyContext.JSONContext.AddJSONObject(imgMap); err != nil {
+		return false, errors.Wrapf(err, fmt.Sprintf("failed to add image to the context %v", s))
+	}
+
+	conditions, err := variables.SubstituteAllInConditions(iv.logger, iv.policyContext.JSONContext, a.Conditions)
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to substitute variables in attestation conditions")
+	}
+
+	pass := variables.EvaluateAnyAllConditions(iv.logger, iv.policyContext.JSONContext, conditions)
 	return pass, nil
 }

@@ -74,10 +74,10 @@ type ValidateAnchorError struct {
 }
 
 // ConditionalAnchorErrMsg - the error message for conditional anchor error
-var ConditionalAnchorErrMsg = "conditionalAnchorError"
+var ConditionalAnchorErrMsg = "conditional anchor mismatch"
 
 // GlobalAnchorErrMsg - the error message for global anchor error
-var GlobalAnchorErrMsg = "globalAnchorError"
+var GlobalAnchorErrMsg = "global anchor mismatch"
 
 // AnchorKey - contains map of anchors
 type AnchorKey struct {

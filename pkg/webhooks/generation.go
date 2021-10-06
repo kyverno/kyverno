@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -107,7 +108,7 @@ func (ws *WebhookServer) handleGenerate(
 		}
 
 		// Adds Generate Request to a channel(queue size 1000) to generators
-		if failedResponse := applyGenerateRequest(ws.grGenerator, userRequestInfo, request.Operation, engineResponses...); err != nil {
+		if failedResponse := applyGenerateRequest(request, ws.grGenerator, userRequestInfo, request.Operation, engineResponses...); err != nil {
 			// report failure event
 			for _, failedGR := range failedResponse {
 				events := failedEvents(fmt.Errorf("failed to create Generate Request: %v", failedGR.err), failedGR.gr, new)
@@ -418,11 +419,20 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.E
 	}
 }
 
-func applyGenerateRequest(gnGenerator generate.GenerateRequests, userRequestInfo kyverno.RequestInfo,
+func applyGenerateRequest(request *v1beta1.AdmissionRequest, gnGenerator generate.GenerateRequests, userRequestInfo kyverno.RequestInfo,
 	action v1beta1.Operation, engineResponses ...*response.EngineResponse) (failedGenerateRequest []generateRequestResponse) {
 
+	requestBytes, err := json.Marshal(request)
+	if err != nil {
+		logger.Error(err, "error loading request into context")
+	}
+	admissionRequestInfo := kyverno.AdmissionRequestInfoObject{
+		AdmissionRequest: string(requestBytes),
+		Operation:        action,
+	}
+
 	for _, er := range engineResponses {
-		gr := transform(userRequestInfo, er)
+		gr := transform(admissionRequestInfo, userRequestInfo, er)
 		if err := gnGenerator.Apply(gr, action); err != nil {
 			failedGenerateRequest = append(failedGenerateRequest, generateRequestResponse{gr: gr, err: err})
 		}
@@ -431,7 +441,7 @@ func applyGenerateRequest(gnGenerator generate.GenerateRequests, userRequestInfo
 	return
 }
 
-func transform(userRequestInfo kyverno.RequestInfo, er *response.EngineResponse) kyverno.GenerateRequestSpec {
+func transform(admissionRequestInfo kyverno.AdmissionRequestInfoObject, userRequestInfo kyverno.RequestInfo, er *response.EngineResponse) kyverno.GenerateRequestSpec {
 	gr := kyverno.GenerateRequestSpec{
 		Policy: er.PolicyResponse.Policy.Name,
 		Resource: kyverno.ResourceSpec{
@@ -441,7 +451,8 @@ func transform(userRequestInfo kyverno.RequestInfo, er *response.EngineResponse)
 			APIVersion: er.PolicyResponse.Resource.APIVersion,
 		},
 		Context: kyverno.GenerateRequestContext{
-			UserRequestInfo: userRequestInfo,
+			UserRequestInfo:      userRequestInfo,
+			AdmissionRequestInfo: admissionRequestInfo,
 		},
 	}
 

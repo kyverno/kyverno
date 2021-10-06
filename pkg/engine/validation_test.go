@@ -2514,7 +2514,7 @@ func Test_foreach_container_deny_fail(t *testing.T) {
 				  "list": "request.object.spec.template.spec.containers",
 				  "deny": {
 				    "conditions": [
-					  {"key": "{{ regex_match('{{request.object.image}}', 'docker.io') }}", "operator": "Equals", "value": false}
+					  {"key": "{{ regex_match('{{element.image}}', 'docker.io') }}", "operator": "Equals", "value": false}
                     ]
 				  }
 				}
@@ -2550,7 +2550,7 @@ func Test_foreach_container_deny_success(t *testing.T) {
 				  "list": "request.object.spec.template.spec.containers",
 				  "deny": {
 				    "conditions": [
-					  {"key": "{{ regex_match('{{request.object.image}}', 'docker.io') }}", "operator": "Equals", "value": false}
+					  {"key": "{{ regex_match('{{element.image}}', 'docker.io') }}", "operator": "Equals", "value": false}
                     ]
 				  }
 				}
@@ -2623,14 +2623,14 @@ func Test_foreach_context_preconditions(t *testing.T) {
                   "context": [{"name": "img", "configMap": {"name": "mycmap", "namespace": "default"}}],
 				  "preconditions": { "all": [
 					{
-					  "key": "{{request.object.name}}",
+					  "key": "{{element.name}}",
 					  "operator": "In",
 					  "value": ["podvalid"]
 					}
 				  ]},
 				  "deny": {
 				    "conditions": [
-					  {"key": "{{ request.object.image }}", "operator": "NotEquals", "value": "{{ img.data.{{ request.object.name }} }}"}
+					  {"key": "{{ element.image }}", "operator": "NotEquals", "value": "{{ img.data.{{ element.name }} }}"}
                     ]
 				  }
 				}
@@ -2687,14 +2687,14 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
                   "context": [{"name": "img", "configMap": {"name": "mycmap", "namespace": "default"}}],
 				  "preconditions": { "all": [
 					{
-					  "key": "{{request.object.name}}",
+					  "key": "{{element.name}}",
 					  "operator": "In",
 					  "value": ["podvalid", "podinvalid"]
 					}
 				  ]},
 				  "deny": {
 				    "conditions": [
-					  {"key": "{{ request.object.image }}", "operator": "NotEquals", "value": "{{ img.data.{{ request.object.name }} }}"}
+					  {"key": "{{ element.image }}", "operator": "NotEquals", "value": "{{ img.data.{{ element.name }} }}"}
                     ]
 				  }
 				}
