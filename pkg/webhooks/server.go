@@ -499,9 +499,6 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	// Get namespace policies from the cache for the requested resource namespace
 	nsPolicies := ws.pCache.GetPolicies(policycache.ValidateEnforce, kind, request.Namespace)
 	policies = append(policies, nsPolicies...)
-	if len(policies) > 0 {
-		fmt.Println("=========>policies", policies)
-	}
 
 	var roles, clusterRoles []string
 	if containsRBACInfo(policies) {
