@@ -71,7 +71,6 @@ func main() {
 	flag.StringVar(&filterK8sResources, "filterK8sResources", "", "Resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. For example, --filterK8sResources \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
 	flag.StringVar(&excludeGroupRole, "excludeGroupRole", "", "")
 	flag.StringVar(&excludeUsername, "excludeUsername", "", "")
-	// deprecated
 	flag.IntVar(&webhookTimeout, "webhooktimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations. Deprecated and will be removed in 1.6.0.")
 	flag.IntVar(&genWorkers, "gen-workers", 10, "Workers for generate controller")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
@@ -83,7 +82,7 @@ func main() {
 	flag.DurationVar(&policyControllerResyncPeriod, "background-scan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h.")
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
-	flag.BoolVar(&autoUpdateWebhooks, "auto-update-webhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
+	flag.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
 
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
