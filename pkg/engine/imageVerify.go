@@ -190,14 +190,17 @@ func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.
 				}
 
 				if !val {
-					msg := fmt.Sprintf("attestation check failed for %s and predicate %s", imageInfo.String(), predicateType)
+					msg := fmt.Sprintf("attestation checks failed for %s and predicate %s", imageInfo.String(), predicateType)
+					iv.logger.Info(msg)
 					return ruleResponse(iv.rule, msg, response.RuleStatusFail)
 				}
 			}
 		}
 	}
 
-	return ruleResponse(iv.rule, "attestation checks passed", response.RuleStatusPass)
+	msg := fmt.Sprintf("attestation checks passed for %s", imageInfo.String())
+	iv.logger.V(2).Info(msg)
+	return ruleResponse(iv.rule, msg, response.RuleStatusPass)
 }
 
 func (iv *imageVerifier)  checkAttestations(a *v1.Attestation, s map[string]interface{}, img *context.ImageInfo ) (bool, error) {

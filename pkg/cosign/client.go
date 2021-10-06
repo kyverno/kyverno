@@ -16,7 +16,7 @@ type driver struct {
 }
 
 func (d *driver) Verify(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) ([]cosign.SignedPayload, error) {
-	return d.Verify(ctx, signedImgRef, co)
+	return cosign.Verify(ctx, signedImgRef, co)
 }
 
 
