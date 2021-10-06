@@ -79,11 +79,15 @@ func main() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
+	// deprecated
 	flag.StringVar(&profilePort, "profile-port", "6060", "Enable profiling at given port, defaults to 6060.")
+	flag.StringVar(&profilePort, "profilePort", "6060", "Enable profiling at given port, defaults to 6060.")
 	// deprecated
 	flag.BoolVar(&disableMetricsExport, "disable-metrics", false, "Set this flag to 'true', to enable exposing the metrics. Deprecated and will be removed in 1.6.0. ")
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true', to enable exposing the metrics.")
 	flag.StringVar(&metricsPort, "metrics-port", "8000", "Expose prometheus metrics at the given port, default to 8000.")
+	// deprecated
+	flag.StringVar(&metricsPort, "metricsPort", "8000", "Expose prometheus metrics at the given port, default to 8000.")
 	// deprecated
 	flag.DurationVar(&policyControllerResyncPeriod, "background-scan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h. Deprecated and will be removed in 1.6.0. ")
 	flag.DurationVar(&policyControllerResyncPeriod, "backgroundScan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h.")
