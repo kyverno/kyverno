@@ -193,10 +193,10 @@ func mutateForEachResource(rule *kyverno.Rule, ctx *PolicyContext, resource unst
 }
 
 type mutateResponse struct {
-	skip bool
+	skip            bool
 	patchedResource unstructured.Unstructured
-	patches [][]byte
-	message string
+	patches         [][]byte
+	message         string
 }
 
 func mutateResource(rule *kyverno.Rule, ctx *context.Context, resource unstructured.Unstructured, logger logr.Logger) (error, *mutateResponse) {
