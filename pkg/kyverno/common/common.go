@@ -923,9 +923,12 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 				if mutateResponseRule.Status == response.RuleStatusPass {
 					rc.Pass++
 					printMutatedRes = true
+				} else if mutateResponseRule.Status == response.RuleStatusSkip {
+					fmt.Printf("\nskipped mutate policy %s -> resource %s", policy.Name, resPath)
+					rc.Skip++
 				} else {
 					if printCount < 1 {
-						fmt.Printf("\nFailed to apply mutate policy %s -> resource %s", policy.Name, resPath)
+						fmt.Printf("\nfailed to apply mutate policy %s -> resource %s", policy.Name, resPath)
 						printCount++
 					}
 					fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name, mutateResponseRule.Message)
