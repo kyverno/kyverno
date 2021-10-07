@@ -1102,8 +1102,15 @@ func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
 
 		// ======= Check Generated Resources =======
 		By(fmt.Sprintf("Checking the generated resource (Configmap) in namespace : %s", tests.ResourceNamespace))
-		_, err = e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, tests.ConfigMapName)
+		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
+			_, err := e2eClient.GetNamespacedResource(cmGVR, tests.ResourceNamespace, tests.ConfigMapName)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
 		Expect(err).NotTo(HaveOccurred())
+
 		// ===========================================
 
 		// test: the generated resource is not updated if the source resource is updated
