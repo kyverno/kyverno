@@ -402,6 +402,35 @@ type Mutation struct {
 	// See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
 	// +optional
 	PatchesJSON6902 string `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
+
+	// ForEach applies policy rule changes to nested elements.
+	ForEachMutation *ForEachMutation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+}
+
+// ForEach applies policy rule changes to nested elements.
+type ForEachMutation struct {
+
+	// List specifies a JMESPath expression that results in one or more elements
+	// to which the validation logic is applied.
+	List string `json:"list,omitempty" yaml:"list,omitempty"`
+
+	// Context defines variables and data sources that can be used during rule execution.
+	// +optional
+	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+
+	// Preconditions are used to determine if a policy rule should be applied by evaluating a
+	// set of conditions. The declaration can contain nested `any` or `all` statements.
+	// See: https://kyverno.io/docs/writing-policies/preconditions/
+	// +kubebuilder:validation:XPreserveUnknownFields
+	// +optional
+	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+
+	// PatchStrategicMerge is a strategic merge patch used to modify resources.
+	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
+	// and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+	// +kubebuilder:validation:XPreserveUnknownFields
+	// +optional
+	PatchStrategicMerge apiextensions.JSON `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
 }
 
 // +k8s:deepcopy-gen=false

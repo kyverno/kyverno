@@ -20,8 +20,8 @@ const (
 	Validation
 	//Generation type for generation rule
 	Generation
-	//All type for other rule operations(future)
-	All
+	// ImageVerify type for image verification
+	ImageVerify
 )
 
 func (ri RuleType) String() string {

@@ -175,7 +175,7 @@ func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.
 	statements, err := cosign.FetchAttestations(image, []byte(key), repository)
 	if err != nil {
 		iv.logger.Info("failed to fetch attestations", "image", image, "error", err, "duration", time.Since(start).Seconds())
-		return ruleError(iv.rule, fmt.Sprintf("failed to fetch attestations for %s", image), err)
+		return ruleError(iv.rule, utils.ImageVerify, fmt.Sprintf("failed to fetch attestations for %s", image), err)
 	}
 
 	iv.logger.V(3).Info("received attested statements", "statements", statements)
@@ -186,13 +186,13 @@ func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.
 			if ac.PredicateType == predicateType {
 				val, err := iv.checkAttestations(ac, s, imageInfo)
 				if err != nil {
-					return ruleError(iv.rule, "error while checking attestation", err)
+					return ruleError(iv.rule, utils.ImageVerify, "error while checking attestation", err)
 				}
 
 				if !val {
 					msg := fmt.Sprintf("attestation checks failed for %s and predicate %s", imageInfo.String(), predicateType)
 					iv.logger.Info(msg)
-					return ruleResponse(iv.rule, msg, response.RuleStatusFail)
+					return ruleResponse(iv.rule, utils.ImageVerify, msg, response.RuleStatusFail)
 				}
 			}
 		}
@@ -200,7 +200,7 @@ func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.
 
 	msg := fmt.Sprintf("attestation checks passed for %s", imageInfo.String())
 	iv.logger.V(2).Info(msg)
-	return ruleResponse(iv.rule, msg, response.RuleStatusPass)
+	return ruleResponse(iv.rule, utils.ImageVerify, msg, response.RuleStatusPass)
 }
 
 func (iv *imageVerifier) checkAttestations(a *v1.Attestation, s map[string]interface{}, img *context.ImageInfo) (bool, error) {
