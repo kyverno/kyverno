@@ -62,6 +62,8 @@ type webhookConfigManager struct {
 
 	queue workqueue.RateLimitingInterface
 
+	autoUpdateWebhooks bool
+
 	// wildcardPolicy indicates the number of policies that matches all kinds (*) defined
 	wildcardPolicy int64
 
@@ -82,6 +84,7 @@ func newWebhookConfigManager(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	resCache resourcecache.ResourceCache,
+	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
 	stopCh <-chan struct{},
 	log logr.Logger) manage {
@@ -94,6 +97,7 @@ func newWebhookConfigManager(
 		resCache:             resCache,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "configmanager"),
 		wildcardPolicy:       0,
+		autoUpdateWebhooks:   autoUpdateWebhooks,
 		createDefaultWebhook: createDefaultWebhook,
 		stopCh:               stopCh,
 		log:                  log,
@@ -368,20 +372,23 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 		return errors.Wrapf(err, "unable to get policy object %s/%s", namespace, name)
 	}
 
-	webhooks, err := m.buildWebhooks(namespace)
-	if err != nil {
-		return err
-	}
-
 	ready := true
-	if err := m.updateWebhookConfig(webhooks); err != nil {
-		ready = false
-		logger.Error(err, "failed to update webhook configurations for policy")
-	}
+	// build webhook only if auto-update is enabled, otherwise directly update status to ready
+	if m.autoUpdateWebhooks {
+		webhooks, err := m.buildWebhooks(namespace)
+		if err != nil {
+			return err
+		}
 
-	// DELETION of the policy
-	if policy == nil {
-		return nil
+		if err := m.updateWebhookConfig(webhooks); err != nil {
+			ready = false
+			logger.Error(err, "failed to update webhook configurations for policy")
+		}
+
+		// DELETION of the policy
+		if policy == nil {
+			return nil
+		}
 	}
 
 	if err := m.updateStatus(policy, ready); err != nil {

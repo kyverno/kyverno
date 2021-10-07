@@ -79,9 +79,7 @@ func NewRegister(
 		createDefaultWebhook: make(chan string),
 	}
 
-	if register.autoUpdateWebhooks {
-		register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, resCache, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
-	}
+	register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, resCache, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
 
 	return register
 }
@@ -129,9 +127,7 @@ func (wrc *Register) Register() error {
 		return fmt.Errorf("%s", strings.Join(errors, ","))
 	}
 
-	if wrc.autoUpdateWebhooks {
-		go wrc.manage.start()
-	}
+	go wrc.manage.start()
 	return nil
 }
 
