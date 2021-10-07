@@ -171,7 +171,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			}
 		}
 
-		if utils.ContainsString(rule.MatchResources.Kinds, "*") && (p.Spec.Background == nil || *p.Spec.Background == true) {
+		if utils.ContainsString(rule.MatchResources.Kinds, "*") && (p.Spec.Background == nil || *p.Spec.Background) {
 			return fmt.Errorf("wildcard policy not allowed in background mode. Set spec.background=false to disable background mode for this policy rule ")
 		}
 
@@ -203,7 +203,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 					switch typedConditions := kyvernoConditions.(type) {
 					case []kyverno.Condition: // backwards compatibility
 						for _, condition := range typedConditions {
-							if !strings.Contains(condition.Key.(string), "request.object.metadata.") {
+							if !strings.Contains(condition.Key.(string), "request.object.metadata.") && !strings.Contains(condition.Key.(string), "request.operation") {
 								return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 									" the rule does not match an kind")
 							}
