@@ -948,6 +948,14 @@ spec:
                                         - NotEquals
                                         - In
                                         - NotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
                                         type: string
                                       value:
                                         description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
@@ -969,6 +977,14 @@ spec:
                                         - NotEquals
                                         - In
                                         - NotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
                                         type: string
                                       value:
                                         description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
@@ -1097,6 +1113,14 @@ spec:
                                         - NotEquals
                                         - In
                                         - NotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
                                         type: string
                                       value:
                                         description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
@@ -1118,6 +1142,14 @@ spec:
                                         - NotEquals
                                         - In
                                         - NotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
                                         type: string
                                       value:
                                         description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
@@ -1164,6 +1196,14 @@ spec:
                                               - NotEquals
                                               - In
                                               - NotIn
+                                              - GreaterThanOrEquals
+                                              - GreaterThan
+                                              - LessThanOrEquals
+                                              - LessThan
+                                              - DurationGreaterThanOrEquals
+                                              - DurationGreaterThan
+                                              - DurationLessThanOrEquals
+                                              - DurationLessThan
                                               type: string
                                             value:
                                               description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
@@ -1185,6 +1225,14 @@ spec:
                                               - NotEquals
                                               - In
                                               - NotIn
+                                              - GreaterThanOrEquals
+                                              - GreaterThan
+                                              - LessThanOrEquals
+                                              - LessThan
+                                              - DurationGreaterThanOrEquals
+                                              - DurationGreaterThan
+                                              - DurationLessThanOrEquals
+                                              - DurationLessThan
                                               type: string
                                             value:
                                               description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
@@ -3362,6 +3410,14 @@ spec:
                                         - NotEquals
                                         - In
                                         - NotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
                                         type: string
                                       value:
                                         description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
@@ -3383,6 +3439,14 @@ spec:
                                         - NotEquals
                                         - In
                                         - NotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
                                         type: string
                                       value:
                                         description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
@@ -3511,6 +3575,14 @@ spec:
                                         - NotEquals
                                         - In
                                         - NotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
                                         type: string
                                       value:
                                         description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
@@ -3532,6 +3604,14 @@ spec:
                                         - NotEquals
                                         - In
                                         - NotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
                                         type: string
                                       value:
                                         description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
@@ -3578,6 +3658,14 @@ spec:
                                               - NotEquals
                                               - In
                                               - NotIn
+                                              - GreaterThanOrEquals
+                                              - GreaterThan
+                                              - LessThanOrEquals
+                                              - LessThan
+                                              - DurationGreaterThanOrEquals
+                                              - DurationGreaterThan
+                                              - DurationLessThanOrEquals
+                                              - DurationLessThan
                                               type: string
                                             value:
                                               description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
@@ -3599,6 +3687,14 @@ spec:
                                               - NotEquals
                                               - In
                                               - NotIn
+                                              - GreaterThanOrEquals
+                                              - GreaterThan
+                                              - LessThanOrEquals
+                                              - LessThan
+                                              - DurationGreaterThanOrEquals
+                                              - DurationGreaterThan
+                                              - DurationLessThanOrEquals
+                                              - DurationLessThan
                                               type: string
                                             value:
                                               description: Value is the conditional value, or set of values. The values can be fixed set or can be variables declared using using JMESPath.
