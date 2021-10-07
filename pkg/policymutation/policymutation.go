@@ -724,6 +724,14 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		return *controllerRule
 	}
 
+	if rule.Mutation.ForEachMutation != nil && rule.Mutation.ForEachMutation.PatchStrategicMerge != nil {
+		newForeachMutation := &kyverno.Mutation{
+			ForEachMutation: rule.Mutation.ForEachMutation,
+		}
+		controllerRule.Mutation = newForeachMutation.DeepCopy()
+		return *controllerRule
+	}
+
 	if rule.Validation.Pattern != nil {
 		newValidate := &kyverno.Validation{
 			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),

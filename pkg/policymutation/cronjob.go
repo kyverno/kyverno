@@ -144,6 +144,13 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		return *cronJobRule
 	}
 
+	if (jobRule.Mutation != nil) && (jobRule.Mutation.ForEachMutation != nil) && (jobRule.Mutation.ForEachMutation.PatchStrategicMerge != nil) {
+		cronJobRule.Mutation = &kyverno.Mutation{
+			ForEachMutation: jobRule.Mutation.ForEachMutation,
+		}
+		return *cronJobRule
+	}
+
 	return kyvernoRule{}
 }
 
