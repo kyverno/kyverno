@@ -3,8 +3,13 @@ package cosign
 import (
 	"context"
 	"crypto"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/in-toto/in-toto-golang/in_toto"
+	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/sigstore/cosign/pkg/cosign/attestation"
+	"github.com/sigstore/sigstore/pkg/signature/dsse"
 	"strings"
 
 	"github.com/gardener/controller-manager-library/pkg/logger"
@@ -20,7 +25,7 @@ import (
 )
 
 var (
-	// Alternate signature repository
+	// ImageSignatureRepository is an alternate signature repository
 	ImageSignatureRepository string
 )
 
@@ -42,13 +47,14 @@ func Initialize(client kubernetes.Interface, namespace, serviceAccount string, i
 	return nil
 }
 
-func Verify(imageRef string, key []byte, repository string, log logr.Logger) (digest string, err error) {
+func VerifySignature(imageRef string, key []byte, repository string, log logr.Logger) (digest string, err error) {
 	pubKey, err := decodePEM(key)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to decode PEM %v", string(key))
 	}
 
 	cosignOpts := &cosign.CheckOpts{
+		//RootCerts:   fulcio.GetRoots(),
 		Annotations: map[string]interface{}{},
 		SigVerifier: pubKey,
 		RegistryClientOpts: []remote.Option{
@@ -71,7 +77,7 @@ func Verify(imageRef string, key []byte, repository string, log logr.Logger) (di
 		cosignOpts.SignatureRepo = signatureRepo
 	}
 
-	verified, err := cosign.Verify(context.Background(), ref, cosignOpts)
+	verified, err := client.Verify(context.Background(), ref, cosignOpts)
 	if err != nil {
 		msg := err.Error()
 		logger.Info("image verification failed", "error", msg)
@@ -90,6 +96,143 @@ func Verify(imageRef string, key []byte, repository string, log logr.Logger) (di
 	}
 
 	return digest, nil
+}
+
+// FetchAttestations retrieves signed attestations and decodes them into in-toto statements
+// https://github.com/in-toto/attestation/blob/main/spec/README.md#statement
+func FetchAttestations(imageRef string, key []byte, repository string) ([]map[string]interface{}, error) {
+	pubKey, err := decodePEM(key)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to decode PEM %v", string(key))
+	}
+
+	ref, err := name.ParseReference(imageRef)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse image")
+	}
+
+	cosignOpts := &cosign.CheckOpts{
+		//RootCerts:            fulcio.GetRoots(),
+		ClaimVerifier:        cosign.IntotoSubjectClaimVerifier,
+		SigTagSuffixOverride: cosign.AttestationTagSuffix,
+		SigVerifier:          dsse.WrapVerifier(pubKey),
+		VerifyBundle:         false,
+	}
+
+	if err := setSignatureRepo(cosignOpts, ref, repository); err != nil {
+		return nil, errors.Wrap(err, "failed to set signature repository")
+	}
+
+	verified, err := client.Verify(context.Background(), ref, cosignOpts)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to verify image attestations")
+	}
+
+	inTotoStatements, err := decodeStatements(verified)
+	if err != nil {
+		return nil, err
+	}
+
+	return inTotoStatements, nil
+}
+
+func decodeStatements(sigs []cosign.SignedPayload) ([]map[string]interface{}, error) {
+	if len(sigs) == 0 {
+		return []map[string]interface{}{}, nil
+	}
+
+	decodedStatements := make([]map[string]interface{}, len(sigs))
+	for i, sig := range sigs {
+		data := make(map[string]interface{})
+		if err := json.Unmarshal(sig.Payload, &data); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal JSON payload: %v", sig)
+		}
+
+		payloadBase64 := data["payload"].(string)
+		decodedStatement, err := decodeStatement(payloadBase64)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to decode statement %s", payloadBase64)
+		}
+
+		decodedStatements[i] = decodedStatement
+	}
+
+	return decodedStatements, nil
+}
+
+func decodeStatement(payloadBase64 string) (map[string]interface{}, error) {
+	statementRaw, err := base64.StdEncoding.DecodeString(payloadBase64)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to base64 decode payload for %v", statementRaw)
+	}
+
+	var statement in_toto.Statement
+	if err := json.Unmarshal(statementRaw, &statement); err != nil {
+		return nil, err
+	}
+
+	if statement.PredicateType != attestation.CosignCustomProvenanceV01 {
+		// This assumes that the following statements are JSON objects:
+		// - in_toto.PredicateSLSAProvenanceV01
+		// - in_toto.PredicateLinkV1
+		// - in_toto.PredicateSPDX
+		// any other custom predicate
+		return common.ToMap(statement)
+	}
+
+	return decodeCosignCustomProvenanceV01(statement)
+}
+
+func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]interface{}, error) {
+	if statement.PredicateType != attestation.CosignCustomProvenanceV01 {
+		return nil, fmt.Errorf("invalid statement type %s", attestation.CosignCustomProvenanceV01)
+	}
+
+	predicate, ok := statement.Predicate.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("failed to decode CosignCustomProvenanceV01")
+	}
+
+	cosignPredicateData := predicate["Data"]
+	if cosignPredicateData == nil {
+		return nil, fmt.Errorf("missing predicate in CosignCustomProvenanceV01")
+	}
+
+	// attempt to parse as a JSON object type
+	data, err := stringToJSONMap(cosignPredicateData)
+	if err == nil {
+		predicate["Data"] = data
+		statement.Predicate = predicate
+	}
+
+	return common.ToMap(statement)
+}
+
+func stringToJSONMap(i interface{}) (map[string]interface{}, error) {
+	s, ok := i.(string)
+	if !ok {
+		return nil, fmt.Errorf("expected string type")
+	}
+
+	var data = map[string]interface{}{}
+	if err := json.Unmarshal([]byte(s), &data); err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON: %s", err.Error())
+	}
+
+	return data, nil
+}
+
+func setSignatureRepo(cosignOpts *cosign.CheckOpts, ref name.Reference, repository string) error {
+	cosignOpts.SignatureRepo = ref.Context()
+	if repository != "" {
+		signatureRepo, err := name.NewRepository(repository)
+		if err != nil {
+			return errors.Wrapf(err, "failed to parse signature repository %s", repository)
+		}
+
+		cosignOpts.SignatureRepo = signatureRepo
+	}
+	return nil
 }
 
 func decodePEM(raw []byte) (signature.Verifier, error) {

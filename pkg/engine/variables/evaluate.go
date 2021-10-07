@@ -17,7 +17,7 @@ func Evaluate(log logr.Logger, ctx context.EvalInterface, condition kyverno.Cond
 	return handle.Evaluate(condition.Key, condition.Value)
 }
 
-//EvaluateConditions evalues all the conditions present in a slice, in a backwards compatible way
+//EvaluateConditions evaluates all the conditions present in a slice, in a backwards compatible way
 func EvaluateConditions(log logr.Logger, ctx context.EvalInterface, conditions interface{}) bool {
 	switch typedConditions := conditions.(type) {
 	case kyverno.AnyAllConditions:
@@ -26,6 +26,16 @@ func EvaluateConditions(log logr.Logger, ctx context.EvalInterface, conditions i
 		return evaluateOldConditions(log, ctx, typedConditions)
 	}
 	return false
+}
+
+func EvaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, conditions []*kyverno.AnyAllConditions) bool {
+	for _, c := range conditions {
+		if !evaluateAnyAllConditions(log, ctx, *c) {
+			return false
+		}
+	}
+
+	return true
 }
 
 //evaluateAnyAllConditions evaluates multiple conditions as a logical AND (all) or OR (any) operation depending on the conditions

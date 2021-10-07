@@ -74,6 +74,9 @@ func (t *Traversal) traverseJSON(element interface{}, path string) (interface{},
 	case []interface{}:
 		return t.traverseList(common.CopySlice(typed), path)
 
+	case []map[string]interface{}:
+		return t.traverseList(common.CopySliceOfMaps(typed), path)
+
 	case Key:
 		return typed.Key, nil
 

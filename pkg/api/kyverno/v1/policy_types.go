@@ -501,12 +501,31 @@ type ImageVerification struct {
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	Image string `json:"image,omitempty" yaml:"image,omitempty"`
 
-	// Key is the PEM encoded public key that the image is signed with.
+	// Key is the PEM encoded public key that the image or attestation is signed with.
 	Key string `json:"key,omitempty" yaml:"key,omitempty"`
 
 	// Repository is an optional alternate OCI repository to use for image signatures that match this rule.
 	// If specified Repository will override the default OCI image repository configured for the installation.
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
+
+	// Attestations are optional checks for signed in-toto Statements used to verify the image.
+	// See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
+	// OCI registry and decodes them into a list of Statement declarations.
+	Attestations []*Attestation `json:"attestations,omitempty" yaml:"attestations,omitempty"`
+}
+
+// Attestation are checks for signed in-toto Statements that are used to verify the image.
+// See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
+// OCI registry and decodes them into a list of Statements.
+type Attestation struct {
+
+	// PredicateType defines the type of Predicate contained within the Statement.
+	PredicateType string `json:"predicateType,omitempty" yaml:"predicateType,omitempty"`
+
+	// Conditions are used to verify attributes within a Predicate. If no Conditions are specified
+	// the attestation check is satisfied as long there are predicates that match the predicate type.
+	// +optional
+	Conditions []*AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
 // Generation defines how new resources should be created and managed.
