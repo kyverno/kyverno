@@ -2,6 +2,8 @@ package engine
 
 import (
 	"fmt"
+	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/pkg/errors"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -57,9 +59,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			continue
 		}
 
-		var ruleResponse response.RuleResponse
 		logger := logger.WithValues("rule", rule.Name)
-
 		excludeResource := []string{}
 		if len(policyContext.ExcludeGroupRole) > 0 {
 			excludeResource = policyContext.ExcludeGroupRole
@@ -78,10 +78,10 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		policyContext.JSONContext.Reset()
 		if err == nil && resource != nil {
 			if err := ctx.AddResourceAsObject(resource.(map[string]interface{})); err != nil {
-				logger.WithName("RestoreContext").Error(err, "unable to update resource object")
+				logger.Error(err, "unable to update resource object")
 			}
 		} else {
-			logger.WithName("RestoreContext").Error(err, "failed to query resource object")
+			logger.Error(err, "failed to query resource object")
 		}
 
 		if err := LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
@@ -94,66 +94,149 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		}
 
 		ruleCopy := rule.DeepCopy()
-		ruleCopy.AnyAllConditions, err = variables.SubstituteAllInPreconditions(logger, ctx, ruleCopy.AnyAllConditions)
-		if err != nil {
-			logger.V(3).Info("failed to substitute vars in preconditions, skip current rule", "rule name", rule.Name)
-			continue
-		}
-
-		// operate on the copy of the conditions, as we perform variable substitution
-		copyConditions, err := transformConditions(ruleCopy.AnyAllConditions)
-		if err != nil {
-			logger.V(2).Info("failed to load context", "reason", err.Error())
-			continue
-		}
-		// evaluate pre-conditions
-		// - handle variable substitutions
-		if !variables.EvaluateConditions(logger, ctx, copyConditions) {
-			logger.V(3).Info("resource fails the preconditions")
-			continue
-		}
-
-		if *ruleCopy, err = variables.SubstituteAllInRule(logger, ctx, *ruleCopy); err != nil {
-			ruleResp := response.RuleResponse{
-				Name:    ruleCopy.Name,
-				Type:    utils.Mutation.String(),
-				Message: fmt.Sprintf("variable substitution failed: %s", err.Error()),
-				Status:  response.RuleStatusPass,
+		var ruleResp *response.RuleResponse
+		if rule.Mutation.ForEachMutation != nil {
+			ruleResp, patchedResource = mutateForEachResource(ruleCopy, policyContext, patchedResource, logger)
+		} else {
+			skip := false
+			err, mutateResp := mutateResource(ruleCopy, policyContext.JSONContext, patchedResource, logger)
+			if err != nil {
+				if skip {
+					ruleResp = ruleResponse(&rule, utils.Mutation, err.Error(), response.RuleStatusSkip)
+				} else {
+					ruleResp = ruleResponse(&rule, utils.Mutation, err.Error(), response.RuleStatusError)
+				}
+			} else {
+				ruleResp = ruleResponse(&rule, utils.Mutation, "mutated resource", response.RuleStatusPass)
+				ruleResp.Patches = mutateResp.patches
+				patchedResource = mutateResp.patchedResource
 			}
-
-			incrementAppliedCount(resp)
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResp)
-
-			logger.Error(err, "failed to substitute variables, skip current rule", "rule name", ruleCopy.Name)
-			continue
 		}
 
-		mutation := ruleCopy.Mutation.DeepCopy()
-		mutateHandler := mutate.CreateMutateHandler(ruleCopy.Name, mutation, patchedResource, ctx, logger)
-		ruleResponse, patchedResource = mutateHandler.Handle()
-		if ruleResponse.Status == response.RuleStatusPass {
-			// - overlay pattern does not match the resource conditions
-			if ruleResponse.Patches == nil {
-				continue
+		if ruleResp != nil {
+			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
+			if ruleResp.Status == response.RuleStatusError {
+				incrementErrorCount(resp)
+			} else {
+				incrementAppliedCount(resp)
 			}
-
-			logger.V(4).Info("mutate rule applied successfully", "ruleName", ruleCopy.Name)
 		}
-
-		if err := ctx.AddResourceAsObject(patchedResource.Object); err != nil {
-			logger.Error(err, "failed to update resource in the JSON context")
-		}
-
-		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, ruleResponse)
-		incrementAppliedRuleCount(resp)
 	}
 
 	resp.PatchedResource = patchedResource
 	return resp
 }
 
-func incrementAppliedRuleCount(resp *response.EngineResponse) {
-	resp.PolicyResponse.RulesAppliedCount++
+func mutateForEachResource(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
+	foreach := rule.Mutation.ForEachMutation
+	if foreach == nil {
+		return nil, resource
+	}
+
+	if err := LoadContext(logger, foreach.Context, ctx.ResourceCache, ctx, rule.Name); err != nil {
+		logger.Error(err, "failed to load context")
+		return ruleError(rule, utils.Mutation, "failed to load context", err), resource
+	}
+
+	preconditionsPassed, err := checkPreconditions(logger, ctx, foreach.AnyAllConditions)
+	if err != nil {
+		return ruleError(rule, utils.Mutation, "failed to evaluate preconditions", err), resource
+	} else if !preconditionsPassed {
+		return ruleResponse(rule, utils.Mutation, "preconditions not met", response.RuleStatusSkip), resource
+	}
+
+	elements, err := evaluateList(foreach.List, ctx.JSONContext)
+	if err != nil {
+		msg := fmt.Sprintf("failed to evaluate list %s", foreach.List)
+		return ruleError(rule, utils.Mutation, msg, err), resource
+	}
+
+	ctx.JSONContext.Checkpoint()
+	defer ctx.JSONContext.Restore()
+
+	applyCount := 0
+	patchedResource := resource
+	allPatches := make([][]byte, 0)
+	for _, e := range elements {
+		ctx.JSONContext.Reset()
+
+		ctx := ctx.Copy()
+		if err := addElementToContext(ctx, e); err != nil {
+			logger.Error(err, "failed to add element to context")
+			return ruleError(rule, utils.Mutation, "failed to process foreach", err), resource
+		}
+
+		var skip = false
+		err, mutateResp := mutateResource(rule, ctx.JSONContext, patchedResource, logger)
+		if err != nil && !skip {
+			return ruleResponse(rule, utils.Mutation, err.Error(), response.RuleStatusError), resource
+		}
+
+		patchedResource = mutateResp.patchedResource
+		if len(mutateResp.patches) > 0 {
+			allPatches = append(allPatches, mutateResp.patches...)
+		}
+
+		applyCount++
+	}
+
+	if applyCount == 0 {
+		return ruleResponse(rule, utils.Mutation, "0 elements processed", response.RuleStatusSkip), resource
+	}
+
+	r := ruleResponse(rule, utils.Mutation, fmt.Sprintf("%d elements processed", applyCount), response.RuleStatusPass)
+	r.Patches = allPatches
+	return r, patchedResource
+}
+
+type mutateResponse struct {
+	skip bool
+	patchedResource unstructured.Unstructured
+	patches [][]byte
+}
+
+func mutateResource(rule *kyverno.Rule, ctx *context.Context, resource unstructured.Unstructured, logger logr.Logger) (error, *mutateResponse) {
+	mutateResp := &mutateResponse{false, unstructured.Unstructured{}, nil}
+	anyAllConditions, err := variables.SubstituteAllInPreconditions(logger, ctx, rule.AnyAllConditions)
+	if err != nil {
+		return errors.Wrapf(err, "failed to substitute vars in preconditions"), mutateResp
+	}
+
+	copyConditions, err := transformConditions(anyAllConditions)
+	if err != nil {
+		return errors.Wrapf(err, "failed to load context"), mutateResp
+	}
+
+	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
+		return errors.Wrapf(err, "preconditions mismatch"), mutateResp
+	}
+
+	updatedRule, err := variables.SubstituteAllInRule(logger, ctx, *rule)
+	if err != nil {
+		return errors.Wrapf(err, "variable substitution failed"), mutateResp
+	}
+
+	mutation := updatedRule.Mutation.DeepCopy()
+	mutateHandler := mutate.CreateMutateHandler(updatedRule.Name, mutation, resource, ctx, logger)
+	resp, patchedResource := mutateHandler.Handle()
+	if resp.Status == response.RuleStatusPass {
+		// - overlay pattern does not match the resource conditions
+		if resp.Patches == nil {
+			mutateResp.skip = true
+			return fmt.Errorf("resource does not match pattern"), mutateResp
+		}
+
+		mutateResp.skip = false
+		mutateResp.patchedResource = patchedResource
+		mutateResp.patches = resp.Patches
+		logger.V(4).Info("mutate rule applied successfully", "ruleName", rule.Name)
+	}
+
+	if err := ctx.AddResourceAsObject(patchedResource.Object); err != nil {
+		logger.Error(err, "failed to update resource in the JSON context")
+	}
+
+	return nil, mutateResp
 }
 
 func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.ClusterPolicy, resource unstructured.Unstructured) {

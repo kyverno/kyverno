@@ -1,8 +1,13 @@
 package engine
 
 import (
-	"errors"
 	"fmt"
+	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/pkg/errors"
 	"reflect"
 	"strings"
 	"time"
@@ -434,4 +439,55 @@ func ManagedPodResource(policy kyverno.ClusterPolicy, resource unstructured.Unst
 	}
 
 	return false
+}
+
+func checkPreconditions(logger logr.Logger, ctx *PolicyContext, anyAllConditions apiextensions.JSON) (bool, error) {
+	preconditions, err := variables.SubstituteAllInPreconditions(logger, ctx.JSONContext, anyAllConditions)
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to substitute variables in preconditions")
+	}
+
+	typeConditions, err := transformConditions(preconditions)
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to parse preconditions")
+	}
+
+	pass := variables.EvaluateConditions(logger, ctx.JSONContext, typeConditions)
+	return pass, nil
+}
+
+func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, error) {
+	i, err := ctx.Query(jmesPath)
+	if err != nil {
+		return nil, err
+	}
+
+	l, ok := i.([]interface{})
+	if !ok {
+		return []interface{}{i}, nil
+	}
+
+	return l, nil
+}
+
+func ruleError(rule *kyverno.Rule, ruleType engineUtils.RuleType, msg string, err error) *response.RuleResponse {
+	msg = fmt.Sprintf("%s: %s", msg, err.Error())
+	return ruleResponse(rule, ruleType, msg, response.RuleStatusError)
+}
+
+func ruleResponse(rule *kyverno.Rule, ruleType engineUtils.RuleType, msg string, status response.RuleStatus) *response.RuleResponse {
+	return &response.RuleResponse{
+		Name:    rule.Name,
+		Type:    ruleType.String(),
+		Message: msg,
+		Status:  status,
+	}
+}
+
+func incrementAppliedCount(resp *response.EngineResponse) {
+	resp.PolicyResponse.RulesAppliedCount++
+}
+
+func incrementErrorCount(resp *response.EngineResponse) {
+	resp.PolicyResponse.RulesErrorCount++
 }

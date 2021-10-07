@@ -75,14 +75,6 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 	resp.PolicyResponse.PolicyExecutionTimestamp = startTime.Unix()
 }
 
-func incrementAppliedCount(resp *response.EngineResponse) {
-	resp.PolicyResponse.RulesAppliedCount++
-}
-
-func incrementErrorCount(resp *response.EngineResponse) {
-	resp.PolicyResponse.RulesErrorCount++
-}
-
 func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 	if ManagedPodResource(ctx.Policy, ctx.NewResource) {
@@ -188,19 +180,19 @@ func newForeachValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule
 
 func (v *validator) validate() *response.RuleResponse {
 	if err := v.loadContext(); err != nil {
-		return ruleError(v.rule, "failed to load context", err)
+		return ruleError(v.rule, utils.Validation, "failed to load context", err)
 	}
 
-	preconditionsPassed, err := v.checkPreconditions()
+	preconditionsPassed, err := checkPreconditions(v.log, v.ctx, v.anyAllConditions)
 	if err != nil {
-		return ruleError(v.rule, "failed to evaluate preconditions", err)
+		return ruleError(v.rule, utils.Validation, "failed to evaluate preconditions", err)
 	} else if !preconditionsPassed {
-		return ruleResponse(v.rule, "preconditions not met", response.RuleStatusSkip)
+		return ruleResponse(v.rule, utils.Validation, "preconditions not met", response.RuleStatusSkip)
 	}
 
 	if v.pattern != nil || v.anyPattern != nil {
 		if err = v.substitutePatterns(); err != nil {
-			return ruleError(v.rule, "variable substitution failed", err)
+			return ruleError(v.rule, utils.Validation, "variable substitution failed", err)
 		}
 
 		ruleResponse := v.validateResourceWithRule()
@@ -217,14 +209,14 @@ func (v *validator) validate() *response.RuleResponse {
 
 func (v *validator) validateForEach() *response.RuleResponse {
 	if err := v.loadContext(); err != nil {
-		return ruleError(v.rule, "failed to load context", err)
+		return ruleError(v.rule, utils.Validation, "failed to load context", err)
 	}
 
-	preconditionsPassed, err := v.checkPreconditions()
+	preconditionsPassed, err := checkPreconditions(v.log, v.ctx, v.anyAllConditions)
 	if err != nil {
-		return ruleError(v.rule, "failed to evaluate preconditions", err)
+		return ruleError(v.rule, utils.Validation, "failed to evaluate preconditions", err)
 	} else if !preconditionsPassed {
-		return ruleResponse(v.rule, "preconditions not met", response.RuleStatusSkip)
+		return ruleResponse(v.rule, utils.Validation, "preconditions not met", response.RuleStatusSkip)
 	}
 
 	foreach := v.rule.Validation.ForEachValidation
@@ -232,10 +224,10 @@ func (v *validator) validateForEach() *response.RuleResponse {
 		return nil
 	}
 
-	elements, err := v.evaluateList(foreach.List)
+	elements, err := evaluateList(foreach.List, v.ctx.JSONContext)
 	if err != nil {
 		msg := fmt.Sprintf("failed to evaluate list %s", foreach.List)
-		return ruleError(v.rule, msg, err)
+		return ruleError(v.rule, utils.Validation, msg, err)
 	}
 
 	v.ctx.JSONContext.Checkpoint()
@@ -248,7 +240,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 		ctx := v.ctx.Copy()
 		if err := addElementToContext(ctx, e); err != nil {
 			v.log.Error(err, "failed to add element to context")
-			return ruleError(v.rule, "failed to process foreach", err)
+			return ruleError(v.rule, utils.Validation, "failed to process foreach", err)
 		}
 
 		foreachValidator := newForeachValidator(v.log, ctx, v.rule)
@@ -261,17 +253,17 @@ func (v *validator) validateForEach() *response.RuleResponse {
 			continue
 		} else if r.Status != response.RuleStatusPass {
 			msg := fmt.Sprintf("validation failed in foreach rule for %v", r.Message)
-			return ruleResponse(v.rule, msg, r.Status)
+			return ruleResponse(v.rule, utils.Validation, msg, r.Status)
 		}
 
 		applyCount++
 	}
 
 	if applyCount == 0 {
-		return ruleResponse(v.rule, "rule skipped", response.RuleStatusSkip)
+		return ruleResponse(v.rule, utils.Validation, "rule skipped", response.RuleStatusSkip)
 	}
 
-	return ruleResponse(v.rule, "rule passed", response.RuleStatusPass)
+	return ruleResponse(v.rule, utils.Validation, "rule passed", response.RuleStatusPass)
 }
 
 func addElementToContext(ctx *PolicyContext, e interface{}) error {
@@ -295,20 +287,6 @@ func addElementToContext(ctx *PolicyContext, e interface{}) error {
 	return nil
 }
 
-func (v *validator) evaluateList(jmesPath string) ([]interface{}, error) {
-	i, err := v.ctx.JSONContext.Query(jmesPath)
-	if err != nil {
-		return nil, err
-	}
-
-	l, ok := i.([]interface{})
-	if !ok {
-		return []interface{}{i}, nil
-	}
-
-	return l, nil
-}
-
 func (v *validator) loadContext() error {
 	if err := LoadContext(v.log, v.contextEntries, v.ctx.ResourceCache, v.ctx, v.rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
@@ -323,43 +301,28 @@ func (v *validator) loadContext() error {
 	return nil
 }
 
-func (v *validator) checkPreconditions() (bool, error) {
-	preconditions, err := variables.SubstituteAllInPreconditions(v.log, v.ctx.JSONContext, v.anyAllConditions)
-	if err != nil {
-		return false, errors.Wrapf(err, "failed to substitute variables in preconditions")
-	}
-
-	typeConditions, err := transformConditions(preconditions)
-	if err != nil {
-		return false, errors.Wrapf(err, "failed to parse preconditions")
-	}
-
-	pass := variables.EvaluateConditions(v.log, v.ctx.JSONContext, typeConditions)
-	return pass, nil
-}
-
 func (v *validator) validateDeny() *response.RuleResponse {
 	anyAllCond := v.deny.AnyAllConditions
 	anyAllCond, err := variables.SubstituteAll(v.log, v.ctx.JSONContext, anyAllCond)
 	if err != nil {
-		return ruleError(v.rule, "failed to substitute variables in deny conditions", err)
+		return ruleError(v.rule, utils.Validation, "failed to substitute variables in deny conditions", err)
 	}
 
 	if err = v.substituteDeny(); err != nil {
-		return ruleError(v.rule, "failed to substitute variables in rule", err)
+		return ruleError(v.rule, utils.Validation, "failed to substitute variables in rule", err)
 	}
 
 	denyConditions, err := transformConditions(anyAllCond)
 	if err != nil {
-		return ruleError(v.rule, "invalid deny conditions", err)
+		return ruleError(v.rule, utils.Validation, "invalid deny conditions", err)
 	}
 
 	deny := variables.EvaluateConditions(v.log, v.ctx.JSONContext, denyConditions)
 	if deny {
-		return ruleResponse(v.rule, v.getDenyMessage(deny), response.RuleStatusFail)
+		return ruleResponse(v.rule, utils.Validation, v.getDenyMessage(deny), response.RuleStatusFail)
 	}
 
-	return ruleResponse(v.rule, v.getDenyMessage(deny), response.RuleStatusPass)
+	return ruleResponse(v.rule, utils.Validation, v.getDenyMessage(deny), response.RuleStatusPass)
 }
 
 func (v *validator) getDenyMessage(deny bool) string {
@@ -464,22 +427,22 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 				v.log.V(3).Info("validation error", "path", pe.Path, "error", err.Error())
 
 				if pe.Skip {
-					return ruleResponse(v.rule, pe.Error(), response.RuleStatusSkip)
+					return ruleResponse(v.rule, utils.Validation, pe.Error(), response.RuleStatusSkip)
 				}
 
 				if pe.Path == "" {
-					return ruleResponse(v.rule, v.buildErrorMessage(err, ""), response.RuleStatusError)
+					return ruleResponse(v.rule, utils.Validation, v.buildErrorMessage(err, ""), response.RuleStatusError)
 				}
 
-				return ruleResponse(v.rule, v.buildErrorMessage(err, pe.Path), response.RuleStatusFail)
+				return ruleResponse(v.rule, utils.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusFail)
 			} else {
-				return ruleResponse(v.rule, v.buildErrorMessage(err, pe.Path), response.RuleStatusError)
+				return ruleResponse(v.rule, utils.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusError)
 			}
 		}
 
 		v.log.V(4).Info("successfully processed rule")
 		msg := fmt.Sprintf("validation rule '%s' passed.", v.rule.Name)
-		return ruleResponse(v.rule, msg, response.RuleStatusPass)
+		return ruleResponse(v.rule, utils.Validation, msg, response.RuleStatusPass)
 	}
 
 	if v.anyPattern != nil {
@@ -489,14 +452,14 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 		anyPatterns, err := deserializeAnyPattern(v.anyPattern)
 		if err != nil {
 			msg := fmt.Sprintf("failed to deserialize anyPattern, expected type array: %v", err)
-			return ruleResponse(v.rule, msg, response.RuleStatusError)
+			return ruleResponse(v.rule, utils.Validation, msg, response.RuleStatusError)
 		}
 
 		for idx, pattern := range anyPatterns {
 			err := validate.MatchPattern(v.log, resource.Object, pattern)
 			if err == nil {
 				msg := fmt.Sprintf("validation rule '%s' anyPattern[%d] passed.", v.rule.Name, idx)
-				return ruleResponse(v.rule, msg, response.RuleStatusPass)
+				return ruleResponse(v.rule, utils.Validation, msg, response.RuleStatusPass)
 			}
 
 			if pe, ok := err.(*validate.PatternError); ok {
@@ -520,11 +483,11 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 
 			v.log.V(4).Info(fmt.Sprintf("Validation rule '%s' failed. %s", v.rule.Name, errorStr))
 			msg := buildAnyPatternErrorMessage(v.rule, errorStr)
-			return ruleResponse(v.rule, msg, response.RuleStatusFail)
+			return ruleResponse(v.rule, utils.Validation, msg, response.RuleStatusFail)
 		}
 	}
 
-	return ruleResponse(v.rule, v.rule.Validation.Message, response.RuleStatusPass)
+	return ruleResponse(v.rule, utils.Validation, v.rule.Validation.Message, response.RuleStatusPass)
 }
 
 func deserializeAnyPattern(anyPattern apiextensions.JSON) ([]interface{}, error) {
@@ -620,18 +583,4 @@ func (v *validator) substituteDeny() error {
 
 	v.deny = i.(*kyverno.Deny)
 	return nil
-}
-
-func ruleError(rule *kyverno.Rule, msg string, err error) *response.RuleResponse {
-	msg = fmt.Sprintf("%s: %s", msg, err.Error())
-	return ruleResponse(rule, msg, response.RuleStatusError)
-}
-
-func ruleResponse(rule *kyverno.Rule, msg string, status response.RuleStatus) *response.RuleResponse {
-	return &response.RuleResponse{
-		Name:    rule.Name,
-		Type:    utils.Validation.String(),
-		Message: msg,
-		Status:  status,
-	}
 }
