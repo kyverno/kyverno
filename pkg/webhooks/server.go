@@ -320,6 +320,11 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		return failureResponse(err.Error())
 	}
 
+	// update container images to a canonical form
+	if err := enginectx.MutateResourceWithImageInfo(request.Object.Raw, policyContext.JSONContext); err != nil {
+		ws.log.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
+	}
+
 	mutatePatches := ws.applyMutatePolicies(request, policyContext, mutatePolicies, requestTime, logger)
 
 	newRequest := patchRequest(mutatePatches, request, logger)
@@ -371,10 +376,6 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 
 	if err := ctx.AddImageInfo(&resource); err != nil {
 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
-	}
-
-	if err := enginectx.MutateResourceWithImageInfo(request.Object.Raw, ctx); err != nil {
-		ws.log.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
 	}
 
 	policyContext := &engine.PolicyContext{

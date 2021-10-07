@@ -192,6 +192,9 @@ func addDefaultDomain(name string) string {
 	return name
 }
 
+// MutateResourceWithImageInfo will set images to their canonical form so that they can be compared
+// in a predictable manner. This sets the default registry as `docker.io` and the tag as `latest` if
+// these are missing.
 func MutateResourceWithImageInfo(raw []byte, ctx *Context) error {
 	images := ctx.ImageInfo()
 	if images == nil {
