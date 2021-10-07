@@ -20,6 +20,16 @@ func CopySlice(s []interface{}) []interface{} {
 	return sliceCopy
 }
 
+// CopySliceOfMaps creates a full copy of the target slice
+func CopySliceOfMaps(s []map[string]interface{}) []interface{} {
+	sliceCopy := make([]interface{}, len(s))
+	for i, v := range s {
+		sliceCopy[i] = CopyMap(v)
+	}
+
+	return sliceCopy
+}
+
 func ToMap(data interface{}) (map[string]interface{}, error) {
 	if m, ok := data.(map[string]interface{}); ok {
 		return m, nil

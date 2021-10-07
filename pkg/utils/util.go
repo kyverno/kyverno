@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	common "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/minio/pkg/wildcard"
@@ -27,6 +28,16 @@ var regexVersion = regexp.MustCompile(`v(\d+).(\d+).(\d+)\.*`)
 func contains(list []string, element string, fn func(string, string) bool) bool {
 	for _, e := range list {
 		if fn(e, element) {
+			return true
+		}
+	}
+	return false
+}
+
+func ContainsPod(list []string, element string) bool {
+	for _, e := range list {
+		_, k := common.GetKindFromGVK(e)
+		if k == element {
 			return true
 		}
 	}

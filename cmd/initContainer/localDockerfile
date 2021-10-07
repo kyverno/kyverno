@@ -1,0 +1,4 @@
+FROM scratch
+ADD kyvernopre /kyvernopre
+USER 10001
+ENTRYPOINT ["/kyvernopre"]

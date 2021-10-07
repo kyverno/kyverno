@@ -397,15 +397,53 @@ func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bo
 		match := rule.MatchResources
 		exclude := rule.ExcludeResources
 
-		if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil ||
-			exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil {
+		if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil || match.ResourceDescription.Annotations != nil ||
+			exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil || exclude.ResourceDescription.Annotations != nil {
 			log.V(3).Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
 			return false, "none"
 		}
 
-		if (len(match.Kinds) > 1 && utils.ContainsString(match.Kinds, "Pod")) ||
-			(len(exclude.Kinds) > 1 && utils.ContainsString(exclude.Kinds, "Pod")) {
+		if isKindOtherthanPod(match.Kinds) || isKindOtherthanPod(exclude.Kinds) {
 			return false, "none"
+		}
+
+		for _, value := range match.Any {
+			if isKindOtherthanPod(value.Kinds) {
+				return false, "none"
+			}
+			if value.Name != "" || value.Selector != nil || value.Annotations != nil {
+				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in match any block is not be applicable.", "rule", rule.Name)
+				return false, "none"
+			}
+		}
+		for _, value := range match.All {
+
+			if isKindOtherthanPod(value.Kinds) {
+				return false, "none"
+			}
+			if value.Name != "" || value.Selector != nil || value.Annotations != nil {
+				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in match all block is not be applicable.", "rule", rule.Name)
+				return false, "none"
+			}
+		}
+		for _, value := range exclude.Any {
+			if isKindOtherthanPod(value.Kinds) {
+				return false, "none"
+			}
+			if value.Name != "" || value.Selector != nil || value.Annotations != nil {
+				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not be applicable.", "rule", rule.Name)
+				return false, "none"
+			}
+		}
+		for _, value := range exclude.All {
+
+			if isKindOtherthanPod(value.Kinds) {
+				return false, "none"
+			}
+			if value.Name != "" || value.Selector != nil || value.Annotations != nil {
+				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not be applicable.", "rule", rule.Name)
+				return false, "none"
+			}
 		}
 
 		if rule.Mutation.Patches != nil || rule.Mutation.PatchesJSON6902 != "" ||
@@ -415,6 +453,13 @@ func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bo
 	}
 
 	return true, engine.PodControllers
+}
+
+func isKindOtherthanPod(kinds []string) bool {
+	if len(kinds) > 1 && utils.ContainsPod(kinds, "Pod") {
+		return true
+	}
+	return false
 }
 
 func createRuleMap(rules []kyverno.Rule) map[string]kyvernoRule {
@@ -570,8 +615,8 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	matchResourceDescriptionsKinds := rule.MatchKinds()
 	excludeResourceDescriptionsKinds := rule.ExcludeKinds()
 
-	if !utils.ContainsString(matchResourceDescriptionsKinds, "Pod") ||
-		(len(excludeResourceDescriptionsKinds) != 0 && !utils.ContainsString(excludeResourceDescriptionsKinds, "Pod")) {
+	if !utils.ContainsPod(matchResourceDescriptionsKinds, "Pod") ||
+		(len(excludeResourceDescriptionsKinds) != 0 && !utils.ContainsPod(excludeResourceDescriptionsKinds, "Pod")) {
 		return kyvernoRule{}
 	}
 
@@ -631,9 +676,26 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	}
 
 	// overwrite Kinds by pod controllers defined in the annotation
-	controllerRule.MatchResources.Kinds = strings.Split(controllers, ",")
-	if len(exclude.Kinds) != 0 {
-		controllerRule.ExcludeResources.Kinds = strings.Split(controllers, ",")
+	if len(rule.MatchResources.Any) > 0 {
+		rule := getAnyAllAutogenRule(controllerRule.MatchResources.Any, controllers)
+		controllerRule.MatchResources.Any = rule
+	} else if len(rule.MatchResources.All) > 0 {
+		rule := getAnyAllAutogenRule(controllerRule.MatchResources.All, controllers)
+		controllerRule.MatchResources.All = rule
+	} else {
+		controllerRule.MatchResources.Kinds = strings.Split(controllers, ",")
+	}
+
+	if len(rule.ExcludeResources.Any) > 0 {
+		rule := getAnyAllAutogenRule(controllerRule.ExcludeResources.Any, controllers)
+		controllerRule.ExcludeResources.Any = rule
+	} else if len(rule.ExcludeResources.All) > 0 {
+		rule := getAnyAllAutogenRule(controllerRule.ExcludeResources.All, controllers)
+		controllerRule.ExcludeResources.All = rule
+	} else {
+		if len(exclude.Kinds) != 0 {
+			controllerRule.ExcludeResources.Kinds = strings.Split(controllers, ",")
+		}
 	}
 
 	if rule.Mutation.Overlay != nil {
@@ -675,26 +737,42 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		return *controllerRule
 	}
 
+	if rule.Validation.ForEachValidation != nil && rule.Validation.ForEachValidation.Pattern != nil {
+		newForeachValidate := &kyverno.Validation{
+			Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
+			ForEachValidation: rule.Validation.ForEachValidation,
+		}
+		controllerRule.Validation = newForeachValidate.DeepCopy()
+		return *controllerRule
+	}
+
 	if rule.Validation.AnyPattern != nil {
-		var patterns []interface{}
+
 		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 		if err != nil {
 			logger.Error(err, "failed to deserialize anyPattern, expect type array")
 		}
 
-		for _, pattern := range anyPatterns {
-			newPattern := map[string]interface{}{
-				"spec": map[string]interface{}{
-					"template": pattern,
-				},
-			}
-
-			patterns = append(patterns, newPattern)
-		}
-
+		patterns := validateAnyPattern(anyPatterns)
 		controllerRule.Validation = &kyverno.Validation{
 			Message:    variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "anyPattern"),
 			AnyPattern: patterns,
+		}
+		return *controllerRule
+	}
+
+	if rule.Validation.ForEachValidation != nil && rule.Validation.ForEachValidation.AnyPattern != nil {
+		controllerRule.Validation = &kyverno.Validation{
+			Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
+			ForEachValidation: rule.Validation.ForEachValidation,
+		}
+		return *controllerRule
+	}
+
+	if rule.Validation.ForEachValidation != nil && rule.Validation.ForEachValidation.Deny != nil {
+		controllerRule.Validation = &kyverno.Validation{
+			Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
+			ForEachValidation: rule.Validation.ForEachValidation,
 		}
 		return *controllerRule
 	}
@@ -710,6 +788,31 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	}
 
 	return kyvernoRule{}
+}
+
+func validateAnyPattern(anyPatterns []interface{}) []interface{} {
+	var patterns []interface{}
+	for _, pattern := range anyPatterns {
+		newPattern := map[string]interface{}{
+			"spec": map[string]interface{}{
+				"template": pattern,
+			},
+		}
+
+		patterns = append(patterns, newPattern)
+	}
+	return patterns
+}
+
+func getAnyAllAutogenRule(v kyverno.ResourceFilters, controllers string) kyverno.ResourceFilters {
+	anyKind := v.DeepCopy()
+
+	for i, value := range v {
+		if utils.ContainsPod(value.Kinds, "Pod") {
+			anyKind[i].Kinds = strings.Split(controllers, ",")
+		}
+	}
+	return anyKind
 }
 
 // defaultPodControllerAnnotation inserts an annotation
