@@ -144,6 +144,22 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		return *cronJobRule
 	}
 
+	if (jobRule.Mutation != nil) && (jobRule.Mutation.ForEachMutation != nil) && (jobRule.Mutation.ForEachMutation.PatchStrategicMerge != nil) {
+		cronJobRule.Mutation = &kyverno.Mutation{
+			ForEachMutation: jobRule.Mutation.ForEachMutation,
+		}
+		return *cronJobRule
+	}
+
+	if jobRule.VerifyImages != nil {
+		newVerifyImages := make([]*kyverno.ImageVerification, len(jobRule.VerifyImages))
+		for i, vi := range rule.VerifyImages {
+			newVerifyImages[i] = vi.DeepCopy()
+		}
+		cronJobRule.VerifyImages = newVerifyImages
+		return *cronJobRule
+	}
+
 	return kyvernoRule{}
 }
 
