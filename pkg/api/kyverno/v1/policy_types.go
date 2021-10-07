@@ -404,6 +404,7 @@ type Mutation struct {
 	PatchesJSON6902 string `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
 
 	// ForEach applies policy rule changes to nested elements.
+	// +optional
 	ForEachMutation *ForEachMutation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 

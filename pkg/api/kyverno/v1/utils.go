@@ -185,6 +185,12 @@ func (in *ForEachValidation) DeepCopyInto(out *ForEachValidation) {
 		*out = *in
 	}
 }
+
+func (in *ForEachMutation) DeepCopyInto(out *ForEachMutation) {
+	if out != nil {
+		*out = *in
+	}
+}
 func (gen *Generation) DeepCopyInto(out *Generation) {
 	if out != nil {
 		*out = *gen
