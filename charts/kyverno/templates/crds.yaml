@@ -11,7 +11,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3
+    app.kubernetes.io/version: v1.5.0-rc1
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -1306,7 +1306,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3
+    app.kubernetes.io/version: v1.5.0-rc1
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -1799,7 +1799,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3
+    app.kubernetes.io/version: v1.5.0-rc1
   name: clusterreportchangerequests.kyverno.io
 spec:
   group: kyverno.io
@@ -2292,7 +2292,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3
+    app.kubernetes.io/version: v1.5.0-rc1
   name: generaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -2473,7 +2473,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3
+    app.kubernetes.io/version: v1.5.0-rc1
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -3768,7 +3768,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3
+    app.kubernetes.io/version: v1.5.0-rc1
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -4261,7 +4261,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.4.3
+    app.kubernetes.io/version: v1.5.0-rc1
   name: reportchangerequests.kyverno.io
 spec:
   group: kyverno.io
