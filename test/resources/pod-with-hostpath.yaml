@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: pod-with-hostpath
+  annotations:
 spec:
   containers:
   - image: k8s.gcr.io/test-webserver

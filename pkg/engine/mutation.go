@@ -98,16 +98,19 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		if rule.Mutation.ForEachMutation != nil {
 			ruleResp, patchedResource = mutateForEachResource(ruleCopy, policyContext, patchedResource, logger)
 		} else {
-			skip := false
 			err, mutateResp := mutateResource(ruleCopy, policyContext.JSONContext, patchedResource, logger)
 			if err != nil {
-				if skip {
+				if mutateResp.skip {
 					ruleResp = ruleResponse(&rule, utils.Mutation, err.Error(), response.RuleStatusSkip)
 				} else {
 					ruleResp = ruleResponse(&rule, utils.Mutation, err.Error(), response.RuleStatusError)
 				}
 			} else {
-				ruleResp = ruleResponse(&rule, utils.Mutation, "mutated resource", response.RuleStatusPass)
+				if mutateResp.message == "" {
+					mutateResp.message = "mutated resource"
+				}
+
+				ruleResp = ruleResponse(&rule, utils.Mutation, mutateResp.message, response.RuleStatusPass)
 				ruleResp.Patches = mutateResp.patches
 				patchedResource = mutateResp.patchedResource
 			}
@@ -193,10 +196,11 @@ type mutateResponse struct {
 	skip bool
 	patchedResource unstructured.Unstructured
 	patches [][]byte
+	message string
 }
 
 func mutateResource(rule *kyverno.Rule, ctx *context.Context, resource unstructured.Unstructured, logger logr.Logger) (error, *mutateResponse) {
-	mutateResp := &mutateResponse{false, unstructured.Unstructured{}, nil}
+	mutateResp := &mutateResponse{false, unstructured.Unstructured{}, nil, ""}
 	anyAllConditions, err := variables.SubstituteAllInPreconditions(logger, ctx, rule.AnyAllConditions)
 	if err != nil {
 		return errors.Wrapf(err, "failed to substitute vars in preconditions"), mutateResp
@@ -229,6 +233,7 @@ func mutateResource(rule *kyverno.Rule, ctx *context.Context, resource unstructu
 		mutateResp.skip = false
 		mutateResp.patchedResource = patchedResource
 		mutateResp.patches = resp.Patches
+		mutateResp.message = resp.Message
 		logger.V(4).Info("mutate rule applied successfully", "ruleName", rule.Name)
 	}
 
