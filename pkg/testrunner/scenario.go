@@ -230,11 +230,11 @@ func validateResource(t *testing.T, responseResource unstructured.Unstructured, 
 		return
 	}
 
-	resourcePrint(responseResource, "response resource")
-	resourcePrint(*expectedResource, "expected resource")
 	// compare the resources
 	if !reflect.DeepEqual(responseResource, *expectedResource) {
 		t.Error("failed: response resource returned does not match expected resource")
+		resourcePrint(responseResource, "response resource")
+		resourcePrint(*expectedResource, "expected resource")
 		return
 	}
 	t.Log("success: response resource returned matches expected resource")
@@ -339,6 +339,12 @@ func loadPolicyResource(t *testing.T, file string) *unstructured.Unstructured {
 		t.Logf("more than one resource specified in the file %s", file)
 		t.Log("considering the first one for policy application")
 	}
+
+	for _, r := range resources {
+		metadata := r.UnstructuredContent()["metadata"].(map[string]interface{})
+		delete(metadata, "creationTimestamp")
+	}
+
 	return resources[0]
 }
 

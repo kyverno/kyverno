@@ -113,30 +113,55 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 		// validate Cluster Resources in namespaced policy
 		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
-		if !mock && p.ObjectMeta.Namespace != "" {
-			var Empty struct{}
-			clusterResourcesMap := make(map[string]*struct{})
-			// Get all the cluster type kind supported by cluster
-
+		if !mock {
 			res, err := client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
 			if err != nil {
 				return err
 			}
-			for _, resList := range res {
-				for _, r := range resList.APIResources {
-					if !r.Namespaced {
-						if _, ok := clusterResourcesMap[r.Kind]; !ok {
-							clusterResourcesMap[r.Kind] = &Empty
+			if p.ObjectMeta.Namespace != "" {
+				var Empty struct{}
+				clusterResourcesMap := make(map[string]*struct{})
+				// Get all the cluster type kind supported by cluster
+				for _, resList := range res {
+					for _, r := range resList.APIResources {
+						if !r.Namespaced {
+							if _, ok := clusterResourcesMap[r.Kind]; !ok {
+								clusterResourcesMap[r.Kind] = &Empty
+							}
+						}
+					}
+				}
+
+				clusterResources := make([]string, 0, len(clusterResourcesMap))
+				for k := range clusterResourcesMap {
+					clusterResources = append(clusterResources, k)
+				}
+				return checkClusterResourceInMatchAndExclude(rule, clusterResources)
+			}
+
+			// Check for generate policy
+			// - if resource to be generated is namespaced resource then the namespace field
+			// should be mentioned
+			// - if resource to be generated is non namespaced resource then the namespace field
+			// should not be mentioned
+			if rule.HasGenerate() {
+				generateResourceKind := rule.Generation.Kind
+				for _, resList := range res {
+					for _, r := range resList.APIResources {
+						if r.Kind == generateResourceKind {
+							if r.Namespaced {
+								if rule.Generation.Namespace == "" {
+									return fmt.Errorf("path: spec.rules[%v]: please mention the namespace to generate a namespaced resource", rule.Name)
+								}
+							} else {
+								if rule.Generation.Namespace != "" {
+									return fmt.Errorf("path: spec.rules[%v]: do not mention the namespace to generate a non namespaced resource", rule.Name)
+								}
+							}
 						}
 					}
 				}
 			}
-
-			clusterResources := make([]string, 0, len(clusterResourcesMap))
-			for k := range clusterResourcesMap {
-				clusterResources = append(clusterResources, k)
-			}
-			return checkClusterResourceInMatchAndExclude(rule, clusterResources)
 		}
 
 		if doMatchAndExcludeConflict(rule) {

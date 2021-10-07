@@ -15,3 +15,13 @@ expected:
         namespace: ''
         name: pod-with-default-volume
       rules:
+        - name: annotate-empty-dir
+          type: Mutation
+          status: skip
+          message: "resource does not match pattern"      
+        - name: annotate-host-path
+          type: Mutation
+          status: skip
+          message: "resource does not match pattern"      
+
+        

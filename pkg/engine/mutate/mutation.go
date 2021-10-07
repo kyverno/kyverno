@@ -30,6 +30,8 @@ func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResou
 		return newPatchStrategicMergeHandler(ruleName, mutate, patchedResource, context, logger)
 	case isPatches(mutate):
 		return newPatchesHandler(ruleName, mutate, patchedResource, context, logger)
+	case isForEach(mutate):
+		return newForEachHandler(ruleName, mutate, patchedResource, context, logger)
 	default:
 		return newEmptyHandler(patchedResource)
 	}
@@ -56,6 +58,28 @@ func newPatchStrategicMergeHandler(ruleName string, mutate *kyverno.Mutation, pa
 
 func (h patchStrategicMergeHandler) Handle() (response.RuleResponse, unstructured.Unstructured) {
 	return ProcessStrategicMergePatch(h.ruleName, h.mutation.PatchStrategicMerge, h.patchedResource, h.logger)
+}
+
+type forEachHandler struct {
+	ruleName        string
+	mutation        *kyverno.Mutation
+	patchedResource unstructured.Unstructured
+	evalCtx         context.EvalInterface
+	logger          logr.Logger
+}
+
+func newForEachHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
+	return forEachHandler{
+		ruleName:        ruleName,
+		mutation:        mutate,
+		patchedResource: patchedResource,
+		evalCtx:         context,
+		logger:          logger,
+	}
+}
+
+func (h forEachHandler) Handle() (response.RuleResponse, unstructured.Unstructured) {
+	return ProcessStrategicMergePatch(h.ruleName, h.mutation.ForEachMutation.PatchStrategicMerge, h.patchedResource, h.logger)
 }
 
 // overlayHandler
@@ -156,10 +180,11 @@ func (h emptyHandler) Handle() (response.RuleResponse, unstructured.Unstructured
 }
 
 func isPatchStrategicMerge(mutate *kyverno.Mutation) bool {
-	if mutate.PatchStrategicMerge != nil {
-		return true
-	}
-	return false
+	return mutate.PatchStrategicMerge != nil
+}
+
+func isForEach(mutate *kyverno.Mutation) bool {
+	return mutate.ForEachMutation != nil
 }
 
 func isPatchesJSON6902(mutate *kyverno.Mutation) bool {
@@ -170,10 +195,7 @@ func isPatchesJSON6902(mutate *kyverno.Mutation) bool {
 }
 
 func isOverlay(mutate *kyverno.Mutation) bool {
-	if mutate.Overlay != nil {
-		return true
-	}
-	return false
+	return mutate.Overlay != nil
 }
 
 func isPatches(mutate *kyverno.Mutation) bool {

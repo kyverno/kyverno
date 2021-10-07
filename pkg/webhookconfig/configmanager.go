@@ -373,8 +373,10 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 		return err
 	}
 
+	ready := true
 	if err := m.updateWebhookConfig(webhooks); err != nil {
-		return errors.Wrapf(err, "failed to update webhook configurations for policy %s/%s", namespace, name)
+		ready = false
+		logger.Error(err, "failed to update webhook configurations for policy")
 	}
 
 	// DELETION of the policy
@@ -382,11 +384,13 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 		return nil
 	}
 
-	if err := m.updateStatus(policy); err != nil {
+	if err := m.updateStatus(policy, ready); err != nil {
 		return errors.Wrapf(err, "failed to update policy status %s/%s", namespace, name)
 	}
 
-	logger.Info("policy is ready to serve admission requests")
+	if ready {
+		logger.Info("policy is ready to serve admission requests")
+	}
 	return nil
 }
 
@@ -469,17 +473,17 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 	for _, p := range policies {
 		if p.HasValidate() || p.HasGenerate() {
 			if p.Spec.FailurePolicy != nil && *p.Spec.FailurePolicy == kyverno.Ignore {
-				m.mergeWebhook(validateIgnore, p)
+				m.mergeWebhook(validateIgnore, p, true)
 			} else {
-				m.mergeWebhook(validateFail, p)
+				m.mergeWebhook(validateFail, p, true)
 			}
 		}
 
 		if p.HasMutate() || p.HasGenerate() {
 			if p.Spec.FailurePolicy != nil && *p.Spec.FailurePolicy == kyverno.Ignore {
-				m.mergeWebhook(mutateIgnore, p)
+				m.mergeWebhook(mutateIgnore, p, false)
 			} else {
-				m.mergeWebhook(mutateFail, p)
+				m.mergeWebhook(mutateFail, p, false)
 			}
 		}
 	}
@@ -635,9 +639,9 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 	return nil
 }
 
-func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy) error {
+func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy, status bool) error {
 	policyCopy := policy.DeepCopy()
-	policyCopy.Status.Ready = true
+	policyCopy.Status.Ready = status
 	if policy.GetNamespace() == "" {
 		_, err := m.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), policyCopy, v1.UpdateOptions{})
 		return err
@@ -648,12 +652,19 @@ func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy) error
 }
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
-func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.ClusterPolicy) {
+func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.ClusterPolicy, updateValidate bool) {
 	matchedGVK := make([]string, 0)
 	for _, rule := range policy.Spec.Rules {
-		matchedGVK = append(matchedGVK, rule.MatchKinds()...)
+		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
+			matchedGVK = append(matchedGVK, rule.MatchKinds()...)
 			matchedGVK = append(matchedGVK, rule.Generation.ResourceSpec.Kind)
+			continue
+		}
+
+		if (updateValidate && rule.HasValidate()) ||
+			(!updateValidate && rule.HasMutate()) {
+			matchedGVK = append(matchedGVK, rule.MatchKinds()...)
 		}
 	}
 

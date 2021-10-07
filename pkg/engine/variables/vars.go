@@ -112,6 +112,48 @@ func UntypedToRule(untyped interface{}) (kyverno.Rule, error) {
 	return rule, nil
 }
 
+func SubstituteAllInConditions(log logr.Logger, ctx context.EvalInterface, conditions []*kyverno.AnyAllConditions) ([]*kyverno.AnyAllConditions, error) {
+	c, err := ConditionsToJSONObject(conditions)
+	if err != nil {
+		return nil, err
+	}
+
+	i, err := SubstituteAll(log, ctx, c)
+	if err != nil {
+		return nil, err
+	}
+
+	return JSONObjectToConditions(i)
+}
+
+func ConditionsToJSONObject(conditions []*kyverno.AnyAllConditions) ([]map[string]interface{}, error) {
+	bytes, err := json.Marshal(conditions)
+	if err != nil {
+		return nil, err
+	}
+
+	var m = []map[string]interface{}{}
+	if err := json.Unmarshal(bytes, &m); err != nil {
+		return nil, err
+	}
+
+	return m, nil
+}
+
+func JSONObjectToConditions(data interface{}) ([]*kyverno.AnyAllConditions, error) {
+	bytes, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	var c []*kyverno.AnyAllConditions
+	if err := json.Unmarshal(bytes, &c); err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
 func substituteAll(log logr.Logger, ctx context.EvalInterface, document interface{}, resolver VariableResolver) (_ interface{}, err error) {
 	document, err = substituteReferences(log, document)
 	if err != nil {

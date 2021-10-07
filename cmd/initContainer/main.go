@@ -4,16 +4,22 @@ Cleans up stale webhookconfigurations created by kyverno that were not cleanedup
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
 	"sync"
 	"time"
 
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/utils"
+	coord "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
@@ -63,6 +69,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	pclientConfig, err := config.CreateClientConfig(kubeconfig, log.Log)
+	if err != nil {
+		setupLog.Error(err, "Failed to build client config")
+		os.Exit(1)
+	}
+	pclient, err := kyvernoclient.NewForConfig(pclientConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create client")
+		os.Exit(1)
+	}
+
 	// Exit for unsupported version of kubernetes cluster
 	if !utils.HigherThanKubernetesVersion(client, log.Log, 1, 16, 0) {
 		os.Exit(1)
@@ -80,35 +97,78 @@ func main() {
 		{clusterPolicyViolation, ""},
 	}
 
+	kubeClientLeaderElection, err := utils.NewKubeClient(clientConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		<-stopCh
+		cancel()
+	}()
+
 	done := make(chan struct{})
 	defer close(done)
 	failure := false
-	// use pipline to pass request to cleanup resources
-	// generate requests
-	in := gen(done, stopCh, requests...)
-	// process requests
-	// processing routine count : 2
-	p1 := process(client, done, stopCh, in)
-	p2 := process(client, done, stopCh, in)
-	// merge results from processing routines
-	for err := range merge(done, stopCh, p1, p2) {
+
+	run := func() {
+		_, err := kubeClientLeaderElection.CoordinationV1().Leases(getKyvernoNameSpace()).Get(ctx, "kyvernopre-lock", v1.GetOptions{})
+
 		if err != nil {
-			failure = true
-			log.Log.Error(err, "failed to cleanup resource")
+			log.Log.Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
+		} else {
+			log.Log.Info("Clean-up complete. Leader exiting...")
+			os.Exit(0)
 		}
+
+		// use pipline to pass request to cleanup resources
+		// generate requests
+		in := gen(done, stopCh, requests...)
+		// process requests
+		// processing routine count : 2
+		p1 := process(client, pclient, done, stopCh, in)
+		p2 := process(client, pclient, done, stopCh, in)
+		// merge results from processing routines
+		for err := range merge(done, stopCh, p1, p2) {
+			if err != nil {
+				failure = true
+				log.Log.Error(err, "failed to cleanup resource")
+			}
+		}
+		// if there is any failure then we fail process
+		if failure {
+			log.Log.Info("failed to cleanup prior configurations")
+			os.Exit(1)
+		}
+
+		lease := coord.Lease{}
+		lease.ObjectMeta.Name = "kyvernopre-lock"
+		_, err = kubeClientLeaderElection.CoordinationV1().Leases(getKyvernoNameSpace()).Create(ctx, &lease, v1.CreateOptions{})
+		if err != nil {
+			log.Log.Info("Failed to create lease 'kyvernopre-lock'")
+		}
+
+		log.Log.Info("Clean-up complete. Leader exiting...")
+
+		os.Exit(0)
 	}
 
-	// if there is any failure then we fail process
-	if failure {
-		log.Log.Info("failed to cleanup prior configurations")
+	le, err := leaderelection.New("kyvernopre", getKyvernoNameSpace(), kubeClientLeaderElection, run, nil, log.Log.WithName("kyvernopre/LeaderElection"))
+	if err != nil {
+		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
 	}
+
+	le.Run(ctx)
 }
 
-func executeRequest(client *client.Client, req request) error {
+func executeRequest(client *client.Client, pclient *kyvernoclient.Clientset, req request) error {
 	switch req.kind {
 	case policyReportKind:
-		return removePolicyReport(client, req.kind)
+		return removePolicyReport(client, pclient, req.kind)
 	case clusterPolicyReportKind:
 		return removeClusterPolicyReport(client, req.kind)
 	case reportChangeRequestKind:
@@ -167,14 +227,14 @@ func gen(done <-chan struct{}, stopCh <-chan struct{}, requests ...request) <-ch
 }
 
 // processes the requests
-func process(client *client.Client, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
+func process(client *client.Client, pclient *kyvernoclient.Clientset, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
 	logger := log.Log.WithName("process")
 	out := make(chan error)
 	go func() {
 		defer close(out)
 		for req := range requests {
 			select {
-			case out <- executeRequest(client, req):
+			case out <- executeRequest(client, pclient, req):
 			case <-done:
 				logger.Info("done")
 				return
@@ -231,12 +291,12 @@ func removeClusterPolicyReport(client *client.Client, kind string) error {
 	}
 
 	for _, cpolr := range cpolrs.Items {
-		deleteResource(client, cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName(), nil)
+		deleteResource(client, cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName())
 	}
 	return nil
 }
 
-func removePolicyReport(client *client.Client, kind string) error {
+func removePolicyReport(client *client.Client, pclient *kyvernoclient.Clientset, kind string) error {
 	logger := log.Log.WithName("removePolicyReport")
 
 	namespaces, err := client.ListResource("", "Namespace", "", nil)
@@ -245,21 +305,12 @@ func removePolicyReport(client *client.Client, kind string) error {
 		return err
 	}
 
-	// name of namespace policy report follows the name convention
-	// pr-ns-<namespace name>
 	for _, ns := range namespaces.Items {
-		reportNames := []string{
-			fmt.Sprintf("policyreport-ns-%s", ns.GetName()),
-			fmt.Sprintf("pr-ns-%s", ns.GetName()),
-			fmt.Sprintf("polr-ns-%s", ns.GetName()),
+		logger.Info("Removing policy reports", "namespace", ns.GetName())
+		err := pclient.Wgpolicyk8sV1alpha2().PolicyReports(ns.GetName()).DeleteCollection(context.TODO(), v1.DeleteOptions{}, v1.ListOptions{})
+		if err != nil {
+			logger.Error(err, "Failed to delete policy reports", "namespace", ns.GetName())
 		}
-
-		var wg sync.WaitGroup
-		wg.Add(len(reportNames))
-		for _, reportName := range reportNames {
-			go deleteResource(client, "", kind, ns.GetName(), reportName, &wg)
-		}
-		wg.Wait()
 	}
 
 	return nil
@@ -276,7 +327,7 @@ func removeReportChangeRequest(client *client.Client, kind string) error {
 	}
 
 	for _, rcr := range rcrList.Items {
-		deleteResource(client, rcr.GetAPIVersion(), rcr.GetKind(), rcr.GetNamespace(), rcr.GetName(), nil)
+		deleteResource(client, rcr.GetAPIVersion(), rcr.GetKind(), rcr.GetNamespace(), rcr.GetName())
 	}
 
 	return nil
@@ -290,7 +341,7 @@ func removeClusterReportChangeRequest(client *client.Client, kind string) error 
 	}
 
 	for _, crcr := range crcrList.Items {
-		deleteResource(client, crcr.GetAPIVersion(), crcr.GetKind(), "", crcr.GetName(), nil)
+		deleteResource(client, crcr.GetAPIVersion(), crcr.GetKind(), "", crcr.GetName())
 	}
 	return nil
 }
@@ -319,11 +370,7 @@ func getKyvernoNameSpace() string {
 	return kyvernoNamespace
 }
 
-func deleteResource(client *client.Client, apiversion, kind, ns, name string, wg *sync.WaitGroup) {
-	if wg != nil {
-		defer wg.Done()
-	}
-
+func deleteResource(client *client.Client, apiversion, kind, ns, name string) {
 	err := client.DeleteResource(apiversion, kind, ns, name, false)
 	if err != nil && !errors.IsNotFound(err) {
 		log.Log.Error(err, "failed to delete resource", "kind", kind, "name", name)
