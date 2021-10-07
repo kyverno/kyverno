@@ -469,17 +469,17 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 	for _, p := range policies {
 		if p.HasValidate() || p.HasGenerate() {
 			if p.Spec.FailurePolicy != nil && *p.Spec.FailurePolicy == kyverno.Ignore {
-				m.mergeWebhook(validateIgnore, p)
+				m.mergeWebhook(validateIgnore, p, true)
 			} else {
-				m.mergeWebhook(validateFail, p)
+				m.mergeWebhook(validateFail, p, true)
 			}
 		}
 
 		if p.HasMutate() || p.HasGenerate() {
 			if p.Spec.FailurePolicy != nil && *p.Spec.FailurePolicy == kyverno.Ignore {
-				m.mergeWebhook(mutateIgnore, p)
+				m.mergeWebhook(mutateIgnore, p, false)
 			} else {
-				m.mergeWebhook(mutateFail, p)
+				m.mergeWebhook(mutateFail, p, false)
 			}
 		}
 	}
@@ -648,12 +648,19 @@ func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy) error
 }
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
-func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.ClusterPolicy) {
+func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.ClusterPolicy, updateValidate bool) {
 	matchedGVK := make([]string, 0)
 	for _, rule := range policy.Spec.Rules {
-		matchedGVK = append(matchedGVK, rule.MatchKinds()...)
+		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
+			matchedGVK = append(matchedGVK, rule.MatchKinds()...)
 			matchedGVK = append(matchedGVK, rule.Generation.ResourceSpec.Kind)
+			continue
+		}
+
+		if (updateValidate && rule.HasValidate()) ||
+			(!updateValidate && rule.HasMutate()) {
+			matchedGVK = append(matchedGVK, rule.MatchKinds()...)
 		}
 	}
 
