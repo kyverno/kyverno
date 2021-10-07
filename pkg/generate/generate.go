@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/kyverno/kyverno/pkg/engine/response"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -34,7 +35,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	var genResources []kyverno.ResourceSpec
 
 	// 1 - Check if the resource exists
-	resource, err = getResource(c.client, gr.Spec.Resource)
+	resource, err = getResource(c.client, gr.Spec.Resource, c.log)
 	if err != nil {
 		// Don't update status
 		logger.V(3).Info("resource does not exist or is pending creation, re-queueing", "details", err.Error())
