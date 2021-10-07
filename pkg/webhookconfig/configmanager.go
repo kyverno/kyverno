@@ -679,6 +679,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.Cluste
 			gv, k := common.GetKindFromGVK(gvk)
 			_, gvr, err := m.client.DiscoveryClient.FindResource(gv, k)
 			if err != nil {
+				m.log.Error(err, "unable to convert GVK to GVR", "GVK", gvk)
 				continue
 			}
 			gvrList = append(gvrList, gvr)
