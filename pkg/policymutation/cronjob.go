@@ -151,6 +151,15 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		return *cronJobRule
 	}
 
+	if jobRule.VerifyImages != nil {
+		newVerifyImages := make([]*kyverno.ImageVerification, len(jobRule.VerifyImages))
+		for i, vi := range rule.VerifyImages {
+			newVerifyImages[i] = vi.DeepCopy()
+		}
+		cronJobRule.VerifyImages = newVerifyImages
+		return *cronJobRule
+	}
+
 	return kyvernoRule{}
 }
 
