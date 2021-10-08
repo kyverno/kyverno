@@ -62,6 +62,8 @@ type webhookConfigManager struct {
 
 	queue workqueue.RateLimitingInterface
 
+	autoUpdateWebhooks bool
+
 	// wildcardPolicy indicates the number of policies that matches all kinds (*) defined
 	wildcardPolicy int64
 
@@ -82,6 +84,7 @@ func newWebhookConfigManager(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	resCache resourcecache.ResourceCache,
+	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
 	stopCh <-chan struct{},
 	log logr.Logger) manage {
@@ -94,6 +97,7 @@ func newWebhookConfigManager(
 		resCache:             resCache,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "configmanager"),
 		wildcardPolicy:       0,
+		autoUpdateWebhooks:   autoUpdateWebhooks,
 		createDefaultWebhook: createDefaultWebhook,
 		stopCh:               stopCh,
 		log:                  log,
@@ -368,20 +372,23 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 		return errors.Wrapf(err, "unable to get policy object %s/%s", namespace, name)
 	}
 
-	webhooks, err := m.buildWebhooks(namespace)
-	if err != nil {
-		return err
-	}
-
 	ready := true
-	if err := m.updateWebhookConfig(webhooks); err != nil {
-		ready = false
-		logger.Error(err, "failed to update webhook configurations for policy")
-	}
+	// build webhook only if auto-update is enabled, otherwise directly update status to ready
+	if m.autoUpdateWebhooks {
+		webhooks, err := m.buildWebhooks(namespace)
+		if err != nil {
+			return err
+		}
 
-	// DELETION of the policy
-	if policy == nil {
-		return nil
+		if err := m.updateWebhookConfig(webhooks); err != nil {
+			ready = false
+			logger.Error(err, "failed to update webhook configurations for policy")
+		}
+
+		// DELETION of the policy
+		if policy == nil {
+			return nil
+		}
 	}
 
 	if err := m.updateStatus(policy, ready); err != nil {
@@ -479,7 +486,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 			}
 		}
 
-		if p.HasMutate() || p.HasGenerate() {
+		if p.HasMutate() || p.HasVerifyImages() || p.HasGenerate() {
 			if p.Spec.FailurePolicy != nil && *p.Spec.FailurePolicy == kyverno.Ignore {
 				m.mergeWebhook(mutateIgnore, p, false)
 			} else {
@@ -663,7 +670,8 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.Cluste
 		}
 
 		if (updateValidate && rule.HasValidate()) ||
-			(!updateValidate && rule.HasMutate()) {
+			(!updateValidate && rule.HasMutate()) ||
+			(!updateValidate && rule.HasVerifyImages()) {
 			matchedGVK = append(matchedGVK, rule.MatchKinds()...)
 		}
 	}
@@ -678,6 +686,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.Cluste
 			gv, k := common.GetKindFromGVK(gvk)
 			_, gvr, err := m.client.DiscoveryClient.FindResource(gv, k)
 			if err != nil {
+				m.log.Error(err, "unable to convert GVK to GVR", "GVK", gvk)
 				continue
 			}
 			gvrList = append(gvrList, gvr)

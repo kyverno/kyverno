@@ -1,9 +1,75 @@
 ## v1.5.0-rc1
 ### Note
+- The Helm CRDs was switched back to kyverno chart. To upgrade using Helm, please refer to https://github.com/kyverno/website/pull/304.
 - With the change of dynamic webhooks, the readiness of the policy is reflected by `.status.ready`, When ready, it means the policy is ready to serve the admission requests.
 
 ### Deprecation
-- To add a consistent style in flag names the following flags have been deprecated `webhooktimeout`, `gen-workers`,`disable-metrics`, `background-scan`, `auto-update-webhooks`, `profile-port`, `metrics-port` these will be removed in 1.6.0. The new flags are `webhookTimeout`, `genWorkers`, `disablMetrics`, `backgroundScan`, `autoUpdateWebhooks`,`profilePort`, `metricsPort`.
+- To add a consistent style in flag names the following flags have been deprecated `webhooktimeout`, `gen-workers`,`disable-metrics`, `background-scan`, `auto-update-webhooks`, `profile-port`, `metrics-port` these will be removed in 1.6.0. The new flags are `webhookTimeout`, `genWorkers`, `disableMetrics`, `backgroundScan`, `autoUpdateWebhooks`,`profilePort`, `metricsPort` (#1991).
+
+### Features
+- Feature/foreach validate #2443
+- Feature/foreach mutate #2493
+- Feature/cosign attest #2487
+- Make webhooks configurable #1981
+- FailurePolicy `Ignore` vs `enforcing` policies #893
+- Make failurePolicy configurable per Kyverno policy #1995
+- Add feature gate flag "auto-update-webhooks" #2321
+- Extend the "kyverno test" command to handle mutate policies #1821
+
+### Enhancements
+- Integrate Github Action #2349
+- Use a custom repository with verifyImages #2294
+- Add pod anti-affinity to Kyverno #1966
+- Rename 'policies.kyverno.io/patches' to reflect actual functionality #1528
+- Add global variables to CLI #1472
+- Allow configuration of test image through chart values #2410
+- Switch Helm CRDs back to kyverno chart and moving Policies to dedicated chart #2355
+- Updating Contribution Markdown #2450
+- Validate GVK in `match`/`exclude` block #2389
+- Add `PodDisruptionBudget` in Kustomize & Helm #1979
+- Upgrade Kyverno managed webhook configurations to v1 #2424
+- Allow background scanning if only request.operation is used in preconditions #1883
+- Add security vulnerability scan for the kyverno images #1557
+- Run vulnerability scan during Kyverno builds #2432
+- Sign Kyverno images and generate SBOM #2175
+- Make flag name styles consistent #1991
+- Improve init container to use DeleteCollection to remove policy reports #2477
+- Leader election for initContianer #1965
+- Sample policies should have related CLI apply/test #1994
+
+
+### Bug Fixes
+- Autogen-controllers does not work with "any" rules #2337
+- Use `patchesJson6902` where path contains a non-zero index number causes validation failure #2100
+- CLI apply command - not filtering the resources from cluster #2417
+- Kyverno ConfigMap name not consistent in Helm/Docs and install.yaml #2347
+- Fixing helm chart documentation inconsistency #2419
+- Create/Update policy failing with custom JMESPath #2409
+- GenerateRequests are not cleaned up #2332
+- NetworkPolicy: from should be an array of objects #2423
+- Kyverno misinterprets pod spec environment variable placeholders as references #2413
+- CLI | skipped policy message is displayed even if variable is passed #2445
+- Update minio to address vulnerabilities #1953
+- No warning about background mode when using `any` / `all` in `match` or `exclude` blocks #2300
+- Flaky unit test #2406
+- Generating a Kyverno Policy throws error "Policy is unstructured" #2155
+- Network policy is not getting generated on creation of a pod #2095
+- Namespace generate policy fails with `request.operation` precondition #2226
+- Fix `any`/`all` matching logic in the background controller #2386
+- Run code-generator for 1.5 schema changes #2465
+- Generate policies with no Namespace field #2333
+- Excluding clusterRoles does not work if nested under any or all #2301
+- Fix auto-gen for `validate.foreach` #2464
+- "Auto-gen rules for pod controllers" fails when matching kind is "v1/Pod" #2415
+- Set Namespace environment variable for initContainer #2499
+
+
+### Others
+- Cannot add label to nodes #2397
+- Purge grafana dashboard json from this project #2399
+
+
+Thanks to all our contributors! 😊
 
 ## v1.4.3
 

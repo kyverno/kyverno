@@ -403,6 +403,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 			if rule.Type != utils.Mutation.String() {
 				continue
 			}
+
 			var resultsKey []string
 			var resultKey string
 
@@ -415,15 +416,25 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 				} else {
 					continue
 				}
-				var x string
-				for _, path := range patcheResourcePath {
-					result.Result = report.StatusFail
-					x = getAndComparePatchedResource(path, resp.PatchedResource, isGit, policyResourcePath, fs)
-					if x == "pass" {
-						result.Result = report.StatusPass
-						break
+
+				if rule.Status == response.RuleStatusSkip {
+					result.Result = report.StatusSkip
+
+				} else if rule.Status == response.RuleStatusError {
+					result.Result = report.StatusError
+
+				} else {
+					var x string
+					for _, path := range patcheResourcePath {
+						result.Result = report.StatusFail
+						x = getAndComparePatchedResource(path, resp.PatchedResource, isGit, policyResourcePath, fs)
+						if x == "pass" {
+							result.Result = report.StatusPass
+							break
+						}
 					}
 				}
+
 				results[resultKey] = result
 			}
 		}
@@ -648,6 +659,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			pvInfos = append(pvInfos, info)
 		}
 	}
+
 	resultsMap, testResults := buildPolicyResults(engineResponses, values.Results, pvInfos, policyResourcePath, fs, isGit)
 	resultErr := printTestResult(resultsMap, testResults, rc)
 	if resultErr != nil {

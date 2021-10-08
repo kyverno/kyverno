@@ -1531,6 +1531,14 @@ spec:
                                         - NotEquals
                                         - In
                                         - NotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
                                         type: string
                                       value:
                                         description: Value is the conditional value,
@@ -1563,6 +1571,14 @@ spec:
                                         - NotEquals
                                         - In
                                         - NotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
                                         type: string
                                       value:
                                         description: Value is the conditional value,
@@ -1755,6 +1771,14 @@ spec:
                                         - NotEquals
                                         - In
                                         - NotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
                                         type: string
                                       value:
                                         description: Value is the conditional value,
@@ -1787,6 +1811,14 @@ spec:
                                         - NotEquals
                                         - In
                                         - NotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
                                         type: string
                                       value:
                                         description: Value is the conditional value,
@@ -1867,6 +1899,14 @@ spec:
                                               - NotEquals
                                               - In
                                               - NotIn
+                                              - GreaterThanOrEquals
+                                              - GreaterThan
+                                              - LessThanOrEquals
+                                              - LessThan
+                                              - DurationGreaterThanOrEquals
+                                              - DurationGreaterThan
+                                              - DurationLessThanOrEquals
+                                              - DurationLessThan
                                               type: string
                                             value:
                                               description: Value is the conditional
@@ -1901,6 +1941,14 @@ spec:
                                               - NotEquals
                                               - In
                                               - NotIn
+                                              - GreaterThanOrEquals
+                                              - GreaterThan
+                                              - LessThanOrEquals
+                                              - LessThan
+                                              - DurationGreaterThanOrEquals
+                                              - DurationGreaterThan
+                                              - DurationLessThanOrEquals
+                                              - DurationLessThan
                                               type: string
                                             value:
                                               description: Value is the conditional
