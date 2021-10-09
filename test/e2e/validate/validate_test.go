@@ -102,6 +102,17 @@ func Test_Validate_Flux_Sets(t *testing.T) {
 			Expect(err).To(HaveOccurred())
 		}
 
+		// Create Helm resource
+		helmGVR := e2e.GetGVR("helm.toolkit.fluxcd.io", "v1beta1", "helm")
+		By(fmt.Sprintf("Creating Helm resource in \"%s\"", nspace))
+		_, err = e2eClient.CreateNamespacedResourceYaml(helmGVR, nspace, test.ResourceRaw)
+
+		if test.MustSucceed {
+			Expect(err).NotTo(HaveOccurred())
+		} else {
+			Expect(err).To(HaveOccurred())
+		}
+
 		//CleanUp Resources
 		e2eClient.CleanClusterPolicies(policyGVR)
 
