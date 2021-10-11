@@ -226,11 +226,11 @@ func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path stri
 func applyOverlayToArray(resource, overlay []interface{}, path string) ([][]byte, error) {
 	var appliedPatches [][]byte
 
-	if 0 == len(overlay) {
+	if len(overlay) == 0 {
 		return nil, errors.New("Empty array detected in the overlay")
 	}
 
-	if 0 == len(resource) {
+	if len(resource) == 0 {
 		// If array resource is empty, insert part from overlay
 		patch, err := insertSubtree(overlay, path)
 		if err != nil {

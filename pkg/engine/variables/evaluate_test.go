@@ -1562,7 +1562,7 @@ func Test_Eval_Equal_Var_Pass(t *testing.T) {
 	err = json.Unmarshal(conditionJSON, &conditionMap)
 	assert.Nil(t, err)
 
-	conditionWithResolvedVars, err := SubstituteAllInPreconditions(log.Log, ctx, conditionMap)
+	conditionWithResolvedVars, _ := SubstituteAllInPreconditions(log.Log, ctx, conditionMap)
 	conditionJSON, err = json.Marshal(conditionWithResolvedVars)
 	assert.Nil(t, err)
 
