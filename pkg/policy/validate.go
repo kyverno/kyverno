@@ -93,7 +93,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 
 		if jsonPatchOnPod(rule) {
-			log.Log.V(1).Info("pods managed by workload controllers cannot be mutated using policies. Use the auto-gen feature or write policies that match pod controllers.")
+			log.Log.V(1).Info("pods managed by workload controllers cannot be mutated using policies, use the auto-gen feature or write policies that match pod controllers")
 		}
 		// validate resource description
 		if path, err := validateResources(rule); err != nil {
@@ -197,7 +197,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 
 		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
-			return fmt.Errorf("wildcards (*) are currently not supported in the match.resources.kinds field. at least one resource kind must be specified in a kind block.")
+			return fmt.Errorf("wildcards (*) are currently not supported in the match.resources.kinds field, at least one resource kind must be specified in a kind block")
 		}
 
 		// Validate Kind with match resource kinds
@@ -653,11 +653,11 @@ func validateResources(rule kyverno.Rule) (string, error) {
 	}
 
 	if len(rule.MatchResources.Any) > 0 && len(rule.MatchResources.All) > 0 {
-		return "match.", fmt.Errorf("can't specify any and all together.")
+		return "match.", fmt.Errorf("can't specify any and all together")
 	}
 
 	if len(rule.ExcludeResources.Any) > 0 && len(rule.ExcludeResources.All) > 0 {
-		return "match.", fmt.Errorf("can't specify any and all together.")
+		return "match.", fmt.Errorf("can't specify any and all together")
 	}
 
 	if len(rule.MatchResources.Any) > 0 {
