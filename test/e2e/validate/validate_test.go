@@ -19,8 +19,6 @@ var (
 	policyGVR = e2e.GetGVR("kyverno.io", "v1", "clusterpolicies")
 	// Namespace GVR
 	namespaceGVR = e2e.GetGVR("", "v1", "namespaces")
-	// ConfigMap GVR
-	cmGVR = e2e.GetGVR("", "v1", "configmaps")
 
 	crdGVR = e2e.GetGVR("apiextensions.k8s.io", "v1", "customresourcedefinitions")
 
