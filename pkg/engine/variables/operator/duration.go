@@ -71,7 +71,7 @@ func (doh DurationOperatorHandler) validateValueWithIntPattern(key int64, value 
 		if err == nil {
 			return durationCompareByCondition(time.Duration(key)*time.Second, duration, doh.condition, &doh.log)
 		}
-		doh.log.Error(fmt.Errorf("Parse Error: "), "Failed to parse time duration from the string value")
+		doh.log.Error(fmt.Errorf("parse error: "), "Failed to parse time duration from the string value")
 		return false
 	default:
 		doh.log.Info("Unexpected type", "value", value, "type", fmt.Sprintf("%T", value))
@@ -92,7 +92,7 @@ func (doh DurationOperatorHandler) validateValueWithFloatPattern(key float64, va
 		if err == nil {
 			return durationCompareByCondition(time.Duration(key)*time.Second, duration, doh.condition, &doh.log)
 		}
-		doh.log.Error(fmt.Errorf("Parse Error: "), "Failed to parse time duration from the string value")
+		doh.log.Error(fmt.Errorf("parse error: "), "Failed to parse time duration from the string value")
 		return false
 	default:
 		doh.log.Info("Unexpected type", "value", value, "type", fmt.Sprintf("%T", value))
@@ -118,7 +118,7 @@ func (doh DurationOperatorHandler) validateValueWithStringPattern(key string, va
 		if err == nil {
 			return durationCompareByCondition(duration, durationValue, doh.condition, &doh.log)
 		}
-		doh.log.Error(fmt.Errorf("Parse Error: "), "Failed to parse time duration from the string value")
+		doh.log.Error(fmt.Errorf("parse error: "), "Failed to parse time duration from the string value")
 		return false
 	default:
 		doh.log.Info("Unexpected type", "value", value, "type", fmt.Sprintf("%T", value))

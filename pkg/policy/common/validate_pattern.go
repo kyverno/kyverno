@@ -31,7 +31,7 @@ func validateMap(patternMap map[string]interface{}, path string, supportedAnchor
 		// single char ()
 		re, err := regexp.Compile(`^.?\(.+\)$`)
 		if err != nil {
-			return path + "/" + key, fmt.Errorf("Unable to parse the field %s: %v", key, err)
+			return path + "/" + key, fmt.Errorf("unable to parse the field %s: %v", key, err)
 		}
 
 		matched := re.MatchString(key)
@@ -40,7 +40,7 @@ func validateMap(patternMap map[string]interface{}, path string, supportedAnchor
 			// some type of anchor
 			// check if valid anchor
 			if !checkAnchors(key, supportedAnchors) {
-				return path + "/" + key, fmt.Errorf("Unsupported anchor %s", key)
+				return path + "/" + key, fmt.Errorf("unsupported anchor %s", key)
 			}
 
 			// addition check for existence anchor
@@ -48,11 +48,11 @@ func validateMap(patternMap map[string]interface{}, path string, supportedAnchor
 			if commonAnchors.IsExistenceAnchor(key) {
 				typedValue, ok := value.([]interface{})
 				if !ok {
-					return path + "/" + key, fmt.Errorf("Existence anchor should have value of type list")
+					return path + "/" + key, fmt.Errorf("existence anchor should have value of type list")
 				}
 				// validate that there is atleast one entry in the list
 				if len(typedValue) == 0 {
-					return path + "/" + key, fmt.Errorf("Existence anchor: should have atleast one value")
+					return path + "/" + key, fmt.Errorf("existence anchor: should have atleast one value")
 				}
 			}
 		}
