@@ -29,7 +29,6 @@ func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
 			if retryCount >= 5 {
 				deleteGR = true
 			}
-			// sleepCountInt := int(sleepCountInt64)
 		}
 
 		if deleteGR {
