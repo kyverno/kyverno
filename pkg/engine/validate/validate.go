@@ -8,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/common"
-	"github.com/kyverno/kyverno/pkg/engine/operator"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 )
 
@@ -240,12 +239,4 @@ func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patter
 		}
 	}
 	return "", nil
-}
-
-func isStringIsReference(str string) bool {
-	if len(str) < len(operator.ReferenceSign) {
-		return false
-	}
-
-	return str[0] == '$' && str[1] == '(' && str[len(str)-1] == ')'
 }

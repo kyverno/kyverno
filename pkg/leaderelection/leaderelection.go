@@ -38,7 +38,6 @@ type Interface interface {
 type Config struct {
 	name              string
 	namespace         string
-	id                string
 	startWork         func()
 	stopWork          func()
 	kubeClient        kubernetes.Interface
