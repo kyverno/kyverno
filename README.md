@@ -15,13 +15,6 @@
 Kyverno is a policy engine designed for Kubernetes. It can validate, mutate, and generate configurations using admission controls and background scans. Kyverno policies are Kubernetes resources and do not require learning a new language. Kyverno is designed to work nicely with tools you already use like kubectl, kustomize, and Git.
 </p>
 
-## Contributors
-<a href="https://github.com/kyverno/kyverno/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=kyverno/kyverno" />
-</a>
-
-Made with [contributors-img](https://contrib.rocks).
-
 ## 📙 Documentation 
 
 Kyverno installation and reference documents are available at: <a href="https://kyverno.io/">kyverno.io</a>. 
@@ -62,6 +55,15 @@ Thanks for your interest in contributing to Kyverno! Here are some steps to help
 
 
 
+## Contributors
+
+Kyverno is built and maintained by our growing community of contributors!
+
+<a href="https://github.com/kyverno/kyverno/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=kyverno/kyverno" />
+</a>
+
+Made with [contributors-img](https://contrib.rocks).
 
 
 
