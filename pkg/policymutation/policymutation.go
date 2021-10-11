@@ -726,7 +726,16 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 
 	if rule.Mutation.ForEachMutation != nil && rule.Mutation.ForEachMutation.PatchStrategicMerge != nil {
 		newForeachMutation := &kyverno.Mutation{
-			ForEachMutation: rule.Mutation.ForEachMutation,
+			ForEachMutation: &kyverno.ForEachMutation{
+				List:             rule.Mutation.ForEachMutation.List,
+				Context:          rule.Mutation.ForEachMutation.Context,
+				AnyAllConditions: rule.Mutation.ForEachMutation.AnyAllConditions,
+				PatchStrategicMerge: map[string]interface{}{
+					"spec": map[string]interface{}{
+						"template": rule.Mutation.ForEachMutation.PatchStrategicMerge,
+					},
+				},
+			},
 		}
 		controllerRule.Mutation = newForeachMutation.DeepCopy()
 		return *controllerRule
@@ -745,15 +754,6 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		return *controllerRule
 	}
 
-	if rule.Validation.ForEachValidation != nil && rule.Validation.ForEachValidation.Pattern != nil {
-		newForeachValidate := &kyverno.Validation{
-			Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
-			ForEachValidation: rule.Validation.ForEachValidation,
-		}
-		controllerRule.Validation = newForeachValidate.DeepCopy()
-		return *controllerRule
-	}
-
 	if rule.Validation.AnyPattern != nil {
 
 		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
@@ -769,15 +769,16 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		return *controllerRule
 	}
 
-	if rule.Validation.ForEachValidation != nil && rule.Validation.ForEachValidation.AnyPattern != nil {
-		controllerRule.Validation = &kyverno.Validation{
+	if rule.Validation.ForEachValidation != nil && rule.Validation.ForEachValidation.Pattern != nil {
+		newForeachValidate := &kyverno.Validation{
 			Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
 			ForEachValidation: rule.Validation.ForEachValidation,
 		}
+		controllerRule.Validation = newForeachValidate.DeepCopy()
 		return *controllerRule
 	}
 
-	if rule.Validation.ForEachValidation != nil && rule.Validation.ForEachValidation.Deny != nil {
+	if rule.Validation.ForEachValidation != nil && rule.Validation.ForEachValidation.AnyPattern != nil {
 		controllerRule.Validation = &kyverno.Validation{
 			Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
 			ForEachValidation: rule.Validation.ForEachValidation,
