@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,7 +39,47 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	resource, err = getResource(c.client, gr.Spec.Resource, c.log)
 	if err != nil {
 		// Don't update status
-		logger.V(3).Info("resource does not exist or is pending creation, re-queueing", "details", err.Error())
+		// re-queueing the GR by updating the annotation
+		// retry - 5 times
+		logger.V(3).Info("resource does not exist or is pending creation, re-queueing", "details", err.Error(), "retry")
+		updateAnnotation := true
+		grAnnotations := gr.Annotations
+
+		if len(grAnnotations) == 0 {
+			grAnnotations = make(map[string]string)
+			grAnnotations["generate.kyverno.io/retry-count"] = "1"
+		} else {
+			if val, ok := grAnnotations["generate.kyverno.io/retry-count"]; ok {
+				sleepCountInt64, err := strconv.ParseUint(val, 10, 32)
+				if err != nil {
+					logger.Error(err, "unable to convert retry-count")
+					return err
+				}
+
+				sleepCountInt := int(sleepCountInt64) + 1
+				if sleepCountInt > 5 {
+					updateAnnotation = false
+				} else {
+					time.Sleep(time.Second * time.Duration(sleepCountInt))
+					incrementedCountString := strconv.Itoa(sleepCountInt)
+					grAnnotations["generate.kyverno.io/retry-count"] = incrementedCountString
+				}
+
+			} else {
+				time.Sleep(time.Second * 1)
+				grAnnotations["generate.kyverno.io/retry-count"] = "1"
+			}
+		}
+
+		if updateAnnotation {
+			gr.SetAnnotations(grAnnotations)
+			_, err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(contextdefault.TODO(), gr, metav1.UpdateOptions{})
+			if err != nil {
+				logger.Error(err, "failed to update annotation in generate request for the resource", "generate request", gr.Name)
+				return err
+			}
+		}
+
 		return err
 	}
 

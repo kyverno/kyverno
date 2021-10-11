@@ -170,6 +170,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 		}
 
 		for _, gr := range grs {
+			logger.V(4).Info("enqueue the gr for cleanup", "gr name", gr.Name)
 			c.addGR(gr)
 		}
 	}
