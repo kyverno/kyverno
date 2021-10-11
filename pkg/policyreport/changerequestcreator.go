@@ -52,12 +52,19 @@ func newChangeRequestCreator(client *dclient.Client, tickerInterval time.Duratio
 
 func (c *changeRequestCreator) add(request *unstructured.Unstructured) {
 	uid, _ := rand.Int(rand.Reader, big.NewInt(100000))
+	var err error
 
 	switch request.GetKind() {
 	case "ClusterReportChangeRequest":
-		c.CRCRCache.Add(uid.String(), request, cache.NoExpiration)
+		err = c.CRCRCache.Add(uid.String(), request, cache.NoExpiration)
+		if err != nil {
+			c.log.Error(err, "failed to add ClusterReportChangeRequest to cache")
+		}
 	case "ReportChangeRequest":
-		c.RCRCache.Add(uid.String(), request, cache.NoExpiration)
+		err = c.RCRCache.Add(uid.String(), request, cache.NoExpiration)
+		if err != nil {
+			c.log.Error(err, "failed to add ReportChangeRequest to cache")
+		}
 	default:
 		return
 	}
@@ -204,15 +211,15 @@ func merge(dst, src *unstructured.Unstructured) bool {
 			dstResults = append(dstResults, srcResults...)
 
 			if err := unstructured.SetNestedSlice(dst.UnstructuredContent(), dstResults, "results"); err == nil {
-				addSummary(dst, src)
-				return true
+				err = addSummary(dst, src)
+				return err == nil
 			}
 		}
 	}
 	return false
 }
 
-func addSummary(dst, src *unstructured.Unstructured) {
+func addSummary(dst, src *unstructured.Unstructured) error {
 	if dstSum, ok, _ := unstructured.NestedMap(dst.UnstructuredContent(), "summary"); ok {
 		if srcSum, ok, _ := unstructured.NestedMap(src.UnstructuredContent(), "summary"); ok {
 			for key, dstVal := range dstSum {
@@ -223,8 +230,9 @@ func addSummary(dst, src *unstructured.Unstructured) {
 				}
 			}
 		}
-		unstructured.SetNestedMap(dst.UnstructuredContent(), dstSum, "summary")
+		return unstructured.SetNestedMap(dst.UnstructuredContent(), dstSum, "summary")
 	}
+	return nil
 }
 
 func isDeleteRequest(request *unstructured.Unstructured) bool {

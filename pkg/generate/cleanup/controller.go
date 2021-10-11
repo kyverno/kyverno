@@ -342,7 +342,10 @@ func (c *Controller) syncGenerateRequest(key string) error {
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
-		c.control.Delete(gr.Name)
+		err = c.control.Delete(gr.Name)
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 	return c.processGR(*gr)

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
-	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
@@ -331,7 +330,6 @@ func printReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 	}
 
 	if policyReport {
-		os.Setenv("POLICY-TYPE", pkgCommon.PolicyReport)
 		resps := buildPolicyReports(pvInfos)
 		if len(resps) > 0 || resourcesLen == 0 {
 			fmt.Println("\n----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
