@@ -595,7 +595,10 @@ func (ws *WebhookServer) Stop(ctx context.Context) {
 	if err != nil {
 		// Error from closing listeners, or context timeout:
 		logger.Error(err, "shutting down server")
-		ws.server.Close()
+		err = ws.server.Close()
+		if err != nil {
+			logger.Error(err, "server shut down failed")
+		}
 	}
 }
 

@@ -12,7 +12,10 @@ type buffer struct {
 
 func (buff buffer) UnmarshalJSON(b []byte) error {
 	buff.Reset()
-	buff.Write(b)
+	_, err := buff.Write(b)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
