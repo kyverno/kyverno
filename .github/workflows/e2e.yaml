@@ -74,19 +74,14 @@ jobs:
       - name: e2e testing
         run: |
           echo ">>> Install Kyverno"
-          sed 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' ${GITHUB_WORKSPACE}/definitions/install.yaml | sed 's/v=2/v=9/g' | kubectl apply -f -
+          sed 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' ${GITHUB_WORKSPACE}/definitions/install.yaml | kubectl apply -f -
           kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/rbac.yaml
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
           sleep 50
           echo ">>> Check kyverno"
           kubectl get pods -n kyverno
-          echo "----------------------------------------------"
-          echo "Deployment file from kubernetes"
-          kubectl get deployments/kyverno -n kyverno -o yaml 
-          echo "----------------------------------------------"
           ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh -n kyverno  kyverno
           sleep 20
-          kubectl -n kyverno logs deployments/kyverno -f & 
           echo ">>> Expose the Kyverno's service's metric server to the host"
           kubectl port-forward svc/kyverno-svc-metrics -n kyverno 8000:8000 &
           echo ">>> Run Kyverno e2e test"
