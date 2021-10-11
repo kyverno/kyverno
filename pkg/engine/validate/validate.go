@@ -180,7 +180,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 func getValueFromPattern(log logr.Logger, patternMap map[string]interface{}, keys []string, currentKeyIndex int) (interface{}, error) {
 
 	for key, pattern := range patternMap {
-		rawKey := getRawKeyIfWrappedWithAttributes(key)
+		rawKey := common.GetRawKeyIfWrappedWithAttributes(key)
 
 		if rawKey == keys[len(keys)-1] && currentKeyIndex == len(keys)-1 {
 			return pattern, nil

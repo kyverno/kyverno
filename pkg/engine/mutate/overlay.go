@@ -13,6 +13,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
+	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -426,7 +427,7 @@ func removeAnchorFromSubTree(overlay interface{}) interface{} {
 func removeAnchroFromMap(overlay map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range overlay {
-		result[getRawKeyIfWrappedWithAttributes(k)] = removeAnchorFromSubTree(v)
+		result[common.GetRawKeyIfWrappedWithAttributes(k)] = removeAnchorFromSubTree(v)
 	}
 	return result
 }

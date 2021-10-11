@@ -2,15 +2,16 @@ package engine
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/pkg/errors"
-	"reflect"
-	"strings"
-	"time"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"

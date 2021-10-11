@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-logr/logr"
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
-	certificates "k8s.io/api/certificates/v1beta1"
 	helperv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -193,15 +192,6 @@ func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
 		return nil
 	}
 	return &unstructured.Unstructured{Object: unstructuredObj}
-}
-
-//To-Do remove this to use unstructured type
-func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSigningRequest, error) {
-	csr := certificates.CertificateSigningRequest{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &csr); err != nil {
-		return nil, err
-	}
-	return &csr, nil
 }
 
 //IDiscovery provides interface to mange Kind and GVR mapping
