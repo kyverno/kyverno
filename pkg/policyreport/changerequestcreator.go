@@ -117,7 +117,7 @@ func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstruct
 	defer c.mutex.Unlock()
 
 	mergedCRCR := &unstructured.Unstructured{}
-	mergedRCR := make(map[string]*unstructured.Unstructured, 0)
+	mergedRCR := make(map[string]*unstructured.Unstructured)
 	size = len(c.queue)
 
 	for _, uid := range c.queue {

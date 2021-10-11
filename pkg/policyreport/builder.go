@@ -347,7 +347,7 @@ func (builder *requestBuilder) fetchAnnotations(policy, ns string) map[string]st
 		}
 	}
 
-	return make(map[string]string, 0)
+	return make(map[string]string)
 }
 
 func isResourceDeletion(info Info) bool {
