@@ -107,6 +107,11 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
 
+		err := validateElementInForEach(rule)
+		if err != nil {
+			return err
+		}
+
 		if err := validateRuleContext(rule); err != nil {
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
@@ -336,6 +341,21 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 	}
 
 	return nil
+}
+
+func validateElementInForEach(document apiextensions.JSON) error {
+	jsonByte, err := json.Marshal(document)
+	if err != nil {
+		return err
+	}
+
+	var jsonInterface interface{}
+	err = json.Unmarshal(jsonByte, &jsonInterface)
+	if err != nil {
+		return err
+	}
+	_, err = variables.ValidateElementInForEach(log.Log, jsonInterface)
+	return err
 }
 
 func validateMatchKindHelper(rule kyverno.Rule) error {

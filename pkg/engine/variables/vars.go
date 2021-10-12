@@ -203,6 +203,10 @@ func ValidateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface, rule
 	return jsonUtils.NewTraversal(rule, validateBackgroundModeVars(log, ctx)).TraverseJSON()
 }
 
+func ValidateElementInForEach(log logr.Logger, rule interface{}) (interface{}, error) {
+	return jsonUtils.NewTraversal(rule, validateElementInForEach(log)).TraverseJSON()
+}
+
 func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) jsonUtils.Action {
 	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
@@ -223,6 +227,24 @@ func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) json
 				default:
 					return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
 				}
+			}
+		}
+		return nil, nil
+	})
+}
+
+func validateElementInForEach(log logr.Logger) jsonUtils.Action {
+	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
+		value, ok := data.Element.(string)
+		if !ok {
+			return data.Element, nil
+		}
+		vars := RegexVariables.FindAllString(value, -1)
+		for _, v := range vars {
+			variable := replaceBracesAndTrimSpaces(v)
+
+			if strings.HasPrefix(variable, "element") && !strings.Contains(data.Path, "/foreach/") {
+				return nil, fmt.Errorf("variable '%v' present outside of foreach at path %s", variable, data.Path)
 			}
 		}
 		return nil, nil
