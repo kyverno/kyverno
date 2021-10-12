@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -99,7 +100,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		if rule.Mutation.ForEachMutation != nil {
 			ruleResp, patchedResource = mutateForEachResource(ruleCopy, policyContext, patchedResource, logger)
 		} else {
-			err, mutateResp := mutateResource(ruleCopy, policyContext.JSONContext, patchedResource, logger)
+			err, mutateResp := mutateResource(ruleCopy, policyContext.JSONContext, patchedResource, logger, nil)
 			if err != nil {
 				if mutateResp.skip {
 					ruleResp = ruleResponse(&rule, utils.Mutation, err.Error(), response.RuleStatusSkip)
@@ -142,6 +143,7 @@ func mutateForEachResource(rule *kyverno.Rule, ctx *PolicyContext, resource unst
 	allPatches := make([][]byte, 0)
 
 	for _, foreach := range foreachList {
+
 		if err := LoadContext(logger, foreach.Context, ctx.ResourceCache, ctx, rule.Name); err != nil {
 			logger.Error(err, "failed to load context")
 			return ruleError(rule, utils.Mutation, "failed to load context", err), resource
@@ -173,7 +175,7 @@ func mutateForEachResource(rule *kyverno.Rule, ctx *PolicyContext, resource unst
 			}
 
 			var skip = false
-			err, mutateResp := mutateResource(rule, ctx.JSONContext, patchedResource, logger)
+			err, mutateResp := mutateResource(rule, ctx.JSONContext, patchedResource, logger, foreach.PatchStrategicMerge)
 			if err != nil && !skip {
 				return ruleResponse(rule, utils.Mutation, err.Error(), response.RuleStatusError), resource
 			}
@@ -203,7 +205,7 @@ type mutateResponse struct {
 	message         string
 }
 
-func mutateResource(rule *kyverno.Rule, ctx *context.Context, resource unstructured.Unstructured, logger logr.Logger) (error, *mutateResponse) {
+func mutateResource(rule *kyverno.Rule, ctx *context.Context, resource unstructured.Unstructured, logger logr.Logger, foreachPatch apiextensions.JSON) (error, *mutateResponse) {
 	mutateResp := &mutateResponse{false, unstructured.Unstructured{}, nil, ""}
 	anyAllConditions, err := variables.SubstituteAllInPreconditions(logger, ctx, rule.AnyAllConditions)
 	if err != nil {
@@ -225,8 +227,9 @@ func mutateResource(rule *kyverno.Rule, ctx *context.Context, resource unstructu
 	}
 
 	mutation := updatedRule.Mutation.DeepCopy()
-	mutateHandler := mutate.CreateMutateHandler(updatedRule.Name, mutation, resource, ctx, logger)
+	mutateHandler := mutate.CreateMutateHandler(updatedRule.Name, mutation, resource, ctx, logger, foreachPatch)
 	resp, patchedResource := mutateHandler.Handle()
+
 	if resp.Status == response.RuleStatusPass {
 		// - overlay pattern does not match the resource conditions
 		if resp.Patches == nil {

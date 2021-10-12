@@ -6,6 +6,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -15,7 +16,7 @@ type Handler interface {
 }
 
 // CreateMutateHandler initilizes a new instance of mutation handler
-func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
+func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger, foreachPatch apiextensions.JSON) Handler {
 
 	switch {
 	case isPatchStrategicMerge(mutate):
@@ -31,7 +32,7 @@ func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResou
 	case isPatches(mutate):
 		return newPatchesHandler(ruleName, mutate, patchedResource, context, logger)
 	case isForEach(mutate):
-		return newForEachHandler(ruleName, mutate, patchedResource, context, logger)
+		return newForEachHandler(ruleName, mutate, patchedResource, context, logger, foreachPatch)
 	default:
 		return newEmptyHandler(patchedResource)
 	}
@@ -66,26 +67,24 @@ type forEachHandler struct {
 	patchedResource unstructured.Unstructured
 	evalCtx         context.EvalInterface
 	logger          logr.Logger
+	foreachPatch    interface{}
 }
 
-func newForEachHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
+func newForEachHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger, foreachPatch apiextensions.JSON) Handler {
 	return forEachHandler{
 		ruleName:        ruleName,
 		mutation:        mutate,
 		patchedResource: patchedResource,
 		evalCtx:         context,
 		logger:          logger,
+		foreachPatch:    foreachPatch,
 	}
 }
 
 func (h forEachHandler) Handle() (response.RuleResponse, unstructured.Unstructured) {
-	var response response.RuleResponse
-	patchRes := h.patchedResource
-	for _, foreach := range h.mutation.ForEachMutation {
-		response, patchRes = ProcessStrategicMergePatch(h.ruleName, foreach.PatchStrategicMerge, patchRes, h.logger)
-	}
+	//var response response.RuleResponse
+	return ProcessStrategicMergePatch(h.ruleName, h.foreachPatch, h.patchedResource, h.logger)
 
-	return response, patchRes
 }
 
 // overlayHandler
