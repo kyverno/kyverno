@@ -223,7 +223,7 @@ func (eh ExistenceHandler) Handle(handler resourceElementHandler, resourceMap ma
 		case []interface{}:
 			typedPattern, ok := eh.pattern.([]interface{})
 			if !ok {
-				return currentPath, fmt.Errorf("Invalid pattern type %T: Pattern has to be of list to compare against resource", eh.pattern)
+				return currentPath, fmt.Errorf("invalid pattern type %T: Pattern has to be of list to compare against resource", eh.pattern)
 			}
 			// loop all item in the pattern array
 			errorPath := ""
@@ -231,7 +231,7 @@ func (eh ExistenceHandler) Handle(handler resourceElementHandler, resourceMap ma
 			for _, patternMap := range typedPattern {
 				typedPatternMap, ok := patternMap.(map[string]interface{})
 				if !ok {
-					return currentPath, fmt.Errorf("Invalid pattern type %T: Pattern has to be of type map to compare against items in resource", eh.pattern)
+					return currentPath, fmt.Errorf("invalid pattern type %T: Pattern has to be of type map to compare against items in resource", eh.pattern)
 				}
 				errorPath, err = validateExistenceListResource(handler, typedResource, typedPatternMap, originPattern, currentPath, ac)
 				if err != nil {
@@ -240,7 +240,7 @@ func (eh ExistenceHandler) Handle(handler resourceElementHandler, resourceMap ma
 			}
 			return errorPath, err
 		default:
-			return currentPath, fmt.Errorf("Invalid resource type %T: Existence ^ () anchor can be used only on list/array type resource", value)
+			return currentPath, fmt.Errorf("invalid resource type %T: Existence ^ () anchor can be used only on list/array type resource", value)
 		}
 	}
 	return "", nil
@@ -258,7 +258,7 @@ func validateExistenceListResource(handler resourceElementHandler, resourceList 
 		}
 	}
 	// none of the existence checks worked, so thats a failure sceanario
-	return path, fmt.Errorf("Existence anchor validation failed at path %s", path)
+	return path, fmt.Errorf("existence anchor validation failed at path %s", path)
 }
 
 //GetAnchorsResourcesFromMap returns map of anchors

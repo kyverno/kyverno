@@ -157,7 +157,7 @@ func (c *Client) CreateResource(apiVersion string, kind string, namespace string
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
 		return c.getResourceInterface(apiVersion, kind, namespace).Create(context.TODO(), unstructuredObj, options)
 	}
-	return nil, fmt.Errorf("Unable to create resource ")
+	return nil, fmt.Errorf("unable to create resource ")
 }
 
 // UpdateResource updates object for the specified resource/namespace
@@ -170,7 +170,7 @@ func (c *Client) UpdateResource(apiVersion string, kind string, namespace string
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
 		return c.getResourceInterface(apiVersion, kind, namespace).Update(context.TODO(), unstructuredObj, options)
 	}
-	return nil, fmt.Errorf("Unable to update resource ")
+	return nil, fmt.Errorf("unable to update resource ")
 }
 
 // UpdateStatusResource updates the resource "status" subresource
@@ -183,7 +183,7 @@ func (c *Client) UpdateStatusResource(apiVersion string, kind string, namespace 
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
 		return c.getResourceInterface(apiVersion, kind, namespace).UpdateStatus(context.TODO(), unstructuredObj, options)
 	}
-	return nil, fmt.Errorf("Unable to update resource ")
+	return nil, fmt.Errorf("unable to update resource ")
 }
 
 func convertToUnstructured(obj interface{}) *unstructured.Unstructured {

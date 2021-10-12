@@ -186,12 +186,12 @@ func generateInClusterServiceName(props CertificateProps) string {
 func tlsCertificateGetExpirationDate(certData []byte) (*time.Time, error) {
 	block, _ := pem.Decode(certData)
 	if block == nil {
-		return nil, errors.New("Failed to decode PEM")
+		return nil, errors.New("failed to decode PEM")
 	}
 
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return nil, errors.New("Failed to parse certificate: %v" + err.Error())
+		return nil, errors.New("failed to parse certificate: %v" + err.Error())
 	}
 	return &cert.NotAfter, nil
 }

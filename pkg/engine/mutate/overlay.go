@@ -180,7 +180,7 @@ func applyOverlayForSameTypes(resource, overlay interface{}, path string) ([][]b
 		}
 		appliedPatches = append(appliedPatches, patch)
 	default:
-		return nil, fmt.Errorf("Overlay has unsupported type: %T", overlay)
+		return nil, fmt.Errorf("overlay has unsupported type: %T", overlay)
 	}
 
 	return appliedPatches, nil
@@ -228,7 +228,7 @@ func applyOverlayToArray(resource, overlay []interface{}, path string) ([][]byte
 	var appliedPatches [][]byte
 
 	if len(overlay) == 0 {
-		return nil, errors.New("Empty array detected in the overlay")
+		return nil, errors.New("empty array detected in the overlay")
 	}
 
 	if len(resource) == 0 {
@@ -243,7 +243,7 @@ func applyOverlayToArray(resource, overlay []interface{}, path string) ([][]byte
 	}
 
 	if reflect.TypeOf(resource[0]) != reflect.TypeOf(overlay[0]) {
-		return nil, fmt.Errorf("Overlay array and resource array have elements of different types: %T and %T", overlay[0], resource[0])
+		return nil, fmt.Errorf("overlay array and resource array have elements of different types: %T and %T", overlay[0], resource[0])
 	}
 
 	return applyOverlayToArrayOfSameTypes(resource, overlay, path)
@@ -360,7 +360,7 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 	// check the patch
 	_, err := jsonpatch.DecodePatch([]byte("[" + patchStr + "]"))
 	if err != nil {
-		return nil, fmt.Errorf("Failed to make '%s' patch from an overlay '%s' for path %s, err: %v", op, value, path, err)
+		return nil, fmt.Errorf("failed to make '%s' patch from an overlay '%s' for path %s, err: %v", op, value, path, err)
 	}
 
 	return []byte(patchStr), nil
