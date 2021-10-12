@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"testing"
 
 	ut "github.com/kyverno/kyverno/pkg/utils"
@@ -265,138 +266,93 @@ spec:
 	assert.NilError(t, err)
 }
 
-func TestNotAllowedVars_InvalidValue(t *testing.T) {
-	var policyYAML = []byte(`
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: mutate-ingress-host
-spec:
-  rules:
-  - name: mutate-rules-host
-    match:
-      resources:
-        kinds:
-        - Ingress
-        namespaces:
-        - test-ingress
-    preconditions:
-      any:
-        - key: "{{ not a valid variable }}"
-          operator: NotEquals
-          value: ""
-    mutate:
-      patchesJson6902: |-
-        - op: replace
-          path: /spec/rules/0/host
-          value: "foo.com"
-`)
+func TestNotAllowedVars_VariableFormats(t *testing.T) {
+	tcs := []struct {
+		name  string
+		input string
+		pass  bool
+	}{
+		{"invalid_var", "not a valid variable", false},
+		{"request_object", "request.object.meta", true},
+		{"service_account_name", "serviceAccountName", true},
+		{"service_account_namespace", "serviceAccountNamespace", true},
+		{"@", "@", true},
+		{"custom_func_compare", "compare(string, string)", true},
+		{"custom_func_contains", "contains(string, string)", true},
+		{"custom_func_equal_fold", "equal_fold(string, string)", true},
+		{"custom_func_replace", "replace(str string, old string, new string, n float64)", true},
+		{"custom_func_replace_all", "replace_all(str string, old string, new string)", true},
+		{"custom_func_to_upper", "to_upper(string)", true},
+		{"custom_func_to_lower", "to_lower(string)", true},
+		{"custom_func_trim", "trim(str string, cutset string)", true},
+		{"custom_func_split", "split(str string, sep string)", true},
+		{"custom_func_regex_replace_all", "regex_replace_all(regex string, src string|number, replace string|number)", true},
+		{"custom_func_regex_replace_all_literal", "regex_replace_all_literal(regex string, src string|number, replace string|number)", true},
+		{"custom_func_regex_match", "regex_match(string, string|number)", true},
+		{"custom_func_label_match", "label_match(object, object)", true},
+		{"abs", "abs(foo, bar)", true},
+		{"avg", "avg(foo, bar)", true},
+		{"contains", "contains(foo, bar)", true},
+		{"ceil", "ceil(foo, bar)", true},
+		{"ends_with", "ends_with(foo, bar)", true},
+		{"floor", "floor(foo, bar)", true},
+		{"join", "join(foo, bar)", true},
+		{"keys", "keys(foo, bar)", true},
+		{"length", "length(foo, bar)", true},
+		{"map", "map(foo, bar)", true},
+		{"max", "max(foo, bar)", true},
+		{"max_by", "max_by(foo, bar)", true},
+		{"merge", "merge(foo, bar)", true},
+		{"min", "min(foo, bar)", true},
+		{"min_by", "min_by(foo, bar)", true},
+		{"not_null", "not_null(foo, bar)", true},
+		{"reverse", "reverse(foo, bar)", true},
+		{"sort", "sort(foo, bar)", true},
+		{"sort_by", "sort_by(foo, bar)", true},
+		{"starts_with", "starts_with(foo, bar)", true},
+		{"sum", "sum(foo, bar)", true},
+		{"to_array", "to_array(foo, bar)", true},
+		{"to_string", "to_string(foo, bar)", true},
+		{"to_number", "to_number(foo, bar)", true},
+		{"type", "type(foo, bar)", true},
+		{"values", "values(foo, bar)", true},
+	}
 
-	policy, err := ut.GetPolicy(policyYAML)
-	assert.NilError(t, err)
+	for _, tc := range tcs {
+		var policyYAML = []byte(fmt.Sprintf(`
+    apiVersion: kyverno.io/v1
+    kind: ClusterPolicy
+    metadata:
+      name: mutate-ingress-host
+    spec:
+      rules:
+      - name: mutate-rules-host
+        match:
+          resources:
+            kinds:
+            - Ingress
+            namespaces:
+            - test-ingress
+        preconditions:
+          any:
+            - key: "{{ %s }}"
+              operator: NotEquals
+              value: ""
+        mutate:
+          patchesJson6902: |-
+            - op: replace
+              path: /spec/rules/0/host
+              value: "foo.com"
+    `, tc.input))
 
-	err = PolicyHasNonAllowedVariables(*policy[0])
-	assert.Assert(t, err != nil)
-}
+		policy, err := ut.GetPolicy(policyYAML)
+		assert.NilError(t, err)
 
-func TestNotAllowedVars_Functions(t *testing.T) {
-	var policyYAML = []byte(`
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: mutate-ingress-host
-spec:
-  rules:
-  - name: mutate-rules-host
-    match:
-      resources:
-        kinds:
-        - Ingress
-        namespaces:
-        - test-ingress
-    preconditions:
-      any:
-        - key: '{{ join(",", [1,2,3]) }}'
-          operator: NotEquals
-          value: ""
-    mutate:
-      patchesJson6902: |-
-        - op: replace
-          path: /spec/rules/0/host
-          value: "foo.com"
-`)
-
-	policy, err := ut.GetPolicy(policyYAML)
-	assert.NilError(t, err)
-
-	err = PolicyHasNonAllowedVariables(*policy[0])
-	assert.NilError(t, err)
-}
-
-func TestNotAllowedVars_CustomFunctions(t *testing.T) {
-	var policyYAML = []byte(`
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: mutate-ingress-host
-spec:
-  rules:
-  - name: mutate-rules-host
-    match:
-      resources:
-        kinds:
-        - Ingress
-        namespaces:
-        - test-ingress
-    preconditions:
-      any:
-        - key: '{{ split("1,2,3", ",")  }}'
-          operator: NotEquals
-          value: ""
-    mutate:
-      patchesJson6902: |-
-        - op: replace
-          path: /spec/rules/0/host
-          value: "foo.com"
-`)
-
-	policy, err := ut.GetPolicy(policyYAML)
-	assert.NilError(t, err)
-
-	err = PolicyHasNonAllowedVariables(*policy[0])
-	assert.NilError(t, err)
-}
-
-func TestNotAllowedVars_FunctionsUnderscore(t *testing.T) {
-	var policyYAML = []byte(`
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: mutate-ingress-host
-spec:
-  rules:
-  - name: mutate-rules-host
-    match:
-      resources:
-        kinds:
-        - Ingress
-        namespaces:
-        - test-ingress
-    preconditions:
-      any:
-        - key: '{{ to_upper("Hello, world") }}'
-          operator: Equals
-          value: "HELLO, WORLD"
-    mutate:
-      patchesJson6902: |-
-        - op: replace
-          path: /spec/rules/0/host
-          value: "foo.com"
-`)
-
-	policy, err := ut.GetPolicy(policyYAML)
-	assert.NilError(t, err)
-
-	err = PolicyHasNonAllowedVariables(*policy[0])
-	assert.NilError(t, err)
+		err = PolicyHasNonAllowedVariables(*policy[0])
+		if tc.pass {
+			assert.NilError(t, err, "%s: not expecting an error", tc.name)
+		} else {
+			assert.Assert(t, err != nil, "%s: was expecting an error", tc.name)
+		}
+	}
 }
