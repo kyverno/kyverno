@@ -79,7 +79,12 @@ func newForEachHandler(ruleName string, mutate *kyverno.Mutation, patchedResourc
 }
 
 func (h forEachHandler) Handle() (response.RuleResponse, unstructured.Unstructured) {
-	return ProcessStrategicMergePatch(h.ruleName, h.mutation.ForEachMutation.PatchStrategicMerge, h.patchedResource, h.logger)
+	var response response.RuleResponse
+	var patchRes unstructured.Unstructured
+	for _, foreach := range h.mutation.ForEachMutation {
+		response, patchRes = ProcessStrategicMergePatch(h.ruleName, foreach.PatchStrategicMerge, h.patchedResource, h.logger)
+	}
+	return response, patchRes
 }
 
 // overlayHandler

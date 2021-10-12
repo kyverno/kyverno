@@ -134,14 +134,6 @@ func (in *Validation) DeserializeAnyPattern() ([]interface{}, error) {
 	return res, nil
 }
 
-func (in *Validation) DeserializeForEachAnyPattern() ([]interface{}, error) {
-	if in.ForEachValidation.AnyPattern == nil {
-		return nil, nil
-	}
-	res, nil := deserializePattern(in.ForEachValidation.AnyPattern)
-	return res, nil
-}
-
 func deserializePattern(pattern apiextensions.JSON) ([]interface{}, error) {
 	anyPattern, err := json.Marshal(pattern)
 	if err != nil {

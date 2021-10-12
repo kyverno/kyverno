@@ -2,9 +2,10 @@ package engine
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/pkg/errors"
-	"time"
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
@@ -131,56 +132,59 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 }
 
 func mutateForEachResource(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
-	foreach := rule.Mutation.ForEachMutation
-	if foreach == nil {
+	foreachList := rule.Mutation.ForEachMutation
+	if foreachList == nil {
 		return nil, resource
 	}
-
-	if err := LoadContext(logger, foreach.Context, ctx.ResourceCache, ctx, rule.Name); err != nil {
-		logger.Error(err, "failed to load context")
-		return ruleError(rule, utils.Mutation, "failed to load context", err), resource
-	}
-
-	preconditionsPassed, err := checkPreconditions(logger, ctx, foreach.AnyAllConditions)
-	if err != nil {
-		return ruleError(rule, utils.Mutation, "failed to evaluate preconditions", err), resource
-	} else if !preconditionsPassed {
-		return ruleResponse(rule, utils.Mutation, "preconditions not met", response.RuleStatusSkip), resource
-	}
-
-	elements, err := evaluateList(foreach.List, ctx.JSONContext)
-	if err != nil {
-		msg := fmt.Sprintf("failed to evaluate list %s", foreach.List)
-		return ruleError(rule, utils.Mutation, msg, err), resource
-	}
-
-	ctx.JSONContext.Checkpoint()
-	defer ctx.JSONContext.Restore()
 
 	applyCount := 0
 	patchedResource := resource
 	allPatches := make([][]byte, 0)
-	for _, e := range elements {
-		ctx.JSONContext.Reset()
 
-		ctx := ctx.Copy()
-		if err := addElementToContext(ctx, e); err != nil {
-			logger.Error(err, "failed to add element to context")
-			return ruleError(rule, utils.Mutation, "failed to process foreach", err), resource
+	for _, foreach := range foreachList {
+		if err := LoadContext(logger, foreach.Context, ctx.ResourceCache, ctx, rule.Name); err != nil {
+			logger.Error(err, "failed to load context")
+			return ruleError(rule, utils.Mutation, "failed to load context", err), resource
 		}
 
-		var skip = false
-		err, mutateResp := mutateResource(rule, ctx.JSONContext, patchedResource, logger)
-		if err != nil && !skip {
-			return ruleResponse(rule, utils.Mutation, err.Error(), response.RuleStatusError), resource
+		preconditionsPassed, err := checkPreconditions(logger, ctx, foreach.AnyAllConditions)
+		if err != nil {
+			return ruleError(rule, utils.Mutation, "failed to evaluate preconditions", err), resource
+		} else if !preconditionsPassed {
+			return ruleResponse(rule, utils.Mutation, "preconditions not met", response.RuleStatusSkip), resource
 		}
 
-		patchedResource = mutateResp.patchedResource
-		if len(mutateResp.patches) > 0 {
-			allPatches = append(allPatches, mutateResp.patches...)
+		elements, err := evaluateList(foreach.List, ctx.JSONContext)
+		if err != nil {
+			msg := fmt.Sprintf("failed to evaluate list %s", foreach.List)
+			return ruleError(rule, utils.Mutation, msg, err), resource
 		}
 
-		applyCount++
+		ctx.JSONContext.Checkpoint()
+		defer ctx.JSONContext.Restore()
+
+		for _, e := range elements {
+			ctx.JSONContext.Reset()
+
+			ctx := ctx.Copy()
+			if err := addElementToContext(ctx, e); err != nil {
+				logger.Error(err, "failed to add element to context")
+				return ruleError(rule, utils.Mutation, "failed to process foreach", err), resource
+			}
+
+			var skip = false
+			err, mutateResp := mutateResource(rule, ctx.JSONContext, patchedResource, logger)
+			if err != nil && !skip {
+				return ruleResponse(rule, utils.Mutation, err.Error(), response.RuleStatusError), resource
+			}
+
+			patchedResource = mutateResp.patchedResource
+			if len(mutateResp.patches) > 0 {
+				allPatches = append(allPatches, mutateResp.patches...)
+			}
+
+			applyCount++
+		}
 	}
 
 	if applyCount == 0 {
