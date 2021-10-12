@@ -190,19 +190,16 @@ func getValueFromPattern(log logr.Logger, patternMap map[string]interface{}, key
 		switch typedPattern := pattern.(type) {
 		case []interface{}:
 			if keys[currentKeyIndex] == rawKey {
-				for i, value := range typedPattern {
-					resourceMap, ok := value.(map[string]interface{})
+				if len(typedPattern) > 0 {
+					resourceMap, ok := typedPattern[0].(map[string]interface{})
 					if !ok {
-						log.V(4).Info("Pattern and resource have different structures.", "expected", fmt.Sprintf("%T", pattern), "current", fmt.Sprintf("%T", value))
+						log.V(4).Info("Pattern and resource have different structures.", "expected", fmt.Sprintf("%T", pattern), "current", fmt.Sprintf("%T", typedPattern[0]))
 						return nil, fmt.Errorf("validation rule failed, resource does not have expected pattern %v", patternMap)
 					}
-					if keys[currentKeyIndex+1] == strconv.Itoa(i) {
+					if keys[currentKeyIndex+1] == strconv.Itoa(0) {
 						return getValueFromPattern(log, resourceMap, keys, currentKeyIndex+2)
 					}
-					// TODO : SA4004: the surrounding loop is unconditionally terminated (staticcheck)
-					return nil, errors.New("reference to non-existent place in the document")
 				}
-				return nil, nil // Just a hack to fix the lint
 			}
 			return nil, errors.New("reference to non-existent place in the document")
 		case map[string]interface{}:
