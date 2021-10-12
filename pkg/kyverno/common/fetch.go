@@ -236,6 +236,7 @@ func getFileBytes(path string) ([]byte, error) {
 			return nil, err
 		}
 	} else {
+		path = filepath.Clean(path)
 		file, err = ioutil.ReadFile(path)
 		if err != nil {
 			return nil, err

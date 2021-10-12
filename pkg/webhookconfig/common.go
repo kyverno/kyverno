@@ -2,6 +2,7 @@ package webhookconfig
 
 import (
 	"io/ioutil"
+	"path/filepath"
 	"reflect"
 
 	"github.com/kyverno/kyverno/pkg/config"
@@ -42,6 +43,7 @@ func extractCA(config *rest.Config) (result []byte) {
 	fileName := config.TLSClientConfig.CAFile
 
 	if fileName != "" {
+		fileName = filepath.Clean(fileName)
 		result, err := ioutil.ReadFile(fileName)
 
 		if err != nil {

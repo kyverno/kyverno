@@ -139,6 +139,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 					continue
 				}
 			} else {
+				path = filepath.Clean(path)
 				fileBytes, err = ioutil.ReadFile(path)
 				if err != nil {
 					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
@@ -649,6 +650,7 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 	var err error
 	yaml = yaml + ("\n---\n\n")
 
+	mutateLogPath = filepath.Clean(mutateLogPath)
 	if !mutateLogPathIsDir {
 		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
 		f, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0644)

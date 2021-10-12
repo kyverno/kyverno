@@ -3,6 +3,7 @@ package testrunner
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -13,6 +14,7 @@ func LoadFile(path string) ([]byte, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, err
 	}
+	path = filepath.Clean(path)
 	return ioutil.ReadFile(path)
 }
 
