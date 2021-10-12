@@ -264,3 +264,32 @@ spec:
 	err = PolicyHasNonAllowedVariables(*policy[0])
 	assert.NilError(t, err)
 }
+
+func TestNotAllowedVars_InvalidValue(t *testing.T) {
+	var policyYAML = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-ingress-host
+spec:
+  rules:
+  - name: mutate-rules-host
+    match:
+      resources:
+        kinds:
+        - Ingress
+        namespaces:
+        - test-ingress
+    mutate:
+      patchesJson6902: |-
+        - op: replace
+          path: /spec/rules/0/host
+          value: "{{ not a valid variable string }}"
+`)
+
+	policy, err := ut.GetPolicy(policyYAML)
+	assert.NilError(t, err)
+
+	err = PolicyHasNonAllowedVariables(*policy[0])
+	assert.Assert(t, err != nil)
+}
