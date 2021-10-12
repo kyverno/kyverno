@@ -6,7 +6,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -16,7 +15,7 @@ type Handler interface {
 }
 
 // CreateMutateHandler initilizes a new instance of mutation handler
-func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger, foreachPatch apiextensions.JSON) Handler {
+func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger, foreachPatch int) Handler {
 
 	switch {
 	case isPatchStrategicMerge(mutate):
@@ -67,10 +66,10 @@ type forEachHandler struct {
 	patchedResource unstructured.Unstructured
 	evalCtx         context.EvalInterface
 	logger          logr.Logger
-	foreachPatch    interface{}
+	foreachPatch    int
 }
 
-func newForEachHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger, foreachPatch apiextensions.JSON) Handler {
+func newForEachHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger, foreachPatch int) Handler {
 	return forEachHandler{
 		ruleName:        ruleName,
 		mutation:        mutate,
@@ -82,8 +81,7 @@ func newForEachHandler(ruleName string, mutate *kyverno.Mutation, patchedResourc
 }
 
 func (h forEachHandler) Handle() (response.RuleResponse, unstructured.Unstructured) {
-	//var response response.RuleResponse
-	return ProcessStrategicMergePatch(h.ruleName, h.foreachPatch, h.patchedResource, h.logger)
+	return ProcessStrategicMergePatch(h.ruleName, h.mutation.ForEachMutation[h.foreachPatch].PatchStrategicMerge, h.patchedResource, h.logger)
 
 }
 

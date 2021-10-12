@@ -2,9 +2,10 @@ package engine
 
 import (
 	"encoding/json"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"reflect"
 	"testing"
+
+	"github.com/kyverno/kyverno/pkg/engine/response"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -561,42 +562,44 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 
 func Test_foreach(t *testing.T) {
 	policyRaw := []byte(`{
-  "apiVersion": "kyverno.io/v1",
-  "kind": "ClusterPolicy",
-  "metadata": {
-    "name": "replace-image-registry"
-  },
-  "spec": {
-    "background": false,
-    "rules": [
-      {
-        "name": "replace-image-registry",
-        "match": {
-          "resources": {
-            "kinds": [
-              "Pod"
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+      "name": "replace-image-registry"
+    },
+    "spec": {
+      "background": false,
+      "rules": [
+        {
+          "name": "replace-image-registry",
+          "match": {
+            "resources": {
+              "kinds": [
+                "Pod"
+              ]
+            }
+          },
+          "mutate": {
+            "foreach": [
+              {
+                "list": "request.object.spec.containers",
+                "patchStrategicMerge": {
+                  "spec": {
+                    "containers": [
+                      {
+                        "name": "{{ element.name }}",
+                        "image": "registry.io/{{images.containers.{{element.name}}.path}}:{{images.containers.{{element.name}}.tag}}"
+                      }
+                    ]
+                  }
+                }
+              }
             ]
           }
-        },
-        "mutate": {
-          "foreach": {
-            "list": "request.object.spec.containers",
-            "patchStrategicMerge": {
-              "spec": {
-                "containers": [
-                  {
-                    "name": "{{ element.name }}",
-                    "image": "registry.io/{{images.containers.{{element.name}}.path}}:{{images.containers.{{element.name}}.tag}}"
-                  }
-                ]
-              }
-            }
-          }
         }
-      }
-    ]
-  }
-}`)
+      ]
+    }
+  }`)
 	resourceRaw := []byte(`{
   "apiVersion": "v1",
   "kind": "Pod",
