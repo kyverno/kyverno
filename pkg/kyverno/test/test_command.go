@@ -39,7 +39,7 @@ import (
 )
 
 var longHelp = `
-Test command provides a facility to test policies on resources. User should provide the path of the folder containing test.yaml file. 
+Test command provides a facility to test policies on resources. User should provide the path of the folder containing test.yaml file.
 
 	kyverno test  <path_to_folder_Contaning_test.yamls>
 				   or
@@ -54,7 +54,7 @@ The test.yaml have 4 parts:
 var exampleHelp = `
 test.yaml format:
 
-For Validate Policy 
+For Validate Policy
 - name: test-1
   policies:
   - <path>
@@ -67,7 +67,7 @@ For Validate Policy
     rule: <name>
     resource: <name>
     namespace: <name> (OPTIONAL)
-    kind: <name> 
+    kind: <name>
     result: <pass/fail/skip>
 
 
@@ -86,7 +86,7 @@ For Mutate Policy
     rule: <name>
     resource: <name>
     namespace: <name> (OPTIONAL)
-	kind: <name> 
+	kind: <name>
     patchedResource: <path>
     result: <pass/fail/skip>
 
@@ -103,13 +103,13 @@ For Mutate Policy
     rule: <name>
     resource: <name>
     namespace: <name> (OPTIONAL)
-    kind: <name> 
+    kind: <name>
     patchedResource: <path>
     result: <pass/fail/skip>
 
 Result description:
 pass  --> patched Resource generated from engine equals to patched Resource provided by the user.
-fail  --> patched Resource generated from engine is not equals to patched provided by the user. 
+fail  --> patched Resource generated from engine is not equals to patched provided by the user.
 skip  --> rule is not applied.
 
 For more visit --> https://kyverno.io/docs/kyverno-cli/#test
@@ -306,7 +306,8 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 			continue
 		}
 		if strings.Contains(file.Name(), fileName) {
-			yamlFile, err := ioutil.ReadFile(filepath.Join(path, file.Name()))
+			// We accept the risk of including files here as we read the test dir only.
+			yamlFile, err := ioutil.ReadFile(filepath.Join(path, file.Name())) // #nosec G304
 			if err != nil {
 				errors = append(errors, sanitizederror.NewWithError("unable to read yaml", err))
 				continue

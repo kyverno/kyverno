@@ -44,7 +44,8 @@ func extractCA(config *rest.Config) (result []byte) {
 
 	if fileName != "" {
 		fileName = filepath.Clean(fileName)
-		result, err := ioutil.ReadFile(fileName)
+		// We accept the risk of including a user provided file here.
+		result, err := ioutil.ReadFile(fileName) // #nosec G304
 
 		if err != nil {
 			return nil
