@@ -204,7 +204,9 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	// empty the previous contents of the file just in case if the file already existed before with some content(so as to perform overwrites)
 	// the truncation of files for the case when mutateLogPath is dir, is handled under pkg/kyverno/apply/common.go
 	if !mutateLogPathIsDir && mutateLogPath != "" {
+		mutateLogPath = filepath.Clean(mutateLogPath)
 		_, err := os.OpenFile(mutateLogPath, os.O_TRUNC|os.O_WRONLY, 0600)
+
 		if err != nil {
 			if !sanitizederror.IsErrorSanitized(err) {
 				return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError("failed to truncate the existing file at "+mutateLogPath, err)
@@ -374,7 +376,9 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 					}
 				}
 
+				mutateLogPath = filepath.Clean(mutateLogPath)
 				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0600)
+
 				if err != nil {
 					return sanitizederror.NewWithError(fmt.Sprintf("failed to create file"), err)
 				}
