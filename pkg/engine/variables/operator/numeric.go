@@ -76,7 +76,7 @@ func (noh NumericOperatorHandler) validateValueWithIntPattern(key int64, value i
 		if err == nil {
 			return compareByCondition(float64(key), float64(int64val), noh.condition, &noh.log)
 		}
-		noh.log.Error(fmt.Errorf("Parse Error: "), "Failed to parse both float64 and int64 from the string value")
+		noh.log.Error(fmt.Errorf("parse error: "), "Failed to parse both float64 and int64 from the string value")
 		return false
 	default:
 		noh.log.Info("Expected type int", "value", value, "type", fmt.Sprintf("%T", value))
@@ -101,7 +101,7 @@ func (noh NumericOperatorHandler) validateValueWithFloatPattern(key float64, val
 		if err == nil {
 			return compareByCondition(key, float64(int64val), noh.condition, &noh.log)
 		}
-		noh.log.Error(fmt.Errorf("Parse Error: "), "Failed to parse both float64 and int64 from the string value")
+		noh.log.Error(fmt.Errorf("parse error: "), "Failed to parse both float64 and int64 from the string value")
 		return false
 	default:
 		noh.log.Info("Expected type float", "value", value, "type", fmt.Sprintf("%T", value))

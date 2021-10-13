@@ -93,7 +93,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 
 		if jsonPatchOnPod(rule) {
-			log.Log.V(1).Info("pods managed by workload controllers cannot be mutated using policies. Use the auto-gen feature or write policies that match pod controllers.")
+			log.Log.V(1).Info("pods managed by workload controllers cannot be mutated using policies, use the auto-gen feature or write policies that match pod controllers")
 		}
 		// validate resource description
 		if path, err := validateResources(rule); err != nil {
@@ -206,6 +206,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
 
+
 			if rule.HasGenerate() || rule.HasVerifyImages() {
 				return fmt.Errorf("wildcard policy does not support genrate rule type")
 			}
@@ -242,7 +243,6 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 						" the rule does not match an kind")
 				}
 			}
-
 		}
 
 		//Validate Kind with match resource kinds
@@ -348,7 +348,7 @@ func validateMatchKindHelper(rule kyverno.Rule) error {
 		return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 			" the rule does not match an kind")
 	}
-	return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+	return fmt.Errorf("at least one element must be specified in a kind block, the kind attribute is mandatory when working with the resources element")
 }
 
 // doMatchAndExcludeConflict checks if the resultant
@@ -699,19 +699,19 @@ func validateResources(rule kyverno.Rule) (string, error) {
 	}
 
 	if (len(rule.MatchResources.Any) > 0 || len(rule.MatchResources.All) > 0) && !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) {
-		return "match.", fmt.Errorf("Can't specify any/all together with match resources")
+		return "match.", fmt.Errorf("can't specify any/all together with match resources")
 	}
 
 	if (len(rule.ExcludeResources.Any) > 0 || len(rule.ExcludeResources.All) > 0) && !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) {
-		return "exclude.", fmt.Errorf("Can't specify any/all together with exclude resources")
+		return "exclude.", fmt.Errorf("can't specify any/all together with exclude resources")
 	}
 
 	if len(rule.MatchResources.Any) > 0 && len(rule.MatchResources.All) > 0 {
-		return "match.", fmt.Errorf("Can't specify any and all together.")
+		return "match.", fmt.Errorf("can't specify any and all together")
 	}
 
 	if len(rule.ExcludeResources.Any) > 0 && len(rule.ExcludeResources.All) > 0 {
-		return "match.", fmt.Errorf("Can't specify any and all together.")
+		return "match.", fmt.Errorf("can't specify any and all together")
 	}
 
 	if len(rule.MatchResources.Any) > 0 {
@@ -858,7 +858,7 @@ func validateConditionValuesKeyRequestOperation(c kyverno.Condition) (string, er
 			}
 		}
 	default:
-		return fmt.Sprintf("value"), fmt.Errorf("'value' field found to be of the type %v. The provided value/values are expected to be either in the form of a string or list", reflect.TypeOf(c.Value).Kind())
+		return "value", fmt.Errorf("'value' field found to be of the type %v. The provided value/values are expected to be either in the form of a string or list", reflect.TypeOf(c.Value).Kind())
 	}
 	return "", nil
 }

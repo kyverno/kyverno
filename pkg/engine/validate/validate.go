@@ -8,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/common"
-	"github.com/kyverno/kyverno/pkg/engine/operator"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 )
 
@@ -61,7 +60,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 		typedResourceElement, ok := resourceElement.(map[string]interface{})
 		if !ok {
 			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
-			return path, fmt.Errorf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", path, patternElement, resourceElement)
+			return path, fmt.Errorf("pattern and resource have different structures. Path: %s. Expected %T, found %T", path, patternElement, resourceElement)
 		}
 		// CheckAnchorInResource - check anchor key exists in resource and update the AnchorKey fields.
 		ac.CheckAnchorInResource(typedPatternElement, typedResourceElement)
@@ -71,7 +70,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 		typedResourceElement, ok := resourceElement.([]interface{})
 		if !ok {
 			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
-			return path, fmt.Errorf("Validation rule Failed at path %s, resource does not satisfy the expected overlay pattern", path)
+			return path, fmt.Errorf("validation rule Failed at path %s, resource does not satisfy the expected overlay pattern", path)
 		}
 		return validateArray(log, typedResourceElement, typedPatternElement, originPattern, path, ac)
 	// elementary values
@@ -141,7 +140,7 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 
 func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, originPattern interface{}, path string, ac *common.AnchorKey) (string, error) {
 	if 0 == len(patternArray) {
-		return path, fmt.Errorf("Pattern Array empty")
+		return path, fmt.Errorf("pattern Array empty")
 	}
 
 	switch typedPatternElement := patternArray[0].(type) {
@@ -171,7 +170,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 				}
 			}
 		} else {
-			return "", fmt.Errorf("Validate Array failed, array length mismatch, resource Array len is %d and pattern Array len is %d", len(resourceArray), len(patternArray))
+			return "", fmt.Errorf("validate Array failed, array length mismatch, resource Array len is %d and pattern Array len is %d", len(resourceArray), len(patternArray))
 		}
 	}
 	return "", nil
@@ -180,7 +179,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 func getValueFromPattern(log logr.Logger, patternMap map[string]interface{}, keys []string, currentKeyIndex int) (interface{}, error) {
 
 	for key, pattern := range patternMap {
-		rawKey := getRawKeyIfWrappedWithAttributes(key)
+		rawKey := common.GetRawKeyIfWrappedWithAttributes(key)
 
 		if rawKey == keys[len(keys)-1] && currentKeyIndex == len(keys)-1 {
 			return pattern, nil
@@ -191,26 +190,23 @@ func getValueFromPattern(log logr.Logger, patternMap map[string]interface{}, key
 		switch typedPattern := pattern.(type) {
 		case []interface{}:
 			if keys[currentKeyIndex] == rawKey {
-				for i, value := range typedPattern {
-					resourceMap, ok := value.(map[string]interface{})
+				if len(typedPattern) > 0 {
+					resourceMap, ok := typedPattern[0].(map[string]interface{})
 					if !ok {
-						log.V(4).Info("Pattern and resource have different structures.", "expected", fmt.Sprintf("%T", pattern), "current", fmt.Sprintf("%T", value))
-						return nil, fmt.Errorf("Validation rule failed, resource does not have expected pattern %v", patternMap)
+						log.V(4).Info("Pattern and resource have different structures.", "expected", fmt.Sprintf("%T", pattern), "current", fmt.Sprintf("%T", typedPattern[0]))
+						return nil, fmt.Errorf("validation rule failed, resource does not have expected pattern %v", patternMap)
 					}
-					if keys[currentKeyIndex+1] == strconv.Itoa(i) {
+					if keys[currentKeyIndex+1] == strconv.Itoa(0) {
 						return getValueFromPattern(log, resourceMap, keys, currentKeyIndex+2)
 					}
-					// TODO : SA4004: the surrounding loop is unconditionally terminated (staticcheck)
-					return nil, errors.New("Reference to non-existent place in the document")
 				}
-				return nil, nil // Just a hack to fix the lint
 			}
-			return nil, errors.New("Reference to non-existent place in the document")
+			return nil, errors.New("reference to non-existent place in the document")
 		case map[string]interface{}:
 			if keys[currentKeyIndex] == rawKey {
 				return getValueFromPattern(log, typedPattern, keys, currentKeyIndex+1)
 			}
-			return nil, errors.New("Reference to non-existent place in the document")
+			return nil, errors.New("reference to non-existent place in the document")
 		case string, float64, int, int64, bool, nil:
 			continue
 		}
@@ -221,7 +217,7 @@ func getValueFromPattern(log logr.Logger, patternMap map[string]interface{}, key
 	for _, elem := range keys {
 		elemPath = "/" + elem + elemPath
 	}
-	return nil, fmt.Errorf("No value found for specified reference: %s", elemPath)
+	return nil, fmt.Errorf("no value found for specified reference: %s", elemPath)
 }
 
 // validateArrayOfMaps gets anchors from pattern array map element, applies anchors logic
@@ -240,12 +236,4 @@ func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patter
 		}
 	}
 	return "", nil
-}
-
-func isStringIsReference(str string) bool {
-	if len(str) < len(operator.ReferenceSign) {
-		return false
-	}
-
-	return str[0] == '$' && str[1] == '(' && str[len(str)-1] == ')'
 }

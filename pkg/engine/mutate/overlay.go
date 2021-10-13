@@ -13,6 +13,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
+	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -179,7 +180,7 @@ func applyOverlayForSameTypes(resource, overlay interface{}, path string) ([][]b
 		}
 		appliedPatches = append(appliedPatches, patch)
 	default:
-		return nil, fmt.Errorf("Overlay has unsupported type: %T", overlay)
+		return nil, fmt.Errorf("overlay has unsupported type: %T", overlay)
 	}
 
 	return appliedPatches, nil
@@ -226,11 +227,11 @@ func applyOverlayToMap(resourceMap, overlayMap map[string]interface{}, path stri
 func applyOverlayToArray(resource, overlay []interface{}, path string) ([][]byte, error) {
 	var appliedPatches [][]byte
 
-	if 0 == len(overlay) {
-		return nil, errors.New("Empty array detected in the overlay")
+	if len(overlay) == 0 {
+		return nil, errors.New("empty array detected in the overlay")
 	}
 
-	if 0 == len(resource) {
+	if len(resource) == 0 {
 		// If array resource is empty, insert part from overlay
 		patch, err := insertSubtree(overlay, path)
 		if err != nil {
@@ -242,7 +243,7 @@ func applyOverlayToArray(resource, overlay []interface{}, path string) ([][]byte
 	}
 
 	if reflect.TypeOf(resource[0]) != reflect.TypeOf(overlay[0]) {
-		return nil, fmt.Errorf("Overlay array and resource array have elements of different types: %T and %T", overlay[0], resource[0])
+		return nil, fmt.Errorf("overlay array and resource array have elements of different types: %T and %T", overlay[0], resource[0])
 	}
 
 	return applyOverlayToArrayOfSameTypes(resource, overlay, path)
@@ -359,7 +360,7 @@ func processSubtree(overlay interface{}, path string, op string) ([]byte, error)
 	// check the patch
 	_, err := jsonpatch.DecodePatch([]byte("[" + patchStr + "]"))
 	if err != nil {
-		return nil, fmt.Errorf("Failed to make '%s' patch from an overlay '%s' for path %s, err: %v", op, value, path, err)
+		return nil, fmt.Errorf("failed to make '%s' patch from an overlay '%s' for path %s, err: %v", op, value, path, err)
 	}
 
 	return []byte(patchStr), nil
@@ -426,7 +427,7 @@ func removeAnchorFromSubTree(overlay interface{}) interface{} {
 func removeAnchroFromMap(overlay map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range overlay {
-		result[getRawKeyIfWrappedWithAttributes(k)] = removeAnchorFromSubTree(v)
+		result[common.GetRawKeyIfWrappedWithAttributes(k)] = removeAnchorFromSubTree(v)
 	}
 	return result
 }

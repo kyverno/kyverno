@@ -82,31 +82,11 @@ func (h forEachHandler) Handle() (response.RuleResponse, unstructured.Unstructur
 	return ProcessStrategicMergePatch(h.ruleName, h.mutation.ForEachMutation.PatchStrategicMerge, h.patchedResource, h.logger)
 }
 
-// overlayHandler
-type overlayHandler struct {
-	ruleName        string
-	mutation        *kyverno.Mutation
-	patchedResource unstructured.Unstructured
-	evalCtx         context.EvalInterface
-	logger          logr.Logger
-}
-
-func newOverlayHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
-	return overlayHandler{
-		ruleName:        ruleName,
-		mutation:        mutate,
-		patchedResource: patchedResource,
-		evalCtx:         context,
-		logger:          logger,
-	}
-}
-
 // patchesJSON6902Handler
 type patchesJSON6902Handler struct {
 	ruleName        string
 	mutation        *kyverno.Mutation
 	patchedResource unstructured.Unstructured
-	evalCtx         context.EvalInterface
 	logger          logr.Logger
 }
 
@@ -132,10 +112,6 @@ func (h patchesJSON6902Handler) Handle() (resp response.RuleResponse, patchedRes
 	}
 
 	return ProcessPatchJSON6902(h.ruleName, patchesJSON6902, h.patchedResource, h.logger)
-}
-
-func (h overlayHandler) Handle() (response.RuleResponse, unstructured.Unstructured) {
-	return ProcessOverlay(h.logger, h.ruleName, h.mutation.Overlay, h.patchedResource)
 }
 
 // patchesHandler

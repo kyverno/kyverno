@@ -12,7 +12,10 @@ type buffer struct {
 
 func (buff buffer) UnmarshalJSON(b []byte) error {
 	buff.Reset()
-	buff.Write(b)
+	_, err := buff.Write(b)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -31,20 +34,6 @@ func removeAnchor(key string) string {
 	}
 
 	return key
-}
-
-func getRawKeyIfWrappedWithAttributes(str string) string {
-	if len(str) < 2 {
-		return str
-	}
-
-	if str[0] == '(' && str[len(str)-1] == ')' {
-		return str[1 : len(str)-1]
-	} else if (str[0] == '$' || str[0] == '^' || str[0] == '+' || str[0] == '=') && (str[1] == '(' && str[len(str)-1] == ')') {
-		return str[2 : len(str)-1]
-	} else {
-		return str
-	}
 }
 
 // getAnchorAndElementsFromMap gets the condition anchor map and resource map without anchor

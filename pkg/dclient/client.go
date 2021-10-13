@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-logr/logr"
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
-	certificates "k8s.io/api/certificates/v1beta1"
 	helperv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -158,7 +157,7 @@ func (c *Client) CreateResource(apiVersion string, kind string, namespace string
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
 		return c.getResourceInterface(apiVersion, kind, namespace).Create(context.TODO(), unstructuredObj, options)
 	}
-	return nil, fmt.Errorf("Unable to create resource ")
+	return nil, fmt.Errorf("unable to create resource ")
 }
 
 // UpdateResource updates object for the specified resource/namespace
@@ -171,7 +170,7 @@ func (c *Client) UpdateResource(apiVersion string, kind string, namespace string
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
 		return c.getResourceInterface(apiVersion, kind, namespace).Update(context.TODO(), unstructuredObj, options)
 	}
-	return nil, fmt.Errorf("Unable to update resource ")
+	return nil, fmt.Errorf("unable to update resource ")
 }
 
 // UpdateStatusResource updates the resource "status" subresource
@@ -184,7 +183,7 @@ func (c *Client) UpdateStatusResource(apiVersion string, kind string, namespace 
 	if unstructuredObj := convertToUnstructured(obj); unstructuredObj != nil {
 		return c.getResourceInterface(apiVersion, kind, namespace).UpdateStatus(context.TODO(), unstructuredObj, options)
 	}
-	return nil, fmt.Errorf("Unable to update resource ")
+	return nil, fmt.Errorf("unable to update resource ")
 }
 
 func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
@@ -193,15 +192,6 @@ func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
 		return nil
 	}
 	return &unstructured.Unstructured{Object: unstructuredObj}
-}
-
-//To-Do remove this to use unstructured type
-func convertToCSR(obj *unstructured.Unstructured) (*certificates.CertificateSigningRequest, error) {
-	csr := certificates.CertificateSigningRequest{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &csr); err != nil {
-		return nil, err
-	}
-	return &csr, nil
 }
 
 //IDiscovery provides interface to mange Kind and GVR mapping

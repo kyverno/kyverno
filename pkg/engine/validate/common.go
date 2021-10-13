@@ -26,17 +26,3 @@ func convertNumberToString(value interface{}) (string, error) {
 		return "", fmt.Errorf("could not convert %v to string", typed)
 	}
 }
-
-func getRawKeyIfWrappedWithAttributes(str string) string {
-	if len(str) < 2 {
-		return str
-	}
-
-	if str[0] == '(' && str[len(str)-1] == ')' {
-		return str[1 : len(str)-1]
-	} else if (str[0] == '$' || str[0] == '^' || str[0] == '+' || str[0] == '=') && (str[1] == '(' && str[len(str)-1] == ')') {
-		return str[2 : len(str)-1]
-	} else {
-		return str
-	}
-}

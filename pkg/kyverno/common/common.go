@@ -571,7 +571,10 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 
 	for key, value := range variables {
 		jsonData := pkgcommon.VariableToJSON(key, value)
-		ctx.AddJSON(jsonData)
+		err = ctx.AddJSON(jsonData)
+		if err != nil {
+			log.Log.Error(err, "failed to add variable to context")
+		}
 	}
 
 	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
@@ -648,9 +651,9 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 
 	if !mutateLogPathIsDir {
 		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
-		f, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0644)
+		f, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0600)
 	} else {
-		f, err = os.OpenFile(mutateLogPath+"/"+fileName+".yaml", os.O_CREATE|os.O_WRONLY, 0644)
+		f, err = os.OpenFile(mutateLogPath+"/"+fileName+".yaml", os.O_CREATE|os.O_WRONLY, 0600)
 	}
 
 	if err != nil {
