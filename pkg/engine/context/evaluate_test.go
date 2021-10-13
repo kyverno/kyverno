@@ -1,9 +1,10 @@
 package context
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"k8s.io/api/admission/v1beta1"
-	"testing"
 )
 
 func TestHasChanged(t *testing.T) {
@@ -21,7 +22,7 @@ func TestHasChanged(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, val)
 
-	val, err = ctx.HasChanged("a.x.y")
+	_, err = ctx.HasChanged("a.x.y")
 	assert.Error(t, err)
 }
 
