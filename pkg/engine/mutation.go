@@ -2,9 +2,10 @@ package engine
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/pkg/errors"
-	"time"
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
@@ -54,7 +55,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 	var err error
 
-	for _, rule := range policy.Spec.Rules {
+	for i, rule := range policy.Spec.Rules {
 		if !rule.HasMutate() {
 			continue
 		}
@@ -101,16 +102,16 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			err, mutateResp := mutateResource(ruleCopy, policyContext.JSONContext, patchedResource, logger)
 			if err != nil {
 				if mutateResp.skip {
-					ruleResp = ruleResponse(&rule, utils.Mutation, err.Error(), response.RuleStatusSkip)
+					ruleResp = ruleResponse(&policy.Spec.Rules[i], utils.Mutation, err.Error(), response.RuleStatusSkip)
 				} else {
-					ruleResp = ruleResponse(&rule, utils.Mutation, err.Error(), response.RuleStatusError)
+					ruleResp = ruleResponse(&policy.Spec.Rules[i], utils.Mutation, err.Error(), response.RuleStatusError)
 				}
 			} else {
 				if mutateResp.message == "" {
 					mutateResp.message = "mutated resource"
 				}
 
-				ruleResp = ruleResponse(&rule, utils.Mutation, mutateResp.message, response.RuleStatusPass)
+				ruleResp = ruleResponse(&policy.Spec.Rules[i], utils.Mutation, mutateResp.message, response.RuleStatusPass)
 				ruleResp.Patches = mutateResp.patches
 				patchedResource = mutateResp.patchedResource
 			}
