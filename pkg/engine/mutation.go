@@ -141,7 +141,7 @@ func mutateForEachResource(rule *kyverno.Rule, ctx *PolicyContext, resource unst
 	patchedResource := resource
 	allPatches := make([][]byte, 0)
 
-	for i, foreach := range foreachList {
+	for foreachIndex, foreach := range foreachList {
 
 		if err := LoadContext(logger, foreach.Context, ctx.ResourceCache, ctx, rule.Name); err != nil {
 			logger.Error(err, "failed to load context")
@@ -174,7 +174,7 @@ func mutateForEachResource(rule *kyverno.Rule, ctx *PolicyContext, resource unst
 			}
 
 			var skip = false
-			err, mutateResp := mutateResource(rule, ctx.JSONContext, patchedResource, logger, i)
+			err, mutateResp := mutateResource(rule, ctx.JSONContext, patchedResource, logger, foreachIndex)
 			if err != nil && !skip {
 				return ruleResponse(rule, utils.Mutation, err.Error(), response.RuleStatusError), resource
 			}
@@ -204,8 +204,10 @@ type mutateResponse struct {
 	message         string
 }
 
-func mutateResource(rule *kyverno.Rule, ctx *context.Context, resource unstructured.Unstructured, logger logr.Logger, foreachPatch int) (error, *mutateResponse) {
+func mutateResource(rule *kyverno.Rule, ctx *context.Context, resource unstructured.Unstructured, logger logr.Logger, foreachIndex int) (error, *mutateResponse) {
 	mutateResp := &mutateResponse{false, unstructured.Unstructured{}, nil, ""}
+
+	// Need to handle preconditions, variable substututions properly for Foreach list and single mutate policy.
 	anyAllConditions, err := variables.SubstituteAllInPreconditions(logger, ctx, rule.AnyAllConditions)
 	if err != nil {
 		return errors.Wrapf(err, "failed to substitute vars in preconditions"), mutateResp
@@ -226,7 +228,7 @@ func mutateResource(rule *kyverno.Rule, ctx *context.Context, resource unstructu
 	}
 
 	mutation := updatedRule.Mutation.DeepCopy()
-	mutateHandler := mutate.CreateMutateHandler(updatedRule.Name, mutation, resource, ctx, logger, foreachPatch)
+	mutateHandler := mutate.CreateMutateHandler(updatedRule.Name, mutation, resource, ctx, logger, foreachIndex)
 	resp, patchedResource := mutateHandler.Handle()
 
 	if resp.Status == response.RuleStatusPass {
