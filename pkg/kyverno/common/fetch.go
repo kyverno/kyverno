@@ -239,7 +239,7 @@ func getFileBytes(path string) ([]byte, error) {
 	} else {
 		path = filepath.Clean(path)
 		// We accept the risk of including a user provided file here.
-		file, err = ioutil.ReadFile(path) // #nosec
+		file, err = ioutil.ReadFile(path) // #nosec G304
 		if err != nil {
 			return nil, err
 		}
