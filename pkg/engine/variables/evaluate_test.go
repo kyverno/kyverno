@@ -1633,7 +1633,7 @@ func Test_Eval_In_String_Set_Pass(t *testing.T) {
 func Test_Eval_In_String_Set_Fail(t *testing.T) {
 	ctx := context.NewContext()
 	key := [2]string{"1.1.1.1", "4.4.4.4"}
-	keyInterface := make([]interface{}, len(key), len(key))
+	keyInterface := make([]interface{}, len(key))
 	for i := range key {
 		keyInterface[i] = key[i]
 	}

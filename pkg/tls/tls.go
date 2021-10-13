@@ -120,13 +120,13 @@ func GenerateCertPem(caCert *KeyPair, props CertificateProps, serverIP string, c
 	end := now.Add(certValidityDuration)
 
 	dnsNames := make([]string, 3)
-	dnsNames[0] = fmt.Sprintf("%s", props.Service)
+	dnsNames[0] = props.Service
 	csCommonName := dnsNames[0]
 
 	dnsNames[1] = fmt.Sprintf("%s.%s", props.Service, props.Namespace)
 	// The full service name is the CommonName for the certificate
 	commonName := generateInClusterServiceName(props)
-	dnsNames[2] = fmt.Sprintf("%s", commonName)
+	dnsNames[2] = commonName
 
 	var ips []net.IP
 	apiServerIP := net.ParseIP(props.APIServerHost)
@@ -210,7 +210,5 @@ func IsTLSPairShouldBeUpdated(tlsPair *PemPair) bool {
 	if err != nil {
 		return true
 	}
-
-	// TODO : should use time.Until instead of t.Sub(time.Now()) (gosimple)
-	return expirationDate.Sub(time.Now()) < timeReserveBeforeCertificateExpiration
+	return time.Until(*expirationDate) < timeReserveBeforeCertificateExpiration
 }
