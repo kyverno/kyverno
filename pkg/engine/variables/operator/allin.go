@@ -10,41 +10,41 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-//NewAnyInHandler returns handler to manage AnyIn operations
-func NewAnyInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
+//NewAllInHandler returns handler to manage AllIn operations
+func NewAllInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return InHandler{
 		ctx: ctx,
 		log: log,
 	}
 }
 
-//AnyInHandler provides implementation to handle AnyIn Operator
-type AnyInHandler struct {
+//AllInHandler provides implementation to handle AllIn Operator
+type AllInHandler struct {
 	ctx context.EvalInterface
 	log logr.Logger
 }
 
-//Evaluate evaluates expression with AnyIn Operator
-func (anyin AnyInHandler) Evaluate(key, value interface{}) bool {
+//Evaluate evaluates expression with AllIn Operator
+func (allin AllInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
-		return anyin.validateValueWithStringPattern(typedKey, value)
+		return allin.validateValueWithStringPattern(typedKey, value)
 	case []interface{}:
 		var stringSlice []string
 		for _, v := range typedKey {
 			stringSlice = append(stringSlice, v.(string))
 		}
-		return anyin.validateValueWithStringSetPattern(stringSlice, value)
+		return allin.validateValueWithStringSetPattern(stringSlice, value)
 	default:
-		anyin.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		allin.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
 
-func (anyin AnyInHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
-	invalidType, keyExists := anyKeyExistsInArray(key, value, anyin.log)
+func (allin AllInHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
+	invalidType, keyExists := anyKeyExistsInArray(key, value, allin.log)
 	if invalidType {
-		anyin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		allin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -54,7 +54,7 @@ func (anyin AnyInHandler) validateValueWithStringPattern(key string, value inter
 // anyKeyExistsInArray checks if the  key exists in the array value
 // The value can be a string, an array of strings, or a JSON format
 // array of strings (e.g. ["val1", "val2", "val3"].
-func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
+func allKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
 
 	case []interface{}:
@@ -95,21 +95,21 @@ func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 	return false, false
 }
 
-func (anyin AnyInHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
-	invalidType, isAnyIn := anySetExistsInArray(key, value, anyin.log, false)
+func (allin AllInHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
+	invalidType, isAnyIn := anySetExistsInArray(key, value, allin.log, false)
 	if invalidType {
-		anyin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		allin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
 	return isAnyIn
 }
 
-// anysetExistsInArray checks if any key is a subset of value
+// allsetExistsInArray checks if all key is a subset of value
 // The value can be a string, an array of strings, or a JSON format
 // array of strings (e.g. ["val1", "val2", "val3"].
 // notIn argument if set to true will check for NotIn
-func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNotIn bool) (invalidType bool, keyExists bool) {
+func allSetExistsInArray(key []string, value interface{}, log logr.Logger, allNotIn bool) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
 
 	case []interface{}:
@@ -121,10 +121,10 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 			}
 			valueSlice = append(valueSlice, v)
 		}
-		if anyNotIn {
-			return false, isAnyNotIn(key, valueSlice)
+		if allNotIn {
+			return false, isAllNotIn(key, valueSlice)
 		}
-		return false, isAnyIn(key, valueSlice)
+		return false, isAllIn(key, valueSlice)
 
 	case string:
 
@@ -137,36 +137,19 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
 			return true, false
 		}
-		if anyNotIn {
-			return false, isAnyNotIn(key, arr)
+		if allNotIn {
+			return false, isAllNotIn(key, arr)
 		}
 
-		return false, isAnyIn(key, arr)
+		return false, isAllIn(key, arr)
 
 	default:
 		return true, false
 	}
 }
 
-// isAnyIn checks if any values in S1 are in S2
-func isAnyIn(key []string, value []string) bool {
-	set := make(map[string]bool)
-
-	for _, val := range value {
-		set[val] = true
-	}
-
-	for _, val := range key {
-		_, found := set[val]
-		if found {
-			return true
-		}
-	}
-	return false
-}
-
-// isAllNotIn checks if all the values in S1 are not in S2
-func isAnyNotIn(key []string, value []string) bool {
+// isAllIn checks if all values in S1 are in S2
+func isAllIn(key []string, value []string) bool {
 	set := make(map[string]bool)
 
 	for _, val := range value {
@@ -176,28 +159,45 @@ func isAnyNotIn(key []string, value []string) bool {
 	for _, val := range key {
 		_, found := set[val]
 		if !found {
-			return true
+			return false
 		}
 	}
+	return true
+}
+
+// isAllNotIn checks if all the values in S1 are not in S2
+func isAllNotIn(key []string, value []string) bool {
+	set := make(map[string]bool)
+
+	for _, val := range value {
+		set[val] = true
+	}
+
+	for _, val := range key {
+		_, found := set[val]
+		if found {
+			return false
+		}
+	}
+	return true
+}
+
+func (allin AllInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {
 	return false
 }
 
-func (anyin AnyInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {
+func (allin AllInHandler) validateValueWithIntPattern(_ int64, _ interface{}) bool {
 	return false
 }
 
-func (anyin AnyInHandler) validateValueWithIntPattern(_ int64, _ interface{}) bool {
+func (allin AllInHandler) validateValueWithFloatPattern(_ float64, _ interface{}) bool {
 	return false
 }
 
-func (anyin AnyInHandler) validateValueWithFloatPattern(_ float64, _ interface{}) bool {
+func (allin AllInHandler) validateValueWithMapPattern(_ map[string]interface{}, _ interface{}) bool {
 	return false
 }
 
-func (anyin AnyInHandler) validateValueWithMapPattern(_ map[string]interface{}, _ interface{}) bool {
-	return false
-}
-
-func (anyin AnyInHandler) validateValueWithSlicePattern(_ []interface{}, _ interface{}) bool {
+func (allin AllInHandler) validateValueWithSlicePattern(_ []interface{}, _ interface{}) bool {
 	return false
 }
