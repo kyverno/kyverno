@@ -2760,60 +2760,63 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 		}}}}`)
 
 	policyraw := []byte(`{
-  "apiVersion": "kyverno.io/v1",
-  "kind": "ClusterPolicy",
-  "metadata": {
-    "name": "test"
-  },
-  "spec": {
-    "rules": [
-      {
-        "name": "test",
-        "match": {
-          "resources": {
-            "kinds": [
-              "Deployment"
-            ]
-          }
-        },
-        "validate": {
-          "foreach": [
-            {
-              "list": "request.object.spec.template.spec.containers",
-              "context": [
-                {
-                  "name": "img",
-                  "configMap": {
-                    "name": "mycmap",
-                    "namespace": "default"
-                  }
-                }
-              ],
-              "preconditions": null,
-              "all": [
-                {
-                  "key": "{{element.name}}",
-                  "operator": "In",
-                  "value": [
-                    "podvalid"
-                  ]
-                }
-              ],
-              "deny": null,
-              "conditions": [
-                {
-                  "key": "{{ element.image }}",
-                  "operator": "NotEquals",
-                  "value": "{{ img.data.{{ element.name }} }}"
-                }
-              ]
-            }
-          ]
-        }
-      }
-    ]
-  }
-}`)
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "test"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
+				}
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"context": [
+					  {
+						"name": "img",
+						"configMap": {
+						  "name": "mycmap",
+						  "namespace": "default"
+						}
+					  }
+					],
+					"preconditions": {
+					  "all": [
+						{
+						  "key": "{{element.name}}",
+						  "operator": "In",
+						  "value": [
+							"podvalid",
+							"podinvalid"
+						  ]
+						}
+					  ]
+					},
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ element.image }}",
+						  "operator": "NotEquals",
+						  "value": "{{ img.data.{{ element.name }} }}"
+						}
+					  ]
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
 
 	configMapVariableContext := store.Context{
 		Policies: []store.Policy{

@@ -260,14 +260,13 @@ func (v *validator) validateForEach() *response.RuleResponse {
 					msg := fmt.Sprintf("validation failed in foreach rule for %v", r.Message)
 					return ruleResponse(v.rule, utils.Validation, msg, r.Status)
 				}
-
 				applyCount++
-
 			}
+
 		}
 	}
 
-	if applyCount == len(foreachList) {
+	if applyCount == 0 {
 		return ruleResponse(v.rule, utils.Validation, "rule skipped", response.RuleStatusSkip)
 	}
 
