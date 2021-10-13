@@ -1,7 +1,6 @@
 package validate
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 
@@ -174,50 +173,6 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 		}
 	}
 	return "", nil
-}
-
-func getValueFromPattern(log logr.Logger, patternMap map[string]interface{}, keys []string, currentKeyIndex int) (interface{}, error) {
-
-	for key, pattern := range patternMap {
-		rawKey := common.GetRawKeyIfWrappedWithAttributes(key)
-
-		if rawKey == keys[len(keys)-1] && currentKeyIndex == len(keys)-1 {
-			return pattern, nil
-		} else if rawKey != keys[currentKeyIndex] && currentKeyIndex != len(keys)-1 {
-			continue
-		}
-
-		switch typedPattern := pattern.(type) {
-		case []interface{}:
-			if keys[currentKeyIndex] == rawKey {
-				if len(typedPattern) > 0 {
-					resourceMap, ok := typedPattern[0].(map[string]interface{})
-					if !ok {
-						log.V(4).Info("Pattern and resource have different structures.", "expected", fmt.Sprintf("%T", pattern), "current", fmt.Sprintf("%T", typedPattern[0]))
-						return nil, fmt.Errorf("validation rule failed, resource does not have expected pattern %v", patternMap)
-					}
-					if keys[currentKeyIndex+1] == strconv.Itoa(0) {
-						return getValueFromPattern(log, resourceMap, keys, currentKeyIndex+2)
-					}
-				}
-			}
-			return nil, errors.New("reference to non-existent place in the document")
-		case map[string]interface{}:
-			if keys[currentKeyIndex] == rawKey {
-				return getValueFromPattern(log, typedPattern, keys, currentKeyIndex+1)
-			}
-			return nil, errors.New("reference to non-existent place in the document")
-		case string, float64, int, int64, bool, nil:
-			continue
-		}
-	}
-
-	elemPath := ""
-
-	for _, elem := range keys {
-		elemPath = "/" + elem + elemPath
-	}
-	return nil, fmt.Errorf("no value found for specified reference: %s", elemPath)
 }
 
 // validateArrayOfMaps gets anchors from pattern array map element, applies anchors logic
