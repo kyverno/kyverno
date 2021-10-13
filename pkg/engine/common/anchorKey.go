@@ -10,10 +10,7 @@ import (
 
 // IsConditionalAnchorError checks if error message has conditional anchor error string
 func IsConditionalAnchorError(msg string) bool {
-	if strings.Contains(msg, ConditionalAnchorErrMsg) {
-		return true
-	}
-	return false
+	return strings.Contains(msg, ConditionalAnchorErrMsg)
 }
 
 // IsGlobalAnchorError checks if error message has global anchor error string
@@ -98,7 +95,7 @@ func NewAnchorMap() *AnchorKey {
 // if all the keys exists in the pattern exists in resource then return IsAnchorError() as false
 func (ac *AnchorKey) IsAnchorError() bool {
 	for _, v := range ac.anchorMap {
-		if v == false {
+		if !v {
 			return true
 		}
 	}
@@ -114,7 +111,7 @@ func (ac *AnchorKey) CheckAnchorInResource(pattern interface{}, resource interfa
 				val, ok := ac.anchorMap[key]
 				if !ok {
 					ac.anchorMap[key] = false
-				} else if ok && val == true {
+				} else if ok && val {
 					continue
 				}
 				if doesAnchorsKeyHasValue(key, resource) {

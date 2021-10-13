@@ -183,7 +183,7 @@ func validateValueWithStringPattern(log logr.Logger, value interface{}, pattern 
 	pattern = strings.TrimSpace(pattern)
 	number, str := getNumberAndStringPartsFromPattern(pattern)
 
-	if "" == number {
+	if number == "" {
 		return validateString(log, value, str, operator)
 	}
 

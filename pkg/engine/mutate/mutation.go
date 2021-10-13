@@ -164,10 +164,7 @@ func isForEach(mutate *kyverno.Mutation) bool {
 }
 
 func isPatchesJSON6902(mutate *kyverno.Mutation) bool {
-	if len(mutate.PatchesJSON6902) > 0 {
-		return true
-	}
-	return false
+	return len(mutate.PatchesJSON6902) > 0
 }
 
 func isOverlay(mutate *kyverno.Mutation) bool {
@@ -175,8 +172,5 @@ func isOverlay(mutate *kyverno.Mutation) bool {
 }
 
 func isPatches(mutate *kyverno.Mutation) bool {
-	if len(mutate.Patches) != 0 {
-		return true
-	}
-	return false
+	return len(mutate.Patches) != 0
 }
