@@ -206,18 +206,13 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
 
-
-			if rule.HasGenerate() || rule.HasVerifyImages() {
-				return fmt.Errorf("wildcard policy does not support genrate rule type")
+			if rule.HasGenerate() || rule.HasVerifyImages() || rule.Validation.ForEachValidation != nil {
+				return fmt.Errorf("wildcard policy does not support rule type")
 			}
 
 			if rule.HasValidate() {
 
-				if rule.Validation.Deny == nil && rule.Validation.Pattern == nil && rule.Validation.AnyPattern == nil {
-					return fmt.Errorf("wildcard policy does not support validate pattern")
-				}
-
-				if rule.Validation.Pattern != nil {
+				if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
 					if !ruleOnlyDealsWithResourceMetaData(rule) {
 						return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 							" the rule does not match an kind")
@@ -229,7 +224,8 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 					switch typedConditions := kyvernoConditions.(type) {
 					case []kyverno.Condition: // backwards compatibility
 						for _, condition := range typedConditions {
-							if !strings.Contains(condition.Key.(string), "request.object.metadata.") && !strings.Contains(condition.Key.(string), "request.operation") {
+							var allowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace|userInfo)[^{}]*\}\}`)
+							if !strings.Contains(condition.Key.(string), "request.object.metadata.") && (!allowedVariables.MatchString(condition.Key.(string)) || strings.Contains(condition.Key.(string), "request.object.spec")) {
 								return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 									" the rule does not match an kind")
 							}
