@@ -86,7 +86,7 @@ func ProcessPatches(log logr.Logger, ruleName string, mutation kyverno.Mutation,
 
 	// JSON patches processed successfully
 	resp.Status = response.RuleStatusPass
-	resp.Message = fmt.Sprintf("successfully process JSON patches")
+	resp.Message = string("successfully process JSON patches")
 	resp.Patches = patches
 	return resp, patchedResource
 }

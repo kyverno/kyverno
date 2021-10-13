@@ -45,7 +45,7 @@ func Test_Validate_Flux_Sets(t *testing.T) {
 		By(fmt.Sprintf("Test to validate objects: \"%s\"", test.TestName))
 
 		// Clean up Resources
-		By(fmt.Sprintf("Cleaning Cluster Policies"))
+		By(string("Cleaning Cluster Policies"))
 		e2eClient.CleanClusterPolicies(policyGVR)
 		// Clear Namespace
 		By(fmt.Sprintf("Deleting Namespace: \"%s\"", nspace))
