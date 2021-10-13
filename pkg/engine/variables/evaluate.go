@@ -55,12 +55,10 @@ func evaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, condit
 	}
 
 	// update the allConditionsResult if they are present
-	if allConditions != nil {
-		for _, condition := range allConditions {
-			if !Evaluate(log, ctx, condition) {
-				allConditionsResult = false
-				break
-			}
+	for _, condition := range allConditions {
+		if !Evaluate(log, ctx, condition) {
+			allConditionsResult = false
+			break
 		}
 	}
 

@@ -195,21 +195,21 @@ func validateString(log logr.Logger, value interface{}, pattern string, operator
 	if operator.NotEqual == operatorVariable || operator.Equal == operatorVariable {
 		var strValue string
 		var ok bool = false
-		switch value.(type) {
+		switch v := value.(type) {
 		case float64:
-			strValue = strconv.FormatFloat(value.(float64), 'E', -1, 64)
+			strValue = strconv.FormatFloat(v, 'E', -1, 64)
 			ok = true
 		case int:
-			strValue = strconv.FormatInt(int64(value.(int)), 10)
+			strValue = strconv.FormatInt(int64(v), 10)
 			ok = true
 		case int64:
-			strValue = strconv.FormatInt(value.(int64), 10)
+			strValue = strconv.FormatInt(v, 10)
 			ok = true
 		case string:
-			strValue = value.(string)
+			strValue = v
 			ok = true
 		case bool:
-			strValue = strconv.FormatBool(value.(bool))
+			strValue = strconv.FormatBool(v)
 			ok = true
 		case nil:
 			ok = false

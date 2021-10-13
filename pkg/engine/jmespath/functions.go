@@ -503,17 +503,17 @@ func jpModulo(arguments []interface{}) (interface{}, error) {
 
 // InterfaceToString casts an interface to a string type
 func ifaceToString(iface interface{}) (string, error) {
-	switch iface.(type) {
+	switch i := iface.(type) {
 	case int:
-		return strconv.Itoa(iface.(int)), nil
+		return strconv.Itoa(i), nil
 	case float64:
-		return strconv.FormatFloat(iface.(float64), 'f', -1, 32), nil
+		return strconv.FormatFloat(i, 'f', -1, 32), nil
 	case float32:
-		return strconv.FormatFloat(iface.(float64), 'f', -1, 32), nil
+		return strconv.FormatFloat(float64(i), 'f', -1, 32), nil
 	case string:
-		return iface.(string), nil
+		return i, nil
 	case bool:
-		return strconv.FormatBool(iface.(bool)), nil
+		return strconv.FormatBool(i), nil
 	default:
 		return "", errors.New("error, undefined type cast")
 	}
