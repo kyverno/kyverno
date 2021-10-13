@@ -361,3 +361,27 @@ func TestJMESPathFunctions_Modulo(t *testing.T) {
 	assert.Assert(t, ok)
 	assert.Equal(t, equal, int64(5))
 }
+
+func TestJMESPathFunctions_Base64Decode(t *testing.T) {
+	jp, err := New("base64_decode('SGVsbG8sIHdvcmxkIQ==')")
+	assert.NilError(t, err)
+
+	result, err := jp.Search("")
+	assert.NilError(t, err)
+
+	str, ok := result.(string)
+	assert.Assert(t, ok)
+	assert.Equal(t, str, "Hello, world!")
+}
+
+func TestJMESPathFunctions_Base64Encode(t *testing.T) {
+	jp, err := New("base64_encode('Hello, world!')")
+	assert.NilError(t, err)
+
+	result, err := jp.Search("")
+	assert.NilError(t, err)
+
+	str, ok := result.(string)
+	assert.Assert(t, ok)
+	assert.Equal(t, str, "SGVsbG8sIHdvcmxkIQ==")
+}
