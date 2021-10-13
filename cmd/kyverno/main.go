@@ -5,7 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
-	_ "net/http/pprof"
+
+	// We currently accept the risk of exposing pprof and rely on users to protect the endpoint.
+	_ "net/http/pprof" // #nosec
 	"os"
 	"strings"
 	"time"

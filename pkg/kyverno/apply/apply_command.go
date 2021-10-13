@@ -205,7 +205,8 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	// the truncation of files for the case when mutateLogPath is dir, is handled under pkg/kyverno/apply/common.go
 	if !mutateLogPathIsDir && mutateLogPath != "" {
 		mutateLogPath = filepath.Clean(mutateLogPath)
-		_, err := os.OpenFile(mutateLogPath, os.O_TRUNC|os.O_WRONLY, 0600)
+		// Necessary for us to include the file via variable as it is part of the CLI.
+		_, err := os.OpenFile(mutateLogPath, os.O_TRUNC|os.O_WRONLY, 0600) // #nosec G304
 
 		if err != nil {
 			if !sanitizederror.IsErrorSanitized(err) {
@@ -377,7 +378,8 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 				}
 
 				mutateLogPath = filepath.Clean(mutateLogPath)
-				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0600)
+				// Necessary for us to create the file via variable as it is part of the CLI.
+				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0600) // #nosec G304
 
 				if err != nil {
 					return sanitizederror.NewWithError(fmt.Sprintf("failed to create file"), err)

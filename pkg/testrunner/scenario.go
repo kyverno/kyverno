@@ -119,7 +119,8 @@ func loadFile(t *testing.T, path string) ([]byte, error) {
 		return nil, err
 	}
 	path = filepath.Clean(path)
-	return ioutil.ReadFile(path)
+	// We accept the risk of including a user provided file here.
+	return ioutil.ReadFile(path) // #nosec G304
 }
 
 func runScenario(t *testing.T, s *Scenario) bool {
