@@ -658,7 +658,6 @@ func Test_SubstituteNull(t *testing.T) {
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
 	var expected interface{}
-	expected = nil
 
 	assert.DeepEqual(t, expected, content)
 }
@@ -890,8 +889,7 @@ func Test_SubstituteString(t *testing.T) {
 	assert.NilError(t, err)
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
-	var expected interface{}
-	expected = "example"
+	expected := "example"
 
 	assert.DeepEqual(t, expected, content)
 }
@@ -920,8 +918,7 @@ func Test_SubstituteStringInString(t *testing.T) {
 	assert.NilError(t, err)
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
-	var expected interface{}
-	expected = "content = example"
+	expected := "content = example"
 
 	assert.DeepEqual(t, expected, content)
 }
