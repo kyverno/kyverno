@@ -99,7 +99,7 @@ func ProcessOverlay(log logr.Logger, ruleName string, overlay interface{}, resou
 
 	// rule application successfully
 	resp.Status = response.RuleStatusPass
-	resp.Message = fmt.Sprintf("successfully processed overlay")
+	resp.Message = string("successfully processed overlay")
 	resp.Patches = patches
 
 	return resp, patchedResource
