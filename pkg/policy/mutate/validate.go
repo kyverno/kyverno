@@ -59,5 +59,5 @@ func validatePatch(pp kyverno.Patch) error {
 		return nil
 	}
 
-	return fmt.Errorf("Unsupported JSONPatch operation '%s'", pp.Operation)
+	return fmt.Errorf("unsupported JSONPatch operation '%s'", pp.Operation)
 }

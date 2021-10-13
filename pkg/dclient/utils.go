@@ -73,7 +73,7 @@ func (c *fakeDiscoveryClient) GetGVRFromAPIVersionKind(apiVersion string, kind s
 }
 
 func (c *fakeDiscoveryClient) FindResource(apiVersion string, kind string) (*meta.APIResource, schema.GroupVersionResource, error) {
-	return nil, schema.GroupVersionResource{}, fmt.Errorf("Not implemented")
+	return nil, schema.GroupVersionResource{}, fmt.Errorf("not implemented")
 }
 
 func (c *fakeDiscoveryClient) OpenAPISchema() (*openapiv2.Document, error) {

@@ -414,7 +414,7 @@ func resolveReference(log logr.Logger, fullDocument interface{}, reference, abso
 	path = path[len(operation):]
 
 	if len(path) == 0 {
-		return nil, errors.New("Expected path. Found empty reference")
+		return nil, errors.New("expected path, found empty reference")
 	}
 
 	path = formAbsolutePath(path, absolutePath)
@@ -447,7 +447,7 @@ func valFromReferenceToString(value interface{}, operator string) (string, error
 	case float64:
 		return fmt.Sprintf("%f", value), nil
 	default:
-		return "", fmt.Errorf("Incorrect expression. Operator %s does not match with value: %v", operator, value)
+		return "", fmt.Errorf("incorrect expression: operator %s does not match with value %v", operator, value)
 	}
 }
 
@@ -462,7 +462,7 @@ func FindAndShiftReferences(log logr.Logger, value, shift, pivot string) string 
 
 		index := strings.Index(reference, pivot)
 		if index == -1 {
-			log.Error(fmt.Errorf(`Failed to shit reference. Pivot value "%s" was not found`, pivot), "pivot search failed")
+			log.Error(fmt.Errorf(`failed to shift reference: pivot value "%s" was not found`, pivot), "pivot search failed")
 		}
 
 		// try to get rule index from the reference

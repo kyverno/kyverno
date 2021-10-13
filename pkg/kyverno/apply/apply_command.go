@@ -205,7 +205,8 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	// the truncation of files for the case when mutateLogPath is dir, is handled under pkg/kyverno/apply/common.go
 	if !mutateLogPathIsDir && mutateLogPath != "" {
 		mutateLogPath = filepath.Clean(mutateLogPath)
-		_, err := os.OpenFile(mutateLogPath, os.O_TRUNC|os.O_WRONLY, 0644)
+		_, err := os.OpenFile(mutateLogPath, os.O_TRUNC|os.O_WRONLY, 0600)
+
 		if err != nil {
 			if !sanitizederror.IsErrorSanitized(err) {
 				return rc, resources, skippedPolicies, pvInfos, sanitizederror.NewWithError("failed to truncate the existing file at "+mutateLogPath, err)
@@ -368,14 +369,16 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 					folderPath = mutateLogPath[:len(mutateLogPath)-len(s[len(s)-1])-1]
 					_, err := os.Stat(folderPath)
 					if os.IsNotExist(err) {
-						errDir := os.MkdirAll(folderPath, 0755)
+						errDir := os.MkdirAll(folderPath, 0750)
 						if errDir != nil {
 							return sanitizederror.NewWithError(fmt.Sprintf("failed to create directory"), err)
 						}
 					}
 				}
+
 				mutateLogPath = filepath.Clean(mutateLogPath)
-				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0644)
+				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0600)
+
 				if err != nil {
 					return sanitizederror.NewWithError(fmt.Sprintf("failed to create file"), err)
 				}
@@ -386,7 +389,7 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 				}
 
 			} else {
-				errDir := os.MkdirAll(mutateLogPath, 0755)
+				errDir := os.MkdirAll(mutateLogPath, 0750)
 				if errDir != nil {
 					return sanitizederror.NewWithError(fmt.Sprintf("failed to create directory"), err)
 				}
