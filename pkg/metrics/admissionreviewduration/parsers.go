@@ -25,6 +25,6 @@ func ParseResourceRequestOperation(requestOperationStr string) (metrics.Resource
 	case "CONNECT":
 		return metrics.ResourceConnected, nil
 	default:
-		return "", fmt.Errorf("Unknown request operation made by resource: %s. Allowed requests: 'CREATE', 'UPDATE', 'DELETE', 'CONNECT'", requestOperationStr)
+		return "", fmt.Errorf("unknown request operation made by resource: %s. Allowed requests: 'CREATE', 'UPDATE', 'DELETE', 'CONNECT'", requestOperationStr)
 	}
 }
