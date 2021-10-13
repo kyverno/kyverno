@@ -207,7 +207,9 @@ type mutateResponse struct {
 func mutateResource(rule *kyverno.Rule, ctx *context.Context, resource unstructured.Unstructured, logger logr.Logger, foreachIndex int) (error, *mutateResponse) {
 	mutateResp := &mutateResponse{false, unstructured.Unstructured{}, nil, ""}
 
-	// Need to handle preconditions, variable substututions properly for Foreach list and single mutate policy.
+	// Pre-conditions checks for the list of foreach rules should ideally be performed once.
+	// Currently they are performed for each entry in the foreach list.
+	// Also, the foreach index parameter should be removed and a set of patches should be passed in.
 	anyAllConditions, err := variables.SubstituteAllInPreconditions(logger, ctx, rule.AnyAllConditions)
 	if err != nil {
 		return errors.Wrapf(err, "failed to substitute vars in preconditions"), mutateResp
