@@ -139,7 +139,7 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 }
 
 func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, originPattern interface{}, path string, ac *common.AnchorKey) (string, error) {
-	if 0 == len(patternArray) {
+	if len(patternArray) == 0 {
 		return path, fmt.Errorf("pattern Array empty")
 	}
 

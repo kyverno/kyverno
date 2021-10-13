@@ -72,7 +72,7 @@ func checkConditionOnMap(resourceMap, overlayMap map[string]interface{}, path st
 }
 
 func checkConditionOnArray(resource, overlay []interface{}, path string) (string, overlayError) {
-	if 0 == len(overlay) {
+	if len(overlay) == 0 {
 		log.Log.V(4).Info("Mutate overlay pattern is empty", "path", path)
 		return "", overlayError{}
 	}
