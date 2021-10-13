@@ -665,3 +665,105 @@ func Test_foreach(t *testing.T) {
 		}
 	}
 }
+
+func Test_foreach_element_mutation(t *testing.T) {
+	policyRaw := []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "mutate-privileged"
+  },
+  "spec": {
+	"validationFailureAction": "audit",
+    "background": false,
+	"webhookTimeoutSeconds": 10,
+	"failurePolicy": "Fail",
+    "rules": [
+      {
+        "name": "set-privileged",
+        "match": {
+          "resources": {
+            "kinds": [
+              "Pod"
+            ]
+          }
+        },
+        "mutate": {
+          "foreach": {
+            "list": "request.object.spec.containers",
+            "patchStrategicMerge": {
+              "spec": {
+                "containers": [
+                  {
+                    "(name)": "{{ element.name }}",
+                    "securityContext": {
+					  "privileged": false
+					}
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}`)
+	resourceRaw := []byte(`{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "name": "nginx"
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "nginx1",
+        "image": "nginx"
+      },
+      {
+        "name": "nginx2",
+        "image": "nginx"
+      }
+    ]
+  }
+}`)
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &policy)
+	assert.NilError(t, err)
+
+	resource, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResourceAsObject(resource.Object)
+	assert.NilError(t, err)
+
+	policyContext := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		NewResource: *resource,
+	}
+
+	err = ctx.AddImageInfo(resource)
+	assert.NilError(t, err)
+
+	err = context.MutateResourceWithImageInfo(resourceRaw, ctx)
+	assert.NilError(t, err)
+
+	er := Mutate(policyContext)
+
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+
+	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
+	assert.NilError(t, err)
+	for _, c := range containers {
+		ctnr := c.(map[string]interface{})
+		_securityContext, ok := ctnr["securityContext"]
+		assert.Assert(t, ok)
+
+		securityContext := _securityContext.(map[string]interface{})
+		assert.Equal(t, securityContext["privileged"], false)
+	}
+}
