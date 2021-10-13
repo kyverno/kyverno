@@ -1,0 +1,203 @@
+package operator
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/minio/pkg/wildcard"
+
+	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/engine/context"
+)
+
+//NewAnyInHandler returns handler to manage AnyIn operations
+func NewAnyInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
+	return InHandler{
+		ctx: ctx,
+		log: log,
+	}
+}
+
+//AnyInHandler provides implementation to handle AnyIn Operator
+type AnyInHandler struct {
+	ctx context.EvalInterface
+	log logr.Logger
+}
+
+//Evaluate evaluates expression with AnyIn Operator
+func (anyin AnyInHandler) Evaluate(key, value interface{}) bool {
+	switch typedKey := key.(type) {
+	case string:
+		return anyin.validateValueWithStringPattern(typedKey, value)
+	case []interface{}:
+		var stringSlice []string
+		for _, v := range typedKey {
+			stringSlice = append(stringSlice, v.(string))
+		}
+		return anyin.validateValueWithStringSetPattern(stringSlice, value)
+	default:
+		anyin.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		return false
+	}
+}
+
+func (anyin AnyInHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
+	invalidType, keyExists := anyKeyExistsInArray(key, value, anyin.log)
+	if invalidType {
+		anyin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		return false
+	}
+
+	return keyExists
+}
+
+// anyKeyExistsInArray checks if the  key exists in the array value
+// The value can be a string, an array of strings, or a JSON format
+// array of strings (e.g. ["val1", "val2", "val3"].
+func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
+	switch valuesAvailable := value.(type) {
+
+	case []interface{}:
+		for _, val := range valuesAvailable {
+			v, ok := val.(string)
+			if !ok {
+				return true, false
+			}
+
+			if ok && wildcard.Match(key, v) {
+				return false, true
+			}
+		}
+
+	case string:
+
+		if wildcard.Match(valuesAvailable, key) {
+			return false, true
+		}
+
+		var arr []string
+		if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
+			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
+			return true, false
+		}
+
+		for _, val := range arr {
+			if key == val {
+				return false, true
+			}
+		}
+
+	default:
+		invalidType = true
+		return
+	}
+
+	return false, false
+}
+
+func (anyin AnyInHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
+	invalidType, isAnyIn := anySetExistsInArray(key, value, anyin.log, false)
+	if invalidType {
+		anyin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		return false
+	}
+
+	return isAnyIn
+}
+
+// anysetExistsInArray checks if any key is a subset of value
+// The value can be a string, an array of strings, or a JSON format
+// array of strings (e.g. ["val1", "val2", "val3"].
+// notIn argument if set to true will check for NotIn
+func anySetExistsInArray(key []string, value interface{}, log logr.Logger, notIn bool) (invalidType bool, keyExists bool) {
+	switch valuesAvailable := value.(type) {
+
+	case []interface{}:
+		var valueSlice []string
+		for _, val := range valuesAvailable {
+			v, ok := val.(string)
+			if !ok {
+				return true, false
+			}
+			valueSlice = append(valueSlice, v)
+		}
+		if notIn {
+			return false, isAllNotIn(key, valueSlice)
+		}
+		return false, isAnyIn(key, valueSlice)
+
+	case string:
+
+		if len(key) == 1 && key[0] == valuesAvailable {
+			return false, true
+		}
+
+		var arr []string
+		if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
+			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
+			return true, false
+		}
+		if notIn {
+			return false, isAllNotIn(key, arr)
+		}
+
+		return false, isAnyIn(key, arr)
+
+	default:
+		return true, false
+	}
+}
+
+// isAnyIn checks if any values in S1 are in S2
+func isAnyIn(key []string, value []string) bool {
+	set := make(map[string]bool)
+
+	for _, val := range value {
+		set[val] = true
+	}
+
+	for _, val := range key {
+		_, found := set[val]
+		if found {
+			return true
+		}
+	}
+	return false
+}
+
+// isAllNotIn checks if all the values in S1 are not in S2
+func isAllNotIn(key []string, value []string) bool {
+	set := make(map[string]bool)
+
+	for _, val := range value {
+		set[val] = true
+	}
+
+	for _, val := range key {
+		_, found := set[val]
+		if found {
+			return false
+		}
+	}
+	return true
+}
+
+func (anyin AnyInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {
+	return false
+}
+
+func (anyin AnyInHandler) validateValueWithIntPattern(_ int64, _ interface{}) bool {
+	return false
+}
+
+func (anyin AnyInHandler) validateValueWithFloatPattern(_ float64, _ interface{}) bool {
+	return false
+}
+
+func (anyin AnyInHandler) validateValueWithMapPattern(_ map[string]interface{}, _ interface{}) bool {
+	return false
+}
+
+func (anyin AnyInHandler) validateValueWithSlicePattern(_ []interface{}, _ interface{}) bool {
+	return false
+}
