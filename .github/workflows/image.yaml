@@ -35,10 +35,12 @@ jobs:
 
       - name: docker images publish
         run: |
+          make docker-publish-sigs
           make docker-publish-initContainer
 
       - name: Sign image
         run: |
+          export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
           KYVERNO_IMAGE_VERSION=$(git describe --match "v[0-9]*")
           echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyvernopre:${KYVERNO_IMAGE_VERSION}
 
@@ -76,6 +78,7 @@ jobs:
 
       - name: Sign image
         run: |
+          export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
           KYVERNO_IMAGE_VERSION=$(git describe --match "v[0-9]*")
           echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno:${KYVERNO_IMAGE_VERSION}
 
@@ -113,5 +116,6 @@ jobs:
 
       - name: Sign image
         run: |
+          export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
           KYVERNO_IMAGE_VERSION=$(git describe --match "v[0-9]*")
           echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno-cli:${KYVERNO_IMAGE_VERSION}

@@ -51,10 +51,12 @@ jobs:
 
       - name :  docker images publish
         run: |
+          make docker-publish-sigs
           make docker-publish-initContainer
 
       - name: Sign image
         run: |
+          export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
           echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyvernopre:${KYVERNO_VERSION}
 
   release-kyverno:
@@ -116,13 +118,15 @@ jobs:
 
       - name :  docker images publish
         run: |
+          make docker-publish-sbom
           make docker-publish-kyverno
 
       - name: Sign image and SBOM
         run: |
+          export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
           echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno:${KYVERNO_VERSION}
-          cosign attach sbom -sbom ./*-bom.cdx.json -type cyclonedx ghcr.io/kyverno/kyverno:latest
-          
+          cosign attach sbom -sbom ./*-bom.cdx.json -type cyclonedx ghcr.io/kyverno/sbom:latest
+
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@master
         with: 
@@ -184,6 +188,7 @@ jobs:
 
       - name: Sign image
         run: |
+          export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
           echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno-cli:${KYVERNO_VERSION}
   
   create-release:
