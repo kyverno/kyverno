@@ -37,7 +37,7 @@ func checkKind(kinds []string, resource unstructured.Unstructured) bool {
 	for _, kind := range kinds {
 		SplitGVK := strings.Split(kind, "/")
 		if len(SplitGVK) == 1 {
-			if resource.GetKind() == strings.Title(kind) {
+			if resource.GetKind() == strings.Title(kind) || kind == "*" {
 				return true
 			}
 		} else if len(SplitGVK) == 2 {
