@@ -181,7 +181,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	}
 
 	if len(policyPaths) == 0 {
-		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError(fmt.Sprintf("require policy"), err)
+		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("require policy", err)
 	}
 
 	if (len(policyPaths) > 0 && policyPaths[0] == "-") && len(resourcePaths) > 0 && resourcePaths[0] == "-" {
@@ -195,7 +195,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 	}
 
 	if len(resourcePaths) == 0 && !cluster {
-		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError(fmt.Sprintf("resource file(s) or cluster required"), err)
+		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("resource file(s) or cluster required", err)
 	}
 
 	mutateLogPathIsDir, err := checkMutateLogPath(mutateLogPath)
@@ -391,7 +391,7 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 					if os.IsNotExist(err) {
 						errDir := os.MkdirAll(folderPath, 0750)
 						if errDir != nil {
-							return sanitizederror.NewWithError(fmt.Sprintf("failed to create directory"), err)
+							return sanitizederror.NewWithError("failed to create directory", err)
 						}
 					}
 				}
@@ -401,23 +401,23 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0600) // #nosec G304
 
 				if err != nil {
-					return sanitizederror.NewWithError(fmt.Sprintf("failed to create file"), err)
+					return sanitizederror.NewWithError("failed to create file", err)
 				}
 
 				err = file.Close()
 				if err != nil {
-					return sanitizederror.NewWithError(fmt.Sprintf("failed to close file"), err)
+					return sanitizederror.NewWithError("failed to close file", err)
 				}
 
 			} else {
 				errDir := os.MkdirAll(mutateLogPath, 0750)
 				if errDir != nil {
-					return sanitizederror.NewWithError(fmt.Sprintf("failed to create directory"), err)
+					return sanitizederror.NewWithError("failed to create directory", err)
 				}
 			}
 
 		} else {
-			return sanitizederror.NewWithError(fmt.Sprintf("failed to describe file"), err)
+			return sanitizederror.NewWithError("failed to describe file", err)
 		}
 	}
 
