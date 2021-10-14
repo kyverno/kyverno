@@ -684,6 +684,11 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.Cluste
 
 			// note: webhook stores GVR in its rules while policy stores GVK in its rules definition
 			gv, k := common.GetKindFromGVK(gvk)
+			if k == "PodExecOptions" {
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods/exec"})
+				continue
+			}
+
 			_, gvr, err := m.client.DiscoveryClient.FindResource(gv, k)
 			if err != nil {
 				m.log.Error(err, "unable to convert GVK to GVR", "GVK", gvk)
