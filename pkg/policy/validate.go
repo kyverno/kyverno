@@ -224,8 +224,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 					switch typedConditions := kyvernoConditions.(type) {
 					case []kyverno.Condition: // backwards compatibility
 						for _, condition := range typedConditions {
-							var allowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace|userInfo)[^{}]*\}\}`)
-							if !strings.Contains(condition.Key.(string), "request.object.metadata.") && (!allowedVariables.MatchString(condition.Key.(string)) || strings.Contains(condition.Key.(string), "request.object.spec")) {
+							if !strings.Contains(condition.Key.(string), "request.object.metadata.") && (!common.WildCardAllowedVariables.MatchString(condition.Key.(string)) || strings.Contains(condition.Key.(string), "request.object.spec")) {
 								return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 									" the rule does not match any kind")
 							}
