@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - 'main'
-      - 'v*'
+      - 'release-*'
 jobs:
   push-init-kyverno:
     runs-on: ubuntu-latest
