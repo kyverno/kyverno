@@ -11,7 +11,7 @@ var RegexVariables = regexp.MustCompile(`\{\{[^{}]*\}\}`)
 var AllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace|@|([a-z_]+\())[^{}]*\}\}`)
 
 // AllowedVariables represents regex for {{request.}}, {{serviceAccountName}}, {{serviceAccountNamespace}}
-var WildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace|userInfo)[^{}]*\}\}`)
+var WildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
 
 // IsHttpRegex represents regex for starts with http:// or https://
 var IsHttpRegex = regexp.MustCompile("^(http|https)://")
