@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: base64
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+  - name: secret-value-must-match-label
+    match:
+      resources:
+        kinds:
+        - Secret
+    validate:
+      deny:
+        conditions:
+        - key: "{{base64_decode(request.object.data.value)}}"
+          operator: NotEquals
+          value: "{{request.object.metadata.labels.value}}"
