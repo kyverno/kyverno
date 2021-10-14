@@ -689,21 +689,23 @@ func Test_foreach_element_mutation(t *testing.T) {
           }
         },
         "mutate": {
-          "foreach": {
-            "list": "request.object.spec.containers",
-            "patchStrategicMerge": {
-              "spec": {
-                "containers": [
-                  {
-                    "(name)": "{{ element.name }}",
-                    "securityContext": {
-					  "privileged": false
-					}
-                  }
-                ]
-              }
-            }
-          }
+          "foreach": [
+			  {
+				"list": "request.object.spec.containers",
+				"patchStrategicMerge": {
+				  "spec": {
+					"containers": [
+					  {
+						"(name)": "{{ element.name }}",
+						"securityContext": {
+						  "privileged": false
+						}
+					  }
+					]
+				  }
+				}
+			  }
+		  ]
         }
       }
     ]

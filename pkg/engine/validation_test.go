@@ -2878,12 +2878,14 @@ func Test_foreach_element_validation(t *testing.T) {
 			  "match": {"resources": { "kinds": [ "Pod" ] } },
 			  "validate": {
 			  	"message": "Invalid name",
-				"foreach": {
-				  "list": "request.object.spec.containers",
-				  "pattern": {
-				  	"name": "{{ element.name }}"
-				  }
-				}
+				"foreach": [
+					{
+					  "list": "request.object.spec.containers",
+					  "pattern": {
+						"name": "{{ element.name }}"
+					  }
+					}
+				]
 			}}]}}`)
 
 	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusPass)
