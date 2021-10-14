@@ -157,25 +157,28 @@ func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *vali
 	}
 }
 
-func newForeachValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *validator {
+func newForeachValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) []*validator {
 	ruleCopy := rule.DeepCopy()
-
+	val := []*validator{}
+	for _, foreach := range ruleCopy.Validation.ForEachValidation {
+		anyAllConditions, err := common.ToMap(foreach.AnyAllConditions)
+		if err != nil {
+			log.Error(err, "failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions")
+		}
+		temp := validator{
+			log:              log,
+			ctx:              ctx,
+			rule:             ruleCopy,
+			contextEntries:   foreach.Context,
+			anyAllConditions: anyAllConditions,
+			pattern:          foreach.Pattern,
+			anyPattern:       foreach.AnyPattern,
+			deny:             foreach.Deny,
+		}
+		val = append(val, &temp)
+	}
 	// Variable substitution expects JSON data, so we convert to a map
-	anyAllConditions, err := common.ToMap(ruleCopy.Validation.ForEachValidation.AnyAllConditions)
-	if err != nil {
-		log.Error(err, "failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions")
-	}
-
-	return &validator{
-		log:              log,
-		ctx:              ctx,
-		rule:             ruleCopy,
-		contextEntries:   ruleCopy.Validation.ForEachValidation.Context,
-		anyAllConditions: anyAllConditions,
-		pattern:          ruleCopy.Validation.ForEachValidation.Pattern,
-		anyPattern:       ruleCopy.Validation.ForEachValidation.AnyPattern,
-		deny:             ruleCopy.Validation.ForEachValidation.Deny,
-	}
+	return val
 }
 
 func (v *validator) validate() *response.RuleResponse {
@@ -219,44 +222,48 @@ func (v *validator) validateForEach() *response.RuleResponse {
 		return ruleResponse(v.rule, utils.Validation, "preconditions not met", response.RuleStatusSkip)
 	}
 
-	foreach := v.rule.Validation.ForEachValidation
-	if foreach == nil {
+	foreachList := v.rule.Validation.ForEachValidation
+	applyCount := 0
+	if foreachList == nil {
 		return nil
 	}
 
-	elements, err := evaluateList(foreach.List, v.ctx.JSONContext)
-	if err != nil {
-		msg := fmt.Sprintf("failed to evaluate list %s", foreach.List)
-		return ruleError(v.rule, utils.Validation, msg, err)
-	}
-
-	v.ctx.JSONContext.Checkpoint()
-	defer v.ctx.JSONContext.Restore()
-
-	applyCount := 0
-	for _, e := range elements {
-		v.ctx.JSONContext.Reset()
-
-		ctx := v.ctx.Copy()
-		if err := addElementToContext(ctx, e); err != nil {
-			v.log.Error(err, "failed to add element to context")
-			return ruleError(v.rule, utils.Validation, "failed to process foreach", err)
+	for _, foreach := range foreachList {
+		elements, err := evaluateList(foreach.List, v.ctx.JSONContext)
+		if err != nil {
+			msg := fmt.Sprintf("failed to evaluate list %s", foreach.List)
+			return ruleError(v.rule, utils.Validation, msg, err)
 		}
 
-		foreachValidator := newForeachValidator(v.log, ctx, v.rule)
-		r := foreachValidator.validate()
-		if r == nil {
-			v.log.Info("skipping rule due to empty result")
-			continue
-		} else if r.Status == response.RuleStatusSkip {
-			v.log.Info("skipping rule as preconditions were not met")
-			continue
-		} else if r.Status != response.RuleStatusPass {
-			msg := fmt.Sprintf("validation failed in foreach rule for %v", r.Message)
-			return ruleResponse(v.rule, utils.Validation, msg, r.Status)
-		}
+		v.ctx.JSONContext.Checkpoint()
+		defer v.ctx.JSONContext.Restore()
 
-		applyCount++
+		for _, e := range elements {
+			v.ctx.JSONContext.Reset()
+
+			ctx := v.ctx.Copy()
+			if err := addElementToContext(ctx, e); err != nil {
+				v.log.Error(err, "failed to add element to context")
+				return ruleError(v.rule, utils.Validation, "failed to process foreach", err)
+			}
+
+			foreachValidatorList := newForeachValidator(v.log, ctx, v.rule)
+			for _, foreachValidator := range foreachValidatorList {
+				r := foreachValidator.validate()
+				if r == nil {
+					v.log.Info("skipping rule due to empty result")
+					continue
+				} else if r.Status == response.RuleStatusSkip {
+					v.log.Info("skipping rule as preconditions were not met")
+					continue
+				} else if r.Status != response.RuleStatusPass {
+					msg := fmt.Sprintf("validation failed in foreach rule for %v", r.Message)
+					return ruleResponse(v.rule, utils.Validation, msg, r.Status)
+				}
+				applyCount++
+			}
+
+		}
 	}
 
 	if applyCount == 0 {

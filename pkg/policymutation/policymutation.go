@@ -567,6 +567,7 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log l
 
 		// handle CronJob, it appends an additional rule
 		genRule = generateCronJobRule(rule, controllers, log)
+
 		if !reflect.DeepEqual(genRule, kyvernoRule{}) {
 			pbytes := convertToPatches(genRule, patchPostion)
 			pbytes = updateGenRuleByte(pbytes, "Cronjob", genRule)
@@ -724,20 +725,22 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		return *controllerRule
 	}
 
-	if rule.Mutation.ForEachMutation != nil && rule.Mutation.ForEachMutation.PatchStrategicMerge != nil {
-		newForeachMutation := &kyverno.Mutation{
-			ForEachMutation: &kyverno.ForEachMutation{
-				List:             rule.Mutation.ForEachMutation.List,
-				Context:          rule.Mutation.ForEachMutation.Context,
-				AnyAllConditions: rule.Mutation.ForEachMutation.AnyAllConditions,
+	if len(rule.Mutation.ForEachMutation) > 0 && rule.Mutation.ForEachMutation != nil {
+		var newForeachMutation []*kyverno.ForEachMutation
+		for _, foreach := range rule.Mutation.ForEachMutation {
+			newForeachMutation = append(newForeachMutation, &kyverno.ForEachMutation{
+				List:             foreach.List,
+				AnyAllConditions: foreach.AnyAllConditions,
 				PatchStrategicMerge: map[string]interface{}{
 					"spec": map[string]interface{}{
-						"template": rule.Mutation.ForEachMutation.PatchStrategicMerge,
+						"template": foreach.PatchStrategicMerge,
 					},
 				},
-			},
+			})
 		}
-		controllerRule.Mutation = newForeachMutation.DeepCopy()
+		controllerRule.Mutation = &kyverno.Mutation{
+			ForEachMutation: newForeachMutation,
+		}
 		return *controllerRule
 	}
 
@@ -769,19 +772,14 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		return *controllerRule
 	}
 
-	if rule.Validation.ForEachValidation != nil && rule.Validation.ForEachValidation.Pattern != nil {
-		newForeachValidate := &kyverno.Validation{
-			Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
-			ForEachValidation: rule.Validation.ForEachValidation,
+	if len(rule.Validation.ForEachValidation) > 0 && rule.Validation.ForEachValidation != nil {
+		newForeachValidate := make([]*kyverno.ForEachValidation, len(rule.Validation.ForEachValidation))
+		for i, foreach := range rule.Validation.ForEachValidation {
+			newForeachValidate[i] = foreach
 		}
-		controllerRule.Validation = newForeachValidate.DeepCopy()
-		return *controllerRule
-	}
-
-	if rule.Validation.ForEachValidation != nil && rule.Validation.ForEachValidation.AnyPattern != nil {
 		controllerRule.Validation = &kyverno.Validation{
 			Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
-			ForEachValidation: rule.Validation.ForEachValidation,
+			ForEachValidation: newForeachValidate,
 		}
 		return *controllerRule
 	}

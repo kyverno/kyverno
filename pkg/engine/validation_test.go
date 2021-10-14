@@ -2,8 +2,9 @@ package engine
 
 import (
 	"encoding/json"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"testing"
+
+	"github.com/kyverno/kyverno/pkg/engine/response"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -2435,20 +2436,34 @@ func Test_foreach_container_pass(t *testing.T) {
 	policyraw := []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
-		"metadata": {"name": "test"},
+		"metadata": {
+		  "name": "test"
+		},
 		"spec": {
 		  "rules": [
 			{
 			  "name": "test-path-not-exist",
-			  "match": {"resources": { "kinds": [ "Deployment" ] } },
-			  "validate": {
-				"foreach": {
-				  "list": "request.object.spec.template.spec.containers",
-				  "pattern": {
-					"name": "*-valid"
-				  }
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
 				}
-			}}]}}`)
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"pattern": {
+					  "name": "*-valid"
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
 
 	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusPass)
 }
@@ -2476,12 +2491,14 @@ func Test_foreach_container_fail(t *testing.T) {
 			  "name": "test",
 			  "match": {"resources": { "kinds": [ "Deployment" ] } },
 			  "validate": {
-				"foreach": {
-				  "list": "request.object.spec.template.spec.containers",
-				  "pattern": {
-					"name": "*-valid"
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"pattern": {
+					  "name": "*-valid"
+					}
 				  }
-				}
+				]
 			}}]}}`)
 
 	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusFail)
@@ -2503,22 +2520,40 @@ func Test_foreach_container_deny_fail(t *testing.T) {
 	policyraw := []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
-		"metadata": {"name": "test"},
+		"metadata": {
+		  "name": "test"
+		},
 		"spec": {
 		  "rules": [
 			{
 			  "name": "test",
-			  "match": {"resources": { "kinds": [ "Deployment" ] } },
-			  "validate": {
-				"foreach": {
-				  "list": "request.object.spec.template.spec.containers",
-				  "deny": {
-				    "conditions": [
-					  {"key": "{{ regex_match('{{element.image}}', 'docker.io') }}", "operator": "Equals", "value": false}
-                    ]
-				  }
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
 				}
-			}}]}}`)
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ regex_match('{{element.image}}', 'docker.io') }}",
+						  "operator": "Equals",
+						  "value": false
+						}
+					  ]
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
 
 	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusFail)
 }
@@ -2546,14 +2581,20 @@ func Test_foreach_container_deny_success(t *testing.T) {
 			  "name": "test",
 			  "match": {"resources": { "kinds": [ "Deployment" ] } },
 			  "validate": {
-				"foreach": {
-				  "list": "request.object.spec.template.spec.containers",
-				  "deny": {
-				    "conditions": [
-					  {"key": "{{ regex_match('{{element.image}}', 'docker.io') }}", "operator": "Equals", "value": false}
-                    ]
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ regex_match('{{element.image}}', 'docker.io') }}",
+						  "operator": "Equals",
+						  "value": false
+						}
+					  ]
+					}
 				  }
-				}
+				]
 			}}]}}`)
 
 	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusFail)
@@ -2575,22 +2616,40 @@ func Test_foreach_container_deny_error(t *testing.T) {
 	policyraw := []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
-		"metadata": {"name": "test"},
+		"metadata": {
+		  "name": "test"
+		},
 		"spec": {
 		  "rules": [
 			{
 			  "name": "test",
-			  "match": {"resources": { "kinds": [ "Deployment" ] } },
-			  "validate": {
-				"foreach": {
-				  "list": "request.object.spec.template.spec.containers",
-				  "deny": {
-				    "conditions": [
-					  {"key": "{{ regex_match_INVALID('{{request.object.image}}', 'docker.io') }}", "operator": "Equals", "value": false}
-                    ]
-				  }
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
 				}
-			}}]}}`)
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ regex_match_INVALID('{{request.object.image}}', 'docker.io') }}",
+						  "operator": "Equals",
+						  "value": false
+						}
+					  ]
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
 
 	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusError)
 }
@@ -2611,30 +2670,60 @@ func Test_foreach_context_preconditions(t *testing.T) {
 	policyraw := []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
-		"metadata": {"name": "test"},
+		"metadata": {
+		  "name": "test"
+		},
 		"spec": {
 		  "rules": [
 			{
 			  "name": "test",
-			  "match": {"resources": { "kinds": [ "Deployment" ] } },
-			  "validate": {
-				"foreach": {
-				  "list": "request.object.spec.template.spec.containers",
-                  "context": [{"name": "img", "configMap": {"name": "mycmap", "namespace": "default"}}],
-				  "preconditions": { "all": [
-					{
-					  "key": "{{element.name}}",
-					  "operator": "In",
-					  "value": ["podvalid"]
-					}
-				  ]},
-				  "deny": {
-				    "conditions": [
-					  {"key": "{{ element.image }}", "operator": "NotEquals", "value": "{{ img.data.{{ element.name }} }}"}
-                    ]
-				  }
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
 				}
-			}}]}}`)
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"context": [
+					  {
+						"name": "img",
+						"configMap": {
+						  "name": "mycmap",
+						  "namespace": "default"
+						}
+					  }
+					],
+					"preconditions": {
+					  "all": [
+						{
+						  "key": "{{element.name}}",
+						  "operator": "In",
+						  "value": [
+							"podvalid"
+						  ]
+						}
+					  ]
+					},
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ element.image }}",
+						  "operator": "NotEquals",
+						  "value": "{{ img.data.{{ element.name }} }}"
+						}
+					  ]
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
 
 	configMapVariableContext := store.Context{
 		Policies: []store.Policy{
@@ -2675,30 +2764,61 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 	policyraw := []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
-		"metadata": {"name": "test"},
+		"metadata": {
+		  "name": "test"
+		},
 		"spec": {
 		  "rules": [
 			{
 			  "name": "test",
-			  "match": {"resources": { "kinds": [ "Deployment" ] } },
-			  "validate": {
-				"foreach": {
-				  "list": "request.object.spec.template.spec.containers",
-                  "context": [{"name": "img", "configMap": {"name": "mycmap", "namespace": "default"}}],
-				  "preconditions": { "all": [
-					{
-					  "key": "{{element.name}}",
-					  "operator": "In",
-					  "value": ["podvalid", "podinvalid"]
-					}
-				  ]},
-				  "deny": {
-				    "conditions": [
-					  {"key": "{{ element.image }}", "operator": "NotEquals", "value": "{{ img.data.{{ element.name }} }}"}
-                    ]
-				  }
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
 				}
-			}}]}}`)
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"context": [
+					  {
+						"name": "img",
+						"configMap": {
+						  "name": "mycmap",
+						  "namespace": "default"
+						}
+					  }
+					],
+					"preconditions": {
+					  "all": [
+						{
+						  "key": "{{element.name}}",
+						  "operator": "In",
+						  "value": [
+							"podvalid",
+							"podinvalid"
+						  ]
+						}
+					  ]
+					},
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ element.image }}",
+						  "operator": "NotEquals",
+						  "value": "{{ img.data.{{ element.name }} }}"
+						}
+					  ]
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
 
 	configMapVariableContext := store.Context{
 		Policies: []store.Policy{
