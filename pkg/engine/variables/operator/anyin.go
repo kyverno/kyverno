@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/minio/pkg/wildcard"
-
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
@@ -42,57 +40,13 @@ func (anyin AnyInHandler) Evaluate(key, value interface{}) bool {
 }
 
 func (anyin AnyInHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
-	invalidType, keyExists := anyKeyExistsInArray(key, value, anyin.log)
+	invalidType, keyExists := keyExistsInArray(key, value, anyin.log)
 	if invalidType {
 		anyin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
 	return keyExists
-}
-
-// anyKeyExistsInArray checks if the  key exists in the array value
-// The value can be a string, an array of strings, or a JSON format
-// array of strings (e.g. ["val1", "val2", "val3"].
-func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
-	switch valuesAvailable := value.(type) {
-
-	case []interface{}:
-		for _, val := range valuesAvailable {
-			v, ok := val.(string)
-			if !ok {
-				return true, false
-			}
-
-			if ok && wildcard.Match(key, v) {
-				return false, true
-			}
-		}
-
-	case string:
-
-		if wildcard.Match(valuesAvailable, key) {
-			return false, true
-		}
-
-		var arr []string
-		if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
-			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
-			return true, false
-		}
-
-		for _, val := range arr {
-			if key == val {
-				return false, true
-			}
-		}
-
-	default:
-		invalidType = true
-		return
-	}
-
-	return false, false
 }
 
 func (anyin AnyInHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {

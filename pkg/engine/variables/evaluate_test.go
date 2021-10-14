@@ -1753,6 +1753,31 @@ func Test_Eval_AllIn_String_Set_Pass(t *testing.T) {
 	}
 }
 
+func Test_Eval_AllIn_String_Set_Pass2(t *testing.T) {
+	ctx := context.NewContext()
+	key := [1]string{"1.1.1.1"}
+	keyInterface := make([]interface{}, len(key))
+	for i := range key {
+		keyInterface[i] = key[i]
+	}
+
+	value := [3]string{"1.1.1.1", "2.2.2.2", "3.3.3.3"}
+	valueInterface := make([]interface{}, len(value))
+	for i := range value {
+		valueInterface[i] = value[i]
+	}
+
+	condition := kyverno.Condition{
+		Key:      keyInterface,
+		Operator: kyverno.AllIn,
+		Value:    valueInterface,
+	}
+
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
 func Test_Eval_AllIn_String_Set_Fail1(t *testing.T) {
 	ctx := context.NewContext()
 	key := [2]string{"5.5.5.5", "4.4.4.4"}
