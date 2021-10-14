@@ -215,7 +215,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 				if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
 					if !ruleOnlyDealsWithResourceMetaData(rule) {
 						return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-							" the rule does not match an kind")
+							" the rule does not match any kind")
 					}
 				}
 
@@ -227,7 +227,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 							var allowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace|userInfo)[^{}]*\}\}`)
 							if !strings.Contains(condition.Key.(string), "request.object.metadata.") && (!allowedVariables.MatchString(condition.Key.(string)) || strings.Contains(condition.Key.(string), "request.object.spec")) {
 								return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-									" the rule does not match an kind")
+									" the rule does not match any kind")
 							}
 						}
 					}
@@ -236,7 +236,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			if rule.HasMutate() {
 				if !ruleOnlyDealsWithResourceMetaData(rule) {
 					return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-						" the rule does not match an kind")
+						" the rule does not match any kind")
 				}
 			}
 		}
@@ -342,7 +342,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 func validateMatchKindHelper(rule kyverno.Rule) error {
 	if !ruleOnlyDealsWithResourceMetaData(rule) {
 		return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-			" the rule does not match an kind")
+			" the rule does not match any kind")
 	}
 	return fmt.Errorf("at least one element must be specified in a kind block, the kind attribute is mandatory when working with the resources element")
 }
