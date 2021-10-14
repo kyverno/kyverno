@@ -298,10 +298,10 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 
 	logger.V(4).Info("received an admission request in mutating webhook")
 	requestTime := time.Now().Unix()
-
-	mutatePolicies := ws.pCache.GetPolicies(policycache.Mutate, request.Kind.Kind, request.Namespace)
-	generatePolicies := ws.pCache.GetPolicies(policycache.Generate, request.Kind.Kind, request.Namespace)
-	verifyImagesPolicies := ws.pCache.GetPolicies(policycache.VerifyImages, request.Kind.Kind, request.Namespace)
+	kind := request.Kind.Kind
+	mutatePolicies := ws.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)
+	generatePolicies := ws.pCache.GetPolicies(policycache.Generate, kind, request.Namespace)
+	verifyImagesPolicies := ws.pCache.GetPolicies(policycache.VerifyImages, kind, request.Namespace)
 
 	if len(mutatePolicies) == 0 && len(generatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
 		logger.V(4).Info("no policies matched admission request")
@@ -488,7 +488,6 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	if request.Operation == v1beta1.Delete {
 		ws.handleDelete(request)
 	}
-
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return successResponse(nil)
 	}
@@ -496,10 +495,10 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	logger.V(6).Info("received an admission request in validating webhook")
 	// timestamp at which this admission request got triggered
 	admissionRequestTimestamp := time.Now().Unix()
-
-	policies := ws.pCache.GetPolicies(policycache.ValidateEnforce, request.Kind.Kind, "")
+	kind := request.Kind.Kind
+	policies := ws.pCache.GetPolicies(policycache.ValidateEnforce, kind, "")
 	// Get namespace policies from the cache for the requested resource namespace
-	nsPolicies := ws.pCache.GetPolicies(policycache.ValidateEnforce, request.Kind.Kind, request.Namespace)
+	nsPolicies := ws.pCache.GetPolicies(policycache.ValidateEnforce, kind, request.Namespace)
 	policies = append(policies, nsPolicies...)
 
 	var roles, clusterRoles []string
