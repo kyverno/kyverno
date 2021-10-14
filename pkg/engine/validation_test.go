@@ -2843,6 +2843,97 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusFail)
 }
 
+func Test_foreach_element_validation(t *testing.T) {
+
+	resourceRaw := []byte(`{
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+          "name": "nginx"
+        },
+        "spec": {
+          "containers": [
+            {
+              "name": "nginx1",
+              "image": "nginx"
+            },
+            {
+              "name": "nginx2",
+              "image": "nginx"
+            }
+          ]
+        }
+	}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "check-container-names"},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Pod" ] } },
+			  "validate": {
+			  	"message": "Invalid name",
+				"foreach": [
+					{
+					  "list": "request.object.spec.containers",
+					  "pattern": {
+						"name": "{{ element.name }}"
+					  }
+					}
+				]
+			}}]}}`)
+
+	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusPass)
+}
+
+func Test_outof_foreach_element_validation(t *testing.T) {
+
+	resourceRaw := []byte(`{
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+          "name": "nginx"
+        },
+        "spec": {
+          "containers": [
+            {
+              "name": "nginx1",
+              "image": "nginx"
+            },
+            {
+              "name": "nginx2",
+              "image": "nginx"
+            }
+          ]
+        }
+	}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "check-container-names"},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Pod" ] } },
+			  "validate": {
+			  	"message": "Invalid name",
+				"pattern": {
+				  "name": "{{ element.name }}"
+				}
+			}}]}}`)
+
+	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusError)
+}
+
 func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string, status response.RuleStatus) {
 	var policy kyverno.ClusterPolicy
 	assert.NilError(t, json.Unmarshal(policyraw, &policy))
