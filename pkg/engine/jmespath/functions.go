@@ -1,6 +1,7 @@
 package jmespath
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"reflect"
@@ -43,6 +44,8 @@ var (
 	multiply               = "multiply"
 	divide                 = "divide"
 	modulo                 = "modulo"
+	base64Decode           = "base64_decode"
+	base64Encode           = "base64_encode"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -192,6 +195,20 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpNumber}},
 			},
 			Handler: jpModulo,
+		},
+		{
+			Name: base64Decode,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpBase64Decode,
+		},
+		{
+			Name: base64Encode,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpBase64Encode,
 		},
 	}
 
@@ -499,6 +516,31 @@ func jpModulo(arguments []interface{}) (interface{}, error) {
 	}
 
 	return val1 % val2, nil
+}
+
+func jpBase64Decode(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	decodedStr, err := base64.StdEncoding.DecodeString(str.String())
+	if err != nil {
+		return nil, err
+	}
+
+	return string(decodedStr), nil
+}
+
+func jpBase64Encode(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	return base64.StdEncoding.EncodeToString([]byte(str.String())), nil
 }
 
 // InterfaceToString casts an interface to a string type

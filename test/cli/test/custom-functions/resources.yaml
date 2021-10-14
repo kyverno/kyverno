@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-match
+  labels:
+    value: hello
+type: Opaque
+data:
+  value: aGVsbG8=
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-no-match
+  labels:
+    value: hello
+type: Opaque
+data:
+  value: Z29vZGJ5ZQ==
