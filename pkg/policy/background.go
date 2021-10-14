@@ -57,7 +57,7 @@ func ContainsVariablesOtherThanObject(policy kyverno.ClusterPolicy) error {
 			}
 		}
 
-		filterVars := []string{"request.object", "request.namespace", "images"}
+		filterVars := []string{"request.object", "request.namespace", "images", "element"}
 		ctx := context.NewContext(filterVars...)
 
 		for _, contextEntry := range rule.Context {
