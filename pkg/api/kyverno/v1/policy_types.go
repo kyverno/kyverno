@@ -405,7 +405,7 @@ type Mutation struct {
 
 	// ForEach applies policy rule changes to nested elements.
 	// +optional
-	ForEachMutation *ForEachMutation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+	ForEachMutation []*ForEachMutation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
 // ForEach applies policy rule changes to nested elements.
@@ -460,7 +460,9 @@ type Validation struct {
 	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
-	ForEachValidation *ForEachValidation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+	// ForEach applies policy rule changes to nested elements.
+	// +optional
+	ForEachValidation []*ForEachValidation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 
 	// Pattern specifies an overlay-style pattern used to check resources.
 	// +kubebuilder:validation:XPreserveUnknownFields

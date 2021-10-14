@@ -95,15 +95,6 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		return *cronJobRule
 	}
 
-	if (jobRule.Validation != nil) && (jobRule.Validation.ForEachValidation != nil) && (jobRule.Validation.ForEachValidation.Pattern != nil) {
-		newValidate := &kyverno.Validation{
-			Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "pattern"),
-			ForEachValidation: jobRule.Validation.ForEachValidation,
-		}
-		cronJobRule.Validation = newValidate.DeepCopy()
-		return *cronJobRule
-	}
-
 	if (jobRule.Validation != nil) && (jobRule.Validation.AnyPattern != nil) {
 		var patterns []interface{}
 		anyPatterns, err := jobRule.Validation.DeserializeAnyPattern()
@@ -128,25 +119,36 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		return *cronJobRule
 	}
 
-	if (jobRule.Validation != nil) && (jobRule.Validation.ForEachValidation != nil) && (jobRule.Validation.ForEachValidation.AnyPattern != nil) {
+	if (jobRule.Validation != nil) && len(jobRule.Validation.ForEachValidation) > 0 && jobRule.Validation.ForEachValidation != nil {
+		newForeachValidate := make([]*kyverno.ForEachValidation, len(jobRule.Validation.ForEachValidation))
+		for i, foreach := range rule.Validation.ForEachValidation {
+			newForeachValidate[i] = foreach
+		}
 		cronJobRule.Validation = &kyverno.Validation{
-			Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "anyPattern"),
-			ForEachValidation: jobRule.Validation.ForEachValidation,
+			Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
+			ForEachValidation: newForeachValidate,
 		}
 		return *cronJobRule
 	}
 
-	if (jobRule.Validation != nil) && (jobRule.Validation.ForEachValidation != nil) && (jobRule.Validation.ForEachValidation.Deny != nil) {
-		cronJobRule.Validation = &kyverno.Validation{
-			Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "anyPattern"),
-			ForEachValidation: jobRule.Validation.ForEachValidation,
-		}
-		return *cronJobRule
-	}
+	if (jobRule.Mutation != nil) && len(jobRule.Mutation.ForEachMutation) > 0 && jobRule.Mutation.ForEachMutation != nil {
 
-	if (jobRule.Mutation != nil) && (jobRule.Mutation.ForEachMutation != nil) && (jobRule.Mutation.ForEachMutation.PatchStrategicMerge != nil) {
+		var newForeachMutation []*kyverno.ForEachMutation
+
+		for _, foreach := range rule.Mutation.ForEachMutation {
+			newForeachMutation = append(newForeachMutation, &kyverno.ForEachMutation{
+				List:             foreach.List,
+				Context:          foreach.Context,
+				AnyAllConditions: foreach.AnyAllConditions,
+				PatchStrategicMerge: map[string]interface{}{
+					"spec": map[string]interface{}{
+						"jobTemplate": foreach.PatchStrategicMerge,
+					},
+				},
+			})
+		}
 		cronJobRule.Mutation = &kyverno.Mutation{
-			ForEachMutation: jobRule.Mutation.ForEachMutation,
+			ForEachMutation: newForeachMutation,
 		}
 		return *cronJobRule
 	}

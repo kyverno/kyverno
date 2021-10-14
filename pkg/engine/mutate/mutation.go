@@ -15,7 +15,7 @@ type Handler interface {
 }
 
 // CreateMutateHandler initilizes a new instance of mutation handler
-func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
+func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger, foreachIndex int) Handler {
 
 	switch {
 	case isPatchStrategicMerge(mutate):
@@ -31,7 +31,7 @@ func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResou
 	case isPatches(mutate):
 		return newPatchesHandler(ruleName, mutate, patchedResource, context, logger)
 	case isForEach(mutate):
-		return newForEachHandler(ruleName, mutate, patchedResource, context, logger)
+		return newForEachHandler(ruleName, mutate, patchedResource, context, logger, foreachIndex)
 	default:
 		return newEmptyHandler(patchedResource)
 	}
@@ -66,20 +66,22 @@ type forEachHandler struct {
 	patchedResource unstructured.Unstructured
 	evalCtx         context.EvalInterface
 	logger          logr.Logger
+	foreachIndex    int
 }
 
-func newForEachHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
+func newForEachHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger, foreachIndex int) Handler {
 	return forEachHandler{
 		ruleName:        ruleName,
 		mutation:        mutate,
 		patchedResource: patchedResource,
 		evalCtx:         context,
 		logger:          logger,
+		foreachIndex:    foreachIndex,
 	}
 }
 
 func (h forEachHandler) Handle() (response.RuleResponse, unstructured.Unstructured) {
-	return ProcessStrategicMergePatch(h.ruleName, h.mutation.ForEachMutation.PatchStrategicMerge, h.patchedResource, h.logger)
+	return ProcessStrategicMergePatch(h.ruleName, h.mutation.ForEachMutation[h.foreachIndex].PatchStrategicMerge, h.patchedResource, h.logger)
 }
 
 // patchesJSON6902Handler

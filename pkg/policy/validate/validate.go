@@ -50,8 +50,10 @@ func (v *Validate) Validate() (string, error) {
 	}
 
 	if v.rule.ForEachValidation != nil {
-		if err := v.validateForEach(v.rule.ForEachValidation); err != nil {
-			return "", err
+		for _, foreach := range v.rule.ForEachValidation {
+			if err := v.validateForEach(foreach); err != nil {
+				return "", err
+			}
 		}
 	}
 
