@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - 'main'
+      - 'v*'
     paths-ignore:
       - 'README.md'
       - 'docs/**'
