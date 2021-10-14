@@ -2,7 +2,6 @@ package policy
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -19,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/pkg/wildcard"
+	errors "github.com/pkg/errors"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -276,11 +276,11 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		if !utils.ContainsString(rule.MatchResources.Kinds, "*") {
 			err := validateKinds(rule.MatchResources.Kinds, mock, client, p)
 			if err != nil {
-				return fmt.Errorf("match resource kind is invalid ")
+				return errors.Wrapf(err, "match resource kind is invalid")
 			}
 			err = validateKinds(rule.ExcludeResources.Kinds, mock, client, p)
 			if err != nil {
-				return fmt.Errorf("exclude resource kind is invalid ")
+				return errors.Wrapf(err, "exclude resource kind is invalid")
 			}
 		}
 
@@ -1152,13 +1152,7 @@ func jsonPatchOnPod(rule kyverno.Rule) bool {
 
 func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.ClusterPolicy) error {
 	for _, kind := range kinds {
-		gv, k := comn.GetKindFromGVK(kind)
-		if !mock {
-			_, _, err := client.DiscoveryClient.FindResource(gv, k)
-			if err != nil || strings.ToLower(k) == k {
-				return fmt.Errorf("match resource kind  %s is invalid ", k)
-			}
-		}
+		_, k := comn.GetKindFromGVK(kind)
 		if k == p.Kind {
 			return fmt.Errorf("kind and match resource kind should not be the same")
 		}
