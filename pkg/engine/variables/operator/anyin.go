@@ -12,7 +12,7 @@ import (
 
 //NewAnyInHandler returns handler to manage AnyIn operations
 func NewAnyInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
-	return InHandler{
+	return AnyInHandler{
 		ctx: ctx,
 		log: log,
 	}

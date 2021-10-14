@@ -12,7 +12,7 @@ import (
 
 //NewAllInHandler returns handler to manage AllIn operations
 func NewAllInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
-	return InHandler{
+	return AllInHandler{
 		ctx: ctx,
 		log: log,
 	}
@@ -42,7 +42,7 @@ func (allin AllInHandler) Evaluate(key, value interface{}) bool {
 }
 
 func (allin AllInHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
-	invalidType, keyExists := anyKeyExistsInArray(key, value, allin.log)
+	invalidType, keyExists := allKeyExistsInArray(key, value, allin.log)
 	if invalidType {
 		allin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
@@ -96,13 +96,13 @@ func allKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 }
 
 func (allin AllInHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
-	invalidType, isAnyIn := anySetExistsInArray(key, value, allin.log, false)
+	invalidType, isAllIn := allSetExistsInArray(key, value, allin.log, false)
 	if invalidType {
 		allin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
-	return isAnyIn
+	return isAllIn
 }
 
 // allsetExistsInArray checks if all key is a subset of value

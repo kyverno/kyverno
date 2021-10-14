@@ -43,10 +43,10 @@ func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvern
 		return NewInHandler(log, ctx)
 
 	case strings.ToLower(string(kyverno.AnyIn)):
-		return NewInHandler(log, ctx)
+		return NewAnyInHandler(log, ctx)
 
 	case strings.ToLower(string(kyverno.AllIn)):
-		return NewInHandler(log, ctx)
+		return NewAllInHandler(log, ctx)
 
 	case strings.ToLower(string(kyverno.NotIn)):
 		return NewNotInHandler(log, ctx)
