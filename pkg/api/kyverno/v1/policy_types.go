@@ -234,8 +234,16 @@ const (
 	NotEquals ConditionOperator = "NotEquals"
 	// In evaluates if the key is contained in the set of values.
 	In ConditionOperator = "In"
+	// AnyIn evaluates if any of the keys are contained in the set of values.
+	AnyIn ConditionOperator = "AnyIn"
+	// AllIn evaluates if all the keys are contained in the set of values.
+	AllIn ConditionOperator = "AllIn"
 	// NotIn evaluates if the key is not contained in the set of values.
 	NotIn ConditionOperator = "NotIn"
+	// AnyNotIn evaluates if any of the keys are not contained in the set of values.
+	AnyNotIn ConditionOperator = "AnyNotIn"
+	// AllNotIn evaluates if all the keys are not contained in the set of values.
+	AllNotIn ConditionOperator = "AllNotIn"
 	// GreaterThanOrEquals evaluates if the key (numeric) is greater than or equal to the value (numeric).
 	GreaterThanOrEquals ConditionOperator = "GreaterThanOrEquals"
 	// GreaterThan evaluates if the key (numeric) is greater than the value (numeric).
