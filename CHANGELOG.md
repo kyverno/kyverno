@@ -1,3 +1,20 @@
+## v1.5.0-rc2
+
+### Features
+- Support `*` (wildcard all) to match all kinds without impacting performance #1954
+- Implement a `base64decode` custom JMESPath function #2533
+
+### Enhancements
+- Change `validate.foreach` and `mutate.foreach` to lists #2505
+
+### Bug Fixes
+- Fix mutate foreach auto-gen rules #2507
+- e2e test cases fails intermittently #2208
+- Allow `element` variable introduce for foreach without requiring `background: true` #2510
+- Fix webhook update for sub-resources #2545, #2546
+
+Thanks to all our contributors! 😊
+
 ## v1.5.0-rc1
 ### Note
 - The Helm CRDs was switched back to kyverno chart. To upgrade using Helm, please refer to https://github.com/kyverno/website/pull/304.
