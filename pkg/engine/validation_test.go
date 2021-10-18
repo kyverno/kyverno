@@ -2956,7 +2956,6 @@ func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string,
 	}
 }
 
-
 func Test_delete_ignore_pattern(t *testing.T) {
 
 	resourceRaw := []byte(`{
@@ -3024,4 +3023,3 @@ func Test_delete_ignore_pattern(t *testing.T) {
 	engineResponseDelete := Validate(policyContextDelete)
 	assert.Equal(t, len(engineResponseDelete.PolicyResponse.Rules), 0)
 }
-
