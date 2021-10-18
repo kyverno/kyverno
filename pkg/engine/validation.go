@@ -159,7 +159,7 @@ func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *vali
 
 func newForeachValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) []*validator {
 	ruleCopy := rule.DeepCopy()
-	val := []*validator{}
+	var val []*validator
 	for _, foreach := range ruleCopy.Validation.ForEachValidation {
 		anyAllConditions, err := common.ToMap(foreach.AnyAllConditions)
 		if err != nil {
@@ -356,16 +356,19 @@ func (v *validator) validateResourceWithRule() *response.RuleResponse {
 		return resp
 	}
 
-	if !isEmptyUnstructured(&v.ctx.OldResource) {
+	// if the OldResource is empty, the request is a CREATE
+	if isEmptyUnstructured(&v.ctx.OldResource) {
 		resp := v.validatePatterns(v.ctx.NewResource)
 		return resp
 	}
 
+	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
 	if isEmptyUnstructured(&v.ctx.NewResource) {
 		v.log.V(3).Info("skipping validation on deleted resource")
 		return nil
 	}
 
+	// if the OldResource is not empty, and the NewResource is not empty, the request is a MODIFY
 	oldResp := v.validatePatterns(v.ctx.OldResource)
 	newResp := v.validatePatterns(v.ctx.NewResource)
 	if isSameRuleResponse(oldResp, newResp) {
