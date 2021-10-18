@@ -1,3 +1,9 @@
+## v1.5.0-rc3
+
+### Bug Fixes
+- Fix mutate handling of skipped rules #2557
+- Fix check for CREATE request #2551
+
 ## v1.5.0-rc2
 
 ### Features
