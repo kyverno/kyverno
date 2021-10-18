@@ -2955,3 +2955,73 @@ func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string,
 		assert.Equal(t, er.PolicyResponse.Rules[0].Message, msg)
 	}
 }
+
+
+func Test_delete_ignore_pattern(t *testing.T) {
+
+	resourceRaw := []byte(`{
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+          "name": "nginx",
+          "labels": {"app.kubernetes.io/foo" : "myapp-pod"}
+        },
+        "spec": {
+          "containers": [
+            {
+              "name": "nginx1",
+              "image": "nginx"
+            },
+            {
+              "name": "nginx2",
+              "image": "nginx"
+            }
+          ]
+        }
+	}`)
+
+	policyRaw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "check-container-labels"},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Pod" ] } },
+			  "validate": {
+			  	"message": "Invalid label",
+				"pattern": {
+				  "metadata" : {
+                      "labels": {"app.kubernetes.io/name" : "myapp-pod"}
+                  }
+				}
+			}}]}}`)
+
+	var policy kyverno.ClusterPolicy
+	assert.NilError(t, json.Unmarshal(policyRaw, &policy))
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResource(resourceRaw)
+	assert.NilError(t, err)
+
+	policyContextCreate := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		NewResource: *resourceUnstructured}
+	engineResponseCreate := Validate(policyContextCreate)
+	assert.Equal(t, len(engineResponseCreate.PolicyResponse.Rules), 1)
+	assert.Equal(t, engineResponseCreate.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
+
+	policyContextDelete := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		OldResource: *resourceUnstructured}
+	engineResponseDelete := Validate(policyContextDelete)
+	assert.Equal(t, len(engineResponseDelete.PolicyResponse.Rules), 0)
+}
+
