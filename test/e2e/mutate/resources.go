@@ -43,6 +43,21 @@ spec:
         metadata:
           labels:
             +(kyverno.key/copy-me): "{{ labelValue[?metadata.name == 'source'].metadata.labels.\"kyverno.key/copy-me\" | [0] }}"
+  - name: "impossible-rule"
+    match:
+      resources:
+        kinds:
+          - ConfigMap
+    preconditions:
+      all:
+        - key: "not-the-name"
+          operator: In
+          value: "{{ request.object.metadata.labels | keys(@) }}"
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            something: "something"
 `)
 
 var configMapMutationWithContextLogicYaml = []byte(`
@@ -156,9 +171,9 @@ spec:
     http:
       paths:
       - backend:
-          service: 
+          service:
             name: kuard
-            port: 
+            port:
               number: 8080
         path: /
         pathType: ImplementationSpecific
