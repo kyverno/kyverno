@@ -28,6 +28,21 @@ spec:
         metadata:
           labels:
             color: orange
+  - name: "impossible-rule"
+    match:
+      resources:
+        kinds:
+          - Pod
+    preconditions:
+      all:
+        - key: "not-the-name" # This precondition should always fail!
+          operator: In
+          value: "{{ request.object.metadata.labels | keys(@) }}"
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            something: "something"
 
 ---
 
