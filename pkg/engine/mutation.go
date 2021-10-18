@@ -208,7 +208,7 @@ func mutateResource(rule *kyverno.Rule, ctx *context.Context, resource unstructu
 	mutateResp := &mutateResponse{false, unstructured.Unstructured{}, nil, ""}
 
 	// Pre-conditions checks for the list of foreach rules should ideally be performed once.
-	// Currently they are performed for each entry in the foreach list.
+	// Currently, they are performed for each entry in the foreach list.
 	// Also, the foreach index parameter should be removed and a set of patches should be passed in.
 	anyAllConditions, err := variables.SubstituteAllInPreconditions(logger, ctx, rule.AnyAllConditions)
 	if err != nil {
@@ -221,7 +221,8 @@ func mutateResource(rule *kyverno.Rule, ctx *context.Context, resource unstructu
 	}
 
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
-		return errors.Wrapf(err, "preconditions mismatch"), mutateResp
+		mutateResp.skip = true
+		return fmt.Errorf("preconditions mismatch"), mutateResp
 	}
 
 	updatedRule, err := variables.SubstituteAllInRule(logger, ctx, *rule)
