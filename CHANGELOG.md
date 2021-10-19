@@ -1,3 +1,8 @@
+## v1.5.0-rc4
+
+### Bug Fixes
+- Fix `foreach` fails the whole policy if the list is not there #2559
+
 ## v1.5.0-rc3
 
 ### Bug Fixes
