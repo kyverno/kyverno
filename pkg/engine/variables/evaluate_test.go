@@ -103,6 +103,54 @@ func Test_Eval_GreaterThanOrEquals_Const_string_Fail(t *testing.T) {
 	}
 }
 
+func Test_Eval_GreaterThanOrEquals_Const_quantity_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "10Gi",
+		Operator: kyverno.GreaterThanOrEquals,
+		Value:    "1Gi",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_GreaterThanOrEquals_Const_quantity_equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1Gi",
+		Operator: kyverno.GreaterThanOrEquals,
+		Value:    "1Gi",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_GreaterThanOrEquals_Const_quantity_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1Gi",
+		Operator: kyverno.GreaterThanOrEquals,
+		Value:    "15Gi",
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_GreaterThanOrEquals_Const_quantity_different_units(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1Gi",
+		Operator: kyverno.GreaterThanOrEquals,
+		Value:    "10Mi",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
 func Test_Eval_GreaterThan_Const_string_Equal_Fail(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
@@ -133,6 +181,30 @@ func Test_Eval_GreaterThan_Const_string_Fail(t *testing.T) {
 		Key:      "1.1",
 		Operator: kyverno.GreaterThan,
 		Value:    "2",
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_GreaterThan_Const_quantity_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "10Gi",
+		Operator: kyverno.GreaterThan,
+		Value:    "1Gi",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_GreaterThan_Const_quantity_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1Gi",
+		Operator: kyverno.GreaterThan,
+		Value:    "1Gi",
 	}
 	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
@@ -175,6 +247,54 @@ func Test_Eval_LessThanOrEquals_Const_string_Fail(t *testing.T) {
 	}
 }
 
+func Test_Eval_LessThanOrEquals_Const_quantity_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1Gi",
+		Operator: kyverno.LessThanOrEquals,
+		Value:    "10Gi",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_LessThanOrEquals_Const_quantity_equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1Gi",
+		Operator: kyverno.LessThanOrEquals,
+		Value:    "1Gi",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_LessThanOrEquals_Const_quantity_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "15Gi",
+		Operator: kyverno.LessThanOrEquals,
+		Value:    "1Gi",
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_LessThanOrEquals_Const_quantity_different_units(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1Mi",
+		Operator: kyverno.LessThanOrEquals,
+		Value:    "1Gi",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
 func Test_Eval_LessThan_Const_string_Equal_Pass(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
@@ -205,6 +325,30 @@ func Test_Eval_LessThan_Const_string_Fail(t *testing.T) {
 		Key:      "2.0",
 		Operator: kyverno.LessThan,
 		Value:    "1.1",
+	}
+	if Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to fail")
+	}
+}
+
+func Test_Eval_LessThan_Const_quantity_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1Gi",
+		Operator: kyverno.LessThan,
+		Value:    "10Gi",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_LessThan_Const_quantity_Fail(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1Gi",
+		Operator: kyverno.LessThan,
+		Value:    "1Gi",
 	}
 	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")

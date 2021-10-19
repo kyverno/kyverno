@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 //NewNumericOperatorHandler returns handler to manage the provided numeric operations (>, >=, <=, <)
@@ -109,6 +110,21 @@ func (noh NumericOperatorHandler) validateValueWithFloatPattern(key float64, val
 	}
 }
 
+func (noh NumericOperatorHandler) validateValueWithResourcePattern(key resource.Quantity, value interface{}) bool {
+	switch typedValue := value.(type) {
+	case string:
+		resourceValue, err := resource.ParseQuantity(typedValue)
+		if err != nil {
+			noh.log.Error(fmt.Errorf("parse error: "), "Failed to parse value type doesn't match key type")
+			return false
+		}
+		return compareByCondition(float64(key.Cmp(resourceValue)), 0, noh.condition, &noh.log)
+	default:
+		noh.log.Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))
+		return false
+	}
+}
+
 func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, value interface{}) bool {
 	// extracting float64 from the string key
 	float64key, err := strconv.ParseFloat(key, 64)
@@ -120,7 +136,13 @@ func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, val
 	if err == nil {
 		return noh.validateValueWithIntPattern(int64key, value)
 	}
-	noh.log.Error(err, "Failed to parse both float64 and int64 from the string keyt")
+	// extracting
+	resourceKey, err := resource.ParseQuantity(key)
+	if err == nil {
+		return noh.validateValueWithResourcePattern(resourceKey, value)
+	}
+
+	noh.log.Error(err, "Failed to parse from the string key, value is not float, int nor resource quantity")
 	return false
 }
 
