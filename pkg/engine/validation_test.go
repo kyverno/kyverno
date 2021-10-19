@@ -2934,6 +2934,61 @@ func Test_outof_foreach_element_validation(t *testing.T) {
 	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusError)
 }
 
+func Test_foreach_skip_initContainer_pass(t *testing.T) {
+
+	resourceRaw := []byte(`{"apiVersion": "v1",
+	"kind": "Deployment",
+	"metadata": {"name": "test"},
+	"spec": { "template": { "spec": {
+		"containers": [
+			{"name": "podvalid", "image": "nginx"}
+		]
+	}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "check-images"
+		},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "check-registry",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "unknown registry",
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"pattern": {
+					  "image": "nginx"
+					}
+				  },
+				  {
+					"list": "request.object.spec.template.spec..initContainers",
+					"pattern": {
+					  "image": "trusted-registry.io/*"
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusPass)
+}
+
 func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string, status response.RuleStatus) {
 	var policy kyverno.ClusterPolicy
 	assert.NilError(t, json.Unmarshal(policyraw, &policy))
