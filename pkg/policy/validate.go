@@ -1113,6 +1113,30 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources [
 			}
 		}
 
+		// Contains "Cluster Wide Resources" in Match->All->ResourceFilter->ResourceDescription->Kinds
+		for _, allResourceFilter := range rule.MatchResources.All {
+			fmt.Println(allResourceFilter.ResourceDescription)
+			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
+				for _, k := range clusterResources {
+					if kind == k {
+						return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
+					}
+				}
+			}
+		}
+
+		// Contains "Cluster Wide Resources" in Match->Any->ResourceFilter->ResourceDescription->Kinds
+		for _, allResourceFilter := range rule.MatchResources.Any {
+			fmt.Println(allResourceFilter.ResourceDescription)
+			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
+				for _, k := range clusterResources {
+					if kind == k {
+						return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
+					}
+				}
+			}
+		}
+
 		// Contains "Cluster Wide Resources" in Exclude->ResourceDescription->Kinds
 		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
 			for _, k := range clusterResources {
@@ -1121,6 +1145,30 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources [
 				}
 			}
 
+		}
+
+		// Contains "Cluster Wide Resources" in Exclude->All->ResourceFilter->ResourceDescription->Kinds
+		for _, allResourceFilter := range rule.MatchResources.All {
+			fmt.Println(allResourceFilter.ResourceDescription)
+			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
+				for _, k := range clusterResources {
+					if kind == k {
+						return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
+					}
+				}
+			}
+		}
+
+		// Contains "Cluster Wide Resources" in Exclude->Any->ResourceFilter->ResourceDescription->Kinds
+		for _, allResourceFilter := range rule.MatchResources.Any {
+			fmt.Println(allResourceFilter.ResourceDescription)
+			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
+				for _, k := range clusterResources {
+					if kind == k {
+						return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
+					}
+				}
+			}
 		}
 
 		// Check for generate policy
