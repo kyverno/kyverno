@@ -27,6 +27,8 @@ var RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
 // Regex for '\$(...)'
 var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
 
+var regexVariableInit = regexp.MustCompile(`^\{\{[^{}]*\}\}`)
+
 // IsVariable returns true if the element contains a 'valid' variable {{}}
 func IsVariable(value string) bool {
 	groups := RegexVariables.FindAllStringSubmatch(value, -1)
@@ -42,7 +44,19 @@ func IsReference(value string) bool {
 // ReplaceAllVars replaces all variables with the value defined in the replacement function
 // This is used to avoid validation errors
 func ReplaceAllVars(src string, repl func(string) string) string {
-	return RegexVariables.ReplaceAllStringFunc(src, repl)
+	wrapper := func(s string) string {
+		initial := len(regexVariableInit.FindAllString(s, -1)) > 0
+		prefix := ""
+
+		if !initial {
+			prefix = string(s[0])
+			s = s[1:]
+		}
+
+		return prefix + repl(s)
+	}
+
+	return RegexVariables.ReplaceAllStringFunc(src, wrapper)
 }
 
 func newPreconditionsVariableResolver(log logr.Logger) VariableResolver {
@@ -217,6 +231,12 @@ func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) json
 		}
 		vars := RegexVariables.FindAllString(value, -1)
 		for _, v := range vars {
+			initial := len(regexVariableInit.FindAllString(v, -1)) > 0
+
+			if !initial {
+				v = v[1:]
+			}
+
 			variable := replaceBracesAndTrimSpaces(v)
 
 			_, err := ctx.Query(variable)
@@ -243,6 +263,12 @@ func validateElementInForEach(log logr.Logger) jsonUtils.Action {
 		}
 		vars := RegexVariables.FindAllString(value, -1)
 		for _, v := range vars {
+			initial := len(regexVariableInit.FindAllString(v, -1)) > 0
+
+			if !initial {
+				v = v[1:]
+			}
+
 			variable := replaceBracesAndTrimSpaces(v)
 
 			if strings.HasPrefix(variable, "element") && !strings.Contains(data.Path, "/foreach/") {
@@ -343,7 +369,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 			originalPattern := value
 
 			for _, v := range vars {
-				initial := v[:2] == `{{`
+				initial := len(regexVariableInit.FindAllString(v, -1)) > 0
 				v_old := v
 
 				if !initial {
