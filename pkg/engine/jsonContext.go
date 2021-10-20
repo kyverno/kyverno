@@ -162,6 +162,10 @@ func fetchAPIData(log logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContex
 }
 
 func loadResourceList(ctx *PolicyContext, p *APIPath) ([]byte, error) {
+	if ctx.Client == nil {
+		return nil, fmt.Errorf("API client is not available")
+	}
+
 	l, err := ctx.Client.ListResource(p.Version, p.ResourceType, p.Namespace, nil)
 	if err != nil {
 		return nil, err
