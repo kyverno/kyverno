@@ -152,11 +152,11 @@ const PolicyCRD = `
 												"type": "string"
 											  },
 											  "operator": {
-												"description": "operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.",
+												"description": "operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn AnyNotIn, AllNotIn, Exists and DoesNotExist.",
 												"type": "string"
 											  },
 											  "values": {
-												"description": "values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.",
+												"description": "values is an array of string values. If the operator is In, AnyIn, AllIn, NotIn, AnyNotIn or AllNotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.",
 												"items": {
 												  "schema": {
 													"type": "string"
@@ -204,11 +204,11 @@ const PolicyCRD = `
 												"type": "string"
 											  },
 											  "operator": {
-												"description": "operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.",
+												"description": "operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn AnyNotIn, AllNotIn, Exists and DoesNotExist.",
 												"type": "string"
 											  },
 											  "values": {
-												"description": "values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.",
+												"description": "values is an array of string values. If the operator is In, AnyIn, AllIn, NotIn, AnyNotIn or AllNotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.",
 												"items": {
 												  "schema": {
 													"type": "string"
@@ -370,11 +370,11 @@ const PolicyCRD = `
 												"type": "string"
 											  },
 											  "operator": {
-												"description": "operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.",
+												"description": "operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn AnyNotIn, AllNotIn, Exists and DoesNotExist.",
 												"type": "string"
 											  },
 											  "values": {
-												"description": "values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.",
+												"description": "values is an array of string values. If the operator is In, AnyIn, AllIn, NotIn, AnyNotIn or AllNotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.",
 												"items": {
 												  "schema": {
 													"type": "string"
@@ -422,11 +422,11 @@ const PolicyCRD = `
 												"type": "string"
 											  },
 											  "operator": {
-												"description": "operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.",
+												"description": "operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn AnyNotIn, AllNotIn, Exists and DoesNotExist.",
 												"type": "string"
 											  },
 											  "values": {
-												"description": "values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.",
+												"description": "values is an array of string values. If the operator is In, AnyIn, AllIn, NotIn, AnyNotIn or AllNotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.",
 												"items": {
 												  "schema": {
 													"type": "string"

@@ -207,7 +207,7 @@ type Condition struct {
 	Key apiextensions.JSON `json:"key,omitempty" yaml:"key,omitempty"`
 
 	// Operator is the operation to perform. Valid operators
-	// are Equals, NotEquals, In and NotIn.
+	// are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
 	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
 
 	// Value is the conditional value, or set of values. The values can be fixed set
@@ -218,7 +218,7 @@ type Condition struct {
 }
 
 // ConditionOperator is the operation performed on condition key and value.
-// +kubebuilder:validation:Enum=Equals;NotEquals;In;NotIn;GreaterThanOrEquals;GreaterThan;LessThanOrEquals;LessThan;DurationGreaterThanOrEquals;DurationGreaterThan;DurationLessThanOrEquals;DurationLessThan
+// +kubebuilder:validation:Enum=Equals;NotEquals;In;AnyIn;AllIn;NotIn;AnyNotIn;AllNotIn;GreaterThanOrEquals;GreaterThan;LessThanOrEquals;LessThan;DurationGreaterThanOrEquals;DurationGreaterThan;DurationLessThanOrEquals;DurationLessThan
 type ConditionOperator string
 
 const (

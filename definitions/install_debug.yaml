@@ -2139,8 +2139,8 @@ spec:
                             type: string
                           operator:
                             description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, NotIn, Exists
-                              and DoesNotExist.
+                              to a set of values. Valid operators are In, AnyIn, AllIn,
+                              NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the
@@ -2310,7 +2310,8 @@ spec:
                       type: string
                     operator:
                       description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                        of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn,
+                        AllNotIn Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator
@@ -2451,8 +2452,8 @@ spec:
                             type: string
                           operator:
                             description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, NotIn, Exists
-                              and DoesNotExist.
+                              to a set of values. Valid operators are In, AnyIn, AllIn,
+                              NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the
@@ -2647,7 +2648,8 @@ spec:
                       type: string
                     operator:
                       description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                        of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn,
+                        AllNotIn Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator
@@ -5705,8 +5707,8 @@ spec:
                             type: string
                           operator:
                             description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, NotIn, Exists
-                              and DoesNotExist.
+                              to a set of values. Valid operators are In, AnyIn, AllIn,
+                              NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the
@@ -5876,7 +5878,8 @@ spec:
                       type: string
                     operator:
                       description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                        of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn,
+                        AllNotIn Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator
@@ -6016,8 +6019,8 @@ spec:
                             type: string
                           operator:
                             description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, NotIn, Exists
-                              and DoesNotExist.
+                              to a set of values. Valid operators are In, AnyIn, AllIn,
+                              NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the
@@ -6212,7 +6215,8 @@ spec:
                       type: string
                     operator:
                       description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                        of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn,
+                        AllNotIn Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator

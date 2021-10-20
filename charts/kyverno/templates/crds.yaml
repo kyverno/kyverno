@@ -1390,7 +1390,7 @@ spec:
                             description: key is the label key that the selector applies to.
                             type: string
                           operator:
-                            description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                            description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
@@ -1499,7 +1499,7 @@ spec:
                       description: key is the label key that the selector applies to.
                       type: string
                     operator:
-                      description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                      description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
@@ -1611,7 +1611,7 @@ spec:
                             description: key is the label key that the selector applies to.
                             type: string
                           operator:
-                            description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                            description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
@@ -1738,7 +1738,7 @@ spec:
                       description: key is the label key that the selector applies to.
                       type: string
                     operator:
-                      description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                      description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
@@ -3852,7 +3852,7 @@ spec:
                             description: key is the label key that the selector applies to.
                             type: string
                           operator:
-                            description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                            description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
@@ -3961,7 +3961,7 @@ spec:
                       description: key is the label key that the selector applies to.
                       type: string
                     operator:
-                      description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                      description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
@@ -4073,7 +4073,7 @@ spec:
                             description: key is the label key that the selector applies to.
                             type: string
                           operator:
-                            description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                            description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
@@ -4200,7 +4200,7 @@ spec:
                       description: key is the label key that the selector applies to.
                       type: string
                     operator:
-                      description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                      description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
