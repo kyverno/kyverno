@@ -27,16 +27,12 @@ func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvern
 	str := strings.ToLower(string(op))
 	switch str {
 
-	case strings.ToLower(string(kyverno.Equal)):
+	case strings.ToLower(string(kyverno.Equal)),
+		strings.ToLower(string(kyverno.Equals)):
 		return NewEqualHandler(log, ctx)
 
-	case strings.ToLower(string(kyverno.Equals)):
-		return NewEqualHandler(log, ctx)
-
-	case strings.ToLower(string(kyverno.NotEqual)):
-		return NewNotEqualHandler(log, ctx)
-
-	case strings.ToLower(string(kyverno.NotEquals)):
+	case strings.ToLower(string(kyverno.NotEqual)),
+		strings.ToLower(string(kyverno.NotEquals)):
 		return NewNotEqualHandler(log, ctx)
 
 	case strings.ToLower(string(kyverno.In)):
