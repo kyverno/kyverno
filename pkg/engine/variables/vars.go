@@ -17,13 +17,17 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 )
 
-var RegexVariables = regexp.MustCompile(`\{\{[^{}]*\}\}`)
+var RegexVariables = regexp.MustCompile(`^\{\{[^{}]*\}\}|[^\\]\{\{[^{}]*\}\}`)
+
+var RegexEscpVariables = regexp.MustCompile(`\\\{\{[^{}]*\}\}`)
 
 // Regex for '$(...)' at the beginning of the string, and 'x$(...)' where 'x' is not '\'
 var RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
 
 // Regex for '\$(...)'
 var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
+
+var regexVariableInit = regexp.MustCompile(`^\{\{[^{}]*\}\}`)
 
 // IsVariable returns true if the element contains a 'valid' variable {{}}
 func IsVariable(value string) bool {
@@ -40,7 +44,19 @@ func IsReference(value string) bool {
 // ReplaceAllVars replaces all variables with the value defined in the replacement function
 // This is used to avoid validation errors
 func ReplaceAllVars(src string, repl func(string) string) string {
-	return RegexVariables.ReplaceAllStringFunc(src, repl)
+	wrapper := func(s string) string {
+		initial := len(regexVariableInit.FindAllString(s, -1)) > 0
+		prefix := ""
+
+		if !initial {
+			prefix = string(s[0])
+			s = s[1:]
+		}
+
+		return prefix + repl(s)
+	}
+
+	return RegexVariables.ReplaceAllStringFunc(src, wrapper)
 }
 
 func newPreconditionsVariableResolver(log logr.Logger) VariableResolver {
@@ -215,6 +231,12 @@ func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) json
 		}
 		vars := RegexVariables.FindAllString(value, -1)
 		for _, v := range vars {
+			initial := len(regexVariableInit.FindAllString(v, -1)) > 0
+
+			if !initial {
+				v = v[1:]
+			}
+
 			variable := replaceBracesAndTrimSpaces(v)
 
 			_, err := ctx.Query(variable)
@@ -241,6 +263,12 @@ func validateElementInForEach(log logr.Logger) jsonUtils.Action {
 		}
 		vars := RegexVariables.FindAllString(value, -1)
 		for _, v := range vars {
+			initial := len(regexVariableInit.FindAllString(v, -1)) > 0
+
+			if !initial {
+				v = v[1:]
+			}
+
 			variable := replaceBracesAndTrimSpaces(v)
 
 			if strings.HasPrefix(variable, "element") && !strings.Contains(data.Path, "/foreach/") {
@@ -341,6 +369,13 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 			originalPattern := value
 
 			for _, v := range vars {
+				initial := len(regexVariableInit.FindAllString(v, -1)) > 0
+				v_old := v
+
+				if !initial {
+					v = v[1:]
+				}
+
 				variable := replaceBracesAndTrimSpaces(v)
 
 				if variable == "@" {
@@ -368,7 +403,13 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 					return substitutedVar, nil
 				}
 
-				if value, err = substituteVarInPattern(originalPattern, v, substitutedVar); err != nil {
+				prefix := ""
+
+				if !initial {
+					prefix = string(v_old[0])
+				}
+
+				if value, err = substituteVarInPattern(prefix, originalPattern, v, substitutedVar); err != nil {
 					return nil, fmt.Errorf("failed to resolve %v at path %s: %s", variable, data.Path, err.Error())
 				}
 
@@ -377,6 +418,10 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 
 			// check for nested variables in strings
 			vars = RegexVariables.FindAllString(value, -1)
+		}
+
+		for _, v := range RegexEscpVariables.FindAllString(value, -1) {
+			value = strings.Replace(value, v, v[1:], -1)
 		}
 
 		return value, nil
@@ -404,7 +449,7 @@ func getJMESPath(rawPath string) string {
 	return string(regex.ReplaceAll([]byte(path), []byte("[$1].")))
 }
 
-func substituteVarInPattern(pattern, variable string, value interface{}) (string, error) {
+func substituteVarInPattern(prefix, pattern, variable string, value interface{}) (string, error) {
 	var stringToSubstitute string
 
 	if s, ok := value.(string); ok {
@@ -417,7 +462,10 @@ func substituteVarInPattern(pattern, variable string, value interface{}) (string
 		stringToSubstitute = string(buffer)
 	}
 
-	return strings.Replace(pattern, variable, stringToSubstitute, -1), nil
+	stringToSubstitute = prefix + stringToSubstitute
+	variable = prefix + variable
+
+	return strings.Replace(pattern, variable, stringToSubstitute, 1), nil
 }
 
 func replaceBracesAndTrimSpaces(v string) string {
