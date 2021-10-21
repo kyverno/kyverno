@@ -1148,7 +1148,7 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources [
 		}
 
 		// Contains "Cluster Wide Resources" in Exclude->All->ResourceFilter->ResourceDescription->Kinds
-		for _, allResourceFilter := range rule.MatchResources.All {
+		for _, allResourceFilter := range rule.ExcludeResources.All {
 			fmt.Println(allResourceFilter.ResourceDescription)
 			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
 				for _, k := range clusterResources {
@@ -1160,7 +1160,7 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources [
 		}
 
 		// Contains "Cluster Wide Resources" in Exclude->Any->ResourceFilter->ResourceDescription->Kinds
-		for _, allResourceFilter := range rule.MatchResources.Any {
+		for _, allResourceFilter := range rule.ExcludeResources.Any {
 			fmt.Println(allResourceFilter.ResourceDescription)
 			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
 				for _, k := range clusterResources {
