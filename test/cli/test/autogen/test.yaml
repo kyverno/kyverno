@@ -27,7 +27,7 @@ results:
 # TEST: Deployment with Labels Should Fail
 - policy: require-common-labels
   rule: check-for-labels
-  result: skip
+  result: fail
   kind: Deployment
   resource: deployment-missing-labels
 

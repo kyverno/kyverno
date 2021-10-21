@@ -118,7 +118,8 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 		} else {
 			var fileBytes []byte
 			if isHttpPath {
-				resp, err := http.Get(path)
+				// We accept here that a random URL might be called based on user provided input.
+				resp, err := http.Get(path) // #nosec
 				if err != nil {
 					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
 					errors = append(errors, err)
@@ -139,7 +140,9 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 					continue
 				}
 			} else {
-				fileBytes, err = ioutil.ReadFile(path)
+				path = filepath.Clean(path)
+				// We accept the risk of including a user provided file here.
+				fileBytes, err = ioutil.ReadFile(path) // #nosec G304
 				if err != nil {
 					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
 					errors = append(errors, err)
@@ -343,7 +346,8 @@ func GetCRDs(paths []string) (unstructuredCrds []*unstructured.Unstructured, err
 func GetCRD(path string) (unstructuredCrds []*unstructured.Unstructured, err error) {
 	path = filepath.Clean(path)
 	unstructuredCrds = make([]*unstructured.Unstructured, 0)
-	yamlbytes, err := ioutil.ReadFile(path)
+	// We accept the risk of including a user provided file here.
+	yamlbytes, err := ioutil.ReadFile(path) // #nosec G304
 	if err != nil {
 		return nil, err
 	}
@@ -384,7 +388,7 @@ func RemoveDuplicateAndObjectVariables(matches [][]string) string {
 		for _, v := range m {
 			foundVariable := strings.Contains(variableStr, v)
 			if !foundVariable {
-				if !strings.Contains(v, "request.object") {
+				if !strings.Contains(v, "request.object") && !strings.Contains(v, "element") {
 					variableStr = variableStr + " " + v
 				}
 			}
@@ -425,8 +429,12 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 				fmt.Printf("Unable to open variable file: %s. error: %s", valuesFile, err)
 			}
 			yamlFile, err = ioutil.ReadAll(filep)
+			if err != nil {
+				fmt.Printf("Unable to read variable files: %s. error: %s \n", filep, err)
+			}
 		} else {
-			yamlFile, err = ioutil.ReadFile(filepath.Join(policyResourcePath, valuesFile))
+			// We accept the risk of including a user provided file here.
+			yamlFile, err = ioutil.ReadFile(filepath.Join(policyResourcePath, valuesFile)) // #nosec G304
 			if err != nil {
 				fmt.Printf("\n Unable to open variable file: %s. error: %s \n", valuesFile, err)
 			}
@@ -649,18 +657,22 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 	var err error
 	yaml = yaml + ("\n---\n\n")
 
+	mutateLogPath = filepath.Clean(mutateLogPath)
 	if !mutateLogPathIsDir {
 		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
-		f, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0600)
+		f, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0600) // #nosec G304
 	} else {
-		f, err = os.OpenFile(mutateLogPath+"/"+fileName+".yaml", os.O_CREATE|os.O_WRONLY, 0600)
+		f, err = os.OpenFile(mutateLogPath+"/"+fileName+".yaml", os.O_CREATE|os.O_WRONLY, 0600) // #nosec G304
 	}
 
 	if err != nil {
 		return err
 	}
 	if _, err := f.Write([]byte(yaml)); err != nil {
-		f.Close()
+		closeErr := f.Close()
+		if closeErr != nil {
+			log.Log.Error(closeErr, "failed to close file")
+		}
 		return err
 	}
 	if err := f.Close(); err != nil {
@@ -929,6 +941,9 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 				} else if mutateResponseRule.Status == response.RuleStatusSkip {
 					fmt.Printf("\nskipped mutate policy %s -> resource %s", policy.Name, resPath)
 					rc.Skip++
+				} else if mutateResponseRule.Status == response.RuleStatusError {
+					fmt.Printf("\nerror while applying mutate policy %s -> resource %s\nerror: %s", policy.Name, resPath, mutateResponseRule.Message)
+					rc.Error++
 				} else {
 					if printCount < 1 {
 						fmt.Printf("\nfailed to apply mutate policy %s -> resource %s", policy.Name, resPath)

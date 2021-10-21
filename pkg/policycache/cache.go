@@ -265,6 +265,8 @@ func removeCacheHelper(rmr kyverno.ResourceFilter, m *pMap, pName string) {
 func (m *policyCache) getPolicyObject(key PolicyType, gvk string, nspace string) (policyObject []*kyverno.ClusterPolicy) {
 	_, kind := common.GetKindFromGVK(gvk)
 	policyNames := m.pMap.get(key, kind, nspace)
+	wildcardPolicies := m.pMap.get(key, "*", nspace)
+	policyNames = append(policyNames, wildcardPolicies...)
 	for _, policyName := range policyNames {
 		var policy *kyverno.ClusterPolicy
 		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)

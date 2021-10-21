@@ -1,6 +1,7 @@
 package jmespath
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"reflect"
@@ -43,6 +44,8 @@ var (
 	multiply               = "multiply"
 	divide                 = "divide"
 	modulo                 = "modulo"
+	base64Decode           = "base64_decode"
+	base64Encode           = "base64_encode"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -192,6 +195,20 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpNumber}},
 			},
 			Handler: jpModulo,
+		},
+		{
+			Name: base64Decode,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpBase64Decode,
+		},
+		{
+			Name: base64Encode,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpBase64Encode,
 		},
 	}
 
@@ -501,19 +518,44 @@ func jpModulo(arguments []interface{}) (interface{}, error) {
 	return val1 % val2, nil
 }
 
+func jpBase64Decode(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	decodedStr, err := base64.StdEncoding.DecodeString(str.String())
+	if err != nil {
+		return nil, err
+	}
+
+	return string(decodedStr), nil
+}
+
+func jpBase64Encode(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	return base64.StdEncoding.EncodeToString([]byte(str.String())), nil
+}
+
 // InterfaceToString casts an interface to a string type
 func ifaceToString(iface interface{}) (string, error) {
-	switch iface.(type) {
+	switch i := iface.(type) {
 	case int:
-		return strconv.Itoa(iface.(int)), nil
+		return strconv.Itoa(i), nil
 	case float64:
-		return strconv.FormatFloat(iface.(float64), 'f', -1, 32), nil
+		return strconv.FormatFloat(i, 'f', -1, 32), nil
 	case float32:
-		return strconv.FormatFloat(iface.(float64), 'f', -1, 32), nil
+		return strconv.FormatFloat(float64(i), 'f', -1, 32), nil
 	case string:
-		return iface.(string), nil
+		return i, nil
 	case bool:
-		return strconv.FormatBool(iface.(bool)), nil
+		return strconv.FormatBool(i), nil
 	default:
 		return "", errors.New("error, undefined type cast")
 	}

@@ -238,6 +238,9 @@ func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interfac
 
 	// marshalling the abstract apiextensions.JSON back to JSON form
 	jsonByte, err := json.Marshal(original)
+	if err != nil {
+		return nil, fmt.Errorf("error occurred while marshalling %s: %+v", path, err)
+	}
 
 	var kyvernoOldConditions []kyverno.Condition
 	if err = json.Unmarshal(jsonByte, &kyvernoOldConditions); err == nil {

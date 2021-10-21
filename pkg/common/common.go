@@ -66,6 +66,9 @@ func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, 
 func GetNamespaceLabels(namespaceObj *v1.Namespace, logger logr.Logger) map[string]string {
 	namespaceObj.Kind = "Namespace"
 	namespaceRaw, err := json.Marshal(namespaceObj)
+	if err != nil {
+		logger.Error(err, "failed to marshal namespace")
+	}
 	namespaceUnstructured, err := enginutils.ConvertToUnstructured(namespaceRaw)
 	if err != nil {
 		logger.Error(err, "failed to convert object resource to unstructured format")

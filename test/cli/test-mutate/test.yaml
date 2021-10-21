@@ -43,8 +43,6 @@ results:
     patchedResource: patchedResource6.yaml
     kind: Pod
     result: pass
-  
-
   - policy: testing/add-ndots
     rule: add-ndots
     resource: resource-equal-to-patch-res-for-cp

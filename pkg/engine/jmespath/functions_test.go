@@ -361,3 +361,58 @@ func TestJMESPathFunctions_Modulo(t *testing.T) {
 	assert.Assert(t, ok)
 	assert.Equal(t, equal, int64(5))
 }
+
+func TestJMESPathFunctions_Base64Decode(t *testing.T) {
+	jp, err := New("base64_decode('SGVsbG8sIHdvcmxkIQ==')")
+	assert.NilError(t, err)
+
+	result, err := jp.Search("")
+	assert.NilError(t, err)
+
+	str, ok := result.(string)
+	assert.Assert(t, ok)
+	assert.Equal(t, str, "Hello, world!")
+}
+
+func TestJMESPathFunctions_Base64Encode(t *testing.T) {
+	jp, err := New("base64_encode('Hello, world!')")
+	assert.NilError(t, err)
+
+	result, err := jp.Search("")
+	assert.NilError(t, err)
+
+	str, ok := result.(string)
+	assert.Assert(t, ok)
+	assert.Equal(t, str, "SGVsbG8sIHdvcmxkIQ==")
+}
+
+func TestJMESPathFunctions_Base64Decode_Secret(t *testing.T) {
+	resourceRaw := []byte(`
+	{
+    "apiVersion": "v1",
+    "kind": "Secret",
+    "metadata": {
+        "name": "example",
+        "namespace": "default"
+    },
+    "type": "Opaque",
+    "data": {
+        "example1": "SGVsbG8sIHdvcmxkIQ==",
+        "example2": "Rm9vQmFy"
+    }
+	}
+	`)
+
+	var resource interface{}
+	err := json.Unmarshal(resourceRaw, &resource)
+	assert.NilError(t, err)
+	query, err := New(`base64_decode(data.example1)`)
+	assert.NilError(t, err)
+
+	res, err := query.Search(resource)
+	assert.NilError(t, err)
+
+	result, ok := res.(string)
+	assert.Assert(t, ok)
+	assert.Equal(t, string(result), "Hello, world!")
+}

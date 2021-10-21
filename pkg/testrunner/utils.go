@@ -3,6 +3,7 @@ package testrunner
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -13,7 +14,9 @@ func LoadFile(path string) ([]byte, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, err
 	}
-	return ioutil.ReadFile(path)
+	path = filepath.Clean(path)
+	// We accept the risk of including a user provided file here.
+	return ioutil.ReadFile(path) // #nosec G304
 }
 
 var kindToResource = map[string]string{

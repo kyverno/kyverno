@@ -2,7 +2,6 @@ package policy
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -19,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/pkg/wildcard"
+	errors "github.com/pkg/errors"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,6 +105,11 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		if err := validateRuleType(rule); err != nil {
 			// as there are more than 1 operation in rule, not need to evaluate it further
 			return fmt.Errorf("path: spec.rules[%d]: %v", i, err)
+		}
+
+		err := validateElementInForEach(rule)
+		if err != nil {
+			return err
 		}
 
 		if err := validateRuleContext(rule); err != nil {
@@ -196,11 +201,51 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			}
 		}
 
-		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
-			return fmt.Errorf("wildcards (*) are currently not supported in the match.resources.kinds field, at least one resource kind must be specified in a kind block")
+		if utils.ContainsString(rule.MatchResources.Kinds, "*") && (p.Spec.Background == nil || *p.Spec.Background) {
+			return fmt.Errorf("wildcard policy not allowed in background mode. Set spec.background=false to disable background mode for this policy rule ")
 		}
 
-		// Validate Kind with match resource kinds
+		if (utils.ContainsString(rule.MatchResources.Kinds, "*") && len(rule.MatchResources.Kinds) > 1) || (utils.ContainsString(rule.ExcludeResources.Kinds, "*") && len(rule.ExcludeResources.Kinds) > 1) {
+			return fmt.Errorf("wildard policy can not deal more than one kind")
+		}
+
+		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
+
+			if rule.HasGenerate() || rule.HasVerifyImages() || rule.Validation.ForEachValidation != nil {
+				return fmt.Errorf("wildcard policy does not support rule type")
+			}
+
+			if rule.HasValidate() {
+
+				if rule.Validation.Pattern != nil || rule.Validation.AnyPattern != nil {
+					if !ruleOnlyDealsWithResourceMetaData(rule) {
+						return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+							" the rule does not match any kind")
+					}
+				}
+
+				if rule.Validation.Deny != nil {
+					kyvernoConditions, _ := utils.ApiextensionsJsonToKyvernoConditions(rule.Validation.Deny.AnyAllConditions)
+					switch typedConditions := kyvernoConditions.(type) {
+					case []kyverno.Condition: // backwards compatibility
+						for _, condition := range typedConditions {
+							if !strings.Contains(condition.Key.(string), "request.object.metadata.") && (!common.WildCardAllowedVariables.MatchString(condition.Key.(string)) || strings.Contains(condition.Key.(string), "request.object.spec")) {
+								return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+									" the rule does not match any kind")
+							}
+						}
+					}
+				}
+			}
+			if rule.HasMutate() {
+				if !ruleOnlyDealsWithResourceMetaData(rule) {
+					return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+						" the rule does not match any kind")
+				}
+			}
+		}
+
+		//Validate Kind with match resource kinds
 		match := rule.MatchResources
 		exclude := rule.ExcludeResources
 		for _, value := range match.Any {
@@ -228,13 +273,15 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 				return fmt.Errorf("the kind defined in the all exclude resource is invalid")
 			}
 		}
-		err := validateKinds(rule.MatchResources.Kinds, mock, client, p)
-		if err != nil {
-			return fmt.Errorf("match resource kind is invalid ")
-		}
-		err = validateKinds(rule.ExcludeResources.Kinds, mock, client, p)
-		if err != nil {
-			return fmt.Errorf("exclude resource kind is invalid ")
+		if !utils.ContainsString(rule.MatchResources.Kinds, "*") {
+			err := validateKinds(rule.MatchResources.Kinds, mock, client, p)
+			if err != nil {
+				return errors.Wrapf(err, "match resource kind is invalid")
+			}
+			err = validateKinds(rule.ExcludeResources.Kinds, mock, client, p)
+			if err != nil {
+				return errors.Wrapf(err, "exclude resource kind is invalid")
+			}
 		}
 
 		// Validate string values in labels
@@ -296,10 +343,25 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 	return nil
 }
 
+func validateElementInForEach(document apiextensions.JSON) error {
+	jsonByte, err := json.Marshal(document)
+	if err != nil {
+		return err
+	}
+
+	var jsonInterface interface{}
+	err = json.Unmarshal(jsonByte, &jsonInterface)
+	if err != nil {
+		return err
+	}
+	_, err = variables.ValidateElementInForEach(log.Log, jsonInterface)
+	return err
+}
+
 func validateMatchKindHelper(rule kyverno.Rule) error {
 	if !ruleOnlyDealsWithResourceMetaData(rule) {
 		return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-			" the rule does not match an kind")
+			" the rule does not match any kind")
 	}
 	return fmt.Errorf("at least one element must be specified in a kind block, the kind attribute is mandatory when working with the resources element")
 }
@@ -609,6 +671,13 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 
 	for _, patch := range rule.Mutation.Patches {
 		if !strings.HasPrefix(patch.Path, "/metadata") {
+			return false
+		}
+	}
+
+	patternMapMutate, _ := rule.Mutation.PatchStrategicMerge.(map[string]interface{})
+	for k := range patternMapMutate {
+		if k != "metadata" {
 			return false
 		}
 	}
@@ -1083,13 +1152,7 @@ func jsonPatchOnPod(rule kyverno.Rule) bool {
 
 func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.ClusterPolicy) error {
 	for _, kind := range kinds {
-		gv, k := comn.GetKindFromGVK(kind)
-		if !mock {
-			_, _, err := client.DiscoveryClient.FindResource(gv, k)
-			if err != nil || strings.ToLower(k) == k {
-				return fmt.Errorf("match resource kind  %s is invalid ", k)
-			}
-		}
+		_, k := comn.GetKindFromGVK(kind)
 		if k == p.Kind {
 			return fmt.Errorf("kind and match resource kind should not be the same")
 		}

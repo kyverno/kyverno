@@ -658,7 +658,6 @@ func Test_SubstituteNull(t *testing.T) {
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
 	var expected interface{}
-	expected = nil
 
 	assert.DeepEqual(t, expected, content)
 }
@@ -890,8 +889,7 @@ func Test_SubstituteString(t *testing.T) {
 	assert.NilError(t, err)
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
-	var expected interface{}
-	expected = "example"
+	expected := "example"
 
 	assert.DeepEqual(t, expected, content)
 }
@@ -920,8 +918,7 @@ func Test_SubstituteStringInString(t *testing.T) {
 	assert.NilError(t, err)
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
-	var expected interface{}
-	expected = "content = example"
+	expected := "content = example"
 
 	assert.DeepEqual(t, expected, content)
 }
@@ -1117,4 +1114,40 @@ func Test_EscpReferenceSubstitution(t *testing.T) {
 	assert.NilError(t, err)
 
 	assert.DeepEqual(t, expectedDocument, actualDocument)
+}
+
+func Test_ReplacingEscpNestedVariableWhenDeleting(t *testing.T) {
+	patternRaw := []byte(`"\\{{request.object.metadata.annotations.{{request.object.metadata.annotations.targetnew}}}}"`)
+
+	var resourceRaw = []byte(`
+	{
+		"request":{
+		   "operation":"DELETE",
+		   "oldObject":{
+			  "metadata":{
+				 "name":"current",
+				 "namespace":"ns",
+				 "annotations":{
+					"target":"nested_target",
+					"targetnew":"target"
+				 }
+			  }
+		   }
+		}
+	}`)
+
+	var pattern interface{}
+	var err error
+	err = json.Unmarshal(patternRaw, &pattern)
+	if err != nil {
+		t.Error(err)
+	}
+	ctx := context.NewContext()
+	err = ctx.AddJSON(resourceRaw)
+	assert.NilError(t, err)
+
+	pattern, err = SubstituteAll(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+
+	assert.Equal(t, fmt.Sprintf("%v", pattern), "{{request.object.metadata.annotations.target}}")
 }

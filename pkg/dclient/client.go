@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-logr/logr"
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
-	helperv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -131,7 +130,7 @@ func (c *Client) GetDynamicInterface() dynamic.Interface {
 func (c *Client) ListResource(apiVersion string, kind string, namespace string, lselector *meta.LabelSelector) (*unstructured.UnstructuredList, error) {
 	options := meta.ListOptions{}
 	if lselector != nil {
-		options = meta.ListOptions{LabelSelector: helperv1.FormatLabelSelector(lselector)}
+		options = meta.ListOptions{LabelSelector: meta.FormatLabelSelector(lselector)}
 	}
 
 	return c.getResourceInterface(apiVersion, kind, namespace).List(context.TODO(), options)

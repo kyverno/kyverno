@@ -62,7 +62,7 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 	}
 
 	resp.Status = response.RuleStatusPass
-	resp.Message = fmt.Sprintf("successfully process JSON6902 patches")
+	resp.Message = string("successfully process JSON6902 patches")
 	resp.Patches = patchesBytes
 	return resp, patchedResource
 }

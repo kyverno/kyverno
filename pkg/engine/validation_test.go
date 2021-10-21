@@ -2,8 +2,9 @@ package engine
 
 import (
 	"encoding/json"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"testing"
+
+	"github.com/kyverno/kyverno/pkg/engine/response"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -2435,20 +2436,34 @@ func Test_foreach_container_pass(t *testing.T) {
 	policyraw := []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
-		"metadata": {"name": "test"},
+		"metadata": {
+		  "name": "test"
+		},
 		"spec": {
 		  "rules": [
 			{
 			  "name": "test-path-not-exist",
-			  "match": {"resources": { "kinds": [ "Deployment" ] } },
-			  "validate": {
-				"foreach": {
-				  "list": "request.object.spec.template.spec.containers",
-				  "pattern": {
-					"name": "*-valid"
-				  }
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
 				}
-			}}]}}`)
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"pattern": {
+					  "name": "*-valid"
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
 
 	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusPass)
 }
@@ -2476,12 +2491,14 @@ func Test_foreach_container_fail(t *testing.T) {
 			  "name": "test",
 			  "match": {"resources": { "kinds": [ "Deployment" ] } },
 			  "validate": {
-				"foreach": {
-				  "list": "request.object.spec.template.spec.containers",
-				  "pattern": {
-					"name": "*-valid"
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"pattern": {
+					  "name": "*-valid"
+					}
 				  }
-				}
+				]
 			}}]}}`)
 
 	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusFail)
@@ -2503,22 +2520,40 @@ func Test_foreach_container_deny_fail(t *testing.T) {
 	policyraw := []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
-		"metadata": {"name": "test"},
+		"metadata": {
+		  "name": "test"
+		},
 		"spec": {
 		  "rules": [
 			{
 			  "name": "test",
-			  "match": {"resources": { "kinds": [ "Deployment" ] } },
-			  "validate": {
-				"foreach": {
-				  "list": "request.object.spec.template.spec.containers",
-				  "deny": {
-				    "conditions": [
-					  {"key": "{{ regex_match('{{element.image}}', 'docker.io') }}", "operator": "Equals", "value": false}
-                    ]
-				  }
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
 				}
-			}}]}}`)
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ regex_match('{{element.image}}', 'docker.io') }}",
+						  "operator": "Equals",
+						  "value": false
+						}
+					  ]
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
 
 	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusFail)
 }
@@ -2546,14 +2581,20 @@ func Test_foreach_container_deny_success(t *testing.T) {
 			  "name": "test",
 			  "match": {"resources": { "kinds": [ "Deployment" ] } },
 			  "validate": {
-				"foreach": {
-				  "list": "request.object.spec.template.spec.containers",
-				  "deny": {
-				    "conditions": [
-					  {"key": "{{ regex_match('{{element.image}}', 'docker.io') }}", "operator": "Equals", "value": false}
-                    ]
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ regex_match('{{element.image}}', 'docker.io') }}",
+						  "operator": "Equals",
+						  "value": false
+						}
+					  ]
+					}
 				  }
-				}
+				]
 			}}]}}`)
 
 	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusFail)
@@ -2575,22 +2616,40 @@ func Test_foreach_container_deny_error(t *testing.T) {
 	policyraw := []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
-		"metadata": {"name": "test"},
+		"metadata": {
+		  "name": "test"
+		},
 		"spec": {
 		  "rules": [
 			{
 			  "name": "test",
-			  "match": {"resources": { "kinds": [ "Deployment" ] } },
-			  "validate": {
-				"foreach": {
-				  "list": "request.object.spec.template.spec.containers",
-				  "deny": {
-				    "conditions": [
-					  {"key": "{{ regex_match_INVALID('{{request.object.image}}', 'docker.io') }}", "operator": "Equals", "value": false}
-                    ]
-				  }
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
 				}
-			}}]}}`)
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ regex_match_INVALID('{{request.object.image}}', 'docker.io') }}",
+						  "operator": "Equals",
+						  "value": false
+						}
+					  ]
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
 
 	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusError)
 }
@@ -2611,30 +2670,60 @@ func Test_foreach_context_preconditions(t *testing.T) {
 	policyraw := []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
-		"metadata": {"name": "test"},
+		"metadata": {
+		  "name": "test"
+		},
 		"spec": {
 		  "rules": [
 			{
 			  "name": "test",
-			  "match": {"resources": { "kinds": [ "Deployment" ] } },
-			  "validate": {
-				"foreach": {
-				  "list": "request.object.spec.template.spec.containers",
-                  "context": [{"name": "img", "configMap": {"name": "mycmap", "namespace": "default"}}],
-				  "preconditions": { "all": [
-					{
-					  "key": "{{element.name}}",
-					  "operator": "In",
-					  "value": ["podvalid"]
-					}
-				  ]},
-				  "deny": {
-				    "conditions": [
-					  {"key": "{{ element.image }}", "operator": "NotEquals", "value": "{{ img.data.{{ element.name }} }}"}
-                    ]
-				  }
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
 				}
-			}}]}}`)
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"context": [
+					  {
+						"name": "img",
+						"configMap": {
+						  "name": "mycmap",
+						  "namespace": "default"
+						}
+					  }
+					],
+					"preconditions": {
+					  "all": [
+						{
+						  "key": "{{element.name}}",
+						  "operator": "In",
+						  "value": [
+							"podvalid"
+						  ]
+						}
+					  ]
+					},
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ element.image }}",
+						  "operator": "NotEquals",
+						  "value": "{{ img.data.{{ element.name }} }}"
+						}
+					  ]
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
 
 	configMapVariableContext := store.Context{
 		Policies: []store.Policy{
@@ -2675,30 +2764,61 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 	policyraw := []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
-		"metadata": {"name": "test"},
+		"metadata": {
+		  "name": "test"
+		},
 		"spec": {
 		  "rules": [
 			{
 			  "name": "test",
-			  "match": {"resources": { "kinds": [ "Deployment" ] } },
-			  "validate": {
-				"foreach": {
-				  "list": "request.object.spec.template.spec.containers",
-                  "context": [{"name": "img", "configMap": {"name": "mycmap", "namespace": "default"}}],
-				  "preconditions": { "all": [
-					{
-					  "key": "{{element.name}}",
-					  "operator": "In",
-					  "value": ["podvalid", "podinvalid"]
-					}
-				  ]},
-				  "deny": {
-				    "conditions": [
-					  {"key": "{{ element.image }}", "operator": "NotEquals", "value": "{{ img.data.{{ element.name }} }}"}
-                    ]
-				  }
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
 				}
-			}}]}}`)
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"context": [
+					  {
+						"name": "img",
+						"configMap": {
+						  "name": "mycmap",
+						  "namespace": "default"
+						}
+					  }
+					],
+					"preconditions": {
+					  "all": [
+						{
+						  "key": "{{element.name}}",
+						  "operator": "In",
+						  "value": [
+							"podvalid",
+							"podinvalid"
+						  ]
+						}
+					  ]
+					},
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ element.image }}",
+						  "operator": "NotEquals",
+						  "value": "{{ img.data.{{ element.name }} }}"
+						}
+					  ]
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
 
 	configMapVariableContext := store.Context{
 		Policies: []store.Policy{
@@ -2723,6 +2843,152 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusFail)
 }
 
+func Test_foreach_element_validation(t *testing.T) {
+
+	resourceRaw := []byte(`{
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+          "name": "nginx"
+        },
+        "spec": {
+          "containers": [
+            {
+              "name": "nginx1",
+              "image": "nginx"
+            },
+            {
+              "name": "nginx2",
+              "image": "nginx"
+            }
+          ]
+        }
+	}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "check-container-names"},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Pod" ] } },
+			  "validate": {
+			  	"message": "Invalid name",
+				"foreach": [
+					{
+					  "list": "request.object.spec.containers",
+					  "pattern": {
+						"name": "{{ element.name }}"
+					  }
+					}
+				]
+			}}]}}`)
+
+	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusPass)
+}
+
+func Test_outof_foreach_element_validation(t *testing.T) {
+
+	resourceRaw := []byte(`{
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+          "name": "nginx"
+        },
+        "spec": {
+          "containers": [
+            {
+              "name": "nginx1",
+              "image": "nginx"
+            },
+            {
+              "name": "nginx2",
+              "image": "nginx"
+            }
+          ]
+        }
+	}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "check-container-names"},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Pod" ] } },
+			  "validate": {
+			  	"message": "Invalid name",
+				"pattern": {
+				  "name": "{{ element.name }}"
+				}
+			}}]}}`)
+
+	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusError)
+}
+
+func Test_foreach_skip_initContainer_pass(t *testing.T) {
+
+	resourceRaw := []byte(`{"apiVersion": "v1",
+	"kind": "Deployment",
+	"metadata": {"name": "test"},
+	"spec": { "template": { "spec": {
+		"containers": [
+			{"name": "podvalid", "image": "nginx"}
+		]
+	}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "check-images"
+		},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "check-registry",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "unknown registry",
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"pattern": {
+					  "image": "nginx"
+					}
+				  },
+				  {
+					"list": "request.object.spec.template.spec..initContainers",
+					"pattern": {
+					  "image": "trusted-registry.io/*"
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusPass)
+}
+
 func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string, status response.RuleStatus) {
 	var policy kyverno.ClusterPolicy
 	assert.NilError(t, json.Unmarshal(policyraw, &policy))
@@ -2743,4 +3009,72 @@ func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string,
 	if msg != "" {
 		assert.Equal(t, er.PolicyResponse.Rules[0].Message, msg)
 	}
+}
+
+func Test_delete_ignore_pattern(t *testing.T) {
+
+	resourceRaw := []byte(`{
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+          "name": "nginx",
+          "labels": {"app.kubernetes.io/foo" : "myapp-pod"}
+        },
+        "spec": {
+          "containers": [
+            {
+              "name": "nginx1",
+              "image": "nginx"
+            },
+            {
+              "name": "nginx2",
+              "image": "nginx"
+            }
+          ]
+        }
+	}`)
+
+	policyRaw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "check-container-labels"},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Pod" ] } },
+			  "validate": {
+			  	"message": "Invalid label",
+				"pattern": {
+				  "metadata" : {
+                      "labels": {"app.kubernetes.io/name" : "myapp-pod"}
+                  }
+				}
+			}}]}}`)
+
+	var policy kyverno.ClusterPolicy
+	assert.NilError(t, json.Unmarshal(policyRaw, &policy))
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResource(resourceRaw)
+	assert.NilError(t, err)
+
+	policyContextCreate := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		NewResource: *resourceUnstructured}
+	engineResponseCreate := Validate(policyContextCreate)
+	assert.Equal(t, len(engineResponseCreate.PolicyResponse.Rules), 1)
+	assert.Equal(t, engineResponseCreate.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
+
+	policyContextDelete := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		OldResource: *resourceUnstructured}
+	engineResponseDelete := Validate(policyContextDelete)
+	assert.Equal(t, len(engineResponseDelete.PolicyResponse.Rules), 0)
 }

@@ -18,7 +18,7 @@ require (
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20210216200643-d81088d9983e
 	github.com/googleapis/gnostic v0.5.4
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
-	github.com/in-toto/in-toto-golang v0.2.1-0.20210806133539-f50646681592 // indirect
+	github.com/in-toto/in-toto-golang v0.2.1-0.20210806133539-f50646681592
 	github.com/jmespath/go-jmespath v0.4.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23

@@ -62,7 +62,7 @@ func (allin AllInHandler) validateValueWithStringSetPattern(key []string, value 
 // allsetExistsInArray checks if all key is a subset of value
 // The value can be a string, an array of strings, or a JSON format
 // array of strings (e.g. ["val1", "val2", "val3"].
-// notIn argument if set to true will check for NotIn
+// allnotIn argument if set to true will check for allNotIn
 func allSetExistsInArray(key []string, value interface{}, log logr.Logger, allNotIn bool) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
 

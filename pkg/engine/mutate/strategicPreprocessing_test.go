@@ -870,7 +870,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 func Test_FilterKeys_NoConditions(t *testing.T) {
 	patternRaw := []byte(`{
 		"key1": "value1",
-		"key2": "value2" 
+		"key2": "value2"
 	}`)
 
 	pattern := yaml.MustParse(string(patternRaw))
@@ -1024,6 +1024,7 @@ func Test_deleteRNode(t *testing.T) {
 	deleteListElement(list, 0)
 
 	elements, err = list.Elements()
+	assert.NilError(t, err)
 	assert.Equal(t, len(elements), 2)
 }
 

@@ -684,12 +684,27 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.Cluste
 
 			// note: webhook stores GVR in its rules while policy stores GVK in its rules definition
 			gv, k := common.GetKindFromGVK(gvk)
-			_, gvr, err := m.client.DiscoveryClient.FindResource(gv, k)
-			if err != nil {
-				m.log.Error(err, "unable to convert GVK to GVR", "GVK", gvk)
-				continue
+			switch k {
+			case "NodeProxyOptions":
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes/proxy"})
+			case "PodAttachOptions":
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods/attach"})
+			case "PodExecOptions":
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods/exec"})
+			case "PodPortForwardOptions":
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods/portforward"})
+			case "PodProxyOptions":
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods/proxy"})
+			case "ServiceProxyOptions":
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services/proxy"})
+			default:
+				_, gvr, err := m.client.DiscoveryClient.FindResource(gv, k)
+				if err != nil {
+					m.log.Error(err, "unable to convert GVK to GVR", "GVK", gvk)
+					continue
+				}
+				gvrList = append(gvrList, gvr)
 			}
-			gvrList = append(gvrList, gvr)
 		}
 	}
 

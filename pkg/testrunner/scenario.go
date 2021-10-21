@@ -3,13 +3,17 @@ package testrunner
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"
 	ospath "path"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"path"
+	"runtime"
 
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -22,8 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
-	"path"
-	"runtime"
 )
 
 type Scenario struct {
@@ -116,7 +118,9 @@ func loadFile(t *testing.T, path string) ([]byte, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, err
 	}
-	return ioutil.ReadFile(path)
+	path = filepath.Clean(path)
+	// We accept the risk of including a user provided file here.
+	return ioutil.ReadFile(path) // #nosec G304
 }
 
 func runScenario(t *testing.T, s *Scenario) bool {
