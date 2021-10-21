@@ -419,25 +419,27 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		logger.V(2).Info("created generate target resource")
 
 	} else if mode == Update {
+
+		generatedObj, err := client.GetResource(genAPIVersion, genKind, genNamespace, genName)
+		if err != nil {
+			logger.Error(err, fmt.Sprintf("generated resource not found  name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
+			return newGenResource, err
+		}
+
 		// if synchronize is true - update the label and generated resource with generate policy data
 		if rule.Generation.Synchronize {
 			logger.V(4).Info("updating existing resource")
 			label["policy.kyverno.io/synchronize"] = "enable"
 			newResource.SetLabels(label)
-			_, err := client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
-			if err != nil {
-				logger.Error(err, "failed to update resource")
-				return noGenResource, err
+
+			if _, err := ValidateResourceWithPattern(logger, generatedObj.Object, rdata); err != nil {
+				_, err = client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
+				if err != nil {
+					logger.Error(err, "failed to update resource")
+					return noGenResource, err
+				}
 			}
 		} else {
-			// if synchronize is false - update the label in already generated resource,
-			// without comparing it with the generate policy data
-			generatedObj, err := client.GetResource(genAPIVersion, genKind, genNamespace, genName)
-			if err != nil {
-				logger.Error(err, fmt.Sprintf("generated resource not found  name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
-				return newGenResource, err
-			}
-
 			currentGeneratedResourcelabel := generatedObj.GetLabels()
 			currentSynclabel := currentGeneratedResourcelabel["policy.kyverno.io/synchronize"]
 
