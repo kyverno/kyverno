@@ -3,6 +3,7 @@ package operator
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -126,6 +127,11 @@ func (noh NumericOperatorHandler) validateValueWithResourcePattern(key resource.
 }
 
 func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, value interface{}) bool {
+	// We need to check duration first as it's the only type that can be compared to a different type
+	durationKey, durationValue, err := noh.parseDuration(key, value)
+	if err == nil {
+		return compareByCondition(float64(durationKey.Seconds()), float64(durationValue.Seconds()), noh.condition, &noh.log)
+	}
 	// extracting float64 from the string key
 	float64key, err := strconv.ParseFloat(key, 64)
 	if err == nil {
@@ -136,7 +142,7 @@ func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, val
 	if err == nil {
 		return noh.validateValueWithIntPattern(int64key, value)
 	}
-	// extracting
+	// attempt to extract resource quantity from string
 	resourceKey, err := resource.ParseQuantity(key)
 	if err == nil {
 		return noh.validateValueWithResourcePattern(resourceKey, value)
@@ -144,6 +150,67 @@ func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, val
 
 	noh.log.Error(err, "Failed to parse from the string key, value is not float, int nor resource quantity")
 	return false
+}
+
+func (noh NumericOperatorHandler) parseDuration(key, value interface{}) (*time.Duration, *time.Duration, error) {
+	var keyDuration *time.Duration
+	var valueDuration *time.Duration
+	var err error
+
+	// We need to first ensure at least one of the values is actually a duration string
+	switch typedKey := key.(type) {
+	case string:
+		duration, err := time.ParseDuration(typedKey)
+		if err == nil && key != "0" {
+			keyDuration = &duration
+		}
+	}
+	switch typedValue := value.(type) {
+	case string:
+		duration, err := time.ParseDuration(typedValue)
+		if err == nil && value != "0" {
+			valueDuration = &duration
+		}
+	}
+	if keyDuration == nil && valueDuration == nil {
+		return keyDuration, valueDuration, fmt.Errorf("Neither value is a duration")
+	}
+
+	if keyDuration == nil {
+		var duration time.Duration
+
+		switch typedKey := key.(type) {
+		case int:
+			duration = time.Duration(typedKey) * time.Second
+		case int64:
+			duration = time.Duration(typedKey) * time.Second
+		case float64:
+			duration = time.Duration(typedKey) * time.Second
+		default:
+			return keyDuration, valueDuration, fmt.Errorf("No valid duration value")
+		}
+
+		keyDuration = &duration
+	}
+
+	if valueDuration == nil {
+		var duration time.Duration
+
+		switch typedValue := value.(type) {
+		case int:
+			duration = time.Duration(typedValue) * time.Second
+		case int64:
+			duration = time.Duration(typedValue) * time.Second
+		case float64:
+			duration = time.Duration(typedValue) * time.Second
+		default:
+			return keyDuration, valueDuration, fmt.Errorf("No valid duration value")
+		}
+
+		valueDuration = &duration
+	}
+
+	return keyDuration, valueDuration, err
 }
 
 // the following functions are unreachable because the key is strictly supposed to be numeric
