@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/minio/pkg/wildcard"
 )
 
 //NewAllInHandler returns handler to manage AllIn operations
@@ -104,33 +105,30 @@ func allSetExistsInArray(key []string, value interface{}, log logr.Logger, allNo
 
 // isAllIn checks if all values in S1 are in S2
 func isAllIn(key []string, value []string) bool {
-	set := make(map[string]bool)
-
-	for _, val := range value {
-		set[val] = true
-	}
-
-	for _, val := range key {
-		_, found := set[val]
-		if !found {
-			return false
+	found := 0
+	for _, valKey := range key {
+		for _, valValue := range value {
+			if wildcard.Match(valKey, valValue) {
+				found++
+				break
+			}
 		}
 	}
-	return true
+	if found == len(key) {
+		return true
+	} else {
+		return false
+	}
+
 }
 
 // isAllNotIn checks if all the values in S1 are not in S2
 func isAllNotIn(key []string, value []string) bool {
-	set := make(map[string]bool)
-
-	for _, val := range value {
-		set[val] = true
-	}
-
-	for _, val := range key {
-		_, found := set[val]
-		if found {
-			return false
+	for _, valKey := range key {
+		for _, valValue := range value {
+			if wildcard.Match(valKey, valValue) {
+				return false
+			}
 		}
 	}
 	return true

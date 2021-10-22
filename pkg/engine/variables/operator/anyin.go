@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/minio/pkg/wildcard"
 )
 
 //NewAnyInHandler returns handler to manage AnyIn operations
@@ -104,16 +105,11 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 
 // isAnyIn checks if any values in S1 are in S2
 func isAnyIn(key []string, value []string) bool {
-	set := make(map[string]bool)
-
-	for _, val := range value {
-		set[val] = true
-	}
-
-	for _, val := range key {
-		_, found := set[val]
-		if found {
-			return true
+	for _, valKey := range key {
+		for _, valValue := range value {
+			if wildcard.Match(valKey, valValue) {
+				return true
+			}
 		}
 	}
 	return false
@@ -121,19 +117,20 @@ func isAnyIn(key []string, value []string) bool {
 
 // isAllNotIn checks if all the values in S1 are not in S2
 func isAnyNotIn(key []string, value []string) bool {
-	set := make(map[string]bool)
-
-	for _, val := range value {
-		set[val] = true
-	}
-
-	for _, val := range key {
-		_, found := set[val]
-		if !found {
-			return true
+	found := 0
+	for _, valKey := range key {
+		for _, valValue := range value {
+			if wildcard.Match(valKey, valValue) {
+				found++
+				break
+			}
 		}
 	}
-	return false
+	if found < len(key) {
+		return true
+	} else {
+		return false
+	}
 }
 
 func (anyin AnyInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {

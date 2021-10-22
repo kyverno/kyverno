@@ -1997,7 +1997,7 @@ func Test_Eval_AllIn_String_Set_Fail1(t *testing.T) {
 func Test_Eval_AllIn_String_Set_Fail2(t *testing.T) {
 	ctx := context.NewContext()
 	key := [2]string{"5.5.5.5"}
-	keyInterface := make([]interface{}, len(key), len(key))
+	keyInterface := make([]interface{}, len(key))
 	for i := range key {
 		keyInterface[i] = key[i]
 	}
