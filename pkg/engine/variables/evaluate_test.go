@@ -359,8 +359,32 @@ func Test_Eval_DurationGreaterThanOrEquals_Const_string_Equal_Pass(t *testing.T)
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "1h",
-		Operator: kyverno.DurationGreaterThanOrEquals,
+		Operator: kyverno.GreaterThanOrEquals,
 		Value:    "1h",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationGreaterThanOrEquals_DifferentUnits_Equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1h",
+		Operator: kyverno.GreaterThanOrEquals,
+		Value:    "60m",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationGreaterThanOrEquals_DifferentUnits_Greater_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "2h",
+		Operator: kyverno.GreaterThanOrEquals,
+		Value:    "60m",
 	}
 	if !Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to pass")
@@ -371,7 +395,7 @@ func Test_Eval_DurationGreaterThanOrEquals_Const_string_Greater_Pass(t *testing.
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "2h",
-		Operator: kyverno.DurationGreaterThanOrEquals,
+		Operator: kyverno.GreaterThanOrEquals,
 		Value:    "1h",
 	}
 	if !Evaluate(log.Log, ctx, condition) {
@@ -383,7 +407,7 @@ func Test_Eval_DurationGreaterThanOrEquals_Const_string_Fail(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "1h",
-		Operator: kyverno.DurationGreaterThanOrEquals,
+		Operator: kyverno.GreaterThanOrEquals,
 		Value:    "2h",
 	}
 	if Evaluate(log.Log, ctx, condition) {
@@ -395,7 +419,7 @@ func Test_Eval_DurationGreaterThan_Const_string_Equal_Fail(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "1h",
-		Operator: kyverno.DurationGreaterThan,
+		Operator: kyverno.GreaterThan,
 		Value:    "2h",
 	}
 	if Evaluate(log.Log, ctx, condition) {
@@ -407,7 +431,7 @@ func Test_Eval_DurationGreaterThan_Const_string_Greater_Pass(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "2h",
-		Operator: kyverno.DurationGreaterThan,
+		Operator: kyverno.GreaterThan,
 		Value:    "1h",
 	}
 	if !Evaluate(log.Log, ctx, condition) {
@@ -419,7 +443,7 @@ func Test_Eval_DurationGreaterThan_Const_string_Fail(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "1h",
-		Operator: kyverno.DurationGreaterThan,
+		Operator: kyverno.GreaterThan,
 		Value:    "2h",
 	}
 	if Evaluate(log.Log, ctx, condition) {
@@ -431,7 +455,7 @@ func Test_Eval_DurationLessThanOrEquals_Const_string_Equal_Pass(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "2h",
-		Operator: kyverno.DurationLessThanOrEquals,
+		Operator: kyverno.LessThanOrEquals,
 		Value:    "2h",
 	}
 	if !Evaluate(log.Log, ctx, condition) {
@@ -443,7 +467,7 @@ func Test_Eval_DurationLessThanOrEquals_Const_string_Less_Pass(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "1h",
-		Operator: kyverno.DurationLessThanOrEquals,
+		Operator: kyverno.LessThanOrEquals,
 		Value:    "2h",
 	}
 	if !Evaluate(log.Log, ctx, condition) {
@@ -467,7 +491,7 @@ func Test_Eval_DurationLessThan_Const_string_Equal_Pass(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "1h",
-		Operator: kyverno.DurationLessThan,
+		Operator: kyverno.LessThan,
 		Value:    "1h",
 	}
 	if Evaluate(log.Log, ctx, condition) {
@@ -479,7 +503,7 @@ func Test_Eval_DurationLessThan_Const_string_Less_Pass(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "1h",
-		Operator: kyverno.DurationLessThan,
+		Operator: kyverno.LessThan,
 		Value:    "2h",
 	}
 	if !Evaluate(log.Log, ctx, condition) {
@@ -491,7 +515,7 @@ func Test_Eval_DurationLessThan_Const_string_Fail(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "2h",
-		Operator: kyverno.DurationLessThan,
+		Operator: kyverno.LessThan,
 		Value:    "1h",
 	}
 	if Evaluate(log.Log, ctx, condition) {
@@ -762,7 +786,7 @@ func Test_Eval_DurationGreaterThanOrEquals_Const_int_Equal_Pass(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "1h",
-		Operator: kyverno.DurationGreaterThanOrEquals,
+		Operator: kyverno.GreaterThanOrEquals,
 		Value:    3600,
 	}
 	if !Evaluate(log.Log, ctx, condition) {
@@ -774,7 +798,7 @@ func Test_Eval_DurationGreaterThanOrEquals_Const_int_Greater_Pass(t *testing.T) 
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "2h",
-		Operator: kyverno.DurationGreaterThanOrEquals,
+		Operator: kyverno.GreaterThanOrEquals,
 		Value:    3600,
 	}
 	if !Evaluate(log.Log, ctx, condition) {
@@ -786,7 +810,7 @@ func Test_Eval_DurationGreaterThanOrEquals_Const_int_Fail(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "1h",
-		Operator: kyverno.DurationGreaterThanOrEquals,
+		Operator: kyverno.GreaterThanOrEquals,
 		Value:    7200,
 	}
 	if Evaluate(log.Log, ctx, condition) {
@@ -794,12 +818,12 @@ func Test_Eval_DurationGreaterThanOrEquals_Const_int_Fail(t *testing.T) {
 	}
 }
 
-func Test_Eval_DurationGreaterThan_Const_int_Equal_Fail(t *testing.T) {
+func Test_Eval_DurationGreaterThanOrEquals_Const_int_Pass(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
-		Key:      3600,
-		Operator: kyverno.DurationGreaterThan,
-		Value:    7200,
+		Key:      7200,
+		Operator: kyverno.GreaterThanOrEquals,
+		Value:    "1h",
 	}
 	if Evaluate(log.Log, ctx, condition) {
 		t.Error("expected to fail")
@@ -810,7 +834,7 @@ func Test_Eval_DurationGreaterThan_Const_int_Greater_Pass(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "2h",
-		Operator: kyverno.DurationGreaterThan,
+		Operator: kyverno.GreaterThan,
 		Value:    3600,
 	}
 	if !Evaluate(log.Log, ctx, condition) {
@@ -818,23 +842,11 @@ func Test_Eval_DurationGreaterThan_Const_int_Greater_Pass(t *testing.T) {
 	}
 }
 
-func Test_Eval_DurationGreaterThan_Const_int_Fail(t *testing.T) {
-	ctx := context.NewContext()
-	condition := kyverno.Condition{
-		Key:      3600,
-		Operator: kyverno.DurationGreaterThan,
-		Value:    7200,
-	}
-	if Evaluate(log.Log, ctx, condition) {
-		t.Error("expected to fail")
-	}
-}
-
 func Test_Eval_DurationLessThanOrEquals_Const_int_Equal_Pass(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "2h",
-		Operator: kyverno.DurationLessThanOrEquals,
+		Operator: kyverno.LessThanOrEquals,
 		Value:    7200,
 	}
 	if !Evaluate(log.Log, ctx, condition) {
@@ -846,7 +858,7 @@ func Test_Eval_DurationLessThanOrEquals_Const_int_Less_Pass(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
 		Key:      "1h",
-		Operator: kyverno.DurationLessThanOrEquals,
+		Operator: kyverno.LessThanOrEquals,
 		Value:    7200,
 	}
 	if !Evaluate(log.Log, ctx, condition) {
