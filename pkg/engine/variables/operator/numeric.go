@@ -173,7 +173,7 @@ func (noh NumericOperatorHandler) parseDuration(key, value interface{}) (*time.D
 		}
 	}
 	if keyDuration == nil && valueDuration == nil {
-		return keyDuration, valueDuration, fmt.Errorf("Neither value is a duration")
+		return keyDuration, valueDuration, fmt.Errorf("neither value is a duration")
 	}
 
 	if keyDuration == nil {
@@ -187,7 +187,7 @@ func (noh NumericOperatorHandler) parseDuration(key, value interface{}) (*time.D
 		case float64:
 			duration = time.Duration(typedKey) * time.Second
 		default:
-			return keyDuration, valueDuration, fmt.Errorf("No valid duration value")
+			return keyDuration, valueDuration, fmt.Errorf("no valid duration value")
 		}
 
 		keyDuration = &duration
@@ -204,7 +204,7 @@ func (noh NumericOperatorHandler) parseDuration(key, value interface{}) (*time.D
 		case float64:
 			duration = time.Duration(typedValue) * time.Second
 		default:
-			return keyDuration, valueDuration, fmt.Errorf("No valid duration value")
+			return keyDuration, valueDuration, fmt.Errorf("no valid duration value")
 		}
 
 		valueDuration = &duration
