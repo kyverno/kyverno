@@ -3,6 +3,8 @@ package engine
 import (
 	"fmt"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type APIPath struct {
@@ -38,7 +40,7 @@ func NewAPIPath(path string) (*APIPath, error) {
 		if len(paths) == 3 {
 			return &APIPath{
 				Root:         paths[0],
-				Group:        paths[1],
+				Version:      paths[1],
 				ResourceType: paths[2],
 			}, nil
 		}
@@ -47,7 +49,7 @@ func NewAPIPath(path string) (*APIPath, error) {
 		if len(paths) == 4 {
 			return &APIPath{
 				Root:         paths[0],
-				Group:        paths[1],
+				Version:      paths[1],
 				ResourceType: paths[2],
 				Name:         paths[3],
 			}, nil
@@ -57,7 +59,7 @@ func NewAPIPath(path string) (*APIPath, error) {
 		if len(paths) == 5 {
 			return &APIPath{
 				Root:         paths[0],
-				Group:        paths[1],
+				Version:      paths[1],
 				Namespace:    paths[3],
 				ResourceType: paths[4],
 			}, nil
@@ -66,7 +68,7 @@ func NewAPIPath(path string) (*APIPath, error) {
 		if len(paths) == 6 {
 			return &APIPath{
 				Root:         paths[0],
-				Group:        paths[1],
+				Version:      paths[1],
 				Namespace:    paths[3],
 				ResourceType: paths[4],
 				Name:         paths[5],
@@ -123,6 +125,21 @@ func NewAPIPath(path string) (*APIPath, error) {
 	return nil, fmt.Errorf("invalid API path %s", path)
 }
 
+func (a *APIPath) ToGVR() schema.GroupVersionResource {
+	return schema.GroupVersionResource{
+		Group:    a.Group,
+		Version:  a.Version,
+		Resource: a.ResourceType,
+	}
+}
+
+func (a *APIPath) ToGVRString() string {
+	if a.Group == "" {
+		return fmt.Sprintf("%s/%s", a.Version, a.ResourceType)
+	}
+	return fmt.Sprintf("%s/%s/%s", a.Group, a.Version, a.ResourceType)
+}
+
 func (a *APIPath) String() string {
 	var paths []string
 	if a.Root == "apis" {
@@ -142,15 +159,15 @@ func (a *APIPath) String() string {
 	} else {
 		if a.Namespace != "" {
 			if a.Name == "" {
-				paths = []string{a.Root, a.Group, "namespaces", a.Namespace, a.ResourceType}
+				paths = []string{a.Root, a.Version, "namespaces", a.Namespace, a.ResourceType}
 			} else {
-				paths = []string{a.Root, a.Group, "namespaces", a.Namespace, a.ResourceType, a.Name}
+				paths = []string{a.Root, a.Version, "namespaces", a.Namespace, a.ResourceType, a.Name}
 			}
 		} else {
 			if a.Name != "" {
-				paths = []string{a.Root, a.Group, a.ResourceType, a.Name}
+				paths = []string{a.Root, a.Version, a.ResourceType, a.Name}
 			} else {
-				paths = []string{a.Root, a.Group, a.ResourceType}
+				paths = []string{a.Root, a.Version, a.ResourceType}
 			}
 		}
 	}

@@ -37,7 +37,7 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 func (pc *PolicyController) registerResource(gvk string) (err error) {
 	genericCache, ok := pc.resCache.GetGVRCache(gvk)
 	if !ok {
-		if genericCache, err = pc.resCache.CreateGVKInformer(gvk); err != nil {
+		if genericCache, err = pc.resCache.CreateGVKInformer(gvk, policyWorkerUID); err != nil {
 			return fmt.Errorf("failed to create informer for %s: %v", gvk, err)
 		}
 	}

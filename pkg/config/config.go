@@ -41,6 +41,8 @@ const (
 	PolicyMutatingWebhookConfigurationDebugName = "kyverno-policy-mutating-webhook-cfg-debug"
 	//PolicyMutatingWebhookName default policy mutating webhook name
 	PolicyMutatingWebhookName = "mutate-policy.kyverno.svc"
+	//PilcyConfigManagerFinalizer finalizer key for the webhook configmanager
+	PolicyConfigManagerFinalizer = "finalizer.kyverno.io/configmanager"
 
 	// Due to kubernetes issue, we must use next literal constants instead of deployment TypeMeta fields
 	// Issue: https://github.com/kubernetes/kubernetes/pull/63972

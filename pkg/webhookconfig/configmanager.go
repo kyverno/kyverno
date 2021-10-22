@@ -16,6 +16,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/engine"
+	ctx "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
@@ -155,7 +158,8 @@ func (m *webhookConfigManager) updateClusterPolicy(old, cur interface{}) {
 	oldP := old.(*kyverno.ClusterPolicy)
 	curP := cur.(*kyverno.ClusterPolicy)
 
-	if reflect.DeepEqual(oldP.Spec, curP.Spec) {
+	if reflect.DeepEqual(oldP.Spec, curP.Spec) && curP.DeletionTimestamp.IsZero() {
+		m.log.V(4).Info("Skipping cluster policy update, no change", "Cluster Policy", curP.Name)
 		return
 	}
 
@@ -267,7 +271,7 @@ func (m *webhookConfigManager) enqueueAllPolicies() {
 
 	nsCache, ok := m.resCache.GetGVRCache("Namespace")
 	if !ok {
-		nsCache, err = m.resCache.CreateGVKInformer("Namespace")
+		nsCache, err = m.resCache.CreateGVKInformer("Namespace", webhookConfigWorkerUID)
 		if err != nil {
 			logger.Error(err, "unabled to create Namespace listser")
 			return
@@ -378,6 +382,15 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 	}
 
 	ready := true
+
+	if policy != nil {
+		// update rescache informers for apiCalls in policy
+		if err := m.updateResCacheInformers(policy); err != nil {
+			ready = false
+			logger.Error(err, "failed to create rescache informer for policy")
+		}
+	}
+
 	// build webhook only if auto-update is enabled, otherwise directly update status to ready
 	if m.autoUpdateWebhooks {
 		webhooks, err := m.buildWebhooks(namespace)
@@ -460,6 +473,69 @@ type webhook struct {
 	// rule represents the same rule struct of the webhook using a map object
 	// https://github.com/kubernetes/api/blob/master/admissionregistration/v1/types.go#L25
 	rule map[string]interface{}
+}
+
+func (m *webhookConfigManager) updateResCacheInformers(policy *kyverno.ClusterPolicy) error {
+	logger := m.log.WithName("resCache").WithValues("policy", policy.Name)
+
+	deletePolicy := !policy.DeletionTimestamp.IsZero()
+	policyWorkerUID := string(policy.UID)
+	policyCaches := make(map[string]resourcecache.GenericCache)
+
+	policyCopy := policy.DeepCopy()
+	if deletePolicy {
+		logger.V(4).Info("Deleting caches", "caches", m.resCache.GetGVRCachesForWorker(policyWorkerUID), "policy uid", policyWorkerUID)
+		for key := range m.resCache.GetGVRCachesForWorker(policyWorkerUID) {
+			logger.V(4).Info("Deleting cache for worker", "cache", key)
+			m.resCache.StopResourceInformer(key, policyWorkerUID)
+		}
+		policyCopy.RemoveFinalizer(config.PolicyConfigManagerFinalizer)
+		return m.updateFinalizers(policy, policyCopy.Finalizers)
+	}
+
+	if policy.HasAPICall() {
+		for _, rule := range policy.Spec.Rules {
+			for _, contextEntry := range rule.Context {
+				if contextEntry.APICall != nil {
+					path, err := variables.SubstituteAllInPreconditions(logger, ctx.NewContext(), contextEntry.APICall.URLPath)
+					if err != nil {
+						return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", contextEntry.Name, contextEntry.APICall.URLPath, err)
+					}
+
+					pathStr := path.(string)
+					apiPath, err := engine.NewAPIPath(pathStr)
+					if err != nil {
+						logger.V(4).Error(err, "Failed to build API path. Cache creation skipped", "path", path)
+						continue
+					}
+					cacheKey := apiPath.ToGVRString()
+					cache, cacheExists := m.resCache.GetGVRCache(cacheKey)
+					if !cacheExists {
+						logger.V(4).Info("Creating new informer", "gvr", apiPath.ToGVR(), "cacheKey", cacheKey)
+						_, err := m.resCache.CreateGVRInformer(apiPath.ToGVR(), false, cacheKey, policyWorkerUID)
+						if err != nil {
+							return err
+						}
+					} else if _, cacheWorkerExists := cache.GetCacheWorker(policyWorkerUID); !cacheWorkerExists {
+						cache.AddCacheWorker(policyWorkerUID)
+					}
+					policyCaches[cacheKey] = cache
+				}
+			}
+		}
+	}
+
+	for key := range m.resCache.GetGVRCachesForWorker(policyWorkerUID) {
+		if _, ok := policyCaches[key]; !ok {
+			m.resCache.StopResourceInformer(key, policyWorkerUID)
+		}
+	}
+
+	if !policy.HasFinalizer(config.PolicyConfigManagerFinalizer) {
+		policyCopy.Finalizers = append(policy.Finalizers, config.PolicyConfigManagerFinalizer)
+		return m.updateFinalizers(policy, policyCopy.Finalizers)
+	}
+	return nil
 }
 
 func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, err error) {
@@ -660,6 +736,18 @@ func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy, statu
 	}
 
 	_, err := m.kyvernoClient.KyvernoV1().Policies(policyCopy.GetNamespace()).UpdateStatus(context.TODO(), (*kyverno.Policy)(policyCopy), v1.UpdateOptions{})
+	return err
+}
+
+func (m *webhookConfigManager) updateFinalizers(policy *kyverno.ClusterPolicy, finalizers []string) error {
+	policyCopy := policy.DeepCopy()
+	policyCopy.Finalizers = finalizers
+	if policy.GetNamespace() == "" {
+		_, err := m.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), policyCopy, v1.UpdateOptions{})
+		return err
+	}
+
+	_, err := m.kyvernoClient.KyvernoV1().Policies(policyCopy.GetNamespace()).Update(context.TODO(), (*kyverno.Policy)(policyCopy), v1.UpdateOptions{})
 	return err
 }
 

@@ -14,6 +14,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/dynamic/dynamiclister"
 )
 
@@ -145,13 +147,13 @@ func fetchAPIData(log logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContex
 
 	var jsonData []byte
 	if p.Name != "" {
-		jsonData, err = loadResource(ctx, p)
+		jsonData, err = loadResource(log, ctx, p)
 		if err != nil {
 			return nil, fmt.Errorf("failed to add resource with urlPath: %s: %v", p, err)
 		}
 
 	} else {
-		jsonData, err = loadResourceList(ctx, p)
+		jsonData, err = loadResourceList(log, ctx, p)
 		if err != nil {
 			return nil, fmt.Errorf("failed to add resource list with urlPath: %s, error: %v", p, err)
 		}
@@ -160,30 +162,57 @@ func fetchAPIData(log logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContex
 	return jsonData, nil
 }
 
-func loadResourceList(ctx *PolicyContext, p *APIPath) ([]byte, error) {
+func loadResourceList(logger logr.Logger, ctx *PolicyContext, p *APIPath) ([]byte, error) {
 	if ctx.Client == nil {
 		return nil, fmt.Errorf("API client is not available")
 	}
 
-	l, err := ctx.Client.ListResource(p.Version, p.ResourceType, p.Namespace, nil)
-	if err != nil {
-		return nil, err
-	}
+	if cache, ok := ctx.ResourceCache.GetGVRCache(p.ToGVRString()); ok {
+		logger.V(4).Info("Loading resource list from cache", "gvr", p.ToGVRString())
+		rList, err := cache.Lister().List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
 
-	return l.MarshalJSON()
+		l := unstructured.UnstructuredList{
+			Items: make([]unstructured.Unstructured, len(rList)),
+		}
+		for _, r := range rList {
+			if r != nil {
+				l.Items = append(l.Items, *r)
+			}
+		}
+		return l.MarshalJSON()
+	} else {
+		logger.V(4).Info("Loading resource list from client", "gvr", p.ToGVRString())
+		l, err := ctx.Client.ListResource(p.Version, p.ResourceType, p.Namespace, nil)
+		if err != nil {
+			return nil, err
+		}
+		return l.MarshalJSON()
+	}
 }
 
-func loadResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
+func loadResource(logger logr.Logger, ctx *PolicyContext, p *APIPath) ([]byte, error) {
 	if ctx.Client == nil {
 		return nil, fmt.Errorf("API client is not available")
 	}
 
-	r, err := ctx.Client.GetResource(p.Version, p.ResourceType, p.Namespace, p.Name)
-	if err != nil {
-		return nil, err
+	if cache, ok := ctx.ResourceCache.GetGVRCache(p.ToGVRString()); ok {
+		logger.V(4).Info("Loading resource from cache", "gvr", p.ToGVRString())
+		r, err := cache.Lister().Namespace(p.Namespace).Get(p.Name)
+		if err != nil {
+			return nil, err
+		}
+		return r.MarshalJSON()
+	} else {
+		logger.V(4).Info("Loading resource from client", "gvr", p.ToGVRString())
+		r, err := ctx.Client.GetResource(p.Version, p.ResourceType, p.Namespace, p.Name)
+		if err != nil {
+			return nil, err
+		}
+		return r.MarshalJSON()
 	}
-
-	return r.MarshalJSON()
 }
 
 func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynamiclister.Lister, ctx *context.Context) error {

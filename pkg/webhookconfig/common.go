@@ -15,6 +15,10 @@ import (
 	rest "k8s.io/client-go/rest"
 )
 
+const (
+	webhookConfigWorkerUID string = "webhook-config-worker"
+)
+
 func (wrc *Register) readCaData() []byte {
 	logger := wrc.log.WithName("readCaData")
 	var caData []byte

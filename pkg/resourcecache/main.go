@@ -6,6 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	cmap "github.com/orcaman/concurrent-map"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 )
 
@@ -16,9 +17,11 @@ import (
 // - kind
 type ResourceCache interface {
 	CreateInformers(gvks ...string) []error
-	CreateGVKInformer(gvk string) (GenericCache, error)
-	StopResourceInformer(gvk string)
+	CreateGVKInformer(gvk string, workerUID string) (GenericCache, error)
+	CreateGVRInformer(gvr schema.GroupVersionResource, namespaced bool, cacheKey string, workerUID string) (GenericCache, error)
+	StopResourceInformer(gvk string, workerUID string)
 	GetGVRCache(gvk string) (GenericCache, bool)
+	GetGVRCachesForWorker(workerUID string) map[string]GenericCache
 }
 
 type resourceCache struct {

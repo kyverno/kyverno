@@ -17,6 +17,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const (
+	policyWorkerUID string = "policy-worker"
+)
+
 func buildPolicyLabel(policyName string) (labels.Selector, error) {
 	policyLabelmap := map[string]string{"policy": policyName}
 	//NOt using a field selector, as the match function will have to cast the runtime.object

@@ -102,6 +102,48 @@ func (r Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
 }
 
+func (p *ClusterPolicy) HasFinalizer(finalizer string) bool {
+	for _, f := range p.GetFinalizers() {
+		if f == finalizer {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *ClusterPolicy) RemoveFinalizer(finalizer string) {
+	for i, f := range p.GetFinalizers() {
+		if f == finalizer {
+			p.Finalizers[i] = p.Finalizers[len(p.Finalizers)-1]
+			p.Finalizers = p.Finalizers[:len(p.Finalizers)-1]
+			return
+		}
+	}
+}
+
+func (np *Policy) HasFinalizer(finalizer string) bool {
+	return (*ClusterPolicy)(np).HasFinalizer(finalizer)
+}
+
+func (np *Policy) RemoveFinalizer(finalizer string) {
+	(*ClusterPolicy)(np).RemoveFinalizer(finalizer)
+}
+
+func (p *ClusterPolicy) HasAPICall() bool {
+	for _, rule := range p.Spec.Rules {
+		for _, entry := range rule.Context {
+			if entry.APICall != nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (np *Policy) HasAPICall() bool {
+	return (*ClusterPolicy)(np).HasAPICall()
+}
+
 // MatchKinds returns a slice of all kinds to match
 func (r Rule) MatchKinds() []string {
 	matchKinds := r.MatchResources.ResourceDescription.Kinds
