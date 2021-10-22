@@ -29,3 +29,23 @@ results:
     resource: test-validate-image-tag-pass
     kind: Pod
     status: pass
+  - policy: duration-test
+    rule: greater-than
+    resource: test-lifetime-fail
+    kind: Pod
+    status: fail
+  - policy: duration-test
+    rule: less-than
+    resource: test-lifetime-fail
+    kind: Pod
+    status: pass
+  - policy: duration-test
+    rule: greater-equal-than
+    resource: test-lifetime-fail
+    kind: Pod
+    status: fail
+  - policy: duration-test
+    rule: less-equal-than
+    resource: test-lifetime-fail
+    kind: Pod
+    status: pass
