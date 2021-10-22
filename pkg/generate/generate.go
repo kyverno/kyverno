@@ -423,40 +423,43 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 		generatedObj, err := client.GetResource(genAPIVersion, genKind, genNamespace, genName)
 		if err != nil {
 			logger.Error(err, fmt.Sprintf("generated resource not found  name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
-			return newGenResource, err
-		}
-
-		// if synchronize is true - update the label and generated resource with generate policy data
-		if rule.Generation.Synchronize {
-			logger.V(4).Info("updating existing resource")
-			label["policy.kyverno.io/synchronize"] = "enable"
-			newResource.SetLabels(label)
-
-			if _, err := ValidateResourceWithPattern(logger, generatedObj.Object, rdata); err != nil {
-				_, err = client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
-				if err != nil {
-					logger.Error(err, "failed to update resource")
-					return noGenResource, err
-				}
+			logger.V(2).Info(fmt.Sprintf("creating generate resource name:name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
+			_, err = client.CreateResource(genAPIVersion, genKind, genNamespace, newResource, false)
+			if err != nil {
+				return noGenResource, err
 			}
 		} else {
-			currentGeneratedResourcelabel := generatedObj.GetLabels()
-			currentSynclabel := currentGeneratedResourcelabel["policy.kyverno.io/synchronize"]
+			// if synchronize is true - update the label and generated resource with generate policy data
+			if rule.Generation.Synchronize {
+				logger.V(4).Info("updating existing resource")
+				label["policy.kyverno.io/synchronize"] = "enable"
+				newResource.SetLabels(label)
 
-			// update only if the labels mismatches
-			if (!rule.Generation.Synchronize && currentSynclabel == "enable") ||
-				(rule.Generation.Synchronize && currentSynclabel == "disable") {
-				logger.V(4).Info("updating label in existing resource")
-				currentGeneratedResourcelabel["policy.kyverno.io/synchronize"] = "disable"
-				generatedObj.SetLabels(currentGeneratedResourcelabel)
+				if _, err := ValidateResourceWithPattern(logger, generatedObj.Object, rdata); err != nil {
+					_, err = client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
+					if err != nil {
+						logger.Error(err, "failed to update resource")
+						return noGenResource, err
+					}
+				}
+			} else {
+				currentGeneratedResourcelabel := generatedObj.GetLabels()
+				currentSynclabel := currentGeneratedResourcelabel["policy.kyverno.io/synchronize"]
 
-				_, err = client.UpdateResource(genAPIVersion, genKind, genNamespace, generatedObj, false)
-				if err != nil {
-					logger.Error(err, "failed to update label in existing resource")
-					return noGenResource, err
+				// update only if the labels mismatches
+				if (!rule.Generation.Synchronize && currentSynclabel == "enable") ||
+					(rule.Generation.Synchronize && currentSynclabel == "disable") {
+					logger.V(4).Info("updating label in existing resource")
+					currentGeneratedResourcelabel["policy.kyverno.io/synchronize"] = "disable"
+					generatedObj.SetLabels(currentGeneratedResourcelabel)
+
+					_, err = client.UpdateResource(genAPIVersion, genKind, genNamespace, generatedObj, false)
+					if err != nil {
+						logger.Error(err, "failed to update label in existing resource")
+						return noGenResource, err
+					}
 				}
 			}
-
 		}
 
 		logger.V(2).Info("updated generate target resource")
