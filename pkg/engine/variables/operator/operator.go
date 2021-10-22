@@ -51,6 +51,7 @@ func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvern
 		strings.ToLower(string(kyverno.DurationGreaterThan)),
 		strings.ToLower(string(kyverno.DurationLessThanOrEquals)),
 		strings.ToLower(string(kyverno.DurationLessThan)):
+		log.Info("DEPRECATED: The Duration* operators have been replaced with the other existing operators that now also support duration values", "operator", str)
 		return NewDurationOperatorHandler(log, ctx, op)
 
 	default:
