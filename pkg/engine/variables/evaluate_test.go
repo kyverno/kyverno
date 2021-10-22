@@ -367,6 +367,30 @@ func Test_Eval_DurationGreaterThanOrEquals_Const_string_Equal_Pass(t *testing.T)
 	}
 }
 
+func Test_Eval_DurationGreaterThanOrEquals_DifferentUnits_Equal_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "1h",
+		Operator: kyverno.GreaterThanOrEquals,
+		Value:    "60m",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
+func Test_Eval_DurationGreaterThanOrEquals_DifferentUnits_Greater_Pass(t *testing.T) {
+	ctx := context.NewContext()
+	condition := kyverno.Condition{
+		Key:      "2h",
+		Operator: kyverno.GreaterThanOrEquals,
+		Value:    "60m",
+	}
+	if !Evaluate(log.Log, ctx, condition) {
+		t.Error("expected to pass")
+	}
+}
+
 func Test_Eval_DurationGreaterThanOrEquals_Const_string_Greater_Pass(t *testing.T) {
 	ctx := context.NewContext()
 	condition := kyverno.Condition{
