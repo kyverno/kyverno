@@ -105,12 +105,11 @@ jobs:
           echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*")"
 
       - name: Generate SBOM JSON
-        uses: CycloneDX/gh-gomod-generate-sbom@v0.3.0
+        uses: CycloneDX/gh-gomod-generate-sbom@v1
         with:
-          json: true
-          output: kyverno-v${{ env.KYVERNO_VERSION }}-bom.cdx.json
-          resolve-licenses: true
-          version: ^v0
+          version: v1
+          args: mod -licenses -json -output kyverno-v${{ env.KYVERNO_VERSION }}-bom.cdx.json
+          
       - uses: actions/upload-artifact@v2
         with:
           name: kyverno-bom-cdx
