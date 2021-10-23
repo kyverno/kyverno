@@ -35,6 +35,7 @@ func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvern
 		strings.ToLower(string(kyverno.NotEquals)):
 		return NewNotEqualHandler(log, ctx)
 
+	// deprecated
 	case strings.ToLower(string(kyverno.In)):
 		return NewInHandler(log, ctx)
 
@@ -44,6 +45,7 @@ func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvern
 	case strings.ToLower(string(kyverno.AllIn)):
 		return NewAllInHandler(log, ctx)
 
+	// deprecated
 	case strings.ToLower(string(kyverno.NotIn)):
 		return NewNotInHandler(log, ctx)
 
