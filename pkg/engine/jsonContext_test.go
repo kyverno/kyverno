@@ -51,6 +51,13 @@ func Test_parseMultilineBlockBody(t *testing.T) {
 			expectedMultilineBlockRaw: []byte(`{"key1":"value1","key2":"[\"cluster-admin\", \"cluster-operator\", \"tenant-admin\"]"}`),
 			expectedErr:               false,
 		},
+		{
+			multilineBlockRaw: []byte(`{
+				"key1": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155\nJI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----"
+			}`),
+			expectedMultilineBlockRaw: []byte(`{"key1":"-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155\nJI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----"}`),
+			expectedErr:               false,
+		},
 	}
 
 	for _, tc := range tcs {

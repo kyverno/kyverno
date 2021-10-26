@@ -173,7 +173,7 @@ func PolicyHasVariables(policy v1.ClusterPolicy) [][]string {
 }
 
 // for now forbidden sections are match, exclude and
-func ruleForbiddenSectionsHaveVariables(rule v1.Rule) error {
+func ruleForbiddenSectionsHaveVariables(rule *v1.Rule) error {
 	var err error
 
 	err = JSONPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
@@ -236,9 +236,12 @@ func objectHasVariables(object interface{}) error {
 
 // PolicyHasNonAllowedVariables - checks for unexpected variables in the policy
 func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) error {
-	for _, rule := range policy.Spec.Rules {
-		var err error
+	for _, r := range policy.Spec.Rules {
+		rule := r.DeepCopy()
+		rule.Context = nil
+		rule.VerifyImages = nil
 
+		var err error
 		ruleJSON, err := json.Marshal(rule)
 		if err != nil {
 			return err
@@ -251,9 +254,9 @@ func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) error {
 
 		matchesAll := RegexVariables.FindAllStringSubmatch(string(ruleJSON), -1)
 		matchesAllowed := AllowedVariables.FindAllStringSubmatch(string(ruleJSON), -1)
-
-		if (len(matchesAll) > len(matchesAllowed)) && len(rule.Context) == 0 {
-			return fmt.Errorf("Rule \"%s\" has forbidden variables. Allowed variables are: {{request.*}}, {{serviceAccountName}}, {{serviceAccountNamespace}}, {{@}} and ones defined by the context", rule.Name)
+		if len(matchesAll) > len(matchesAllowed) {
+			allowed := "{{request.*}}, {{serviceAccountName}}, {{serviceAccountNamespace}}, {{@}}, and context variables"
+			return fmt.Errorf("rule \"%s\" has forbidden variables. Allowed variables are: %s", rule.Name, allowed)
 		}
 	}
 
