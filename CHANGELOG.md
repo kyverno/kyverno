@@ -1,3 +1,7 @@
+## v1.5.1
+
+This patch release fixes a security vulnerability issue #2595.
+
 ## v1.5.0
 
 ## v1.5.0-rc4
