@@ -238,8 +238,11 @@ func objectHasVariables(object interface{}) error {
 func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) error {
 	for _, r := range policy.Spec.Rules {
 		rule := r.DeepCopy()
-		rule.Context = nil
-		rule.VerifyImages = nil
+
+		// do not validate attestation variables as they are based on external data
+		for _, vi := range rule.VerifyImages {
+			vi.Attestations = nil
+		}
 
 		var err error
 		ruleJSON, err := json.Marshal(rule)
@@ -254,8 +257,8 @@ func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) error {
 
 		matchesAll := RegexVariables.FindAllStringSubmatch(string(ruleJSON), -1)
 		matchesAllowed := AllowedVariables.FindAllStringSubmatch(string(ruleJSON), -1)
-		if len(matchesAll) > len(matchesAllowed) && len(rule.Context) == 0 {
-			allowed := "{{request.*}}, {{serviceAccountName}}, {{serviceAccountNamespace}}, {{@}}, and context variables"
+		if (len(matchesAll) > len(matchesAllowed)) && len(rule.Context)  == 0 {
+			allowed := "{{request.*}}, {{element.*}}, {{serviceAccountName}}, {{serviceAccountNamespace}}, {{@}}, and context variables"
 			return fmt.Errorf("rule \"%s\" has forbidden variables. Allowed variables are: %s", rule.Name, allowed)
 		}
 	}
