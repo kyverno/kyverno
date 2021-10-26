@@ -128,7 +128,7 @@ func TestJMESPathFunctions_Split(t *testing.T) {
 	result, err := jp.Search("")
 	assert.NilError(t, err)
 
-	split, ok := result.([]string)
+	split, ok := result.([]interface{})
 	assert.Assert(t, ok)
 	assert.Equal(t, split[0], "Hello")
 	assert.Equal(t, split[1], "Gophers")

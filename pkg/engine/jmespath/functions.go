@@ -336,7 +336,14 @@ func jpfSplit(arguments []interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	return strings.Split(str.String(), sep.String()), nil
+	split := strings.Split(str.String(), sep.String())
+	arr := make([]interface{}, len(split))
+
+	for i, v := range split {
+		arr[i] = v
+	}
+
+	return arr, nil
 }
 
 func jpRegexReplaceAll(arguments []interface{}) (interface{}, error) {
