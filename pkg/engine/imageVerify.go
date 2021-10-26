@@ -105,7 +105,7 @@ func substituteVariables(rule *v1.Rule, ctx context.EvalInterface, logger logr.L
 	}
 
 	// replace attestations
-	for i, _ := range rule.VerifyImages {
+	for i := range rule.VerifyImages {
 		ruleCopy.VerifyImages[i].Attestations = rule.VerifyImages[i].Attestations
 	}
 
