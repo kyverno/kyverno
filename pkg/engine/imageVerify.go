@@ -57,20 +57,59 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 
 		policyContext.JSONContext.Restore()
 
+		if err := LoadContext(logger, rule.Context, policyContext.ResourceCache, policyContext, rule.Name); err != nil {
+			appendError(resp, rule, fmt.Sprintf("failed to load context: %s", err.Error()), response.RuleStatusError)
+			continue
+		}
+
+		ruleCopy, err := substituteVariables(rule, policyContext.JSONContext, logger)
+		if err != nil {
+			appendError(resp, rule, fmt.Sprintf("failed to substitute variables: %s", err.Error()), response.RuleStatusError)
+			continue
+		}
+
 		iv := &imageVerifier{
 			logger:        logger,
 			policyContext: policyContext,
-			rule:          rule,
+			rule:          ruleCopy,
 			resp:          resp,
 		}
 
-		for _, imageVerify := range rule.VerifyImages {
+		for _, imageVerify := range ruleCopy.VerifyImages {
 			iv.verify(imageVerify, images.Containers)
 			iv.verify(imageVerify, images.InitContainers)
 		}
 	}
 
 	return
+}
+
+func appendError(resp *response.EngineResponse, rule *v1.Rule, msg string, status response.RuleStatus) {
+	rr := ruleResponse(rule, utils.ImageVerify, msg, status)
+	resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
+	incrementErrorCount(resp)
+}
+
+func substituteVariables(rule *v1.Rule, ctx context.EvalInterface, logger logr.Logger) (*v1.Rule, error) {
+
+	// remove attestations as variables are not substituted in them
+	ruleCopy := rule.DeepCopy()
+	for _, iv := range ruleCopy.VerifyImages {
+		iv.Attestations = nil
+	}
+
+	var err error
+	*ruleCopy, err = variables.SubstituteAllInRule(logger, ctx, *ruleCopy)
+	if err != nil {
+		return nil, err
+	}
+
+	// replace attestations
+	for i := range rule.VerifyImages {
+		ruleCopy.VerifyImages[i].Attestations = rule.VerifyImages[i].Attestations
+	}
+
+	return ruleCopy, nil
 }
 
 type imageVerifier struct {

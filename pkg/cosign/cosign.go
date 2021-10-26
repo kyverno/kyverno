@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/pkg/cosign/attestation"
 	"github.com/sigstore/sigstore/pkg/signature/dsse"
 	"strings"
@@ -54,7 +55,7 @@ func VerifySignature(imageRef string, key []byte, repository string, log logr.Lo
 	}
 
 	cosignOpts := &cosign.CheckOpts{
-		//RootCerts:   fulcio.GetRoots(),
+		RootCerts:   fulcio.GetRoots(),
 		Annotations: map[string]interface{}{},
 		SigVerifier: pubKey,
 		RegistryClientOpts: []remote.Option{
@@ -81,13 +82,13 @@ func VerifySignature(imageRef string, key []byte, repository string, log logr.Lo
 	if err != nil {
 		msg := err.Error()
 		logger.Info("image verification failed", "error", msg)
-		if strings.Contains(msg, "NAME_UNKNOWN: repository name not known to registry") {
+		if strings.Contains(msg, "MANIFEST_UNKNOWN: manifest unknown") {
 			return "", fmt.Errorf("signature not found")
 		} else if strings.Contains(msg, "no matching signatures") {
-			return "", fmt.Errorf("invalid signature")
+			return "", fmt.Errorf("signature mismatch")
 		}
 
-		return "", errors.Wrap(err, "failed to verify image")
+		return "", err
 	}
 
 	digest, err = extractDigest(imageRef, verified, log)
@@ -125,7 +126,13 @@ func FetchAttestations(imageRef string, key []byte, repository string) ([]map[st
 
 	verified, err := client.Verify(context.Background(), ref, cosignOpts)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to verify image attestations")
+		msg := err.Error()
+		logger.Info("failed to fetch attestations", "error", msg)
+		if strings.Contains(msg, "MANIFEST_UNKNOWN: manifest unknown") {
+			return nil, fmt.Errorf("not found")
+		}
+
+		return nil, err
 	}
 
 	inTotoStatements, err := decodeStatements(verified)
