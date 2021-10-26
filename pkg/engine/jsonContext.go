@@ -247,7 +247,7 @@ func parseMultilineBlockBody(m map[string]interface{}) map[string]interface{} {
 		switch typedValue := v.(type) {
 		case string:
 			trimmedTypedValue := strings.Trim(typedValue, "\n")
-			if !pemFormat(trimmedTypedValue) && strings.Contains(trimmedTypedValue, "\n")  {
+			if !pemFormat(trimmedTypedValue) && strings.Contains(trimmedTypedValue, "\n") {
 				m[k] = strings.Split(trimmedTypedValue, "\n")
 			} else {
 				m[k] = trimmedTypedValue // trimming a str if it has trailing newline characters
