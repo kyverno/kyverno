@@ -420,6 +420,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: nginx
+  namespace: test-run
 spec:
   containers:
   - name: nginx
@@ -431,6 +432,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: nginx
+  namespace: test-run
 spec:
   containers:
   - name: nginx

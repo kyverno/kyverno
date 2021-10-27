@@ -91,7 +91,7 @@ var tests = []struct {
 		PolicyName:         "set-image-pull-secret",
 		PolicyRaw:          setImagePullSecret,
 		ResourceName:       "nginx",
-		ResourceNamespace:  "",
+		ResourceNamespace:  "test-run",
 		ResourceGVR:        podGVR,
 		ResourceRaw:        podWithNoSecrets,
 		ExpectedPatternRaw: podWithSecretPattern,
