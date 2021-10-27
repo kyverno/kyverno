@@ -386,3 +386,55 @@ metadata:
   annotations:
     fluentbit.io/exclude-busybox: "true"
 `)
+
+var setImagePullSecret = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: set-image-pull-secret
+spec:
+  background: false
+  rules:
+    - name: set-image-pull-secret
+      match:
+        resources:
+          kinds:
+            - Pod
+      preconditions:
+        - key: "{{ request.operation }}"
+          operator: Equals
+          value: CREATE
+      mutate:
+        overlay:
+          spec:
+            containers:
+              # match images that are from our registry
+              - (image): "registry.corp.com/*"
+                # set the imagePullSecrets
+            imagePullSecrets:
+              - name: regcred
+`)
+
+var podWithNoSecrets = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.14.2
+`)
+
+var podWithSecretPattern = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.14.2
+  imagePullSecrets:
+    - name: regcred
+`)
