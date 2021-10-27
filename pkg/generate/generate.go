@@ -269,16 +269,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 		}
 
 		startTime := time.Now()
-		processExisting := false
 		var genResource kyverno.ResourceSpec
-
-		if len(rule.MatchResources.Kinds) > 0 {
-			if len(rule.MatchResources.Annotations) == 0 && rule.MatchResources.Selector == nil {
-				rcreationTime := resource.GetCreationTimestamp()
-				pcreationTime := policy.GetCreationTimestamp()
-				processExisting = rcreationTime.Before(&pcreationTime)
-			}
-		}
 
 		// add configmap json data to context
 		if err := engine.LoadContext(log, rule.Context, resCache, policyContext, rule.Name); err != nil {
@@ -291,16 +282,15 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 			return nil, err
 		}
 
-		if !processExisting {
-			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy.Name, gr)
-			if err != nil {
-				log.Error(err, "failed to apply generate rule", "policy", policy.Name,
-					"rule", rule.Name, "resource", resource.GetName(), "suggestion", "users need to grant Kyverno's service account additional privileges")
-				return nil, err
-			}
-			ruleNameToProcessingTime[rule.Name] = time.Since(startTime)
-			genResources = append(genResources, genResource)
+		genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy.Name, gr)
+		if err != nil {
+			log.Error(err, "failed to apply generate rule", "policy", policy.Name,
+				"rule", rule.Name, "resource", resource.GetName(), "suggestion", "users need to grant Kyverno's service account additional privileges")
+			return nil, err
 		}
+		ruleNameToProcessingTime[rule.Name] = time.Since(startTime)
+		genResources = append(genResources, genResource)
+
 	}
 
 	return genResources, nil
