@@ -141,7 +141,7 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 		var ruleResp *response.RuleResponse
 		if len(imageVerify.Attestations) == 0 {
 			var digest string
-			ruleResp, digest = iv.verifySignature(repository, key, imageInfo)
+			ruleResp, digest = iv.verifySignature(imageVerify.Repository, key, imageInfo)
 			if ruleResp.Status == response.RuleStatusPass {
 				iv.patchDigest(imageInfo, digest, ruleResp)
 			}
@@ -173,7 +173,7 @@ func (iv *imageVerifier) verifySignature(repository, key string, imageInfo *cont
 	}
 
 	start := time.Now()
-	digest, err := cosign.VerifySignature(image, []byte(key), repository, iv.logger)
+	digest, err := cosign.VerifySignature(image, key, repository, iv.logger)
 	if err != nil {
 		iv.logger.Info("failed to verify image signature", "image", image, "error", err, "duration", time.Since(start).Seconds())
 		ruleResp.Status = response.RuleStatusFail
