@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -23,7 +23,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -1458,156 +1458,164 @@ spec:
                         foreach:
                           description: ForEach applies policy rule changes to nested
                             elements.
-                          properties:
-                            context:
-                              description: Context defines variables and data sources
-                                that can be used during rule execution.
-                              items:
-                                description: ContextEntry adds variables and data
-                                  sources to a rule Context. Either a ConfigMap reference
-                                  or a APILookup must be provided.
+                          items:
+                            description: ForEach applies policy rule changes to nested
+                              elements.
+                            properties:
+                              context:
+                                description: Context defines variables and data sources
+                                  that can be used during rule execution.
+                                items:
+                                  description: ContextEntry adds variables and data
+                                    sources to a rule Context. Either a ConfigMap
+                                    reference or a APILookup must be provided.
+                                  properties:
+                                    apiCall:
+                                      description: APICall defines an HTTP request
+                                        to the Kubernetes API server. The JSON data
+                                        retrieved is stored in the context.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the API
+                                            server. For example a JMESPath of "items
+                                            | length(@)" applied to the API server
+                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        urlPath:
+                                          description: URLPath is the URL path to
+                                            be used in the HTTP GET request to the
+                                            Kubernetes API server (e.g. "/api/v1/namespaces"
+                                            or  "/apis/apps/v1/deployments"). The
+                                            format required is the same format used
+                                            by the `kubectl get --raw` command.
+                                          type: string
+                                      required:
+                                      - urlPath
+                                      type: object
+                                    configMap:
+                                      description: ConfigMap is the ConfigMap reference.
+                                      properties:
+                                        name:
+                                          description: Name is the ConfigMap name.
+                                          type: string
+                                        namespace:
+                                          description: Namespace is the ConfigMap
+                                            namespace.
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    name:
+                                      description: Name is the variable name.
+                                      type: string
+                                  type: object
+                                type: array
+                              list:
+                                description: List specifies a JMESPath expression
+                                  that results in one or more elements to which the
+                                  validation logic is applied.
+                                type: string
+                              patchStrategicMerge:
+                                description: PatchStrategicMerge is a strategic merge
+                                  patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
+                                  and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                                x-kubernetes-preserve-unknown-fields: true
+                              preconditions:
+                                description: 'Preconditions are used to determine
+                                  if a policy rule should be applied by evaluating
+                                  a set of conditions. The declaration can contain
+                                  nested `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
                                 properties:
-                                  apiCall:
-                                    description: APICall defines an HTTP request to
-                                      the Kubernetes API server. The JSON data retrieved
-                                      is stored in the context.
-                                    properties:
-                                      jmesPath:
-                                        description: JMESPath is an optional JSON
-                                          Match Expression that can be used to transform
-                                          the JSON response returned from the API
-                                          server. For example a JMESPath of "items
-                                          | length(@)" applied to the API server response
-                                          to the URLPath "/apis/apps/v1/deployments"
-                                          will return the total count of deployments
-                                          across all namespaces.
-                                        type: string
-                                      urlPath:
-                                        description: URLPath is the URL path to be
-                                          used in the HTTP GET request to the Kubernetes
-                                          API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
-                                          The format required is the same format used
-                                          by the `kubectl get --raw` command.
-                                        type: string
-                                    required:
-                                    - urlPath
-                                    type: object
-                                  configMap:
-                                    description: ConfigMap is the ConfigMap reference.
-                                    properties:
-                                      name:
-                                        description: Name is the ConfigMap name.
-                                        type: string
-                                      namespace:
-                                        description: Namespace is the ConfigMap namespace.
-                                        type: string
-                                    required:
-                                    - name
-                                    type: object
-                                  name:
-                                    description: Name is the variable name.
-                                    type: string
+                                  all:
+                                    description: AllConditions enable variable-based
+                                      conditional rule execution. This is useful for
+                                      finer control of when an rule is applied. A
+                                      condition can reference object data using JMESPath
+                                      notation. Here, all of the conditions need to
+                                      pass
+                                    items:
+                                      description: Condition defines variable-based
+                                        conditional criteria for rule execution.
+                                      properties:
+                                        key:
+                                          description: Key is the context entry (using
+                                            JMESPath) for conditional rule evaluation.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        operator:
+                                          description: Operator is the operation to
+                                            perform. Valid operators are Equals, NotEquals,
+                                            In and NotIn.
+                                          enum:
+                                          - Equals
+                                          - NotEquals
+                                          - In
+                                          - NotIn
+                                          - GreaterThanOrEquals
+                                          - GreaterThan
+                                          - LessThanOrEquals
+                                          - LessThan
+                                          - DurationGreaterThanOrEquals
+                                          - DurationGreaterThan
+                                          - DurationLessThanOrEquals
+                                          - DurationLessThan
+                                          type: string
+                                        value:
+                                          description: Value is the conditional value,
+                                            or set of values. The values can be fixed
+                                            set or can be variables declared using
+                                            using JMESPath.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
+                                    type: array
+                                  any:
+                                    description: AnyConditions enable variable-based
+                                      conditional rule execution. This is useful for
+                                      finer control of when an rule is applied. A
+                                      condition can reference object data using JMESPath
+                                      notation. Here, at least one of the conditions
+                                      need to pass
+                                    items:
+                                      description: Condition defines variable-based
+                                        conditional criteria for rule execution.
+                                      properties:
+                                        key:
+                                          description: Key is the context entry (using
+                                            JMESPath) for conditional rule evaluation.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        operator:
+                                          description: Operator is the operation to
+                                            perform. Valid operators are Equals, NotEquals,
+                                            In and NotIn.
+                                          enum:
+                                          - Equals
+                                          - NotEquals
+                                          - In
+                                          - NotIn
+                                          - GreaterThanOrEquals
+                                          - GreaterThan
+                                          - LessThanOrEquals
+                                          - LessThan
+                                          - DurationGreaterThanOrEquals
+                                          - DurationGreaterThan
+                                          - DurationLessThanOrEquals
+                                          - DurationLessThan
+                                          type: string
+                                        value:
+                                          description: Value is the conditional value,
+                                            or set of values. The values can be fixed
+                                            set or can be variables declared using
+                                            using JMESPath.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
+                                    type: array
                                 type: object
-                              type: array
-                            list:
-                              description: List specifies a JMESPath expression that
-                                results in one or more elements to which the validation
-                                logic is applied.
-                              type: string
-                            patchStrategicMerge:
-                              description: PatchStrategicMerge is a strategic merge
-                                patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                                and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
-                              x-kubernetes-preserve-unknown-fields: true
-                            preconditions:
-                              description: 'Preconditions are used to determine if
-                                a policy rule should be applied by evaluating a set
-                                of conditions. The declaration can contain nested
-                                `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
-                              properties:
-                                all:
-                                  description: AllConditions enable variable-based
-                                    conditional rule execution. This is useful for
-                                    finer control of when an rule is applied. A condition
-                                    can reference object data using JMESPath notation.
-                                    Here, all of the conditions need to pass
-                                  items:
-                                    description: Condition defines variable-based
-                                      conditional criteria for rule execution.
-                                    properties:
-                                      key:
-                                        description: Key is the context entry (using
-                                          JMESPath) for conditional rule evaluation.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                      operator:
-                                        description: Operator is the operation to
-                                          perform. Valid operators are Equals, NotEquals,
-                                          In and NotIn.
-                                        enum:
-                                        - Equals
-                                        - NotEquals
-                                        - In
-                                        - NotIn
-                                        - GreaterThanOrEquals
-                                        - GreaterThan
-                                        - LessThanOrEquals
-                                        - LessThan
-                                        - DurationGreaterThanOrEquals
-                                        - DurationGreaterThan
-                                        - DurationLessThanOrEquals
-                                        - DurationLessThan
-                                        type: string
-                                      value:
-                                        description: Value is the conditional value,
-                                          or set of values. The values can be fixed
-                                          set or can be variables declared using using
-                                          JMESPath.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                    type: object
-                                  type: array
-                                any:
-                                  description: AnyConditions enable variable-based
-                                    conditional rule execution. This is useful for
-                                    finer control of when an rule is applied. A condition
-                                    can reference object data using JMESPath notation.
-                                    Here, at least one of the conditions need to pass
-                                  items:
-                                    description: Condition defines variable-based
-                                      conditional criteria for rule execution.
-                                    properties:
-                                      key:
-                                        description: Key is the context entry (using
-                                          JMESPath) for conditional rule evaluation.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                      operator:
-                                        description: Operator is the operation to
-                                          perform. Valid operators are Equals, NotEquals,
-                                          In and NotIn.
-                                        enum:
-                                        - Equals
-                                        - NotEquals
-                                        - In
-                                        - NotIn
-                                        - GreaterThanOrEquals
-                                        - GreaterThan
-                                        - LessThanOrEquals
-                                        - LessThan
-                                        - DurationGreaterThanOrEquals
-                                        - DurationGreaterThan
-                                        - DurationLessThanOrEquals
-                                        - DurationLessThan
-                                        type: string
-                                      value:
-                                        description: Value is the conditional value,
-                                          or set of values. The values can be fixed
-                                          set or can be variables declared using using
-                                          JMESPath.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                    type: object
-                                  type: array
-                              type: object
-                              x-kubernetes-preserve-unknown-fields: true
-                          type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
+                          type: array
                         overlay:
                           description: Overlay specifies an overlay pattern to modify
                             resources. DEPRECATED. Use PatchStrategicMerge instead.
@@ -1679,175 +1687,183 @@ spec:
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
                         foreach:
-                          description: ForEach applies policy rule checks to nested
+                          description: ForEach applies policy rule changes to nested
                             elements.
-                          properties:
-                            anyPattern:
-                              description: AnyPattern specifies list of validation
-                                patterns. At least one of the patterns must be satisfied
-                                for the validation rule to succeed.
-                              x-kubernetes-preserve-unknown-fields: true
-                            context:
-                              description: Context defines variables and data sources
-                                that can be used during rule execution.
-                              items:
-                                description: ContextEntry adds variables and data
-                                  sources to a rule Context. Either a ConfigMap reference
-                                  or a APILookup must be provided.
+                          items:
+                            description: ForEach applies policy rule checks to nested
+                              elements.
+                            properties:
+                              anyPattern:
+                                description: AnyPattern specifies list of validation
+                                  patterns. At least one of the patterns must be satisfied
+                                  for the validation rule to succeed.
+                                x-kubernetes-preserve-unknown-fields: true
+                              context:
+                                description: Context defines variables and data sources
+                                  that can be used during rule execution.
+                                items:
+                                  description: ContextEntry adds variables and data
+                                    sources to a rule Context. Either a ConfigMap
+                                    reference or a APILookup must be provided.
+                                  properties:
+                                    apiCall:
+                                      description: APICall defines an HTTP request
+                                        to the Kubernetes API server. The JSON data
+                                        retrieved is stored in the context.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the API
+                                            server. For example a JMESPath of "items
+                                            | length(@)" applied to the API server
+                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        urlPath:
+                                          description: URLPath is the URL path to
+                                            be used in the HTTP GET request to the
+                                            Kubernetes API server (e.g. "/api/v1/namespaces"
+                                            or  "/apis/apps/v1/deployments"). The
+                                            format required is the same format used
+                                            by the `kubectl get --raw` command.
+                                          type: string
+                                      required:
+                                      - urlPath
+                                      type: object
+                                    configMap:
+                                      description: ConfigMap is the ConfigMap reference.
+                                      properties:
+                                        name:
+                                          description: Name is the ConfigMap name.
+                                          type: string
+                                        namespace:
+                                          description: Namespace is the ConfigMap
+                                            namespace.
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    name:
+                                      description: Name is the variable name.
+                                      type: string
+                                  type: object
+                                type: array
+                              deny:
+                                description: Deny defines conditions used to pass
+                                  or fail a validation rule.
                                 properties:
-                                  apiCall:
-                                    description: APICall defines an HTTP request to
-                                      the Kubernetes API server. The JSON data retrieved
-                                      is stored in the context.
-                                    properties:
-                                      jmesPath:
-                                        description: JMESPath is an optional JSON
-                                          Match Expression that can be used to transform
-                                          the JSON response returned from the API
-                                          server. For example a JMESPath of "items
-                                          | length(@)" applied to the API server response
-                                          to the URLPath "/apis/apps/v1/deployments"
-                                          will return the total count of deployments
-                                          across all namespaces.
-                                        type: string
-                                      urlPath:
-                                        description: URLPath is the URL path to be
-                                          used in the HTTP GET request to the Kubernetes
-                                          API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
-                                          The format required is the same format used
-                                          by the `kubectl get --raw` command.
-                                        type: string
-                                    required:
-                                    - urlPath
-                                    type: object
-                                  configMap:
-                                    description: ConfigMap is the ConfigMap reference.
-                                    properties:
-                                      name:
-                                        description: Name is the ConfigMap name.
-                                        type: string
-                                      namespace:
-                                        description: Namespace is the ConfigMap namespace.
-                                        type: string
-                                    required:
-                                    - name
-                                    type: object
-                                  name:
-                                    description: Name is the variable name.
-                                    type: string
+                                  conditions:
+                                    description: 'Multiple conditions can be declared
+                                      under an `any` or `all` statement. A direct
+                                      list of conditions (without `any` or `all` statements)
+                                      is also supported for backwards compatibility
+                                      but will be deprecated in the next major release.
+                                      See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
+                                    x-kubernetes-preserve-unknown-fields: true
                                 type: object
-                              type: array
-                            deny:
-                              description: Deny defines conditions used to pass or
-                                fail a validation rule.
-                              properties:
-                                conditions:
-                                  description: 'Multiple conditions can be declared
-                                    under an `any` or `all` statement. A direct list
-                                    of conditions (without `any` or `all` statements)
-                                    is also supported for backwards compatibility
-                                    but will be deprecated in the next major release.
-                                    See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
-                                  x-kubernetes-preserve-unknown-fields: true
-                              type: object
-                            list:
-                              description: List specifies a JMESPath expression that
-                                results in one or more elements to which the validation
-                                logic is applied.
-                              type: string
-                            pattern:
-                              description: Pattern specifies an overlay-style pattern
-                                used to check resources.
-                              x-kubernetes-preserve-unknown-fields: true
-                            preconditions:
-                              description: 'Preconditions are used to determine if
-                                a policy rule should be applied by evaluating a set
-                                of conditions. The declaration can contain nested
-                                `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
-                              properties:
-                                all:
-                                  description: AllConditions enable variable-based
-                                    conditional rule execution. This is useful for
-                                    finer control of when an rule is applied. A condition
-                                    can reference object data using JMESPath notation.
-                                    Here, all of the conditions need to pass
-                                  items:
-                                    description: Condition defines variable-based
-                                      conditional criteria for rule execution.
-                                    properties:
-                                      key:
-                                        description: Key is the context entry (using
-                                          JMESPath) for conditional rule evaluation.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                      operator:
-                                        description: Operator is the operation to
-                                          perform. Valid operators are Equals, NotEquals,
-                                          In and NotIn.
-                                        enum:
-                                        - Equals
-                                        - NotEquals
-                                        - In
-                                        - NotIn
-                                        - GreaterThanOrEquals
-                                        - GreaterThan
-                                        - LessThanOrEquals
-                                        - LessThan
-                                        - DurationGreaterThanOrEquals
-                                        - DurationGreaterThan
-                                        - DurationLessThanOrEquals
-                                        - DurationLessThan
-                                        type: string
-                                      value:
-                                        description: Value is the conditional value,
-                                          or set of values. The values can be fixed
-                                          set or can be variables declared using using
-                                          JMESPath.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                    type: object
-                                  type: array
-                                any:
-                                  description: AnyConditions enable variable-based
-                                    conditional rule execution. This is useful for
-                                    finer control of when an rule is applied. A condition
-                                    can reference object data using JMESPath notation.
-                                    Here, at least one of the conditions need to pass
-                                  items:
-                                    description: Condition defines variable-based
-                                      conditional criteria for rule execution.
-                                    properties:
-                                      key:
-                                        description: Key is the context entry (using
-                                          JMESPath) for conditional rule evaluation.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                      operator:
-                                        description: Operator is the operation to
-                                          perform. Valid operators are Equals, NotEquals,
-                                          In and NotIn.
-                                        enum:
-                                        - Equals
-                                        - NotEquals
-                                        - In
-                                        - NotIn
-                                        - GreaterThanOrEquals
-                                        - GreaterThan
-                                        - LessThanOrEquals
-                                        - LessThan
-                                        - DurationGreaterThanOrEquals
-                                        - DurationGreaterThan
-                                        - DurationLessThanOrEquals
-                                        - DurationLessThan
-                                        type: string
-                                      value:
-                                        description: Value is the conditional value,
-                                          or set of values. The values can be fixed
-                                          set or can be variables declared using using
-                                          JMESPath.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                    type: object
-                                  type: array
-                              type: object
-                              x-kubernetes-preserve-unknown-fields: true
-                          type: object
+                              list:
+                                description: List specifies a JMESPath expression
+                                  that results in one or more elements to which the
+                                  validation logic is applied.
+                                type: string
+                              pattern:
+                                description: Pattern specifies an overlay-style pattern
+                                  used to check resources.
+                                x-kubernetes-preserve-unknown-fields: true
+                              preconditions:
+                                description: 'Preconditions are used to determine
+                                  if a policy rule should be applied by evaluating
+                                  a set of conditions. The declaration can contain
+                                  nested `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
+                                properties:
+                                  all:
+                                    description: AllConditions enable variable-based
+                                      conditional rule execution. This is useful for
+                                      finer control of when an rule is applied. A
+                                      condition can reference object data using JMESPath
+                                      notation. Here, all of the conditions need to
+                                      pass
+                                    items:
+                                      description: Condition defines variable-based
+                                        conditional criteria for rule execution.
+                                      properties:
+                                        key:
+                                          description: Key is the context entry (using
+                                            JMESPath) for conditional rule evaluation.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        operator:
+                                          description: Operator is the operation to
+                                            perform. Valid operators are Equals, NotEquals,
+                                            In and NotIn.
+                                          enum:
+                                          - Equals
+                                          - NotEquals
+                                          - In
+                                          - NotIn
+                                          - GreaterThanOrEquals
+                                          - GreaterThan
+                                          - LessThanOrEquals
+                                          - LessThan
+                                          - DurationGreaterThanOrEquals
+                                          - DurationGreaterThan
+                                          - DurationLessThanOrEquals
+                                          - DurationLessThan
+                                          type: string
+                                        value:
+                                          description: Value is the conditional value,
+                                            or set of values. The values can be fixed
+                                            set or can be variables declared using
+                                            using JMESPath.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
+                                    type: array
+                                  any:
+                                    description: AnyConditions enable variable-based
+                                      conditional rule execution. This is useful for
+                                      finer control of when an rule is applied. A
+                                      condition can reference object data using JMESPath
+                                      notation. Here, at least one of the conditions
+                                      need to pass
+                                    items:
+                                      description: Condition defines variable-based
+                                        conditional criteria for rule execution.
+                                      properties:
+                                        key:
+                                          description: Key is the context entry (using
+                                            JMESPath) for conditional rule evaluation.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        operator:
+                                          description: Operator is the operation to
+                                            perform. Valid operators are Equals, NotEquals,
+                                            In and NotIn.
+                                          enum:
+                                          - Equals
+                                          - NotEquals
+                                          - In
+                                          - NotIn
+                                          - GreaterThanOrEquals
+                                          - GreaterThan
+                                          - LessThanOrEquals
+                                          - LessThan
+                                          - DurationGreaterThanOrEquals
+                                          - DurationGreaterThan
+                                          - DurationLessThanOrEquals
+                                          - DurationLessThan
+                                          type: string
+                                        value:
+                                          description: Value is the conditional value,
+                                            or set of values. The values can be fixed
+                                            set or can be variables declared using
+                                            using JMESPath.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
+                                    type: array
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
+                          type: array
                         message:
                           description: Message specifies a custom message to be displayed
                             on failure.
@@ -2058,7 +2074,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -2739,7 +2755,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: clusterreportchangerequests.kyverno.io
 spec:
   group: kyverno.io
@@ -3420,7 +3436,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: generaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -3616,7 +3632,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -5052,156 +5068,164 @@ spec:
                         foreach:
                           description: ForEach applies policy rule changes to nested
                             elements.
-                          properties:
-                            context:
-                              description: Context defines variables and data sources
-                                that can be used during rule execution.
-                              items:
-                                description: ContextEntry adds variables and data
-                                  sources to a rule Context. Either a ConfigMap reference
-                                  or a APILookup must be provided.
+                          items:
+                            description: ForEach applies policy rule changes to nested
+                              elements.
+                            properties:
+                              context:
+                                description: Context defines variables and data sources
+                                  that can be used during rule execution.
+                                items:
+                                  description: ContextEntry adds variables and data
+                                    sources to a rule Context. Either a ConfigMap
+                                    reference or a APILookup must be provided.
+                                  properties:
+                                    apiCall:
+                                      description: APICall defines an HTTP request
+                                        to the Kubernetes API server. The JSON data
+                                        retrieved is stored in the context.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the API
+                                            server. For example a JMESPath of "items
+                                            | length(@)" applied to the API server
+                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        urlPath:
+                                          description: URLPath is the URL path to
+                                            be used in the HTTP GET request to the
+                                            Kubernetes API server (e.g. "/api/v1/namespaces"
+                                            or  "/apis/apps/v1/deployments"). The
+                                            format required is the same format used
+                                            by the `kubectl get --raw` command.
+                                          type: string
+                                      required:
+                                      - urlPath
+                                      type: object
+                                    configMap:
+                                      description: ConfigMap is the ConfigMap reference.
+                                      properties:
+                                        name:
+                                          description: Name is the ConfigMap name.
+                                          type: string
+                                        namespace:
+                                          description: Namespace is the ConfigMap
+                                            namespace.
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    name:
+                                      description: Name is the variable name.
+                                      type: string
+                                  type: object
+                                type: array
+                              list:
+                                description: List specifies a JMESPath expression
+                                  that results in one or more elements to which the
+                                  validation logic is applied.
+                                type: string
+                              patchStrategicMerge:
+                                description: PatchStrategicMerge is a strategic merge
+                                  patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
+                                  and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                                x-kubernetes-preserve-unknown-fields: true
+                              preconditions:
+                                description: 'Preconditions are used to determine
+                                  if a policy rule should be applied by evaluating
+                                  a set of conditions. The declaration can contain
+                                  nested `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
                                 properties:
-                                  apiCall:
-                                    description: APICall defines an HTTP request to
-                                      the Kubernetes API server. The JSON data retrieved
-                                      is stored in the context.
-                                    properties:
-                                      jmesPath:
-                                        description: JMESPath is an optional JSON
-                                          Match Expression that can be used to transform
-                                          the JSON response returned from the API
-                                          server. For example a JMESPath of "items
-                                          | length(@)" applied to the API server response
-                                          to the URLPath "/apis/apps/v1/deployments"
-                                          will return the total count of deployments
-                                          across all namespaces.
-                                        type: string
-                                      urlPath:
-                                        description: URLPath is the URL path to be
-                                          used in the HTTP GET request to the Kubernetes
-                                          API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
-                                          The format required is the same format used
-                                          by the `kubectl get --raw` command.
-                                        type: string
-                                    required:
-                                    - urlPath
-                                    type: object
-                                  configMap:
-                                    description: ConfigMap is the ConfigMap reference.
-                                    properties:
-                                      name:
-                                        description: Name is the ConfigMap name.
-                                        type: string
-                                      namespace:
-                                        description: Namespace is the ConfigMap namespace.
-                                        type: string
-                                    required:
-                                    - name
-                                    type: object
-                                  name:
-                                    description: Name is the variable name.
-                                    type: string
+                                  all:
+                                    description: AllConditions enable variable-based
+                                      conditional rule execution. This is useful for
+                                      finer control of when an rule is applied. A
+                                      condition can reference object data using JMESPath
+                                      notation. Here, all of the conditions need to
+                                      pass
+                                    items:
+                                      description: Condition defines variable-based
+                                        conditional criteria for rule execution.
+                                      properties:
+                                        key:
+                                          description: Key is the context entry (using
+                                            JMESPath) for conditional rule evaluation.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        operator:
+                                          description: Operator is the operation to
+                                            perform. Valid operators are Equals, NotEquals,
+                                            In and NotIn.
+                                          enum:
+                                          - Equals
+                                          - NotEquals
+                                          - In
+                                          - NotIn
+                                          - GreaterThanOrEquals
+                                          - GreaterThan
+                                          - LessThanOrEquals
+                                          - LessThan
+                                          - DurationGreaterThanOrEquals
+                                          - DurationGreaterThan
+                                          - DurationLessThanOrEquals
+                                          - DurationLessThan
+                                          type: string
+                                        value:
+                                          description: Value is the conditional value,
+                                            or set of values. The values can be fixed
+                                            set or can be variables declared using
+                                            using JMESPath.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
+                                    type: array
+                                  any:
+                                    description: AnyConditions enable variable-based
+                                      conditional rule execution. This is useful for
+                                      finer control of when an rule is applied. A
+                                      condition can reference object data using JMESPath
+                                      notation. Here, at least one of the conditions
+                                      need to pass
+                                    items:
+                                      description: Condition defines variable-based
+                                        conditional criteria for rule execution.
+                                      properties:
+                                        key:
+                                          description: Key is the context entry (using
+                                            JMESPath) for conditional rule evaluation.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        operator:
+                                          description: Operator is the operation to
+                                            perform. Valid operators are Equals, NotEquals,
+                                            In and NotIn.
+                                          enum:
+                                          - Equals
+                                          - NotEquals
+                                          - In
+                                          - NotIn
+                                          - GreaterThanOrEquals
+                                          - GreaterThan
+                                          - LessThanOrEquals
+                                          - LessThan
+                                          - DurationGreaterThanOrEquals
+                                          - DurationGreaterThan
+                                          - DurationLessThanOrEquals
+                                          - DurationLessThan
+                                          type: string
+                                        value:
+                                          description: Value is the conditional value,
+                                            or set of values. The values can be fixed
+                                            set or can be variables declared using
+                                            using JMESPath.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
+                                    type: array
                                 type: object
-                              type: array
-                            list:
-                              description: List specifies a JMESPath expression that
-                                results in one or more elements to which the validation
-                                logic is applied.
-                              type: string
-                            patchStrategicMerge:
-                              description: PatchStrategicMerge is a strategic merge
-                                patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                                and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
-                              x-kubernetes-preserve-unknown-fields: true
-                            preconditions:
-                              description: 'Preconditions are used to determine if
-                                a policy rule should be applied by evaluating a set
-                                of conditions. The declaration can contain nested
-                                `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
-                              properties:
-                                all:
-                                  description: AllConditions enable variable-based
-                                    conditional rule execution. This is useful for
-                                    finer control of when an rule is applied. A condition
-                                    can reference object data using JMESPath notation.
-                                    Here, all of the conditions need to pass
-                                  items:
-                                    description: Condition defines variable-based
-                                      conditional criteria for rule execution.
-                                    properties:
-                                      key:
-                                        description: Key is the context entry (using
-                                          JMESPath) for conditional rule evaluation.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                      operator:
-                                        description: Operator is the operation to
-                                          perform. Valid operators are Equals, NotEquals,
-                                          In and NotIn.
-                                        enum:
-                                        - Equals
-                                        - NotEquals
-                                        - In
-                                        - NotIn
-                                        - GreaterThanOrEquals
-                                        - GreaterThan
-                                        - LessThanOrEquals
-                                        - LessThan
-                                        - DurationGreaterThanOrEquals
-                                        - DurationGreaterThan
-                                        - DurationLessThanOrEquals
-                                        - DurationLessThan
-                                        type: string
-                                      value:
-                                        description: Value is the conditional value,
-                                          or set of values. The values can be fixed
-                                          set or can be variables declared using using
-                                          JMESPath.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                    type: object
-                                  type: array
-                                any:
-                                  description: AnyConditions enable variable-based
-                                    conditional rule execution. This is useful for
-                                    finer control of when an rule is applied. A condition
-                                    can reference object data using JMESPath notation.
-                                    Here, at least one of the conditions need to pass
-                                  items:
-                                    description: Condition defines variable-based
-                                      conditional criteria for rule execution.
-                                    properties:
-                                      key:
-                                        description: Key is the context entry (using
-                                          JMESPath) for conditional rule evaluation.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                      operator:
-                                        description: Operator is the operation to
-                                          perform. Valid operators are Equals, NotEquals,
-                                          In and NotIn.
-                                        enum:
-                                        - Equals
-                                        - NotEquals
-                                        - In
-                                        - NotIn
-                                        - GreaterThanOrEquals
-                                        - GreaterThan
-                                        - LessThanOrEquals
-                                        - LessThan
-                                        - DurationGreaterThanOrEquals
-                                        - DurationGreaterThan
-                                        - DurationLessThanOrEquals
-                                        - DurationLessThan
-                                        type: string
-                                      value:
-                                        description: Value is the conditional value,
-                                          or set of values. The values can be fixed
-                                          set or can be variables declared using using
-                                          JMESPath.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                    type: object
-                                  type: array
-                              type: object
-                              x-kubernetes-preserve-unknown-fields: true
-                          type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
+                          type: array
                         overlay:
                           description: Overlay specifies an overlay pattern to modify
                             resources. DEPRECATED. Use PatchStrategicMerge instead.
@@ -5273,175 +5297,183 @@ spec:
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
                         foreach:
-                          description: ForEach applies policy rule checks to nested
+                          description: ForEach applies policy rule changes to nested
                             elements.
-                          properties:
-                            anyPattern:
-                              description: AnyPattern specifies list of validation
-                                patterns. At least one of the patterns must be satisfied
-                                for the validation rule to succeed.
-                              x-kubernetes-preserve-unknown-fields: true
-                            context:
-                              description: Context defines variables and data sources
-                                that can be used during rule execution.
-                              items:
-                                description: ContextEntry adds variables and data
-                                  sources to a rule Context. Either a ConfigMap reference
-                                  or a APILookup must be provided.
+                          items:
+                            description: ForEach applies policy rule checks to nested
+                              elements.
+                            properties:
+                              anyPattern:
+                                description: AnyPattern specifies list of validation
+                                  patterns. At least one of the patterns must be satisfied
+                                  for the validation rule to succeed.
+                                x-kubernetes-preserve-unknown-fields: true
+                              context:
+                                description: Context defines variables and data sources
+                                  that can be used during rule execution.
+                                items:
+                                  description: ContextEntry adds variables and data
+                                    sources to a rule Context. Either a ConfigMap
+                                    reference or a APILookup must be provided.
+                                  properties:
+                                    apiCall:
+                                      description: APICall defines an HTTP request
+                                        to the Kubernetes API server. The JSON data
+                                        retrieved is stored in the context.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the API
+                                            server. For example a JMESPath of "items
+                                            | length(@)" applied to the API server
+                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        urlPath:
+                                          description: URLPath is the URL path to
+                                            be used in the HTTP GET request to the
+                                            Kubernetes API server (e.g. "/api/v1/namespaces"
+                                            or  "/apis/apps/v1/deployments"). The
+                                            format required is the same format used
+                                            by the `kubectl get --raw` command.
+                                          type: string
+                                      required:
+                                      - urlPath
+                                      type: object
+                                    configMap:
+                                      description: ConfigMap is the ConfigMap reference.
+                                      properties:
+                                        name:
+                                          description: Name is the ConfigMap name.
+                                          type: string
+                                        namespace:
+                                          description: Namespace is the ConfigMap
+                                            namespace.
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    name:
+                                      description: Name is the variable name.
+                                      type: string
+                                  type: object
+                                type: array
+                              deny:
+                                description: Deny defines conditions used to pass
+                                  or fail a validation rule.
                                 properties:
-                                  apiCall:
-                                    description: APICall defines an HTTP request to
-                                      the Kubernetes API server. The JSON data retrieved
-                                      is stored in the context.
-                                    properties:
-                                      jmesPath:
-                                        description: JMESPath is an optional JSON
-                                          Match Expression that can be used to transform
-                                          the JSON response returned from the API
-                                          server. For example a JMESPath of "items
-                                          | length(@)" applied to the API server response
-                                          to the URLPath "/apis/apps/v1/deployments"
-                                          will return the total count of deployments
-                                          across all namespaces.
-                                        type: string
-                                      urlPath:
-                                        description: URLPath is the URL path to be
-                                          used in the HTTP GET request to the Kubernetes
-                                          API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
-                                          The format required is the same format used
-                                          by the `kubectl get --raw` command.
-                                        type: string
-                                    required:
-                                    - urlPath
-                                    type: object
-                                  configMap:
-                                    description: ConfigMap is the ConfigMap reference.
-                                    properties:
-                                      name:
-                                        description: Name is the ConfigMap name.
-                                        type: string
-                                      namespace:
-                                        description: Namespace is the ConfigMap namespace.
-                                        type: string
-                                    required:
-                                    - name
-                                    type: object
-                                  name:
-                                    description: Name is the variable name.
-                                    type: string
+                                  conditions:
+                                    description: 'Multiple conditions can be declared
+                                      under an `any` or `all` statement. A direct
+                                      list of conditions (without `any` or `all` statements)
+                                      is also supported for backwards compatibility
+                                      but will be deprecated in the next major release.
+                                      See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
+                                    x-kubernetes-preserve-unknown-fields: true
                                 type: object
-                              type: array
-                            deny:
-                              description: Deny defines conditions used to pass or
-                                fail a validation rule.
-                              properties:
-                                conditions:
-                                  description: 'Multiple conditions can be declared
-                                    under an `any` or `all` statement. A direct list
-                                    of conditions (without `any` or `all` statements)
-                                    is also supported for backwards compatibility
-                                    but will be deprecated in the next major release.
-                                    See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
-                                  x-kubernetes-preserve-unknown-fields: true
-                              type: object
-                            list:
-                              description: List specifies a JMESPath expression that
-                                results in one or more elements to which the validation
-                                logic is applied.
-                              type: string
-                            pattern:
-                              description: Pattern specifies an overlay-style pattern
-                                used to check resources.
-                              x-kubernetes-preserve-unknown-fields: true
-                            preconditions:
-                              description: 'Preconditions are used to determine if
-                                a policy rule should be applied by evaluating a set
-                                of conditions. The declaration can contain nested
-                                `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
-                              properties:
-                                all:
-                                  description: AllConditions enable variable-based
-                                    conditional rule execution. This is useful for
-                                    finer control of when an rule is applied. A condition
-                                    can reference object data using JMESPath notation.
-                                    Here, all of the conditions need to pass
-                                  items:
-                                    description: Condition defines variable-based
-                                      conditional criteria for rule execution.
-                                    properties:
-                                      key:
-                                        description: Key is the context entry (using
-                                          JMESPath) for conditional rule evaluation.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                      operator:
-                                        description: Operator is the operation to
-                                          perform. Valid operators are Equals, NotEquals,
-                                          In and NotIn.
-                                        enum:
-                                        - Equals
-                                        - NotEquals
-                                        - In
-                                        - NotIn
-                                        - GreaterThanOrEquals
-                                        - GreaterThan
-                                        - LessThanOrEquals
-                                        - LessThan
-                                        - DurationGreaterThanOrEquals
-                                        - DurationGreaterThan
-                                        - DurationLessThanOrEquals
-                                        - DurationLessThan
-                                        type: string
-                                      value:
-                                        description: Value is the conditional value,
-                                          or set of values. The values can be fixed
-                                          set or can be variables declared using using
-                                          JMESPath.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                    type: object
-                                  type: array
-                                any:
-                                  description: AnyConditions enable variable-based
-                                    conditional rule execution. This is useful for
-                                    finer control of when an rule is applied. A condition
-                                    can reference object data using JMESPath notation.
-                                    Here, at least one of the conditions need to pass
-                                  items:
-                                    description: Condition defines variable-based
-                                      conditional criteria for rule execution.
-                                    properties:
-                                      key:
-                                        description: Key is the context entry (using
-                                          JMESPath) for conditional rule evaluation.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                      operator:
-                                        description: Operator is the operation to
-                                          perform. Valid operators are Equals, NotEquals,
-                                          In and NotIn.
-                                        enum:
-                                        - Equals
-                                        - NotEquals
-                                        - In
-                                        - NotIn
-                                        - GreaterThanOrEquals
-                                        - GreaterThan
-                                        - LessThanOrEquals
-                                        - LessThan
-                                        - DurationGreaterThanOrEquals
-                                        - DurationGreaterThan
-                                        - DurationLessThanOrEquals
-                                        - DurationLessThan
-                                        type: string
-                                      value:
-                                        description: Value is the conditional value,
-                                          or set of values. The values can be fixed
-                                          set or can be variables declared using using
-                                          JMESPath.
-                                        x-kubernetes-preserve-unknown-fields: true
-                                    type: object
-                                  type: array
-                              type: object
-                              x-kubernetes-preserve-unknown-fields: true
-                          type: object
+                              list:
+                                description: List specifies a JMESPath expression
+                                  that results in one or more elements to which the
+                                  validation logic is applied.
+                                type: string
+                              pattern:
+                                description: Pattern specifies an overlay-style pattern
+                                  used to check resources.
+                                x-kubernetes-preserve-unknown-fields: true
+                              preconditions:
+                                description: 'Preconditions are used to determine
+                                  if a policy rule should be applied by evaluating
+                                  a set of conditions. The declaration can contain
+                                  nested `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
+                                properties:
+                                  all:
+                                    description: AllConditions enable variable-based
+                                      conditional rule execution. This is useful for
+                                      finer control of when an rule is applied. A
+                                      condition can reference object data using JMESPath
+                                      notation. Here, all of the conditions need to
+                                      pass
+                                    items:
+                                      description: Condition defines variable-based
+                                        conditional criteria for rule execution.
+                                      properties:
+                                        key:
+                                          description: Key is the context entry (using
+                                            JMESPath) for conditional rule evaluation.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        operator:
+                                          description: Operator is the operation to
+                                            perform. Valid operators are Equals, NotEquals,
+                                            In and NotIn.
+                                          enum:
+                                          - Equals
+                                          - NotEquals
+                                          - In
+                                          - NotIn
+                                          - GreaterThanOrEquals
+                                          - GreaterThan
+                                          - LessThanOrEquals
+                                          - LessThan
+                                          - DurationGreaterThanOrEquals
+                                          - DurationGreaterThan
+                                          - DurationLessThanOrEquals
+                                          - DurationLessThan
+                                          type: string
+                                        value:
+                                          description: Value is the conditional value,
+                                            or set of values. The values can be fixed
+                                            set or can be variables declared using
+                                            using JMESPath.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
+                                    type: array
+                                  any:
+                                    description: AnyConditions enable variable-based
+                                      conditional rule execution. This is useful for
+                                      finer control of when an rule is applied. A
+                                      condition can reference object data using JMESPath
+                                      notation. Here, at least one of the conditions
+                                      need to pass
+                                    items:
+                                      description: Condition defines variable-based
+                                        conditional criteria for rule execution.
+                                      properties:
+                                        key:
+                                          description: Key is the context entry (using
+                                            JMESPath) for conditional rule evaluation.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        operator:
+                                          description: Operator is the operation to
+                                            perform. Valid operators are Equals, NotEquals,
+                                            In and NotIn.
+                                          enum:
+                                          - Equals
+                                          - NotEquals
+                                          - In
+                                          - NotIn
+                                          - GreaterThanOrEquals
+                                          - GreaterThan
+                                          - LessThanOrEquals
+                                          - LessThan
+                                          - DurationGreaterThanOrEquals
+                                          - DurationGreaterThan
+                                          - DurationLessThanOrEquals
+                                          - DurationLessThan
+                                          type: string
+                                        value:
+                                          description: Value is the conditional value,
+                                            or set of values. The values can be fixed
+                                            set or can be variables declared using
+                                            using JMESPath.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
+                                    type: array
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
+                          type: array
                         message:
                           description: Message specifies a custom message to be displayed
                             on failure.
@@ -5653,7 +5685,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -6332,7 +6364,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: reportchangerequests.kyverno.io
 spec:
   group: kyverno.io
@@ -7011,7 +7043,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno-service-account
   namespace: kyverno
 ---
@@ -7025,7 +7057,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policies
 rules:
@@ -7047,7 +7079,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policyreport
 rules:
@@ -7069,7 +7101,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-reportchangerequest
 rules:
@@ -7091,7 +7123,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno:customresources
 rules:
 - apiGroups:
@@ -7137,7 +7169,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno:generatecontroller
 rules:
 - apiGroups:
@@ -7172,7 +7204,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno:leaderelection
 rules:
 - apiGroups:
@@ -7196,7 +7228,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno:policycontroller
 rules:
 - apiGroups:
@@ -7219,7 +7251,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno:userinfo
 rules:
 - apiGroups:
@@ -7245,7 +7277,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno:webhook
 rules:
 - apiGroups:
@@ -7297,7 +7329,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno:customresources
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7318,7 +7350,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno:generatecontroller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7339,7 +7371,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno:leaderelection
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7360,7 +7392,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno:policycontroller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7381,7 +7413,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno:userinfo
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7402,7 +7434,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno:webhook
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7427,7 +7459,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno
   namespace: kyverno
 ---
@@ -7444,7 +7476,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno-metrics
   namespace: kyverno
 ---
@@ -7458,7 +7490,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno-svc
   namespace: kyverno
 spec:
@@ -7480,7 +7512,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno-svc-metrics
   namespace: kyverno
 spec:
@@ -7502,7 +7534,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno
   namespace: kyverno
 spec:
@@ -7525,7 +7557,7 @@ spec:
         app.kubernetes.io/managed-by: Kustomize
         app.kubernetes.io/name: kyverno
         app.kubernetes.io/part-of: kyverno
-        app.kubernetes.io/version: v1.5.0-rc1
+        app.kubernetes.io/version: latest
     spec:
       affinity:
         podAntiAffinity:
@@ -7554,7 +7586,7 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
-        image: ghcr.io/kyverno/kyverno:v1.5.0-rc1
+        image: ghcr.io/kyverno/kyverno:latest
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 2
@@ -7606,7 +7638,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: ghcr.io/kyverno/kyvernopre:v1.5.0-rc1
+        image: ghcr.io/kyverno/kyvernopre:latest
         imagePullPolicy: IfNotPresent
         name: kyverno-pre
         resources:
@@ -7638,7 +7670,7 @@ metadata:
     app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.5.0-rc1
+    app.kubernetes.io/version: latest
   name: kyverno
   namespace: kyverno
 spec:
