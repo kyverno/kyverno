@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
+// deprecated
 //NewInHandler returns handler to manage In operations
 func NewInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return InHandler{

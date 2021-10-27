@@ -207,7 +207,7 @@ type Condition struct {
 	Key apiextensions.JSON `json:"key,omitempty" yaml:"key,omitempty"`
 
 	// Operator is the operation to perform. Valid operators
-	// are Equals, NotEquals, In and NotIn.
+	// are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
 	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
 
 	// Value is the conditional value, or set of values. The values can be fixed set
@@ -218,7 +218,7 @@ type Condition struct {
 }
 
 // ConditionOperator is the operation performed on condition key and value.
-// +kubebuilder:validation:Enum=Equals;NotEquals;In;NotIn;GreaterThanOrEquals;GreaterThan;LessThanOrEquals;LessThan;DurationGreaterThanOrEquals;DurationGreaterThan;DurationLessThanOrEquals;DurationLessThan
+// +kubebuilder:validation:Enum=Equals;NotEquals;In;AnyIn;AllIn;NotIn;AnyNotIn;AllNotIn;GreaterThanOrEquals;GreaterThan;LessThanOrEquals;LessThan;DurationGreaterThanOrEquals;DurationGreaterThan;DurationLessThanOrEquals;DurationLessThan
 type ConditionOperator string
 
 const (
@@ -234,8 +234,16 @@ const (
 	NotEquals ConditionOperator = "NotEquals"
 	// In evaluates if the key is contained in the set of values.
 	In ConditionOperator = "In"
+	// AnyIn evaluates if any of the keys are contained in the set of values.
+	AnyIn ConditionOperator = "AnyIn"
+	// AllIn evaluates if all the keys are contained in the set of values.
+	AllIn ConditionOperator = "AllIn"
 	// NotIn evaluates if the key is not contained in the set of values.
 	NotIn ConditionOperator = "NotIn"
+	// AnyNotIn evaluates if any of the keys are not contained in the set of values.
+	AnyNotIn ConditionOperator = "AnyNotIn"
+	// AllNotIn evaluates if all the keys are not contained in the set of values.
+	AllNotIn ConditionOperator = "AllNotIn"
 	// GreaterThanOrEquals evaluates if the key (numeric) is greater than or equal to the value (numeric).
 	GreaterThanOrEquals ConditionOperator = "GreaterThanOrEquals"
 	// GreaterThan evaluates if the key (numeric) is greater than the value (numeric).

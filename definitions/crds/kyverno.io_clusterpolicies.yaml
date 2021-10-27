@@ -1530,12 +1530,17 @@ spec:
                                         operator:
                                           description: Operator is the operation to
                                             perform. Valid operators are Equals, NotEquals,
-                                            In and NotIn.
+                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
+                                            AllNotIn.
                                           enum:
                                           - Equals
                                           - NotEquals
                                           - In
+                                          - AnyIn
+                                          - AllIn
                                           - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
                                           - GreaterThanOrEquals
                                           - GreaterThan
                                           - LessThanOrEquals
@@ -1571,12 +1576,17 @@ spec:
                                         operator:
                                           description: Operator is the operation to
                                             perform. Valid operators are Equals, NotEquals,
-                                            In and NotIn.
+                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
+                                            AllNotIn.
                                           enum:
                                           - Equals
                                           - NotEquals
                                           - In
+                                          - AnyIn
+                                          - AllIn
                                           - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
                                           - GreaterThanOrEquals
                                           - GreaterThan
                                           - LessThanOrEquals
@@ -1778,12 +1788,17 @@ spec:
                                         operator:
                                           description: Operator is the operation to
                                             perform. Valid operators are Equals, NotEquals,
-                                            In and NotIn.
+                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
+                                            AllNotIn.
                                           enum:
                                           - Equals
                                           - NotEquals
                                           - In
+                                          - AnyIn
+                                          - AllIn
                                           - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
                                           - GreaterThanOrEquals
                                           - GreaterThan
                                           - LessThanOrEquals
@@ -1819,12 +1834,17 @@ spec:
                                         operator:
                                           description: Operator is the operation to
                                             perform. Valid operators are Equals, NotEquals,
-                                            In and NotIn.
+                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
+                                            AllNotIn.
                                           enum:
                                           - Equals
                                           - NotEquals
                                           - In
+                                          - AnyIn
+                                          - AllIn
                                           - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
                                           - GreaterThanOrEquals
                                           - GreaterThan
                                           - LessThanOrEquals
@@ -1908,12 +1928,17 @@ spec:
                                             operator:
                                               description: Operator is the operation
                                                 to perform. Valid operators are Equals,
-                                                NotEquals, In and NotIn.
+                                                NotEquals, In, AnyIn, AllIn and NotIn,
+                                                AnyNotIn, AllNotIn.
                                               enum:
                                               - Equals
                                               - NotEquals
                                               - In
+                                              - AnyIn
+                                              - AllIn
                                               - NotIn
+                                              - AnyNotIn
+                                              - AllNotIn
                                               - GreaterThanOrEquals
                                               - GreaterThan
                                               - LessThanOrEquals
@@ -1950,12 +1975,17 @@ spec:
                                             operator:
                                               description: Operator is the operation
                                                 to perform. Valid operators are Equals,
-                                                NotEquals, In and NotIn.
+                                                NotEquals, In, AnyIn, AllIn and NotIn,
+                                                AnyNotIn, AllNotIn.
                                               enum:
                                               - Equals
                                               - NotEquals
                                               - In
+                                              - AnyIn
+                                              - AllIn
                                               - NotIn
+                                              - AnyNotIn
+                                              - AllNotIn
                                               - GreaterThanOrEquals
                                               - GreaterThan
                                               - LessThanOrEquals
