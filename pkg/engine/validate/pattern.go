@@ -195,24 +195,31 @@ func validateValueWithStringPattern(log logr.Logger, value interface{}, pattern 
 }
 
 func validateRange(log logr.Logger, value interface{}, pattern string) bool {
-	endpoints := strings.Split(pattern, ",")
-	leftEndpoint := endpoints[0][1:]
-	rightEndpoint := endpoints[1][:len(endpoints[1])-1]
-
 	var translated []string
-	switch pattern[0:1] {
-	case "[":
-		translated = append(translated, fmt.Sprintf(">= %s", leftEndpoint))
-	case "(":
-		translated = append(translated, fmt.Sprintf("> %s", leftEndpoint))
-	}
+	endpoints := strings.Split(pattern, "-")
 
-	switch pattern[len(pattern)-1:] {
-	case "]":
-		translated = append(translated, fmt.Sprintf("<= %s", rightEndpoint))
-	case ")":
-		translated = append(translated, fmt.Sprintf("< %s", rightEndpoint))
-	}
+	translated = append(translated, fmt.Sprintf(">= %s", endpoints[0]))
+	translated = append(translated, fmt.Sprintf("<= %s", endpoints[1]))
+	/*
+		endpoints := strings.Split(pattern, ",")
+		leftEndpoint := endpoints[0][1:]
+		rightEndpoint := endpoints[1][:len(endpoints[1])-1]
+
+		var translated []string
+		switch pattern[0:1] {
+		case "[":
+			translated = append(translated, fmt.Sprintf(">= %s", leftEndpoint))
+		case "(":
+			translated = append(translated, fmt.Sprintf("> %s", leftEndpoint))
+		}
+
+		switch pattern[len(pattern)-1:] {
+		case "]":
+			translated = append(translated, fmt.Sprintf("<= %s", rightEndpoint))
+		case ")":
+			translated = append(translated, fmt.Sprintf("< %s", rightEndpoint))
+		}
+	*/
 
 	return checkForAndConditionsAndValidate(log, value, strings.Join(translated, " & "))
 }
