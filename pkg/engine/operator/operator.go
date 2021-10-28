@@ -1,5 +1,7 @@
 package operator
 
+import "strings"
+
 // Operator is string alias that represents selection operators enum
 type Operator string
 
@@ -16,6 +18,8 @@ const (
 	More Operator = ">"
 	// Less stands for <
 	Less Operator = "<"
+	// Range stands for -
+	Range Operator = "-"
 )
 
 //ReferenceSign defines the operator for anchor reference
@@ -45,6 +49,13 @@ func GetOperatorFromStringPattern(pattern string) Operator {
 
 	if pattern[:len(NotEqual)] == string(NotEqual) {
 		return NotEqual
+	}
+
+	if len(strings.Split(pattern, "-")) == 2 {
+		isRange := (pattern[0:1] == "[" || pattern[0:1] == "(") && (pattern[len(pattern)-1:len(pattern)] == "]" || pattern[len(pattern)-1:len(pattern)] == ")")
+		if isRange {
+			return Range
+		}
 	}
 
 	return Equal

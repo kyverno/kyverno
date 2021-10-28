@@ -177,17 +177,44 @@ func checkForAndConditionsAndValidate(log logr.Logger, value interface{}, patter
 // Handler for single pattern value during validation process
 // Detects if pattern has a number
 func validateValueWithStringPattern(log logr.Logger, value interface{}, pattern string) bool {
+	operatorVariable := operator.GetOperatorFromStringPattern(pattern)
 
-	operator := operator.GetOperatorFromStringPattern(pattern)
-	pattern = pattern[len(operator):]
+	if operatorVariable == operator.Range {
+		return validateRange(log, value, pattern)
+	}
+
+	pattern = pattern[len(operatorVariable):]
 	pattern = strings.TrimSpace(pattern)
 	number, str := getNumberAndStringPartsFromPattern(pattern)
 
 	if number == "" {
-		return validateString(log, value, str, operator)
+		return validateString(log, value, str, operatorVariable)
 	}
 
-	return validateNumberWithStr(log, value, pattern, operator)
+	return validateNumberWithStr(log, value, pattern, operatorVariable)
+}
+
+func validateRange(log logr.Logger, value interface{}, pattern string) bool {
+	endpoints := strings.Split(pattern, "-")
+	leftEndpoint := endpoints[0][1:]
+	rightEndpoint := endpoints[1][:len(endpoints[1])-1]
+
+	var translated []string
+	switch pattern[0:1] {
+	case "[":
+		translated = append(translated, fmt.Sprintf(">= %s", leftEndpoint))
+	case "(":
+		translated = append(translated, fmt.Sprintf("> %s", leftEndpoint))
+	}
+
+	switch pattern[len(pattern)-1:] {
+	case "]":
+		translated = append(translated, fmt.Sprintf("<= %s", rightEndpoint))
+	case ")":
+		translated = append(translated, fmt.Sprintf("< %s", rightEndpoint))
+	}
+
+	return checkForAndConditionsAndValidate(log, value, strings.Join(translated, " & "))
 }
 
 // Handler for string values

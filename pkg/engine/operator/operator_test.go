@@ -1,8 +1,9 @@
 package operator
 
 import (
-	"gotest.tools/assert"
 	"testing"
+
+	"gotest.tools/assert"
 )
 
 func TestGetOperatorFromStringPattern_OneChar(t *testing.T) {
@@ -15,4 +16,11 @@ func TestGetOperatorFromStringPattern_EmptyString(t *testing.T) {
 
 func TestGetOperatorFromStringPattern_OnlyOperator(t *testing.T) {
 	assert.Equal(t, GetOperatorFromStringPattern(">="), MoreEqual)
+}
+
+func TestGetOperatorFromStringPattern_RangeOperator(t *testing.T) {
+	assert.Equal(t, GetOperatorFromStringPattern("[-]"), Range)
+	assert.Equal(t, GetOperatorFromStringPattern("(-)"), Range)
+	assert.Equal(t, GetOperatorFromStringPattern("(-]"), Range)
+	assert.Equal(t, GetOperatorFromStringPattern("[-)"), Range)
 }
