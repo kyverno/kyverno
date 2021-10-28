@@ -335,3 +335,6 @@ fmt: goimports
 
 vet:
 	go vet ./...
+
+tilt-compile:
+	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go

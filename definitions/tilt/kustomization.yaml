@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kyverno
+
+transformers:
+  - labels.yaml
+  - security-transformer.yaml
+
+resources:
+- ../crds/
+- ../manifest/
+- ../k8s-resource/
+- namespace.yaml

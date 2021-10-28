@@ -1,0 +1,16 @@
+apiVersion: builtin
+kind: PatchTransformer
+metadata:
+  name: security-transformer
+target:
+  group: apps
+  version: v1
+  kind: Deployment
+  name: kyverno
+patch: |-
+  - op: replace
+    path: /spec/template/spec/containers/0/securityContext/readOnlyRootFilesystem
+    value: false
+  - op: replace
+    path: /spec/template/spec/containers/0/securityContext/runAsNonRoot
+    value: false
