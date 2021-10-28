@@ -128,7 +128,7 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 		set(req, info)
 	}
 
-	if !setRequestLabels(req, info) {
+	if !setRequestDeletionLabels(req, info) {
 		if len(results) == 0 {
 			// return nil on empty result without a deletion
 			return nil, nil
@@ -189,7 +189,7 @@ func set(obj *unstructured.Unstructured, info Info) {
 	})
 }
 
-func setRequestLabels(req *unstructured.Unstructured, info Info) bool {
+func setRequestDeletionLabels(req *unstructured.Unstructured, info Info) bool {
 	switch {
 	case isResourceDeletion(info):
 		req.SetAnnotations(map[string]string{
@@ -197,26 +197,28 @@ func setRequestLabels(req *unstructured.Unstructured, info Info) bool {
 			deletedAnnotationResourceKind: info.Results[0].Resource.Kind,
 		})
 
-		req.SetLabels(map[string]string{
-			resourceLabelNamespace: info.Results[0].Resource.Namespace,
-		})
+		labels := req.GetLabels()
+		labels[resourceLabelNamespace] = info.Results[0].Resource.Namespace
+		req.SetLabels(labels)
 		return true
 
 	case isPolicyDeletion(info):
 		req.SetKind("ReportChangeRequest")
 		req.SetGenerateName("rcr-")
-		req.SetLabels(map[string]string{
-			deletedLabelPolicy: info.PolicyName},
-		)
+
+		labels := req.GetLabels()
+		labels[deletedLabelPolicy] = info.PolicyName
+		req.SetLabels(labels)
 		return true
 
 	case isRuleDeletion(info):
 		req.SetKind("ReportChangeRequest")
 		req.SetGenerateName("rcr-")
-		req.SetLabels(map[string]string{
-			deletedLabelPolicy: info.PolicyName,
-			deletedLabelRule:   info.Results[0].Rules[0].Name},
-		)
+
+		labels := req.GetLabels()
+		labels[deletedLabelPolicy] = info.PolicyName
+		labels[deletedLabelRule] = info.Results[0].Rules[0].Name
+		req.SetLabels(labels)
 		return true
 	}
 
