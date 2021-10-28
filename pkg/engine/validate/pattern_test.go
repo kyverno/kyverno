@@ -314,6 +314,12 @@ func TestValidateValueWithStringPattern_Ranges(t *testing.T) {
 	assert.Assert(t, validateValueWithStringPattern(log.Log, 0, "[0,2]"))
 	assert.Assert(t, validateValueWithStringPattern(log.Log, 2, "[0,2]"))
 	assert.Assert(t, validateValueWithStringPattern(log.Log, 1, "[0,2]"))
+	assert.Assert(t, !validateValueWithStringPattern(log.Log, 3, "[0,2]"))
+
+	assert.Assert(t, validateValueWithStringPattern(log.Log, 0, "[-2,0]"))
+	assert.Assert(t, validateValueWithStringPattern(log.Log, -2, "[-2,0]"))
+	assert.Assert(t, validateValueWithStringPattern(log.Log, -1, "[-2,0]"))
+	assert.Assert(t, !validateValueWithStringPattern(log.Log, -3, "[-2,0]"))
 
 	assert.Assert(t, !validateValueWithStringPattern(log.Log, 0, "(0,2)"))
 	assert.Assert(t, !validateValueWithStringPattern(log.Log, 2, "(0,2)"))

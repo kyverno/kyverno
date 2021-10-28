@@ -309,7 +309,7 @@ func compareQuantity(value, pattern apiresource.Quantity, op operator.Operator) 
 
 // detects numerical and string parts in pattern and returns them
 func getNumberAndStringPartsFromPattern(pattern string) (number, str string) {
-	regexpStr := `^(\d*(\.\d+)?)(.*)`
+	regexpStr := `^([-]?\d*(\.\d+)?)(.*)`
 	re := regexp.MustCompile(regexpStr)
 	matches := re.FindAllStringSubmatch(pattern, -1)
 	match := matches[0]
