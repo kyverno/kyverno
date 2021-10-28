@@ -179,8 +179,16 @@ func checkForAndConditionsAndValidate(log logr.Logger, value interface{}, patter
 func validateValueWithStringPattern(log logr.Logger, value interface{}, pattern string) bool {
 	operatorVariable := operator.GetOperatorFromStringPattern(pattern)
 
+	// Upon encountering Range operator split the string by `-` and basically
+	// verify the result of (x >= leftEndpoint && x <= rightEndpoint)
 	if operatorVariable == operator.Range {
-		return validateRange(log, value, pattern)
+		gt := validateValueWithStringPattern(log, value, fmt.Sprintf(">=%s", strings.Split(pattern, "-")[0]))
+		if !gt {
+			return false
+		}
+
+		pattern = fmt.Sprintf("<=%s", strings.Split(pattern, "-")[1])
+		operatorVariable = operator.LessEqual
 	}
 
 	pattern = pattern[len(operatorVariable):]
@@ -192,36 +200,6 @@ func validateValueWithStringPattern(log logr.Logger, value interface{}, pattern 
 	}
 
 	return validateNumberWithStr(log, value, pattern, operatorVariable)
-}
-
-func validateRange(log logr.Logger, value interface{}, pattern string) bool {
-	var translated []string
-	endpoints := strings.Split(pattern, "-")
-
-	translated = append(translated, fmt.Sprintf(">= %s", endpoints[0]))
-	translated = append(translated, fmt.Sprintf("<= %s", endpoints[1]))
-	/*
-		endpoints := strings.Split(pattern, ",")
-		leftEndpoint := endpoints[0][1:]
-		rightEndpoint := endpoints[1][:len(endpoints[1])-1]
-
-		var translated []string
-		switch pattern[0:1] {
-		case "[":
-			translated = append(translated, fmt.Sprintf(">= %s", leftEndpoint))
-		case "(":
-			translated = append(translated, fmt.Sprintf("> %s", leftEndpoint))
-		}
-
-		switch pattern[len(pattern)-1:] {
-		case "]":
-			translated = append(translated, fmt.Sprintf("<= %s", rightEndpoint))
-		case ")":
-			translated = append(translated, fmt.Sprintf("< %s", rightEndpoint))
-		}
-	*/
-
-	return checkForAndConditionsAndValidate(log, value, strings.Join(translated, " & "))
 }
 
 // Handler for string values

@@ -22,7 +22,6 @@ const (
 	Less Operator = "<"
 	// Range stands for -
 	Range Operator = "-"
-	// Range Operator = ","
 )
 
 //ReferenceSign defines the operator for anchor reference
@@ -54,16 +53,6 @@ func GetOperatorFromStringPattern(pattern string) Operator {
 		return NotEqual
 	}
 
-	/* First Version
-	if len(strings.Split(pattern, ",")) == 2 {
-		isRange := (pattern[0:1] == "[" || pattern[0:1] == "(") && (pattern[len(pattern)-1:len(pattern)] == "]" || pattern[len(pattern)-1:len(pattern)] == ")")
-		if isRange {
-			return Range
-		}
-	}
-	*/
-
-	/* Second Version */
 	if match, _ := regexp.Match(`^(\d+(\.\d+)?)([^-]*)-(\d+(\.\d+)?)([^-]*)$`, []byte(pattern)); match {
 		return Range
 	}

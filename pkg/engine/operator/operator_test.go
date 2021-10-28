@@ -19,13 +19,6 @@ func TestGetOperatorFromStringPattern_OnlyOperator(t *testing.T) {
 }
 
 func TestGetOperatorFromStringPattern_RangeOperator(t *testing.T) {
-	/*
-		assert.Equal(t, GetOperatorFromStringPattern("[,]"), Range)
-		assert.Equal(t, GetOperatorFromStringPattern("(,)"), Range)
-		assert.Equal(t, GetOperatorFromStringPattern("(,]"), Range)
-		assert.Equal(t, GetOperatorFromStringPattern("[,)"), Range)
-	*/
-
 	assert.Equal(t, GetOperatorFromStringPattern("0-1"), Range)
 	assert.Equal(t, GetOperatorFromStringPattern("0Mi-1024Mi"), Range)
 	assert.Equal(t, GetOperatorFromStringPattern("text1024Mi-2048Mi"), Equal)
