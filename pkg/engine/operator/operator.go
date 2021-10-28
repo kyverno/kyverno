@@ -22,6 +22,7 @@ const (
 	Less Operator = "<"
 	// Range stands for -
 	Range Operator = "-"
+	// Range Operator = ","
 )
 
 //ReferenceSign defines the operator for anchor reference
