@@ -6,12 +6,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/pkg/cosign/attestation"
 	"github.com/sigstore/sigstore/pkg/signature/dsse"
-	"strings"
 
 	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
@@ -259,9 +260,9 @@ func extractDigest(imgRef string, verified []cosign.SignedPayload, log logr.Logg
 			return "", err
 		}
 
-		log.V(4).Info("image verification response", "image", imgRef, "payload", jsonMap)
+		log.V(3).Info("image verification response", "image", imgRef, "payload", jsonMap)
 
-		// The cosign response is in the JSON format:
+		// The expected payload is in one of these JSON formats:
 		// {
 		//   "critical": {
 		// 	   "identity": {
@@ -274,20 +275,52 @@ func extractDigest(imgRef string, verified []cosign.SignedPayload, log logr.Logg
 		//    },
 		//    "optional": null
 		// }
-		critical := jsonMap["critical"].(map[string]interface{})
+		//
+		// {
+		//   "Critical": {
+		//     "Identity": {
+		//       "docker-reference": "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/nop"
+		//     },
+		//     "Image": {
+		//       "Docker-manifest-digest": "sha256:6a037d5ba27d9c6be32a9038bfe676fb67d2e4145b4f53e9c61fb3e69f06e816"
+		//     },
+		//     "Type": "Tekton container signature"
+		//   },
+		//   "Optional": {}
+		// }
+		//
+		critical := getMapValue(jsonMap, "critical", "Critical")
 		if critical != nil {
-			typeStr := critical["type"].(string)
-			if typeStr == "cosign container image signature" {
-				identity := critical["identity"].(map[string]interface{})
-				if identity != nil {
-					image := critical["image"].(map[string]interface{})
-					if image != nil {
-						return image["docker-manifest-digest"].(string), nil
-					}
-				}
+			image := getMapValue(critical, "image", "Image")
+			if image != nil {
+				digest := getStringValue(image, "docker-manifest-digest", "Docker-manifest-digest")
+				return digest, nil
 			}
+		} else {
+			log.Info("failed to extract image digest from verification response", "image", imgRef, "payload", jsonMap)
+			return "", fmt.Errorf("unknown image response for " + imgRef)
 		}
 	}
 
 	return "", fmt.Errorf("digest not found for " + imgRef)
+}
+
+func getMapValue(m map[string]interface{}, keys ...string) map[string]interface{} {
+	for _, k := range keys {
+		if m[k] != nil {
+			return m[k].(map[string]interface{})
+		}
+	}
+
+	return nil
+}
+
+func getStringValue(m map[string]interface{}, keys ...string) string {
+	for _, k := range keys {
+		if m[k] != nil {
+			return m[k].(string)
+		}
+	}
+
+	return ""
 }
