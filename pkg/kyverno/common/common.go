@@ -250,7 +250,8 @@ func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) error {
 		matchesAllowed := AllowedVariables.FindAllStringSubmatch(string(ruleJSON), -1)
 
 		if (len(matchesAll) > len(matchesAllowed)) && len(rule.Context) == 0 {
-			return fmt.Errorf("Rule \"%s\" has forbidden variables. Allowed variables are: {{request.*}}, {{serviceAccountName}}, {{serviceAccountNamespace}}, {{@}} and ones defined by the context", rule.Name)
+			allowed := "{{request.*}}, {{element.*}}, {{serviceAccountName}}, {{serviceAccountNamespace}}, {{@}}, {{images.*}} and context variables"
+			return fmt.Errorf("rule \"%s\" has forbidden variables. Allowed variables are: %s", rule.Name, allowed)
 		}
 	}
 
