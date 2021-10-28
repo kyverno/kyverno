@@ -304,11 +304,6 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 
 	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
 		logger.V(4).Info("no policies matched admission request")
-		if request.Operation == v1beta1.Update {
-			// handle generate source resource updates
-			go ws.handleUpdatesForGenerateRules(request, []*v1.ClusterPolicy{})
-		}
-
 		return successResponse(nil)
 	}
 
@@ -498,6 +493,11 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	nsPolicies := ws.pCache.GetPolicies(policycache.ValidateEnforce, kind, request.Namespace)
 	policies = append(policies, nsPolicies...)
 	generatePolicies := ws.pCache.GetPolicies(policycache.Generate, kind, request.Namespace)
+
+	if len(generatePolicies) == 0 && request.Operation == v1beta1.Update {
+		// handle generate source resource updates
+		go ws.handleUpdatesForGenerateRules(request, []*v1.ClusterPolicy{})
+	}
 
 	var roles, clusterRoles []string
 	if containsRBACInfo(policies, generatePolicies) {
