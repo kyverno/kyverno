@@ -261,7 +261,7 @@ func extractDigest(imgRef string, verified []cosign.SignedPayload, log logr.Logg
 
 		log.V(4).Info("image verification response", "image", imgRef, "payload", jsonMap)
 
-		// The cosign response is in the JSON format:
+		// The expected response is in the JSON format:
 		// {
 		//   "critical": {
 		// 	   "identity": {
@@ -274,7 +274,19 @@ func extractDigest(imgRef string, verified []cosign.SignedPayload, log logr.Logg
 		//    },
 		//    "optional": null
 		// }
-		critical := jsonMap["critical"].(map[string]interface{})
+
+		// some versions of Cosign seem to return "Critical" instead of "critical".
+		// check for both...
+		var critical map[string]interface{}
+		if jsonMap["critical"] != nil {
+			critical = jsonMap["critical"].(map[string]interface{})
+		} else if jsonMap["Critical"] != nil {
+			critical = jsonMap["Critical"].(map[string]interface{})
+		} else {
+			log.Info("unexpected image verification payload", "image", imgRef, "payload", jsonMap)
+			continue
+		}
+
 		if critical != nil {
 			typeStr := critical["type"].(string)
 			if typeStr == "cosign container image signature" {
