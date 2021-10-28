@@ -319,6 +319,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 	g.log.V(4).Info("syncing policy report", "key", key)
 
 	if policy, rule, ok := isDeletedPolicyKey(key); ok {
+		g.log.V(4).Info("sync policy report on policy deletion")
 		return g.removePolicyEntryFromReport(policy, rule)
 	}
 
@@ -332,7 +333,9 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 	if old, err = g.createReportIfNotPresent(namespace, new, aggregatedRequests); err != nil {
 		return aggregatedRequests, err
 	}
+
 	if old == nil {
+		g.log.V(4).Info("no existing policy report is found, clean up related report change requests")
 		g.cleanupReportRequests(aggregatedRequests)
 		return nil, nil
 	}
@@ -629,6 +632,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		g.log.V(4).Info("empty report to update")
 		return nil
 	}
+	g.log.V(4).Info("reconcile policy report")
 
 	oldUnstructured := make(map[string]interface{})
 
@@ -655,6 +659,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		new.SetResourceVersion(oldTyped.GetResourceVersion())
 	}
 
+	g.log.V(4).Info("update results entries")
 	obj, _, err := updateResults(oldUnstructured, new.UnstructuredContent(), aggregatedRequests)
 	if err != nil {
 		return fmt.Errorf("failed to update results entry: %v", err)
