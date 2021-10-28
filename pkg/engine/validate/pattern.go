@@ -195,7 +195,7 @@ func validateValueWithStringPattern(log logr.Logger, value interface{}, pattern 
 }
 
 func validateRange(log logr.Logger, value interface{}, pattern string) bool {
-	endpoints := strings.Split(pattern, "-")
+	endpoints := strings.Split(pattern, ",")
 	leftEndpoint := endpoints[0][1:]
 	rightEndpoint := endpoints[1][:len(endpoints[1])-1]
 
