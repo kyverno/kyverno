@@ -300,10 +300,9 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	requestTime := time.Now().Unix()
 	kind := request.Kind.Kind
 	mutatePolicies := ws.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)
-	generatePolicies := ws.pCache.GetPolicies(policycache.Generate, kind, request.Namespace)
 	verifyImagesPolicies := ws.pCache.GetPolicies(policycache.VerifyImages, kind, request.Namespace)
 
-	if len(mutatePolicies) == 0 && len(generatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
+	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
 		logger.V(4).Info("no policies matched admission request")
 		if request.Operation == v1beta1.Update {
 			// handle generate source resource updates
@@ -313,7 +312,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		return successResponse(nil)
 	}
 
-	addRoles := containsRBACInfo(mutatePolicies, generatePolicies)
+	addRoles := containsRBACInfo(mutatePolicies)
 	policyContext, err := ws.buildPolicyContext(request, addRoles)
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
@@ -333,9 +332,6 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		logger.Error(err, "image verification failed")
 		return failureResponse(err.Error())
 	}
-
-	newRequest = patchRequest(imagePatches, newRequest, logger)
-	ws.applyGeneratePolicies(newRequest, policyContext, generatePolicies, requestTime, logger)
 
 	var patches = append(mutatePatches, imagePatches...)
 	return successResponse(patches)
@@ -488,6 +484,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	if request.Operation == v1beta1.Delete {
 		ws.handleDelete(request)
 	}
+
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return successResponse(nil)
 	}
@@ -500,9 +497,10 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	// Get namespace policies from the cache for the requested resource namespace
 	nsPolicies := ws.pCache.GetPolicies(policycache.ValidateEnforce, kind, request.Namespace)
 	policies = append(policies, nsPolicies...)
+	generatePolicies := ws.pCache.GetPolicies(policycache.Generate, kind, request.Namespace)
 
 	var roles, clusterRoles []string
-	if containsRBACInfo(policies) {
+	if containsRBACInfo(policies, generatePolicies) {
 		var err error
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
 		if err != nil {
@@ -560,6 +558,9 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 
 	// push admission request to audit handler, this won't block the admission request
 	ws.auditHandler.Add(request.DeepCopy())
+
+	// process generate policies
+	ws.applyGeneratePolicies(request, policyContext, generatePolicies, admissionRequestTimestamp, logger)
 
 	return successResponse(nil)
 }
