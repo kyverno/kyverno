@@ -81,17 +81,17 @@ func getRuleStatus(s string) (*RuleStatus, error) {
 	return nil, fmt.Errorf("invalid status: %s", s)
 }
 
-func (v *RuleStatus) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var s string
-	if err := unmarshal(&s); err != nil {
+func (s *RuleStatus) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var str string
+	if err := unmarshal(&str); err != nil {
 		return err
 	}
 
-	statusVal, err := getRuleStatus(s)
+	statusVal, err := getRuleStatus(str)
 	if err != nil {
 		return err
 	}
 
-	*v = *statusVal
+	*s = *statusVal
 	return nil
 }

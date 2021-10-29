@@ -32,13 +32,13 @@ type Scenario struct {
 	TestCases []TestCase
 }
 
-//CaseT defines input and output for a case
+// TestCase defines input and output for a case
 type TestCase struct {
 	Input    Input    `yaml:"input"`
 	Expected Expected `yaml:"expected"`
 }
 
-//Input defines input for a test scenario
+// Input defines input for a test scenario
 type Input struct {
 	Policy        string   `yaml:"policy"`
 	Resource      string   `yaml:"resource"`

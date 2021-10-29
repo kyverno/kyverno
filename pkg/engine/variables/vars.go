@@ -13,7 +13,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	jsonUtils "github.com/kyverno/kyverno/pkg/engine/json-utils"
+	jsonUtils "github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 )
 
@@ -21,10 +21,10 @@ var RegexVariables = regexp.MustCompile(`^\{\{[^{}]*\}\}|[^\\]\{\{[^{}]*\}\}`)
 
 var RegexEscpVariables = regexp.MustCompile(`\\\{\{[^{}]*\}\}`)
 
-// Regex for '$(...)' at the beginning of the string, and 'x$(...)' where 'x' is not '\'
+// RegexReferences is the Regex for '$(...)' at the beginning of the string, and 'x$(...)' where 'x' is not '\'
 var RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
 
-// Regex for '\$(...)'
+// RegexEscpReferences is the Regex for '\$(...)'
 var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
 
 var regexVariableInit = regexp.MustCompile(`^\{\{[^{}]*\}\}`)
@@ -298,7 +298,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 
 		for _, v := range RegexReferences.FindAllString(value, -1) {
 			initial := v[:2] == `$(`
-			v_old := v
+			old := v
 
 			if !initial {
 				v = v[1:]
@@ -321,15 +321,15 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 			log.V(3).Info("reference resolved", "reference", v, "value", resolvedReference, "path", data.Path)
 
 			if val, ok := resolvedReference.(string); ok {
-				replace_with := ""
+				replacement := ""
 
 				if !initial {
-					replace_with = string(v_old[0])
+					replacement = string(old[0])
 				}
 
-				replace_with += val
+				replacement += val
 
-				value = strings.Replace(value, v_old, replace_with, 1)
+				value = strings.Replace(value, old, replacement, 1)
 				continue
 			}
 
@@ -370,7 +370,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 
 			for _, v := range vars {
 				initial := len(regexVariableInit.FindAllString(v, -1)) > 0
-				v_old := v
+				old := v
 
 				if !initial {
 					v = v[1:]
@@ -406,7 +406,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 				prefix := ""
 
 				if !initial {
-					prefix = string(v_old[0])
+					prefix = string(old[0])
 				}
 
 				if value, err = substituteVarInPattern(prefix, originalPattern, v, substitutedVar); err != nil {
@@ -524,7 +524,7 @@ func valFromReferenceToString(value interface{}, operator string) (string, error
 func FindAndShiftReferences(log logr.Logger, value, shift, pivot string) string {
 	for _, reference := range RegexReferences.FindAllString(value, -1) {
 		initial := reference[:2] == `$(`
-		reference_old := reference
+		oldReference := reference
 
 		if !initial {
 			reference = reference[1:]
@@ -542,15 +542,15 @@ func FindAndShiftReferences(log logr.Logger, value, shift, pivot string) string 
 		}
 
 		shiftedReference := strings.Replace(reference, pivot, pivot+"/"+shift, -1)
-		replace_with := ""
+		replacement := ""
 
 		if !initial {
-			replace_with = string(reference_old[0])
+			replacement = string(oldReference[0])
 		}
 
-		replace_with += shiftedReference
+		replacement += shiftedReference
 
-		value = strings.Replace(value, reference_old, replace_with, 1)
+		value = strings.Replace(value, oldReference, replacement, 1)
 	}
 
 	return value

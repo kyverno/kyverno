@@ -10,8 +10,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-// deprecated
-//NewInHandler returns handler to manage In operations
+// NewInHandler returns handler to manage In operations
+//
+// Deprecated: Use `NewAllInHandler` or `NewAnyInHandler` instead
 func NewInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return InHandler{
 		ctx: ctx,
@@ -19,13 +20,13 @@ func NewInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	}
 }
 
-//InHandler provides implementation to handle In Operator
+// InHandler provides implementation to handle In Operator
 type InHandler struct {
 	ctx context.EvalInterface
 	log logr.Logger
 }
 
-//Evaluate evaluates expression with In Operator
+// Evaluate evaluates expression with In Operator
 func (in InHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
