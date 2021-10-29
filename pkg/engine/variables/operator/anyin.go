@@ -124,11 +124,7 @@ func isAnyNotIn(key []string, value []string) bool {
 			}
 		}
 	}
-	if found < len(key) {
-		return true
-	}
-
-	return false
+	return found < len(key)
 }
 
 func (anyin AnyInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {
