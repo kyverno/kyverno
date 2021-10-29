@@ -182,22 +182,28 @@ func validateValueWithStringPattern(log logr.Logger, value interface{}, pattern 
 	// Upon encountering InRange operator split the string by `-` and basically
 	// verify the result of (x >= leftEndpoint & x <= rightEndpoint)
 	if operatorVariable == operator.InRange {
-		gt := validateValueWithStringPattern(log, value, fmt.Sprintf(">=%s", strings.Split(pattern, "-")[0]))
+		endpoints := strings.Split(pattern, "-")
+		leftEndpoint, rightEndpoint := endpoints[0], endpoints[1]
+
+		gt := validateValueWithStringPattern(log, value, fmt.Sprintf(">=%s", leftEndpoint))
 		if !gt {
 			return false
 		}
-		pattern = fmt.Sprintf("<=%s", strings.Split(pattern, "-")[1])
+		pattern = fmt.Sprintf("<=%s", rightEndpoint)
 		operatorVariable = operator.LessEqual
 	}
 
 	// Upon encountering NotInRange operator split the string by `!-` and basically
 	// verify the result of (x < leftEndpoint | x > rightEndpoint)
 	if operatorVariable == operator.NotInRange {
-		gt := validateValueWithStringPattern(log, value, fmt.Sprintf("<%s", strings.Split(pattern, "!-")[0]))
-		if gt {
+		endpoints := strings.Split(pattern, "!-")
+		leftEndpoint, rightEndpoint := endpoints[0], endpoints[1]
+
+		lt := validateValueWithStringPattern(log, value, fmt.Sprintf("<%s", leftEndpoint))
+		if lt {
 			return true
 		}
-		pattern = fmt.Sprintf(">%s", strings.Split(pattern, "!-")[1])
+		pattern = fmt.Sprintf(">%s", rightEndpoint)
 		operatorVariable = operator.More
 	}
 
