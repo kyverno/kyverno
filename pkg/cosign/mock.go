@@ -3,6 +3,7 @@ package cosign
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/sigstore/cosign/pkg/cosign"
 )

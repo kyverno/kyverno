@@ -2,8 +2,9 @@ package mutate
 
 import (
 	"fmt"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"testing"
+
+	"github.com/kyverno/kyverno/pkg/engine/response"
 
 	"github.com/ghodss/yaml"
 	assert "github.com/stretchr/testify/assert"

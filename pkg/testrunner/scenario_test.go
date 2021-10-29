@@ -1,11 +1,12 @@
 package testrunner
 
 import (
+	"io/ioutil"
+	"testing"
+
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"gopkg.in/yaml.v3"
 	"gotest.tools/assert"
-	"io/ioutil"
-	"testing"
 )
 
 var sourceYAML = `
