@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/pkg/errors"

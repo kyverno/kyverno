@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -25,13 +25,11 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// ClusterReportChangeRequest is the Schema for the ClusterReportChangeRequests API
+// ReportChangeRequest is the Schema for the ReportChangeRequests API
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
-// +kubebuilder:resource:path=clusterreportchangerequests,scope="Cluster",shortName=crcr
 // +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
 // +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1
 // +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=`.summary.pass`
@@ -40,7 +38,8 @@ import (
 // +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=`.summary.error`
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.skip`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-type ClusterReportChangeRequest struct {
+// +kubebuilder:resource:shortName=rcr
+type ReportChangeRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
@@ -62,15 +61,15 @@ type ClusterReportChangeRequest struct {
 	Results []*report.PolicyReportResult `json:"results,omitempty"`
 }
 
-// ClusterReportChangeRequestList contains a list of ClusterReportChangeRequest
+// ReportChangeRequestList contains a list of ReportChangeRequest
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ClusterReportChangeRequestList struct {
+type ReportChangeRequestList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ClusterReportChangeRequest `json:"items"`
+	Items           []ReportChangeRequest `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ClusterReportChangeRequest{}, &ClusterReportChangeRequestList{})
+	SchemeBuilder.Register(&ReportChangeRequest{}, &ReportChangeRequestList{})
 }

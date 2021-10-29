@@ -5,17 +5,16 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+	"path"
 	ospath "path"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/stretchr/testify/assert"
 
-	"path"
-	"runtime"
-
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"

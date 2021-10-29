@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha1"
+	report "github.com/kyverno/kyverno/api/policyreport/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

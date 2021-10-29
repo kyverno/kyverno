@@ -136,7 +136,7 @@ docker-push-kyverno:
 ##################################
 
 generate-api-docs:
-	go run github.com/ahmetb/gen-crd-api-reference-docs -api-dir ./pkg/api -config documentation/api/config.json -template-dir documentation/api/template -out-file documentation/index.html
+	go run github.com/ahmetb/gen-crd-api-reference-docs -api-dir ./api -config documentation/api/config.json -template-dir documentation/api/template -out-file documentation/index.html
 
 
 ##################################
@@ -228,7 +228,7 @@ test-e2e:
 
 test-e2e-local:
 	$(eval export E2E="ok")
-	kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/definitions/github/rbac.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/github/rbac.yaml
 	kubectl port-forward -n kyverno service/kyverno-svc-metrics  8000:8000 &
 	go test ./test/e2e/metrics -v
 	go test ./test/e2e/mutate -v
@@ -252,26 +252,26 @@ godownloader:
 # kustomize-crd will create install.yaml
 kustomize-crd:
 	# Create CRD for helm deployment Helm
-	kustomize build ./definitions/release | kustomize cfg grep kind=CustomResourceDefinition > ./charts/kyverno/templates/crds.yaml
+	kustomize build ./config/release | kustomize cfg grep kind=CustomResourceDefinition > ./charts/kyverno/templates/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
-	kustomize build ./definitions > ./definitions/install.yaml
+	kustomize build ./config > ./config/install.yaml
 	# Generate install_debug.yaml that for developer testing
-	kustomize build ./definitions/debug > ./definitions/install_debug.yaml
+	kustomize build ./config/debug > ./config/install_debug.yaml
 
 # guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
 release:
-	kustomize build ./definitions > ./definitions/install.yaml
-	kustomize build ./definitions/release > ./definitions/release/install.yaml
+	kustomize build ./config > ./config/install.yaml
+	kustomize build ./config/release > ./config/release/install.yaml
 
 release-notes:
 	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)" ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
 	true
 
 kyverno-crd: controller-gen
-	$(CONTROLLER_GEN) crd paths=./pkg/api/kyverno/... crd:crdVersions=v1 output:dir=./definitions/crds
+	$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
 
 report-crd: controller-gen
-	$(CONTROLLER_GEN) crd paths=./pkg/api/policyreport/... crd:crdVersions=v1 output:dir=./definitions/crds
+	$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
 
 # install the right version of controller-gen
 install-controller-gen:

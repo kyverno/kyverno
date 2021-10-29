@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"testing"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"gotest.tools/assert"
 )
 

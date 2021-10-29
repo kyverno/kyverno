@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/utils"
 
@@ -13,7 +14,6 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 
 	"github.com/go-logr/logr"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"

@@ -22,7 +22,7 @@ import (
 	"context"
 	"time"
 
-	v1alpha2 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	scheme "github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
