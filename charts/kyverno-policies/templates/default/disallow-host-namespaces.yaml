@@ -9,7 +9,7 @@ metadata:
     {{- if .Values.podSecuritySeverity }}
     policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
     {{- end }}
-    policies.kyverno.io/description: >- 
+    policies.kyverno.io/description: >-
       Host namespaces (Process ID namespace, Inter-Process Communication namespace, and
       network namespace) allow access to shared information and can be used to elevate
       privileges. Pods should not be allowed access to host namespaces.
