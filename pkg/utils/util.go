@@ -160,7 +160,7 @@ func HigherThanKubernetesVersion(client *client.Client, log logr.Logger, major, 
 
 	b, err := isVersionHigher(serverVersion.String(), major, minor, patch)
 	if err != nil {
-		logger.Error(err, "serverVersion", serverVersion)
+		logger.Error(err, "serverVersion", serverVersion.String())
 		return false
 	}
 
@@ -168,27 +168,29 @@ func HigherThanKubernetesVersion(client *client.Client, log logr.Logger, major, 
 }
 
 func isVersionHigher(version string, major int, minor int, patch int) (bool, error) {
-	groups := regexVersion.FindAllStringSubmatch(version, -1)
-	if len(groups) != 1 || len(groups[0]) != 4 {
+	groups := regexVersion.FindStringSubmatch(version)
+	if len(groups) != 4 {
 		return false, fmt.Errorf("invalid version %s. Expected {major}.{minor}.{patch}", version)
 	}
 
-	currentMajor, err := strconv.Atoi(groups[0][1])
+	currentMajor, err := strconv.Atoi(groups[1])
 	if err != nil {
 		return false, fmt.Errorf("failed to extract major version from %s", version)
 	}
 
-	currentMinor, err := strconv.Atoi(groups[0][2])
+	currentMinor, err := strconv.Atoi(groups[2])
 	if err != nil {
 		return false, fmt.Errorf("failed to extract minor version from %s", version)
 	}
 
-	currentPatch, err := strconv.Atoi(groups[0][3])
+	currentPatch, err := strconv.Atoi(groups[3])
 	if err != nil {
 		return false, fmt.Errorf("failed to extract minor version from %s", version)
 	}
 
-	if currentMajor <= major && currentMinor <= minor && currentPatch <= patch {
+	if currentMajor < major ||
+		(currentMajor == major && currentMinor < minor) ||
+		(currentMajor == major && currentMinor == minor && currentPatch <= patch) {
 		return false, nil
 	}
 
