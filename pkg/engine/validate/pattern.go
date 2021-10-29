@@ -179,16 +179,26 @@ func checkForAndConditionsAndValidate(log logr.Logger, value interface{}, patter
 func validateValueWithStringPattern(log logr.Logger, value interface{}, pattern string) bool {
 	operatorVariable := operator.GetOperatorFromStringPattern(pattern)
 
-	// Upon encountering Range operator split the string by `-` and basically
-	// verify the result of (x >= leftEndpoint && x <= rightEndpoint)
-	if operatorVariable == operator.Range {
+	// Upon encountering InRange operator split the string by `-` and basically
+	// verify the result of (x >= leftEndpoint & x <= rightEndpoint)
+	if operatorVariable == operator.InRange {
 		gt := validateValueWithStringPattern(log, value, fmt.Sprintf(">=%s", strings.Split(pattern, "-")[0]))
 		if !gt {
 			return false
 		}
-
 		pattern = fmt.Sprintf("<=%s", strings.Split(pattern, "-")[1])
 		operatorVariable = operator.LessEqual
+	}
+
+	// Upon encountering NotInRange operator split the string by `!-` and basically
+	// verify the result of (x < leftEndpoint | x > rightEndpoint)
+	if operatorVariable == operator.NotInRange {
+		gt := validateValueWithStringPattern(log, value, fmt.Sprintf("<%s", strings.Split(pattern, "!-")[0]))
+		if gt {
+			return true
+		}
+		pattern = fmt.Sprintf(">%s", strings.Split(pattern, "!-")[1])
+		operatorVariable = operator.More
 	}
 
 	pattern = pattern[len(operatorVariable):]

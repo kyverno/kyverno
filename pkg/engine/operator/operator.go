@@ -20,8 +20,10 @@ const (
 	More Operator = ">"
 	// Less stands for <
 	Less Operator = "<"
-	// Range stands for -
-	Range Operator = "-"
+	// InRange stands for -
+	InRange Operator = "-"
+	// NotInRange stands for !-
+	NotInRange Operator = "!-"
 )
 
 //ReferenceSign defines the operator for anchor reference
@@ -53,8 +55,12 @@ func GetOperatorFromStringPattern(pattern string) Operator {
 		return NotEqual
 	}
 
+	if match, _ := regexp.Match(`^(\d+(\.\d+)?)([^-]*)!-(\d+(\.\d+)?)([^-]*)$`, []byte(pattern)); match {
+		return NotInRange
+	}
+
 	if match, _ := regexp.Match(`^(\d+(\.\d+)?)([^-]*)-(\d+(\.\d+)?)([^-]*)$`, []byte(pattern)); match {
-		return Range
+		return InRange
 	}
 
 	return Equal
