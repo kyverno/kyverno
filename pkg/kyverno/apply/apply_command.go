@@ -336,30 +336,37 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 
 // printReportOrViolation - printing policy report/violations
 func printReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []policyreport.Info) {
+	divider := "----------------------------------------------------------------------"
+
 	if len(skipInvalidPolicies.skipped) > 0 {
-		fmt.Println("----------------------------------------------------------------------\nPolicies Skipped(as required variables are not provided by the users):")
+		fmt.Println(divider)
+		fmt.Println("Policies Skipped (as required variables are not provided by the user):")
 		for i, policyName := range skipInvalidPolicies.skipped {
-			fmt.Println(i+1, ". ", policyName)
+			fmt.Printf("%d. %s\n", i+1, policyName)
 		}
-		fmt.Println("----------------------------------------------------------------------")
+		fmt.Println(divider)
 	}
 	if len(skipInvalidPolicies.invalid) > 0 {
-		fmt.Println("----------------------------------------------------------------------\nInvalid Policies:")
+		fmt.Println(divider)
+		fmt.Println("Invalid Policies:")
 		for i, policyName := range skipInvalidPolicies.invalid {
-			fmt.Println(i+1, ". ", policyName)
+			fmt.Printf("%d. %s\n", i+1, policyName)
 		}
-		fmt.Println("----------------------------------------------------------------------")
+		fmt.Println(divider)
 	}
 
 	if policyReport {
 		resps := buildPolicyReports(pvInfos)
 		if len(resps) > 0 || resourcesLen == 0 {
-			fmt.Println("\n----------------------------------------------------------------------\nPOLICY REPORT:\n----------------------------------------------------------------------")
+			fmt.Println(divider)
+			fmt.Println("POLICY REPORT:")
+			fmt.Println(divider)
 			report, _ := generateCLIRaw(resps)
 			yamlReport, _ := yaml1.Marshal(report)
 			fmt.Println(string(yamlReport))
 		} else {
-			fmt.Println("----------------------------------------------------------------------\nPOLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
+			fmt.Println(divider)
+			fmt.Println("POLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
 		}
 	} else {
 		if !stdin {
