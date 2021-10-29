@@ -112,10 +112,9 @@ func isAllIn(key []string, value []string) bool {
 	}
 	if found == len(key) {
 		return true
-	} else {
-		return false
 	}
 
+	return false
 }
 
 // isAllNotIn checks if all the values in S1 are not in S2

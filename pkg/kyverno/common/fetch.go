@@ -220,7 +220,7 @@ func getFileBytes(path string) ([]byte, error) {
 		err  error
 	)
 
-	if IsHttpRegex.MatchString(path) {
+	if IsHTTPRegex.MatchString(path) {
 		// We accept here that a random URL might be called based on user provided input.
 		resp, err := http.Get(path) // #nosec
 		if err != nil {

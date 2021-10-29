@@ -437,9 +437,9 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 				}
 
 				return ruleResponse(v.rule, utils.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusFail)
-			} else {
-				return ruleResponse(v.rule, utils.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusError)
 			}
+
+			return ruleResponse(v.rule, utils.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusError)
 		}
 
 		v.log.V(4).Info("successfully processed rule")

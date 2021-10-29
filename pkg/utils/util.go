@@ -24,7 +24,7 @@ import (
 
 var regexVersion = regexp.MustCompile(`v(\d+).(\d+).(\d+)\.*`)
 
-//Contains Check if strint is contained in a list of string
+// Contains checks if a string is contained in a list of string
 func contains(list []string, element string, fn func(string, string) bool) bool {
 	for _, e := range list {
 		if fn(e, element) {
@@ -44,12 +44,12 @@ func ContainsPod(list []string, element string) bool {
 	return false
 }
 
-//ContainsNamepace check if namespace satisfies any list of pattern(regex)
+// ContainsNamepace check if namespace satisfies any list of pattern(regex)
 func ContainsNamepace(patterns []string, ns string) bool {
 	return contains(patterns, ns, compareNamespaces)
 }
 
-//ContainsString check if the string is contains in a list
+// ContainsString checks if the string is contained in the list
 func ContainsString(list []string, element string) bool {
 	return contains(list, element, compareString)
 }
@@ -62,7 +62,7 @@ func compareString(str, name string) bool {
 	return str == name
 }
 
-//NewKubeClient returns a new kubernetes client
+// NewKubeClient returns a new kubernetes client
 func NewKubeClient(config *rest.Config) (kubernetes.Interface, error) {
 	kclient, err := kubernetes.NewForConfig(config)
 	if err != nil {
@@ -214,7 +214,7 @@ func SliceContains(slice []string, values ...string) bool {
 	return false
 }
 
-// ApiextensionsJsonTOKyvernoConditions takes in user-provided conditions in abstract apiextensions.JSON form
+// ApiextensionsJsonToKyvernoConditions takes in user-provided conditions in abstract apiextensions.JSON form
 // and converts it into []kyverno.Condition or kyverno.AnyAllConditions according to its content.
 // it also helps in validating the condtions as it returns an error when the conditions are provided wrongfully by the user.
 func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interface{}, error) {

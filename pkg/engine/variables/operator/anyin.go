@@ -126,9 +126,9 @@ func isAnyNotIn(key []string, value []string) bool {
 	}
 	if found < len(key) {
 		return true
-	} else {
-		return false
 	}
+
+	return false
 }
 
 func (anyin AnyInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {

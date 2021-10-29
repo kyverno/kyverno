@@ -346,11 +346,10 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 	}
 
 	if addRoles {
-		if roles, clusterRoles, err := userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler); err != nil {
+		var err error
+		userRequestInfo.Roles, userRequestInfo.ClusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
+		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch RBAC information for request")
-		} else {
-			userRequestInfo.Roles = roles
-			userRequestInfo.ClusterRoles = clusterRoles
 		}
 	}
 

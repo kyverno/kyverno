@@ -7,8 +7,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-// deprecated
 //NewNotInHandler returns handler to manage NotIn operations
+//
+// Deprecated: Use `NewAllNotInHandler` or `NewAnyNotInHandler` instead
 func NewNotInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return NotInHandler{
 		ctx: ctx,
@@ -16,13 +17,13 @@ func NewNotInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler
 	}
 }
 
-//NotInHandler provides implementation to handle NotIn Operator
+// NotInHandler provides implementation to handle NotIn Operator
 type NotInHandler struct {
 	ctx context.EvalInterface
 	log logr.Logger
 }
 
-//Evaluate evaluates expression with NotIn Operator
+// Evaluate evaluates expression with NotIn Operator
 func (nin NotInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:

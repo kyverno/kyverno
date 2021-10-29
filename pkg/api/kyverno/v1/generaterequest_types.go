@@ -50,6 +50,7 @@ type GenerateRequestContext struct {
 	AdmissionRequestInfo AdmissionRequestInfoObject `json:"admissionRequestInfo,omitempty" yaml:"admissionRequestInfo,omitempty"`
 }
 
+// AdmissionRequestInfoObject stores the admission request and operation details
 type AdmissionRequestInfoObject struct {
 	// +optional
 	AdmissionRequest string `json:"admissionRequest,omitempty" yaml:"admissionRequest,omitempty"`

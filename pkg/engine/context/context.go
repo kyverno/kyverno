@@ -99,7 +99,7 @@ func (ctx *Context) AddJSON(dataRaw []byte) error {
 	return nil
 }
 
-// AddJSON merges json data
+// AddJSONObject merges json data
 func (ctx *Context) AddJSONObject(jsonData interface{}) error {
 	jsonBytes, err := json.Marshal(jsonData)
 	if err != nil {

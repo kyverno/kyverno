@@ -175,11 +175,11 @@ func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 
 }
 
-// +deprecated
 // UpdateWebhookConfigurations updates resource webhook configurations dynamically
 // base on the UPDATEs of Kyverno init-config ConfigMap
 //
 // it currently updates namespaceSelector only, can be extend to update other fields
+// +deprecated
 func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface) {
 	logger := wrc.log.WithName("UpdateWebhookConfigurations")
 	for {
@@ -622,12 +622,12 @@ func (wrc *Register) checkEndpoint() error {
 	}
 
 	kyverno := pods.Items[0]
-	podIp, _, err := unstructured.NestedString(kyverno.UnstructuredContent(), "status", "podIP")
+	podIP, _, err := unstructured.NestedString(kyverno.UnstructuredContent(), "status", "podIP")
 	if err != nil {
 		return fmt.Errorf("failed to extract pod IP: %v", err)
 	}
 
-	if podIp == "" {
+	if podIP == "" {
 		return fmt.Errorf("pod is not assigned to any node yet")
 	}
 
@@ -637,7 +637,7 @@ func (wrc *Register) checkEndpoint() error {
 		}
 
 		for _, addr := range subset.Addresses {
-			if addr.IP == podIp {
+			if addr.IP == podIP {
 				wrc.log.Info("Endpoint ready", "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
 				return nil
 			}
