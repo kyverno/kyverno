@@ -425,7 +425,8 @@ func isSameRuleResponse(r1 *response.RuleResponse, r2 *response.RuleResponse) bo
 func (v *validator) validatePatterns(resource unstructured.Unstructured) *response.RuleResponse {
 	if v.pattern != nil {
 		if err := validate.MatchPattern(v.log, resource.Object, v.pattern); err != nil {
-			if pe, ok := err.(*validate.PatternError); ok {
+			pe, ok := err.(*validate.PatternError)
+			if ok {
 				v.log.V(3).Info("validation error", "path", pe.Path, "error", err.Error())
 
 				if pe.Skip {
