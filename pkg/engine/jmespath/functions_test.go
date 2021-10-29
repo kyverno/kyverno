@@ -2,78 +2,120 @@ package jmespath
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"gotest.tools/assert"
 )
 
-func TestJMESPathFunctions_CompareEqualStrings(t *testing.T) {
-	jp, err := New("compare('a', 'a')")
-	assert.NilError(t, err)
+func Test_Compare(t *testing.T) {
+	testCases := []struct {
+		jmesPath       string
+		expectedResult int
+	}{
+		{
+			jmesPath:       "compare('a', 'a')",
+			expectedResult: 0,
+		},
+		{
+			jmesPath:       "compare('a', 'b')",
+			expectedResult: -1,
+		},
+		{
+			jmesPath:       "compare('b', 'a')",
+			expectedResult: 1,
+		},
+	}
 
-	result, err := jp.Search("")
-	assert.NilError(t, err)
+	for _, tc := range testCases {
+		t.Run(tc.jmesPath, func(t *testing.T) {
+			jp, err := New(tc.jmesPath)
+			assert.NilError(t, err)
 
-	equal, ok := result.(int)
-	assert.Assert(t, ok)
-	assert.Equal(t, equal, 0)
+			result, err := jp.Search("")
+			assert.NilError(t, err)
+
+			res, ok := result.(int)
+			assert.Assert(t, ok)
+			assert.Equal(t, res, tc.expectedResult)
+		})
+	}
 }
 
-func TestJMESPathFunctions_CompareDifferentStrings(t *testing.T) {
-	jp, err := New("compare('a', 'b')")
-	assert.NilError(t, err)
+func Test_EqualFold(t *testing.T) {
+	testCases := []struct {
+		jmesPath       string
+		expectedResult bool
+	}{
+		{
+			jmesPath:       "equal_fold('Go', 'go')",
+			expectedResult: true,
+		},
+		{
+			jmesPath:       "equal_fold('a', 'b')",
+			expectedResult: false,
+		},
+		{
+			jmesPath:       "equal_fold('1', 'b')",
+			expectedResult: false,
+		},
+	}
 
-	result, err := jp.Search("")
-	assert.NilError(t, err)
+	for _, tc := range testCases {
+		t.Run(tc.jmesPath, func(t *testing.T) {
+			jp, err := New(tc.jmesPath)
+			assert.NilError(t, err)
 
-	equal, ok := result.(int)
-	assert.Assert(t, ok)
-	assert.Equal(t, equal, -1)
+			result, err := jp.Search("")
+			assert.NilError(t, err)
+
+			res, ok := result.(bool)
+			assert.Assert(t, ok)
+			assert.Equal(t, res, tc.expectedResult)
+		})
+	}
 }
 
-func TestJMESPathFunctions_Contains(t *testing.T) {
-	jp, err := New("contains('string', 'str')")
-	assert.NilError(t, err)
-
-	result, err := jp.Search("")
-	assert.NilError(t, err)
-
-	contains, ok := result.(bool)
-	assert.Assert(t, ok)
-	assert.Assert(t, contains)
-}
-
-func TestJMESPathFunctions_EqualFold(t *testing.T) {
-	jp, err := New("equal_fold('Go', 'go')")
-	assert.NilError(t, err)
-
-	result, err := jp.Search("")
-	assert.NilError(t, err)
-
-	equal, ok := result.(bool)
-	assert.Assert(t, ok)
-	assert.Assert(t, equal)
-}
-
-func TestJMESPathFunctions_Replace(t *testing.T) {
+func Test_Replace(t *testing.T) {
 	// Can't use integer literals due to
 	// https://github.com/jmespath/go-jmespath/issues/27
 	//
 	// TODO: fix this in https://github.com/kyverno/go-jmespath
-	//
 
-	jp, err := New("replace('Lorem ipsum dolor sit amet', 'ipsum', 'muspi', `-1`)")
-	assert.NilError(t, err)
+	testCases := []struct {
+		jmesPath       string
+		expectedResult string
+	}{
+		{
+			jmesPath:       "replace('Lorem ipsum dolor sit amet', 'ipsum', 'muspi', `-1`)",
+			expectedResult: "Lorem muspi dolor sit amet",
+		},
+		{
+			jmesPath:       "replace('Lorem ipsum ipsum ipsum dolor sit amet', 'ipsum', 'muspi', `-1`)",
+			expectedResult: "Lorem muspi muspi muspi dolor sit amet",
+		},
+		{
+			jmesPath:       "replace('Lorem ipsum ipsum ipsum dolor sit amet', 'ipsum', 'muspi', `1`)",
+			expectedResult: "Lorem muspi ipsum ipsum dolor sit amet",
+		},
+	}
 
-	result, err := jp.Search("")
-	assert.NilError(t, err)
+	for _, tc := range testCases {
+		t.Run(tc.jmesPath, func(t *testing.T) {
+			jp, err := New(tc.jmesPath)
+			assert.NilError(t, err)
 
-	replaced, ok := result.(string)
-	assert.Assert(t, ok)
-	assert.Equal(t, replaced, "Lorem muspi dolor sit amet")
+			result, err := jp.Search("")
+			assert.NilError(t, err)
+
+			res, ok := result.(string)
+			assert.Assert(t, ok)
+			assert.Equal(t, res, tc.expectedResult)
+		})
+	}
 }
 
-func TestJMESPathFunctions_ReplaceAll(t *testing.T) {
+func Test_ReplaceAll(t *testing.T) {
 	jp, err := New("replace_all('Lorem ipsum dolor sit amet', 'ipsum', 'muspi')")
 	assert.NilError(t, err)
 
@@ -85,31 +127,75 @@ func TestJMESPathFunctions_ReplaceAll(t *testing.T) {
 	assert.Equal(t, replaced, "Lorem muspi dolor sit amet")
 }
 
-func TestJMESPathFunctions_ToUpper(t *testing.T) {
-	jp, err := New("to_upper('abc')")
-	assert.NilError(t, err)
+func Test_ToUpper(t *testing.T) {
+	testCases := []struct {
+		jmesPath       string
+		expectedResult string
+	}{
+		{
+			jmesPath:       "to_upper('abc')",
+			expectedResult: "ABC",
+		},
+		{
+			jmesPath:       "to_upper('123')",
+			expectedResult: "123",
+		},
+		{
+			jmesPath:       "to_upper('a#%&123Bc')",
+			expectedResult: "A#%&123BC",
+		},
+	}
 
-	result, err := jp.Search("")
-	assert.NilError(t, err)
+	for _, tc := range testCases {
+		t.Run(tc.jmesPath, func(t *testing.T) {
+			jp, err := New(tc.jmesPath)
+			assert.NilError(t, err)
 
-	upper, ok := result.(string)
-	assert.Assert(t, ok)
-	assert.Equal(t, upper, "ABC")
+			result, err := jp.Search("")
+			assert.NilError(t, err)
+
+			res, ok := result.(string)
+			assert.Assert(t, ok)
+			assert.Equal(t, res, tc.expectedResult)
+		})
+	}
 }
 
-func TestJMESPathFunctions_ToLower(t *testing.T) {
-	jp, err := New("to_lower('AbC')")
-	assert.NilError(t, err)
+func Test_ToLower(t *testing.T) {
+	testCases := []struct {
+		jmesPath       string
+		expectedResult string
+	}{
+		{
+			jmesPath:       "to_lower('ABC')",
+			expectedResult: "abc",
+		},
+		{
+			jmesPath:       "to_lower('123')",
+			expectedResult: "123",
+		},
+		{
+			jmesPath:       "to_lower('a#%&123Bc')",
+			expectedResult: "a#%&123bc",
+		},
+	}
 
-	result, err := jp.Search("")
-	assert.NilError(t, err)
+	for _, tc := range testCases {
+		t.Run(tc.jmesPath, func(t *testing.T) {
+			jp, err := New(tc.jmesPath)
+			assert.NilError(t, err)
 
-	lower, ok := result.(string)
-	assert.Assert(t, ok)
-	assert.Equal(t, lower, "abc")
+			result, err := jp.Search("")
+			assert.NilError(t, err)
+
+			res, ok := result.(string)
+			assert.Assert(t, ok)
+			assert.Equal(t, res, tc.expectedResult)
+		})
+	}
 }
 
-func TestJMESPathFunctions_Trim(t *testing.T) {
+func Test_Trim(t *testing.T) {
 	jp, err := New("trim('¡¡¡Hello, Gophers!!!', '!¡')")
 	assert.NilError(t, err)
 
@@ -121,7 +207,7 @@ func TestJMESPathFunctions_Trim(t *testing.T) {
 	assert.Equal(t, trim, "Hello, Gophers")
 }
 
-func TestJMESPathFunctions_Split(t *testing.T) {
+func Test_Split(t *testing.T) {
 	jp, err := New("split('Hello, Gophers', ', ')")
 	assert.NilError(t, err)
 
@@ -134,7 +220,7 @@ func TestJMESPathFunctions_Split(t *testing.T) {
 	assert.Equal(t, split[1], "Gophers")
 }
 
-func TestJMESPathFunctions_HasPrefix(t *testing.T) {
+func Test_HasPrefix(t *testing.T) {
 	jp, err := New("starts_with('Gophers', 'Go')")
 	assert.NilError(t, err)
 
@@ -146,7 +232,7 @@ func TestJMESPathFunctions_HasPrefix(t *testing.T) {
 	assert.Equal(t, split, true)
 }
 
-func TestJMESPathFunctions_HasSuffix(t *testing.T) {
+func Test_HasSuffix(t *testing.T) {
 	jp, err := New("ends_with('Amigo', 'go')")
 	assert.NilError(t, err)
 
@@ -158,7 +244,7 @@ func TestJMESPathFunctions_HasSuffix(t *testing.T) {
 	assert.Equal(t, split, true)
 }
 
-func Test_regexMatch(t *testing.T) {
+func Test_RegexMatch(t *testing.T) {
 	data := make(map[string]interface{})
 	data["foo"] = "hgf'b1a2r'b12g"
 
@@ -170,7 +256,7 @@ func Test_regexMatch(t *testing.T) {
 	assert.Equal(t, true, result)
 }
 
-func Test_regexMatchWithNumber(t *testing.T) {
+func Test_RegexMatchWithNumber(t *testing.T) {
 	data := make(map[string]interface{})
 	data["foo"] = -12.0
 
@@ -182,7 +268,7 @@ func Test_regexMatchWithNumber(t *testing.T) {
 	assert.Equal(t, true, result)
 }
 
-func Test_regexReplaceAll(t *testing.T) {
+func Test_RegexReplaceAll(t *testing.T) {
 	resourceRaw := []byte(`
 	{
 		"metadata": {
@@ -212,7 +298,7 @@ func Test_regexReplaceAll(t *testing.T) {
 	assert.Equal(t, string(result), expected)
 }
 
-func Test_regexReplaceAllLiteral(t *testing.T) {
+func Test_RegexReplaceAllLiteral(t *testing.T) {
 	resourceRaw := []byte(`
 	{
 		"metadata": {
@@ -244,7 +330,7 @@ func Test_regexReplaceAllLiteral(t *testing.T) {
 	assert.Equal(t, string(result), expected)
 }
 
-func Test_labelMatch(t *testing.T) {
+func Test_LabelMatch(t *testing.T) {
 	resourceRaw := []byte(`
 	{
 		"metadata": {
@@ -283,26 +369,28 @@ func Test_labelMatch(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range testCases {
-		var resource interface{}
-		err := json.Unmarshal(testCase.resource, &resource)
-		assert.NilError(t, err)
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			var resource interface{}
+			err := json.Unmarshal(tc.resource, &resource)
+			assert.NilError(t, err)
 
-		query, err := New("label_match(`" + testCase.test + "`, metadata.labels)")
-		assert.NilError(t, err)
+			query, err := New("label_match(`" + tc.test + "`, metadata.labels)")
+			assert.NilError(t, err)
 
-		res, err := query.Search(resource)
-		assert.NilError(t, err)
+			res, err := query.Search(resource)
+			assert.NilError(t, err)
 
-		result, ok := res.(bool)
-		assert.Assert(t, ok)
+			result, ok := res.(bool)
+			assert.Assert(t, ok)
 
-		assert.Equal(t, result, testCase.expectedResult)
+			assert.Equal(t, result, tc.expectedResult)
+		})
 	}
 
 }
 
-func TestJMESPathFunctions_Add(t *testing.T) {
+func Test_Add(t *testing.T) {
 	jp, err := New("add(`12`, `13`)")
 	assert.NilError(t, err)
 
@@ -314,7 +402,7 @@ func TestJMESPathFunctions_Add(t *testing.T) {
 	assert.Equal(t, equal, 25.0)
 }
 
-func TestJMESPathFunctions_Subtract(t *testing.T) {
+func Test_Subtract(t *testing.T) {
 	jp, err := New("subtract(`12`, `7`)")
 	assert.NilError(t, err)
 
@@ -326,7 +414,7 @@ func TestJMESPathFunctions_Subtract(t *testing.T) {
 	assert.Equal(t, equal, 5.0)
 }
 
-func TestJMESPathFunctions_Multiply(t *testing.T) {
+func Test_Multiply(t *testing.T) {
 	jp, err := New("multiply(`3`, `2.5`)")
 	assert.NilError(t, err)
 
@@ -338,7 +426,7 @@ func TestJMESPathFunctions_Multiply(t *testing.T) {
 	assert.Equal(t, equal, 7.5)
 }
 
-func TestJMESPathFunctions_Divide(t *testing.T) {
+func Test_Divide(t *testing.T) {
 	jp, err := New("divide(`12`, `1.5`)")
 	assert.NilError(t, err)
 
@@ -350,7 +438,7 @@ func TestJMESPathFunctions_Divide(t *testing.T) {
 	assert.Equal(t, equal, 8.0)
 }
 
-func TestJMESPathFunctions_Modulo(t *testing.T) {
+func Test_Modulo(t *testing.T) {
 	jp, err := New("modulo(`12`, `7`)")
 	assert.NilError(t, err)
 
@@ -362,7 +450,7 @@ func TestJMESPathFunctions_Modulo(t *testing.T) {
 	assert.Equal(t, equal, int64(5))
 }
 
-func TestJMESPathFunctions_Base64Decode(t *testing.T) {
+func Test_Base64Decode(t *testing.T) {
 	jp, err := New("base64_decode('SGVsbG8sIHdvcmxkIQ==')")
 	assert.NilError(t, err)
 
@@ -374,7 +462,7 @@ func TestJMESPathFunctions_Base64Decode(t *testing.T) {
 	assert.Equal(t, str, "Hello, world!")
 }
 
-func TestJMESPathFunctions_Base64Encode(t *testing.T) {
+func Test_Base64Encode(t *testing.T) {
 	jp, err := New("base64_encode('Hello, world!')")
 	assert.NilError(t, err)
 
@@ -386,7 +474,7 @@ func TestJMESPathFunctions_Base64Encode(t *testing.T) {
 	assert.Equal(t, str, "SGVsbG8sIHdvcmxkIQ==")
 }
 
-func TestJMESPathFunctions_Base64Decode_Secret(t *testing.T) {
+func Test_Base64Decode_Secret(t *testing.T) {
 	resourceRaw := []byte(`
 	{
     "apiVersion": "v1",
