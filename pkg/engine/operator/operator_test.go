@@ -1,8 +1,9 @@
 package operator
 
 import (
-	"gotest.tools/assert"
 	"testing"
+
+	"gotest.tools/assert"
 )
 
 func TestGetOperatorFromStringPattern_OneChar(t *testing.T) {

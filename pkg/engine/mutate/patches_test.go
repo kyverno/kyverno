@@ -1,8 +1,9 @@
 package mutate
 
 import (
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"testing"
+
+	"github.com/kyverno/kyverno/pkg/engine/response"
 
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

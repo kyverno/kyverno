@@ -2,6 +2,7 @@ package cosign
 
 import (
 	"context"
+
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/sigstore/cosign/pkg/cosign"
 )
