@@ -19,7 +19,7 @@ func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
 	return false
 }
 
-//HasMutateOrValidateOrGenerate checks for rule types
+// HasMutateOrValidateOrGenerate checks for rule types
 func (p *ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
 	for _, rule := range p.Spec.Rules {
 		if rule.HasMutate() || rule.HasValidate() || rule.HasGenerate() {
@@ -29,7 +29,7 @@ func (p *ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
 	return false
 }
 
-//HasMutate checks for mutate rule types
+// HasMutate checks for mutate rule types
 func (p *ClusterPolicy) HasMutate() bool {
 	for _, rule := range p.Spec.Rules {
 		if rule.HasMutate() {
@@ -62,7 +62,7 @@ func (p *ClusterPolicy) HasGenerate() bool {
 	return false
 }
 
-//HasVerifyImages checks for image verification rule types
+// HasVerifyImages checks for image verification rule types
 func (p *ClusterPolicy) HasVerifyImages() bool {
 	for _, rule := range p.Spec.Rules {
 		if rule.HasVerifyImages() {
@@ -102,6 +102,7 @@ func (r Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
 }
 
+// MatchKinds returns a slice of all kinds to match
 func (r Rule) MatchKinds() []string {
 	matchKinds := r.MatchResources.ResourceDescription.Kinds
 	for _, value := range r.MatchResources.All {
@@ -114,6 +115,7 @@ func (r Rule) MatchKinds() []string {
 	return matchKinds
 }
 
+// ExcludeKinds returns a slice of all kinds to exclude
 func (r Rule) ExcludeKinds() []string {
 	excludeKinds := r.ExcludeResources.ResourceDescription.Kinds
 	for _, value := range r.ExcludeResources.All {
@@ -243,20 +245,20 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 	// }
 }
 
-//ToKey generates the key string used for adding label to polivy violation
+// ToKey generates the key string used for adding label to polivy violation
 func (rs ResourceSpec) ToKey() string {
 	return rs.Kind + "." + rs.Name
 }
 
 // ViolatedRule stores the information regarding the rule.
 type ViolatedRule struct {
-	// Specifies violated rule name.
+	// Name specifies violated rule name.
 	Name string `json:"name" yaml:"name"`
 
-	// Specifies violated rule type.
+	// Type specifies violated rule type.
 	Type string `json:"type" yaml:"type"`
 
-	// Specifies violation message.
+	// Message specifies violation message.
 	// +optional
 	Message string `json:"message" yaml:"message"`
 

@@ -1,10 +1,11 @@
 package webhooks
 
 import (
-	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/utils"
 	"strings"
 	"time"
+
+	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/utils"
 
 	"github.com/pkg/errors"
 

@@ -310,6 +310,42 @@ func TestValidateValueWithStringPattern_WithSpace(t *testing.T) {
 	assert.Assert(t, validateValueWithStringPattern(log.Log, 4, ">= 3"))
 }
 
+func TestValidateValueWithStringPattern_Ranges(t *testing.T) {
+	assert.Assert(t, validateValueWithStringPattern(log.Log, 0, "0-2"))
+	assert.Assert(t, validateValueWithStringPattern(log.Log, 1, "0-2"))
+	assert.Assert(t, validateValueWithStringPattern(log.Log, 2, "0-2"))
+	assert.Assert(t, !validateValueWithStringPattern(log.Log, 3, "0-2"))
+
+	assert.Assert(t, validateValueWithStringPattern(log.Log, 0, "10!-20"))
+	assert.Assert(t, !validateValueWithStringPattern(log.Log, 15, "10!-20"))
+	assert.Assert(t, validateValueWithStringPattern(log.Log, 25, "10!-20"))
+
+	assert.Assert(t, !validateValueWithStringPattern(log.Log, 0, "0.00001-2.00001"))
+	assert.Assert(t, validateValueWithStringPattern(log.Log, 1, "0.00001-2.00001"))
+	assert.Assert(t, validateValueWithStringPattern(log.Log, 2, "0.00001-2.00001"))
+	assert.Assert(t, !validateValueWithStringPattern(log.Log, 2.0001, "0.00001-2.00001"))
+
+	assert.Assert(t, validateValueWithStringPattern(log.Log, 0, "0.00001!-2.00001"))
+	assert.Assert(t, !validateValueWithStringPattern(log.Log, 1, "0.00001!-2.00001"))
+	assert.Assert(t, !validateValueWithStringPattern(log.Log, 2, "0.00001!-2.00001"))
+	assert.Assert(t, validateValueWithStringPattern(log.Log, 2.0001, "0.00001!-2.00001"))
+
+	assert.Assert(t, validateValueWithStringPattern(log.Log, 2, "2-2"))
+	assert.Assert(t, !validateValueWithStringPattern(log.Log, 2, "2!-2"))
+
+	assert.Assert(t, validateValueWithStringPattern(log.Log, 2.99999, "2.99998-3"))
+	assert.Assert(t, validateValueWithStringPattern(log.Log, 2.99997, "2.99998!-3"))
+	assert.Assert(t, validateValueWithStringPattern(log.Log, 3.00001, "2.99998!-3"))
+
+	assert.Assert(t, validateValueWithStringPattern(log.Log, "256Mi", "128Mi-512Mi"))
+	assert.Assert(t, !validateValueWithStringPattern(log.Log, "1024Mi", "128Mi-512Mi"))
+	assert.Assert(t, !validateValueWithStringPattern(log.Log, "64Mi", "128Mi-512Mi"))
+
+	assert.Assert(t, !validateValueWithStringPattern(log.Log, "256Mi", "128Mi!-512Mi"))
+	assert.Assert(t, validateValueWithStringPattern(log.Log, "1024Mi", "128Mi!-512Mi"))
+	assert.Assert(t, validateValueWithStringPattern(log.Log, "64Mi", "128Mi!-512Mi"))
+}
+
 func TestValidateNumberWithStr_LessFloatAndInt(t *testing.T) {
 	assert.Assert(t, validateNumberWithStr(log.Log, 7.00001, "7.000001", operator.More))
 	assert.Assert(t, validateNumberWithStr(log.Log, 7.00001, "7", operator.NotEqual))

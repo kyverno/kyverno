@@ -1,10 +1,11 @@
 package cosign
 
 import (
+	"testing"
+
 	"github.com/go-logr/logr"
 	"github.com/sigstore/cosign/pkg/cosign"
 	"gotest.tools/assert"
-	"testing"
 )
 
 const cosignPayload = `{

@@ -68,7 +68,7 @@ docker-publish-sbom: docker-build-sbom docker-push-sbom
 docker-build-sbom:
 	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --tag $(REPO)/$(SBOM_IMAGE):$(IMAGE_TAG) .
 
-docker-push-signature:
+docker-push-sbom:
 	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SBOM_IMAGE):$(IMAGE_TAG) .
 	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SBOM_IMAGE):latest .
 
@@ -308,9 +308,20 @@ endif
 deepcopy-autogen: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..."
 
+goimports:
+ifeq (, $(shell which goimports))
+	@{ \
+	echo "goimports not found!";\
+	echo "installing goimports...";\
+	go get golang.org/x/tools/cmd/goimports;\
+	}
+else
+GO_IMPORTS=$(shell which goimports)
+endif
+
 # Run go fmt against code
-fmt:
-	gofmt -s -w .
+fmt: goimports
+	go fmt ./... && $(GO_IMPORTS) -w ./
 
 vet:
 	go vet ./...

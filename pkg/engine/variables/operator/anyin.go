@@ -28,10 +28,12 @@ func (anyin AnyInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
 		return anyin.validateValueWithStringPattern(typedKey, value)
+	case int, int32, int64, float32, float64:
+		return anyin.validateValueWithStringPattern(fmt.Sprint(typedKey), value)
 	case []interface{}:
 		var stringSlice []string
 		for _, v := range typedKey {
-			stringSlice = append(stringSlice, v.(string))
+			stringSlice = append(stringSlice, fmt.Sprint(v))
 		}
 		return anyin.validateValueWithStringSetPattern(stringSlice, value)
 	default:
@@ -70,11 +72,7 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 	case []interface{}:
 		var valueSlice []string
 		for _, val := range valuesAvailable {
-			v, ok := val.(string)
-			if !ok {
-				return true, false
-			}
-			valueSlice = append(valueSlice, v)
+			valueSlice = append(valueSlice, fmt.Sprint(val))
 		}
 		if anyNotIn {
 			return false, isAnyNotIn(key, valueSlice)
@@ -126,11 +124,7 @@ func isAnyNotIn(key []string, value []string) bool {
 			}
 		}
 	}
-	if found < len(key) {
-		return true
-	} else {
-		return false
-	}
+	return found < len(key)
 }
 
 func (anyin AnyInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {

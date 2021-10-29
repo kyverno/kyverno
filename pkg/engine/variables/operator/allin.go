@@ -31,7 +31,7 @@ func (allin AllInHandler) Evaluate(key, value interface{}) bool {
 	case []interface{}:
 		var stringSlice []string
 		for _, v := range typedKey {
-			stringSlice = append(stringSlice, v.(string))
+			stringSlice = append(stringSlice, fmt.Sprint(v))
 		}
 		return allin.validateValueWithStringSetPattern(stringSlice, value)
 	default:
@@ -70,11 +70,7 @@ func allSetExistsInArray(key []string, value interface{}, log logr.Logger, allNo
 	case []interface{}:
 		var valueSlice []string
 		for _, val := range valuesAvailable {
-			v, ok := val.(string)
-			if !ok {
-				return true, false
-			}
-			valueSlice = append(valueSlice, v)
+			valueSlice = append(valueSlice, fmt.Sprint(val))
 		}
 		if allNotIn {
 			return false, isAllNotIn(key, valueSlice)
@@ -114,12 +110,7 @@ func isAllIn(key []string, value []string) bool {
 			}
 		}
 	}
-	if found == len(key) {
-		return true
-	} else {
-		return false
-	}
-
+	return found == len(key)
 }
 
 // isAllNotIn checks if all the values in S1 are not in S2

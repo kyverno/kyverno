@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/minio/pkg/wildcard"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -67,6 +68,26 @@ func (eh EqualHandler) validateValueWithMapPattern(key map[string]interface{}, v
 }
 
 func (eh EqualHandler) validateValueWithStringPattern(key string, value interface{}) bool {
+	// We need to check duration first as it's the only type that can be compared to a different type.
+	durationKey, durationValue, err := parseDuration(key, value)
+	if err == nil {
+		return durationKey.Seconds() == durationValue.Seconds()
+	}
+
+	// Attempt to extract resource quantity from string.
+	resourceKey, err := resource.ParseQuantity(key)
+	if err == nil {
+		switch typedValue := value.(type) {
+		case string:
+			resourceValue, err := resource.ParseQuantity(typedValue)
+			if err != nil {
+				eh.log.Error(fmt.Errorf("parse error: "), "Failed to parse value type doesn't match key type")
+				return false
+			}
+			return resourceKey.Equal(resourceValue)
+		}
+	}
+
 	if val, ok := value.(string); ok {
 		return wildcard.Match(val, key)
 	}

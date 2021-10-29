@@ -26,7 +26,7 @@ func NewConditionalAnchorError(msg string) ValidateAnchorError {
 	}
 }
 
-// IsConditionAnchorError ...
+// IsConditionAnchorError checks if the error is a conditional anchor error
 func (e ValidateAnchorError) IsConditionAnchorError() bool {
 	return e.Err == ConditionalAnchorErr
 }
@@ -39,16 +39,17 @@ func NewGlobalAnchorError(msg string) ValidateAnchorError {
 	}
 }
 
-// IsConditionAnchorError ...
+// IsGlobalAnchorError checks if the error is a global anchor error
 func (e ValidateAnchorError) IsGlobalAnchorError() bool {
 	return e.Err == GlobalAnchorErr
 }
 
-// IsNil ...
+// IsNil checks if the error isn't populated
 func (e ValidateAnchorError) IsNil() bool {
 	return e == ValidateAnchorError{}
 }
 
+// Error returns an error instance of the anchor error
 func (e ValidateAnchorError) Error() error {
 	return errors.New(e.Message)
 }

@@ -40,6 +40,16 @@ jobs:
            exit 1
           fi
 
+      - name: goimports
+        run: |
+          if [ "$(goimports -l . | wc -l)" -ne 0 ]
+          then
+           echo "The following files were found to have import formatting issues:"
+           goimports -l -l .
+           echo "Please run 'make fmt' to go format the above files."
+           exit 1
+          fi
+
       - name: golangci-lint
         uses: reviewdog/action-golangci-lint@v1
 
@@ -115,7 +125,7 @@ jobs:
 
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@master
-        with: 
+        with:
           image-ref: 'ghcr.io/kyverno/kyverno:latest'
           format: 'table'
           exit-code: '1'

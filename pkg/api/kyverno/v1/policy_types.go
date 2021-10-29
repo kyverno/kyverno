@@ -136,7 +136,7 @@ const (
 	Fail FailurePolicyType = "Fail"
 )
 
-// AnyAllCondition consists of conditions wrapped denoting a logical criteria to be fulfilled.
+// AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
 // AnyConditions get fulfilled when at least one of its sub-conditions passes.
 // AllConditions get fulfilled only when all of its sub-conditions pass.
 type AnyAllConditions struct {
@@ -311,9 +311,10 @@ type ExcludeResources struct {
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
+// ResourceFilters is a slice of ResourceFilter
 type ResourceFilters []ResourceFilter
 
-// ResourceFilters allow users to "AND" or "OR" between resources
+// ResourceFilter allow users to "AND" or "OR" between resources
 type ResourceFilter struct {
 	// UserInfo contains information about the user performing the operation.
 	// +optional
@@ -411,12 +412,12 @@ type Mutation struct {
 	// +optional
 	PatchesJSON6902 string `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
 
-	// ForEach applies policy rule changes to nested elements.
+	// ForEachMutation applies policy rule changes to nested elements.
 	// +optional
 	ForEachMutation []*ForEachMutation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
-// ForEach applies policy rule changes to nested elements.
+// ForEachMutation applies policy rule changes to nested elements.
 type ForEachMutation struct {
 
 	// List specifies a JMESPath expression that results in one or more elements
@@ -427,7 +428,7 @@ type ForEachMutation struct {
 	// +optional
 	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
 
-	// Preconditions are used to determine if a policy rule should be applied by evaluating a
+	// AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements.
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +kubebuilder:validation:XPreserveUnknownFields
@@ -498,7 +499,7 @@ type Deny struct {
 	AnyAllConditions apiextensions.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
-// ForEach applies policy rule checks to nested elements.
+// ForEachValidation applies policy rule checks to nested elements.
 type ForEachValidation struct {
 
 	// List specifies a JMESPath expression that results in one or more elements
@@ -509,7 +510,7 @@ type ForEachValidation struct {
 	// +optional
 	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
 
-	// Preconditions are used to determine if a policy rule should be applied by evaluating a
+	// AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements.
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +kubebuilder:validation:XPreserveUnknownFields

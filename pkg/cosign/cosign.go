@@ -49,6 +49,7 @@ func Initialize(client kubernetes.Interface, namespace, serviceAccount string, i
 	return nil
 }
 
+// VerifySignature verifies that the image has the expected key
 func VerifySignature(imageRef string, key []byte, repository string, log logr.Logger) (digest string, err error) {
 	pubKey, err := decodePEM(key)
 	if err != nil {

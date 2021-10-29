@@ -36,7 +36,7 @@ rules:
   verbs:
   - create
   - delete
-  - get 
+  - get
   - list
   - patch
   - update
@@ -52,7 +52,7 @@ rules:
   verbs:
   - create
   - delete
-  - get 
+  - get
   - update
   - watch
 - apiGroups:
@@ -62,7 +62,7 @@ rules:
   resourceNames:
   - kubernetes.io/legacy-unknown
   verbs:
-  - approve 
+  - approve
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -125,7 +125,7 @@ rules:
   - customresourcedefinitions
   verbs:
   - delete
----  
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:

@@ -81,10 +81,10 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 			err      error
 		)
 
-		isHttpPath := IsHttpRegex.MatchString(path)
+		isHTTPPath := IsHTTPRegex.MatchString(path)
 
 		// path clean and retrieving file info can be possible if it's not an HTTP URL
-		if !isHttpPath {
+		if !isHTTPPath {
 			path = filepath.Clean(path)
 			fileDesc, err = os.Stat(path)
 			if err != nil {
@@ -95,7 +95,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 		}
 
 		// apply file from a directory is possible only if the path is not HTTP URL
-		if !isHttpPath && fileDesc.IsDir() {
+		if !isHTTPPath && fileDesc.IsDir() {
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
 				err := fmt.Errorf("failed to process %v: %v", path, err.Error())
@@ -117,7 +117,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 
 		} else {
 			var fileBytes []byte
-			if isHttpPath {
+			if isHTTPPath {
 				// We accept here that a random URL might be called based on user provided input.
 				resp, err := http.Get(path) // #nosec
 				if err != nil {
@@ -258,7 +258,7 @@ func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) error {
 		matchesAll := RegexVariables.FindAllStringSubmatch(string(ruleJSON), -1)
 		matchesAllowed := AllowedVariables.FindAllStringSubmatch(string(ruleJSON), -1)
 		if (len(matchesAll) > len(matchesAllowed)) && len(rule.Context) == 0 {
-			allowed := "{{request.*}}, {{element.*}}, {{serviceAccountName}}, {{serviceAccountNamespace}}, {{@}}, and context variables"
+			allowed := "{{request.*}}, {{element.*}}, {{serviceAccountName}}, {{serviceAccountNamespace}}, {{@}}, {{images.*}} and context variables"
 			return fmt.Errorf("rule \"%s\" has forbidden variables. Allowed variables are: %s", rule.Name, allowed)
 		}
 	}

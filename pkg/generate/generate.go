@@ -435,7 +435,15 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 				label["policy.kyverno.io/synchronize"] = "enable"
 				newResource.SetLabels(label)
 
-				if _, err := ValidateResourceWithPattern(logger, generatedObj.Object, rdata); err != nil {
+				if genAPIVersion == "" {
+					generatedResourceAPIVersion := generatedObj.GetAPIVersion()
+					newResource.SetAPIVersion(generatedResourceAPIVersion)
+				}
+				if genNamespace == "" {
+					newResource.SetNamespace("default")
+				}
+
+				if _, err := ValidateResourceWithPattern(logger, generatedObj.Object, newResource.Object); err != nil {
 					_, err = client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
 					if err != nil {
 						logger.Error(err, "failed to update resource")

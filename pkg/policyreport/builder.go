@@ -35,7 +35,7 @@ const (
 	deletedAnnotationResourceName string = "kyverno.io/delete.resource.name"
 	deletedAnnotationResourceKind string = "kyverno.io/delete.resource.kind"
 
-	// static value for PolicyReportResult.Source
+	// SourceValue is the static value for PolicyReportResult.Source
 	SourceValue = "Kyverno"
 )
 
