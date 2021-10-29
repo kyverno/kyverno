@@ -1,5 +1,9 @@
 package operator
 
+import (
+	"regexp"
+)
+
 // Operator is string alias that represents selection operators enum
 type Operator string
 
@@ -16,6 +20,10 @@ const (
 	More Operator = ">"
 	// Less stands for <
 	Less Operator = "<"
+	// InRange stands for -
+	InRange Operator = "-"
+	// NotInRange stands for !-
+	NotInRange Operator = "!-"
 )
 
 //ReferenceSign defines the operator for anchor reference
@@ -45,6 +53,14 @@ func GetOperatorFromStringPattern(pattern string) Operator {
 
 	if pattern[:len(NotEqual)] == string(NotEqual) {
 		return NotEqual
+	}
+
+	if match, _ := regexp.Match(`^(\d+(\.\d+)?)([^-]*)!-(\d+(\.\d+)?)([^-]*)$`, []byte(pattern)); match {
+		return NotInRange
+	}
+
+	if match, _ := regexp.Match(`^(\d+(\.\d+)?)([^-]*)-(\d+(\.\d+)?)([^-]*)$`, []byte(pattern)); match {
+		return InRange
 	}
 
 	return Equal
