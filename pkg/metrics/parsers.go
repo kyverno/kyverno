@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
 func ParsePolicyValidationMode(validationFailureAction string) (PolicyValidationMode, error) {

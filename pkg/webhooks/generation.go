@@ -9,9 +9,8 @@ import (
 
 	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -28,13 +27,13 @@ import (
 	policyResults "github.com/kyverno/kyverno/pkg/metrics/policyresults"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
-	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*v1.ClusterPolicy, ts int64, logger logr.Logger) {
+func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*kyverno.ClusterPolicy, ts int64, logger logr.Logger) {
 	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
 	generateEngineResponsesSenderForAdmissionReviewDurationMetric := make(chan []*response.EngineResponse, 1)
 	generateEngineResponsesSenderForAdmissionRequestsCountMetric := make(chan []*response.EngineResponse, 1)
@@ -204,7 +203,7 @@ func (ws *WebhookServer) handleUpdateGenerateSourceResource(resLabels map[string
 
 // updateAnnotationInGR - function used to update GR annotation
 // updating GR will trigger reprocessing of GR and recreation/updation of generated resource
-func (ws *WebhookServer) updateAnnotationInGR(gr *v1.GenerateRequest, logger logr.Logger) {
+func (ws *WebhookServer) updateAnnotationInGR(gr *kyverno.GenerateRequest, logger logr.Logger) {
 	grAnnotations := gr.Annotations
 	if len(grAnnotations) == 0 {
 		grAnnotations = make(map[string]string)
@@ -219,7 +218,7 @@ func (ws *WebhookServer) updateAnnotationInGR(gr *v1.GenerateRequest, logger log
 }
 
 //handleUpdateGenerateTargetResource - handles update of target resource for generate policy
-func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.AdmissionRequest, policies []*v1.ClusterPolicy, resLabels map[string]string, logger logr.Logger) {
+func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, resLabels map[string]string, logger logr.Logger) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
@@ -280,7 +279,7 @@ func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.Adm
 	}
 }
 
-func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client *client.Client, rule v1.Rule, logger logr.Logger) (v1.Rule, error) {
+func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client *client.Client, rule kyverno.Rule, logger logr.Logger) (kyverno.Rule, error) {
 	var apiVersion, kind, name, namespace string
 	sourceRequest := &v1beta1.AdmissionRequest{}
 	kind = resLabels["kyverno.io/generated-by-kind"]
@@ -460,7 +459,7 @@ func transform(admissionRequestInfo kyverno.AdmissionRequestInfoObject, userRequ
 }
 
 type generateRequestResponse struct {
-	gr  v1.GenerateRequestSpec
+	gr  kyverno.GenerateRequestSpec
 	err error
 }
 

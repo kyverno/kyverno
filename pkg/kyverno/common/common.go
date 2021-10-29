@@ -16,8 +16,8 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-logr/logr"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	yaml_v2 "sigs.k8s.io/yaml"
+	k8syaml "sigs.k8s.io/yaml"
 )
 
 type ResultCounts struct {
@@ -371,7 +371,7 @@ func GetCRD(path string) (unstructuredCrds []*unstructured.Unstructured, err err
 			os.Exit(2)
 		}
 		var u unstructured.Unstructured
-		err = yaml_v2.Unmarshal(b, &u)
+		err = k8syaml.Unmarshal(b, &u)
 		if err != nil {
 			return nil, err
 		}

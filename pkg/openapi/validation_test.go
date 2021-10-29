@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"gotest.tools/assert"
 )
 

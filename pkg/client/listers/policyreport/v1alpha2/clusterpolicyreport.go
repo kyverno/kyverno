@@ -19,7 +19,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	v1alpha22 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -30,10 +30,10 @@ import (
 type ClusterPolicyReportLister interface {
 	// List lists all ClusterPolicyReports in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.ClusterPolicyReport, err error)
+	List(selector labels.Selector) (ret []*v1alpha22.ClusterPolicyReport, err error)
 	// Get retrieves the ClusterPolicyReport from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.ClusterPolicyReport, error)
+	Get(name string) (*v1alpha22.ClusterPolicyReport, error)
 	ClusterPolicyReportListerExpansion
 }
 
@@ -48,21 +48,21 @@ func NewClusterPolicyReportLister(indexer cache.Indexer) ClusterPolicyReportList
 }
 
 // List lists all ClusterPolicyReports in the indexer.
-func (s *clusterPolicyReportLister) List(selector labels.Selector) (ret []*v1alpha2.ClusterPolicyReport, err error) {
+func (s *clusterPolicyReportLister) List(selector labels.Selector) (ret []*v1alpha22.ClusterPolicyReport, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.ClusterPolicyReport))
+		ret = append(ret, m.(*v1alpha22.ClusterPolicyReport))
 	})
 	return ret, err
 }
 
 // Get retrieves the ClusterPolicyReport from the index for a given name.
-func (s *clusterPolicyReportLister) Get(name string) (*v1alpha2.ClusterPolicyReport, error) {
+func (s *clusterPolicyReportLister) Get(name string) (*v1alpha22.ClusterPolicyReport, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(v1alpha2.Resource("clusterpolicyreport"), name)
+		return nil, errors.NewNotFound(v1alpha22.Resource("clusterpolicyreport"), name)
 	}
-	return obj.(*v1alpha2.ClusterPolicyReport), nil
+	return obj.(*v1alpha22.ClusterPolicyReport), nil
 }

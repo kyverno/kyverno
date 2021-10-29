@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	changerequest "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	labels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -22,8 +24,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha2"
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	requestinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
 	policyreportinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha2"
@@ -372,7 +372,7 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstru
 			return nil, nil
 		}
 
-		report, err = g.reportLister.PolicyReports(namespace).Get(generatePolicyReportName((namespace)))
+		report, err = g.reportLister.PolicyReports(namespace).Get(generatePolicyReportName(namespace))
 		if err != nil {
 			if apierrors.IsNotFound(err) && new != nil {
 				if _, err := g.dclient.CreateResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new, false); err != nil {
@@ -387,7 +387,7 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstru
 			return nil, fmt.Errorf("unable to get policyReport: %v", err)
 		}
 	} else {
-		report, err = g.clusterReportLister.Get(generatePolicyReportName((namespace)))
+		report, err = g.clusterReportLister.Get(generatePolicyReportName(namespace))
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				if new != nil {

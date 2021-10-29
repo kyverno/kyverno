@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	v1alpha2 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	changerequestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	policyreportlister "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"

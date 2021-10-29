@@ -19,7 +19,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha2"
+	v1alpha22 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -30,7 +30,7 @@ import (
 type ReportChangeRequestLister interface {
 	// List lists all ReportChangeRequests in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.ReportChangeRequest, err error)
+	List(selector labels.Selector) (ret []*v1alpha22.ReportChangeRequest, err error)
 	// ReportChangeRequests returns an object that can list and get ReportChangeRequests.
 	ReportChangeRequests(namespace string) ReportChangeRequestNamespaceLister
 	ReportChangeRequestListerExpansion
@@ -47,9 +47,9 @@ func NewReportChangeRequestLister(indexer cache.Indexer) ReportChangeRequestList
 }
 
 // List lists all ReportChangeRequests in the indexer.
-func (s *reportChangeRequestLister) List(selector labels.Selector) (ret []*v1alpha2.ReportChangeRequest, err error) {
+func (s *reportChangeRequestLister) List(selector labels.Selector) (ret []*v1alpha22.ReportChangeRequest, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.ReportChangeRequest))
+		ret = append(ret, m.(*v1alpha22.ReportChangeRequest))
 	})
 	return ret, err
 }
@@ -64,10 +64,10 @@ func (s *reportChangeRequestLister) ReportChangeRequests(namespace string) Repor
 type ReportChangeRequestNamespaceLister interface {
 	// List lists all ReportChangeRequests in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.ReportChangeRequest, err error)
+	List(selector labels.Selector) (ret []*v1alpha22.ReportChangeRequest, err error)
 	// Get retrieves the ReportChangeRequest from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.ReportChangeRequest, error)
+	Get(name string) (*v1alpha22.ReportChangeRequest, error)
 	ReportChangeRequestNamespaceListerExpansion
 }
 
@@ -79,21 +79,21 @@ type reportChangeRequestNamespaceLister struct {
 }
 
 // List lists all ReportChangeRequests in the indexer for a given namespace.
-func (s reportChangeRequestNamespaceLister) List(selector labels.Selector) (ret []*v1alpha2.ReportChangeRequest, err error) {
+func (s reportChangeRequestNamespaceLister) List(selector labels.Selector) (ret []*v1alpha22.ReportChangeRequest, err error) {
 	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.ReportChangeRequest))
+		ret = append(ret, m.(*v1alpha22.ReportChangeRequest))
 	})
 	return ret, err
 }
 
 // Get retrieves the ReportChangeRequest from the indexer for a given namespace and name.
-func (s reportChangeRequestNamespaceLister) Get(name string) (*v1alpha2.ReportChangeRequest, error) {
+func (s reportChangeRequestNamespaceLister) Get(name string) (*v1alpha22.ReportChangeRequest, error) {
 	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(v1alpha2.Resource("reportchangerequest"), name)
+		return nil, errors.NewNotFound(v1alpha22.Resource("reportchangerequest"), name)
 	}
-	return obj.(*v1alpha2.ReportChangeRequest), nil
+	return obj.(*v1alpha22.ReportChangeRequest), nil
 }

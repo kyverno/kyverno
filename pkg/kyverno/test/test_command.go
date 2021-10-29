@@ -17,7 +17,7 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-logr/logr"
 	"github.com/kataras/tablewriter"
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
