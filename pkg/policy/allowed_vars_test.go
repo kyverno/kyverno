@@ -1,4 +1,4 @@
-package common
+package policy
 
 import (
 	"fmt"
@@ -57,8 +57,8 @@ func TestNotAllowedVars_MatchSection(t *testing.T) {
 	policy, err := ut.GetPolicy(policyWithVarInMatch)
 	assert.NilError(t, err)
 
-	err = PolicyHasNonAllowedVariables(*policy[0])
-	assert.Error(t, err, "Rule \"validate-name\" should not have variables in match section")
+	err = hasInvalidVariables(policy[0], false)
+	assert.Error(t, err, "rule \"validate-name\" should not have variables in match section")
 }
 
 func TestNotAllowedVars_ExcludeSection(t *testing.T) {
@@ -109,8 +109,8 @@ func TestNotAllowedVars_ExcludeSection(t *testing.T) {
 	policy, err := ut.GetPolicy(policyWithVarInExclude)
 	assert.NilError(t, err)
 
-	err = PolicyHasNonAllowedVariables(*policy[0])
-	assert.Error(t, err, "Rule \"validate-name\" should not have variables in exclude section")
+	err = hasInvalidVariables(policy[0], false)
+	assert.Error(t, err, "rule \"validate-name\" should not have variables in exclude section")
 }
 
 func TestNotAllowedVars_ExcludeSection_PositiveCase(t *testing.T) {
@@ -162,7 +162,7 @@ func TestNotAllowedVars_ExcludeSection_PositiveCase(t *testing.T) {
 	policy, err := ut.GetPolicy(policyWithVarInExclude)
 	assert.NilError(t, err)
 
-	err = PolicyHasNonAllowedVariables(*policy[0])
+	err = hasInvalidVariables(policy[0], false)
 	assert.NilError(t, err)
 }
 
@@ -196,8 +196,8 @@ func TestNotAllowedVars_JSONPatchPath(t *testing.T) {
 	policy, err := ut.GetPolicy(policyWithVarInExclude)
 	assert.NilError(t, err)
 
-	err = PolicyHasNonAllowedVariables(*policy[0])
-	assert.Error(t, err, "Rule \"pCM1\" should not have variables in patchesJSON6902 path section")
+	err = hasInvalidVariables(policy[0], false)
+	assert.Error(t, err, "rule \"pCM1\" should not have variables in patchesJSON6902 path section")
 }
 
 func TestNotAllowedVars_JSONPatchPath_PositiveCase(t *testing.T) {
@@ -230,7 +230,7 @@ func TestNotAllowedVars_JSONPatchPath_PositiveCase(t *testing.T) {
 	policy, err := ut.GetPolicy(policyWithVarInExclude)
 	assert.NilError(t, err)
 
-	err = PolicyHasNonAllowedVariables(*policy[0])
+	err = hasInvalidVariables(policy[0], false)
 	assert.NilError(t, err)
 }
 
@@ -262,7 +262,7 @@ spec:
 	policy, err := ut.GetPolicy(policyJSON)
 	assert.NilError(t, err)
 
-	err = PolicyHasNonAllowedVariables(*policy[0])
+	err = hasInvalidVariables(policy[0], false)
 	assert.NilError(t, err)
 }
 
@@ -276,7 +276,7 @@ func TestNotAllowedVars_VariableFormats(t *testing.T) {
 		{"request_object", "request.object.meta", true},
 		{"service_account_name", "serviceAccountName", true},
 		{"service_account_namespace", "serviceAccountNamespace", true},
-		{"@", "@", true},
+		{"self", "@", true},
 		{"custom_func_compare", "compare(string, string)", true},
 		{"custom_func_contains", "contains(string, string)", true},
 		{"custom_func_equal_fold", "equal_fold(string, string)", true},
@@ -316,6 +316,7 @@ func TestNotAllowedVars_VariableFormats(t *testing.T) {
 		{"to_number", "to_number(foo, bar)", true},
 		{"type", "type(foo, bar)", true},
 		{"values", "values(foo, bar)", true},
+		{"self_path_test", "@", true},
 	}
 
 	for _, tc := range tcs {
@@ -348,7 +349,7 @@ func TestNotAllowedVars_VariableFormats(t *testing.T) {
 		policy, err := ut.GetPolicy(policyYAML)
 		assert.NilError(t, err)
 
-		err = PolicyHasNonAllowedVariables(*policy[0])
+		err = hasInvalidVariables(policy[0], false)
 		if tc.pass {
 			assert.NilError(t, err, "%s: not expecting an error", tc.name)
 		} else {

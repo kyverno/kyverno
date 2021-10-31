@@ -280,7 +280,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 			continue
 		}
 
-		matches := common.PolicyHasVariables(*policy)
+		matches := common.HasVariables(policy)
 		variable := common.RemoveDuplicateAndObjectVariables(matches)
 		if len(variable) > 0 {
 			if len(variables) == 0 {
