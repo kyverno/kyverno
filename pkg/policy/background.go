@@ -20,7 +20,7 @@ func containsUserVariables(policy *kyverno.ClusterPolicy, vars [][]string) error
 		}
 	}
 
-	for idx, _ := range policy.Spec.Rules {
+	for idx := range policy.Spec.Rules {
 		if err := hasUserMatchExclude(idx, &policy.Spec.Rules[idx]); err != nil {
 			return err
 		}
