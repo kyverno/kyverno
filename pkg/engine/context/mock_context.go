@@ -58,6 +58,7 @@ func (ctx *MockContext) Query(query string) (interface{}, error) {
 
 	return emptyResult, InvalidVariableErr{
 		variable:        query,
+		re:              ctx.re,
 		allowedPatterns: ctx.allowedPatterns,
 	}
 }
@@ -83,11 +84,16 @@ func (ctx *MockContext) getVariables() []string {
 // InvalidVariableErr represents error for non-white-listed variables
 type InvalidVariableErr struct {
 	variable        string
+	re              *regexp.Regexp
 	allowedPatterns []string
 }
 
 func (i InvalidVariableErr) Error() string {
-	return fmt.Sprintf("unknown variable %s, use: %v", i.variable, i.allowedPatterns)
+	if i.re == nil {
+		return fmt.Sprintf("variable %s must match patterns %v", i.variable, i.allowedPatterns)
+	}
+
+	return fmt.Sprintf("variable %s must match regex \"%s\" or patterns %v", i.variable, i.re.String(), i.allowedPatterns)
 }
 
 func (ctx *MockContext) HasChanged(_ string) (bool, error) {

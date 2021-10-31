@@ -55,7 +55,6 @@ type Context struct {
 	mutex              sync.RWMutex
 	jsonRaw            []byte
 	jsonRawCheckpoints [][]byte
-	declaredVariables  []string
 	images             *Images
 	log                logr.Logger
 }
