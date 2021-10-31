@@ -46,6 +46,8 @@ func (ctx *MockContext) Query(query string) (interface{}, error) {
 		return emptyResult, fmt.Errorf("invalid JMESPath query %s: %v", query, err)
 	}
 
+	// strip escaped quotes from JMESPath variables with dashes e.g. {{ \"my-map.data\".key }}
+	query = strings.Replace(query, "\"", "", -1)
 	if ctx.re != nil && ctx.re.MatchString(query) {
 		return emptyResult, nil
 	}
