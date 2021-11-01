@@ -44,12 +44,6 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	startMutateResultResponse(resp, policy, patchedResource)
 	defer endMutateResultResponse(logger, resp, startTime)
 
-	if ManagedPodResource(policy, patchedResource) {
-		logger.V(5).Info("changes to pods managed by workload controllers are not permitted", "policy", policy.GetName())
-		resp.PatchedResource = patchedResource
-		return
-	}
-
 	policyContext.JSONContext.Checkpoint()
 	defer policyContext.JSONContext.Restore()
 
