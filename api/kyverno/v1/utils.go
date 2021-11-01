@@ -155,23 +155,21 @@ func jsonDeepCopy(in apiextensions.JSON) *apiextensions.JSON {
 	}
 
 	out := new(apiextensions.JSON)
-	switch in.(type) {
+	switch in := in.(type) {
 	case bool, int64, float64, string:
 		*out = in
 	case []interface{}:
-		in_tmp := in.([]interface{})
-		out_tmp := make([]interface{}, len(in_tmp))
+		out_tmp := make([]interface{}, len(in))
 
-		for i, v := range in_tmp {
+		for i, v := range in {
 			out_tmp[i] = *jsonDeepCopy(v)
 		}
 
 		*out = out_tmp
 	case map[string]interface{}:
-		in_tmp := in.(map[string]interface{})
 		out_tmp := make(map[string]interface{})
 
-		for i, v := range in_tmp {
+		for i, v := range in {
 			out_tmp[i] = *jsonDeepCopy(v)
 		}
 
