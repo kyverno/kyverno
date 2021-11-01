@@ -75,22 +75,6 @@ func MergeResources(a, b map[string]unstructured.Unstructured) {
 	}
 }
 
-// ExcludePod filters out the pods with ownerReference
-func ExcludePod(resourceMap map[string]unstructured.Unstructured, log logr.Logger) map[string]unstructured.Unstructured {
-	for uid, r := range resourceMap {
-		if r.GetKind() != "Pod" {
-			continue
-		}
-
-		if len(r.GetOwnerReferences()) > 0 {
-			log.V(4).Info("exclude Pod", "namespace", r.GetNamespace(), "name", r.GetName())
-			delete(resourceMap, uid)
-		}
-	}
-
-	return resourceMap
-}
-
 // getNamespacesForRule gets the matched namespaces list for the given rule
 func (pc *PolicyController) getNamespacesForRule(rule *kyverno.Rule, log logr.Logger) []string {
 	var matchedNS []string

@@ -77,10 +77,6 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 
 func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineResponse {
 	resp := &response.EngineResponse{}
-	if ManagedPodResource(ctx.Policy, ctx.NewResource) {
-		log.V(5).Info("skip validation of pods managed by workload controllers", "policy", ctx.Policy.GetName())
-		return resp
-	}
 
 	ctx.JSONContext.Checkpoint()
 	defer ctx.JSONContext.Restore()
