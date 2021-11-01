@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	gojmespath "github.com/jmespath/go-jmespath"
 )
@@ -46,6 +47,7 @@ var (
 	modulo                 = "modulo"
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
+	timeSince              = "time_since"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -53,6 +55,25 @@ const invalidArgumentTypeError = errorPrefix + "%d argument is expected of %s ty
 const genericError = errorPrefix + "%s"
 const zeroDivisionError = errorPrefix + "Zero divisor passed"
 const nonIntModuloError = errorPrefix + "Non-integer argument(s) passed for modulo"
+
+var layouts = map[string]string{
+	"Layout":      time.Layout,
+	"ANSIC":       time.ANSIC,
+	"UnixDate":    time.UnixDate,
+	"RubyDate":    time.RubyDate,
+	"RFC822":      time.RFC822,
+	"RFC822Z":     time.RFC822Z,
+	"RFC850":      time.RFC850,
+	"RFC1123":     time.RFC1123,
+	"RFC1123Z":    time.RFC1123Z,
+	"RFC3339":     time.RFC3339,
+	"RFC3339Nano": time.RFC3339Nano,
+	"Kitchen":     time.Kitchen,
+	"Stamp":       time.Stamp,
+	"StampMilli":  time.StampMilli,
+	"StampMicro":  time.StampMicro,
+	"StampNano":   time.StampNano,
+}
 
 func getFunctions() []*gojmespath.FunctionEntry {
 	return []*gojmespath.FunctionEntry{
@@ -209,6 +230,14 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpString}},
 			},
 			Handler: jpBase64Encode,
+		},
+		{
+			Name: timeSince,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpTimeSince,
 		},
 	}
 
@@ -548,6 +577,33 @@ func jpBase64Encode(arguments []interface{}) (interface{}, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(str.String())), nil
+}
+
+func jpTimeSince(arguments []interface{}) (interface{}, error) {
+	var err error
+	layout_, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	layout := layout_.String()
+	if val, ok := layouts[layout]; ok {
+		layout = val
+	}
+
+	timestamp_, err := validateArg("", arguments, 1, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	timestamp := timestamp_.String()
+
+	t1, err := time.Parse(layout, timestamp)
+	if err != nil {
+		return nil, err
+	}
+
+	return time.Since(t1).String(), nil
 }
 
 // InterfaceToString casts an interface to a string type
