@@ -149,38 +149,67 @@ func deserializePattern(pattern apiextensions.JSON) ([]interface{}, error) {
 	return res, nil
 }
 
+func jsonDeepCopy(in apiextensions.JSON) *apiextensions.JSON {
+	if in == nil {
+		return nil
+	}
+
+	out := new(apiextensions.JSON)
+	switch in.(type) {
+	case bool, int64, float64, string:
+		*out = in
+	case []interface{}:
+		in_tmp := in.([]interface{})
+		out_tmp := make([]interface{}, len(in_tmp))
+
+		for i, v := range in_tmp {
+			out_tmp[i] = *jsonDeepCopy(v)
+		}
+
+		*out = out_tmp
+	case map[string]interface{}:
+		in_tmp := in.(map[string]interface{})
+		out_tmp := make(map[string]interface{})
+
+		for i, v := range in_tmp {
+			out_tmp[i] = *jsonDeepCopy(v)
+		}
+
+		*out = out_tmp
+	}
+
+	return out
+}
+
 // DeepCopyInto is declared because k8s:deepcopy-gen is
 // not able to generate this method for interface{} member
 func (in *Mutation) DeepCopyInto(out *Mutation) {
-	temp, err := json.Marshal(in)
-	if err != nil {
-		// never should get here
+	if out == nil {
 		return
 	}
 
-	err = json.Unmarshal(temp, out)
-	if err != nil {
-		// never should get here
-		return
+	*out = *in
+	if in.Overlay != nil {
+		out.Overlay = *jsonDeepCopy(in.Overlay)
 	}
 
-	// if out == nil {
-	// 	return
-	// }
+	if in.Patches != nil {
+		out.Patches = make([]Patch, len(in.Patches))
+		for i, v := range in.Patches {
+			v.DeepCopyInto(&out.Patches[i])
+		}
+	}
 
-	// *out = *in
-	// if in.Patches != nil {
-	// 	in, out := &in.Patches, &out.Patches
-	// 	*out = make([]Patch, len(*in))
-	// 	copy(*out, *in)
-	// }
+	if out.PatchStrategicMerge != nil {
+		out.PatchStrategicMerge = *jsonDeepCopy(in.PatchStrategicMerge)
+	}
 
-	// if in.ForEachMutation != nil {
-	// 	out.ForEachMutation = make([]*ForEachMutation, len(in.ForEachMutation))
-	// 	for i, v := range in.ForEachMutation {
-	// 		out.ForEachMutation[i] = v.DeepCopy()
-	// 	}
-	// }
+	if in.ForEachMutation != nil {
+		out.ForEachMutation = make([]*ForEachMutation, len(in.ForEachMutation))
+		for i, v := range in.ForEachMutation {
+			out.ForEachMutation[i] = v.DeepCopy()
+		}
+	}
 }
 
 // TODO - the DeepCopyInto methods are added here to work-around
@@ -191,170 +220,130 @@ func (in *Mutation) DeepCopyInto(out *Mutation) {
 // Also see: https://github.com/kyverno/kyverno/pull/2000
 
 func (pp *Patch) DeepCopyInto(out *Patch) {
-	temp, err := json.Marshal(pp)
-	if err != nil {
-		// never should get here
+	if out == nil {
 		return
 	}
 
-	err = json.Unmarshal(temp, out)
-	if err != nil {
-		// never should get here
-		return
+	*out = *pp
+	if pp.Value != nil {
+		out.Value = *jsonDeepCopy(pp.Value)
 	}
-
-	// if out != nil {
-	// 	*out = *pp
-	// }
 }
 func (in *Validation) DeepCopyInto(out *Validation) {
-	temp, err := json.Marshal(in)
-	if err != nil {
-		// never should get here
+	if out == nil {
 		return
 	}
 
-	err = json.Unmarshal(temp, out)
-	if err != nil {
-		// never should get here
-		return
+	*out = *in
+	if in.ForEachValidation != nil {
+		out.ForEachValidation = make([]*ForEachValidation, len(in.ForEachValidation))
+		for i, v := range in.ForEachValidation {
+			out.ForEachValidation[i] = v.DeepCopy()
+		}
 	}
 
-	// if out == nil {
-	// 	return
-	// }
+	if in.Pattern != nil {
+		out.Pattern = *jsonDeepCopy(in.Pattern)
+	}
 
-	// *out = *in
-	// if in.ForEachValidation != nil {
-	// 	out.ForEachValidation = make([]*ForEachValidation, len(in.ForEachValidation))
-	// 	for i, v := range in.ForEachValidation {
-	// 		out.ForEachValidation[i] = v.DeepCopy()
-	// 	}
-	// }
+	if in.AnyPattern != nil {
+		out.AnyPattern = *jsonDeepCopy(in.AnyPattern)
+	}
 
-	// out.Deny = in.Deny.DeepCopy()
+	if in.Deny != nil {
+		out.Deny = in.Deny.DeepCopy()
+	}
 }
 func (in *ForEachValidation) DeepCopyInto(out *ForEachValidation) {
-	temp, err := json.Marshal(in)
-	if err != nil {
-		// never should get here
+	if out == nil {
 		return
 	}
 
-	err = json.Unmarshal(temp, out)
-	if err != nil {
-		// never should get here
-		return
+	*out = *in
+	if in.Context != nil {
+		in, out := &in.Context, &out.Context
+		*out = make([]ContextEntry, len(*in))
+
+		for i, v := range *in {
+			(*out)[i] = *v.DeepCopy()
+		}
 	}
 
-	// if out == nil {
-	// 	return
-	// }
+	if in.AnyAllConditions != nil {
+		out.AnyAllConditions = in.AnyAllConditions.DeepCopy()
+	}
 
-	// *out = *in
-	// if in.Context != nil {
-	// 	in, out := &in.Context, &out.Context
-	// 	*out = make([]ContextEntry, len(*in))
+	if in.Pattern != nil {
+		out.Pattern = *jsonDeepCopy(in.Pattern)
+	}
 
-	// 	for i, v := range *in {
-	// 		(*out)[i] = *v.DeepCopy()
-	// 	}
-	// }
+	if in.AnyPattern != nil {
+		out.AnyPattern = *jsonDeepCopy(in.AnyPattern)
+	}
 
-	// if in.AnyAllConditions != nil {
-	// 	out.AnyAllConditions = in.AnyAllConditions.DeepCopy()
-	// }
-
-	// if in.Deny != nil {
-	// 	out.Deny = in.Deny.DeepCopy()
-	// }
+	if in.Deny != nil {
+		out.Deny = in.Deny.DeepCopy()
+	}
 }
 
 func (in *ForEachMutation) DeepCopyInto(out *ForEachMutation) {
-	temp, err := json.Marshal(in)
-	if err != nil {
-		// never should get here
+	if out == nil {
 		return
 	}
 
-	err = json.Unmarshal(temp, out)
-	if err != nil {
-		// never should get here
-		return
+	*out = *in
+	if in.Context != nil {
+		in, out := &in.Context, &out.Context
+		*out = make([]ContextEntry, len(*in))
+
+		for i, v := range *in {
+			(*out)[i] = *v.DeepCopy()
+		}
 	}
 
-	// if out == nil {
-	// 	return
-	// }
+	if in.AnyAllConditions != nil {
+		out.AnyAllConditions = in.AnyAllConditions.DeepCopy()
+	}
 
-	// *out = *in
-	// if in.Context != nil {
-	// 	in, out := &in.Context, &out.Context
-	// 	*out = make([]ContextEntry, len(*in))
-
-	// 	for i, v := range *in {
-	// 		(*out)[i] = *v.DeepCopy()
-	// 	}
-	// }
-
-	// if in.AnyAllConditions != nil {
-	// 	out.AnyAllConditions = in.AnyAllConditions.DeepCopy()
-	// }
+	if in.PatchStrategicMerge != nil {
+		out.PatchStrategicMerge = *jsonDeepCopy(in.PatchStrategicMerge)
+	}
 }
 func (gen *Generation) DeepCopyInto(out *Generation) {
-	temp, err := json.Marshal(gen)
-	if err != nil {
-		// never should get here
+	if out == nil {
 		return
 	}
 
-	err = json.Unmarshal(temp, out)
-	if err != nil {
-		// never should get here
-		return
+	*out = *gen
+	out.ResourceSpec = *gen.ResourceSpec.DeepCopy()
+
+	if out.Data != nil {
+		out.Data = *jsonDeepCopy(gen.Data)
 	}
-
-	// if out == nil {
-	// 	return
-	// }
-
-	// *out = *gen
-	// out.ResourceSpec = *gen.ResourceSpec.DeepCopy()
 }
 func (cond *Condition) DeepCopyInto(out *Condition) {
-	temp, err := json.Marshal(cond)
-	if err != nil {
-		// never should get here
+	if out == nil {
 		return
 	}
 
-	err = json.Unmarshal(temp, out)
-	if err != nil {
-		// never should get here
-		return
+	*out = *cond
+	if cond.Key != nil {
+		out.Key = *jsonDeepCopy(cond.Key)
 	}
 
-	// if out != nil {
-	// 	*out = *cond
-	// }
+	if cond.Value != nil {
+		out.Value = *jsonDeepCopy(cond.Value)
+	}
 }
 func (in *Deny) DeepCopyInto(out *Deny) {
-	temp, err := json.Marshal(in)
-	if err != nil {
-		// never should get here
+	if out == nil {
 		return
 	}
 
-	err = json.Unmarshal(temp, out)
-	if err != nil {
-		// never should get here
-		return
+	*out = *in
+	if in.AnyAllConditions != nil {
+		out.AnyAllConditions = *jsonDeepCopy(in.AnyAllConditions)
 	}
-
-	// *out = *in
-	// if in.AnyAllConditions != nil {
-	// 	out.AnyAllConditions = in.AnyAllConditions
-	// }
 }
 func (in *Rule) DeepCopyInto(out *Rule) {
 	//deepcopy.Copy(in, out)
