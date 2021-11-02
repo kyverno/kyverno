@@ -67,15 +67,15 @@ func (wrc *Register) constructOwner() v1.OwnerReference {
 	}
 
 	return v1.OwnerReference{
-		APIVersion: config.NamespaceAPIVersion,
-		Kind:       config.NamespaceKind,
-		Name:       config.KyvernoNamespace,
+		APIVersion: config.ClusterRoleAPIVersion,
+		Kind:       config.ClusterRoleKind,
+		Name:       config.ClusterRoleName,
 		UID:        kubeNamespace.GetUID(),
 	}
 }
 
 func (wrc *Register) GetKubePolicyNamespace() (*unstructured.Unstructured, error) {
-	kubeNamespace, err := wrc.client.GetResource(config.NamespaceAPIVersion, config.NamespaceKind, "", config.KyvernoNamespace)
+	kubeNamespace, err := wrc.client.GetResource(config.ClusterRoleAPIVersion, config.ClusterRoleKind, "", config.ClusterRoleName)
 	if err != nil {
 		return nil, err
 	}

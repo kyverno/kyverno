@@ -57,6 +57,15 @@ const (
 
 	// NamespaceAPIVersion define the default namespace resource apiVersion
 	NamespaceAPIVersion = "v1"
+
+	// ClusterRoleAPIVersion define the default clusterrole resource apiVersion
+	ClusterRoleAPIVersion = "rbac.authorization.k8s.io/v1"
+
+	// ClusterRoleKind define the default clusterrole resource kind
+	ClusterRoleKind = "ClusterRole"
+
+	// ClusterRoleName define the default name of clusterrole
+	ClusterRoleName = "kyverno:webhook"
 )
 
 var (
