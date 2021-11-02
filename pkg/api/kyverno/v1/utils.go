@@ -160,15 +160,23 @@ func jsonDeepCopy(in apiextensions.JSON) *apiextensions.JSON {
 		out_tmp := make([]interface{}, len(in))
 
 		for i, v := range in {
-			out_tmp[i] = *jsonDeepCopy(v)
+			if v != nil {
+				out_tmp[i] = *jsonDeepCopy(v)
+			} else {
+				out_tmp[i] = nil
+			}
 		}
 
 		*out = out_tmp
 	case map[string]interface{}:
 		out_tmp := make(map[string]interface{})
 
-		for i, v := range in {
-			out_tmp[i] = *jsonDeepCopy(v)
+		for k, v := range in {
+			if v != nil {
+				out_tmp[k] = *jsonDeepCopy(v)
+			} else {
+				out_tmp[k] = nil
+			}
 		}
 
 		*out = out_tmp
