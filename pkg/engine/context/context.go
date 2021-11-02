@@ -290,12 +290,12 @@ func (ctx *Context) AddNamespace(namespace string) error {
 }
 
 func (ctx *Context) AddImageInfo(resource *unstructured.Unstructured) error {
-	initContainersImgs, containersImgs := extractImageInfo(resource, ctx.log)
-	if len(initContainersImgs) == 0 && len(containersImgs) == 0 {
+	initContainersImgs, containersImgs, ephemeralContainersImgs := extractImageInfo(resource, ctx.log)
+	if len(initContainersImgs) == 0 && len(containersImgs) == 0 && len(ephemeralContainersImgs) == 0 {
 		return nil
 	}
 
-	images := newImages(initContainersImgs, containersImgs)
+	images := newImages(initContainersImgs, containersImgs, ephemeralContainersImgs)
 	if images == nil {
 		return nil
 	}
