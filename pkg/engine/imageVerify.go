@@ -211,7 +211,7 @@ func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.
 	image := imageInfo.String()
 
 	start := time.Now()
-	statements, err := cosign.FetchAttestations(image, []byte(key), repository)
+	statements, err := cosign.FetchAttestations(image, key, repository)
 	if err != nil {
 		iv.logger.Info("failed to fetch attestations", "image", image, "error", err, "duration", time.Since(start).Seconds())
 		return ruleError(iv.rule, utils.ImageVerify, fmt.Sprintf("failed to fetch attestations for %s", image), err)
