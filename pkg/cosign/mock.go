@@ -40,7 +40,7 @@ func (m *mock) Verify(_ context.Context, signedImgRef name.Reference, accessor c
 	}
 
 	sigs := make([]oci.Signature, 0, len(results))
-	for _ , sp := range results {
+	for _, sp := range results {
 		sigs = append(sigs, &sig{cosignPayload: sp})
 	}
 

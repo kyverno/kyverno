@@ -17,6 +17,6 @@ type Cosign interface {
 type driver struct {
 }
 
-func (d *driver) Verify(ctx context.Context, signedImgRef name.Reference,  accessor cosign.Accessor, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
-	return cosign.Verify(ctx, signedImgRef,accessor, co)
+func (d *driver) Verify(ctx context.Context, signedImgRef name.Reference, accessor cosign.Accessor, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+	return cosign.Verify(ctx, signedImgRef, accessor, co)
 }

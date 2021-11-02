@@ -6,8 +6,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/sigstore/cosign/pkg/oci/remote"
 	"strings"
+
+	"github.com/sigstore/cosign/pkg/oci/remote"
 
 	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
@@ -112,21 +113,48 @@ func VerifySignature(imageRef string, key string, repository string, log logr.Lo
 
 // FetchAttestations retrieves signed attestations and decodes them into in-toto statements
 // https://github.com/in-toto/attestation/blob/main/spec/README.md#statement
-func FetchAttestations(imageRef string, key []byte, repository string) ([]map[string]interface{}, error) {
-	pubKey, err := decodePEM(key)
+func FetchAttestations(imageRef string, key string, repository string) ([]map[string]interface{}, error) {
+	ctx := context.Background()
+	var pubKey signature.Verifier
+	var err error
+
+	if strings.HasPrefix(key, "-----BEGIN PUBLIC KEY-----") {
+		pubKey, err = decodePEM([]byte(key))
+		if err != nil {
+			return nil, errors.Wrap(err, "decode pem")
+		}
+	} else {
+		pubKey, err = sigs.PublicKeyFromKeyRef(ctx, key)
+		if err != nil {
+			return nil, errors.Wrap(err, "loading public key")
+		}
+	}
+
+	var opts []remote.Option
+	ro := options.RegistryOptions{}
+
+	opts, err = ro.ClientOpts(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to decode PEM %v", string(key))
+		return nil, errors.Wrap(err, "constructing client options")
+	}
+
+	if repository != "" {
+		signatureRepo, err := name.NewRepository(repository)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to parse signature repository %s", repository)
+		}
+		opts = append(opts, remote.WithTargetRepository(signatureRepo))
+	}
+
+	cosignOpts := &cosign.CheckOpts{
+		ClaimVerifier:      cosign.IntotoSubjectClaimVerifier,
+		SigVerifier:        dsse.WrapVerifier(pubKey),
+		RegistryClientOpts: opts,
 	}
 
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse image")
-	}
-
-	cosignOpts := &cosign.CheckOpts{
-		//RootCerts:            fulcio.GetRoots(),
-		ClaimVerifier: cosign.IntotoSubjectClaimVerifier,
-		SigVerifier:   dsse.WrapVerifier(pubKey),
 	}
 
 	verified, _, err := client.Verify(context.Background(), ref, cosign.AttestationsAccessor, cosignOpts)
