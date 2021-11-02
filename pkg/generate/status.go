@@ -15,6 +15,7 @@ import (
 type StatusControlInterface interface {
 	Failed(gr kyverno.GenerateRequest, message string, genResources []kyverno.ResourceSpec) error
 	Success(gr kyverno.GenerateRequest, genResources []kyverno.ResourceSpec) error
+	Skip(gr kyverno.GenerateRequest, genResources []kyverno.ResourceSpec) error
 }
 
 // StatusControl is default implementaation of GRStatusControlInterface
@@ -51,5 +52,22 @@ func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyver
 	}
 
 	log.Log.V(3).Info("updated generate request status", "name", gr.Name, "status", string(kyverno.Completed))
+	return nil
+}
+
+// Success sets the gr status.state to completed and clears message
+func (sc StatusControl) Skip(gr kyverno.GenerateRequest, genResources []kyverno.ResourceSpec) error {
+	gr.Status.State = kyverno.Skip
+	gr.Status.Message = ""
+	// Update Generated Resources
+	gr.Status.GeneratedResources = genResources
+
+	_, err := sc.client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), &gr, v1.UpdateOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		log.Log.Error(err, "failed to update generate request status", "name", gr.Name)
+		return err
+	}
+
+	log.Log.V(3).Info("updated generate request status", "name", gr.Name, "status", string(kyverno.Skip))
 	return nil
 }
