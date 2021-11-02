@@ -15,6 +15,11 @@ REGISTRY?=ghcr.io
 REPO=$(REGISTRY)/kyverno
 IMAGE_TAG?=$(GIT_VERSION)
 GOOS ?= $(shell go env GOOS)
+ifeq ($(GOOS), darwin)
+SED=gsed
+else
+SED=sed
+endif
 PACKAGE ?=github.com/kyverno/kyverno
 LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 
@@ -220,7 +225,7 @@ godownloader:
 # kustomize-crd will create install.yaml
 kustomize-crd:
 	# Create CRD for helm deployment Helm
-	kustomize build ./definitions/release | kustomize cfg grep kind=CustomResourceDefinition > ./charts/kyverno/templates/crds.yaml
+	kustomize build ./config/release | kustomize cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
 	kustomize build ./definitions > ./definitions/install.yaml
 	# Generate install_debug.yaml that for developer testing
