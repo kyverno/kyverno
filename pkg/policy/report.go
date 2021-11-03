@@ -208,7 +208,7 @@ func generateFailEventsPerEr(log logr.Logger, er *response.EngineResponse) []eve
 	logger.V(4).Info("reporting fail results for policy")
 
 	for _, rule := range er.PolicyResponse.Rules {
-		if rule.Status != response.RuleStatusPass {
+		if rule.Status == response.RuleStatusPass {
 			continue
 		}
 		// generate event on resource for each failed rule
