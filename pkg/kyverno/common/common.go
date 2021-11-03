@@ -594,7 +594,11 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		}
 	}
 
-	ctx.AddImageInfo(resource)
+	if err := ctx.AddImageInfo(resource); err != nil {
+		if err != nil {
+			log.Log.Error(err, "failed to add image variables to context")
+		}
+	}
 
 	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
 	if mutateResponse != nil {
