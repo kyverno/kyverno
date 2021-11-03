@@ -60,22 +60,22 @@ func extractCA(config *rest.Config) (result []byte) {
 func (wrc *Register) constructOwner() v1.OwnerReference {
 	logger := wrc.log
 
-	kubeNamespace, err := wrc.GetKubePolicyNamespace()
+	kubeClusterRole, err := wrc.GetKubePolicyClusterRole()
 	if err != nil {
 		logger.Error(err, "failed to construct OwnerReference")
 		return v1.OwnerReference{}
 	}
 
 	return v1.OwnerReference{
-		APIVersion: config.NamespaceAPIVersion,
-		Kind:       config.NamespaceKind,
-		Name:       config.KyvernoNamespace,
-		UID:        kubeNamespace.GetUID(),
+		APIVersion: config.ClusterRoleAPIVersion,
+		Kind:       config.ClusterRoleKind,
+		Name:       config.ClusterRoleName,
+		UID:        kubeClusterRole.GetUID(),
 	}
 }
 
-func (wrc *Register) GetKubePolicyNamespace() (*unstructured.Unstructured, error) {
-	kubeNamespace, err := wrc.client.GetResource(config.NamespaceAPIVersion, config.NamespaceKind, "", config.KyvernoNamespace)
+func (wrc *Register) GetKubePolicyClusterRole() (*unstructured.Unstructured, error) {
+	kubeNamespace, err := wrc.client.GetResource(config.ClusterRoleAPIVersion, config.ClusterRoleKind, "", config.ClusterRoleName)
 	if err != nil {
 		return nil, err
 	}
