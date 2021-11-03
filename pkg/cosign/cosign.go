@@ -60,9 +60,10 @@ func VerifySignature(imageRef string, key string, repository string, log logr.Lo
 		pubKey, err = decodePEM([]byte(key))
 	} else {
 		pubKey, err = sigs.PublicKeyFromKeyRef(ctx, key)
-		if err != nil {
-			return "", errors.Wrap(err, "loading public key")
-		}
+	}
+
+	if err != nil {
+		return "", errors.Wrap(err, "loading key")
 	}
 
 	var opts []remote.Option

@@ -1,8 +1,9 @@
 package cosign
 
 import (
-	"github.com/sigstore/cosign/pkg/oci"
 	"testing"
+
+	"github.com/sigstore/cosign/pkg/oci"
 
 	"github.com/go-logr/logr"
 	"github.com/sigstore/cosign/pkg/cosign"
