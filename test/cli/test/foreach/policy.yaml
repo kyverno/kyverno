@@ -1,0 +1,26 @@
+apiVersion : kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: prepend-registry
+spec:
+  background: false
+  rules:
+    - name: prepend-registry-containers
+      match:
+        resources:
+          kinds:
+            - Pod
+      mutate:
+        foreach:
+          - list: "request.object.spec.containers"
+            patchStrategicMerge:
+              spec:
+                containers:
+                  - name: "{{ element.name }}"
+                    image: "registry.io/{{images.containers.{{element.name}}.path}}:{{images.containers.{{element.name}}.tag}}"
+          - list: "request.object.spec.initContainers"
+            patchStrategicMerge:
+              spec:
+                initContainers:
+                  - name: "{{ element.name }}"
+                    image: "registry.io/{{images.initContainers.{{element.name}}.path}}:{{images.initContainers.{{element.name}}.tag}}"

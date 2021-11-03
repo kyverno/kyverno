@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    annotation.corp.com/restrict1: foo1
+  labels:
+    app: busybox
+  name: mypod
+spec:
+  initContainers:
+    - image: busyboxwnjdas:1.28
+      name: aisobos
+    - image: busybox:1.28
+      name: dkbokdksl
+  containers:
+    - name: qpwoeieur
+      image: busyboxasdf:1.28
+    - name: busybox
+      image: busybox:1.28
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "50Mi"
+        limits:
+          memory: "1Gi"
+      args:
+        - "sleep"
+        - "9999"

@@ -1,0 +1,13 @@
+name: update-imahes
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: prepend-registry
+    rule: prepend-registry-containers
+    resource: mypod
+    patchedResource: patchedResource1.yaml
+    kind: Pod
+    namespace: practice
+    result: pass
