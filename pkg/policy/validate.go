@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/kyverno/kyverno/pkg/engine/context"
+
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
@@ -25,6 +27,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var allowedVariables = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element\.|@|images\.|([a-z_0-9]+\()[^{}]`)
+
+var allowedVariablesBackground = regexp.MustCompile(`request\.|element\.|@|images\.|([a-z_0-9]+\()[^{}]`)
+
+// wildCardAllowedVariables represents regex for the allowed fields in wildcards
+var wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
 
 // validateJSONPatchPathForForwardSlash checks for forward slash
 func validateJSONPatchPathForForwardSlash(patch string) error {
@@ -64,29 +73,55 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 // - One operation per rule
 // - ResourceDescription mandatory checks
 func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
-	p := *policy
-	if len(common.PolicyHasVariables(p)) > 0 {
-		err := common.PolicyHasNonAllowedVariables(p)
-		if err != nil {
-			return fmt.Errorf("policy contains invalid variables: %s", err.Error())
-		}
+	namespaced := false
+	background := policy.Spec.Background == nil || *policy.Spec.Background
+
+	clusterResources := make([]string, 0)
+	err := ValidateVariables(policy, background)
+	if err != nil {
+		return err
 	}
 
 	// policy name is stored in the label of the report change request
-	if len(p.Name) > 63 {
-		return fmt.Errorf("invalid policy name %s: must be no more than 63 characters", p.Name)
+	if len(policy.Name) > 63 {
+		return fmt.Errorf("invalid policy name %s: must be no more than 63 characters", policy.Name)
 	}
 
-	if path, err := validateUniqueRuleName(p); err != nil {
+	if path, err := validateUniqueRuleName(*policy); err != nil {
 		return fmt.Errorf("path: spec.%s: %v", path, err)
 	}
-	if p.Spec.Background == nil || *p.Spec.Background == true {
-		if err := ContainsVariablesOtherThanObject(p); err != nil {
-			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule: %s ", err)
+
+	if policy.ObjectMeta.Namespace != "" {
+		namespaced = true
+	}
+
+	var res []*metav1.APIResourceList
+
+	if !mock && namespaced {
+		var Empty struct{}
+		clusterResourcesMap := make(map[string]*struct{})
+		// Get all the cluster type kind supported by cluster
+
+		res, err := client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
+		if err != nil {
+			return err
+		}
+		for _, resList := range res {
+			for _, r := range resList.APIResources {
+				if !r.Namespaced {
+					if _, ok := clusterResourcesMap[r.Kind]; !ok {
+						clusterResourcesMap[r.Kind] = &Empty
+					}
+				}
+			}
+		}
+
+		for k := range clusterResourcesMap {
+			clusterResources = append(clusterResources, k)
 		}
 	}
 
-	for i, rule := range p.Spec.Rules {
+	for i, rule := range policy.Spec.Rules {
 		//check for forward slash
 		if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
 			return fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
@@ -118,55 +153,8 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 		// validate Cluster Resources in namespaced policy
 		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
-		if !mock {
-			res, err := client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
-			if err != nil {
-				return err
-			}
-			if p.ObjectMeta.Namespace != "" {
-				var Empty struct{}
-				clusterResourcesMap := make(map[string]*struct{})
-				// Get all the cluster type kind supported by cluster
-				for _, resList := range res {
-					for _, r := range resList.APIResources {
-						if !r.Namespaced {
-							if _, ok := clusterResourcesMap[r.Kind]; !ok {
-								clusterResourcesMap[r.Kind] = &Empty
-							}
-						}
-					}
-				}
-
-				clusterResources := make([]string, 0, len(clusterResourcesMap))
-				for k := range clusterResourcesMap {
-					clusterResources = append(clusterResources, k)
-				}
-				return checkClusterResourceInMatchAndExclude(rule, clusterResources)
-			}
-
-			// Check for generate policy
-			// - if resource to be generated is namespaced resource then the namespace field
-			// should be mentioned
-			// - if resource to be generated is non namespaced resource then the namespace field
-			// should not be mentioned
-			if rule.HasGenerate() {
-				generateResourceKind := rule.Generation.Kind
-				for _, resList := range res {
-					for _, r := range resList.APIResources {
-						if r.Kind == generateResourceKind {
-							if r.Namespaced {
-								if rule.Generation.Namespace == "" {
-									return fmt.Errorf("path: spec.rules[%v]: please mention the namespace to generate a namespaced resource", rule.Name)
-								}
-							} else {
-								if rule.Generation.Namespace != "" {
-									return fmt.Errorf("path: spec.rules[%v]: do not mention the namespace to generate a non namespaced resource", rule.Name)
-								}
-							}
-						}
-					}
-				}
-			}
+		if namespaced {
+			return checkClusterResourceInMatchAndExclude(rule, clusterResources, mock, res)
 		}
 
 		if doMatchAndExcludeConflict(rule) {
@@ -177,7 +165,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		// - Mutate
 		// - Validate
 		// - Generate
-		if err := validateActions(i, &p.Spec.Rules[i], client, mock); err != nil {
+		if err := validateActions(i, &policy.Spec.Rules[i], client, mock); err != nil {
 			return err
 		}
 
@@ -201,7 +189,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			}
 		}
 
-		if utils.ContainsString(rule.MatchResources.Kinds, "*") && (p.Spec.Background == nil || *p.Spec.Background) {
+		if utils.ContainsString(rule.MatchResources.Kinds, "*") && (policy.Spec.Background == nil || *policy.Spec.Background) {
 			return fmt.Errorf("wildcard policy not allowed in background mode. Set spec.background=false to disable background mode for this policy rule ")
 		}
 
@@ -229,7 +217,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 					switch typedConditions := kyvernoConditions.(type) {
 					case []kyverno.Condition: // backwards compatibility
 						for _, condition := range typedConditions {
-							if !strings.Contains(condition.Key.(string), "request.object.metadata.") && (!common.WildCardAllowedVariables.MatchString(condition.Key.(string)) || strings.Contains(condition.Key.(string), "request.object.spec")) {
+							if !strings.Contains(condition.Key.(string), "request.object.metadata.") && (!wildCardAllowedVariables.MatchString(condition.Key.(string)) || strings.Contains(condition.Key.(string), "request.object.spec")) {
 								return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 									" the rule does not match any kind")
 							}
@@ -249,36 +237,36 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		match := rule.MatchResources
 		exclude := rule.ExcludeResources
 		for _, value := range match.Any {
-			err := validateKinds(value.ResourceDescription.Kinds, mock, client, p)
+			err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
 			if err != nil {
 				return fmt.Errorf("the kind defined in the any match resource is invalid")
 			}
 		}
 		for _, value := range match.All {
-			err := validateKinds(value.ResourceDescription.Kinds, mock, client, p)
+			err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
 			if err != nil {
 				return fmt.Errorf("the kind defined in the all match resource is invalid")
 			}
 		}
 		for _, value := range exclude.Any {
-			err := validateKinds(value.ResourceDescription.Kinds, mock, client, p)
+			err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
 
 			if err != nil {
 				return fmt.Errorf("the kind defined in the any exclude resource is invalid")
 			}
 		}
 		for _, value := range exclude.All {
-			err := validateKinds(value.ResourceDescription.Kinds, mock, client, p)
+			err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
 			if err != nil {
 				return fmt.Errorf("the kind defined in the all exclude resource is invalid")
 			}
 		}
 		if !utils.ContainsString(rule.MatchResources.Kinds, "*") {
-			err := validateKinds(rule.MatchResources.Kinds, mock, client, p)
+			err := validateKinds(rule.MatchResources.Kinds, mock, client, *policy)
 			if err != nil {
 				return errors.Wrapf(err, "match resource kind is invalid")
 			}
-			err = validateKinds(rule.ExcludeResources.Kinds, mock, client, p)
+			err = validateKinds(rule.ExcludeResources.Kinds, mock, client, *policy)
 			if err != nil {
 				return errors.Wrapf(err, "exclude resource kind is invalid")
 			}
@@ -302,18 +290,18 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 			if len(label) == 0 {
 				label = make(map[string]string)
-				label["generate.kyverno.io/clone-policy-name"] = p.GetName()
+				label["generate.kyverno.io/clone-policy-name"] = policy.GetName()
 			} else {
 				if label["generate.kyverno.io/clone-policy-name"] != "" {
 					policyNames := label["generate.kyverno.io/clone-policy-name"]
-					if !strings.Contains(policyNames, p.GetName()) {
-						policyNames = policyNames + "," + p.GetName()
+					if !strings.Contains(policyNames, policy.GetName()) {
+						policyNames = policyNames + "," + policy.GetName()
 						label["generate.kyverno.io/clone-policy-name"] = policyNames
 					} else {
 						updateSource = false
 					}
 				} else {
-					label["generate.kyverno.io/clone-policy-name"] = p.GetName()
+					label["generate.kyverno.io/clone-policy-name"] = policy.GetName()
 				}
 			}
 
@@ -331,16 +319,181 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 	}
 
 	if !mock {
-		if err := openAPIController.ValidatePolicyFields(p); err != nil {
+		if err := openAPIController.ValidatePolicyFields(*policy); err != nil {
 			return err
 		}
 	} else {
-		if err := openAPIController.ValidatePolicyMutation(p); err != nil {
+		if err := openAPIController.ValidatePolicyMutation(*policy); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func ValidateVariables(p *kyverno.ClusterPolicy, backgroundMode bool) error {
+	vars := hasVariables(p)
+	if len(vars) == 0 {
+		return nil
+	}
+
+	if err := hasInvalidVariables(p, backgroundMode); err != nil {
+		return fmt.Errorf("policy contains invalid variables: %s", err.Error())
+	}
+
+	if backgroundMode {
+		if err := containsUserVariables(p, vars); err != nil {
+			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule: %s ", err)
+		}
+	}
+
+	return nil
+}
+
+// hasInvalidVariables - checks for unexpected variables in the policy
+func hasInvalidVariables(policy *kyverno.ClusterPolicy, background bool) error {
+	for _, r := range policy.Spec.Rules {
+		ruleCopy := r.DeepCopy()
+
+		if err := ruleForbiddenSectionsHaveVariables(ruleCopy); err != nil {
+			return err
+		}
+
+		// skip variable checks on verifyImages.attestations, as variables in attestations are dynamic
+		for _, vi := range ruleCopy.VerifyImages {
+			for _, a := range vi.Attestations {
+				a.Conditions = nil
+			}
+		}
+
+		ctx := buildContext(ruleCopy, background)
+		if _, err := variables.SubstituteAllInRule(log.Log, ctx, *ruleCopy); !checkNotFoundErr(err) {
+			return fmt.Errorf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error())
+		}
+	}
+
+	return nil
+}
+
+// for now forbidden sections are match, exclude and
+func ruleForbiddenSectionsHaveVariables(rule *kyverno.Rule) error {
+	var err error
+
+	err = jsonPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
+	if err != nil {
+		return fmt.Errorf("rule \"%s\" should not have variables in patchesJSON6902 path section", rule.Name)
+	}
+
+	err = objectHasVariables(rule.ExcludeResources)
+	if err != nil {
+		return fmt.Errorf("rule \"%s\" should not have variables in exclude section", rule.Name)
+	}
+
+	err = objectHasVariables(rule.MatchResources)
+	if err != nil {
+		return fmt.Errorf("rule \"%s\" should not have variables in match section", rule.Name)
+	}
+
+	return nil
+}
+
+// hasVariables - check for variables in the policy
+func hasVariables(policy *kyverno.ClusterPolicy) [][]string {
+	policyRaw, _ := json.Marshal(policy)
+	matches := variables.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
+	return matches
+}
+
+func jsonPatchPathHasVariables(patch string) error {
+	jsonPatch, err := yaml.ToJSON([]byte(patch))
+	if err != nil {
+		return err
+	}
+
+	decodedPatch, err := jsonpatch.DecodePatch(jsonPatch)
+	if err != nil {
+		return err
+	}
+
+	for _, operation := range decodedPatch {
+		path, err := operation.Path()
+		if err != nil {
+			return err
+		}
+
+		vars := variables.RegexVariables.FindAllString(path, -1)
+		if len(vars) > 0 {
+			return fmt.Errorf("operation \"%s\" has forbidden variables", operation.Kind())
+		}
+	}
+
+	return nil
+}
+
+func objectHasVariables(object interface{}) error {
+	var err error
+	objectJSON, err := json.Marshal(object)
+	if err != nil {
+		return err
+	}
+
+	if len(common.RegexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
+		return fmt.Errorf("invalid variables")
+	}
+
+	return nil
+}
+
+func buildContext(rule *kyverno.Rule, background bool) *context.MockContext {
+	re := getAllowedVariables(background)
+	ctx := context.NewMockContext(re)
+
+	addContextVariables(rule.Context, ctx)
+
+	for _, fe := range rule.Validation.ForEachValidation {
+		addContextVariables(fe.Context, ctx)
+	}
+
+	for _, fe := range rule.Mutation.ForEachMutation {
+		addContextVariables(fe.Context, ctx)
+	}
+
+	return ctx
+}
+
+func getAllowedVariables(background bool) *regexp.Regexp {
+	if background {
+		return allowedVariablesBackground
+	}
+
+	return allowedVariables
+}
+
+func addContextVariables(entries []kyverno.ContextEntry, ctx *context.MockContext) {
+	for _, contextEntry := range entries {
+		if contextEntry.APICall != nil {
+			ctx.AddVariable(contextEntry.Name + "*")
+		}
+
+		if contextEntry.ConfigMap != nil {
+			ctx.AddVariable(contextEntry.Name + ".data.*")
+		}
+	}
+}
+
+func checkNotFoundErr(err error) bool {
+	if err != nil {
+		switch err.(type) {
+		case jmespath.NotFoundError:
+			return true
+		case context.InvalidVariableErr:
+			return false
+		default:
+			return false
+		}
+	}
+
+	return true
 }
 
 func validateElementInForEach(document apiextensions.JSON) error {
@@ -363,7 +516,8 @@ func validateMatchKindHelper(rule kyverno.Rule) error {
 		return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 			" the rule does not match any kind")
 	}
-	return fmt.Errorf("At least one element must be specified in a kind block. The kind attribute is mandatory when working with the resources element")
+
+	return fmt.Errorf("at least one element must be specified in a kind block, the kind attribute is mandatory when working with the resources element")
 }
 
 // doMatchAndExcludeConflict checks if the resultant
@@ -1108,7 +1262,7 @@ func validateResourceDescription(rd kyverno.ResourceDescription) error {
 
 // checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in
 // Match and Exclude block
-func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources []string) error {
+func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources []string, mock bool, res []*metav1.APIResourceList) error {
 	// Contains Namespaces in Match->ResourceDescription
 	if len(rule.MatchResources.ResourceDescription.Namespaces) > 0 {
 		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in match.resources")
@@ -1117,19 +1271,96 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources [
 	if len(rule.ExcludeResources.ResourceDescription.Namespaces) > 0 {
 		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in exclude.resources")
 	}
-	// Contains "Cluster Wide Resources" in Match->ResourceDescription->Kinds
-	for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
-		for _, k := range clusterResources {
-			if kind == k {
-				return fmt.Errorf("namespaced policy : cluster type value '%s' not allowed in match.resources.kinds", kind)
+
+	if !mock {
+		// Contains "Cluster Wide Resources" in Match->ResourceDescription->Kinds
+		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
+			for _, k := range clusterResources {
+				if kind == k {
+					return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
+				}
 			}
 		}
-	}
-	// Contains "Cluster Wide Resources" in Exclude->ResourceDescription->Kinds
-	for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-		for _, k := range clusterResources {
-			if kind == k {
-				return fmt.Errorf("namespaced policy : cluster type value '%s' not allowed in exclude.resources.kinds", kind)
+
+		// Contains "Cluster Wide Resources" in Match->All->ResourceFilter->ResourceDescription->Kinds
+		for _, allResourceFilter := range rule.MatchResources.All {
+			fmt.Println(allResourceFilter.ResourceDescription)
+			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
+				for _, k := range clusterResources {
+					if kind == k {
+						return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
+					}
+				}
+			}
+		}
+
+		// Contains "Cluster Wide Resources" in Match->Any->ResourceFilter->ResourceDescription->Kinds
+		for _, allResourceFilter := range rule.MatchResources.Any {
+			fmt.Println(allResourceFilter.ResourceDescription)
+			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
+				for _, k := range clusterResources {
+					if kind == k {
+						return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
+					}
+				}
+			}
+		}
+
+		// Contains "Cluster Wide Resources" in Exclude->ResourceDescription->Kinds
+		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
+			for _, k := range clusterResources {
+				if kind == k {
+					return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in exclude.resources.kinds", kind)
+				}
+			}
+
+		}
+
+		// Contains "Cluster Wide Resources" in Exclude->All->ResourceFilter->ResourceDescription->Kinds
+		for _, allResourceFilter := range rule.ExcludeResources.All {
+			fmt.Println(allResourceFilter.ResourceDescription)
+			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
+				for _, k := range clusterResources {
+					if kind == k {
+						return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
+					}
+				}
+			}
+		}
+
+		// Contains "Cluster Wide Resources" in Exclude->Any->ResourceFilter->ResourceDescription->Kinds
+		for _, allResourceFilter := range rule.ExcludeResources.Any {
+			fmt.Println(allResourceFilter.ResourceDescription)
+			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
+				for _, k := range clusterResources {
+					if kind == k {
+						return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
+					}
+				}
+			}
+		}
+
+		// Check for generate policy
+		// - if resource to be generated is namespaced resource then the namespace field
+		// should be mentioned
+		// - if resource to be generated is non namespaced resource then the namespace field
+		// should not be mentioned
+		if rule.HasGenerate() {
+			generateResourceKind := rule.Generation.Kind
+			for _, resList := range res {
+				for _, r := range resList.APIResources {
+					if r.Kind == generateResourceKind {
+						if r.Namespaced {
+							if rule.Generation.Namespace == "" {
+								return fmt.Errorf("path: spec.rules[%v]: please mention the namespace to generate a namespaced resource", rule.Name)
+							}
+						} else {
+							if rule.Generation.Namespace != "" {
+								return fmt.Errorf("path: spec.rules[%v]: do not mention the namespace to generate a non namespaced resource", rule.Name)
+							}
+						}
+					}
+				}
 			}
 		}
 

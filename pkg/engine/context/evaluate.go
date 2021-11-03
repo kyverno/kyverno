@@ -19,13 +19,6 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 	}
 
 	var emptyResult interface{}
-	// check for white-listed variables
-	if !ctx.isBuiltInVariable(query) {
-		return emptyResult, InvalidVariableErr{
-			variable:  query,
-			whiteList: ctx.getBuiltInVars(),
-		}
-	}
 
 	// compile the query
 	queryPath, err := jmespath.New(query)
@@ -33,6 +26,7 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 		ctx.log.Error(err, "incorrect query", "query", query)
 		return emptyResult, fmt.Errorf("incorrect query %s: %v", query, err)
 	}
+
 	// search
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
@@ -53,18 +47,6 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 	}
 
 	return result, nil
-}
-
-func (ctx *Context) isBuiltInVariable(variable string) bool {
-	if len(ctx.getBuiltInVars()) == 0 {
-		return true
-	}
-	for _, wVar := range ctx.getBuiltInVars() {
-		if strings.HasPrefix(variable, wVar) {
-			return true
-		}
-	}
-	return false
 }
 
 func (ctx *Context) HasChanged(jmespath string) (bool, error) {

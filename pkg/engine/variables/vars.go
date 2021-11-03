@@ -196,41 +196,8 @@ func substituteReferences(log logr.Logger, rule interface{}) (interface{}, error
 	return jsonUtils.NewTraversal(rule, substituteReferencesIfAny(log)).TraverseJSON()
 }
 
-// ValidateBackgroundModeVars validates variables against the specified context,
-// which contains a list of allowed JMESPath queries in background processing,
-// and throws an error if the variable is not allowed.
-func ValidateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface, rule interface{}) (interface{}, error) {
-	return jsonUtils.NewTraversal(rule, validateBackgroundModeVars(log, ctx)).TraverseJSON()
-}
-
 func ValidateElementInForEach(log logr.Logger, rule interface{}) (interface{}, error) {
 	return jsonUtils.NewTraversal(rule, validateElementInForEach(log)).TraverseJSON()
-}
-
-func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) jsonUtils.Action {
-	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
-		value, ok := data.Element.(string)
-		if !ok {
-			return data.Element, nil
-		}
-		vars := RegexVariables.FindAllString(value, -1)
-		for _, v := range vars {
-			variable := replaceBracesAndTrimSpaces(v)
-
-			_, err := ctx.Query(variable)
-			if err != nil {
-				switch err.(type) {
-				case gojmespath.NotFoundError:
-					return nil, nil
-				case context.InvalidVariableErr:
-					return nil, err
-				default:
-					return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
-				}
-			}
-		}
-		return nil, nil
-	})
 }
 
 func validateElementInForEach(log logr.Logger) jsonUtils.Action {
@@ -344,7 +311,15 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 				variable := replaceBracesAndTrimSpaces(v)
 
 				if variable == "@" {
-					variable = strings.Replace(variable, "@", fmt.Sprintf("request.object.%s", getJMESPath(data.Path)), -1)
+					path := getJMESPath(data.Path)
+					var val string
+					if strings.HasPrefix(path, "[") {
+						val = fmt.Sprintf("request.object%s", path)
+					} else {
+						val = fmt.Sprintf("request.object.%s", path)
+					}
+
+					variable = strings.Replace(variable, "@", val, -1)
 				}
 
 				if isDeleteRequest {
@@ -396,12 +371,15 @@ func isDeleteRequest(ctx context.EvalInterface) bool {
 	return false
 }
 
-// getJMESPath converts path to JMES format
+var regexPathDigit = regexp.MustCompile(`\.?([\d])\.?`)
+
+// getJMESPath converts path to JMESPath format
 func getJMESPath(rawPath string) string {
-	tokens := strings.Split(rawPath, "/")[3:] // skip empty element and two non-resource (like mutate.overlay)
+	tokens := strings.Split(rawPath, "/")[3:] // skip "/" + 2 elements (e.g. mutate.overlay | validate.pattern)
 	path := strings.Join(tokens, ".")
-	regex := regexp.MustCompile(`\.([\d])\.`)
-	return string(regex.ReplaceAll([]byte(path), []byte("[$1].")))
+	b := regexPathDigit.ReplaceAll([]byte(path), []byte("[$1]."))
+	result := strings.Trim(string(b), ".")
+	return result
 }
 
 func substituteVarInPattern(pattern, variable string, value interface{}) (string, error) {

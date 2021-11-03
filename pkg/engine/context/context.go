@@ -2,7 +2,6 @@ package context
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"sync"
 
@@ -56,32 +55,19 @@ type Context struct {
 	mutex              sync.RWMutex
 	jsonRaw            []byte
 	jsonRawCheckpoints [][]byte
-	builtInVars        []string
 	images             *Images
 	log                logr.Logger
 }
 
 //NewContext returns a new context
-// builtInVars is the list of known variables (e.g. serviceAccountName)
-func NewContext(builtInVars ...string) *Context {
+func NewContext() *Context {
 	ctx := Context{
 		jsonRaw:            []byte(`{}`), // empty json struct
-		builtInVars:        builtInVars,
 		log:                log.Log.WithName("context"),
 		jsonRawCheckpoints: make([][]byte, 0),
 	}
 
 	return &ctx
-}
-
-// InvalidVariableErr represents error for non-white-listed variables
-type InvalidVariableErr struct {
-	variable  string
-	whiteList []string
-}
-
-func (i InvalidVariableErr) Error() string {
-	return fmt.Sprintf("variable %s cannot be used, allowed variables: %v", i.variable, i.whiteList)
 }
 
 // AddJSON merges json data
@@ -358,21 +344,4 @@ func (ctx *Context) reset(remove bool) {
 	if remove {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
 	}
-}
-
-// AddBuiltInVars adds given pattern to the builtInVars
-func (ctx *Context) AddBuiltInVars(pattern string) {
-	ctx.mutex.Lock()
-	defer ctx.mutex.Unlock()
-
-	builtInVarsCopy := ctx.builtInVars
-	ctx.builtInVars = append(builtInVarsCopy, pattern)
-}
-
-func (ctx *Context) getBuiltInVars() []string {
-	ctx.mutex.RLock()
-	defer ctx.mutex.RUnlock()
-
-	vars := ctx.builtInVars
-	return vars
 }

@@ -220,7 +220,7 @@ func getFileBytes(path string) ([]byte, error) {
 		err  error
 	)
 
-	if IsHttpRegex.MatchString(path) {
+	if IsHTTPRegex.MatchString(path) {
 		resp, err := http.Get(path)
 		if err != nil {
 			return nil, err

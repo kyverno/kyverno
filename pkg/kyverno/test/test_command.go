@@ -631,7 +631,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			continue
 		}
 
-		matches := common.PolicyHasVariables(*policy)
+		matches := common.HasVariables(policy)
 		variable := common.RemoveDuplicateAndObjectVariables(matches)
 
 		if len(variable) > 0 {
