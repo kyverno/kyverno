@@ -445,7 +445,9 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts, printPatchResource bool) ([]*response.EngineResponse, policyreport.Info, error) {
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool,
+	namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts,
+	printPatchResource bool) ([]*response.EngineResponse, policyreport.Info, error) {
 
 	var engineResponses []*response.EngineResponse
 	namespaceLabels := make(map[string]string)
@@ -486,6 +488,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	} else {
 		err = ctx.AddResource(resourceRaw)
 	}
+
 	if err != nil {
 		log.Log.Error(err, "failed to load resource in context")
 	}
@@ -495,6 +498,12 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		err = ctx.AddJSON(jsonData)
 		if err != nil {
 			log.Log.Error(err, "failed to add variable to context")
+		}
+	}
+
+	if err := ctx.AddImageInfo(resource); err != nil {
+		if err != nil {
+			log.Log.Error(err, "failed to add image variables to context")
 		}
 	}
 
