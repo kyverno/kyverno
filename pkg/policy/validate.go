@@ -234,7 +234,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			if rule.HasVerifyImages() {
 				for _, i := range rule.VerifyImages {
 					if err := validateVerifyImagesRule(i); err != nil {
-						return err
+						return errors.Wrapf(err, "failed to validate policy %s rule %s", policy.Name, rule.Name)
 					}
 				}
 			}
