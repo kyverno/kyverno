@@ -98,7 +98,7 @@ func VerifySignature(opts Options) (digest string, err error) {
 			return "", errors.Wrapf(err, "failed to parse signature repository %s", opts.Repository)
 		}
 
-		remoteOpts = append(remoteOpts, remote.WithTargetRepository(signatureRepo))
+		cosignOpts.RegistryClientOpts = append(cosignOpts.RegistryClientOpts, remote.WithTargetRepository(signatureRepo))
 	}
 
 	ref, err := name.ParseReference(opts.ImageRef)
