@@ -7,9 +7,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/pkg/oci/remote"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/authn"

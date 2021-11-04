@@ -167,9 +167,9 @@ func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imag
 	}
 
 	opts := cosign.Options{
-		ImageRef:  image,
+		ImageRef:   image,
 		Repository: imageVerify.Repository,
-		Log: iv.logger,
+		Log:        iv.logger,
 	}
 
 	if imageVerify.Key != "" {
