@@ -1,6 +1,7 @@
 package policyreport
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
@@ -17,7 +18,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -90,6 +91,7 @@ func NewBuilder(cpolLister kyvernolister.ClusterPolicyLister, polLister kyvernol
 
 func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured, err error) {
 	results := []*report.PolicyReportResult{}
+	req = new(unstructured.Unstructured)
 	for _, infoResult := range info.Results {
 		for _, rule := range infoResult.Rules {
 			if rule.Type != utils.Validation.String() {
@@ -107,12 +109,19 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 			Results: results,
 		}
 
-		obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(rr)
+		gv := report.SchemeGroupVersion
+		rr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "ReportChangeRequest"})
+
+		rawRcr, err := json.Marshal(rr)
 		if err != nil {
 			return nil, err
 		}
 
-		req = &unstructured.Unstructured{Object: obj}
+		err = json.Unmarshal(rawRcr, req)
+		if err != nil {
+			return nil, err
+		}
+
 		set(req, info)
 	} else {
 		rr := &request.ClusterReportChangeRequest{
@@ -120,11 +129,19 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 			Results: results,
 		}
 
-		obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(rr)
+		gv := report.SchemeGroupVersion
+		rr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "ClusterReportChangeRequest"})
+
+		rawRcr, err := json.Marshal(rr)
 		if err != nil {
 			return nil, err
 		}
-		req = &unstructured.Unstructured{Object: obj}
+
+		err = json.Unmarshal(rawRcr, req)
+		if err != nil {
+			return nil, err
+		}
+
 		set(req, info)
 	}
 
