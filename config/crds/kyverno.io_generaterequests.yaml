@@ -61,6 +61,8 @@ spec:
                 description: Context ...
                 properties:
                   admissionRequestInfo:
+                    description: AdmissionRequestInfoObject stores the admission request
+                      and operation details
                     properties:
                       admissionRequest:
                         type: string

@@ -155,7 +155,7 @@ spec:
                           description: All allows specifying resources which will
                             be ANDed
                           items:
-                            description: ResourceFilters allow users to "AND" or "OR"
+                            description: ResourceFilter allow users to "AND" or "OR"
                               between resources
                             properties:
                               clusterRoles:
@@ -370,7 +370,7 @@ spec:
                           description: Any allows specifying resources which will
                             be ORed
                           items:
-                            description: ResourceFilters allow users to "AND" or "OR"
+                            description: ResourceFilter allow users to "AND" or "OR"
                               between resources
                             properties:
                               clusterRoles:
@@ -830,7 +830,7 @@ spec:
                           description: All allows specifying resources which will
                             be ANDed
                           items:
-                            description: ResourceFilters allow users to "AND" or "OR"
+                            description: ResourceFilter allow users to "AND" or "OR"
                               between resources
                             properties:
                               clusterRoles:
@@ -1045,7 +1045,7 @@ spec:
                           description: Any allows specifying resources which will
                             be ORed
                           items:
-                            description: ResourceFilters allow users to "AND" or "OR"
+                            description: ResourceFilter allow users to "AND" or "OR"
                               between resources
                             properties:
                               clusterRoles:
@@ -1456,11 +1456,11 @@ spec:
                       description: Mutation is used to modify matching resources.
                       properties:
                         foreach:
-                          description: ForEach applies policy rule changes to nested
-                            elements.
+                          description: ForEachMutation applies policy rule changes
+                            to nested elements.
                           items:
-                            description: ForEach applies policy rule changes to nested
-                              elements.
+                            description: ForEachMutation applies policy rule changes
+                              to nested elements.
                             properties:
                               context:
                                 description: Context defines variables and data sources
@@ -1525,7 +1525,7 @@ spec:
                                   and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                                 x-kubernetes-preserve-unknown-fields: true
                               preconditions:
-                                description: 'Preconditions are used to determine
+                                description: 'AnyAllConditions are used to determine
                                   if a policy rule should be applied by evaluating
                                   a set of conditions. The declaration can contain
                                   nested `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
@@ -1548,12 +1548,17 @@ spec:
                                         operator:
                                           description: Operator is the operation to
                                             perform. Valid operators are Equals, NotEquals,
-                                            In and NotIn.
+                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
+                                            AllNotIn.
                                           enum:
                                           - Equals
                                           - NotEquals
                                           - In
+                                          - AnyIn
+                                          - AllIn
                                           - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
                                           - GreaterThanOrEquals
                                           - GreaterThan
                                           - LessThanOrEquals
@@ -1589,12 +1594,17 @@ spec:
                                         operator:
                                           description: Operator is the operation to
                                             perform. Valid operators are Equals, NotEquals,
-                                            In and NotIn.
+                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
+                                            AllNotIn.
                                           enum:
                                           - Equals
                                           - NotEquals
                                           - In
+                                          - AnyIn
+                                          - AllIn
                                           - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
                                           - GreaterThanOrEquals
                                           - GreaterThan
                                           - LessThanOrEquals
@@ -1690,8 +1700,8 @@ spec:
                           description: ForEach applies policy rule changes to nested
                             elements.
                           items:
-                            description: ForEach applies policy rule checks to nested
-                              elements.
+                            description: ForEachValidation applies policy rule checks
+                              to nested elements.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -1773,7 +1783,7 @@ spec:
                                   used to check resources.
                                 x-kubernetes-preserve-unknown-fields: true
                               preconditions:
-                                description: 'Preconditions are used to determine
+                                description: 'AnyAllConditions are used to determine
                                   if a policy rule should be applied by evaluating
                                   a set of conditions. The declaration can contain
                                   nested `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
@@ -1796,12 +1806,17 @@ spec:
                                         operator:
                                           description: Operator is the operation to
                                             perform. Valid operators are Equals, NotEquals,
-                                            In and NotIn.
+                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
+                                            AllNotIn.
                                           enum:
                                           - Equals
                                           - NotEquals
                                           - In
+                                          - AnyIn
+                                          - AllIn
                                           - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
                                           - GreaterThanOrEquals
                                           - GreaterThan
                                           - LessThanOrEquals
@@ -1837,12 +1852,17 @@ spec:
                                         operator:
                                           description: Operator is the operation to
                                             perform. Valid operators are Equals, NotEquals,
-                                            In and NotIn.
+                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
+                                            AllNotIn.
                                           enum:
                                           - Equals
                                           - NotEquals
                                           - In
+                                          - AnyIn
+                                          - AllIn
                                           - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
                                           - GreaterThanOrEquals
                                           - GreaterThan
                                           - LessThanOrEquals
@@ -1900,7 +1920,7 @@ spec:
                                     the attestation check is satisfied as long there
                                     are predicates that match the predicate type.
                                   items:
-                                    description: AnyAllCondition consists of conditions
+                                    description: AnyAllConditions consists of conditions
                                       wrapped denoting a logical criteria to be fulfilled.
                                       AnyConditions get fulfilled when at least one
                                       of its sub-conditions passes. AllConditions
@@ -1926,12 +1946,17 @@ spec:
                                             operator:
                                               description: Operator is the operation
                                                 to perform. Valid operators are Equals,
-                                                NotEquals, In and NotIn.
+                                                NotEquals, In, AnyIn, AllIn and NotIn,
+                                                AnyNotIn, AllNotIn.
                                               enum:
                                               - Equals
                                               - NotEquals
                                               - In
+                                              - AnyIn
+                                              - AllIn
                                               - NotIn
+                                              - AnyNotIn
+                                              - AllNotIn
                                               - GreaterThanOrEquals
                                               - GreaterThan
                                               - LessThanOrEquals
@@ -1968,12 +1993,17 @@ spec:
                                             operator:
                                               description: Operator is the operation
                                                 to perform. Valid operators are Equals,
-                                                NotEquals, In and NotIn.
+                                                NotEquals, In, AnyIn, AllIn and NotIn,
+                                                AnyNotIn, AllNotIn.
                                               enum:
                                               - Equals
                                               - NotEquals
                                               - In
+                                              - AnyIn
+                                              - AllIn
                                               - NotIn
+                                              - AnyNotIn
+                                              - AllNotIn
                                               - GreaterThanOrEquals
                                               - GreaterThan
                                               - LessThanOrEquals
@@ -2013,6 +2043,14 @@ spec:
                               to use for image signatures that match this rule. If
                               specified Repository will override the default OCI image
                               repository configured for the installation.
+                            type: string
+                          roots:
+                            description: Roots is the PEM encoded Root certificate
+                              chain used for keyless signing
+                            type: string
+                          subject:
+                            description: Subject is the verified identity used for
+                              keyless signing, for example the email address
                             type: string
                         type: object
                       type: array
@@ -3494,6 +3532,8 @@ spec:
                 description: Context ...
                 properties:
                   admissionRequestInfo:
+                    description: AdmissionRequestInfoObject stores the admission request
+                      and operation details
                     properties:
                       admissionRequest:
                         type: string
@@ -3767,7 +3807,7 @@ spec:
                           description: All allows specifying resources which will
                             be ANDed
                           items:
-                            description: ResourceFilters allow users to "AND" or "OR"
+                            description: ResourceFilter allow users to "AND" or "OR"
                               between resources
                             properties:
                               clusterRoles:
@@ -3982,7 +4022,7 @@ spec:
                           description: Any allows specifying resources which will
                             be ORed
                           items:
-                            description: ResourceFilters allow users to "AND" or "OR"
+                            description: ResourceFilter allow users to "AND" or "OR"
                               between resources
                             properties:
                               clusterRoles:
@@ -4442,7 +4482,7 @@ spec:
                           description: All allows specifying resources which will
                             be ANDed
                           items:
-                            description: ResourceFilters allow users to "AND" or "OR"
+                            description: ResourceFilter allow users to "AND" or "OR"
                               between resources
                             properties:
                               clusterRoles:
@@ -4657,7 +4697,7 @@ spec:
                           description: Any allows specifying resources which will
                             be ORed
                           items:
-                            description: ResourceFilters allow users to "AND" or "OR"
+                            description: ResourceFilter allow users to "AND" or "OR"
                               between resources
                             properties:
                               clusterRoles:
@@ -5068,11 +5108,11 @@ spec:
                       description: Mutation is used to modify matching resources.
                       properties:
                         foreach:
-                          description: ForEach applies policy rule changes to nested
-                            elements.
+                          description: ForEachMutation applies policy rule changes
+                            to nested elements.
                           items:
-                            description: ForEach applies policy rule changes to nested
-                              elements.
+                            description: ForEachMutation applies policy rule changes
+                              to nested elements.
                             properties:
                               context:
                                 description: Context defines variables and data sources
@@ -5137,7 +5177,7 @@ spec:
                                   and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                                 x-kubernetes-preserve-unknown-fields: true
                               preconditions:
-                                description: 'Preconditions are used to determine
+                                description: 'AnyAllConditions are used to determine
                                   if a policy rule should be applied by evaluating
                                   a set of conditions. The declaration can contain
                                   nested `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
@@ -5160,12 +5200,17 @@ spec:
                                         operator:
                                           description: Operator is the operation to
                                             perform. Valid operators are Equals, NotEquals,
-                                            In and NotIn.
+                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
+                                            AllNotIn.
                                           enum:
                                           - Equals
                                           - NotEquals
                                           - In
+                                          - AnyIn
+                                          - AllIn
                                           - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
                                           - GreaterThanOrEquals
                                           - GreaterThan
                                           - LessThanOrEquals
@@ -5201,12 +5246,17 @@ spec:
                                         operator:
                                           description: Operator is the operation to
                                             perform. Valid operators are Equals, NotEquals,
-                                            In and NotIn.
+                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
+                                            AllNotIn.
                                           enum:
                                           - Equals
                                           - NotEquals
                                           - In
+                                          - AnyIn
+                                          - AllIn
                                           - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
                                           - GreaterThanOrEquals
                                           - GreaterThan
                                           - LessThanOrEquals
@@ -5302,8 +5352,8 @@ spec:
                           description: ForEach applies policy rule changes to nested
                             elements.
                           items:
-                            description: ForEach applies policy rule checks to nested
-                              elements.
+                            description: ForEachValidation applies policy rule checks
+                              to nested elements.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -5385,7 +5435,7 @@ spec:
                                   used to check resources.
                                 x-kubernetes-preserve-unknown-fields: true
                               preconditions:
-                                description: 'Preconditions are used to determine
+                                description: 'AnyAllConditions are used to determine
                                   if a policy rule should be applied by evaluating
                                   a set of conditions. The declaration can contain
                                   nested `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
@@ -5408,12 +5458,17 @@ spec:
                                         operator:
                                           description: Operator is the operation to
                                             perform. Valid operators are Equals, NotEquals,
-                                            In and NotIn.
+                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
+                                            AllNotIn.
                                           enum:
                                           - Equals
                                           - NotEquals
                                           - In
+                                          - AnyIn
+                                          - AllIn
                                           - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
                                           - GreaterThanOrEquals
                                           - GreaterThan
                                           - LessThanOrEquals
@@ -5449,12 +5504,17 @@ spec:
                                         operator:
                                           description: Operator is the operation to
                                             perform. Valid operators are Equals, NotEquals,
-                                            In and NotIn.
+                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
+                                            AllNotIn.
                                           enum:
                                           - Equals
                                           - NotEquals
                                           - In
+                                          - AnyIn
+                                          - AllIn
                                           - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
                                           - GreaterThanOrEquals
                                           - GreaterThan
                                           - LessThanOrEquals
@@ -5512,7 +5572,7 @@ spec:
                                     the attestation check is satisfied as long there
                                     are predicates that match the predicate type.
                                   items:
-                                    description: AnyAllCondition consists of conditions
+                                    description: AnyAllConditions consists of conditions
                                       wrapped denoting a logical criteria to be fulfilled.
                                       AnyConditions get fulfilled when at least one
                                       of its sub-conditions passes. AllConditions
@@ -5538,12 +5598,17 @@ spec:
                                             operator:
                                               description: Operator is the operation
                                                 to perform. Valid operators are Equals,
-                                                NotEquals, In and NotIn.
+                                                NotEquals, In, AnyIn, AllIn and NotIn,
+                                                AnyNotIn, AllNotIn.
                                               enum:
                                               - Equals
                                               - NotEquals
                                               - In
+                                              - AnyIn
+                                              - AllIn
                                               - NotIn
+                                              - AnyNotIn
+                                              - AllNotIn
                                               - GreaterThanOrEquals
                                               - GreaterThan
                                               - LessThanOrEquals
@@ -5580,12 +5645,17 @@ spec:
                                             operator:
                                               description: Operator is the operation
                                                 to perform. Valid operators are Equals,
-                                                NotEquals, In and NotIn.
+                                                NotEquals, In, AnyIn, AllIn and NotIn,
+                                                AnyNotIn, AllNotIn.
                                               enum:
                                               - Equals
                                               - NotEquals
                                               - In
+                                              - AnyIn
+                                              - AllIn
                                               - NotIn
+                                              - AnyNotIn
+                                              - AllNotIn
                                               - GreaterThanOrEquals
                                               - GreaterThan
                                               - LessThanOrEquals
@@ -5625,6 +5695,14 @@ spec:
                               to use for image signatures that match this rule. If
                               specified Repository will override the default OCI image
                               repository configured for the installation.
+                            type: string
+                          roots:
+                            description: Roots is the PEM encoded Root certificate
+                              chain used for keyless signing
+                            type: string
+                          subject:
+                            description: Subject is the verified identity used for
+                              keyless signing, for example the email address
                             type: string
                         type: object
                       type: array

@@ -69,9 +69,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 	return nil
 }
 
-// Validate does some initial check to verify some conditions
-// - One operation per rule
-// - ResourceDescription mandatory checks
+// Validate checks the policy and rules declarations for required configurations
 func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
 	namespaced := false
 	background := policy.Spec.Background == nil || *policy.Spec.Background
@@ -225,10 +223,19 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 					}
 				}
 			}
+
 			if rule.HasMutate() {
 				if !ruleOnlyDealsWithResourceMetaData(rule) {
 					return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 						" the rule does not match any kind")
+				}
+			}
+
+			if rule.HasVerifyImages() {
+				for _, i := range rule.VerifyImages {
+					if err := validateVerifyImagesRule(i); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -1389,4 +1396,16 @@ func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.
 		}
 	}
 	return nil
+}
+
+func validateVerifyImagesRule(i *kyverno.ImageVerification) error {
+	hasKey := i.Key != ""
+	hasRoots := i.Roots != ""
+	hasSubject := i.Subject != ""
+
+	if (hasKey && !hasRoots && !hasSubject) || (hasRoots && hasSubject) {
+		return nil
+	}
+
+	return fmt.Errorf("either a public key, or root certificates and an email, are required")
 }
