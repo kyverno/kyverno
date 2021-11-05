@@ -57,7 +57,6 @@ const zeroDivisionError = errorPrefix + "Zero divisor passed"
 const nonIntModuloError = errorPrefix + "Non-integer argument(s) passed for modulo"
 
 var layouts = map[string]string{
-	"Layout":      time.Layout,
 	"ANSIC":       time.ANSIC,
 	"UnixDate":    time.UnixDate,
 	"RubyDate":    time.RubyDate,
