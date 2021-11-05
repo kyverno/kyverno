@@ -135,7 +135,7 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 		var ruleResp *response.RuleResponse
 		if len(imageVerify.Attestations) == 0 {
 			var digest string
-			ruleResp, digest = iv.verifySignature(imageVerify.Repository, key, imageInfo)
+			ruleResp, digest = iv.verifySignature(imageVerify, imageInfo)
 			if ruleResp.Status == response.RuleStatusPass {
 				iv.patchDigest(imageInfo, digest, ruleResp)
 			}
@@ -157,7 +157,7 @@ func getSignatureRepository(imageVerify *v1.ImageVerification) string {
 	return repository
 }
 
-func (iv *imageVerifier) verifySignature(repository, key string, imageInfo *context.ImageInfo) (*response.RuleResponse, string) {
+func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imageInfo *context.ImageInfo) (*response.RuleResponse, string) {
 	image := imageInfo.String()
 	iv.logger.Info("verifying image", "image", image)
 
@@ -166,8 +166,21 @@ func (iv *imageVerifier) verifySignature(repository, key string, imageInfo *cont
 		Type: utils.Validation.String(),
 	}
 
+	opts := cosign.Options{
+		ImageRef:   image,
+		Repository: imageVerify.Repository,
+		Log:        iv.logger,
+	}
+
+	if imageVerify.Key != "" {
+		opts.Key = imageVerify.Key
+	} else {
+		opts.Roots = []byte(imageVerify.Roots)
+		opts.Subject = imageVerify.Subject
+	}
+
 	start := time.Now()
-	digest, err := cosign.VerifySignature(image, key, repository, iv.logger)
+	digest, err := cosign.VerifySignature(opts)
 	if err != nil {
 		iv.logger.Info("failed to verify image signature", "image", image, "error", err, "duration", time.Since(start).Seconds())
 		ruleResp.Status = response.RuleStatusFail
@@ -203,9 +216,8 @@ func makeAddDigestPatch(imageInfo *context.ImageInfo, digest string) ([]byte, er
 
 func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.ImageInfo, attestationChecks []*v1.Attestation) *response.RuleResponse {
 	image := imageInfo.String()
-
 	start := time.Now()
-	statements, err := cosign.FetchAttestations(image, key, repository)
+	statements, err := cosign.FetchAttestations(image, key, repository, iv.logger)
 	if err != nil {
 		iv.logger.Info("failed to fetch attestations", "image", image, "error", err, "duration", time.Since(start).Seconds())
 		return ruleError(iv.rule, utils.ImageVerify, fmt.Sprintf("failed to fetch attestations for %s", image), err)

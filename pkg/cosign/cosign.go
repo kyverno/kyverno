@@ -3,14 +3,15 @@ package cosign
 import (
 	"context"
 	"crypto"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/pkg/oci/remote"
 
-	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
@@ -51,42 +52,56 @@ func Initialize(client kubernetes.Interface, namespace, serviceAccount string, i
 	return nil
 }
 
+type Options struct {
+	ImageRef   string
+	Key        string
+	Roots      []byte
+	Subject    string
+	Repository string
+	Log        logr.Logger
+}
+
 // VerifySignature verifies that the image has the expected key
-func VerifySignature(imageRef string, key string, repository string, log logr.Logger) (digest string, err error) {
+func VerifySignature(opts Options) (digest string, err error) {
+	log := opts.Log
 	ctx := context.Background()
-	var pubKey signature.Verifier
-
-	if strings.HasPrefix(key, "-----BEGIN PUBLIC KEY-----") {
-		pubKey, err = decodePEM([]byte(key))
-	} else {
-		pubKey, err = sigs.PublicKeyFromKeyRef(ctx, key)
-	}
-
-	if err != nil {
-		return "", errors.Wrap(err, "loading key")
-	}
-
-	var opts []remote.Option
+	var remoteOpts []remote.Option
 	ro := options.RegistryOptions{}
-	opts, err = ro.ClientOpts(ctx)
+	remoteOpts, err = ro.ClientOpts(ctx)
 	if err != nil {
 		return "", errors.Wrap(err, "constructing client options")
 	}
 
-	if repository != "" {
-		signatureRepo, err := name.NewRepository(repository)
-		if err != nil {
-			return "", errors.Wrapf(err, "failed to parse signature repository %s", repository)
-		}
-		opts = append(opts, remote.WithTargetRepository(signatureRepo))
-	}
-
 	cosignOpts := &cosign.CheckOpts{
-		SigVerifier:        pubKey,
-		RegistryClientOpts: opts,
+		Annotations:        map[string]interface{}{},
+		RegistryClientOpts: remoteOpts,
 	}
 
-	ref, err := name.ParseReference(imageRef)
+	if opts.Key != "" {
+		if strings.HasPrefix(opts.Key, "-----BEGIN PUBLIC KEY-----") {
+			cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key))
+		} else {
+			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRef(ctx, opts.Key)
+		}
+	} else {
+		cosignOpts.CertEmail = opts.Subject
+		cosignOpts.RootCerts, err = getX509CertPool(opts.Roots)
+	}
+
+	if err != nil {
+		return "", errors.Wrap(err, "loading credentials")
+	}
+
+	if opts.Repository != "" {
+		signatureRepo, err := name.NewRepository(opts.Repository)
+		if err != nil {
+			return "", errors.Wrapf(err, "failed to parse signature repository %s", opts.Repository)
+		}
+
+		cosignOpts.RegistryClientOpts = append(cosignOpts.RegistryClientOpts, remote.WithTargetRepository(signatureRepo))
+	}
+
+	ref, err := name.ParseReference(opts.ImageRef)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to parse image")
 	}
@@ -94,7 +109,7 @@ func VerifySignature(imageRef string, key string, repository string, log logr.Lo
 	verified, _, err := client.Verify(ctx, ref, cosign.SignaturesAccessor, cosignOpts)
 	if err != nil {
 		msg := err.Error()
-		logger.Info("image verification failed", "error", msg)
+		log.Info("image verification failed", "error", msg)
 		if strings.Contains(msg, "MANIFEST_UNKNOWN: manifest unknown") {
 			return "", fmt.Errorf("signature not found")
 		} else if strings.Contains(msg, "no matching signatures") {
@@ -104,7 +119,7 @@ func VerifySignature(imageRef string, key string, repository string, log logr.Lo
 		return "", err
 	}
 
-	digest, err = extractDigest(imageRef, verified, log)
+	digest, err = extractDigest(opts.ImageRef, verified, log)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get digest")
 	}
@@ -112,9 +127,22 @@ func VerifySignature(imageRef string, key string, repository string, log logr.Lo
 	return digest, nil
 }
 
+func getX509CertPool(roots []byte) (*x509.CertPool, error) {
+	if roots == nil {
+		return fulcio.GetRoots(), nil
+	}
+
+	cp := x509.NewCertPool()
+	if !cp.AppendCertsFromPEM(roots) {
+		return nil, fmt.Errorf("error creating root cert pool")
+	}
+
+	return cp, nil
+}
+
 // FetchAttestations retrieves signed attestations and decodes them into in-toto statements
 // https://github.com/in-toto/attestation/blob/main/spec/README.md#statement
-func FetchAttestations(imageRef string, key string, repository string) ([]map[string]interface{}, error) {
+func FetchAttestations(imageRef string, key string, repository string, log logr.Logger) ([]map[string]interface{}, error) {
 	ctx := context.Background()
 	var pubKey signature.Verifier
 	var err error
@@ -161,7 +189,7 @@ func FetchAttestations(imageRef string, key string, repository string) ([]map[st
 	verified, _, err := client.Verify(context.Background(), ref, cosign.AttestationsAccessor, cosignOpts)
 	if err != nil {
 		msg := err.Error()
-		logger.Info("failed to fetch attestations", "error", msg)
+		log.Info("failed to fetch attestations", "error", msg)
 		if strings.Contains(msg, "MANIFEST_UNKNOWN: manifest unknown") {
 			return nil, fmt.Errorf("not found")
 		}
@@ -282,6 +310,8 @@ func extractDigest(imgRef string, verified []oci.Signature, log logr.Logger) (st
 		if err != nil {
 			return "", errors.Wrap(err, "failed to get payload")
 		}
+
+		// TODO - change to using payload.SimpleContainerImage after the next Tekton release
 		if err := json.Unmarshal(payload, &jsonMap); err != nil {
 			return "", err
 		}
