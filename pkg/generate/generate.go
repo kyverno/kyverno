@@ -93,7 +93,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	genResources, err = c.applyGenerate(*resource, *gr, namespaceLabels)
 
 	if err != nil {
-		// Need not update the stauts when policy doesn't apply on resource, because all the generate requests are removed by the cleanup controller
+		// Need not update the status when policy doesn't apply on resource, because all the generate requests are removed by the cleanup controller
 		if strings.Contains(err.Error(), doesNotApply) {
 			logger.V(4).Info("skipping updating status of generate request")
 			return nil
