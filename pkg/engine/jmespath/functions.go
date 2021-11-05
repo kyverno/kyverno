@@ -235,6 +235,7 @@ func getFunctions() []*gojmespath.FunctionEntry {
 			Arguments: []ArgSpec{
 				{Types: []JpType{JpString}},
 				{Types: []JpType{JpString}},
+				{Types: []JpType{JpString}},
 			},
 			Handler: jpTimeSince,
 		},
@@ -590,19 +591,39 @@ func jpTimeSince(arguments []interface{}) (interface{}, error) {
 		layout = val
 	}
 
-	timestamp_, err := validateArg("", arguments, 1, reflect.String)
+	timestamp_1, err := validateArg("", arguments, 1, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	timestamp := timestamp_.String()
-
-	t1, err := time.Parse(layout, timestamp)
+	timestamp_2, err := validateArg("", arguments, 2, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	return time.Since(t1).String(), nil
+	timestamp1 := timestamp_1.String()
+	timestamp2 := timestamp_2.String()
+
+	t1, err := time.Parse(layout, timestamp1)
+	if err != nil {
+		return nil, err
+	}
+
+	t2 := time.Now()
+
+	if timestamp2 != "" {
+		t2, err = time.Parse(layout, timestamp2)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return t2.Sub(t1).String(), nil
 }
 
 // InterfaceToString casts an interface to a string type
