@@ -2,12 +2,11 @@
 
 **Kubernetes Native Policy Management 🎉**
 
-![build](https://github.com/kyverno/kyverno/workflows/build/badge.svg) 
-![prereleaser](https://github.com/kyverno/kyverno/workflows/prereleaser/badge.svg) 
-[![Go Report Card](https://goreportcard.com/badge/github.com/kyverno/kyverno)](https://goreportcard.com/report/github.com/kyverno/kyverno) 
+![build](https://github.com/kyverno/kyverno/workflows/build/badge.svg)
+![prereleaser](https://github.com/kyverno/kyverno/workflows/prereleaser/badge.svg)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kyverno/kyverno)](https://goreportcard.com/report/github.com/kyverno/kyverno)
 ![License: Apache-2.0](https://img.shields.io/github/license/kyverno/kyverno?color=blue)
 [![GitHub Repo stars](https://img.shields.io/github/stars/kyverno/kyverno)](https://github.com/kyverno/kyverno/stargazers)
-
 
 <a href="https://kyverno.io" rel="kyverno.io">![logo](img/Kyverno_Horizontal.png)</a>
 
@@ -15,45 +14,41 @@
 Kyverno is a policy engine designed for Kubernetes. It can validate, mutate, and generate configurations using admission controls and background scans. Kyverno policies are Kubernetes resources and do not require learning a new language. Kyverno is designed to work nicely with tools you already use like kubectl, kustomize, and Git.
 </p>
 
-## 📙 Documentation 
+## 📙 Documentation
 
-Kyverno installation and reference documents are available at: <a href="https://kyverno.io/">kyverno.io</a>. 
+Kyverno installation and reference documents are available at kyverno.io.
 
-  👉 **[Quick Start](https://kyverno.io/docs/introduction/#quick-start)**
+👉 **[Quick Start](https://kyverno.io/docs/introduction/#quick-start)**
 
-  👉 **[Installation](https://kyverno.io/docs/installation/)**
+👉 **[Installation](https://kyverno.io/docs/installation/)**
 
-  👉 **[Sample Policies](https://kyverno.io/policies/)**
-
+👉 **[Sample Policies](https://kyverno.io/policies/)**
 
 ## 🙋‍♂️ Getting Help
 
-We are here to help! 
+We are here to help!
 
-  👉 For feature requests and bugs, file an [issue](https://github.com/kyverno/kyverno/issues).
+👉 For feature requests and bugs, file an [issue](https://github.com/kyverno/kyverno/issues).
 
-  👉 For discussions or questions, join the slack channel [k8s.slack.io/#kyverno](https://slack.k8s.io/#kyverno).
+👉 For discussions or questions, join the [Kyverno Slack channel](https://slack.k8s.io/#kyverno).
 
-  👉 For community meeting access join the [mailing list](https://groups.google.com/g/kyverno).
+👉 For community meeting access, join the [mailing list](https://groups.google.com/g/kyverno).
 
-  👉 To get updates ⭐️ [star this repository](https://github.com/kyverno/kyverno/stargazers).
-
+👉 To get updates ⭐️ [star this repository](https://github.com/kyverno/kyverno/stargazers).
 
 ## ➕ Contributing
 
 Thanks for your interest in contributing to Kyverno! Here are some steps to help get you started:
 
-  ✔ Read and agree to the [Contribution Guidelines](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md).
+✔ Read and agree to the [Contribution Guidelines](/CONTRIBUTING.md).
 
-  ✔ Browse through the [GitHub discussions](https://github.com/kyverno/kyverno/discussions).
+✔ Browse through the [GitHub discussions](https://github.com/kyverno/kyverno/discussions).
 
-  ✔ Read Kyverno design and development details on the [GitHub Wiki](https://github.com/kyverno/kyverno/wiki).
+✔ Read Kyverno design and development details on the [GitHub Wiki](https://github.com/kyverno/kyverno/wiki).
 
-  ✔ Check out the **[good first issue](https://github.com/kyverno/kyverno/labels/good%20first%20issue)** list. Add a comment with `/assign` to request assignment of the issue.
+✔ Check out the [good first issues](https://github.com/kyverno/kyverno/labels/good%20first%20issue) list. Add a comment with `/assign` to request assignment of the issue.
 
-  ✔ Checkout out the Kyverno <a href="https://kyverno.io/community">Community</a> page for other ways to get involved.
-
-
+✔ Checkout out the Kyverno [Community page](https://kyverno.io/community/) for other ways to get involved.
 
 ## Contributors
 
@@ -64,7 +59,3 @@ Kyverno is built and maintained by our growing community of contributors!
 </a>
 
 Made with [contributors-img](https://contrib.rocks).
-
-
-
-

@@ -2,126 +2,98 @@
 
 We welcome all contributions, suggestions, and feedback, so please do not hesitate to reach out!
 
+## Ways you can contribute
 
-## Ways you can contribute:
-   - [Report Issues](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md#report-issues)
-   - [Submit Pull Requests](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md#submit-pull-requests)
-   - [Fix or Improve Documentation](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md#fix-or-improve-documentation) 
-   - [Join Our Community Meetings](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md#join-our-community-meetings) 
+- [Report Issues](#report-issues)
+- [Submit Pull Requests](#submit-pull-requests)
+- [Fix or Improve Documentation](#fix-or-improve-documentation)
+- [Join Our Community Meetings](#join-our-community-meetings)
 
 ### Report issues
-   - Report potential bugs
-   - Request a feature
-   - Request a sample policy
+
+Issues to Kyverno help improve the project in multiple ways including the following:
+
+- Report potential bugs
+- Request a feature
+- Request a sample policy
 
 ### Submit Pull Requests
-#### Setup local development environments 
--  Please refer to [Running in development mode](https://github.com/kyverno/kyverno/wiki/Running-in-development-mode) for local setup.
 
-####  Submit a PR for [open issues](https://github.com/kyverno/kyverno/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
-### Fix or Improve Documentation
-   - [Kyverno Docs](https://github.com/kyverno/website)
-   #### Get started
+[Pull requests](https://docs.github.com/en/github/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests) (PRs) allow you to contribute back the changes you've made on your side enabling others in the community to benefit from your hard work. They are the main source by which all changes are made to this project and are a standard piece of GitHub operational flows. Before you contribute, please take a moment to review and agree to abide by our community [Code of Conduct](/CODE_OF_CONDUCT.md).
 
-Head over to project repository on github and click the **"Fork"** button. With the forked copy, you can try new ideas and implement changes to the project.
+New contributors may easily view all [open issues labeled as good first issues](https://github.com/kyverno/kyverno/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) allowing you to get started in an approachable manner.
 
- -  **Clone the repository to your device:**
+Once you wish to get started contributing to the code base, please refer to our [running in development mode](https://github.com/kyverno/kyverno/wiki/Running-in-development-mode) for local setup guide.
+
+In the process of submitting your PRs, please read and abide by the template provided to ensure the maintainers are able to understand your changes and quickly come up to speed. There are some important pieces that are required outside of the code itself. Some of these are up to you, others are up to the maintainers.
+
+1. Provide Proof Manifests allowing the maintainers and other contributors to verify your changes without requiring they understand the nuances of all your code.
+2. For new or changed functionality, this typically requires documentation and so raise a corresponding issue (or, better yet, raise a separate PR) on the [documentation repository](https://github.com/kyverno/website).
+3. Test your change with the [Kyverno CLI](https://kyverno.io/docs/kyverno-cli/) and provide a test manifest in the proper format. If your feature/fix does not work with the CLI, a separate issue requesting CLI support must be made.
+4. Indicate which release this PR is triaged for (maintainers). This step is important especially for the documentation maintainers in order to understand when and where the necessary changes should be made.
+
+#### Getting started with your PR
+
+Head over to the project repository on GitHub and click the **"Fork"** button. With the forked copy, you can try new ideas and implement changes to the project.
+
+**Clone the repository to your device:**
 
 Get the link of your forked repository, paste it in your device terminal and clone it using the command.
 
+```sh
+git clone https://hostname/YOUR-USERNAME/YOUR-REPOSITORY
 ```
-$ git clone https://hostname/YOUR-USERNAME/YOUR-REPOSITORY
+
+**Create a branch:**
+
+Create a new brach and navigate to the branch using this command.
+
+```sh
+git checkout -b <new-branch>
 ```
 
- - **Create a branch:** 
+Great, it's time to start hacking! You can now go ahead to make all the changes you want.
 
- Create a new brach and navigate to the branch using this command.
+**Stage, Commit, and Push changes:**
 
- ```
- $ git checkout -b <new-branch>
- ```
+Now that we have implemented the required changes, use the command below to stage the changes and commit them.
 
- Great, its time to start hacking, You can now go ahead to make all the changes you want.
+```sh
+git add .
+```
 
+```sh
+git commit -s -m "Commit message"
+```
 
- - **Stage, Commit and Push changes:**
+The `-s` signifies that you have signed off the the commit.
 
- Now that we have implemented the required changes, use the command below to stage the changes and commit them
+Go ahead and push your changes to GitHub using this command.
 
- ```
- $ git add .
- ```
+```sh
+git push 
+```
 
- ```
- $ git commit -s -m "Commit message"
- ```
+### Fix or Improve Documentation
 
- The -s signifies that you have signed off the the commit.
+The [Kyverno website](https://kyverno.io), like the main Kyverno codebase, is stored in its own [git repo](https://github.com/kyverno/website). To get started with contributions to the documentation, [follow the guide](https://github.com/kyverno/website#contributing) on that repository.
 
- Go ahead and push your changes to github using this command.
- 
- ``` 
- $ git push 
- ```
+### Engage with us
 
+The website has the most updated information on [how to engage with the Kyverno community](https://kyverno.io/community/) including its maintainers and contributors.
 
-
-
-Before you contribute, please review and agree to abide by our community [Code of Conduct](/CODE_OF_CONDUCT.md).
-### Join Our Community Meetings
- The easiest way to reach us is on the [Kubernetes slack #kyverno channel](https://app.slack.com/client/T09NY5SBT/CLGR9BJU9). 
 ## Developer Certificate of Origin (DCO) Sign off
 
-For contributors to certify that they wrote or otherwise have the right to submit the code they are contributing to the project, we are requiring everyone to acknowledge this by signing their work.
+For contributors to certify that they wrote or otherwise have the right to submit the code they are contributing to the project, we are requiring everyone to acknowledge this by signing their work which indicates you agree to the DCO found [here](https://developercertificate.org/).
 
 To sign your work, just add a line like this at the end of your commit message:
 
-```
+```sh
 Signed-off-by: Random J Developer <random@developer.example.org>
 ```
 
 This can easily be done with the `-s` command line option to append this automatically to your commit message.
-```
-$ git commit -s -m 'This is my commit message'
-```
 
-By doing this you state that you can certify the following (https://developercertificate.org/):
-```
-Developer Certificate of Origin
-Version 1.1
-
-Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
-1 Letterman Drive
-Suite D4700
-San Francisco, CA, 94129
-
-Everyone is permitted to copy and distribute verbatim copies of this
-license document, but changing it is not allowed.
-
-
-Developer's Certificate of Origin 1.1
-
-By making a contribution to this project, I certify that:
-
-(a) The contribution was created in whole or in part by me and I
-    have the right to submit it under the open source license
-    indicated in the file; or
-
-(b) The contribution is based upon previous work that, to the best
-    of my knowledge, is covered under an appropriate open source
-    license and I have the right under that license to submit that
-    work with modifications, whether created in whole or in part
-    by me, under the same open source license (unless I am
-    permitted to submit under a different license), as indicated
-    in the file; or
-
-(c) The contribution was provided directly to me by some other
-    person who certified (a), (b) or (c) and I have not modified
-    it.
-
-(d) I understand and agree that this project and the contribution
-    are public and that a record of the contribution (including all
-    personal information I submit with it, including my sign-off) is
-    maintained indefinitely and may be redistributed consistent with
-    this project or the open source license(s) involved.
+```sh
+git commit -s -m 'This is my commit message'
 ```
