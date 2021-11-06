@@ -261,12 +261,14 @@ func (c *Controller) updateGenericResource(old, cur interface{}) {
 	// re-evaluate the GR as the resource was updated
 	for _, gr := range grs {
 		gr.Spec.Context.AdmissionRequestInfo.Operation = v1beta1.Update
+		gr.Spec.RequestType = "generate"
 		c.enqueueGenerateRequest(gr)
 	}
 }
 
 // EnqueueGenerateRequestFromWebhook - enqueueing generate requests from webhook
 func (c *Controller) EnqueueGenerateRequestFromWebhook(gr *kyverno.GenerateRequest) {
+	gr.Spec.RequestType = "generate"
 	c.enqueueGenerateRequest(gr)
 }
 
@@ -318,6 +320,7 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 	// re-evaluate the GR as the policy was updated
 	for _, gr := range grs {
 		gr.Spec.Context.AdmissionRequestInfo.Operation = v1beta1.Update
+		gr.Spec.RequestType = "generate"
 		c.enqueueGenerateRequest(gr)
 	}
 }
