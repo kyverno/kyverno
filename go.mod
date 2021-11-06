@@ -14,8 +14,8 @@ require (
 	github.com/go-git/go-billy/v5 v5.0.0
 	github.com/go-git/go-git/v5 v5.2.0
 	github.com/go-logr/logr v1.0.0
-	github.com/google/go-containerregistry v0.6.1-0.20210922191434-34b7f00d7a60
-	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20211004163346-9ae11fe20941
+	github.com/google/go-containerregistry v0.6.1-0.20211105150418-5c9c442d5d68
+	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20211105150418-5c9c442d5d68
 	github.com/googleapis/gnostic v0.5.4
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/in-toto/in-toto-golang v0.3.3
