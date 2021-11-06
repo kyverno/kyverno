@@ -56,6 +56,8 @@ require (
 replace (
 	github.com/evanphx/json-patch/v5 => github.com/kyverno/json-patch/v5 v5.5.1-0.20210915204938-7578f4ee9c77
 	github.com/go-logr/logr => github.com/go-logr/logr v0.4.0
+	// Fix CVE-2021-41092 by pinning go-containerregistry
+	github.com/google/go-containerregistry => github.com/google/go-containerregistry v0.6.1-0.20211105150418-5c9c442d5d68
 	github.com/gorilla/rpc v1.2.0+incompatible => github.com/gorilla/rpc v1.2.0
 	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20210511164400-a1d46efa2ed6
 	k8s.io/klog/v2 => k8s.io/klog/v2 v2.10.0
