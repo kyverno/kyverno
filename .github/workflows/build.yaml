@@ -126,7 +126,7 @@ jobs:
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'ghcr.io/kyverno/kyverno:latest'
+          image-ref: 'ghcr.io/kyverno/kyverno:${{ git describe --match "v[0-9]*" }}'
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
