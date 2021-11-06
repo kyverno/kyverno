@@ -108,6 +108,42 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	return updateStatus(c.statusControl, *gr, err, genResources)
 }
 
+func (c *Controller) processGCR(gr *kyverno.GenerateRequest) error {
+	logger := c.log.WithValues("kind", gr.Kind, "namespace", gr.Namespace, "name", gr.Name)
+	// 1- Corresponding policy has been deleted
+	// then we don't delete the generated resources
+
+	// 2- The trigger resource is deleted, then delete the generated resources
+	if !ownerResourceExists(logger, c.client, *gr) {
+		deleteGR := false
+		// check retry count in annotaion
+		grAnnotations := gr.Annotations
+		if val, ok := grAnnotations["generate.kyverno.io/retry-count"]; ok {
+			retryCount, err := strconv.ParseUint(val, 10, 32)
+			if err != nil {
+				logger.Error(err, "unable to convert retry-count")
+				return err
+			}
+
+			if retryCount >= 5 {
+				deleteGR = true
+			}
+		}
+
+		if deleteGR {
+			if err := deleteGeneratedResources(logger, c.client, *gr); err != nil {
+				return err
+			}
+			// - trigger-resource is deleted
+			// - generated-resources are deleted
+			// - > Now delete the GenerateRequest CR
+			return c.control.Delete(gr.Name)
+		}
+	}
+	return nil
+}
+
+
 const doesNotApply = "policy does not apply to resource"
 
 func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest, namespaceLabels map[string]string) ([]kyverno.ResourceSpec, error) {

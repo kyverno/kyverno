@@ -27,7 +27,6 @@ import (
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
-	generatecleanup "github.com/kyverno/kyverno/pkg/generate/cleanup"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -340,19 +339,19 @@ func main() {
 
 	// GENERATE REQUEST CLEANUP
 	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout
-	grcc, err := generatecleanup.NewController(
-		kubeClient,
-		pclient,
-		client,
-		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().GenerateRequests(),
-		kubedynamicInformer,
-		log.Log.WithName("GenerateCleanUpController"),
-	)
-	if err != nil {
-		setupLog.Error(err, "Failed to create generate cleanup controller")
-		os.Exit(1)
-	}
+	//grcc, err := generatecleanup.NewController(
+	//	kubeClient,
+	//	pclient,
+	//	client,
+	//	pInformer.Kyverno().V1().ClusterPolicies(),
+	//	pInformer.Kyverno().V1().GenerateRequests(),
+	//	kubedynamicInformer,
+	//	log.Log.WithName("GenerateCleanUpController"),
+	//)
+	//if err != nil {
+	//	setupLog.Error(err, "Failed to create generate cleanup controller")
+	//	os.Exit(1)
+	//}
 
 	pCacheController := policycache.NewPolicyCacheController(
 		pInformer.Kyverno().V1().ClusterPolicies(),
@@ -482,7 +481,7 @@ func main() {
 		go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
 		go prgen.Run(1, stopCh)
 		go grc.Run(genWorkers, stopCh)
-		go grcc.Run(1, stopCh)
+		//go grcc.Run(1, stopCh)
 	}
 
 	kubeClientLeaderElection, err := utils.NewKubeClient(clientConfig)

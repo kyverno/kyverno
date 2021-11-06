@@ -123,6 +123,10 @@ spec:
               policy:
                 description: Specifies the name of the policy.
                 type: string
+              requestType:
+                description: RequestType is the information to identity the type while
+                  processing
+                type: string
               resource:
                 description: ResourceSpec is the information to identify the generate
                   request.
@@ -143,6 +147,7 @@ spec:
             required:
             - context
             - policy
+            - requestType
             - resource
             type: object
           status:

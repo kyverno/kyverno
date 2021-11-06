@@ -3611,6 +3611,9 @@ spec:
                     description: Namespace specifies resource namespace.
                     type: string
                 type: object
+              requestType:
+                description: RequestType is the information to identity the type for processing
+                type: string
             required:
             - context
             - policy

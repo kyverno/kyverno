@@ -40,6 +40,9 @@ type GenerateRequestSpec struct {
 
 	// Context ...
 	Context GenerateRequestContext `json:"context" yaml:"context"`
+
+	// RequestType is the information to identity the type while processing
+	RequestType string `json:"requestType" yaml:"requestType"`
 }
 
 // GenerateRequestContext stores the context to be shared.
