@@ -100,6 +100,10 @@ jobs:
       - name: Unshallow
         run: git fetch --prune --unshallow
 
+      - name: Set tag var
+        id: vars
+        run: echo ::set-output name=docker_tag::$(git describe --match "v[0-9]*")
+
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -126,7 +130,7 @@ jobs:
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'ghcr.io/kyverno/kyverno:${{ git describe --match "v[0-9]*" }}'
+          image-ref: 'ghcr.io/kyverno/kyverno:${{ steps.vars.outputs.docker_tag }}'
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
