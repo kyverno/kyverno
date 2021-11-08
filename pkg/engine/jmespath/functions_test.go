@@ -504,3 +504,15 @@ func Test_Base64Decode_Secret(t *testing.T) {
 	assert.Assert(t, ok)
 	assert.Equal(t, string(result), "Hello, world!")
 }
+
+func Test_YamlToJson(t *testing.T) {
+	jp, err := New("yaml_to_json('---\nspec:\n  replicas: 3')")
+	assert.NilError(t, err)
+
+	result, err := jp.Search("")
+	assert.NilError(t, err)
+
+	equal, ok := result.(string)
+	assert.Assert(t, ok)
+	assert.Equal(t, equal, "{\"spec\":{\"replicas\":3}}")
+}

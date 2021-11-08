@@ -331,6 +331,80 @@ spec:
               "fluentbit.io/exclude-{{request.object.spec.template.spec.containers[0].name}}": "true"
 `)
 
+var kyverno_yaml_to_json_policy = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: set-max-surge-yaml-to-json
+spec:
+  background: false
+  rules:
+    - name: set-max-surge
+      match:
+        resources:
+          kinds:
+            - Deployment
+      context:
+      - name: source
+        configMap:
+          name: source-yaml-to-json
+          namespace: default
+      mutate:
+        patchStrategicMerge:
+          spec:
+            strategy:
+              rollingUpdate: "{{ yaml_to_json('{{source.data.strategy}}').rollingUpdate }}"
+`)
+
+var kyverno_yaml_to_json_configmap = []byte(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: source-yaml-to-json
+  namespace: test-mutate2
+data:
+  strategy.rollingUpdate.maxSurge: "25%"
+  strategy: |
+    rollingUpdate:
+      maxSurge: "25%"
+      maxUnavailable: "25%"
+    type: RollingUpdate
+`)
+
+var kyverno_yaml_to_json_resource = []byte(`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploy
+  namespace: test-mutate2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      appa: busybox
+  strategy:
+    rollingUpdate:
+      maxSurge: 50%
+      maxUnavailable: 50%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        appa: busybox
+    spec:
+      containers:
+      - image: busybox:1.28
+        name: busybox
+        command: ["sleep", "9999"]
+        resources:
+          requests:
+            cpu: 100m
+            memory: 10Mi
+          limits:
+            cpu: 100m
+            memory: 10Mi
+`)
+
 var kyverno_2316_resource = []byte(`
 apiVersion: apps/v1
 kind: Deployment

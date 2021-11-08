@@ -233,6 +233,7 @@ test-e2e:
 
 test-e2e-local:
 	$(eval export E2E="ok")
+	kubectl apply -f config/install.yaml
 	kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/github/rbac.yaml
 	kubectl port-forward -n kyverno service/kyverno-svc-metrics  8000:8000 &
 	go test ./test/e2e/metrics -v

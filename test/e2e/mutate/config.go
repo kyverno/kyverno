@@ -86,6 +86,15 @@ var tests = []struct {
 		ResourceRaw:        kyverno_2316_resource,
 		ExpectedPatternRaw: kyverno_2316_pattern,
 	},
+	{
+		TestDescription:   "checks yaml to json",
+		PolicyName:        "set-max-surge-yaml-to-json",
+		PolicyRaw:         kyverno_yaml_to_json_policy,
+		ResourceName:      "deploy",
+		ResourceNamespace: "test-mutate2",
+		ResourceGVR:       deploymentGVR,
+		ResourceRaw:       kyverno_yaml_to_json_resource,
+	},
 }
 
 var ingressTests = struct {
