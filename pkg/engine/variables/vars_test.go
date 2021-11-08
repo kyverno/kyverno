@@ -1157,3 +1157,48 @@ func Test_getJMESPath(t *testing.T) {
 	assert.Equal(t, "spec.containers[0].volumes[1]", getJMESPath("/validate/pattern/spec/containers/0/volumes/1"))
 	assert.Equal(t, "[0]", getJMESPath("/mutate/overlay/0"))
 }
+
+func Test_SubstituteSuccess1(t *testing.T) {
+	ctx := context.NewContext()
+
+	var resourceRaw = []byte(`
+    {
+        "spec":{
+               "containers":[
+                {
+
+                    "image":"nginx:1.19",
+                    "name":"nginx",
+                    "resources":{
+                        "limits":{
+                            "cpu":"500m",
+                            "memory":"500Mi"
+                        },
+                        "requests":{
+                            "cpu":"251m",
+                            "memory":"251m"
+                        }
+                    }
+                }
+            ]
+        }
+    }`)
+	assert.Assert(t, ctx.AddResource(resourceRaw))
+
+	var pattern interface{}
+	//patternRaw := []byte(`"{{request.object.metadata.annotations.test * 12}}"`)
+	patternRaw := []byte(`"{{ request.object.spec.containers[0].resources.requests.memory / 2 }}"`)
+	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
+
+	action := substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  string(patternRaw),
+		Path:     ""})
+
+	if err != nil {
+		t.Errorf("substitution failed: %v", err.Error())
+		return
+	}
+	t.Log(results)
+}

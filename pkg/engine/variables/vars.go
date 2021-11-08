@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -28,6 +30,12 @@ var RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
 var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
 
 var regexVariableInit = regexp.MustCompile(`^\{\{[^{}]*\}\}`)
+
+var regexCustomValueOperatorAndParam = regexp.MustCompile(`[/|\+|\-|\*]\s*[0-9]+`)
+
+var regexCustomValueOperator = regexp.MustCompile(`[/|\+|\-|\*]`)
+
+var regexCustomValueTarget = regexp.MustCompile(`\d+(\.?\d+)`)
 
 // IsVariable returns true if the element contains a 'valid' variable {{}}
 func IsVariable(value string) bool {
@@ -230,7 +238,7 @@ func validateElementInForEach(log logr.Logger) jsonUtils.Action {
 				v = v[1:]
 			}
 
-			variable := replaceBracesAndTrimSpaces(v)
+			variable, _, _ := getCustomOptionsIfNeeded(replaceBracesAndTrimSpaces(v))
 
 			if strings.HasPrefix(variable, "element") && !strings.Contains(data.Path, "/foreach/") {
 				return nil, fmt.Errorf("variable '%v' present outside of foreach at path %s", variable, data.Path)
@@ -337,7 +345,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 					v = v[1:]
 				}
 
-				variable := replaceBracesAndTrimSpaces(v)
+				variable, op, opNum := getCustomOptionsIfNeeded(replaceBracesAndTrimSpaces(v))
 
 				if variable == "@" {
 					path := getJMESPath(data.Path)
@@ -367,6 +375,11 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 				}
 
 				log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", data.Path)
+
+				substitutedVar, isNeed := processValueIfNeeded(substitutedVar, variable, op, opNum)
+				if isNeed {
+					log.V(3).Info("process substitutedVar", "variable", v, "now value", substitutedVar)
+				}
 
 				if originalPattern == v {
 					return substitutedVar, nil
@@ -575,4 +588,65 @@ func replaceSubstituteVariables(document interface{}) interface{} {
 	}
 
 	return output
+}
+
+func getCustomOptionsIfNeeded(v string) (variable, op string, num float64) {
+	operatorAndNums := regexCustomValueOperatorAndParam.FindAllString(v, -1)
+	if len(operatorAndNums) != 1 {
+		variable = v
+		return
+	}
+	operatorAndNumStr := operatorAndNums[0]
+	variable = strings.TrimSpace(strings.ReplaceAll(v, operatorAndNumStr, ""))
+
+	operators := regexCustomValueOperator.FindAllString(v, -1)
+	if len(operators) != 1 {
+		variable = v
+		return
+	}
+	op = strings.TrimSpace(operators[0])
+	num, _ = strconv.ParseFloat(strings.TrimSpace(strings.ReplaceAll(operatorAndNumStr, op, "")), 64)
+
+	return
+}
+
+func processValueIfNeeded(data interface{}, variable, operator string, operatorNum float64) (interface{}, bool) {
+	target, ok := data.(string)
+	if !ok {
+		return data, false
+	}
+
+	targetValueStrs := regexCustomValueTarget.FindAllString(target, -1)
+	if len(targetValueStrs) != 1 {
+		return data, false
+	}
+
+	targetValue, err := strconv.ParseFloat(strings.TrimSpace(targetValueStrs[0]), 64)
+	if err != nil {
+		return data, false
+	}
+
+	result := targetValueProcess(operator, targetValue, operatorNum)
+	if !strings.Contains(variable, "cpu") {
+		result = math.Ceil(result)
+	}
+
+	return regexCustomValueTarget.ReplaceAllString(target, fmt.Sprintf("%f", result)), true
+}
+
+func targetValueProcess(operator string, target, operatorNum float64) (n float64) {
+	n = target
+	switch operator {
+	case "+":
+		n += operatorNum
+	case "-":
+		n -= operatorNum
+	case "*":
+		n *= operatorNum
+	case "/":
+		n /= operatorNum
+	default:
+	}
+
+	return
 }
