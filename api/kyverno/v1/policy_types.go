@@ -545,6 +545,12 @@ type ImageVerification struct {
 	// Key is the PEM encoded public key that the image or attestation is signed with.
 	Key string `json:"key,omitempty" yaml:"key,omitempty"`
 
+	// Roots is the PEM encoded Root certificate chain used for keyless signing
+	Roots string `json:"roots,omitempty" yaml:"roots,omitempty"`
+
+	// Subject is the verified identity used for keyless signing, for example the email address
+	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
+
 	// Repository is an optional alternate OCI repository to use for image signatures that match this rule.
 	// If specified Repository will override the default OCI image repository configured for the installation.
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`

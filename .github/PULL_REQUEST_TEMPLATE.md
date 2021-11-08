@@ -42,7 +42,9 @@ Describe the big picture of your changes here to communicate to the maintainers 
 ### Proof Manifests
 
 <!--
-Read and follow the [PR documentation guide](https://github.com/kyverno/kyverno/blob/main/.github/pr_documentation.md) for more details first. This section is for pasting your YAML manifests (Kubernetes resources and Kyverno policies) which allow maintainers to prove the intended functionality is achieved by your PR. Please use proper fenced code block formatting, for example:
+Read and follow the [PR documentation guide](https://github.com/kyverno/kyverno/blob/main/.github/pr_documentation.md) for more details first. This section is for pasting your YAML manifests (Kubernetes resources and Kyverno policies) and Kyverno CLI test manifests which allow maintainers to prove the intended functionality is achieved by your PR. Please use proper fenced code block formatting, for example:
+
+# Kubernetes resource
 
 ```yaml
 apiVersion: v1
@@ -52,6 +54,25 @@ metadata:
   namespace: default
 data:
   allowed-roles: "[\"cluster-admin\", \"cluster-operator\", \"tenant-admin\"]"
+```
+
+# Kyverno CLI test manifest (please see docs for latest manifest format at https://kyverno.io/docs/kyverno-cli/). See kyverno/policies for complete examples of all related test files.
+
+```yaml
+name: prepend-image-registry
+policies:
+  - prepend_image_registry.yaml
+resources:
+  - resource.yaml
+variables: values.yaml
+results:
+  - policy: prepend-registry
+    rule: prepend-registry-containers
+    resource: mypod
+    # if mutate rule
+    patchedResource: patchedResource01.yaml
+    kind: Pod
+    result: pass
 ```
 -->
 
@@ -65,6 +86,7 @@ them, don't hesitate to ask. We're here to help! This is simply a reminder of wh
 - [] I have read the [contributing guidelines](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md).
 - [] I have added tests that prove my fix is effective or that my feature works.
 - [] My PR contains new or altered behavior to Kyverno and
+  - [] CLI support should be added my PR doesn't contain that functionality.
   - [] I have added or changed [the documentation](https://github.com/kyverno/website) myself in an existing PR and the link is:
   <!-- Uncomment to link to the PR -->
   <!-- https://github.com/kyverno/website/pull/123 -->

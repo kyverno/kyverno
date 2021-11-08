@@ -139,3 +139,7 @@ spec:
 ```
 
 See that the Deployment fails now that Kyverno can read from multi-line YAML strings in a ConfigMap.
+
+## CLI Support
+
+A new feature which has been implemented for the webhook may often need to be available in the [Kyverno CLI](https://kyverno.io/docs/kyverno-cli/) simultaneously. Please ensure your tests and Proof Manifests include one for the `test` command allowing validation of the CLI functionality. If the provided functionality does not work in the CLI, a separate issue may need to be raised. 

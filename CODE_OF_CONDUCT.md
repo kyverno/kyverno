@@ -1,6 +1,6 @@
 # Kyverno Community Code of Conduct v1.0
 
-### Contributor Code of Conduct
+## Contributor Code of Conduct
 
 As contributors and maintainers of this project, and in the interest of fostering
 an open and welcoming community, we pledge to respect all people who contribute
@@ -18,8 +18,7 @@ Examples of unacceptable behavior by participants include:
 * Personal attacks
 * Trolling or insulting/derogatory comments
 * Public or private harassment
-* Publishing other's private information, such as physical or electronic addresses,
- without explicit permission
+* Publishing other's private information, such as physical or electronic addresses, without explicit permission
 * Other unethical or unprofessional conduct.
 
 Project maintainers have the right and responsibility to remove, edit, or reject
@@ -34,6 +33,4 @@ when an individual is representing the project or its community.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior in Kubernetes may be reported by contacting the project maintainer(s).
 
-This Code of Conduct is adapted from the the [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md) and the Contributor Covenant
-(http://contributor-covenant.org), version 1.2.0, available at
-http://contributor-covenant.org/version/1/2/0/
+This Code of Conduct is adapted from the the [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md) and the [Contributor Covenant](https://www.contributor-covenant.org/), [version 1.2.0](https://www.contributor-covenant.org/version/1/2/0/code-of-conduct/).

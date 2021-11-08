@@ -526,7 +526,7 @@ func Test_policyContextValidation(t *testing.T) {
 	err := json.Unmarshal(policyContext, &contextMap)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext("request.object")
+	ctx := context.NewMockContext(nil, "request.object")
 
 	_, err = SubstituteAll(log.Log, ctx, contextMap)
 	assert.Assert(t, err != nil, err)
@@ -603,7 +603,7 @@ func Test_variableSubstitution_array(t *testing.T) {
 	err := json.Unmarshal(ruleRaw, &rule)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext("request.object", "animals")
+	ctx := context.NewContext()
 	ctx.AddJSON(configmapRaw)
 	ctx.AddResource(resourceRaw)
 
@@ -982,7 +982,7 @@ func TestFormAbsolutePath_RelativePathExists(t *testing.T) {
 	assert.Assert(t, result == expectedString)
 }
 
-func TestFormAbsolutePath_RelativePathWithBackToTopInTheBegining(t *testing.T) {
+func TestFormAbsolutePath_RelativePathWithBackToTopInTheBeginning(t *testing.T) {
 	absolutePath := "/spec/containers/0/resources/requests/memory"
 	referencePath := "../../limits/memory"
 	expectedString := "/spec/containers/0/resources/limits/memory"
@@ -1150,4 +1150,10 @@ func Test_ReplacingEscpNestedVariableWhenDeleting(t *testing.T) {
 	assert.NilError(t, err)
 
 	assert.Equal(t, fmt.Sprintf("%v", pattern), "{{request.object.metadata.annotations.target}}")
+}
+
+func Test_getJMESPath(t *testing.T) {
+	assert.Equal(t, "spec.containers[0]", getJMESPath("/validate/pattern/spec/containers/0"))
+	assert.Equal(t, "spec.containers[0].volumes[1]", getJMESPath("/validate/pattern/spec/containers/0/volumes/1"))
+	assert.Equal(t, "[0]", getJMESPath("/mutate/overlay/0"))
 }
