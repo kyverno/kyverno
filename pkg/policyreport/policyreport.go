@@ -1,6 +1,7 @@
 package policyreport
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -99,11 +100,8 @@ func updateResults(oldReport, newReport map[string]interface{}, aggregatedReques
 	}
 
 	summaryResults := []report.PolicyReportResult{}
-	for _, r := range results {
-		typedResult, ok := r.(report.PolicyReportResult)
-		if ok {
-			summaryResults = append(summaryResults, typedResult)
-		}
+	if err := mapToStruct(results, &summaryResults); err != nil {
+		return nil, hasDuplicate, err
 	}
 
 	summary := updateSummary(summaryResults)
@@ -216,4 +214,9 @@ func isDeletedPolicyKey(key string) (policyName, ruleName string, isDelete bool)
 	}
 
 	return "", "", false
+}
+
+func mapToStruct(in, out interface{}) error {
+	jsonBytes, _ := json.Marshal(in)
+	return json.Unmarshal(jsonBytes, out)
 }
