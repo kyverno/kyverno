@@ -3,7 +3,7 @@ package policyreport
 import (
 	"testing"
 
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 )
 
 var validReportStatuses = []string{"pass", "fail", "error", "skip", "warn"}
