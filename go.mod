@@ -55,6 +55,8 @@ require (
 )
 
 replace (
+	github.com/docker/cli v0.0.0-20191017083524-a8ff7f821017 => github.com/docker/cli v20.10.10+incompatible
+	github.com/docker/cli v20.10.7+incompatible => github.com/docker/cli v20.10.10+incompatible
 	github.com/docker/cli v20.10.8+incompatible => github.com/docker/cli v20.10.10+incompatible
 	github.com/evanphx/json-patch/v5 => github.com/kyverno/json-patch/v5 v5.5.1-0.20210915204938-7578f4ee9c77
 	github.com/go-logr/logr => github.com/go-logr/logr v0.4.0
