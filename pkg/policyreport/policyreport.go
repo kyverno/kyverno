@@ -98,8 +98,16 @@ func updateResults(oldReport, newReport map[string]interface{}, aggregatedReques
 		return nil, hasDuplicate, err
 	}
 
-	summary := updateSummary(results)
-	if err := unstructured.SetNestedMap(newReport, summary, "summary"); err != nil {
+	summaryResults := []report.PolicyReportResult{}
+	for _, r := range results {
+		typedResult, ok := r.(report.PolicyReportResult)
+		if ok {
+			summaryResults = append(summaryResults, typedResult)
+		}
+	}
+
+	summary := updateSummary(summaryResults)
+	if err := unstructured.SetNestedMap(newReport, summary.ToMap(), "summary"); err != nil {
 		return nil, hasDuplicate, err
 	}
 	return newReport, hasDuplicate, nil
@@ -172,45 +180,24 @@ func generateHashKey(result map[string]interface{}, dr deletedResource) (string,
 		resource["name"]), true
 }
 
-func updateSummary(results []interface{}) map[string]interface{} {
-	summary := make(map[string]interface{}, 5)
+func updateSummary(results []report.PolicyReportResult) report.PolicyReportSummary {
+	summary := report.PolicyReportSummary{}
 
 	for _, result := range results {
-		typedResult, ok := result.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		resultString, ok := typedResult["result"].(string)
-		if !ok {
-			continue
-		}
-
-		switch resultString {
+		switch result.Result {
 		case report.StatusPass:
-			pass, _ := summary[report.StatusPass].(int64)
-			summary[report.StatusPass] = pass + 1
+			summary.Pass++
 		case report.StatusFail:
-			fail, _ := summary[report.StatusFail].(int64)
-			summary[report.StatusFail] = fail + 1
+			summary.Fail++
 		case report.StatusWarn:
-			warn, _ := summary[report.StatusWarn].(int64)
-			summary[report.StatusWarn] = warn + 1
+			summary.Warn++
 		case report.StatusError:
-			e, _ := summary[report.StatusError].(int64)
-			summary[report.StatusError] = e + 1
+			summary.Error++
 		case report.StatusSkip:
-			skip, _ := summary[report.StatusSkip].(int64)
-			summary[report.StatusSkip] = skip + 1
+			summary.Skip++
 		}
 	}
 
-	status := []string{report.StatusPass, report.StatusFail, report.StatusError, report.StatusSkip, report.StatusWarn}
-	for i := 0; i < 5; i++ {
-		if _, ok := summary[status[i]].(int64); !ok {
-			summary[status[i]] = int64(0)
-		}
-	}
 	return summary
 }
 

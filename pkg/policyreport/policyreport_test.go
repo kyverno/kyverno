@@ -2,27 +2,46 @@ package policyreport
 
 import (
 	"testing"
+
+	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 )
 
 var validReportStatuses = []string{"pass", "fail", "error", "skip", "warn"}
 
 func TestUpdateSummary_Successful(t *testing.T) {
-	results := []interface{}{}
+	results := []report.PolicyReportResult{}
 	for _, status := range validReportStatuses {
-		results = append(results, map[string]interface{}{"result": status})
+		results = append(results, report.PolicyReportResult{
+			Result: report.PolicyResult(status),
+			Policy: "TestUpdateSummary_Successful",
+			Source: "Kyverno",
+		})
 	}
 
 	summary := updateSummary(results)
 
-	for _, status := range validReportStatuses {
-		if summary[status] != int64(1) {
-			t.Errorf("Was expecting status %q to have a count of 1", status)
-		}
+	if summary.Pass != 1 {
+		t.Errorf("Was expecting status pass to have a count of 1")
+	}
+	if summary.Error != 1 {
+		t.Errorf("Was expecting status error to have a count of 1")
+	}
+	if summary.Fail != 1 {
+		t.Errorf("Was expecting status fail to have a count of 1")
+	}
+	if summary.Skip != 1 {
+		t.Errorf("Was expecting status skip to have a count of 1")
+	}
+	if summary.Warn != 1 {
+		t.Errorf("Was expecting status warn to have a count of 1")
 	}
 }
 func TestUpdateSummary_MissingResultField(t *testing.T) {
-	results := []interface{}{
-		map[string]interface{}{"name": "test"},
+	results := []report.PolicyReportResult{
+		{
+			Policy: "TestUpdateSummary_MissingResultField",
+			Source: "Kyverno",
+		},
 	}
 
 	defer func() {
@@ -33,9 +52,19 @@ func TestUpdateSummary_MissingResultField(t *testing.T) {
 
 	summary := updateSummary(results)
 
-	for _, status := range validReportStatuses {
-		if summary[status] != int64(0) {
-			t.Errorf("Was expecting status %q to have a count of 0", status)
-		}
+	if summary.Pass != 0 {
+		t.Errorf("Was expecting status pass to have a count of 0")
+	}
+	if summary.Error != 0 {
+		t.Errorf("Was expecting status error to have a count of 0")
+	}
+	if summary.Fail != 0 {
+		t.Errorf("Was expecting status fail to have a count of 0")
+	}
+	if summary.Skip != 0 {
+		t.Errorf("Was expecting status skip to have a count of 0")
+	}
+	if summary.Warn != 0 {
+		t.Errorf("Was expecting status warn to have a count of 0")
 	}
 }
