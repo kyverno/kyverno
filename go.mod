@@ -7,6 +7,7 @@ require (
 	github.com/cornelk/hashmap v1.0.1
 	github.com/dchest/siphash v1.2.1 // indirect
 	github.com/distribution/distribution v2.7.1+incompatible
+	github.com/docker/cli v20.10.10+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.5.0
 	github.com/fatih/color v1.12.0
 	github.com/gardener/controller-manager-library v0.2.0
