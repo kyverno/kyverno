@@ -46,7 +46,7 @@ func TestGeneratePodControllerRule_NilAnnotation(t *testing.T) {
 		"metadata": {
 		  "name": "add-safe-to-evict",
 		  "annotations": {
-			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet,CronJob"
+			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet,CronJob,ReplicaSet,ReplicationController"
 		  }
 		}
 	  }`)
@@ -222,7 +222,9 @@ func TestGeneratePodControllerRule_Mutate(t *testing.T) {
 					"DaemonSet",
 					"Deployment",
 					"Job",
-					"StatefulSet"
+					"StatefulSet",
+					"ReplicaSet",
+					"ReplicationController"
 				  ]
 				}
 			  },
@@ -315,7 +317,7 @@ func TestGeneratePodControllerRule_ExistOtherAnnotation(t *testing.T) {
 		"metadata": {
 		  "name": "add-safe-to-evict",
 		  "annotations": {
-			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet,CronJob",
+			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet,CronJob,ReplicaSet,ReplicationController",
 			"test": "annotation"
 		  }
 		}
@@ -525,7 +527,7 @@ func TestGeneratePodControllerRule_ValidatePattern(t *testing.T) {
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "annotations": {
-			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet,CronJob"
+			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet,CronJob,ReplicaSet,ReplicationController"
 		  },
 		  "name": "add-safe-to-evict"
 		},
@@ -563,7 +565,9 @@ func TestGeneratePodControllerRule_ValidatePattern(t *testing.T) {
 					"DaemonSet",
 					"Deployment",
 					"Job",
-					"StatefulSet"
+					"StatefulSet",
+					"ReplicaSet",
+					"ReplicationController"
 				  ]
 				}
 			  },
