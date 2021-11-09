@@ -31,7 +31,7 @@ var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
 
 var regexVariableInit = regexp.MustCompile(`^\{\{[^{}]*\}\}`)
 
-var regexCustomValueOperatorAndParam = regexp.MustCompile(`[/|\+|\-|\*]\s*[0-9]+`)
+var regexCustomValueOperatorAndParam = regexp.MustCompile(`\s+[/|\+|\-|\*]\s+[0-9]+`)
 
 var regexCustomValueOperator = regexp.MustCompile(`[/|\+|\-|\*]`)
 
@@ -611,6 +611,10 @@ func getCustomOptionsIfNeeded(v string) (variable, op string, num float64) {
 }
 
 func processValueIfNeeded(data interface{}, variable, operator string, operatorNum float64) (interface{}, bool) {
+	if operator == "" || operatorNum <= 0 {
+		return data, false
+	}
+
 	target, ok := data.(string)
 	if !ok {
 		return data, false

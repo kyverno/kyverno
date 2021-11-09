@@ -1186,7 +1186,6 @@ func Test_SubstituteSuccess1(t *testing.T) {
 	assert.Assert(t, ctx.AddResource(resourceRaw))
 
 	var pattern interface{}
-	//patternRaw := []byte(`"{{request.object.metadata.annotations.test * 12}}"`)
 	patternRaw := []byte(`"{{ request.object.spec.containers[0].resources.requests.memory / 2 }}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
