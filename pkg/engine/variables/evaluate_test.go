@@ -290,7 +290,7 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{Key: 5, Operator: kyverno.AllNotIn, Value: []interface{}{1, 2, 3}}, true},
 		{kyverno.Condition{Key: 5.5, Operator: kyverno.AllNotIn, Value: []interface{}{1, 1.5, 2, 3}}, true},
 		{kyverno.Condition{Key: "5", Operator: kyverno.AllNotIn, Value: []interface{}{"1", "2", "3"}}, true},
-		{kyverno.Condition{Key: []interface{}{"1.1.1.1", "4.4.4.4"}, Operator: kyverno.AllNotIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"}}, false},
+		{kyverno.Condition{Key: []interface{}{"1.1.1.1", "4.4.4.4"}, Operator: kyverno.AllNotIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"}}, true},
 		{kyverno.Condition{Key: []interface{}{"5.5.5.5", "4.4.4.4"}, Operator: kyverno.AllNotIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"}}, true},
 		{kyverno.Condition{Key: []interface{}{"1.1.1.1", "4.4.4.4"}, Operator: kyverno.AllNotIn, Value: "2.2.2.2"}, true},
 

@@ -119,14 +119,16 @@ func isAllIn(key []string, value []string) bool {
 
 // isAllNotIn checks if all the values in S1 are not in S2
 func isAllNotIn(key []string, value []string) bool {
+	found := 0
 	for _, valKey := range key {
 		for _, valValue := range value {
 			if wildcard.Match(valKey, valValue) {
-				return false
+				found++
 			}
 		}
 	}
-	return true
+	return !(found == len(key))
+
 }
 
 func (allin AllInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {
