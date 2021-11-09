@@ -1414,26 +1414,26 @@ func TestManagedPodResource(t *testing.T) {
 		},
 		{
 			name:           "enable-autogen-pod-with-matched-owner",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Deployment"}]}}`),
+			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "ReplicaSet"}}}`),
+			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "ReplicaSet"}]}}`),
 			expectedResult: true,
 		},
 		{
 			name:           "enable-autogen-pod-with-unmatched-owner",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment"}}}`),
+			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "ReplicaSet"}}}`),
 			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Challenge"}]}}`),
 			expectedResult: false,
 		},
 		{
 			name:           "enable-autogen-pod-with-owner-rs",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment,StatefulSet"}}}`),
+			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment,StatefulSet,ReplicaSet"}}}`),
 			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "ReplicaSet"}]}}`),
 			expectedResult: true,
 		},
 		{
 			name:           "enable-autogen-pod-with-multiple-owners",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment,StatefulSet"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Deployment"},{"kind": "Challenge"}]}}`),
+			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment,StatefulSet,ReplicaSet"}}}`),
+			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "ReplicaSet"},{"kind": "Challenge"}]}}`),
 			expectedResult: false,
 		},
 	}

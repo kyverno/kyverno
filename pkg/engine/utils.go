@@ -409,10 +409,10 @@ func transformConditions(original apiextensions.JSON) (interface{}, error) {
 func excludeResource(podControllers string, resource unstructured.Unstructured) bool {
 	kind := resource.GetKind()
 	hasOwner := false
-	if kind == "Pod" || kind == "Job" {
+	if kind == "Pod" || kind == "Job" || kind == "ReplicaSet" {
 		for _, owner := range resource.GetOwnerReferences() {
 			hasOwner = true
-			if owner.Kind != "ReplicaSet" && !strings.Contains(podControllers, owner.Kind) {
+			if !strings.Contains(podControllers, owner.Kind) {
 				return false
 			}
 		}
@@ -423,8 +423,8 @@ func excludeResource(podControllers string, resource unstructured.Unstructured) 
 }
 
 // ManagedPodResource returns true:
-// - if the policy has auto-gen annotation && resource == Pod
-// - if the auto-gen contains cronJob && resource == Job
+// - if the policy has auto-gen annotation && (the owners of resource in autogen-controllers) && (resource == Pod || resource == ReplicaSet)
+// - if the auto-gen contains cronJob && (the owners of resource in autogen-controllers) && (resource == Job)
 func ManagedPodResource(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) bool {
 	podControllers, ok := policy.GetAnnotations()[PodControllersAnnotation]
 	if !ok || strings.ToLower(podControllers) == "none" {
