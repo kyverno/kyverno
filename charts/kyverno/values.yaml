@@ -147,7 +147,6 @@ config:
   - "[SelfSubjectAccessReview,*,*]"
   - "[*,kyverno,*]"
   - "[Binding,*,*]"
-  - "[ReplicaSet,*,*]"
   - "[ReportChangeRequest,*,*]"
   - "[ClusterReportChangeRequest,*,*]"
   # Or give the name of an existing config map (ignores default/provided resourceFilters)
