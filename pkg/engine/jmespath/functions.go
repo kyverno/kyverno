@@ -57,21 +57,21 @@ const zeroDivisionError = errorPrefix + "Zero divisor passed"
 const nonIntModuloError = errorPrefix + "Non-integer argument(s) passed for modulo"
 
 var layouts = map[string]string{
-	"ANSIC":       time.ANSIC,
-	"UnixDate":    time.UnixDate,
-	"RubyDate":    time.RubyDate,
-	"RFC822":      time.RFC822,
-	"RFC822Z":     time.RFC822Z,
-	"RFC850":      time.RFC850,
-	"RFC1123":     time.RFC1123,
-	"RFC1123Z":    time.RFC1123Z,
-	"RFC3339":     time.RFC3339,
-	"RFC3339Nano": time.RFC3339Nano,
-	"Kitchen":     time.Kitchen,
-	"Stamp":       time.Stamp,
-	"StampMilli":  time.StampMilli,
-	"StampMicro":  time.StampMicro,
-	"StampNano":   time.StampNano,
+	"ANSIC":       "Mon Jan _2 15:04:05 2006",
+	"UnixDate":    "Mon Jan _2 15:04:05 MST 2006",
+	"RubyDate":    "Mon Jan 02 15:04:05 -0700 2006",
+	"RFC822":      "02 Jan 06 15:04 MST",
+	"RFC822Z":     "02 Jan 06 15:04 -0700",
+	"RFC850":      "Monday, 02-Jan-06 15:04:05 MST",
+	"RFC1123":     "Mon, 02 Jan 2006 15:04:05 MST",
+	"RFC1123Z":    "Mon, 02 Jan 2006 15:04:05 -0700",
+	"RFC3339":     "2006-01-02T15:04:05Z07:00",
+	"RFC3339Nano": "2006-01-02T15:04:05.999999999Z07:00",
+	"Kitchen":     "3:04PM",
+	"Stamp":       "Jan _2 15:04:05",
+	"StampMilli":  "Jan _2 15:04:05.000",
+	"StampMicro":  "Jan _2 15:04:05.000000",
+	"StampNano":   "Jan _2 15:04:05.000000000",
 }
 
 func getFunctions() []*gojmespath.FunctionEntry {
@@ -581,46 +581,39 @@ func jpBase64Encode(arguments []interface{}) (interface{}, error) {
 
 func jpTimeSince(arguments []interface{}) (interface{}, error) {
 	var err error
-	layout_, err := validateArg("", arguments, 0, reflect.String)
+	temp, err := validateArg("", arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	layout := layout_.String()
+	layout := temp.String()
 	if val, ok := layouts[layout]; ok {
 		layout = val
 	}
 
-	timestamp_1, err := validateArg("", arguments, 1, reflect.String)
+	ts1, err := validateArg("", arguments, 1, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	timestamp_2, err := validateArg("", arguments, 2, reflect.String)
+	ts2, err := validateArg("", arguments, 2, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	timestamp1 := timestamp_1.String()
-	timestamp2 := timestamp_2.String()
-
-	t1, err := time.Parse(layout, timestamp1)
+	t1, err := time.Parse(layout, ts1.String())
 	if err != nil {
 		return nil, err
 	}
 
 	t2 := time.Now()
 
-	if timestamp2 != "" {
-		t2, err = time.Parse(layout, timestamp2)
+	if ts2.String() != "" {
+		t2, err = time.Parse(layout, ts2.String())
 
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	if err != nil {
-		return nil, err
 	}
 
 	return t2.Sub(t1).String(), nil

@@ -506,23 +506,32 @@ func Test_Base64Decode_Secret(t *testing.T) {
 }
 
 func Test_TimeSince(t *testing.T) {
-	jp, err := New("time_since('RFC822', '02 Jan 21 15:04 MST', '10 Jan 21 03:14 MST')")
-	assert.NilError(t, err)
+	testCases := []struct {
+		test           string
+		expectedResult string
+	}{
+		{
+			test:           "time_since('RFC822', '02 Jan 21 15:04 MST', '10 Jan 21 03:14 MST')",
+			expectedResult: "180h10m0s",
+		},
+		{
+			test:           "time_since('UnixDate', 'Mon Jan 02 15:04:05 MST 2021', 'Mon Jan 10 03:14:16 MST 2021')",
+			expectedResult: "180h10m11s",
+		},
+	}
 
-	result, err := jp.Search("")
-	assert.NilError(t, err)
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			query, err := New(tc.test)
+			assert.NilError(t, err)
 
-	diff, ok := result.(string)
-	assert.Assert(t, ok)
-	assert.Equal(t, diff, "180h10m0s")
+			res, err := query.Search("")
+			assert.NilError(t, err)
 
-	jp, err = New("time_since('UnixDate', 'Mon Jan 02 15:04:05 MST 2021', 'Mon Jan 10 03:14:16 MST 2021')")
-	assert.NilError(t, err)
+			result, ok := res.(string)
+			assert.Assert(t, ok)
 
-	result, err = jp.Search("")
-	assert.NilError(t, err)
-
-	diff, ok = result.(string)
-	assert.Assert(t, ok)
-	assert.Equal(t, diff, "180h10m11s")
+			assert.Equal(t, result, tc.expectedResult)
+		})
+	}
 }
