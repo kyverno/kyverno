@@ -98,7 +98,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- fail "Cannot set both .Values.podDisruptionBudget.minAvailable and .Values.podDisruptionBudget.maxUnavailable" -}}
 {{- end }}
 {{- if not .Values.podDisruptionBudget.maxUnavailable }}
-minAvailable: {{ default 0 .Values.podDisruptionBudget.minAvailable }}
+minAvailable: {{ default 1 .Values.podDisruptionBudget.minAvailable }}
 {{- end }}
 {{- if .Values.podDisruptionBudget.maxUnavailable }}
 maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
