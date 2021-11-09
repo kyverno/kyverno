@@ -1158,21 +1158,19 @@ func Test_getJMESPath(t *testing.T) {
 	assert.Equal(t, "[0]", getJMESPath("/mutate/overlay/0"))
 }
 
-func Test_SubstituteSuccess1(t *testing.T) {
+func Test_modifyValueSuccess(t *testing.T) {
 	ctx := context.NewContext()
-
 	var resourceRaw = []byte(`
     {
         "spec":{
                "containers":[
                 {
-
                     "image":"nginx:1.19",
                     "name":"nginx",
                     "resources":{
                         "limits":{
-                            "cpu":"500m",
-                            "memory":"500Mi"
+                            "cpu": "1",
+                            "memory":"2Mi"
                         },
                         "requests":{
                             "cpu":"251m",
@@ -1186,18 +1184,25 @@ func Test_SubstituteSuccess1(t *testing.T) {
 	assert.Assert(t, ctx.AddResource(resourceRaw))
 
 	var pattern interface{}
-	patternRaw := []byte(`"{{ request.object.spec.containers[0].resources.requests.memory / 2 }}"`)
-	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
-
-	action := substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
-	results, err := action(&ju.ActionData{
-		Document: nil,
-		Element:  string(patternRaw),
-		Path:     ""})
-
-	if err != nil {
-		t.Errorf("substitution failed: %v", err.Error())
-		return
+	patternRaw := [][]byte{
+		[]byte(`"{{ request.object.spec.containers[0].resources.limits.cpu / 2 }}"`),
+		[]byte(`"{{ request.object.spec.containers[0].resources.limits.memory / 2 }}"`),
+		[]byte(`"{{ request.object.spec.containers[0].resources.requests.cpu / 2 }}"`),
+		[]byte(`"{{ request.object.spec.containers[0].resources.requests.memory / 2 }}"`),
 	}
-	t.Log(results)
+	for _, raw := range patternRaw {
+		assert.Assert(t, json.Unmarshal(raw, &pattern))
+
+		action := substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
+		results, err := action(&ju.ActionData{
+			Document: nil,
+			Element:  string(raw),
+			Path:     ""})
+
+		if err != nil {
+			t.Errorf("substitution failed: %v", err.Error())
+			return
+		}
+		t.Log(results)
+	}
 }

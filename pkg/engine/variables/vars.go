@@ -35,7 +35,7 @@ var regexCustomValueOperatorAndParam = regexp.MustCompile(`\s+[/|\+|\-|\*]\s+[0-
 
 var regexCustomValueOperator = regexp.MustCompile(`[/|\+|\-|\*]`)
 
-var regexCustomValueTarget = regexp.MustCompile(`\d+(\.?\d+)`)
+var regexCustomValueTarget = regexp.MustCompile(`\d+(\.?\d*)`)
 
 // IsVariable returns true if the element contains a 'valid' variable {{}}
 func IsVariable(value string) bool {
