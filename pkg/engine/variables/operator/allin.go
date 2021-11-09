@@ -84,9 +84,13 @@ func allSetExistsInArray(key []string, value interface{}, log logr.Logger, allNo
 		}
 
 		var arr []string
-		if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
-			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
-			return true, false
+		if json.Valid([]byte(valuesAvailable)) {
+			if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
+				log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
+				return true, false
+			}
+		} else {
+			arr = append(arr, valuesAvailable)
 		}
 		if allNotIn {
 			return false, isAllNotIn(key, arr)
