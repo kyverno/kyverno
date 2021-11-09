@@ -168,8 +168,9 @@ func loadResourceList(logger logr.Logger, ctx *PolicyContext, p *APIPath) ([]byt
 	}
 
 	if cache, ok := ctx.ResourceCache.GetGVRCache(p.ToGVRString()); ok {
-		logger.V(4).Info("Loading resource list from cache", "gvr", p.ToGVRString())
-		rList, err := cache.Lister().List(labels.Everything())
+		logger.V(4).Info("Loading resource list from cache", "gvr", p.ToGVRString(), "namespace", p.Namespace)
+
+		rList, err := cache.NamespacedLister(p.Namespace).List(labels.Everything())
 		if err != nil {
 			return nil, err
 		}
