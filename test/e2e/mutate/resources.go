@@ -400,16 +400,12 @@ spec:
         resources:
           kinds:
             - Pod
-      preconditions:
-        - key: "{{ request.operation }}"
-          operator: Equals
-          value: CREATE
       mutate:
         overlay:
           spec:
             containers:
               # match images that are from our registry
-              - (image): "registry.corp.com/*"
+              - <(image): "registry.corp.com/*"
                 # set the imagePullSecrets
             imagePullSecrets:
               - name: regcred
@@ -427,7 +423,7 @@ spec:
     image: nginx:1.14.2
 `)
 
-var podWithSecretPattern = []byte(`
+var podWithNoSecretPattern = []byte(`
 apiVersion: v1
 kind: Pod
 metadata:
@@ -437,6 +433,4 @@ spec:
   containers:
   - name: nginx
     image: nginx:1.14.2
-  imagePullSecrets:
-    - name: regcred
 `)

@@ -94,7 +94,7 @@ var tests = []struct {
 		ResourceNamespace:  "test-run",
 		ResourceGVR:        podGVR,
 		ResourceRaw:        podWithNoSecrets,
-		ExpectedPatternRaw: podWithSecretPattern,
+		ExpectedPatternRaw: podWithNoSecretPattern,
 	},
 }
 
