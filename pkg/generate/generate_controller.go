@@ -1,7 +1,6 @@
 package generate
 
 import (
-	"errors"
 	"reflect"
 	"time"
 
@@ -187,77 +186,127 @@ func (c *Controller) processNextWorkItem() bool {
 	return true
 }
 
-func (c *Controller) handleErr(err error, key interface{}) {
+func (c *Controller) handleErr(err GenerationError, key interface{}) {
 	logger := c.log
-	if err == nil {
+
+	if err.Generic == nil && err.Generate == nil && err.Cleanup == nil {
 		c.queue.Forget(key)
 		return
 	}
 
-	if apierrors.IsNotFound(err) {
+	if apierrors.IsNotFound(err.Generic) {
 		c.queue.Forget(key)
-		logger.V(4).Info("Dropping generate request from the queue", "key", key, "error", err.Error())
+		logger.V(4).Info("Dropping generate request from the queue", "key", key)
 		return
+	}
+
+	actualKey := key.(QueueMessage)
+	requestTypes := actualKey.GetRequestTypes()
+	errRequestTypes := []string{}
+
+	if (len(requestTypes) == 1) && (apierrors.IsNotFound(err.Generate) || apierrors.IsNotFound(err.Cleanup)) {
+		c.queue.Forget(key)
+		logger.V(4).Info("Dropping generate request from the queue", "key", key, "requestTypes", requestTypes)
+		return
+	} else {
+		apiError := false
+		for _, requestType := range requestTypes {
+			if requestType == GenerateRequestGenerateType && apierrors.IsNotFound(err.Generate) {
+				errRequestTypes = append(errRequestTypes, GenerateRequestGenerateType)
+				apiError = true
+			} else if requestType == GenerateRequestCleanupType && apierrors.IsNotFound(err.Cleanup) {
+				errRequestTypes = append(errRequestTypes, GenerateRequestCleanupType)
+				apiError = true
+			}
+		}
+		if apiError {
+			c.queue.Forget(key)
+			c.queue.Add(&GenerateRequestMessage{
+				Key:          actualKey.GetKey(),
+				RequestTypes: errRequestTypes,
+			})
+		}
 	}
 
 	if c.queue.NumRequeues(key) < maxRetries {
-		logger.V(3).Info("retrying generate request", "key", key, "error", err.Error())
+		logger.V(3).Info("retrying generate request", "key", key, "requestTypes", requestTypes)
 		c.queue.AddRateLimited(key)
 		return
 	}
 
-	logger.Error(err, "failed to process generate request", "key", key)
+	logger.Error(err.Generic, "failed to process generate request", "key", key, "requestTypes", requestTypes)
 	c.queue.Forget(key)
 }
 
-func (c *Controller) syncGenerateRequest(queueMessage QueueMessage) error {
+type GenerationError struct {
+	Generate error
+	Cleanup  error
+	Generic  error
+}
 
+func (c *Controller) syncGenerateRequest(queueMessage QueueMessage) GenerationError {
 	key := queueMessage.GetKey()
-	requestType := queueMessage.GetType()
-
+	requestTypes := queueMessage.GetRequestTypes()
 	logger := c.log
-	var err error
+	generateError := GenerationError{}
 	startTime := time.Now()
 	logger.V(4).Info("started sync", "key", key, "startTime", startTime)
 	defer func() {
 		logger.V(4).Info("completed sync generate request", "key", key, "processingTime", time.Since(startTime).String())
 	}()
-
 	_, grName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		return err
+		generateError.Generic = err
+		return generateError
 	}
-
-	gr, err := c.grLister.Get(grName)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-
-		logger.Error(err, "failed to fetch generate request", "key", key)
-		return err
-	}
-
-	logger.V(4).Info("processing generate request with", "requestType", requestType)
-	if requestType == GenerateRequestGenerateType {
-		return c.processGR(gr)
-	} else if requestType == GenerateRequestCleanupType {
-		_, err = c.policyLister.Get(gr.Spec.Policy)
+	for _, requestType := range requestTypes {
+		gr, err := c.grLister.Get(grName)
 		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				return err
+			if apierrors.IsNotFound(err) {
+				return generateError
 			}
-			err = c.control.Delete(gr.Name)
-			if err != nil {
-				return err
+
+			logger.Error(err, "failed to fetch generate request", "key", key)
+			if requestType == GenerateRequestGenerateType {
+				generateError.Generate = err
+			} else if requestType == GenerateRequestCleanupType {
+				generateError.Cleanup = err
 			}
-			return nil
+
+			return generateError
 		}
-		return c.processGCR(gr)
-	} else {
-		logger.V(4).Info("unknown request with", "requestType", requestType)
-		return errors.New("unknown request with")
+
+		logger.V(4).Info("processing generate request with", "requestType", requestTypes)
+		if requestType == GenerateRequestGenerateType {
+			err := c.processGR(gr)
+			if err != nil {
+				logger.V(4).Info("error occured while processing generate request with", "requestType", requestType)
+				generateError.Generate = err
+			}
+		} else if requestType == GenerateRequestCleanupType {
+			_, err = c.policyLister.Get(gr.Spec.Policy)
+			if err != nil {
+				if !apierrors.IsNotFound(err) {
+					generateError.Cleanup = err
+					continue
+				}
+				err = c.control.Delete(gr.Name)
+				if err != nil {
+					generateError.Cleanup = err
+					continue
+				}
+				continue
+			}
+			err := c.processGCR(gr)
+			if err != nil {
+				generateError.Cleanup = err
+				continue
+			}
+		} else {
+			logger.V(2).Info("unknown request with", "requestType", requestType)
+		}
 	}
+	return generateError
 }
 
 func (c *Controller) updateGenericResource(old, cur interface{}) {
@@ -273,43 +322,43 @@ func (c *Controller) updateGenericResource(old, cur interface{}) {
 	// re-evaluate the GR as the resource was updated
 	for _, gr := range grs {
 		gr.Spec.Context.AdmissionRequestInfo.Operation = v1beta1.Update
-		c.enqueueGenerateRequest(gr, GenerateRequestGenerateType)
+		c.enqueueGenerateRequest(gr, []string{GenerateRequestGenerateType})
 	}
 }
 
 // EnqueueGenerateRequestFromWebhook - enqueueing generate requests from webhook
 func (c *Controller) EnqueueGenerateRequestFromWebhook(gr *kyverno.GenerateRequest) {
-	c.enqueueGenerateRequest(gr, GenerateRequestGenerateType)
+	c.enqueueGenerateRequest(gr, []string{GenerateRequestGenerateType})
 }
 
 type QueueMessage interface {
 	GetKey() string
-	GetType() string
+	GetRequestTypes() []string
 }
 
 type GenerateRequestMessage struct {
-	Key  string
-	Type string
+	Key          string
+	RequestTypes []string
 }
 
 func (grm GenerateRequestMessage) GetKey() string {
 	return grm.Key
 }
-func (grm GenerateRequestMessage) GetType() string {
-	return grm.Type
+func (grm GenerateRequestMessage) GetRequestTypes() []string {
+	return grm.RequestTypes
 }
 
-func (c *Controller) enqueueGenerateRequest(gr *kyverno.GenerateRequest, requestType string) {
-	c.log.V(5).Info("enqueuing generate request", "gr", gr.Name, "grType", requestType)
+func (c *Controller) enqueueGenerateRequest(gr *kyverno.GenerateRequest, requestTypes []string) {
+	c.log.V(5).Info("enqueuing generate request", "gr", gr.Name, "grTypes", requestTypes)
 	key, err := cache.MetaNamespaceKeyFunc(gr)
 	if err != nil {
 		c.log.Error(err, "failed to extract name")
 		return
 	}
 
-	c.queue.Add(GenerateRequestMessage{
-		Key:  key,
-		Type: requestType,
+	c.queue.Add(&GenerateRequestMessage{
+		Key:          key,
+		RequestTypes: requestTypes,
 	})
 }
 
@@ -350,26 +399,28 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 	// re-evaluate the GR as the policy was updated
 	for _, gr := range grs {
 		gr.Spec.Context.AdmissionRequestInfo.Operation = v1beta1.Update
-		c.enqueueGenerateRequest(gr, GenerateRequestGenerateType)
+		c.enqueueGenerateRequest(gr, []string{GenerateRequestGenerateType})
 	}
 }
 
 func (c *Controller) addGR(obj interface{}) {
 	c.log.V(4).Info("Coming to addGR func")
 	gr := obj.(*kyverno.GenerateRequest)
-	c.enqueueGenerateRequest(gr, GenerateRequestGenerateType)
+	c.enqueueGenerateRequest(gr, []string{GenerateRequestGenerateType})
 }
 
 func (c *Controller) addGCR(obj interface{}) {
 	c.log.V(4).Info("Coming to addGCR func")
 	gr := obj.(*kyverno.GenerateRequest)
-	c.enqueueGenerateRequest(gr, GenerateRequestCleanupType)
+	c.enqueueGenerateRequest(gr, []string{GenerateRequestCleanupType})
 }
 
 func (c *Controller) addGRNew(obj interface{}) {
 	c.log.V(4).Info("Coming to addGRNew func")
-	c.addGR(obj)
-	c.addGCR(obj)
+	gr := obj.(*kyverno.GenerateRequest)
+	c.enqueueGenerateRequest(gr, []string{GenerateRequestGenerateType, GenerateRequestCleanupType})
+	// c.addGR(obj)
+	// c.addGCR(obj)
 }
 
 func (c *Controller) updateGR(old, cur interface{}) {
@@ -386,19 +437,41 @@ func (c *Controller) updateGR(old, cur interface{}) {
 	if curGr.Status.State == kyverno.Failed {
 		return
 	}
-	c.enqueueGenerateRequest(curGr, GenerateRequestGenerateType)
+	c.enqueueGenerateRequest(curGr, []string{GenerateRequestGenerateType})
 }
 
 func (c *Controller) updateGCR(old, cur interface{}) {
 	c.log.V(4).Info("Coming to updateGCR func")
 	gr := cur.(*kyverno.GenerateRequest)
-	c.enqueueGenerateRequest(gr, GenerateRequestCleanupType)
+	c.enqueueGenerateRequest(gr, []string{GenerateRequestCleanupType})
 }
 
 func (c *Controller) updateGRNew(old, cur interface{}) {
 	c.log.V(4).Info("Coming to updateGRNew func")
-	c.updateGR(old, cur)
-	c.updateGCR(old, cur)
+	var enqueueGenerate bool = true
+	oldGr := old.(*kyverno.GenerateRequest)
+	curGr := cur.(*kyverno.GenerateRequest)
+	if oldGr.ResourceVersion == curGr.ResourceVersion {
+		// Periodic resync will send update events for all known Namespace.
+		// Two different versions of the same replica set will always have different RVs.
+		enqueueGenerate = false
+	}
+	// only process the ones that are in "Pending"/"Completed" state
+	// if the Generate Request fails due to incorrect policy, it will be requeue during policy update
+	if curGr.Status.State == kyverno.Failed {
+		enqueueGenerate = false
+	}
+
+	requestTypes := []string{GenerateRequestCleanupType}
+
+	if enqueueGenerate {
+		requestTypes = append(requestTypes, GenerateRequestGenerateType)
+	}
+
+	c.enqueueGenerateRequest(curGr, requestTypes)
+
+	// c.updateGR(old, cur)
+	// c.updateGCR(old, cur)
 }
 
 func (c *Controller) deleteGR(obj interface{}) {
@@ -435,7 +508,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 	logger.V(3).Info("deleting generate request", "name", gr.Name)
 
 	// sync Handler will remove it from the queue
-	c.enqueueGenerateRequest(gr, GenerateRequestGenerateType)
+	c.enqueueGenerateRequest(gr, []string{GenerateRequestGenerateType})
 }
 
 func (c *Controller) deleteGCR(obj interface{}) {
@@ -473,13 +546,48 @@ func (c *Controller) deleteGCR(obj interface{}) {
 
 	logger.V(4).Info("deleting Generate Request CR", "name", gr.Name)
 	// sync Handler will remove it from the queue
-	c.enqueueGenerateRequest(gr, GenerateRequestCleanupType)
+	c.enqueueGenerateRequest(gr, []string{GenerateRequestCleanupType})
 }
 
 func (c *Controller) deleteGRNew(obj interface{}) {
 	c.log.V(4).Info("Coming to deleteGRNew func")
-	c.deleteGR(obj)
-	c.deleteGCR(obj)
+
+	logger := c.log
+	gr, ok := obj.(*kyverno.GenerateRequest)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			logger.Info("Couldn't get object from tombstone", "obj", obj)
+			return
+		}
+		_, ok = tombstone.Obj.(*kyverno.GenerateRequest)
+		if !ok {
+			logger.Info("tombstone contained object that is not a Generate Request CR", "obj", obj)
+			return
+		}
+	}
+
+	for _, resource := range gr.Status.GeneratedResources {
+		r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
+		if err != nil && !apierrors.IsNotFound(err) {
+			logger.Error(err, "Generated resource is not deleted", "Resource", resource.Name)
+			continue
+		}
+
+		if r != nil && r.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
+			if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
+			}
+		}
+	}
+
+	logger.V(3).Info("deleting generate request", "name", gr.Name)
+
+	// sync Handler will remove it from the queue
+	c.enqueueGenerateRequest(gr, []string{GenerateRequestGenerateType, GenerateRequestCleanupType})
+
+	// c.deleteGR(obj)
+	// c.deleteGCR(obj)
 }
 
 func (c *Controller) deletePolicy(obj interface{}) {
@@ -549,6 +657,6 @@ func (c *Controller) deleteGenericResource(obj interface{}) {
 	}
 	// re-evaluate the GR as the resource was deleted
 	for _, gr := range grs {
-		c.enqueueGenerateRequest(gr, GenerateRequestCleanupType)
+		c.enqueueGenerateRequest(gr, []string{GenerateRequestCleanupType})
 	}
 }

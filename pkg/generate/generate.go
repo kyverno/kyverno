@@ -143,7 +143,6 @@ func (c *Controller) processGCR(gr *kyverno.GenerateRequest) error {
 	return nil
 }
 
-
 const doesNotApply = "policy does not apply to resource"
 
 func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest, namespaceLabels map[string]string) ([]kyverno.ResourceSpec, error) {
