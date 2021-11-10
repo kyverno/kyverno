@@ -35,7 +35,7 @@ var allowedVariablesBackground = regexp.MustCompile(`request\.|element\.|@|image
 // wildCardAllowedVariables represents regex for the allowed fields in wildcards
 var wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
 
-var errOperationForbidden = errors.New("operation has forbidden variables")
+var errOperationForbidden = errors.New("variables are forbidden in the path of a JSONPatch")
 
 // validateJSONPatchPathForForwardSlash checks for forward slash
 func validateJSONPatchPathForForwardSlash(patch string) error {
