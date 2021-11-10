@@ -35,6 +35,8 @@ var allowedVariablesBackground = regexp.MustCompile(`request\.|element\.|@|image
 // wildCardAllowedVariables represents regex for the allowed fields in wildcards
 var wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
 
+var errOperationForbidden = errors.New("operation has forbidden variables")
+
 // validateJSONPatchPathForForwardSlash checks for forward slash
 func validateJSONPatchPathForForwardSlash(patch string) error {
 
@@ -387,7 +389,7 @@ func ruleForbiddenSectionsHaveVariables(rule *kyverno.Rule) error {
 	var err error
 
 	err = jsonPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
-	if err != nil {
+	if err != nil && errors.Is(errOperationForbidden, err) {
 		return fmt.Errorf("rule \"%s\" should not have variables in patchesJSON6902 path section", rule.Name)
 	}
 
@@ -430,7 +432,7 @@ func jsonPatchPathHasVariables(patch string) error {
 
 		vars := variables.RegexVariables.FindAllString(path, -1)
 		if len(vars) > 0 {
-			return fmt.Errorf("operation \"%s\" has forbidden variables", operation.Kind())
+			return errOperationForbidden
 		}
 	}
 
