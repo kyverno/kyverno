@@ -122,6 +122,9 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 	}
 
 	for i, rule := range policy.Spec.Rules {
+		// Replace all variables in PatchesJSON6902, all variable checks should have happened already.
+		// This prevents further checks from failing unexpectedly.
+		rule.Mutation.PatchesJSON6902 = variables.ReplaceAllVars(rule.Mutation.PatchesJSON6902, func(s string) string { return "kyvernojsonpatchvariable" })
 		//check for forward slash
 		if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
 			return fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
