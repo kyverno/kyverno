@@ -591,7 +591,7 @@ func processValueIfNeeded(log logr.Logger, data interface{}, originalValue, vari
 	var regexCustomValueOperator = regexp.MustCompile(`(?:add|subtract|multiply|divide|modulo)\(\S\d+(\.?\d*)[a-zA-Z]*\S\s*,\s*\S\d+(\.?\d*)\S\)`)
 
 	targetFormulas := regexCustomValueOperator.FindAllString(originalValue, -1)
-	if len(targetFormulas) < 1 {
+	if len(targetFormulas) != 1 {
 		return originalValue, false
 	}
 
