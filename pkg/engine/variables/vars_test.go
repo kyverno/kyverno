@@ -1169,7 +1169,7 @@ func Test_modifyValueSuccess(t *testing.T) {
                     "name":"nginx",
                     "resources":{
                         "limits":{
-                            "cpu": "1",
+                            "cpu": "1m",
                             "memory":"2Mi"
                         },
                         "requests":{
@@ -1183,16 +1183,13 @@ func Test_modifyValueSuccess(t *testing.T) {
     }`)
 	assert.Assert(t, ctx.AddResource(resourceRaw))
 
-	var pattern interface{}
 	patternRaw := [][]byte{
-		[]byte(`"{{ request.object.spec.containers[0].resources.limits.cpu / 2 }}"`),
-		[]byte(`"{{ request.object.spec.containers[0].resources.limits.memory / 2 }}"`),
-		[]byte(`"{{ request.object.spec.containers[0].resources.requests.cpu / 2 }}"`),
-		[]byte(`"{{ request.object.spec.containers[0].resources.requests.memory / 2 }}"`),
+		[]byte("divide(`{{ request.object.spec.containers[0].resources.requests.cpu }}`, `2`)  divide(`{{ request.object.spec.containers[0].resources.requests.memory }}`, `2`)"),
+		[]byte("divide(`{{ request.object.spec.containers[0].resources.requests.memory }}`, `2`)"),
+		[]byte("divide(`{{ request.object.spec.containers[0].resources.limits.cpu }}`, `2`)"),
+		[]byte("divide(`{{ request.object.spec.containers[0].resources.limits.memory }}`, `2`)"),
 	}
 	for _, raw := range patternRaw {
-		assert.Assert(t, json.Unmarshal(raw, &pattern))
-
 		action := substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
 		results, err := action(&ju.ActionData{
 			Document: nil,

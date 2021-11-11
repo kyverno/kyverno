@@ -7,8 +7,9 @@ import (
 	"math"
 	"path"
 	"regexp"
-	"strconv"
 	"strings"
+
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
@@ -30,12 +31,6 @@ var RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
 var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
 
 var regexVariableInit = regexp.MustCompile(`^\{\{[^{}]*\}\}`)
-
-var regexCustomValueOperatorAndParam = regexp.MustCompile(`\s+[/|\+|\-|\*]\s+[0-9]+`)
-
-var regexCustomValueOperator = regexp.MustCompile(`[/|\+|\-|\*]`)
-
-var regexCustomValueTarget = regexp.MustCompile(`\d+(\.?\d*)`)
 
 // IsVariable returns true if the element contains a 'valid' variable {{}}
 func IsVariable(value string) bool {
@@ -238,7 +233,7 @@ func validateElementInForEach(log logr.Logger) jsonUtils.Action {
 				v = v[1:]
 			}
 
-			variable, _, _ := getCustomOptionsIfNeeded(replaceBracesAndTrimSpaces(v))
+			variable := replaceBracesAndTrimSpaces(v)
 
 			if strings.HasPrefix(variable, "element") && !strings.Contains(data.Path, "/foreach/") {
 				return nil, fmt.Errorf("variable '%v' present outside of foreach at path %s", variable, data.Path)
@@ -345,7 +340,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 					v = v[1:]
 				}
 
-				variable, op, opNum := getCustomOptionsIfNeeded(replaceBracesAndTrimSpaces(v))
+				variable := replaceBracesAndTrimSpaces(v)
 
 				if variable == "@" {
 					path := getJMESPath(data.Path)
@@ -376,11 +371,6 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 
 				log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", data.Path)
 
-				substitutedVar, isNeed := processValueIfNeeded(substitutedVar, variable, op, opNum)
-				if isNeed {
-					log.V(3).Info("process substitutedVar", "variable", v, "now value", substitutedVar)
-				}
-
 				if originalPattern == v {
 					return substitutedVar, nil
 				}
@@ -393,6 +383,12 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 
 				if value, err = substituteVarInPattern(prefix, originalPattern, v, substitutedVar); err != nil {
 					return nil, fmt.Errorf("failed to resolve %v at path %s: %s", variable, data.Path, err.Error())
+				}
+
+				var isNeed bool
+				value, isNeed = processValueIfNeeded(log, substitutedVar, value, variable)
+				if isNeed {
+					log.V(3).Info("process value if needed", "value", substitutedVar, "now value", value)
 				}
 
 				continue
@@ -590,67 +586,51 @@ func replaceSubstituteVariables(document interface{}) interface{} {
 	return output
 }
 
-func getCustomOptionsIfNeeded(v string) (variable, op string, num float64) {
-	operatorAndNums := regexCustomValueOperatorAndParam.FindAllString(v, -1)
-	if len(operatorAndNums) != 1 {
-		variable = v
-		return
-	}
-	operatorAndNumStr := operatorAndNums[0]
-	variable = strings.TrimSpace(strings.ReplaceAll(v, operatorAndNumStr, ""))
+func processValueIfNeeded(log logr.Logger, data interface{}, originalValue, variable string) (string, bool) {
+	var regexCustomValueTarget = regexp.MustCompile(`\d+(\.?\d*)`)
+	var regexCustomValueOperator = regexp.MustCompile(`(?:add|subtract|multiply|divide|modulo)\(\S\d+(\.?\d*)[a-zA-Z]*\S\s*,\s*\S\d+(\.?\d*)\S\)`)
 
-	operators := regexCustomValueOperator.FindAllString(v, -1)
-	if len(operators) != 1 {
-		variable = v
-		return
-	}
-	op = strings.TrimSpace(operators[0])
-	num, _ = strconv.ParseFloat(strings.TrimSpace(strings.ReplaceAll(operatorAndNumStr, op, "")), 64)
-
-	return
-}
-
-func processValueIfNeeded(data interface{}, variable, operator string, operatorNum float64) (interface{}, bool) {
-	if operator == "" || operatorNum <= 0 {
-		return data, false
+	targetFormulas := regexCustomValueOperator.FindAllString(originalValue, -1)
+	if len(targetFormulas) < 1 {
+		return originalValue, false
 	}
 
 	target, ok := data.(string)
 	if !ok {
-		return data, false
+		return originalValue, false
 	}
 
 	targetValueStrs := regexCustomValueTarget.FindAllString(target, -1)
 	if len(targetValueStrs) != 1 {
-		return data, false
+		return originalValue, false
 	}
 
-	targetValue, err := strconv.ParseFloat(strings.TrimSpace(targetValueStrs[0]), 64)
+	formula := strings.Replace(targetFormulas[0], target, targetValueStrs[0], 1)
+	jqFunc, err := jmespath.New(formula)
 	if err != nil {
-		return data, false
+		log.V(3).Info("incorrect formula", "formula", formula)
+		return originalValue, false
 	}
 
-	result := targetValueProcess(operator, targetValue, operatorNum)
+	// calculate
+	result, err := jqFunc.Search("")
+	if err != nil {
+		if !strings.HasPrefix(err.Error(), "Unknown key") {
+			log.Error(err, "JMESPath formula failed", "JMESPathFunc", jqFunc)
+		}
+		return originalValue, false
+	}
+
+	resultVal, ok := result.(float64)
+	if !ok {
+		return originalValue, false
+	}
+
 	if !strings.Contains(variable, "cpu") {
-		result = math.Ceil(result)
+		resultVal = math.Ceil(resultVal)
 	}
 
-	return regexCustomValueTarget.ReplaceAllString(target, fmt.Sprintf("%f", result)), true
-}
+	resultValStr := regexCustomValueTarget.ReplaceAllString(target, fmt.Sprintf("%f", resultVal))
 
-func targetValueProcess(operator string, target, operatorNum float64) (n float64) {
-	n = target
-	switch operator {
-	case "+":
-		n += operatorNum
-	case "-":
-		n -= operatorNum
-	case "*":
-		n *= operatorNum
-	case "/":
-		n /= operatorNum
-	default:
-	}
-
-	return
+	return strings.Replace(originalValue, targetFormulas[0], resultValStr, 1), true
 }
