@@ -372,7 +372,12 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		for _, p := range values.Policies {
 			resourceMap := make(map[string]Resource)
 			for _, r := range p.Resources {
-				if r.Values["request.operation"] == "" {
+				if val, ok := r.Values["request.operation"]; ok {
+					if val == "" {
+						r.Values["request.operation"] = "CREATE"
+					}
+				} else {
+					r.Values = make(map[string]string)
 					r.Values["request.operation"] = "CREATE"
 				}
 				for variableInFile := range r.Values {
