@@ -12,7 +12,7 @@ TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 VERSION ?= $(shell git describe --match "v[0-9]*")
 # Docker related defaults
 REGISTRY?=ghcr.io
-REPO=$(REGISTRY)/giantswarm
+REPO=$(REGISTRY)/kyverno
 # Golang related defaults
 GOOS ?= $(shell go env GOOS)
 ifeq ($(GOOS), darwin)
