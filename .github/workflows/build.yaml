@@ -14,9 +14,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -88,7 +85,7 @@ jobs:
 
       - name: docker images build
         run: |
-          make docker-build-initContainer
+          make build-initContainer
 
   build-kyverno:
     runs-on: ubuntu-latest
@@ -121,7 +118,7 @@ jobs:
 
       - name: docker images build
         run: |
-          make docker-build-kyverno
+          make build-kyverno
 
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@master
@@ -164,7 +161,7 @@ jobs:
 
       - name: docker images build
         run: |
-          make docker-build-cli
+          make build-cli
 
   tests:
     runs-on: ubuntu-latest
@@ -172,9 +169,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
 
       - name: Set up Go
         uses: actions/setup-go@v2

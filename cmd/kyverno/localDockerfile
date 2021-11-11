@@ -1,5 +1,0 @@
-FROM scratch
-ADD kyverno /kyverno
-ADD ca-certificates.crt /etc/ssl/certs/
-USER 10001
-ENTRYPOINT ["/kyverno"]

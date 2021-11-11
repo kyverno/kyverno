@@ -1,19 +1,19 @@
-.DEFAULT_GOAL: build
+.DEFAULT_GOAL: kyverno
 
 ##################################
 # DEFAULTS
 ##################################
+PWD := $(CURDIR)
 GIT_VERSION := $(shell git describe --match "v[0-9]*")
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
-CONTROLLER_GEN=controller-gen
-CONTROLLER_GEN_REQ_VERSION := v0.4.0
+# VERSION is used to be able to set the version during a release through an env variable.
 VERSION ?= $(shell git describe --match "v[0-9]*")
-
+# Docker related defaults
 REGISTRY?=ghcr.io
-REPO=$(REGISTRY)/kyverno
-IMAGE_TAG?=$(GIT_VERSION)
+REPO=$(REGISTRY)/giantswarm
+# Golang related defaults
 GOOS ?= $(shell go env GOOS)
 ifeq ($(GOOS), darwin)
 SED=gsed
@@ -21,8 +21,9 @@ else
 SED=sed
 endif
 PACKAGE ?=github.com/kyverno/kyverno
+CONTROLLER_GEN=controller-gen
+CONTROLLER_GEN_REQ_VERSION := v0.4.0
 LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
-
 # Used to disable inclusion of cloud provider code in k8schain
 # https://github.com/google/go-containerregistry/tree/main/pkg/authn/k8schain
 TAGS=disable_aws,disable_azure,disable_gcp
@@ -30,7 +31,6 @@ TAGS=disable_aws,disable_azure,disable_gcp
 ##################################
 # KYVERNO
 ##################################
-
 .PHONY: unused-package-check
 unused-package-check:
 	@echo "------------------"
@@ -40,10 +40,6 @@ unused-package-check:
 	if [ -n "$${tidy}" ]; then \
 		echo "go mod tidy checking failed!"; echo "$${tidy}"; echo; \
 	fi
-
-KYVERNO_PATH:= cmd/kyverno
-build: kyverno
-PWD := $(CURDIR)
 
 ##################################
 # SIGNATURE CONTAINER
@@ -60,10 +56,10 @@ docker-buildx-builder:
 docker-publish-sigs: docker-buildx-builder docker-build-signature docker-push-signature
 
 docker-build-signature: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --tag $(REPO)/$(SIG_IMAGE):$(IMAGE_TAG) .
+	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --tag $(REPO)/$(SIG_IMAGE):$(GIT_VERSION) .
 
 docker-push-signature: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SIG_IMAGE):$(IMAGE_TAG) .
+	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SIG_IMAGE):$(GIT_VERSION) .
 	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SIG_IMAGE):latest .
 
 ##################################
@@ -76,10 +72,10 @@ SBOM_IMAGE := sbom
 docker-publish-sbom: docker-buildx-builder docker-build-sbom docker-push-sbom
 
 docker-build-sbom: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --tag $(REPO)/$(SBOM_IMAGE):$(IMAGE_TAG) .
+	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --tag $(REPO)/$(SBOM_IMAGE):$(GIT_VERSION) .
 
 docker-push-sbom: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SBOM_IMAGE):$(IMAGE_TAG) .
+	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SBOM_IMAGE):$(GIT_VERSION) .
 	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SBOM_IMAGE):latest .
 
 ##################################
@@ -87,96 +83,107 @@ docker-push-sbom: docker-buildx-builder
 ##################################
 INITC_PATH := cmd/initContainer
 INITC_IMAGE := kyvernopre
-initContainer: fmt vet
-	GOOS=$(GOOS) go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
 
-.PHONY: docker-build-initContainer docker-push-initContainer
+.PHONY: build-initContainer
+build-initContainer: ## Build docker images for initContainer
+	ARCH=amd64 $(MAKE) go-build-initContainer docker-build-initContainer
+	ARCH=arm64 $(MAKE) go-build-initContainer docker-build-initContainer
 
-docker-publish-initContainer: docker-buildx-builder docker-build-initContainer docker-push-initContainer
+.PHONY: push-initContainer
+push-initContainer: ## Build and push docker images for initContainer
+	ARCH=amd64 $(MAKE) go-build-initContainer docker-push-initContainer
+	ARCH=arm64 $(MAKE) go-build-initContainer docker-push-initContainer
 
+.PHONY: go-build-initContainer
+go-build-initContainer:
+	GOOS=$(GOOS) GOARCH=$(ARCH) CGO_ENABLED=0 go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
+
+.PHONY: docker-build-initContainer
 docker-build-initContainer: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64 --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build -f $(PWD)/$(INITC_PATH)/Dockerfile -t $(REPO)/$(INITC_IMAGE):$(GIT_VERSION) --platform "linux/$(ARCH)" --output type=docker $(PWD)/$(INITC_PATH)
 
-docker-build-initContainer-amd64: 
-	@docker build -f $(PWD)/$(INITC_PATH)/Dockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64"
-
+.PHONY: docker-push-initContainer
 docker-push-initContainer: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
-	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(INITC_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS)
-
-docker-build-initContainer-local:
-	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
-	@docker build -f $(PWD)/$(INITC_PATH)/localDockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) $(PWD)/$(INITC_PATH)
-	@docker tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) $(REPO)/$(INITC_IMAGE):latest
+	@docker buildx build -f $(PWD)/$(INITC_PATH)/Dockerfile --push -t $(REPO)/$(INITC_IMAGE):$(GIT_VERSION) -t $(REPO)/$(INITC_IMAGE):latest --platform "linux/$(ARCH)" $(PWD)/$(INITC_PATH)
 
 ##################################
 # KYVERNO CONTAINER
 ##################################
-.PHONY: docker-build-kyverno docker-push-kyverno
 KYVERNO_PATH := cmd/kyverno
 KYVERNO_IMAGE := kyverno
 
-local:
-	go build -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)
-	go build -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)
+.PHONY: build-kyverno
+build-kyverno: ## Build docker images for kyverno
+	ARCH=amd64 $(MAKE) go-build-kyverno docker-build-kyverno
+	ARCH=arm64 $(MAKE) go-build-kyverno docker-build-kyverno
+
+.PHONY: push-kyverno
+push-kyverno: ## Build and push docker images for kyverno
+	ARCH=amd64 $(MAKE) go-build-kyverno docker-push-kyverno
+	ARCH=arm64 $(MAKE) go-build-kyverno docker-push-kyverno
+
+.PHONY: go-build-kyverno
+go-build-kyverno:
+	GOOS=$(GOOS) GOARCH=$(ARCH) CGO_ENABLED=0 go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
+
+.PHONY: docker-build-kyverno
+docker-build-kyverno: docker-buildx-builder
+	@docker buildx build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(GIT_VERSION) --platform "linux/$(ARCH)" --output type=docker $(PWD)/$(KYVERNO_PATH)
+
+.PHONY: docker-push-kyverno
+docker-push-kyverno: docker-buildx-builder
+	@docker buildx build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile --push -t $(REPO)/$(KYVERNO_IMAGE):$(GIT_VERSION) -t $(REPO)/$(KYVERNO_IMAGE):latest --platform "linux/$(ARCH)" $(PWD)/$(KYVERNO_PATH)
 
 kyverno: fmt vet
-	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
-
-docker-publish-kyverno: docker-buildx-builder docker-build-kyverno docker-push-kyverno
-
-docker-build-kyverno: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TAGS=$(TAGS)
+	GOOS=$(GOOS) CGO_ENABLED=0 go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
 
 docker-build-kyverno-local:
-	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
-	@docker build -f $(PWD)/$(KYVERNO_PATH)/localDockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(PWD)/$(KYVERNO_PATH)
-	@docker tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) $(REPO)/$(KYVERNO_IMAGE):latest
-
-docker-build-kyverno-amd64:
-	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64" --build-arg TAGS=$(TAGS)
-
-docker-push-kyverno: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TAGS=$(TAGS)
-	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TAGS=$(TAGS)
+	CGO_ENABLED=0 GOOS=linux CGO_ENABLED=0 go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
+	@docker build -f $(PWD)/$(KYVERNO_PATH)/localDockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(GIT_VERSION) $(PWD)/$(KYVERNO_PATH)
+	@docker tag $(REPO)/$(KYVERNO_IMAGE):$(GIT_VERSION) $(REPO)/$(KYVERNO_IMAGE):latest
 
 ##################################
-
 # Generate Docs for types.go
 ##################################
-
 generate-api-docs:
 	go run github.com/ahmetb/gen-crd-api-reference-docs -api-dir ./api -config documentation/api/config.json -template-dir documentation/api/template -out-file documentation/index.html
-
 
 ##################################
 # CLI
 ##################################
-.PHONY: docker-build-cli docker-push-cli
 CLI_PATH := cmd/cli/kubectl-kyverno
 KYVERNO_CLI_IMAGE := kyverno-cli
 
-cli:
-	GOOS=$(GOOS) go build -o $(PWD)/$(CLI_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)/main.go
+.PHONY: build-cli
+build-cli: ## Build docker images for the kyverno cli
+	ARCH=amd64 $(MAKE) go-build-cli docker-build-cli
+	ARCH=arm64 $(MAKE) go-build-cli docker-build-cli
 
-docker-publish-cli: docker-buildx-builder docker-build-cli docker-push-cli
+.PHONY: push-cli
+push-cli: ## Build and push docker images for the kyverno cli
+	ARCH=amd64 $(MAKE) go-build-cli docker-push-cli
+	ARCH=arm64 $(MAKE) go-build-cli docker-push-cli
 
+.PHONY: go-build-cli
+go-build-cli:
+	GOOS=$(GOOS) GOARCH=$(ARCH) CGO_ENABLED=0 go build -o $(PWD)/$(CLI_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)/main.go
+
+.PHONY: docker-build-cli
 docker-build-cli: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build -f $(PWD)/$(CLI_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_CLI_IMAGE):$(GIT_VERSION) --platform "linux/$(ARCH)" --output type=docker $(PWD)/$(CLI_PATH)
 
-docker-build-cli-amd64:
-	@docker build -f $(PWD)/$(CLI_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64"
-
+.PHONY: docker-push-cli
 docker-push-cli: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
-	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_CLI_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build -f $(PWD)/$(CLI_PATH)/Dockerfile --push -t $(REPO)/$(KYVERNO_CLI_IMAGE):$(GIT_VERSION) -t $(REPO)/$(KYVERNO_CLI_IMAGE):latest --platform "linux/$(ARCH)" $(PWD)/$(CLI_PATH)
 
 ##################################
 docker-publish-all: docker-buildx-builder docker-publish-initContainer docker-publish-kyverno docker-publish-cli
 
-docker-build-all: docker-buildx-builder docker-build-initContainer docker-build-kyverno docker-build-cli
-
-docker-build-all-amd64: docker-buildx-builder docker-build-initContainer-amd64 docker-build-kyverno-amd64 docker-build-cli-amd64
+.PHONY: build-all-amd64
+build-all-amd64:
+	ARCH=amd64 $(MAKE) go-build-initContainer docker-build-initContainer
+	ARCH=amd64 $(MAKE) go-build-kyverno docker-build-kyverno
+	ARCH=amd64 $(MAKE) go-build-cli docker-build-cli
 
 ##################################
 # Create e2e Infrastruture
@@ -247,7 +254,7 @@ test-e2e-local:
 	$(eval export E2E="")
 
 #Test TestCmd Policy
-test-cmd: cli
+test-cmd: go-build-cli
 	$(PWD)/$(CLI_PATH)/kyverno test https://github.com/kyverno/policies/main
 	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-mutate
 	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test

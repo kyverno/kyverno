@@ -25,7 +25,7 @@ jobs:
       - name: Unshallow
         run: git fetch --prune --unshallow
 
-      - name: Set up Go 
+      - name: Set up Go
         uses: actions/setup-go@v2
         with:
           go-version: 1.16
@@ -34,6 +34,12 @@ jobs:
         uses: azure/setup-helm@v1
         with:
           version: v3.5.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        id: buildx
+        with:
+          install: true
 
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.0.1
@@ -49,10 +55,10 @@ jobs:
       - name: Test Policy
         run: |
           make test-cmd
-      
+
       - name: gofmt check
         run: |
-         if [ "$(gofmt -s -l . | wc -l)" -ne 0 ] 
+         if [ "$(gofmt -s -l . | wc -l)" -ne 0 ]
          then
           echo "The following files were found to be not go formatted:"
           gofmt -s -l .
@@ -65,7 +71,7 @@ jobs:
 
       - name: docker images build (AMD64)
         run: |
-          make docker-build-all-amd64
+          GOOS=linux make build-all-amd64
 
       - name :  Create Kind Cluster and setup kustomize
         run: |
