@@ -12,3 +12,6 @@ resources:
 - ../manifest/
 - ../k8s-resource/
 - namespace.yaml
+
+patchesStrategicMerge:
+- rbac.yaml

@@ -69,7 +69,7 @@ jobs:
 
       - name :  Create Kind Cluster and setup kustomize
         run: |
-          make create-e2e-infrastruture
+          make create-e2e-infrastructure
 
       - name: e2e testing
         run: |

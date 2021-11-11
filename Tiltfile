@@ -16,4 +16,5 @@ docker_build_with_restart(
   ],
 )
 
-k8s_yaml(kustomize('definitions/tilt'))
+k8s_yaml(kustomize('config/tilt'))
+k8s_resource(workload='kyverno', port_forwards=8000)

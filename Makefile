@@ -27,6 +27,9 @@ LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKA
 # https://github.com/google/go-containerregistry/tree/main/pkg/authn/k8schain
 TAGS=disable_aws,disable_azure,disable_gcp
 
+# Kind cluster name to use
+KIND_CLUSTER_NAME ?= "kyverno"
+
 ##################################
 # KYVERNO
 ##################################
@@ -182,10 +185,9 @@ docker-build-all-amd64: docker-buildx-builder docker-build-initContainer-amd64 d
 # Create e2e Infrastruture
 ##################################
 
-create-e2e-infrastruture:
-	chmod a+x $(PWD)/scripts/create-e2e-infrastruture.sh
-	$(PWD)/scripts/create-e2e-infrastruture.sh
-
+create-e2e-infrastructure:
+	chmod a+x $(PWD)/scripts/create-e2e-infrastructure.sh
+	$(PWD)/scripts/create-e2e-infrastructure.sh
 
 ##################################
 
@@ -234,16 +236,6 @@ test-e2e:
 	go test ./test/e2e/metrics -v
 	go test ./test/e2e/mutate -v
 	go test ./test/e2e/generate -v
-	$(eval export E2E="")
-
-test-e2e-local:
-	$(eval export E2E="ok")
-	kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/github/rbac.yaml
-	kubectl port-forward -n kyverno service/kyverno-svc-metrics  8000:8000 &
-	go test ./test/e2e/metrics -v
-	go test ./test/e2e/mutate -v
-	go test ./test/e2e/generate -v
-	kill  $!
 	$(eval export E2E="")
 
 #Test TestCmd Policy
@@ -330,11 +322,31 @@ GO_IMPORTS=$(shell which goimports)
 endif
 
 # Run go fmt against code
+.PHONY: fmt
 fmt: goimports
 	go fmt ./... && $(GO_IMPORTS) -w ./
 
+.PHONY: vet
 vet:
 	go vet ./...
 
+.PHONY: tilt-compile
 tilt-compile:
 	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
+
+.PHONY: kind-create
+kind-create: ensure-tools ## create kind cluster if needed
+	KIND_CLUSTER_NAME=$(KIND_CLUSTER_NAME) ./scripts/kind-with-registry.sh
+
+.PHONY: tilt-up
+tilt-up: kind-create ## start tilt and build kind cluster if needed
+	tilt up
+
+.PHONY: kind-reset
+kind-reset: ## Destroys the kind cluster
+	kind delete cluster --name=$(KIND_CLUSTER_NAME) || true
+
+.PHONY: ensure-tools
+ensure-tools:
+	./scripts/ensure-kind.sh
+	./scripts/ensure-kustomize.sh

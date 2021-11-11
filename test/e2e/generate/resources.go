@@ -138,11 +138,11 @@ var genClusterRoleYamlWithSync = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: "gen-cluster-policy"
+  name: gen-cluster-policy
 spec:
   background: false
   rules:
-  - name: "gen-cluster-role"
+  - name: gen-cluster-role
     match:
        resources:
          kinds:

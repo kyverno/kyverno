@@ -97,3 +97,25 @@ This can easily be done with the `-s` command line option to append this automat
 ```sh
 git commit -s -m 'This is my commit message'
 ```
+
+## Using Tilt for local development
+
+We use [Tilt](https://tilt.dev/) for local development. Tilt will keep kyverno running on a local kind cluster and re-deploy it every time there is a change in the code.
+
+We can create the kind cluster and start Tilt with
+
+```shell
+make tilt-up
+```
+
+Then we can manually test things, or we can run the e2e tests
+
+```shell
+make test-e2e
+```
+
+We can remove the kind cluster when we are done
+
+```shell
+make kind-reset
+```

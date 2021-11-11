@@ -26,7 +26,7 @@
 // Note: ideally `entr` could accept files-to-watch via flag instead of stdin,
 // but (for a number of good reasons) this feature isn't likely to be added any
 // time soon (see https://github.com/eradman/entr/issues/33).
-
+//nolint
 package main
 
 import (
