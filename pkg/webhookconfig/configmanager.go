@@ -62,6 +62,9 @@ type webhookConfigManager struct {
 
 	queue workqueue.RateLimitingInterface
 
+	// serverIP used to get the name of debug webhooks
+	serverIP string
+
 	autoUpdateWebhooks bool
 
 	// wildcardPolicy indicates the number of policies that matches all kinds (*) defined
@@ -84,6 +87,7 @@ func newWebhookConfigManager(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	resCache resourcecache.ResourceCache,
+	serverIP string,
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
 	stopCh <-chan struct{},
@@ -97,6 +101,7 @@ func newWebhookConfigManager(
 		resCache:             resCache,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "configmanager"),
 		wildcardPolicy:       0,
+		serverIP:             serverIP,
 		autoUpdateWebhooks:   autoUpdateWebhooks,
 		createDefaultWebhook: createDefaultWebhook,
 		stopCh:               stopCh,
@@ -486,7 +491,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 			}
 		}
 
-		if p.HasMutate() || p.HasVerifyImages() || p.HasGenerate() {
+		if p.HasMutate() || p.HasVerifyImages() {
 			if p.Spec.FailurePolicy != nil && *p.Spec.FailurePolicy == kyverno.Ignore {
 				m.mergeWebhook(mutateIgnore, p, false)
 			} else {
@@ -508,12 +513,12 @@ func (m *webhookConfigManager) updateWebhookConfig(webhooks []*webhook) error {
 	}
 
 	var errs []string
-	if err := m.compareAndUpdateWebhook(kindMutating, getResourceMutatingWebhookConfigName(""), webhooksMap); err != nil {
+	if err := m.compareAndUpdateWebhook(kindMutating, getResourceMutatingWebhookConfigName(m.serverIP), webhooksMap); err != nil {
 		logger.V(4).Info("failed to update mutatingwebhookconfigurations", "error", err.Error())
 		errs = append(errs, err.Error())
 	}
 
-	if err := m.compareAndUpdateWebhook(kindValidating, getResourceValidatingWebhookConfigName(""), webhooksMap); err != nil {
+	if err := m.compareAndUpdateWebhook(kindValidating, getResourceValidatingWebhookConfigName(m.serverIP), webhooksMap); err != nil {
 		logger.V(4).Info("failed to update validatingwebhookconfigurations", "error", err.Error())
 		errs = append(errs, err.Error())
 	}

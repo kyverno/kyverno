@@ -34,6 +34,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	var err error
 	var resource *unstructured.Unstructured
 	var genResources []kyverno.ResourceSpec
+	var precreatedResource bool
 
 	// 1 - Check if the resource exists
 	resource, err = getResource(c.client, gr.Spec.Resource, c.log)
@@ -90,10 +91,10 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 
 	// 2 - Apply the generate policy on the resource
 	namespaceLabels := pkgcommon.GetNamespaceSelectorsFromGenericInformer(resource.GetKind(), resource.GetNamespace(), c.nsInformer, logger)
-	genResources, err = c.applyGenerate(*resource, *gr, namespaceLabels)
+	genResources, precreatedResource, err = c.applyGenerate(*resource, *gr, namespaceLabels)
 
 	if err != nil {
-		// Need not update the stauts when policy doesn't apply on resource, because all the generate requests are removed by the cleanup controller
+		// Need not update the status when policy doesn't apply on resource, because all the generate requests are removed by the cleanup controller
 		if strings.Contains(err.Error(), doesNotApply) {
 			logger.V(4).Info("skipping updating status of generate request")
 			return nil
@@ -105,12 +106,12 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 	}
 
 	// 4 - Update Status
-	return updateStatus(c.statusControl, *gr, err, genResources)
+	return updateStatus(c.statusControl, *gr, err, genResources, precreatedResource)
 }
 
 const doesNotApply = "policy does not apply to resource"
 
-func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest, namespaceLabels map[string]string) ([]kyverno.ResourceSpec, error) {
+func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest, namespaceLabels map[string]string) ([]kyverno.ResourceSpec, bool, error) {
 	logger := c.log.WithValues("name", gr.Name, "policy", gr.Spec.Policy, "kind", gr.Spec.Resource.Kind, "apiVersion", gr.Spec.Resource.APIVersion, "namespace", gr.Spec.Resource.Namespace, "name", gr.Spec.Resource.Name)
 	// Get the list of rules to be applied
 	// get policy
@@ -136,11 +137,11 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 				}
 			}
 
-			return nil, nil
+			return nil, false, nil
 		}
 
 		logger.Error(err, "error in fetching policy")
-		return nil, err
+		return nil, false, err
 	}
 
 	requestString := gr.Spec.Context.AdmissionRequestInfo.AdmissionRequest
@@ -156,31 +157,31 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 
 	if err := ctx.AddRequest(&request); err != nil {
 		logger.Error(err, "failed to load request in context")
-		return nil, err
+		return nil, false, err
 	}
 
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
 		logger.Error(err, "failed to marshal resource")
-		return nil, err
+		return nil, false, err
 	}
 
 	err = ctx.AddResource(resourceRaw)
 	if err != nil {
 		logger.Error(err, "failed to load resource in context")
-		return nil, err
+		return nil, false, err
 	}
 
 	err = ctx.AddUserInfo(gr.Spec.Context.UserRequestInfo)
 	if err != nil {
 		logger.Error(err, "failed to load SA in context")
-		return nil, err
+		return nil, false, err
 	}
 
 	err = ctx.AddServiceAccount(gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
 		logger.Error(err, "failed to load UserInfo in context")
-		return nil, err
+		return nil, false, err
 	}
 
 	if err := ctx.AddImageInfo(&resource); err != nil {
@@ -203,7 +204,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	engineResponse := engine.Generate(policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		logger.V(4).Info(doesNotApply)
-		return nil, errors.New(doesNotApply)
+		return nil, false, errors.New(doesNotApply)
 	}
 
 	var applicableRules []string
@@ -238,16 +239,18 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	return c.applyGeneratePolicy(logger, policyContext, gr, applicableRules)
 }
 
-func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateRequest, err error, genResources []kyverno.ResourceSpec) error {
+func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateRequest, err error, genResources []kyverno.ResourceSpec, precreatedResource bool) error {
 	if err != nil {
 		return statusControl.Failed(gr, err.Error(), genResources)
+	} else if precreatedResource {
+		return statusControl.Skip(gr, genResources)
 	}
 
 	// Generate request successfully processed
 	return statusControl.Success(gr, genResources)
 }
 
-func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, gr kyverno.GenerateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, err error) {
+func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, gr kyverno.GenerateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, processExisting bool, err error) {
 	// Get the response as the actions to be performed on the resource
 	// - - substitute values
 	policy := policyContext.Policy
@@ -269,7 +272,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 		}
 
 		startTime := time.Now()
-		processExisting := false
+		processExisting = false
 		var genResource kyverno.ResourceSpec
 
 		if len(rule.MatchResources.Kinds) > 0 {
@@ -283,12 +286,12 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 		// add configmap json data to context
 		if err := engine.LoadContext(log, rule.Context, resCache, policyContext, rule.Name); err != nil {
 			log.Error(err, "cannot add configmaps to context")
-			return nil, err
+			return nil, processExisting, err
 		}
 
 		if rule, err = variables.SubstituteAllInRule(log, policyContext.JSONContext, rule); err != nil {
 			log.Error(err, "variable substitution failed for rule %s", rule.Name)
-			return nil, err
+			return nil, processExisting, err
 		}
 
 		if !processExisting {
@@ -296,14 +299,14 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 			if err != nil {
 				log.Error(err, "failed to apply generate rule", "policy", policy.Name,
 					"rule", rule.Name, "resource", resource.GetName(), "suggestion", "users need to grant Kyverno's service account additional privileges")
-				return nil, err
+				return nil, processExisting, err
 			}
 			ruleNameToProcessingTime[rule.Name] = time.Since(startTime)
 			genResources = append(genResources, genResource)
 		}
 	}
 
-	return genResources, nil
+	return genResources, processExisting, nil
 }
 
 func getResourceInfo(object map[string]interface{}) (kind, name, namespace, apiversion string, err error) {

@@ -14,6 +14,8 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"encoding/json"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -59,6 +61,13 @@ type PolicyReportSummary struct {
 	// Skip indicates the count of policies that were not selected for evaluation
 	// +optional
 	Skip int `json:"skip"`
+}
+
+func (prs PolicyReportSummary) ToMap() map[string]interface{} {
+	b, _ := json.Marshal(&prs)
+	var m map[string]interface{}
+	_ = json.Unmarshal(b, &m)
+	return m
 }
 
 // PolicyResult has one of the following values:
