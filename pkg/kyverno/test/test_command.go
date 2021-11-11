@@ -161,7 +161,7 @@ func Command() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&fileName, "file-name", "f", "test.yaml", "test filename")
+	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "test filename")
 	return cmd
 }
 
@@ -222,6 +222,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 	fs := memfs.New()
 	rc = &resultCounts{}
 	var testYamlCount int
+	var testYamlNameCount int
 
 	if len(dirPath) == 0 {
 		return rc, sanitizederror.NewWithError(fmt.Sprintf("a directory is required"), err)
@@ -267,8 +268,11 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 				continue
 			}
 
-			if strings.Contains(file.Name(), fileName) {
+			if strings.Contains(file.Name(), fileName) || strings.Contains(file.Name(), "test.yaml") {
 				testYamlCount++
+				if strings.Contains(file.Name(), "test.yaml") {
+					testYamlNameCount++
+				}
 				policyresoucePath := strings.Trim(yamlFilePath, fileName)
 				bytes, err := ioutil.ReadAll(file)
 				if err != nil {
@@ -290,6 +294,9 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 
 		if testYamlCount == 0 {
 			fmt.Printf("\n No test yamls available \n")
+		}
+		if testYamlNameCount > 0 {
+			fmt.Printf("\n From Kyverno test command going to deprecate test.yaml as default file name from 1.5.0 release. Please provide test yaml file as kyverno-test.yaml \n")
 		}
 
 	} else {
@@ -314,6 +321,8 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 
 func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts) []error {
 	var errors []error
+	var count int
+	var dirTestYamlNameCount int
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
 		return []error{fmt.Errorf("failed to read %v: %v", path, err.Error())}
@@ -323,7 +332,11 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc)
 			continue
 		}
-		if strings.Contains(file.Name(), fileName) {
+		if strings.Contains(file.Name(), fileName) || strings.Contains(file.Name(), "test.yaml") {
+			count++
+			if strings.Contains(file.Name(), "test.yaml") {
+				dirTestYamlNameCount++
+			}
 			// We accept the risk of including files here as we read the test dir only.
 			yamlFile, err := ioutil.ReadFile(filepath.Join(path, file.Name())) // #nosec G304
 			if err != nil {
@@ -340,6 +353,12 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 				continue
 			}
 		}
+	}
+	if count == 0 {
+		fmt.Printf("\n No test yamls found. Please provide test yaml file as kyverno-test.yaml \n")
+	}
+	if dirTestYamlNameCount > 0 {
+		fmt.Printf("\n From Kyverno test command going to deprecate test.yaml as default file name from 1.5.0 release. Please provide test yaml file as kyverno-test.yaml \n")
 	}
 	return errors
 }
