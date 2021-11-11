@@ -39,6 +39,9 @@ var errOperationForbidden = errors.New("variables are forbidden in the path of a
 
 // validateJSONPatchPathForForwardSlash checks for forward slash
 func validateJSONPatchPathForForwardSlash(patch string) error {
+	// Replace all variables in PatchesJSON6902, all variable checks should have happened already.
+	// This prevents further checks from failing unexpectedly.
+	patch = variables.ReplaceAllVars(patch, func(s string) string { return "kyvernojsonpatchvariable" })
 
 	re, err := regexp.Compile("^/")
 	if err != nil {
@@ -122,9 +125,6 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 	}
 
 	for i, rule := range policy.Spec.Rules {
-		// Replace all variables in PatchesJSON6902, all variable checks should have happened already.
-		// This prevents further checks from failing unexpectedly.
-		rule.Mutation.PatchesJSON6902 = variables.ReplaceAllVars(rule.Mutation.PatchesJSON6902, func(s string) string { return "kyvernojsonpatchvariable" })
 		//check for forward slash
 		if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
 			return fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
@@ -330,15 +330,10 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 	}
 
-	if !mock {
-		if err := openAPIController.ValidatePolicyFields(*policy); err != nil {
-			return err
-		}
-	} else {
-		if err := openAPIController.ValidatePolicyMutation(*policy); err != nil {
-			return err
-		}
-	}
+	// Remove temporarily
+	/*if err := openAPIController.ValidatePolicyMutation(*policy); err != nil {
+		return err
+	}*/
 
 	return nil
 }
