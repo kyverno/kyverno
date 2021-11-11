@@ -998,7 +998,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 // are apt with respect to the provided 'condition.key'
 func validateConditionValues(c kyverno.Condition) (string, error) {
 	if c.Key == nil || c.Value == nil || c.Operator == "" {
-		return "", fmt.Errorf("entered value of `key` or `value` or `operator` is mispelled")
+		return "", fmt.Errorf("entered value of `key`, `value` or `operator` is missing or misspelled")
 	}
 	switch strings.ReplaceAll(c.Key.(string), " ", "") {
 	case "{{request.operation}}":
