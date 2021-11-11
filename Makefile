@@ -204,7 +204,7 @@ $(GO_ACC):
 # go-acc merges the result for pks so that it be used by
 # go tool cover for reporting
 
-test: test-clean test-unit  test-cmd
+test: test-clean test-unit test-e2e test-cmd
 
 test-clean:
 	@echo "	cleaning test cache"
