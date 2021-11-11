@@ -32,5 +32,3 @@ func deleteGeneratedResources(log logr.Logger, client *dclient.Client, gr kyvern
 	}
 	return nil
 }
-
-
