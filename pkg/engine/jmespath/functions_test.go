@@ -511,11 +511,11 @@ func Test_TimeSince(t *testing.T) {
 		expectedResult string
 	}{
 		{
-			test:           "time_since('RFC822', '02 Jan 21 15:04 MST', '10 Jan 21 03:14 MST')",
+			test:           "time_since('', '2021-01-02T15:04:05-07:00', '2021-01-10T03:14:05-07:00')",
 			expectedResult: "180h10m0s",
 		},
 		{
-			test:           "time_since('UnixDate', 'Mon Jan 02 15:04:05 MST 2021', 'Mon Jan 10 03:14:16 MST 2021')",
+			test:           "time_since('Mon Jan _2 15:04:05 MST 2006', 'Mon Jan 02 15:04:05 MST 2021', 'Mon Jan 10 03:14:16 MST 2021')",
 			expectedResult: "180h10m11s",
 		},
 	}

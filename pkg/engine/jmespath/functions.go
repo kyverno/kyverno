@@ -56,24 +56,6 @@ const genericError = errorPrefix + "%s"
 const zeroDivisionError = errorPrefix + "Zero divisor passed"
 const nonIntModuloError = errorPrefix + "Non-integer argument(s) passed for modulo"
 
-var layouts = map[string]string{
-	"ANSIC":       "Mon Jan _2 15:04:05 2006",
-	"UnixDate":    "Mon Jan _2 15:04:05 MST 2006",
-	"RubyDate":    "Mon Jan 02 15:04:05 -0700 2006",
-	"RFC822":      "02 Jan 06 15:04 MST",
-	"RFC822Z":     "02 Jan 06 15:04 -0700",
-	"RFC850":      "Monday, 02-Jan-06 15:04:05 MST",
-	"RFC1123":     "Mon, 02 Jan 2006 15:04:05 MST",
-	"RFC1123Z":    "Mon, 02 Jan 2006 15:04:05 -0700",
-	"RFC3339":     "2006-01-02T15:04:05Z07:00",
-	"RFC3339Nano": "2006-01-02T15:04:05.999999999Z07:00",
-	"Kitchen":     "3:04PM",
-	"Stamp":       "Jan _2 15:04:05",
-	"StampMilli":  "Jan _2 15:04:05.000",
-	"StampMicro":  "Jan _2 15:04:05.000000",
-	"StampNano":   "Jan _2 15:04:05.000000000",
-}
-
 func getFunctions() []*gojmespath.FunctionEntry {
 	return []*gojmespath.FunctionEntry{
 		{
@@ -581,14 +563,9 @@ func jpBase64Encode(arguments []interface{}) (interface{}, error) {
 
 func jpTimeSince(arguments []interface{}) (interface{}, error) {
 	var err error
-	temp, err := validateArg("", arguments, 0, reflect.String)
+	layout, err := validateArg("", arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
-	}
-
-	layout := temp.String()
-	if val, ok := layouts[layout]; ok {
-		layout = val
 	}
 
 	ts1, err := validateArg("", arguments, 1, reflect.String)
@@ -601,15 +578,23 @@ func jpTimeSince(arguments []interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	t1, err := time.Parse(layout, ts1.String())
+	var t1, t2 time.Time
+	if layout.String() != "" {
+		t1, err = time.Parse(layout.String(), ts1.String())
+	} else {
+		t1, err = time.Parse(time.RFC3339, ts1.String())
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	t2 := time.Now()
-
+	t2 = time.Now()
 	if ts2.String() != "" {
-		t2, err = time.Parse(layout, ts2.String())
+		if layout.String() != "" {
+			t2, err = time.Parse(layout.String(), ts2.String())
+		} else {
+			t2, err = time.Parse(time.RFC3339, ts2.String())
+		}
 
 		if err != nil {
 			return nil, err
