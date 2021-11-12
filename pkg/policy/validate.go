@@ -330,10 +330,11 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 	}
 
-	// Remove temporarily
-	/*if err := openAPIController.ValidatePolicyMutation(*policy); err != nil {
-		return err
-	}*/
+	if policy.Spec.SchemaValidation == nil || *policy.Spec.SchemaValidation {
+		if err := openAPIController.ValidatePolicyMutation(*policy); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

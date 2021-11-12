@@ -1522,6 +1522,7 @@ func Test_patchesJson6902_Policy(t *testing.T) {
    },
    "spec": {
       "background": false,
+			"schemaValidation": false,
       "rules": [
          {
             "name": "set-max-surge",
