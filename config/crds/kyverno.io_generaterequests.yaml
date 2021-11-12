@@ -143,7 +143,6 @@ spec:
             required:
             - context
             - policy
-            - requestType
             - resource
             type: object
           status:

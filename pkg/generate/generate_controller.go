@@ -110,20 +110,13 @@ func NewController(
 
 	c.statusControl = StatusControl{client: kyvernoClient}
 	c.control = Control{client: kyvernoClient}
-
 	c.policySynced = policyInformer.Informer().HasSynced
-
 	c.grSynced = grInformer.Informer().HasSynced
-	//grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-	//	AddFunc:    c.addGR,
-	//	UpdateFunc: c.updateGR,
-	//	DeleteFunc: c.deleteGR,
-	//})
 
 	grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addGRNew,
-		UpdateFunc: c.updateGRNew,
-		DeleteFunc: c.deleteGRNew,
+		AddFunc:    c.addGR,
+		UpdateFunc: c.updateGR,
+		DeleteFunc: c.deleteGR,
 	})
 
 	c.policyLister = policyInformer.Lister()
@@ -403,19 +396,19 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 	}
 }
 
+// func (c *Controller) addGR(obj interface{}) {
+// 	c.log.V(4).Info("Coming to addGR func")
+// 	gr := obj.(*kyverno.GenerateRequest)
+// 	c.enqueueGenerateRequest(gr, []string{GenerateRequestGenerateType})
+// }
+
+// func (c *Controller) addGCR(obj interface{}) {
+// 	c.log.V(4).Info("Coming to addGCR func")
+// 	gr := obj.(*kyverno.GenerateRequest)
+// 	c.enqueueGenerateRequest(gr, []string{GenerateRequestCleanupType})
+// }
+
 func (c *Controller) addGR(obj interface{}) {
-	c.log.V(4).Info("Coming to addGR func")
-	gr := obj.(*kyverno.GenerateRequest)
-	c.enqueueGenerateRequest(gr, []string{GenerateRequestGenerateType})
-}
-
-func (c *Controller) addGCR(obj interface{}) {
-	c.log.V(4).Info("Coming to addGCR func")
-	gr := obj.(*kyverno.GenerateRequest)
-	c.enqueueGenerateRequest(gr, []string{GenerateRequestCleanupType})
-}
-
-func (c *Controller) addGRNew(obj interface{}) {
 	c.log.V(4).Info("Coming to addGRNew func")
 	gr := obj.(*kyverno.GenerateRequest)
 	c.enqueueGenerateRequest(gr, []string{GenerateRequestGenerateType, GenerateRequestCleanupType})
@@ -423,30 +416,30 @@ func (c *Controller) addGRNew(obj interface{}) {
 	// c.addGCR(obj)
 }
 
+// func (c *Controller) updateGR(old, cur interface{}) {
+// 	c.log.V(4).Info("Coming to updateGR func")
+// 	oldGr := old.(*kyverno.GenerateRequest)
+// 	curGr := cur.(*kyverno.GenerateRequest)
+// 	if oldGr.ResourceVersion == curGr.ResourceVersion {
+// 		// Periodic resync will send update events for all known Namespace.
+// 		// Two different versions of the same replica set will always have different RVs.
+// 		return
+// 	}
+// 	// only process the ones that are in "Pending"/"Completed" state
+// 	// if the Generate Request fails due to incorrect policy, it will be requeue during policy update
+// 	if curGr.Status.State == kyverno.Failed {
+// 		return
+// 	}
+// 	c.enqueueGenerateRequest(curGr, []string{GenerateRequestGenerateType})
+// }
+
+// func (c *Controller) updateGCR(old, cur interface{}) {
+// 	c.log.V(4).Info("Coming to updateGCR func")
+// 	gr := cur.(*kyverno.GenerateRequest)
+// 	c.enqueueGenerateRequest(gr, []string{GenerateRequestCleanupType})
+// }
+
 func (c *Controller) updateGR(old, cur interface{}) {
-	c.log.V(4).Info("Coming to updateGR func")
-	oldGr := old.(*kyverno.GenerateRequest)
-	curGr := cur.(*kyverno.GenerateRequest)
-	if oldGr.ResourceVersion == curGr.ResourceVersion {
-		// Periodic resync will send update events for all known Namespace.
-		// Two different versions of the same replica set will always have different RVs.
-		return
-	}
-	// only process the ones that are in "Pending"/"Completed" state
-	// if the Generate Request fails due to incorrect policy, it will be requeue during policy update
-	if curGr.Status.State == kyverno.Failed {
-		return
-	}
-	c.enqueueGenerateRequest(curGr, []string{GenerateRequestGenerateType})
-}
-
-func (c *Controller) updateGCR(old, cur interface{}) {
-	c.log.V(4).Info("Coming to updateGCR func")
-	gr := cur.(*kyverno.GenerateRequest)
-	c.enqueueGenerateRequest(gr, []string{GenerateRequestCleanupType})
-}
-
-func (c *Controller) updateGRNew(old, cur interface{}) {
 	c.log.V(4).Info("Coming to updateGRNew func")
 	var enqueueGenerate bool = true
 	oldGr := old.(*kyverno.GenerateRequest)
@@ -474,82 +467,82 @@ func (c *Controller) updateGRNew(old, cur interface{}) {
 	// c.updateGCR(old, cur)
 }
 
+// func (c *Controller) deleteGR(obj interface{}) {
+// 	c.log.V(4).Info("Coming to deleteGR func")
+// 	logger := c.log
+// 	gr, ok := obj.(*kyverno.GenerateRequest)
+// 	if !ok {
+// 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+// 		if !ok {
+// 			logger.Info("Couldn't get object from tombstone", "obj", obj)
+// 			return
+// 		}
+// 		_, ok = tombstone.Obj.(*kyverno.GenerateRequest)
+// 		if !ok {
+// 			logger.Info("tombstone contained object that is not a Generate Request CR", "obj", obj)
+// 			return
+// 		}
+// 	}
+
+// 	for _, resource := range gr.Status.GeneratedResources {
+// 		r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
+// 		if err != nil && !apierrors.IsNotFound(err) {
+// 			logger.Error(err, "Generated resource is not deleted", "Resource", resource.Name)
+// 			continue
+// 		}
+
+// 		if r != nil && r.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
+// 			if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
+// 				logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
+// 			}
+// 		}
+// 	}
+
+// 	logger.V(3).Info("deleting generate request", "name", gr.Name)
+
+// 	// sync Handler will remove it from the queue
+// 	c.enqueueGenerateRequest(gr, []string{GenerateRequestGenerateType})
+// }
+
+// func (c *Controller) deleteGCR(obj interface{}) {
+// 	c.log.V(4).Info("Coming to deleteGCR func")
+// 	logger := c.log
+// 	gr, ok := obj.(*kyverno.GenerateRequest)
+// 	if !ok {
+// 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+// 		if !ok {
+// 			logger.Info("Couldn't get object from tombstone", "obj", obj)
+// 			return
+// 		}
+
+// 		_, ok = tombstone.Obj.(*kyverno.GenerateRequest)
+// 		if !ok {
+// 			logger.Info("ombstone contained object that is not a Generate Request", "obj", obj)
+// 			return
+// 		}
+// 	}
+
+// 	for _, resource := range gr.Status.GeneratedResources {
+// 		r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
+// 		if err != nil && !apierrors.IsNotFound(err) {
+// 			logger.Error(err, "failed to fetch generated resource", "resource", resource.Name)
+// 			return
+// 		}
+
+// 		if r != nil && r.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
+// 			if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
+// 				logger.Error(err, "failed to delete the generated resource", "resource", r.GetName())
+// 				return
+// 			}
+// 		}
+// 	}
+
+// 	logger.V(4).Info("deleting Generate Request CR", "name", gr.Name)
+// 	// sync Handler will remove it from the queue
+// 	c.enqueueGenerateRequest(gr, []string{GenerateRequestCleanupType})
+// }
+
 func (c *Controller) deleteGR(obj interface{}) {
-	c.log.V(4).Info("Coming to deleteGR func")
-	logger := c.log
-	gr, ok := obj.(*kyverno.GenerateRequest)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			logger.Info("Couldn't get object from tombstone", "obj", obj)
-			return
-		}
-		_, ok = tombstone.Obj.(*kyverno.GenerateRequest)
-		if !ok {
-			logger.Info("tombstone contained object that is not a Generate Request CR", "obj", obj)
-			return
-		}
-	}
-
-	for _, resource := range gr.Status.GeneratedResources {
-		r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
-		if err != nil && !apierrors.IsNotFound(err) {
-			logger.Error(err, "Generated resource is not deleted", "Resource", resource.Name)
-			continue
-		}
-
-		if r != nil && r.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
-			if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
-				logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
-			}
-		}
-	}
-
-	logger.V(3).Info("deleting generate request", "name", gr.Name)
-
-	// sync Handler will remove it from the queue
-	c.enqueueGenerateRequest(gr, []string{GenerateRequestGenerateType})
-}
-
-func (c *Controller) deleteGCR(obj interface{}) {
-	c.log.V(4).Info("Coming to deleteGCR func")
-	logger := c.log
-	gr, ok := obj.(*kyverno.GenerateRequest)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			logger.Info("Couldn't get object from tombstone", "obj", obj)
-			return
-		}
-
-		_, ok = tombstone.Obj.(*kyverno.GenerateRequest)
-		if !ok {
-			logger.Info("ombstone contained object that is not a Generate Request", "obj", obj)
-			return
-		}
-	}
-
-	for _, resource := range gr.Status.GeneratedResources {
-		r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
-		if err != nil && !apierrors.IsNotFound(err) {
-			logger.Error(err, "failed to fetch generated resource", "resource", resource.Name)
-			return
-		}
-
-		if r != nil && r.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
-			if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
-				logger.Error(err, "failed to delete the generated resource", "resource", r.GetName())
-				return
-			}
-		}
-	}
-
-	logger.V(4).Info("deleting Generate Request CR", "name", gr.Name)
-	// sync Handler will remove it from the queue
-	c.enqueueGenerateRequest(gr, []string{GenerateRequestCleanupType})
-}
-
-func (c *Controller) deleteGRNew(obj interface{}) {
 	c.log.V(4).Info("Coming to deleteGRNew func")
 
 	logger := c.log
@@ -641,7 +634,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 
 		for _, gr := range grs {
 			logger.V(4).Info("enqueue the gr for cleanup", "gr name", gr.Name)
-			c.addGCR(gr)
+			c.addGR(gr)
 		}
 	}
 }
