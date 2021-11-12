@@ -117,7 +117,7 @@ func isAnyIn(key []string, value []string) bool {
 	return false
 }
 
-// isAllNotIn checks if all the values in S1 are not in S2
+// isAnyNotIn checks if any of the values in S1 are not in S2
 func isAnyNotIn(key []string, value []string) bool {
 	found := 0
 	for _, valKey := range key {

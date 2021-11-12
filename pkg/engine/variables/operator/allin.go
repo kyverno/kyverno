@@ -124,10 +124,11 @@ func isAllNotIn(key []string, value []string) bool {
 		for _, valValue := range value {
 			if wildcard.Match(valKey, valValue) {
 				found++
+				break
 			}
 		}
 	}
-	return !(found == len(key))
+	return found != len(key)
 
 }
 
