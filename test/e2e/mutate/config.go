@@ -96,6 +96,16 @@ var tests = []struct {
 		ResourceRaw:        podWithNoSecrets,
 		ExpectedPatternRaw: podWithNoSecretPattern,
 	},
+	{
+		TestDescription:    "checks if the imagePullSecrets is set or not. If not then set it",
+		PolicyName:         "set-image-pull-secret2",
+		PolicyRaw:          setImagePullSecret2,
+		ResourceName:       "nginx-image",
+		ResourceNamespace:  "test-run",
+		ResourceGVR:        podGVR,
+		ResourceRaw:        podWithNoSecrets2,
+		ExpectedPatternRaw: podWithSecretPattern2,
+	},
 }
 
 var ingressTests = struct {

@@ -434,3 +434,57 @@ spec:
   - name: nginx
     image: nginx:1.14.2
 `)
+
+var setImagePullSecret2 = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: set-image-pull-secret2
+spec:
+  background: false
+  rules:
+    - name: set-image-pull-secret2
+      match:
+        resources:
+          kinds:
+            - Pod
+      preconditions:
+        - key: "{{ request.operation }}"
+          operator: Equals
+          value: CREATE
+      mutate:
+        overlay:
+          spec:
+            containers:
+              # match images that are from our registry
+              - <(image): "gcr.io/google-containers/nginx:*"
+                # set the imagePullSecrets
+            imagePullSecrets:
+              - name: regcred
+`)
+
+var podWithNoSecrets2 = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-image
+  namespace: test-run
+spec:
+  containers:
+  - name: nginx-image
+    image: "gcr.io/google-containers/nginx:latest"
+`)
+
+var podWithSecretPattern2 = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-image
+  namespace: test-run
+spec:
+  containers:
+  - name: nginx-image
+    image: "gcr.io/google-containers/nginx:latest"
+  imagePullSecrets:
+    - name: regcred
+`)
