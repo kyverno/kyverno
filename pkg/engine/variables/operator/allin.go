@@ -108,11 +108,7 @@ func isAllIn(key []string, value []string) bool {
 	found := 0
 	for _, valKey := range key {
 		for _, valValue := range value {
-			if wildcard.Match(valKey, valValue) {
-				found++
-				break
-			}
-			if wildcard.Match(valValue, valKey) {
+			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
 				found++
 				break
 			}
@@ -126,12 +122,9 @@ func isAllNotIn(key []string, value []string) bool {
 	found := 0
 	for _, valKey := range key {
 		for _, valValue := range value {
-			if wildcard.Match(valKey, valValue) {
+			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
 				found++
 				break
-			}
-			if wildcard.Match(valValue, valKey) {
-				return false
 			}
 		}
 	}

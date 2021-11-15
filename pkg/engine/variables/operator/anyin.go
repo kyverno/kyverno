@@ -109,10 +109,7 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 func isAnyIn(key []string, value []string) bool {
 	for _, valKey := range key {
 		for _, valValue := range value {
-			if wildcard.Match(valKey, valValue) {
-				return true
-			}
-			if wildcard.Match(valValue, valKey) {
+			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
 				return true
 			}
 		}
@@ -125,11 +122,7 @@ func isAnyNotIn(key []string, value []string) bool {
 	found := 0
 	for _, valKey := range key {
 		for _, valValue := range value {
-			if wildcard.Match(valKey, valValue) {
-				found++
-				break
-			}
-			if wildcard.Match(valValue, valKey) {
+			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
 				found++
 				break
 			}
