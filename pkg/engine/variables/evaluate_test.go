@@ -271,6 +271,10 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{Key: []interface{}{1, 2}, Operator: kyverno.AnyIn, Value: []interface{}{1, 2, 3, 4}}, true},
 		{kyverno.Condition{Key: []interface{}{1, 5}, Operator: kyverno.AnyIn, Value: []interface{}{1, 2, 3, 4}}, true},
 		{kyverno.Condition{Key: []interface{}{5}, Operator: kyverno.AnyIn, Value: []interface{}{1, 2, 3, 4}}, false},
+		{kyverno.Condition{Key: []interface{}{"1*"}, Operator: kyverno.AnyIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"}}, true},
+		{kyverno.Condition{Key: []interface{}{"5*"}, Operator: kyverno.AnyIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"}}, false},
+		{kyverno.Condition{Key: []interface{}{"1.1.1.1", "2.2.2.2", "5.5.5.5"}, Operator: kyverno.AnyIn, Value: []interface{}{"2*"}}, true},
+		{kyverno.Condition{Key: []interface{}{"1.1.1.1", "2.2.2.2", "5.5.5.5"}, Operator: kyverno.AnyIn, Value: []interface{}{"4*"}}, false},
 
 		// All In
 		{kyverno.Condition{Key: []interface{}{"1.1.1.1", "2.2.2.2"}, Operator: kyverno.AllIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"}}, true},
@@ -280,6 +284,10 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{Key: []interface{}{1, 2}, Operator: kyverno.AllIn, Value: []interface{}{1, 2, 3, 4}}, true},
 		{kyverno.Condition{Key: []interface{}{1, 5}, Operator: kyverno.AllIn, Value: []interface{}{1, 2, 3, 4}}, false},
 		{kyverno.Condition{Key: []interface{}{5}, Operator: kyverno.AllIn, Value: []interface{}{1, 2, 3, 4}}, false},
+		{kyverno.Condition{Key: []interface{}{"1*"}, Operator: kyverno.AllIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"}}, true},
+		{kyverno.Condition{Key: []interface{}{"5*"}, Operator: kyverno.AllIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"}}, false},
+		{kyverno.Condition{Key: []interface{}{"2.1.1.1", "2.2.2.2", "2.5.5.5"}, Operator: kyverno.AllIn, Value: []interface{}{"2*"}}, true},
+		{kyverno.Condition{Key: []interface{}{"1.1.1.1", "2.2.2.2", "5.5.5.5"}, Operator: kyverno.AllIn, Value: []interface{}{"4*"}}, false},
 		{kyverno.Condition{Key: []interface{}{"1.1.1.1", "5.5.5.5"}, Operator: kyverno.AllIn, Value: "5.5.5.5"}, false},
 
 		// All Not In
@@ -294,6 +302,10 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{Key: []interface{}{"1.1.1.1", "4.4.4.4"}, Operator: kyverno.AllNotIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3", "1.1.1.1"}}, true},
 		{kyverno.Condition{Key: []interface{}{"1.1.1.1", "4.4.4.4", "1.1.1.1"}, Operator: kyverno.AllNotIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3", "1.1.1.1", "4.4.4.4"}}, false},
 		{kyverno.Condition{Key: []interface{}{"5.5.5.5", "4.4.4.4"}, Operator: kyverno.AllNotIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"}}, true},
+		{kyverno.Condition{Key: []interface{}{"7*", "6*", "5*"}, Operator: kyverno.AllNotIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"}}, true},
+		{kyverno.Condition{Key: []interface{}{"1*", "2*"}, Operator: kyverno.AllNotIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"}}, false},
+		{kyverno.Condition{Key: []interface{}{"1.1.1.1", "3.3.3.3", "5.5.5.5"}, Operator: kyverno.AllNotIn, Value: []interface{}{"2*"}}, true},
+		{kyverno.Condition{Key: []interface{}{"4.1.1.1", "4.2.2.2", "4.5.5.5"}, Operator: kyverno.AllNotIn, Value: []interface{}{"4*"}}, false},
 		{kyverno.Condition{Key: []interface{}{"1.1.1.1", "4.4.4.4"}, Operator: kyverno.AllNotIn, Value: "2.2.2.2"}, true},
 
 		// Any Not In
@@ -307,6 +319,9 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{Key: []interface{}{"1.1.1.1", "4.4.4.4"}, Operator: kyverno.AnyNotIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"}}, true},
 		{kyverno.Condition{Key: []interface{}{"5.5.5.5", "4.4.4.4"}, Operator: kyverno.AnyNotIn, Value: "4.4.4.4"}, true},
 		{kyverno.Condition{Key: []interface{}{"5.5.5.5", "4.4.4.4"}, Operator: kyverno.AnyNotIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"}}, true},
+		{kyverno.Condition{Key: []interface{}{"1*", "3*", "5*"}, Operator: kyverno.AnyNotIn, Value: []interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"}}, true},
+		{kyverno.Condition{Key: []interface{}{"1.1.1.1", "2.2.2.2", "5.5.5.5"}, Operator: kyverno.AnyNotIn, Value: []interface{}{"2*"}}, true},
+		{kyverno.Condition{Key: []interface{}{"2.2*"}, Operator: kyverno.AnyNotIn, Value: []interface{}{"2.2.2.2"}}, false},
 	}
 
 	ctx := context.NewContext()
