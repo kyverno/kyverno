@@ -75,7 +75,7 @@ func (wrc *Register) constructOwner() v1.OwnerReference {
 }
 
 func (wrc *Register) GetKubePolicyClusterRoleName() (*unstructured.Unstructured, error) {
-	clusterRole, err := wrc.client.ListResource(config.ClusterRoleAPIVersion, config.ClusterRoleKind, "", &v1.LabelSelector{MatchLabels: map[string]string{"v1/ownerreference": "true"}})
+	clusterRole, err := wrc.client.ListResource(config.ClusterRoleAPIVersion, config.ClusterRoleKind, "", &v1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/ownerreference": "true"}})
 	if err != nil {
 		return nil, err
 	}
