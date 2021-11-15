@@ -1,8 +1,10 @@
 FROM gcr.io/distroless/static
 
+ARG TARGETPLATFORM
+
 LABEL maintainer="Kyverno"
 
-ADD ./kyverno /kyverno
+COPY ./${TARGETPLATFORM}/kyverno /kyverno
 
 USER 10001
 
