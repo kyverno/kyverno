@@ -69,6 +69,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.fullname" . }}:userinfo
   labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app.kubernetes.io/ownerreference: "true"
     app: kyverno
 rules:
 # get the roleRef for incoming api-request user
