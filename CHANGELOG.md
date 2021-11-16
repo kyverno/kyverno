@@ -1,3 +1,27 @@
+## v1.5.2-rc1
+
+### Enhancements
+- Signatures & sbom for Kyverno image should be stored in a different repository #2504
+- [VULNERABILITY] I can violate Kyverno Policies #2164
+- Allow Helm CRD management to be disabled #2655
+- Upgrade in-toto-golang to fix CVE-2021-41087 #2670
+
+
+### Features
+- Way to escape braces #2513
+- Extend preconditions operations that support storage size comparision #2558
+
+### Bug Fixes
+- Add images to allowed variables #2628
+- Kyverno panics on interface conversion #2588
+- Policies with PreConditions are marked as "failed" in the metrics #2629
+- RuleResult label to be correctly populated while registering respective metrics #2643
+- Custom deepCopy functions for objects do not work #805, #2663
+- Kyverno policies block uninstall of Kyverno #2623
+- Invalid variables #2625
+- Pre-built image vars not resolving in the test command with mutate rules using foreach #2660
+- Memory leak with validate policy #2427
+
 ## v1.5.1
 
 This patch release fixes a security vulnerability issue #2595.
