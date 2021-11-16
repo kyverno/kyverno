@@ -375,12 +375,14 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 				if val, ok := r.Values["request.operation"]; ok {
 					if val == "" {
 						r.Values["request.operation"] = "CREATE"
+						log.Log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
 					}
 				} else {
 					if r.Values == nil {
 						r.Values = make(map[string]string)
 					}
 					r.Values["request.operation"] = "CREATE"
+					log.Log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
 				}
 				for variableInFile := range r.Values {
 					if strings.Contains(variableInFile, "request.object") {
