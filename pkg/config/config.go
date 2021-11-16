@@ -63,9 +63,6 @@ const (
 
 	// ClusterRoleKind define the default clusterrole resource kind
 	ClusterRoleKind = "ClusterRole"
-
-	// ClusterRoleName define the default name of clusterrole
-	ClusterRoleName = "kyverno:webhook"
 )
 
 var (
