@@ -1,4 +1,4 @@
-local_resource('compile-go', 'make tilt-compile', deps=['cmd/kyverno/main.go', 'api', 'pkg', 'test'])
+local_resource('compile-go', 'make tilt-compile', deps=['cmd/kyverno/main.go', 'go.mod', 'api', 'pkg', 'test'])
 
 load('ext://restart_process', 'docker_build_with_restart')
 
