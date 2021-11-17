@@ -1,9 +1,13 @@
-name: test-custom-funcs
-policies:
+apiVersion: cli.kyverno.io/v1alpha1
+kind: PolicyTests
+metadata:
+ name: test-custom-funcs
+spec:
+ policies:
   - policy.yaml
-resources:
+ resources:
   - resources.yaml
-results:
+ results:
   - policy: base64
     rule: secret-value-must-match-label
     resource: test-match
@@ -14,3 +18,4 @@ results:
     resource: test-no-match
     kind: Secret
     status: fail
+    
