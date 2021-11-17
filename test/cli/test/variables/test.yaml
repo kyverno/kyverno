@@ -1,13 +1,17 @@
-name: test-variables
-policies:
-  - cm-variable-example.yaml
-  - cm-array-example.yaml
-  - cm-blk-scalar-example.yaml
-  - cm-globalval-example.yaml
-resources:
-  - resources.yaml
-variables: variables.yaml
-results:
+apiVersion: cli.kyverno.io/v1alpha1
+kind: PolicyTests
+metadata:
+ name: test-variables
+spec:
+ policies:
+   - cm-variable-example.yaml
+   - cm-array-example.yaml
+   - cm-blk-scalar-example.yaml
+   - cm-globalval-example.yaml
+ resources:
+   - resources.yaml
+ variables: variables.yaml
+ results:
   - policy: cm-variable-example
     rule: example-configmap-lookup
     resource: test-env-test
@@ -48,3 +52,4 @@ results:
     resource: test-global-prod
     kind: Pod
     result: fail
+

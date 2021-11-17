@@ -173,6 +173,28 @@ type Test struct {
 	Results   []TestResults `json:"results"`
 }
 
+type versionedTest struct {
+	TypeMeta `json:",inline" yaml:",inline"`
+	MetaData meta  `json:"metadata" yaml:"metadata"`
+	Spec     Specs `json:"spec"  yaml:"spec"`
+}
+
+type TypeMeta struct {
+	Kind       string `json:"kind,omitempty" yaml:"kind,omitempty"`
+	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
+}
+
+type meta struct {
+	Name string `json:"name" yaml:"name"`
+}
+
+type Specs struct {
+	Policies  []string      `json:"policies"`
+	Resources []string      `json:"resources"`
+	Variables string        `json:"variables"`
+	Results   []TestResults `json:"results"`
+}
+
 type TestResults struct {
 	Policy            string              `json:"policy"`
 	Rule              string              `json:"rule"`
@@ -577,18 +599,36 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	engineResponses := make([]*response.EngineResponse, 0)
 	var dClient *client.Client
 	values := &Test{}
+	versionedvalues := &versionedTest{}
+	versioned := true
 	var variablesString string
 	var pvInfos []policyreport.Info
 	var resultCounts common.ResultCounts
+	var resultsMap map[string]report.PolicyReportResult
+	var testResults []TestResults
+	var policyFullPath []string
+	var resourceFullPath []string
 	store.SetMock(true)
 
-	if err := json.Unmarshal(policyBytes, values); err != nil {
+	if err := json.Unmarshal(policyBytes, versionedvalues); err != nil {
 		return sanitizederror.NewWithError("failed to decode yaml", err)
 	}
+	if versionedvalues.APIVersion == "" {
+		versioned = false
+		if err := json.Unmarshal(policyBytes, values); err != nil {
+			return sanitizederror.NewWithError("failed to decode yaml", err)
+		}
+	}
 
-	fmt.Printf("\nExecuting %s...", values.Name)
-	valuesFile = values.Variables
-	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
+	if versioned {
+		fmt.Printf("\nExecuting %s...", versionedvalues.MetaData.Name)
+		valuesFile = versionedvalues.Spec.Variables
+	} else {
+		fmt.Printf("\nExecuting %s...", values.Name)
+		valuesFile = values.Variables
+	}
+
+	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to decode yaml", err)
@@ -596,13 +636,22 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		return err
 	}
 
-	policyFullPath := getFullPath(values.Policies, policyResourcePath, isGit)
-	resourceFullPath := getFullPath(values.Resources, policyResourcePath, isGit)
-
-	for i, result := range values.Results {
-		arrPatchedResource := []string{result.PatchedResource}
-		patchedResourceFullPath := getFullPath(arrPatchedResource, policyResourcePath, isGit)
-		values.Results[i].PatchedResource = patchedResourceFullPath[0]
+	if versioned {
+		policyFullPath = getFullPath(versionedvalues.Spec.Policies, policyResourcePath, isGit)
+		resourceFullPath = getFullPath(versionedvalues.Spec.Resources, policyResourcePath, isGit)
+		for i, result := range versionedvalues.Spec.Results {
+			arrPatchedResource := []string{result.PatchedResource}
+			patchedResourceFullPath := getFullPath(arrPatchedResource, policyResourcePath, isGit)
+			versionedvalues.Spec.Results[i].PatchedResource = patchedResourceFullPath[0]
+		}
+	} else {
+		policyFullPath = getFullPath(values.Policies, policyResourcePath, isGit)
+		resourceFullPath = getFullPath(values.Resources, policyResourcePath, isGit)
+		for i, result := range values.Results {
+			arrPatchedResource := []string{result.PatchedResource}
+			patchedResourceFullPath := getFullPath(arrPatchedResource, policyResourcePath, isGit)
+			values.Results[i].PatchedResource = patchedResourceFullPath[0]
+		}
 	}
 
 	policies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
@@ -679,7 +728,11 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		}
 	}
 
-	resultsMap, testResults := buildPolicyResults(engineResponses, values.Results, pvInfos, policyResourcePath, fs, isGit)
+	if versioned {
+		resultsMap, testResults = buildPolicyResults(engineResponses, versionedvalues.Spec.Results, pvInfos, policyResourcePath, fs, isGit)
+	} else {
+		resultsMap, testResults = buildPolicyResults(engineResponses, values.Results, pvInfos, policyResourcePath, fs, isGit)
+	}
 	resultErr := printTestResult(resultsMap, testResults, rc)
 	if resultErr != nil {
 		return sanitizederror.NewWithError("failed to print test result:", resultErr)
