@@ -291,6 +291,7 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 // - "none" if:
 //          - name or selector is defined
 //          - mixed kinds (Pod + pod controller) is defined
+//          - Pod is not defined
 //          - mutate.Patches/mutate.PatchesJSON6902/validate.deny/generate rule is defined
 // - otherwise it returns all pod controllers
 func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bool, controllers string) {
@@ -359,7 +360,7 @@ func isKindOtherthanPod(kinds []string) bool {
 	if len(kinds) > 1 && utils.ContainsPod(kinds, "Pod") {
 		return true
 	}
-	return false
+	return len(kinds) > 0 && !utils.ContainsPod(kinds, "Pod")
 }
 
 func createRuleMap(rules []kyverno.Rule) map[string]kyvernoRule {
