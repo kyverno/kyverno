@@ -133,26 +133,23 @@ func (wrc *Register) Register() error {
 
 // Check returns an error if any of the webhooks are not configured
 func (wrc *Register) Check() error {
-	mutatingCache, _ := wrc.resCache.GetGVRCache(kindMutating)
-	validatingCache, _ := wrc.resCache.GetGVRCache(kindValidating)
-
-	if _, err := mutatingCache.Lister().Get(wrc.getVerifyWebhookMutatingWebhookName()); err != nil {
+	if _, err := wrc.client.GetResource("admissionregistration.k8s.io/v1", kindMutating, "", wrc.getVerifyWebhookMutatingWebhookName()); err != nil {
 		return err
 	}
 
-	if _, err := mutatingCache.Lister().Get(getResourceMutatingWebhookConfigName(wrc.serverIP)); err != nil {
+	if _, err := wrc.client.GetResource("admissionregistration.k8s.io/v1", kindMutating, "", getResourceMutatingWebhookConfigName(wrc.serverIP)); err != nil {
 		return err
 	}
 
-	if _, err := validatingCache.Lister().Get(getResourceValidatingWebhookConfigName(wrc.serverIP)); err != nil {
+	if _, err := wrc.client.GetResource("admissionregistration.k8s.io/v1", kindValidating, "", getResourceValidatingWebhookConfigName(wrc.serverIP)); err != nil {
 		return err
 	}
 
-	if _, err := mutatingCache.Lister().Get(getPolicyMutatingWebhookConfigurationName(wrc.serverIP)); err != nil {
+	if _, err := wrc.client.GetResource("admissionregistration.k8s.io/v1", kindMutating, "", getPolicyMutatingWebhookConfigurationName(wrc.serverIP)); err != nil {
 		return err
 	}
 
-	if _, err := validatingCache.Lister().Get(getPolicyValidatingWebhookConfigurationName(wrc.serverIP)); err != nil {
+	if _, err := wrc.client.GetResource("admissionregistration.k8s.io/v1", kindValidating, "", getPolicyValidatingWebhookConfigurationName(wrc.serverIP)); err != nil {
 		return err
 	}
 
