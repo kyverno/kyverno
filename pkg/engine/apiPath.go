@@ -83,7 +83,7 @@ func NewAPIPath(path string) (*APIPath, error) {
 		return &APIPath{
 			Root:         paths[0],
 			Group:        paths[1],
-			Version:      paths[1] + "/" + paths[2],
+			Version:      paths[2],
 			ResourceType: paths[3],
 		}, nil
 	}
@@ -93,7 +93,7 @@ func NewAPIPath(path string) (*APIPath, error) {
 		return &APIPath{
 			Root:         paths[0],
 			Group:        paths[1],
-			Version:      paths[1] + "/" + paths[2],
+			Version:      paths[2],
 			ResourceType: paths[3],
 			Name:         paths[4],
 		}, nil
@@ -104,7 +104,7 @@ func NewAPIPath(path string) (*APIPath, error) {
 		return &APIPath{
 			Root:         paths[0],
 			Group:        paths[1],
-			Version:      paths[1] + "/" + paths[2],
+			Version:      paths[2],
 			Namespace:    paths[4],
 			ResourceType: paths[5],
 		}, nil
@@ -115,7 +115,7 @@ func NewAPIPath(path string) (*APIPath, error) {
 		return &APIPath{
 			Root:         paths[0],
 			Group:        paths[1],
-			Version:      paths[1] + "/" + paths[2],
+			Version:      paths[2],
 			Namespace:    paths[4],
 			ResourceType: paths[5],
 			Name:         paths[6],
