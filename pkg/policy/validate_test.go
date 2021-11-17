@@ -1508,7 +1508,6 @@ func Test_Namespced_Policy(t *testing.T) {
 
 	openAPIController, _ := openapi.NewOpenAPIController()
 	err = Validate(policy, nil, true, openAPIController)
-	fmt.Println(err)
 	assert.Assert(t, err != nil)
 }
 
@@ -1557,6 +1556,5 @@ func Test_patchesJson6902_Policy(t *testing.T) {
 
 	openAPIController, _ := openapi.NewOpenAPIController()
 	err = Validate(policy, nil, false, openAPIController)
-	fmt.Println(err)
 	assert.NilError(t, err)
 }
