@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	gojmespath "github.com/jmespath/go-jmespath"
 )
@@ -46,6 +47,7 @@ var (
 	modulo                 = "modulo"
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
+	timeSince              = "time_since"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -209,6 +211,15 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpString}},
 			},
 			Handler: jpBase64Encode,
+		},
+		{
+			Name: timeSince,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpTimeSince,
 		},
 	}
 
@@ -548,6 +559,49 @@ func jpBase64Encode(arguments []interface{}) (interface{}, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(str.String())), nil
+}
+
+func jpTimeSince(arguments []interface{}) (interface{}, error) {
+	var err error
+	layout, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	ts1, err := validateArg("", arguments, 1, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	ts2, err := validateArg("", arguments, 2, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	var t1, t2 time.Time
+	if layout.String() != "" {
+		t1, err = time.Parse(layout.String(), ts1.String())
+	} else {
+		t1, err = time.Parse(time.RFC3339, ts1.String())
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	t2 = time.Now()
+	if ts2.String() != "" {
+		if layout.String() != "" {
+			t2, err = time.Parse(layout.String(), ts2.String())
+		} else {
+			t2, err = time.Parse(time.RFC3339, ts2.String())
+		}
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return t2.Sub(t1).String(), nil
 }
 
 // InterfaceToString casts an interface to a string type
