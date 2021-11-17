@@ -172,7 +172,7 @@ func (pc *PolicyController) getResourceList(kind, namespace string, labelSelecto
 
 	resourceList, err := pc.client.ListResource("", kind, namespace, labelSelector)
 	if err != nil {
-		log.Error(err, "failed to list resources", "kind")
+		log.Error(err, "failed to list resources", "kind", kind, "namespace", namespace)
 		return nil
 	}
 
