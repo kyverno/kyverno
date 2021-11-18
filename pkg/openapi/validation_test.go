@@ -86,6 +86,7 @@ func Test_matchGVK(t *testing.T) {
 		gvk            string
 		match          bool
 	}{
+
 		{
 			"io.k8s.api.networking.v1.Ingress",
 			"networking.k8s.io/v1/Ingress",
@@ -107,6 +108,26 @@ func Test_matchGVK(t *testing.T) {
 			true,
 		},
 		{
+			"io.crossplane.gcp.iam.v1alpha1.ServiceAccount",
+			"iam.gcp.crossplane.io/v1alpha1/ServiceAccount",
+			true,
+		},
+		{
+			"io.crossplane.gcp.iam.v1alpha1.ServiceAccount",
+			"v1/ServiceAccount",
+			false,
+		},
+		{
+			"v1.ServiceAccount",
+			"iam.gcp.crossplane.io/v1alpha1/ServiceAccount",
+			false,
+		},
+		{
+			"v1.ServiceAccount",
+			"v1/ServiceAccount",
+			true,
+		},
+		{
 			"io.k8s.api.rbac.v1.Role",
 			"rbac.authorization.k8s.io/v1/Role",
 			true,
@@ -124,7 +145,7 @@ func Test_matchGVK(t *testing.T) {
 		{
 			"io.k8s.api.policy.v1beta1.Eviction",
 			"v1/Eviction",
-			true,
+			false,
 		},
 		{
 			"io.k8s.api.rbac.v1beta1.ClusterRole",
