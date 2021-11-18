@@ -25,7 +25,6 @@ import (
 	"github.com/sigstore/cosign/pkg/oci"
 	sigs "github.com/sigstore/cosign/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature"
-	"github.com/sigstore/sigstore/pkg/signature/dsse"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -177,7 +176,7 @@ func FetchAttestations(imageRef string, key string, repository string, log logr.
 
 	cosignOpts := &cosign.CheckOpts{
 		ClaimVerifier:      cosign.IntotoSubjectClaimVerifier,
-		SigVerifier:        dsse.WrapVerifier(pubKey),
+		SigVerifier:        pubKey,
 		RegistryClientOpts: opts,
 	}
 
