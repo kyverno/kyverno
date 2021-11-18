@@ -3,6 +3,7 @@ policies:
   - policy.yaml
 resources:
   - resources.yaml
+variables: values.yaml
 results:
   - policy: disallow-latest-tag
     rule: require-image-tag
@@ -49,3 +50,34 @@ results:
     resource: test-lifetime-fail
     kind: Pod
     status: pass
+
+  - policy: restrict-pod-counts
+    rule: restrict-pod-count
+    resource: myapp-pod
+    kind: Pod
+    status: fail
+  - policy: restrict-pod-counts
+    rule: restrict-pod-count
+    resource: test-require-image-tag-pass
+    kind: Pod
+    status: fail
+  - policy: restrict-pod-counts
+    rule: restrict-pod-count
+    resource: test-require-image-tag-fail
+    kind: Pod
+    status: fail
+  - policy: restrict-pod-counts
+    rule: restrict-pod-count
+    resource: test-validate-image-tag-ignore
+    kind: Pod
+    status: fail
+  - policy: restrict-pod-counts
+    rule: restrict-pod-count
+    resource: test-validate-image-tag-fail
+    kind: Pod
+    status: fail    
+  - policy: restrict-pod-counts
+    rule: restrict-pod-count
+    resource: test-validate-image-tag-pass
+    kind: Pod
+    status: fail
