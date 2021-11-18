@@ -2,6 +2,7 @@ package webhookconfig
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	admregapi "k8s.io/api/admissionregistration/v1"
@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	admissionv1 "k8s.io/client-go/informers/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -53,10 +54,13 @@ type webhookConfigManager struct {
 	// npListerSynced returns true if the namespace policy store has been synced at least once
 	npListerSynced cache.InformerSynced
 
-	resCache resourcecache.ResourceCache
+	// resCache resourcecache.ResourceCache
 
-	mutateInformer         cache.SharedIndexInformer
-	validateInformer       cache.SharedIndexInformer
+	mWebhookInformer admissionv1.MutatingWebhookConfigurationInformer
+	vWebhookInformer admissionv1.ValidatingWebhookConfigurationInformer
+
+	// mutateInformer         cache.SharedIndexInformer
+	// validateInformer       cache.SharedIndexInformer
 	mutateInformerSynced   cache.InformerSynced
 	validateInformerSynced cache.InformerSynced
 
@@ -86,7 +90,8 @@ func newWebhookConfigManager(
 	kyvernoClient *kyvernoclient.Clientset,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
-	resCache resourcecache.ResourceCache,
+	mWebhookInformer admissionv1.MutatingWebhookConfigurationInformer,
+	vWebhookInformer admissionv1.ValidatingWebhookConfigurationInformer,
 	serverIP string,
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
@@ -98,7 +103,8 @@ func newWebhookConfigManager(
 		kyvernoClient:        kyvernoClient,
 		pInformer:            pInformer,
 		npInformer:           npInformer,
-		resCache:             resCache,
+		mWebhookInformer:     mWebhookInformer,
+		vWebhookInformer:     vWebhookInformer,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "configmanager"),
 		wildcardPolicy:       0,
 		serverIP:             serverIP,
@@ -114,13 +120,8 @@ func newWebhookConfigManager(
 	m.pListerSynced = pInformer.Informer().HasSynced
 	m.npListerSynced = npInformer.Informer().HasSynced
 
-	mutateCache, _ := m.resCache.GetGVRCache(kindMutating)
-	m.mutateInformer = mutateCache.GetInformer()
-	m.mutateInformerSynced = mutateCache.GetInformer().HasSynced
-
-	validateCache, _ := m.resCache.GetGVRCache(kindValidating)
-	m.validateInformer = validateCache.GetInformer()
-	m.validateInformerSynced = validateCache.GetInformer().HasSynced
+	m.mutateInformerSynced = m.mWebhookInformer.Informer().HasSynced
+	m.validateInformerSynced = m.vWebhookInformer.Informer().HasSynced
 
 	return m
 }
@@ -265,22 +266,13 @@ func (m *webhookConfigManager) enqueueAllPolicies() {
 		logger.V(4).Info("added CLusterPolicy to the queue", "name", cpol.GetName())
 	}
 
-	nsCache, ok := m.resCache.GetGVRCache("Namespace")
-	if !ok {
-		nsCache, err = m.resCache.CreateGVKInformer("Namespace")
-		if err != nil {
-			logger.Error(err, "unabled to create Namespace listser")
-			return
-		}
-	}
-
-	namespaces, err := nsCache.Lister().List(labels.Everything())
+	namespaces, err := m.client.ListResource("v1", "Namespace", "", nil)
 	if err != nil {
 		logger.Error(err, "unabled to list namespaces")
 		return
 	}
 
-	for _, ns := range namespaces {
+	for _, ns := range namespaces.Items {
 		pols, err := m.listPolicies(ns.GetName())
 		if err != nil {
 			logger.Error(err, "unabled to list policies", "namespace", ns.GetName())
@@ -328,11 +320,11 @@ func (m *webhookConfigManager) start() {
 		DeleteFunc: m.deletePolicy,
 	})
 
-	m.mutateInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	m.mWebhookInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: m.deleteWebhook,
 	})
 
-	m.validateInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	m.vWebhookInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: m.deleteWebhook,
 	})
 
@@ -532,16 +524,35 @@ func (m *webhookConfigManager) updateWebhookConfig(webhooks []*webhook) error {
 
 func (m *webhookConfigManager) getWebhook(webhookKind, webhookName string) (resourceWebhook *unstructured.Unstructured, err error) {
 	get := func() error {
-		webhookCache, _ := m.resCache.GetGVRCache(webhookKind)
+		var mutateWebhook *admregapi.MutatingWebhookConfiguration
+		var validateWebhook *admregapi.ValidatingWebhookConfiguration
 
-		resourceWebhook, err = webhookCache.Lister().Get(webhookName)
+		switch webhookKind {
+		case kindMutating:
+			mutateWebhook, err = m.mWebhookInformer.Lister().Get(webhookName)
+			mutateWebhook.SetGroupVersionKind(schema.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: kindMutating})
+		case kindValidating:
+			validateWebhook, err = m.vWebhookInformer.Lister().Get(webhookName)
+			validateWebhook.SetGroupVersionKind(schema.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: kindValidating})
+		}
+
+		// resourceWebhook, err = .Lister().Get(webhookName)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return errors.Wrapf(err, "unable to get %s/%s", webhookKind, webhookName)
 		} else if apierrors.IsNotFound(err) {
 			m.createDefaultWebhook <- webhookKind
 			return err
 		}
-		return nil
+
+		resourceWebhook = &unstructured.Unstructured{}
+		if mutateWebhook != nil {
+			resourceWebhook, err = convert(mutateWebhook)
+
+		} else {
+			resourceWebhook, err = convert(validateWebhook)
+		}
+
+		return errors.Wrapf(err, "getWebhook: unable to convert webhook")
 	}
 
 	retryGetWebhook := common.RetryFunc(time.Second, 10*time.Second, get, m.log)
@@ -550,6 +561,17 @@ func (m *webhookConfigManager) getWebhook(webhookKind, webhookName string) (reso
 	}
 
 	return resourceWebhook, nil
+}
+
+func convert(obj interface{}) (*unstructured.Unstructured, error) {
+	rawWebhook, err := json.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	res := new(unstructured.Unstructured)
+	err = json.Unmarshal(rawWebhook, res)
+	return res, err
 }
 
 func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName string, webhooksMap map[string]interface{}) error {

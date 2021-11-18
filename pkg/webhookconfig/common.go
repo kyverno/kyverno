@@ -86,8 +86,7 @@ func (wrc *Register) GetKubePolicyClusterRoleName() (*unstructured.Unstructured,
 // GetKubePolicyDeployment gets Kyverno deployment using the resource cache
 // it does not initialize any client call
 func (wrc *Register) GetKubePolicyDeployment() (*apps.Deployment, *unstructured.Unstructured, error) {
-	lister, _ := wrc.resCache.GetGVRCache("Deployment")
-	kubePolicyDeployment, err := lister.NamespacedLister(config.KyvernoNamespace).Get(config.KyvernoDeploymentName)
+	kubePolicyDeployment, err := wrc.client.GetResource("apps/v1", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName)
 	if err != nil {
 		return nil, nil, err
 	}

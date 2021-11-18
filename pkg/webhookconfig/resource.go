@@ -102,11 +102,9 @@ func (wrc *Register) removeResourceMutatingWebhookConfiguration(wg *sync.WaitGro
 	configName := getResourceMutatingWebhookConfigName(wrc.serverIP)
 	logger := wrc.log.WithValues("kind", kindMutating, "name", configName)
 
-	if mutateCache, ok := wrc.resCache.GetGVRCache("MutatingWebhookConfiguration"); ok {
-		if _, err := mutateCache.Lister().Get(configName); err != nil && errorsapi.IsNotFound(err) {
-			logger.V(4).Info("webhook not found")
-			return
-		}
+	if _, err := wrc.mWebhookInformer.Lister().Get(configName); err != nil && errorsapi.IsNotFound(err) {
+		logger.V(4).Info("webhook not found")
+		return
 	}
 
 	// delete webhook configuration
@@ -204,11 +202,9 @@ func (wrc *Register) removeResourceValidatingWebhookConfiguration(wg *sync.WaitG
 	configName := getResourceValidatingWebhookConfigName(wrc.serverIP)
 	logger := wrc.log.WithValues("kind", kindValidating, "name", configName)
 
-	if mutateCache, ok := wrc.resCache.GetGVRCache("ValidatingWebhookConfiguration"); ok {
-		if _, err := mutateCache.Lister().Get(configName); err != nil && errorsapi.IsNotFound(err) {
-			logger.V(4).Info("webhook not found")
-			return
-		}
+	if _, err := wrc.vWebhookInformer.Lister().Get(configName); err != nil && errorsapi.IsNotFound(err) {
+		logger.V(4).Info("webhook not found")
+		return
 	}
 
 	err := wrc.client.DeleteResource("", kindValidating, "", configName, false)
