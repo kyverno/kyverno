@@ -175,7 +175,7 @@ type Test struct {
 
 type versionedTest struct {
 	TypeMeta `json:",inline" yaml:",inline"`
-	MetaData meta  `json:"metadata" yaml:"metadata"`
+	MetaData Meta  `json:"metadata" yaml:"metadata"`
 	Spec     Specs `json:"spec"  yaml:"spec"`
 }
 
@@ -184,7 +184,7 @@ type TypeMeta struct {
 	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
 }
 
-type meta struct {
+type Meta struct {
 	Name string `json:"name" yaml:"name"`
 }
 
@@ -619,6 +619,8 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 			return sanitizederror.NewWithError("failed to decode yaml", err)
 		}
 	}
+
+	log.Log.V(5).Info("valuesFile = ", valuesFile)
 
 	if versioned {
 		fmt.Printf("\nExecuting %s...", versionedvalues.MetaData.Name)
