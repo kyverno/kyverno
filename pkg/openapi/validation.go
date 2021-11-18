@@ -241,6 +241,7 @@ func (o *Controller) getGVKByDefinitionName(definitionName string) (gvk string, 
 
 // matchGVK is a helper function that checks if the
 // given GVK matches the definition name
+
 func matchGVK(definitionName, gvk string) bool {
 	paths := strings.Split(definitionName, ".")
 
@@ -254,21 +255,40 @@ func matchGVK(definitionName, gvk string) bool {
 	// here we allow at most 1 missing element in group elements, except for Ingress
 	// as a specific element could be missing in apiDocs name
 	// io.k8s.api.rbac.v1.Role - rbac.authorization.k8s.io/v1/Role
-	//missingMoreThanOneElement := false
+	missingMoreThanOneElement := false
+	for i, element := range gvkList {
 
-	_, ok := gvkMap[gvkList[len(gvkList)-1]]
-	if !ok {
-		return false
-	}
-	if len(gvkList) == 2 {
-		_, ok = gvkMap[gvkList[len(gvkList)-2]]
+		if i == 0 {
+
+			items := strings.Split(element, ".")
+			for _, item := range items {
+				_, ok := gvkMap[item]
+				if !ok {
+					if gvkList[len(gvkList)-1] == "Ingress" {
+						return false
+					}
+
+					if missingMoreThanOneElement {
+						return false
+					}
+					missingMoreThanOneElement = true
+				}
+			}
+			continue
+		}
+
+		_, ok := gvkMap[gvkList[len(gvkList)-1]]
 		if !ok {
 			return false
 		}
-	}
-	if len(gvkList) == 3 {
-		items := strings.Split(gvkList[len(gvkList)-3], ".")
-		_, ok := gvkMap[items[0]]
+		if len(gvkList) == 2 {
+			_, ok = gvkMap[gvkList[len(gvkList)-2]]
+			if !ok {
+				return false
+			}
+		}
+
+		_, ok = gvkMap[element]
 		if !ok {
 			return false
 		}
