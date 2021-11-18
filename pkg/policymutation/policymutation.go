@@ -385,7 +385,6 @@ func isKindOtherthanPod(kinds []string) bool {
 }
 
 func hasAutogenKinds(kind []string) bool {
-	fmt.Println(kind)
 	for _, v := range kind {
 		if v == "Pod" || strings.Contains(engine.PodControllers, v) {
 			return true
