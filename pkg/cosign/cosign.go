@@ -6,10 +6,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/sigstore/cosign/pkg/cosign/attestation"
-	"strings"
 
 	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
