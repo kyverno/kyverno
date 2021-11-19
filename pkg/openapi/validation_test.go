@@ -98,6 +98,11 @@ func Test_matchGVK(t *testing.T) {
 			true,
 		},
 		{
+			"io.k8s.api.core.v1.Secret",
+			"v1/Secret",
+			true,
+		},
+		{
 			"io.wgpolicyk8s.v1alpha1.PolicyReport",
 			"wgpolicyk8s.io/v1alpha1/PolicyReport",
 			true,
