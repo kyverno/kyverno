@@ -93,6 +93,11 @@ func Test_matchGVK(t *testing.T) {
 			true,
 		},
 		{
+			"io.k8s.api.extensions.v1beta1.Ingress",
+			"extensions/v1beta1/Ingress",
+			true,
+		},
+		{
 			"io.wgpolicyk8s.v1alpha1.PolicyReport",
 			"wgpolicyk8s.io/v1alpha1/PolicyReport",
 			true,
@@ -150,6 +155,11 @@ func Test_matchGVK(t *testing.T) {
 		{
 			"io.k8s.api.rbac.v1beta1.ClusterRole",
 			"rbac.authorization.k8s.io/v1beta1/ClusterRole",
+			true,
+		},
+		{
+			"io.k8s.api.policy.v1.Eviction",
+			"v1/Eviction",
 			true,
 		},
 	}
