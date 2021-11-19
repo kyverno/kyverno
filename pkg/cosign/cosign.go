@@ -9,7 +9,6 @@ import (
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/sigstore/cosign/pkg/cosign/attestation"
-	"github.com/sigstore/sigstore/pkg/signature/dsse"
 	"strings"
 
 	"github.com/gardener/controller-manager-library/pkg/logger"
@@ -115,7 +114,7 @@ func FetchAttestations(imageRef string, key []byte, repository string) ([]map[st
 		//RootCerts:            fulcio.GetRoots(),
 		ClaimVerifier:        cosign.IntotoSubjectClaimVerifier,
 		SigTagSuffixOverride: cosign.AttestationTagSuffix,
-		SigVerifier:          dsse.WrapVerifier(pubKey),
+		SigVerifier:          pubKey,
 		VerifyBundle:         false,
 	}
 
