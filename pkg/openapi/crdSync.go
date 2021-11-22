@@ -3,8 +3,8 @@ package openapi
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"strings"
 	"time"
 
@@ -111,12 +111,12 @@ func (c *crdSync) sync() {
 func (c *crdSync) updateInClusterKindToAPIVersions() error {
 	_, apiResourceLists, err := c.client.DiscoveryClient.DiscoveryCache().ServerGroupsAndResources()
 	if err != nil {
-		return fmt.Errorf("unable to fetch apiResourceLists: %v", err)
+		return errors.Wrapf(err, "fetching API server groups and resources")
 	}
 
 	preferredAPIResourcesLists, err := c.client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
 	if err != nil {
-		return fmt.Errorf("unable to fetch apiResourceLists: %v", err)
+		return errors.Wrapf(err, "fetching API server preferreds resources")
 	}
 
 	c.controller.updateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists)
