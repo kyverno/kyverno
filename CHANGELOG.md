@@ -2,6 +2,9 @@
 ### Note
 - Helm charts are changed to enforce PodDisruptionBudget for multi-replica clusters and PDB is removed from install manifests.
 
+### Enhancements
+- Supports a new format for test.yaml (along with the older format) which is more in line with k8s style (kustomize)
+
 ## v1.5.0-rc1
 ### Note
 - The Helm CRDs was switched back to kyverno chart. To upgrade using Helm, please refer to https://github.com/kyverno/website/pull/304.
