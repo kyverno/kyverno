@@ -345,7 +345,7 @@ func logDiscoveryErrors(err error, c ServerPreferredResources) {
 	discoveryError := err.(*discovery.ErrGroupDiscoveryFailed)
 	for gv, e := range discoveryError.Groups {
 		if gv.Group == "custom.metrics.k8s.io" || gv.Group == "metrics.k8s.io" || gv.Group == "external.metrics.k8s.io" {
-			// These error occur when Prometheus is installed as an external metrics server
+			// These errors occur when Prometheus is installed as an external metrics server
 			// See: https://github.com/kyverno/kyverno/issues/1490
 			c.log.V(3).Info("failed to retrieve metrics API group", "gv", gv)
 			continue
