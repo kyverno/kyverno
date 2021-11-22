@@ -54,10 +54,14 @@ require (
 )
 
 replace (
+	github.com/apache/thrift => github.com/apache/thrift v0.14.0
+	github.com/buger/jsonparser => github.com/buger/jsonparser v1.1.1
+	github.com/containerd/containerd => github.com/containerd/containerd v1.5.7
 	github.com/docker/cli => github.com/docker/cli v20.10.9+incompatible
 	github.com/evanphx/json-patch/v5 => github.com/kyverno/json-patch/v5 v5.5.1-0.20210915204938-7578f4ee9c77
 	github.com/go-logr/logr => github.com/go-logr/logr v0.4.0
 	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20210511164400-a1d46efa2ed6
 	github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.2
 	k8s.io/klog/v2 => k8s.io/klog/v2 v2.10.0
+	k8s.io/kubernetes => k8s.io/kubernetes v1.18.4
 )
