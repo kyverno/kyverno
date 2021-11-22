@@ -183,6 +183,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 func (o *Controller) useOpenAPIDocument(doc *openapiv2.Document) error {
 	for _, definition := range doc.GetDefinitions().AdditionalProperties {
 		definitionName := definition.GetName()
+
 		o.definitions.Set(definitionName, definition.GetValue())
 
 		gvk, preferredGVK, err := o.getGVKByDefinitionName(definitionName)
@@ -239,6 +240,42 @@ func (o *Controller) getGVKByDefinitionName(definitionName string) (gvk string, 
 	return "", preferredGVK, fmt.Errorf("gvk not found by the given definition name %s, %v", definitionName, versionsTyped.gvks)
 }
 
+func parseGVK(str string) (group, apiVersion, kind string) {
+	if strings.Count(str, "/") == 0 {
+		return "", "", str
+	}
+	splitString := strings.Split(str, "/")
+	if strings.Count(str, "/") == 1 {
+		return "", splitString[0], splitString[1]
+	}
+	return splitString[0], splitString[1], splitString[2]
+}
+
+func groupMatches(gvkMap map[string]bool, group, kind string) bool {
+	if group == "" {
+		ok := gvkMap["core"]
+		if ok {
+			return true
+		}
+	} else {
+		elements := strings.Split(group, ".")
+		for _, item := range elements {
+			if item != "io" {
+				ok := gvkMap[item]
+				if ok {
+					return true
+				} else {
+					if kind == "Ingress" {
+						return false
+
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
 // matchGVK is a helper function that checks if the
 // given GVK matches the definition name
 
@@ -250,48 +287,19 @@ func matchGVK(definitionName, gvk string) bool {
 		gvkMap[p] = true
 	}
 
-	gvkList := strings.Split(gvk, "/")
-	// group can be a dot-seperated string
-	// here we allow at most 1 missing element in group elements, except for Ingress
-	// as a specific element could be missing in apiDocs name
-	// io.k8s.api.rbac.v1.Role - rbac.authorization.k8s.io/v1/Role
-	missingMoreThanOneElement := false
-	for i, element := range gvkList {
+	group, version, kind := parseGVK(gvk)
 
-		if i == 0 {
+	ok := gvkMap[kind]
+	if !ok {
+		return false
+	}
+	ok = gvkMap[version]
+	if !ok {
+		return false
+	}
 
-			items := strings.Split(element, ".")
-			for _, item := range items {
-				_, ok := gvkMap[item]
-				if !ok {
-					if gvkList[len(gvkList)-1] == "Ingress" {
-						return false
-					}
-
-					if missingMoreThanOneElement {
-						return false
-					}
-					missingMoreThanOneElement = true
-				}
-			}
-			continue
-		}
-
-		_, ok := gvkMap[gvkList[len(gvkList)-1]]
-		if !ok {
-			return false
-		}
-		if len(gvkList) == 2 {
-			_, ok = gvkMap[gvkList[len(gvkList)-2]]
-			if !ok {
-				return false
-			}
-		}
-
-		_, ok = gvkMap[element]
-		if !ok {
-			return false
-		}
+	if !groupMatches(gvkMap, group, kind) {
+		return false
 	}
 
 	return true
