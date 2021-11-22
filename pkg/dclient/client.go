@@ -73,6 +73,10 @@ func (c *Client) NewDynamicSharedInformerFactory(defaultResync time.Duration) dy
 	return dynamicinformer.NewDynamicSharedInformerFactory(c.client, defaultResync)
 }
 
+func (c *Client) GetKubeClient() kubernetes.Interface {
+	return c.kclient
+}
+
 //GetEventsInterface provides typed interface for events
 func (c *Client) GetEventsInterface() (event.EventInterface, error) {
 	return c.kclient.CoreV1().Events(""), nil

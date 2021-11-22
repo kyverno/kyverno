@@ -1,6 +1,7 @@
 package webhookconfig
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -21,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	admissionv1 "k8s.io/client-go/informers/admissionregistration/v1"
+	"k8s.io/client-go/kubernetes"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -136,7 +138,7 @@ func (wrc *Register) Register() error {
 
 // Check returns an error if any of the webhooks are not configured
 func (wrc *Register) Check() error {
-	if _, err := wrc.client.GetResource("admissionregistration.k8s.io/v1", kindMutating, "", wrc.getVerifyWebhookMutatingWebhookName()); err != nil {
+	if _, err := wrc.client.GetResource("admissionregistration.k8s.io/v1", kindMutating, "", getVerifyWebhookMutatingWebhookName(wrc.serverIP)); err != nil {
 		return err
 	}
 
@@ -153,6 +155,30 @@ func (wrc *Register) Check() error {
 	}
 
 	if _, err := wrc.client.GetResource("admissionregistration.k8s.io/v1", kindValidating, "", getPolicyValidatingWebhookConfigurationName(wrc.serverIP)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CheckWebhookExist(client kubernetes.Interface) error {
+	if _, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(), getVerifyWebhookMutatingWebhookName(""), v1.GetOptions{}); err != nil {
+		return err
+	}
+
+	if _, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(), getResourceMutatingWebhookConfigName(""), v1.GetOptions{}); err != nil {
+		return err
+	}
+
+	if _, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(), getPolicyMutatingWebhookConfigurationName(""), v1.GetOptions{}); err != nil {
+		return err
+	}
+
+	if _, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.TODO(), getResourceValidatingWebhookConfigName(""), v1.GetOptions{}); err != nil {
+		return err
+	}
+
+	if _, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.TODO(), getPolicyValidatingWebhookConfigurationName(""), v1.GetOptions{}); err != nil {
 		return err
 	}
 
@@ -540,7 +566,7 @@ func (wrc *Register) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup
 	defer wg.Done()
 
 	var err error
-	mutatingConfig := wrc.getVerifyWebhookMutatingWebhookName()
+	mutatingConfig := getVerifyWebhookMutatingWebhookName(wrc.serverIP)
 	logger := wrc.log.WithValues("kind", kindMutating, "name", mutatingConfig)
 
 	if _, err := wrc.mWebhookInformer.Lister().Get(mutatingConfig); err != nil && errorsapi.IsNotFound(err) {
@@ -562,14 +588,11 @@ func (wrc *Register) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup
 	logger.Info("webhook configuration deleted")
 }
 
-func (wrc *Register) getVerifyWebhookMutatingWebhookName() string {
-	var mutatingConfig string
-	if wrc.serverIP != "" {
-		mutatingConfig = config.VerifyMutatingWebhookConfigurationDebugName
-	} else {
-		mutatingConfig = config.VerifyMutatingWebhookConfigurationName
+func getVerifyWebhookMutatingWebhookName(serverIP string) string {
+	if serverIP != "" {
+		return config.VerifyMutatingWebhookConfigurationDebugName
 	}
-	return mutatingConfig
+	return config.VerifyMutatingWebhookConfigurationName
 }
 
 // GetWebhookTimeOut returns the value of webhook timeout

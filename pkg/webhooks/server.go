@@ -215,7 +215,7 @@ func NewWebhookServer(
 	// Fail this request if Kubernetes should restart this instance
 	mux.HandlerFunc("GET", config.LivenessServicePath, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-		if err := ws.webhookRegister.Check(); err != nil {
+		if err := webhookconfig.CheckWebhookExist(ws.client.GetKubeClient()); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
 			w.WriteHeader(http.StatusOK)
