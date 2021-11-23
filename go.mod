@@ -55,7 +55,7 @@ require (
 
 require (
 	github.com/opencontainers/image-spec v1.0.2 // indirect
-	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/inf.v0 v0.9.1
 )
 
 replace (
