@@ -55,6 +55,7 @@ const errorPrefix = "JMESPath function '%s': "
 const invalidArgumentTypeError = errorPrefix + "%d argument is expected of %s type"
 const genericError = errorPrefix + "%s"
 const zeroDivisionError = errorPrefix + "Zero divisor passed"
+const undefinedQuoError = errorPrefix + "Undefined quotient"
 const nonIntModuloError = errorPrefix + "Non-integer argument(s) passed for modulo"
 
 func getFunctions() []*gojmespath.FunctionEntry {
@@ -186,16 +187,16 @@ func getFunctions() []*gojmespath.FunctionEntry {
 		{
 			Name: divide,
 			Arguments: []ArgSpec{
-				{Types: []JpType{JpNumber}},
-				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpAny}},
+				{Types: []JpType{JpAny}},
 			},
 			Handler: jpDivide,
 		},
 		{
 			Name: modulo,
 			Arguments: []ArgSpec{
-				{Types: []JpType{JpNumber}},
-				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpAny}},
+				{Types: []JpType{JpAny}},
 			},
 			Handler: jpModulo,
 		},
@@ -228,12 +229,12 @@ func getFunctions() []*gojmespath.FunctionEntry {
 
 func jpfCompare(arguments []interface{}) (interface{}, error) {
 	var err error
-	a, err := ValidateArg(compare, arguments, 0, reflect.String)
+	a, err := validateArg(compare, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	b, err := ValidateArg(compare, arguments, 1, reflect.String)
+	b, err := validateArg(compare, arguments, 1, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -243,12 +244,12 @@ func jpfCompare(arguments []interface{}) (interface{}, error) {
 
 func jpfEqualFold(arguments []interface{}) (interface{}, error) {
 	var err error
-	a, err := ValidateArg(equalFold, arguments, 0, reflect.String)
+	a, err := validateArg(equalFold, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	b, err := ValidateArg(equalFold, arguments, 1, reflect.String)
+	b, err := validateArg(equalFold, arguments, 1, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -258,22 +259,22 @@ func jpfEqualFold(arguments []interface{}) (interface{}, error) {
 
 func jpfReplace(arguments []interface{}) (interface{}, error) {
 	var err error
-	str, err := ValidateArg(replace, arguments, 0, reflect.String)
+	str, err := validateArg(replace, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	old, err := ValidateArg(replace, arguments, 1, reflect.String)
+	old, err := validateArg(replace, arguments, 1, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	new, err := ValidateArg(replace, arguments, 2, reflect.String)
+	new, err := validateArg(replace, arguments, 2, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	n, err := ValidateArg(replace, arguments, 3, reflect.Float64)
+	n, err := validateArg(replace, arguments, 3, reflect.Float64)
 	if err != nil {
 		return nil, err
 	}
@@ -283,17 +284,17 @@ func jpfReplace(arguments []interface{}) (interface{}, error) {
 
 func jpfReplaceAll(arguments []interface{}) (interface{}, error) {
 	var err error
-	str, err := ValidateArg(replaceAll, arguments, 0, reflect.String)
+	str, err := validateArg(replaceAll, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	old, err := ValidateArg(replaceAll, arguments, 1, reflect.String)
+	old, err := validateArg(replaceAll, arguments, 1, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	new, err := ValidateArg(replaceAll, arguments, 2, reflect.String)
+	new, err := validateArg(replaceAll, arguments, 2, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +304,7 @@ func jpfReplaceAll(arguments []interface{}) (interface{}, error) {
 
 func jpfToUpper(arguments []interface{}) (interface{}, error) {
 	var err error
-	str, err := ValidateArg(toUpper, arguments, 0, reflect.String)
+	str, err := validateArg(toUpper, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +314,7 @@ func jpfToUpper(arguments []interface{}) (interface{}, error) {
 
 func jpfToLower(arguments []interface{}) (interface{}, error) {
 	var err error
-	str, err := ValidateArg(toLower, arguments, 0, reflect.String)
+	str, err := validateArg(toLower, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -323,12 +324,12 @@ func jpfToLower(arguments []interface{}) (interface{}, error) {
 
 func jpfTrim(arguments []interface{}) (interface{}, error) {
 	var err error
-	str, err := ValidateArg(trim, arguments, 0, reflect.String)
+	str, err := validateArg(trim, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	cutset, err := ValidateArg(trim, arguments, 1, reflect.String)
+	cutset, err := validateArg(trim, arguments, 1, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -338,12 +339,12 @@ func jpfTrim(arguments []interface{}) (interface{}, error) {
 
 func jpfSplit(arguments []interface{}) (interface{}, error) {
 	var err error
-	str, err := ValidateArg(split, arguments, 0, reflect.String)
+	str, err := validateArg(split, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	sep, err := ValidateArg(split, arguments, 1, reflect.String)
+	sep, err := validateArg(split, arguments, 1, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +361,7 @@ func jpfSplit(arguments []interface{}) (interface{}, error) {
 
 func jpRegexReplaceAll(arguments []interface{}) (interface{}, error) {
 	var err error
-	regex, err := ValidateArg(regexReplaceAll, arguments, 0, reflect.String)
+	regex, err := validateArg(regexReplaceAll, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -384,7 +385,7 @@ func jpRegexReplaceAll(arguments []interface{}) (interface{}, error) {
 
 func jpRegexReplaceAllLiteral(arguments []interface{}) (interface{}, error) {
 	var err error
-	regex, err := ValidateArg(regexReplaceAllLiteral, arguments, 0, reflect.String)
+	regex, err := validateArg(regexReplaceAllLiteral, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -408,7 +409,7 @@ func jpRegexReplaceAllLiteral(arguments []interface{}) (interface{}, error) {
 
 func jpRegexMatch(arguments []interface{}) (interface{}, error) {
 	var err error
-	regex, err := ValidateArg(regexMatch, arguments, 0, reflect.String)
+	regex, err := validateArg(regexMatch, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -471,57 +472,26 @@ func jpMultiply(arguments []interface{}) (interface{}, error) {
 }
 
 func jpDivide(arguments []interface{}) (interface{}, error) {
-	var err error
-	op1, err := ValidateArg(divide, arguments, 0, reflect.Float64)
+	op1, op2, err := ParseArithemticOperands(arguments)
 	if err != nil {
 		return nil, err
 	}
 
-	op2, err := ValidateArg(divide, arguments, 1, reflect.Float64)
-	if err != nil {
-		return nil, err
-	}
-
-	if op2.Float() == 0 {
-		return nil, fmt.Errorf(zeroDivisionError, divide)
-	}
-
-	return op1.Float() / op2.Float(), nil
+	return op1.Divide(op2)
 }
 
 func jpModulo(arguments []interface{}) (interface{}, error) {
-	var err error
-	op1, err := ValidateArg(divide, arguments, 0, reflect.Float64)
+	op1, op2, err := ParseArithemticOperands(arguments)
 	if err != nil {
 		return nil, err
 	}
 
-	op2, err := ValidateArg(divide, arguments, 1, reflect.Float64)
-	if err != nil {
-		return nil, err
-	}
-
-	val1 := int64(op1.Float())
-	val2 := int64(op2.Float())
-
-	if op1.Float() != float64(val1) {
-		return nil, fmt.Errorf(nonIntModuloError, modulo)
-	}
-
-	if op2.Float() != float64(val2) {
-		return nil, fmt.Errorf(nonIntModuloError, modulo)
-	}
-
-	if val2 == 0 {
-		return nil, fmt.Errorf(zeroDivisionError, modulo)
-	}
-
-	return val1 % val2, nil
+	return op1.Modulo(op2)
 }
 
 func jpBase64Decode(arguments []interface{}) (interface{}, error) {
 	var err error
-	str, err := ValidateArg("", arguments, 0, reflect.String)
+	str, err := validateArg("", arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -536,7 +506,7 @@ func jpBase64Decode(arguments []interface{}) (interface{}, error) {
 
 func jpBase64Encode(arguments []interface{}) (interface{}, error) {
 	var err error
-	str, err := ValidateArg("", arguments, 0, reflect.String)
+	str, err := validateArg("", arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -546,17 +516,17 @@ func jpBase64Encode(arguments []interface{}) (interface{}, error) {
 
 func jpTimeSince(arguments []interface{}) (interface{}, error) {
 	var err error
-	layout, err := ValidateArg("", arguments, 0, reflect.String)
+	layout, err := validateArg("", arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	ts1, err := ValidateArg("", arguments, 1, reflect.String)
+	ts1, err := validateArg("", arguments, 1, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
-	ts2, err := ValidateArg("", arguments, 2, reflect.String)
+	ts2, err := validateArg("", arguments, 2, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -605,7 +575,7 @@ func ifaceToString(iface interface{}) (string, error) {
 	}
 }
 
-func ValidateArg(f string, arguments []interface{}, index int, expectedType reflect.Kind) (reflect.Value, error) {
+func validateArg(f string, arguments []interface{}, index int, expectedType reflect.Kind) (reflect.Value, error) {
 	arg := reflect.ValueOf(arguments[index])
 	if arg.Type().Kind() != expectedType {
 		return reflect.Value{}, fmt.Errorf(invalidArgumentTypeError, equalFold, index+1, expectedType.String())
