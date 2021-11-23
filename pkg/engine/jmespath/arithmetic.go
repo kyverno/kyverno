@@ -1,7 +1,6 @@
 package jmespath
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -30,7 +29,7 @@ type Scalar struct {
 	float64
 }
 
-func ParseArithemticOperands(arguments []interface{}) (Operand, Operand, error) {
+func ParseArithemticOperands(arguments []interface{}, operator string) (Operand, Operand, error) {
 	var op1, op2 Operand = nil, nil
 	var t1, t2 int = 0, 0
 	tmp1, err := validateArg(divide, arguments, 0, reflect.Float64)
@@ -83,7 +82,7 @@ func ParseArithemticOperands(arguments []interface{}) (Operand, Operand, error) 
 	}
 
 	if op1 == nil || op2 == nil || t1|t2 == 3 {
-		return nil, nil, errors.New("Invalid operands")
+		return nil, nil, fmt.Errorf(genericError, operator, "invalid operands")
 	}
 
 	return op1, op2, nil
@@ -183,6 +182,7 @@ func (op1 Scalar) Subtract(op2 interface{}) (interface{}, error) {
 		diff := op1.float64 - v.Seconds()
 		res, err := time.ParseDuration(fmt.Sprintf("%vs", diff))
 		if err != nil {
+			return nil, err
 		}
 
 		return res.String(), nil

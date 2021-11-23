@@ -445,7 +445,7 @@ func jpLabelMatch(arguments []interface{}) (interface{}, error) {
 }
 
 func jpAdd(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments)
+	op1, op2, err := ParseArithemticOperands(arguments, add)
 	if err != nil {
 		return nil, err
 	}
@@ -454,7 +454,7 @@ func jpAdd(arguments []interface{}) (interface{}, error) {
 }
 
 func jpSubtract(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments)
+	op1, op2, err := ParseArithemticOperands(arguments, subtract)
 	if err != nil {
 		return nil, err
 	}
@@ -463,7 +463,7 @@ func jpSubtract(arguments []interface{}) (interface{}, error) {
 }
 
 func jpMultiply(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments)
+	op1, op2, err := ParseArithemticOperands(arguments, multiply)
 	if err != nil {
 		return nil, err
 	}
@@ -472,7 +472,7 @@ func jpMultiply(arguments []interface{}) (interface{}, error) {
 }
 
 func jpDivide(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments)
+	op1, op2, err := ParseArithemticOperands(arguments, divide)
 	if err != nil {
 		return nil, err
 	}
@@ -481,7 +481,7 @@ func jpDivide(arguments []interface{}) (interface{}, error) {
 }
 
 func jpModulo(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments)
+	op1, op2, err := ParseArithemticOperands(arguments, modulo)
 	if err != nil {
 		return nil, err
 	}
