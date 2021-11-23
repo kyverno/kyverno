@@ -2,6 +2,7 @@ package jmespath
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"time"
 
@@ -245,7 +246,8 @@ func (op1 Quantity) Divide(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Quantity:
 		var quo inf.Dec
-		quo.QuoRound(op1.Quantity.AsDec(), v.Quantity.AsDec(), 0, inf.RoundDown)
+		scale := inf.Scale(math.Max(float64(op1.AsDec().Scale()), float64(v.AsDec().Scale())))
+		quo.QuoRound(op1.AsDec(), v.AsDec(), scale, inf.RoundDown)
 		return resource.NewDecimalQuantity(quo, v.Quantity.Format).String(), nil
 	case Scalar:
 		q, err := resource.ParseQuantity(fmt.Sprintf("%v", v.float64))
@@ -254,7 +256,8 @@ func (op1 Quantity) Divide(op2 interface{}) (interface{}, error) {
 		}
 
 		var quo inf.Dec
-		quo.QuoRound(op1.Quantity.AsDec(), q.AsDec(), 0, inf.RoundDown)
+		scale := inf.Scale(math.Max(float64(op1.AsDec().Scale()), float64(q.AsDec().Scale())))
+		quo.QuoRound(op1.AsDec(), q.AsDec(), scale, inf.RoundDown)
 		return resource.NewDecimalQuantity(quo, op1.Quantity.Format).String(), nil
 	}
 
@@ -302,7 +305,8 @@ func (op1 Scalar) Divide(op2 interface{}) (interface{}, error) {
 		}
 
 		var quo inf.Dec
-		quo.QuoRound(q.AsDec(), v.AsDec(), 0, inf.RoundDown)
+		scale := inf.Scale(math.Max(float64(q.AsDec().Scale()), float64(v.AsDec().Scale())))
+		quo.QuoRound(q.AsDec(), v.AsDec(), scale, inf.RoundDown)
 
 		return resource.NewDecimalQuantity(quo, v.Format).String(), nil
 	case Duration:

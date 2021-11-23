@@ -670,6 +670,10 @@ func Test_Divide(t *testing.T) {
 			test:           "divide('26Gi', '13Ki')",
 			expectedResult: `2Mi`,
 		},
+		{
+			test:           "divide('500m', `2`)",
+			expectedResult: `250m`,
+		},
 	}
 
 	for i, tc := range testCases {
