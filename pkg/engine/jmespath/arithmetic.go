@@ -390,7 +390,7 @@ func (op1 Scalar) Modulo(op2 interface{}) (interface{}, error) {
 			return nil, fmt.Errorf(zeroDivisionError, modulo)
 		}
 
-		return val1 % val2, nil
+		return float64(val1 % val2), nil
 	case Quantity:
 		quo, err := op1.Divide(op2)
 		if err != nil {
