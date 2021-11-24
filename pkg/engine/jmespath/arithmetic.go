@@ -199,7 +199,7 @@ func (op1 Duration) Multiply(op2 interface{}) (interface{}, error) {
 		prod = op1.Seconds() * v.float64
 	}
 
-	res, err := time.ParseDuration(fmt.Sprintf("%vs", prod))
+	res, err := time.ParseDuration(fmt.Sprintf("%.9fs", prod))
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +260,7 @@ func (op1 Duration) Divide(op2 interface{}) (interface{}, error) {
 		quo = op1.Seconds() / v.float64
 	}
 
-	res, err := time.ParseDuration(fmt.Sprintf("%vs", quo))
+	res, err := time.ParseDuration(fmt.Sprintf("%.9fs", quo))
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +295,7 @@ func (op1 Scalar) Divide(op2 interface{}) (interface{}, error) {
 
 		quo = op1.float64 / v.Seconds()
 
-		res, err := time.ParseDuration(fmt.Sprintf("%vs", quo))
+		res, err := time.ParseDuration(fmt.Sprintf("%.9fs", quo))
 		if err != nil {
 			return nil, err
 		}
