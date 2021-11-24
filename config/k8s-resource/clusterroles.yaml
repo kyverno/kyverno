@@ -22,6 +22,7 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/ownerreference: "true"
   name: kyverno:webhook
 rules:
 # Dynamic creation of webhooks, events & certs

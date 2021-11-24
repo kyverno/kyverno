@@ -60,27 +60,27 @@ func extractCA(config *rest.Config) (result []byte) {
 func (wrc *Register) constructOwner() v1.OwnerReference {
 	logger := wrc.log
 
-	kubeClusterRole, err := wrc.GetKubePolicyClusterRole()
+	kubeClusterRoleName, err := wrc.GetKubePolicyClusterRoleName()
 	if err != nil {
-		logger.Error(err, "failed to construct OwnerReference")
+		logger.Error(err, "failed to get cluster role")
 		return v1.OwnerReference{}
 	}
 
 	return v1.OwnerReference{
 		APIVersion: config.ClusterRoleAPIVersion,
 		Kind:       config.ClusterRoleKind,
-		Name:       config.ClusterRoleName,
-		UID:        kubeClusterRole.GetUID(),
+		Name:       kubeClusterRoleName.GetName(),
+		UID:        kubeClusterRoleName.GetUID(),
 	}
 }
 
-func (wrc *Register) GetKubePolicyClusterRole() (*unstructured.Unstructured, error) {
-	kubeNamespace, err := wrc.client.GetResource(config.ClusterRoleAPIVersion, config.ClusterRoleKind, "", config.ClusterRoleName)
+func (wrc *Register) GetKubePolicyClusterRoleName() (*unstructured.Unstructured, error) {
+	clusterRole, err := wrc.client.ListResource(config.ClusterRoleAPIVersion, config.ClusterRoleKind, "", &v1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/ownerreference": "true"}})
 	if err != nil {
 		return nil, err
 	}
 
-	return kubeNamespace, nil
+	return &clusterRole.Items[0], nil
 }
 
 // GetKubePolicyDeployment gets Kyverno deployment using the resource cache

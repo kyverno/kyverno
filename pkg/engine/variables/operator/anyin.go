@@ -86,9 +86,13 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 		}
 
 		var arr []string
-		if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
-			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
-			return true, false
+		if json.Valid([]byte(valuesAvailable)) {
+			if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
+				log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
+				return true, false
+			}
+		} else {
+			arr = append(arr, valuesAvailable)
 		}
 		if anyNotIn {
 			return false, isAnyNotIn(key, arr)
@@ -105,7 +109,7 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 func isAnyIn(key []string, value []string) bool {
 	for _, valKey := range key {
 		for _, valValue := range value {
-			if wildcard.Match(valKey, valValue) {
+			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
 				return true
 			}
 		}
@@ -113,12 +117,12 @@ func isAnyIn(key []string, value []string) bool {
 	return false
 }
 
-// isAllNotIn checks if all the values in S1 are not in S2
+// isAnyNotIn checks if any of the values in S1 are not in S2
 func isAnyNotIn(key []string, value []string) bool {
 	found := 0
 	for _, valKey := range key {
 		for _, valValue := range value {
-			if wildcard.Match(valKey, valValue) {
+			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
 				found++
 				break
 			}

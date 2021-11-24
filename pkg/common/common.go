@@ -53,7 +53,7 @@ func GetNamespaceSelectorsFromGenericInformer(kind, namespaceOfResource string, 
 // GetNamespaceSelectorsFromNamespaceLister - extract the namespacelabels when namespace lister is passed
 func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, nsLister listerv1.NamespaceLister, logger logr.Logger) map[string]string {
 	namespaceLabels := make(map[string]string)
-	if kind != "Namespace" {
+	if kind != "Namespace" && namespaceOfResource != "" {
 		namespaceObj, err := nsLister.Get(namespaceOfResource)
 		if err != nil {
 			log.Log.Error(err, "failed to get the namespace", "name", namespaceOfResource)

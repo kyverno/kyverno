@@ -9,7 +9,7 @@ import (
 
 //NewAnyNotInHandler returns handler to manage AnyNotIn operations
 func NewAnyNotInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
-	return NotInHandler{
+	return AnyNotInHandler{
 		ctx: ctx,
 		log: log,
 	}
