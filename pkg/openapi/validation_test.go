@@ -86,9 +86,25 @@ func Test_matchGVK(t *testing.T) {
 		gvk            string
 		match          bool
 	}{
+
 		{
 			"io.k8s.api.networking.v1.Ingress",
 			"networking.k8s.io/v1/Ingress",
+			true,
+		},
+		{
+			"io.k8s.api.extensions.v1beta1.Ingress",
+			"extensions/v1beta1/Ingress",
+			true,
+		},
+		{
+			"io.crossplane.gcp.iam.v1.ServiceAccount",
+			"v1/ServiceAccount",
+			false,
+		},
+		{
+			"io.k8s.api.core.v1.Secret",
+			"v1/Secret",
 			true,
 		},
 		{
@@ -105,6 +121,21 @@ func Test_matchGVK(t *testing.T) {
 			"io.k8s.api.rbac.v1beta1.ClusterRoleBinding",
 			"rbac.authorization.k8s.io/v1beta1/ClusterRoleBinding",
 			true,
+		},
+		{
+			"io.crossplane.gcp.iam.v1alpha1.ServiceAccount",
+			"iam.gcp.crossplane.io/v1alpha1/ServiceAccount",
+			true,
+		},
+		{
+			"io.crossplane.gcp.iam.v1alpha1.ServiceAccount",
+			"v1/ServiceAccount",
+			false,
+		},
+		{
+			"v1.ServiceAccount",
+			"iam.gcp.crossplane.io/v1alpha1/ServiceAccount",
+			false,
 		},
 		{
 			"io.k8s.api.rbac.v1.Role",
@@ -124,12 +155,17 @@ func Test_matchGVK(t *testing.T) {
 		{
 			"io.k8s.api.policy.v1beta1.Eviction",
 			"v1/Eviction",
-			true,
+			false,
 		},
 		{
 			"io.k8s.api.rbac.v1beta1.ClusterRole",
 			"rbac.authorization.k8s.io/v1beta1/ClusterRole",
 			true,
+		},
+		{
+			"io.k8s.api.policy.v1.Eviction",
+			"v1/Eviction",
+			false,
 		},
 	}
 
