@@ -88,7 +88,7 @@ INITC_IMAGE := kyvernopre
 build-initContainer: ## Build docker images for initContainer
 	ARCH=amd64 $(MAKE) go-build-initContainer
 	ARCH=arm64 $(MAKE) go-build-initContainer
-	ARCH=linux/amd64,linux/arm64 $(MAKE) docker-build-initContainer
+	PLATFORM=linux/amd64,linux/arm64 $(MAKE) docker-build-initContainer
 
 .PHONY: push-initContainer
 push-initContainer: ## Build and push docker images for initContainer
@@ -260,13 +260,14 @@ test-e2e-local:
 	$(eval export E2E="")
 
 #Test TestCmd Policy
-test-cmd: go-build-cli
-	$(PWD)/$(CLI_PATH)/kyverno test https://github.com/kyverno/policies/main
-	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-mutate
-	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test
-	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
-	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-rule && exit 1 || exit 0
-	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
+test-cmd:
+	ARCH=amd64 $(MAKE) go-build-cli
+	$(PWD)/$(CLI_PATH)/$(GOOS)/amd64/kyverno test https://github.com/kyverno/policies/main
+	$(PWD)/$(CLI_PATH)/$(GOOS)/amd64/kyverno test ./test/cli/test-mutate
+	$(PWD)/$(CLI_PATH)/$(GOOS)/amd64/kyverno test ./test/cli/test
+	$(PWD)/$(CLI_PATH)/$(GOOS)/amd64/kyverno test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
+	$(PWD)/$(CLI_PATH)/$(GOOS)/amd64/kyverno test ./test/cli/test-fail/missing-rule && exit 1 || exit 0
+	$(PWD)/$(CLI_PATH)/$(GOOS)/amd64/kyverno test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
 
 # godownloader create downloading script for kyverno-cli
 godownloader:
