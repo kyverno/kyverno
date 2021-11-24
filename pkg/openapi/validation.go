@@ -259,18 +259,9 @@ func groupMatches(gvkMap map[string]bool, group, kind string) bool {
 		}
 	} else {
 		elements := strings.Split(group, ".")
-		for _, item := range elements {
-			if item != "io" {
-				ok := gvkMap[item]
-				if ok {
-					return true
-				} else {
-					if kind == "Ingress" {
-						return false
-
-					}
-				}
-			}
+		ok := gvkMap[elements[0]]
+		if ok {
+			return true
 		}
 	}
 	return false
