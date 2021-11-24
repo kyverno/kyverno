@@ -31,62 +31,40 @@ type Scalar struct {
 }
 
 func ParseArithemticOperands(arguments []interface{}, operator string) (Operand, Operand, error) {
-	var op1, op2 Operand = nil, nil
-	var t1, t2 int = 0, 0
-	tmp1, err := validateArg(divide, arguments, 0, reflect.Float64)
-	if err == nil {
-		var sc Scalar
-		sc.float64 = tmp1.Float()
-		op1 = sc
-	}
+	op := [2]Operand{nil, nil}
+	t := [2]int{0, 0}
 
-	tmp1, err = validateArg(divide, arguments, 0, reflect.String)
-	if err == nil {
-		var q Quantity
-		q.Quantity, err = resource.ParseQuantity(tmp1.String())
+	for i := 0; i < 2; i++ {
+		tmp, err := validateArg(divide, arguments, i, reflect.Float64)
 		if err == nil {
-			op1 = q
-			t1 = 1
-		} else {
-			var d Duration
-			d.Duration, err = time.ParseDuration(tmp1.String())
+			var sc Scalar
+			sc.float64 = tmp.Float()
+			op[i] = sc
+		}
+
+		tmp, err = validateArg(divide, arguments, i, reflect.String)
+		if err == nil {
+			var q Quantity
+			q.Quantity, err = resource.ParseQuantity(tmp.String())
 			if err == nil {
-				op1 = d
-				t1 = 2
+				op[i] = q
+				t[i] = 1
+			} else {
+				var d Duration
+				d.Duration, err = time.ParseDuration(tmp.String())
+				if err == nil {
+					op[i] = d
+					t[i] = 2
+				}
 			}
 		}
 	}
 
-	tmp2, err := validateArg(divide, arguments, 1, reflect.Float64)
-	if err == nil {
-		var sc Scalar
-		sc.float64 = tmp2.Float()
-		op2 = sc
-	}
-
-	tmp2, err = validateArg(divide, arguments, 1, reflect.String)
-	if err == nil {
-		var q Quantity
-		q.Quantity, err = resource.ParseQuantity(tmp2.String())
-		if err == nil {
-			op2 = q
-			t2 = 1
-		} else {
-
-			var d Duration
-			d.Duration, err = time.ParseDuration(tmp2.String())
-			if err == nil {
-				op2 = d
-				t2 = 2
-			}
-		}
-	}
-
-	if op1 == nil || op2 == nil || t1|t2 == 3 {
+	if op[0] == nil || op[1] == nil || t[0]|t[1] == 3 {
 		return nil, nil, fmt.Errorf(genericError, operator, "invalid operands")
 	}
 
-	return op1, op2, nil
+	return op[0], op[1], nil
 }
 
 func (op1 Quantity) Add(op2 interface{}) (interface{}, error) {
@@ -107,16 +85,16 @@ func (op1 Quantity) Add(op2 interface{}) (interface{}, error) {
 }
 
 func (op1 Duration) Add(op2 interface{}) (interface{}, error) {
-	var sum float64
+	var sum int64
 
 	switch v := op2.(type) {
 	case Duration:
-		sum = op1.Seconds() + v.Seconds()
+		sum = op1.Nanoseconds() + v.Nanoseconds()
 	case Scalar:
-		sum = op1.Seconds() + v.float64
+		sum = op1.Nanoseconds() + int64(v.float64*math.Pow10(9))
 	}
 
-	res, err := time.ParseDuration(fmt.Sprintf("%vs", sum))
+	res, err := time.ParseDuration(fmt.Sprintf("%vns", sum))
 	if err != nil {
 		return nil, err
 	}
@@ -155,16 +133,16 @@ func (op1 Quantity) Subtract(op2 interface{}) (interface{}, error) {
 }
 
 func (op1 Duration) Subtract(op2 interface{}) (interface{}, error) {
-	var diff float64
+	var diff int64
 
 	switch v := op2.(type) {
 	case Duration:
-		diff = op1.Seconds() - v.Seconds()
+		diff = op1.Nanoseconds() - v.Nanoseconds()
 	case Scalar:
-		diff = op1.Seconds() - v.float64
+		diff = op1.Nanoseconds() - int64(v.float64*math.Pow10(9))
 	}
 
-	res, err := time.ParseDuration(fmt.Sprintf("%vs", diff))
+	res, err := time.ParseDuration(fmt.Sprintf("%vns", diff))
 	if err != nil {
 		return nil, err
 	}
@@ -180,8 +158,8 @@ func (op1 Scalar) Subtract(op2 interface{}) (interface{}, error) {
 		v.Neg()
 		return v.Add(op1)
 	case Duration:
-		diff := op1.float64 - v.Seconds()
-		res, err := time.ParseDuration(fmt.Sprintf("%vs", diff))
+		diff := int64(op1.float64*math.Pow10(9)) - v.Nanoseconds()
+		res, err := time.ParseDuration(fmt.Sprintf("%vns", diff))
 		if err != nil {
 			return nil, err
 		}
