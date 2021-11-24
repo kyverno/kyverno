@@ -102,7 +102,7 @@ go-build-initContainer:
 
 .PHONY: docker-build-initContainer
 docker-build-initContainer: docker-buildx-builder
-	@docker buildx build -f $(PWD)/$(INITC_PATH)/Dockerfile -t $(REPO)/$(INITC_IMAGE):$(GIT_VERSION) --platform "$(PLATFORM)" --load $(PWD)/$(INITC_PATH)
+	@docker buildx build -f $(PWD)/$(INITC_PATH)/Dockerfile -t $(REPO)/$(INITC_IMAGE):$(GIT_VERSION) --platform "$(PLATFORM)" $(OPTIONS) $(PWD)/$(INITC_PATH)
 
 .PHONY: docker-push-initContainer
 docker-push-initContainer: docker-buildx-builder
@@ -132,7 +132,7 @@ go-build-kyverno:
 
 .PHONY: docker-build-kyverno
 docker-build-kyverno: docker-buildx-builder
-	@docker buildx build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(GIT_VERSION) --platform "$(PLATFORM)" --load $(PWD)/$(KYVERNO_PATH)
+	@docker buildx build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(GIT_VERSION) --platform "$(PLATFORM)" $(OPTIONS) $(PWD)/$(KYVERNO_PATH)
 
 .PHONY: docker-push-kyverno
 docker-push-kyverno: docker-buildx-builder
@@ -176,7 +176,7 @@ go-build-cli:
 
 .PHONY: docker-build-cli
 docker-build-cli: docker-buildx-builder
-	@docker buildx build -f $(PWD)/$(CLI_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_CLI_IMAGE):$(GIT_VERSION) --platform "$(PLATFORM)" --load $(PWD)/$(CLI_PATH)
+	@docker buildx build -f $(PWD)/$(CLI_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_CLI_IMAGE):$(GIT_VERSION) --platform "$(PLATFORM)" $(OPTIONS) $(PWD)/$(CLI_PATH)
 
 .PHONY: docker-push-cli
 docker-push-cli: docker-buildx-builder
@@ -188,11 +188,11 @@ docker-publish-all: docker-buildx-builder docker-publish-initContainer docker-pu
 .PHONY: build-all-amd64
 build-all-amd64:
 	ARCH=amd64 $(MAKE) go-build-initContainer
-	PLATFORM=linux/amd64 $(MAKE) docker-build-initContainer
+	PLATFORM=linux/amd64 OPTIONS=--load $(MAKE) docker-build-initContainer
 	ARCH=amd64 $(MAKE) go-build-kyverno
-	PLATFORM=linux/amd64 $(MAKE) docker-build-kyverno
+	PLATFORM=linux/amd64 OPTIONS=--load $(MAKE) docker-build-kyverno
 	ARCH=amd64 $(MAKE) go-build-cli
-	PLATFORM=linux/amd64 $(MAKE) docker-build-cli
+	PLATFORM=linux/amd64 OPTIONS=--load $(MAKE) docker-build-cli
 
 ##################################
 # Create e2e Infrastruture
