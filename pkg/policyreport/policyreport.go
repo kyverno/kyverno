@@ -104,6 +104,11 @@ func updateResults(oldReport, newReport map[string]interface{}, aggregatedReques
 		return nil, hasDuplicate, err
 	}
 
+	if summaryResults == nil {
+		fmt.Println("Debug: summaryResults is nil, expected array. Results from old report: ", results)
+		return nil, hasDuplicate, nil
+	}
+
 	summary := updateSummary(summaryResults)
 	if err := unstructured.SetNestedMap(newReport, summary.ToMap(), "summary"); err != nil {
 		return nil, hasDuplicate, err
