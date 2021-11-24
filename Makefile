@@ -187,9 +187,12 @@ docker-publish-all: docker-buildx-builder docker-publish-initContainer docker-pu
 
 .PHONY: build-all-amd64
 build-all-amd64:
-	ARCH=amd64 $(MAKE) go-build-initContainer docker-build-initContainer
-	ARCH=amd64 $(MAKE) go-build-kyverno docker-build-kyverno
-	ARCH=amd64 $(MAKE) go-build-cli docker-build-cli
+	ARCH=amd64 $(MAKE) go-build-initContainer
+	PLATFORM=linux/amd64 $(MAKE) docker-build-initContainer
+	ARCH=amd64 $(MAKE) go-build-kyverno
+	PLATFORM=linux/amd64 $(MAKE) docker-build-kyverno
+	ARCH=amd64 $(MAKE) go-build-cli
+	PLATFORM=linux/amd64 $(MAKE) docker-build-cli
 
 ##################################
 # Create e2e Infrastruture
