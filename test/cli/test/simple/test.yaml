@@ -53,9 +53,6 @@ spec:
     rule: less-equal-than
     resource: test-lifetime-fail
     kind: Pod
-<<<<<<< HEAD
-    status: pass
-=======
     status: pass
 
   - policy: restrict-pod-counts
@@ -88,4 +85,3 @@ spec:
     resource: test-validate-image-tag-pass
     kind: Pod
     status: fail
->>>>>>> 3e7c469d2ea8d549284a88281c430192ee2b2760

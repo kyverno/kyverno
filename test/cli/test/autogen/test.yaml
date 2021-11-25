@@ -130,3 +130,4 @@ spec:
     result: fail
     kind: CronJob
     resource: cronjob-without-labels
+    

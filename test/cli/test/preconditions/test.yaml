@@ -18,3 +18,4 @@ spec:
     resource: test-invalid
     kind: Pod
     status: fail
+    
