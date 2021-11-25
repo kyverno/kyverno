@@ -351,7 +351,10 @@ func Test_getControllers(t *testing.T) {
 		err := json.Unmarshal(test.policy, &policy)
 		assert.NilError(t, err)
 
-		_, controllers := CanAutoGen(&policy, log.Log)
+		applyAutoGen, controllers := CanAutoGen(&policy, log.Log)
+		if !applyAutoGen {
+			controllers = "none"
+		}
 		assert.Equal(t, test.expectedControllers, controllers, fmt.Sprintf("test %s failed", test.name))
 	}
 }
