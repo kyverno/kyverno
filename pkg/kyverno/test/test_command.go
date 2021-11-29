@@ -595,12 +595,28 @@ func getFullPath(paths []string, policyResourcePath string, isGit bool) []string
 }
 
 func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts) (err error) {
+	versionedvalues := &versionedTest{}
+
+	if err := json.Unmarshal(policyBytes, versionedvalues); err != nil {
+		return sanitizederror.NewWithError("failed to decode yaml", err)
+	}
+
+	// check for old format
+	if versionedvalues.APIVersion == "" {
+		err = nonVersionedPath(fs, policyBytes, valuesFile, isGit, policyResourcePath, rc)
+	} else {
+		err = versionedPath(fs, policyBytes, valuesFile, isGit, policyResourcePath, rc)
+	}
+
+	return err
+
+}
+
+func versionedPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts) (err error) {
 	openAPIController, err := openapi.NewOpenAPIController()
 	engineResponses := make([]*response.EngineResponse, 0)
 	var dClient *client.Client
-	values := &Test{}
 	versionedvalues := &versionedTest{}
-	versioned := true
 	var variablesString string
 	var pvInfos []policyreport.Info
 	var resultCounts common.ResultCounts
@@ -613,22 +629,9 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	if err := json.Unmarshal(policyBytes, versionedvalues); err != nil {
 		return sanitizederror.NewWithError("failed to decode yaml", err)
 	}
-	if versionedvalues.APIVersion == "" {
-		versioned = false
-		if err := json.Unmarshal(policyBytes, values); err != nil {
-			return sanitizederror.NewWithError("failed to decode yaml", err)
-		}
-	}
 
-	log.Log.V(5).Info("valuesFile = ", valuesFile)
-
-	if versioned {
-		fmt.Printf("\nExecuting %s...", versionedvalues.MetaData.Name)
-		valuesFile = versionedvalues.Spec.Variables
-	} else {
-		fmt.Printf("\nExecuting %s...", values.Name)
-		valuesFile = values.Variables
-	}
+	fmt.Printf("\nExecuting %s...", versionedvalues.MetaData.Name)
+	valuesFile = versionedvalues.Spec.Variables
 
 	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, isGit, policyResourcePath)
 	if err != nil {
@@ -638,22 +641,12 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		return err
 	}
 
-	if versioned {
-		policyFullPath = getFullPath(versionedvalues.Spec.Policies, policyResourcePath, isGit)
-		resourceFullPath = getFullPath(versionedvalues.Spec.Resources, policyResourcePath, isGit)
-		for i, result := range versionedvalues.Spec.Results {
-			arrPatchedResource := []string{result.PatchedResource}
-			patchedResourceFullPath := getFullPath(arrPatchedResource, policyResourcePath, isGit)
-			versionedvalues.Spec.Results[i].PatchedResource = patchedResourceFullPath[0]
-		}
-	} else {
-		policyFullPath = getFullPath(values.Policies, policyResourcePath, isGit)
-		resourceFullPath = getFullPath(values.Resources, policyResourcePath, isGit)
-		for i, result := range values.Results {
-			arrPatchedResource := []string{result.PatchedResource}
-			patchedResourceFullPath := getFullPath(arrPatchedResource, policyResourcePath, isGit)
-			values.Results[i].PatchedResource = patchedResourceFullPath[0]
-		}
+	policyFullPath = getFullPath(versionedvalues.Spec.Policies, policyResourcePath, isGit)
+	resourceFullPath = getFullPath(versionedvalues.Spec.Resources, policyResourcePath, isGit)
+	for i, result := range versionedvalues.Spec.Results {
+		arrPatchedResource := []string{result.PatchedResource}
+		patchedResourceFullPath := getFullPath(arrPatchedResource, policyResourcePath, isGit)
+		versionedvalues.Spec.Results[i].PatchedResource = patchedResourceFullPath[0]
 	}
 
 	policies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
@@ -730,11 +723,127 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		}
 	}
 
-	if versioned {
-		resultsMap, testResults = buildPolicyResults(engineResponses, versionedvalues.Spec.Results, pvInfos, policyResourcePath, fs, isGit)
-	} else {
-		resultsMap, testResults = buildPolicyResults(engineResponses, values.Results, pvInfos, policyResourcePath, fs, isGit)
+	resultsMap, testResults = buildPolicyResults(engineResponses, versionedvalues.Spec.Results, pvInfos, policyResourcePath, fs, isGit)
+
+	resultErr := printTestResult(resultsMap, testResults, rc)
+	if resultErr != nil {
+		return sanitizederror.NewWithError("failed to print test result:", resultErr)
 	}
+
+	return
+}
+
+func nonVersionedPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts) (err error) {
+	openAPIController, err := openapi.NewOpenAPIController()
+	engineResponses := make([]*response.EngineResponse, 0)
+	var dClient *client.Client
+	var variablesString string
+	var pvInfos []policyreport.Info
+	var resultCounts common.ResultCounts
+	var resultsMap map[string]report.PolicyReportResult
+	var testResults []TestResults
+	var policyFullPath []string
+	var resourceFullPath []string
+	store.SetMock(true)
+	values := &Test{}
+	if err := json.Unmarshal(policyBytes, values); err != nil {
+		return sanitizederror.NewWithError("failed to decode yaml", err)
+	}
+	fmt.Printf("\nExecuting %s...", values.Name)
+	valuesFile = values.Variables
+
+	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, isGit, policyResourcePath)
+	if err != nil {
+		if !sanitizederror.IsErrorSanitized(err) {
+			return sanitizederror.NewWithError("failed to decode yaml", err)
+		}
+		return err
+	}
+
+	policyFullPath = getFullPath(values.Policies, policyResourcePath, isGit)
+	resourceFullPath = getFullPath(values.Resources, policyResourcePath, isGit)
+	for i, result := range values.Results {
+		arrPatchedResource := []string{result.PatchedResource}
+		patchedResourceFullPath := getFullPath(arrPatchedResource, policyResourcePath, isGit)
+		values.Results[i].PatchedResource = patchedResourceFullPath[0]
+	}
+
+	policies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
+	if err != nil {
+		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
+		os.Exit(1)
+	}
+
+	mutatedPolicies, err := common.MutatePolices(policies)
+	if err != nil {
+		if !sanitizederror.IsErrorSanitized(err) {
+			return sanitizederror.NewWithError("failed to mutate policy", err)
+		}
+	}
+
+	err = common.PrintMutatedPolicy(mutatedPolicies)
+	if err != nil {
+		return sanitizederror.NewWithError("failed to print mutated policy", err)
+	}
+
+	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, mutatedPolicies, dClient, "", false, isGit, policyResourcePath)
+	if err != nil {
+		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
+		os.Exit(1)
+	}
+
+	msgPolicies := "1 policy"
+	if len(mutatedPolicies) > 1 {
+		msgPolicies = fmt.Sprintf("%d policies", len(policies))
+	}
+
+	msgResources := "1 resource"
+	if len(resources) > 1 {
+		msgResources = fmt.Sprintf("%d resources", len(resources))
+	}
+
+	if len(mutatedPolicies) > 0 && len(resources) > 0 {
+		fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
+	}
+
+	for _, policy := range mutatedPolicies {
+		err := policy2.Validate(policy, nil, true, openAPIController)
+		if err != nil {
+			log.Log.Error(err, "skipping invalid policy", "name", policy.Name)
+			continue
+		}
+
+		matches := common.HasVariables(policy)
+		variable := common.RemoveDuplicateAndObjectVariables(matches)
+
+		if len(variable) > 0 {
+			if len(variables) == 0 {
+				// check policy in variable file
+				if valuesFile == "" || valuesMap[policy.Name] == nil {
+					fmt.Printf("test skipped for policy  %v  (as required variables are not provided by the users) \n \n", policy.Name)
+				}
+			}
+		}
+
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
+
+		for _, resource := range resources {
+			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
+			if err != nil {
+				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.Name, resource.GetName()), err)
+			}
+
+			ers, info, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false, &resultCounts, false)
+			if err != nil {
+				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
+			}
+			engineResponses = append(engineResponses, ers...)
+			pvInfos = append(pvInfos, info)
+		}
+	}
+
+	resultsMap, testResults = buildPolicyResults(engineResponses, values.Results, pvInfos, policyResourcePath, fs, isGit)
+
 	resultErr := printTestResult(resultsMap, testResults, rc)
 	if resultErr != nil {
 		return sanitizederror.NewWithError("failed to print test result:", resultErr)
