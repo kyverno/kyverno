@@ -13,4 +13,3 @@ spec:
       resource: test
       kind: Pod
       status: pass 
-      
