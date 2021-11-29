@@ -601,6 +601,8 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		return sanitizederror.NewWithError("failed to decode yaml", err)
 	}
 
+	log.Log.V(5).Info("valuesFile = ", valuesFile)
+
 	// check for old format
 	if versionedvalues.APIVersion == "" {
 		err = nonVersionedPath(fs, policyBytes, valuesFile, isGit, policyResourcePath, rc)
