@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: test-match
+  name: base64-test-match
   labels:
     value: hello
 type: Opaque
@@ -11,9 +11,23 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: test-no-match
+  name: base64-test-no-match
   labels:
     value: hello
 type: Opaque
 data:
   value: Z29vZGJ5ZQ==
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pattern-match-test-match
+  labels:
+    value: prefix-test
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pattern-match-test-no-match
+  labels:
+    value: test
