@@ -2067,6 +2067,10 @@ spec:
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. The default value is "audit".
                 type: string
+              validationFailureActionMap:
+                additionalProperties:
+                  type: string
+                type: object
               webhookTimeoutSeconds:
                 description: WebhookTimeoutSeconds specifies the maximum time in seconds
                   allowed to apply this policy. After the configured time expires,

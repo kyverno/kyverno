@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/minio/pkg/wildcard"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -29,7 +30,28 @@ func isResponseSuccessful(engineReponses []*response.EngineResponse) bool {
 // returns false -> if all the policies are meant to report only, we dont block resource request
 func toBlockResource(engineReponses []*response.EngineResponse, log logr.Logger) bool {
 	for _, er := range engineReponses {
-		if !er.IsSuccessful() && er.PolicyResponse.ValidationFailureAction == common.Enforce {
+		nsAction := ""
+		actionOverride := false
+
+		for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
+			action := v.Action
+			if action != "enforce" && action != "audit" {
+				continue
+			}
+
+			for _, ns := range v.Namespaces {
+				if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
+					nsAction = action
+					actionOverride = true
+				}
+			}
+
+			if actionOverride {
+				break
+			}
+		}
+
+		if !er.IsSuccessful() && ((actionOverride && nsAction == common.Enforce) || er.PolicyResponse.ValidationFailureAction == common.Enforce) {
 			log.Info("spec.ValidationFailureAction set to enforce blocking resource request", "policy", er.PolicyResponse.Policy.Name)
 			return true
 		}
@@ -44,7 +66,8 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 	policyToRule := make(map[string]interface{})
 	var resourceName string
 	for _, er := range engineResponses {
-		if !er.IsSuccessful() && er.PolicyResponse.ValidationFailureAction == common.Enforce {
+		nsAction, ok := er.PolicyResponse.ValidationFailureActionMap[er.PatchedResource.GetNamespace()]
+		if !er.IsSuccessful() && ((ok && nsAction == common.Enforce) || er.PolicyResponse.ValidationFailureAction == common.Enforce) {
 			ruleToReason := make(map[string]string)
 			for _, rule := range er.PolicyResponse.Rules {
 				if rule.Status != response.RuleStatusPass {

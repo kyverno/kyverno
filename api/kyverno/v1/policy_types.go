@@ -57,6 +57,8 @@ type Spec struct {
 	// +optional
 	ValidationFailureAction string `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
+	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
+
 	// Background controls if rules are applied to existing resources during a background scan.
 	// Optional. Default value is "true". The value must be set to "false" if the policy rule
 	// uses variables that are only available in the admission review request (e.g. user name).
@@ -622,4 +624,9 @@ type ResourceSpec struct {
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 	// Name specifies the resource name.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+}
+
+type ValidationFailureActionOverride struct {
+	Action     string   `json:"action,omitempty" yaml:"action,omitempty"`
+	Namespaces []string `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 }
