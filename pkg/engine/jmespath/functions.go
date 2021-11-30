@@ -11,6 +11,7 @@ import (
 	"time"
 
 	gojmespath "github.com/jmespath/go-jmespath"
+	"github.com/minio/pkg/wildcard"
 )
 
 var (
@@ -39,6 +40,7 @@ var (
 	regexReplaceAll        = "regex_replace_all"
 	regexReplaceAllLiteral = "regex_replace_all_literal"
 	regexMatch             = "regex_match"
+	patternMatch           = "pattern_match"
 	labelMatch             = "label_match"
 	add                    = "add"
 	subtract               = "subtract"
@@ -148,6 +150,14 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpString, JpNumber}},
 			},
 			Handler: jpRegexMatch,
+		},
+		{
+			Name: patternMatch,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpString, JpNumber}},
+			},
+			Handler: jpPatternMatch,
 		},
 		{
 			// Validates if label (param1) would match pod/host/etc labels (param2)
@@ -418,6 +428,20 @@ func jpRegexMatch(arguments []interface{}) (interface{}, error) {
 	}
 
 	return regexp.Match(regex.String(), []byte(src))
+}
+
+func jpPatternMatch(arguments []interface{}) (interface{}, error) {
+	pattern, err := validateArg(regexMatch, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	src, err := ifaceToString(arguments[1])
+	if err != nil {
+		return nil, fmt.Errorf(invalidArgumentTypeError, regexMatch, 2, "String or Real")
+	}
+
+	return wildcard.Match(pattern.String(), src), nil
 }
 
 func jpLabelMatch(arguments []interface{}) (interface{}, error) {
