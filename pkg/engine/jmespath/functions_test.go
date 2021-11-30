@@ -268,6 +268,30 @@ func Test_RegexMatchWithNumber(t *testing.T) {
 	assert.Equal(t, true, result)
 }
 
+func Test_PatternMatch(t *testing.T) {
+	data := make(map[string]interface{})
+	data["foo"] = "prefix-foo"
+
+	query, err := New("pattern_match('prefix-*', foo)")
+	assert.NilError(t, err)
+
+	result, err := query.Search(data)
+	assert.NilError(t, err)
+	assert.Equal(t, true, result)
+}
+
+func Test_PatternMatchWithNumber(t *testing.T) {
+	data := make(map[string]interface{})
+	data["foo"] = -12.0
+
+	query, err := New("pattern_match('12*', abs(foo))")
+	assert.NilError(t, err)
+
+	result, err := query.Search(data)
+	assert.NilError(t, err)
+	assert.Equal(t, true, result)
+}
+
 func Test_RegexReplaceAll(t *testing.T) {
 	resourceRaw := []byte(`
 	{
