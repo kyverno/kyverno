@@ -8,8 +8,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	gojmespath "github.com/jmespath/go-jmespath"
+	"github.com/minio/pkg/wildcard"
 )
 
 var (
@@ -38,6 +40,7 @@ var (
 	regexReplaceAll        = "regex_replace_all"
 	regexReplaceAllLiteral = "regex_replace_all_literal"
 	regexMatch             = "regex_match"
+	patternMatch           = "pattern_match"
 	labelMatch             = "label_match"
 	add                    = "add"
 	subtract               = "subtract"
@@ -46,6 +49,7 @@ var (
 	modulo                 = "modulo"
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
+	timeSince              = "time_since"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -148,6 +152,14 @@ func getFunctions() []*gojmespath.FunctionEntry {
 			Handler: jpRegexMatch,
 		},
 		{
+			Name: patternMatch,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpString, JpNumber}},
+			},
+			Handler: jpPatternMatch,
+		},
+		{
 			// Validates if label (param1) would match pod/host/etc labels (param2)
 			Name: labelMatch,
 			Arguments: []ArgSpec{
@@ -209,6 +221,15 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpString}},
 			},
 			Handler: jpBase64Encode,
+		},
+		{
+			Name: timeSince,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpTimeSince,
 		},
 	}
 
@@ -409,6 +430,20 @@ func jpRegexMatch(arguments []interface{}) (interface{}, error) {
 	return regexp.Match(regex.String(), []byte(src))
 }
 
+func jpPatternMatch(arguments []interface{}) (interface{}, error) {
+	pattern, err := validateArg(regexMatch, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	src, err := ifaceToString(arguments[1])
+	if err != nil {
+		return nil, fmt.Errorf(invalidArgumentTypeError, regexMatch, 2, "String or Real")
+	}
+
+	return wildcard.Match(pattern.String(), src), nil
+}
+
 func jpLabelMatch(arguments []interface{}) (interface{}, error) {
 	labelMap, ok := arguments[0].(map[string]interface{})
 
@@ -548,6 +583,49 @@ func jpBase64Encode(arguments []interface{}) (interface{}, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(str.String())), nil
+}
+
+func jpTimeSince(arguments []interface{}) (interface{}, error) {
+	var err error
+	layout, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	ts1, err := validateArg("", arguments, 1, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	ts2, err := validateArg("", arguments, 2, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	var t1, t2 time.Time
+	if layout.String() != "" {
+		t1, err = time.Parse(layout.String(), ts1.String())
+	} else {
+		t1, err = time.Parse(time.RFC3339, ts1.String())
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	t2 = time.Now()
+	if ts2.String() != "" {
+		if layout.String() != "" {
+			t2, err = time.Parse(layout.String(), ts2.String())
+		} else {
+			t2, err = time.Parse(time.RFC3339, ts2.String())
+		}
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return t2.Sub(t1).String(), nil
 }
 
 // InterfaceToString casts an interface to a string type

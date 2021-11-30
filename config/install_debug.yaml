@@ -7245,6 +7245,7 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/ownerreference: "true"
   name: kyverno:webhook
 rules:
 - apiGroups:
@@ -7430,17 +7431,3 @@ spec:
   selector:
     app: kyverno
     app.kubernetes.io/name: kyverno
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  labels:
-    app: kyverno
-  name: kyverno
-  namespace: kyverno
-spec:
-  minAvailable: 0
-  selector:
-    matchLabels:
-      app: kyverno
-      app.kubernetes.io/name: kyverno

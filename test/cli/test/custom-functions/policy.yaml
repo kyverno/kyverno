@@ -17,3 +17,25 @@ spec:
         - key: "{{base64_decode(request.object.data.value)}}"
           operator: NotEquals
           value: "{{request.object.metadata.labels.value}}"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: pattern-match
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+    - match:
+        all:
+          - resources:
+              kinds:
+                - Namespace
+      name: label-must-match-pattern
+      validate:
+        deny:
+          conditions:
+            all:
+              - key: "{{pattern_match('prefix-*', request.object.metadata.labels.value)}}"
+                operator: Equals
+                value: false
