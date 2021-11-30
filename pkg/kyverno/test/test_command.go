@@ -601,8 +601,6 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		return sanitizederror.NewWithError("failed to decode yaml", err)
 	}
 
-	log.Log.V(5).Info("valuesFile = ", valuesFile)
-
 	// check for old format
 	if versionedvalues.APIVersion == "" {
 		err = nonVersionedPath(fs, policyBytes, valuesFile, isGit, policyResourcePath, rc)
@@ -616,6 +614,9 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 
 func versionedPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts) (err error) {
 	openAPIController, err := openapi.NewOpenAPIController()
+	if err != nil {
+		return sanitizederror.NewWithError("failed to get new openAPIcontroller", err)
+	}
 	engineResponses := make([]*response.EngineResponse, 0)
 	var dClient *client.Client
 	versionedvalues := &versionedTest{}
@@ -633,6 +634,7 @@ func versionedPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, i
 	}
 
 	fmt.Printf("\nExecuting %s...", versionedvalues.MetaData.Name)
+	log.Log.V(5).Info("valuesFile = ", valuesFile)
 	valuesFile = versionedvalues.Spec.Variables
 
 	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, isGit, policyResourcePath)
@@ -737,6 +739,9 @@ func versionedPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, i
 
 func nonVersionedPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts) (err error) {
 	openAPIController, err := openapi.NewOpenAPIController()
+	if err != nil {
+		return sanitizederror.NewWithError("failed to get new openAPIcontroller", err)
+	}
 	engineResponses := make([]*response.EngineResponse, 0)
 	var dClient *client.Client
 	var variablesString string
@@ -752,6 +757,7 @@ func nonVersionedPath(fs billy.Filesystem, policyBytes []byte, valuesFile string
 		return sanitizederror.NewWithError("failed to decode yaml", err)
 	}
 	fmt.Printf("\nExecuting %s...", values.Name)
+	log.Log.V(5).Info("valuesFile = ", valuesFile)
 	valuesFile = values.Variables
 
 	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, isGit, policyResourcePath)
