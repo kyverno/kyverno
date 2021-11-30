@@ -35,8 +35,13 @@ var allowedVariablesBackground = regexp.MustCompile(`request\.|element\.|@|image
 // wildCardAllowedVariables represents regex for the allowed fields in wildcards
 var wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
 
+var errOperationForbidden = errors.New("variables are forbidden in the path of a JSONPatch")
+
 // validateJSONPatchPathForForwardSlash checks for forward slash
 func validateJSONPatchPathForForwardSlash(patch string) error {
+	// Replace all variables in PatchesJSON6902, all variable checks should have happened already.
+	// This prevents further checks from failing unexpectedly.
+	patch = variables.ReplaceAllVars(patch, func(s string) string { return "kyvernojsonpatchvariable" })
 
 	re, err := regexp.Compile("^/")
 	if err != nil {
@@ -325,11 +330,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 	}
 
-	if !mock {
-		if err := openAPIController.ValidatePolicyFields(*policy); err != nil {
-			return err
-		}
-	} else {
+	if policy.Spec.SchemaValidation == nil || *policy.Spec.SchemaValidation {
 		if err := openAPIController.ValidatePolicyMutation(*policy); err != nil {
 			return err
 		}
@@ -387,7 +388,7 @@ func ruleForbiddenSectionsHaveVariables(rule *kyverno.Rule) error {
 	var err error
 
 	err = jsonPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
-	if err != nil {
+	if err != nil && errors.Is(errOperationForbidden, err) {
 		return fmt.Errorf("rule \"%s\" should not have variables in patchesJSON6902 path section", rule.Name)
 	}
 
@@ -430,7 +431,7 @@ func jsonPatchPathHasVariables(patch string) error {
 
 		vars := variables.RegexVariables.FindAllString(path, -1)
 		if len(vars) > 0 {
-			return fmt.Errorf("operation \"%s\" has forbidden variables", operation.Kind())
+			return errOperationForbidden
 		}
 	}
 

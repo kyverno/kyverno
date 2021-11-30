@@ -102,11 +102,6 @@ func NewOpenAPIController() (*Controller, error) {
 	return controller, nil
 }
 
-// ValidatePolicyFields ...
-func (o *Controller) ValidatePolicyFields(policy v1.ClusterPolicy) error {
-	return o.ValidatePolicyMutation(policy)
-}
-
 // ValidateResource ...
 func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured, apiVersion, kind string) error {
 	var err error
@@ -168,7 +163,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 			return err
 		}
 
-		if (policy.Spec.SchemaValidation == nil || *policy.Spec.SchemaValidation) && (kind != "*") {
+		if kind != "*" {
 			err = o.ValidateResource(*patchedResource.DeepCopy(), "", kind)
 			if err != nil {
 				return err
