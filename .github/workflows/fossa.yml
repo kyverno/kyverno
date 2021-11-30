@@ -1,9 +1,9 @@
 name: FOSSA
 on:
   push:
-    branches: [master]
+    branches: ["main", "release*"]
   pull_request:
-    branches: [master]
+    branches: ["main", "release*"]
 
 jobs:
   build:
