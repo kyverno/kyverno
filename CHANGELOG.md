@@ -1,3 +1,13 @@
+## v1.5.2-rc2
+
+### Bug Fixes
+- Handle reports with missing result property #2696
+- Hard-coded ClusterRoleName in OwnerRef breaks when Kyverno Helm Chart name is unique #2713
+- Kyverno crashLooping with TypeAssertionError #2752
+- When uninstalling kyverno helm chart pods are stuck in "terminating" state indefinitely #2750
+- Verify-image attestation signature is not checked #2739
+- Fix package vulnerabilities #2768
+
 ## v1.5.2-rc1
 
 ### Enhancements
