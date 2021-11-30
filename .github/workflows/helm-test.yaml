@@ -3,7 +3,7 @@ on:
   pull_request:
     branches:
       - 'main'
-      - 'release-*'
+      - 'release*'
     paths:
       - 'charts/kyverno/**'
       - '.github/workflows/helm-test.yaml'

@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - 'main'
-      - 'release-*'
+      - 'release*'
     paths-ignore:
       - 'README.md'
       - 'docs/**'
@@ -11,6 +11,7 @@ on:
   pull_request:
     branches:
       - 'main'
+      - 'release*'
     paths-ignore:
       - 'README.md'
       - 'docs/**'
