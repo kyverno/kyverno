@@ -56,6 +56,8 @@ require (
 	sigs.k8s.io/yaml v1.2.0
 )
 
+
+
 replace (
 	github.com/apache/thrift => github.com/apache/thrift v0.14.0
 	github.com/buger/jsonparser => github.com/buger/jsonparser v1.1.1
