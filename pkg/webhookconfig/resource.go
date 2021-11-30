@@ -10,16 +10,20 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (wrc *Register) defaultResourceWebhookRule() admregapi.Rule {
-	if wrc.autoUpdateWebhooks {
-		return admregapi.Rule{}
-	}
-
+func (wrc *Register) forceResourceWebhookRule() admregapi.Rule {
 	return admregapi.Rule{
 		Resources:   []string{"*/*"},
 		APIGroups:   []string{"*"},
 		APIVersions: []string{"*"},
 	}
+}
+
+func (wrc *Register) defaultResourceWebhookRule() admregapi.Rule {
+	if wrc.autoUpdateWebhooks {
+		return admregapi.Rule{}
+	}
+
+	return wrc.forceResourceWebhookRule()
 }
 
 func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
@@ -37,8 +41,8 @@ func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				wrc.defaultResourceWebhookRule(),
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				wrc.forceResourceWebhookRule(),
+				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
 				admregapi.Ignore,
 			),
 			generateDebugMutatingWebhook(
@@ -47,8 +51,8 @@ func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				wrc.defaultResourceWebhookRule(),
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				wrc.forceResourceWebhookRule(),
+				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
 				admregapi.Fail,
 			),
 		},
@@ -70,8 +74,8 @@ func (wrc *Register) constructDefaultMutatingWebhookConfig(caData []byte) *admre
 				caData,
 				false,
 				wrc.timeoutSeconds,
-				wrc.defaultResourceWebhookRule(),
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				wrc.forceResourceWebhookRule(),
+				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
 				admregapi.Ignore,
 			),
 			generateMutatingWebhook(
@@ -80,8 +84,8 @@ func (wrc *Register) constructDefaultMutatingWebhookConfig(caData []byte) *admre
 				caData,
 				false,
 				wrc.timeoutSeconds,
-				wrc.defaultResourceWebhookRule(),
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				wrc.forceResourceWebhookRule(),
+				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
 				admregapi.Fail,
 			),
 		},

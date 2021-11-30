@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/policyreport"
 	"k8s.io/api/admission/v1beta1"
 )
 
@@ -40,6 +41,14 @@ func (ws *WebhookServer) handleVerifyImages(request *v1beta1.AdmissionRequest,
 		engineResponses = append(engineResponses, resp)
 		patches = append(patches, resp.GetPatches()...)
 	}
+
+	if request.Operation == v1beta1.Delete {
+		ws.prGenerator.Add(buildDeletionPrInfo(policyContext.OldResource))
+		return true, "", nil
+	}
+
+	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
+	ws.prGenerator.Add(prInfos...)
 
 	blocked := toBlockResource(engineResponses, logger)
 	if blocked {
