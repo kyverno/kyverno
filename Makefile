@@ -141,11 +141,6 @@ docker-push-kyverno: docker-buildx-builder
 kyverno: fmt vet
 	GOOS=$(GOOS) CGO_ENABLED=0 go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
 
-docker-build-kyverno-local:
-	CGO_ENABLED=0 GOOS=linux CGO_ENABLED=0 go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
-	@docker build -f $(PWD)/$(KYVERNO_PATH)/localDockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(GIT_VERSION) $(PWD)/$(KYVERNO_PATH)
-	@docker tag $(REPO)/$(KYVERNO_IMAGE):$(GIT_VERSION) $(REPO)/$(KYVERNO_IMAGE):latest
-
 ##################################
 # Generate Docs for types.go
 ##################################
