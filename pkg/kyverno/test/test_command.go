@@ -623,10 +623,6 @@ func versionedPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, i
 	var variablesString string
 	var pvInfos []policyreport.Info
 	var resultCounts common.ResultCounts
-	var resultsMap map[string]report.PolicyReportResult
-	var testResults []TestResults
-	var policyFullPath []string
-	var resourceFullPath []string
 	store.SetMock(true)
 
 	if err := json.Unmarshal(policyBytes, versionedvalues); err != nil {
@@ -645,8 +641,8 @@ func versionedPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, i
 		return err
 	}
 
-	policyFullPath = getFullPath(versionedvalues.Spec.Policies, policyResourcePath, isGit)
-	resourceFullPath = getFullPath(versionedvalues.Spec.Resources, policyResourcePath, isGit)
+	policyFullPath := getFullPath(versionedvalues.Spec.Policies, policyResourcePath, isGit)
+	resourceFullPath := getFullPath(versionedvalues.Spec.Resources, policyResourcePath, isGit)
 	for i, result := range versionedvalues.Spec.Results {
 		arrPatchedResource := []string{result.PatchedResource}
 		patchedResourceFullPath := getFullPath(arrPatchedResource, policyResourcePath, isGit)
@@ -727,7 +723,7 @@ func versionedPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, i
 		}
 	}
 
-	resultsMap, testResults = buildPolicyResults(engineResponses, versionedvalues.Spec.Results, pvInfos, policyResourcePath, fs, isGit)
+	resultsMap, testResults := buildPolicyResults(engineResponses, versionedvalues.Spec.Results, pvInfos, policyResourcePath, fs, isGit)
 
 	resultErr := printTestResult(resultsMap, testResults, rc)
 	if resultErr != nil {
@@ -747,10 +743,6 @@ func nonVersionedPath(fs billy.Filesystem, policyBytes []byte, valuesFile string
 	var variablesString string
 	var pvInfos []policyreport.Info
 	var resultCounts common.ResultCounts
-	var resultsMap map[string]report.PolicyReportResult
-	var testResults []TestResults
-	var policyFullPath []string
-	var resourceFullPath []string
 	store.SetMock(true)
 	values := &Test{}
 	if err := json.Unmarshal(policyBytes, values); err != nil {
@@ -768,8 +760,8 @@ func nonVersionedPath(fs billy.Filesystem, policyBytes []byte, valuesFile string
 		return err
 	}
 
-	policyFullPath = getFullPath(values.Policies, policyResourcePath, isGit)
-	resourceFullPath = getFullPath(values.Resources, policyResourcePath, isGit)
+	policyFullPath := getFullPath(values.Policies, policyResourcePath, isGit)
+	resourceFullPath := getFullPath(values.Resources, policyResourcePath, isGit)
 	for i, result := range values.Results {
 		arrPatchedResource := []string{result.PatchedResource}
 		patchedResourceFullPath := getFullPath(arrPatchedResource, policyResourcePath, isGit)
@@ -850,7 +842,7 @@ func nonVersionedPath(fs billy.Filesystem, policyBytes []byte, valuesFile string
 		}
 	}
 
-	resultsMap, testResults = buildPolicyResults(engineResponses, values.Results, pvInfos, policyResourcePath, fs, isGit)
+	resultsMap, testResults := buildPolicyResults(engineResponses, values.Results, pvInfos, policyResourcePath, fs, isGit)
 
 	resultErr := printTestResult(resultsMap, testResults, rc)
 	if resultErr != nil {
