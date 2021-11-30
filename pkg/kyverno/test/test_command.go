@@ -628,7 +628,7 @@ func versionedPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, i
 	if err := json.Unmarshal(policyBytes, versionedvalues); err != nil {
 		return sanitizederror.NewWithError("failed to decode yaml", err)
 	}
-
+	// Adding print statement for user visiblity in cli
 	fmt.Printf("\nExecuting %s...", versionedvalues.MetaData.Name)
 	log.Log.V(5).Info("valuesFile = ", valuesFile)
 	valuesFile = versionedvalues.Spec.Variables
@@ -748,6 +748,7 @@ func nonVersionedPath(fs billy.Filesystem, policyBytes []byte, valuesFile string
 	if err := json.Unmarshal(policyBytes, values); err != nil {
 		return sanitizederror.NewWithError("failed to decode yaml", err)
 	}
+	// Adding print statement for user visiblity in cli
 	fmt.Printf("\nExecuting %s...", values.Name)
 	log.Log.V(5).Info("valuesFile = ", valuesFile)
 	valuesFile = values.Variables
