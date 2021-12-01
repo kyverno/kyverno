@@ -7245,7 +7245,7 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
-    app.kubernetes.io/ownerreference: "true"
+    app.kubernetes.io/created-by: "kyverno"
   name: kyverno:webhook
 rules:
 - apiGroups:
