@@ -406,3 +406,34 @@ func Test_Eval_Equal_Var_Fail(t *testing.T) {
 		t.Error("expected to fail")
 	}
 }
+
+func TestEvaluateNow(t *testing.T) {
+	testCases := []struct {
+		Condition kyverno.Condition
+		Result    bool
+	}{
+		{kyverno.Condition{Key: "5", Operator: kyverno.AnyIn, Value: "1-3"}, false},
+		{kyverno.Condition{Key: "5", Operator: kyverno.AnyIn, Value: "1-10"}, true},
+		{kyverno.Condition{Key: 5, Operator: kyverno.AnyIn, Value: "1-10"}, true},
+		{kyverno.Condition{Key: []interface{}{1, 5}, Operator: kyverno.AnyIn, Value: "7-10"}, false},
+		{kyverno.Condition{Key: []interface{}{1, 5}, Operator: kyverno.AnyIn, Value: "0-10"}, true},
+		{kyverno.Condition{Key: []interface{}{1.002, 1.222}, Operator: kyverno.AnyIn, Value: "1.001-10"}, true},
+		{kyverno.Condition{Key: "5", Operator: kyverno.AnyNotIn, Value: "1-3"}, true},
+		{kyverno.Condition{Key: []interface{}{1, 5, 11}, Operator: kyverno.AnyNotIn, Value: "0-10"}, true},
+		{kyverno.Condition{Key: []interface{}{1, 5, 7}, Operator: kyverno.AnyNotIn, Value: "0-10"}, false},
+		{kyverno.Condition{Key: 5, Operator: kyverno.AllIn, Value: "1-10"}, true},
+		{kyverno.Condition{Key: []interface{}{3, 2}, Operator: kyverno.AllIn, Value: "1-10"}, true},
+		{kyverno.Condition{Key: []interface{}{3, 2}, Operator: kyverno.AllIn, Value: "5-10"}, false},
+		{kyverno.Condition{Key: 5.5, Operator: kyverno.AllNotIn, Value: "6-10"}, true},
+		{kyverno.Condition{Key: "5", Operator: kyverno.AllNotIn, Value: "1-6"}, false},
+		{kyverno.Condition{Key: []interface{}{3, 2}, Operator: kyverno.AllNotIn, Value: "5-10"}, true},
+		{kyverno.Condition{Key: []interface{}{2, 6}, Operator: kyverno.AllNotIn, Value: "5-10"}, false},
+	}
+
+	ctx := context.NewContext()
+	for _, tc := range testCases {
+		if Evaluate(log.Log, ctx, tc.Condition) != tc.Result {
+			t.Errorf("%v - expected result to be %v", tc.Condition, tc.Result)
+		}
+	}
+}

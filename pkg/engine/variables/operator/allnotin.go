@@ -41,7 +41,7 @@ func (allnin AllNotInHandler) Evaluate(key, value interface{}) bool {
 }
 
 func (allnin AllNotInHandler) validateValueWithStringPattern(key string, value interface{}) bool {
-	invalidType, keyExists := keyExistsInArray(key, value, allnin.log)
+	invalidType, keyExists := allkeyExistsInArray(key, value, allnin.log)
 	if invalidType {
 		allnin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
