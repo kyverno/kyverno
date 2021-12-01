@@ -91,6 +91,7 @@ func (op1 Duration) Add(op2 interface{}) (interface{}, error) {
 	case Duration:
 		sum = op1.Nanoseconds() + v.Nanoseconds()
 	case Scalar:
+		// Converting the duration to nanoseconds for more precision
 		sum = op1.Nanoseconds() + int64(v.float64*math.Pow10(9))
 	}
 
@@ -139,6 +140,7 @@ func (op1 Duration) Subtract(op2 interface{}) (interface{}, error) {
 	case Duration:
 		diff = op1.Nanoseconds() - v.Nanoseconds()
 	case Scalar:
+		// Converting the duration to nanoseconds for more precision
 		diff = op1.Nanoseconds() - int64(v.float64*math.Pow10(9))
 	}
 
@@ -158,6 +160,7 @@ func (op1 Scalar) Subtract(op2 interface{}) (interface{}, error) {
 		v.Neg()
 		return v.Add(op1)
 	case Duration:
+		// Converting the duration to nanoseconds for more precision
 		diff := int64(op1.float64*math.Pow10(9)) - v.Nanoseconds()
 		res, err := time.ParseDuration(fmt.Sprintf("%vns", diff))
 		if err != nil {
