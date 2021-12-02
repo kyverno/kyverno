@@ -41,7 +41,7 @@ func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				wrc.forceResourceWebhookRule(),
+				wrc.forceResourceWebhookRule(), // Override autoUpdateWebhooks for Mutation Webhook
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
 				admregapi.Ignore,
 			),
@@ -51,7 +51,7 @@ func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				wrc.forceResourceWebhookRule(),
+				wrc.forceResourceWebhookRule(), // Override autoUpdateWebhooks for Mutation Webhook
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
 				admregapi.Fail,
 			),
@@ -74,7 +74,7 @@ func (wrc *Register) constructDefaultMutatingWebhookConfig(caData []byte) *admre
 				caData,
 				false,
 				wrc.timeoutSeconds,
-				wrc.forceResourceWebhookRule(),
+				wrc.forceResourceWebhookRule(), // Override autoUpdateWebhooks for Mutation Webhook
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
 				admregapi.Ignore,
 			),
@@ -84,7 +84,7 @@ func (wrc *Register) constructDefaultMutatingWebhookConfig(caData []byte) *admre
 				caData,
 				false,
 				wrc.timeoutSeconds,
-				wrc.forceResourceWebhookRule(),
+				wrc.forceResourceWebhookRule(), // Override autoUpdateWebhooks for Mutation Webhook
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
 				admregapi.Fail,
 			),
