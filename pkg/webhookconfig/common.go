@@ -1,6 +1,7 @@
 package webhookconfig
 
 import (
+	"errors"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
@@ -80,13 +81,12 @@ func (wrc *Register) GetKubePolicyClusterRoleName() (*unstructured.Unstructured,
 	if err != nil {
 		return nil, err
 	}
-	var clusterRole unstructured.Unstructured
 	for _, cr := range clusterRoles.Items {
 		if strings.HasSuffix(cr.GetName(), "webhook") {
-			clusterRole = cr
+			return &cr, nil
 		}
 	}
-	return &clusterRole, nil
+	return nil, errors.New("failed to get cluster role with suffix webhook")
 }
 
 // GetKubePolicyDeployment gets Kyverno deployment using the resource cache
