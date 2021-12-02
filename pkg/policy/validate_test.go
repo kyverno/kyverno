@@ -1508,6 +1508,53 @@ func Test_Namespced_Policy(t *testing.T) {
 
 	openAPIController, _ := openapi.NewOpenAPIController()
 	err = Validate(policy, nil, true, openAPIController)
-	fmt.Println(err)
 	assert.Assert(t, err != nil)
+}
+
+func Test_patchesJson6902_Policy(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+   "apiVersion": "kyverno.io/v1",
+   "kind": "ClusterPolicy",
+   "metadata": {
+      "name": "set-max-surge-yaml-to-json"
+   },
+   "spec": {
+      "background": false,
+			"schemaValidation": false,
+      "rules": [
+         {
+            "name": "set-max-surge",
+            "context": [
+               {
+                  "name": "source",
+                  "configMap": {
+                     "name": "source-yaml-to-json",
+                     "namespace": "default"
+                  }
+               }
+            ],
+            "match": {
+               "resources": {
+                  "kinds": [
+                     "Deployment"
+                  ]
+               }
+            },
+            "mutate": {
+               "patchesJson6902": "- op: replace\n  path: /spec/strategy\n  value: {{ source.data.strategy }}"
+            }
+         }
+      ]
+   }
+}
+	`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openAPIController, _ := openapi.NewOpenAPIController()
+	err = Validate(policy, nil, false, openAPIController)
+	assert.NilError(t, err)
 }
