@@ -42,11 +42,6 @@ func (ws *WebhookServer) handleVerifyImages(request *v1beta1.AdmissionRequest,
 		patches = append(patches, resp.GetPatches()...)
 	}
 
-	if request.Operation == v1beta1.Delete {
-		ws.prGenerator.Add(buildDeletionPrInfo(policyContext.OldResource))
-		return true, "", nil
-	}
-
 	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
 	ws.prGenerator.Add(prInfos...)
 
