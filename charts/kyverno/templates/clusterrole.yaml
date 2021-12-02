@@ -22,7 +22,6 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.fullname" . }}:webhook
   labels: {{ include "kyverno.labels" . | nindent 4 }}
-    app.kubernetes.io/created-by: "garbageCollector"
     app: kyverno
 rules:
 # Dynamic creation of webhooks, events & certs

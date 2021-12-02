@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
+	"strings"
 
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tls"
@@ -75,12 +76,17 @@ func (wrc *Register) constructOwner() v1.OwnerReference {
 }
 
 func (wrc *Register) GetKubePolicyClusterRoleName() (*unstructured.Unstructured, error) {
-	clusterRole, err := wrc.client.ListResource(config.ClusterRoleAPIVersion, config.ClusterRoleKind, "", &v1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/created-by": "garbageCollector"}})
+	clusterRoles, err := wrc.client.ListResource(config.ClusterRoleAPIVersion, config.ClusterRoleKind, "", &v1.LabelSelector{MatchLabels: map[string]string{"app": "kyverno"}})
 	if err != nil {
 		return nil, err
 	}
-
-	return &clusterRole.Items[0], nil
+	var clusterRole unstructured.Unstructured
+	for _, cr := range clusterRoles.Items {
+		if strings.HasSuffix(cr.GetName(), "webhook") {
+			clusterRole = cr
+		}
+	}
+	return &clusterRole, nil
 }
 
 // GetKubePolicyDeployment gets Kyverno deployment using the resource cache

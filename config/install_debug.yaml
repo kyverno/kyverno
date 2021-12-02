@@ -7245,7 +7245,6 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
-    app.kubernetes.io/created-by: "garbageCollector"
   name: kyverno:webhook
 rules:
 - apiGroups:
