@@ -302,6 +302,8 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 			logger.Info(fmt.Sprintf("Converting oldObject failed: %v", err))
 		}
 
+		ws.handleDelete(request)
+
 		return successResponse(nil)
 	}
 
