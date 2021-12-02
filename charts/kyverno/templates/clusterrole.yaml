@@ -200,7 +200,7 @@ metadata:
     app: kyverno
 rules:
 - apiGroups:
-  - '*'
+  - 'admissionregistration.k8s.io'
   resources:
   - mutatingwebhookconfigurations
   - validatingwebhookconfigurations
