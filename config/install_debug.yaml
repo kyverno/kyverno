@@ -7185,6 +7185,8 @@ rules:
   - configmaps
   - resourcequotas
   - limitranges
+  - roles
+  - rolebindings
   verbs:
   - create
   - update

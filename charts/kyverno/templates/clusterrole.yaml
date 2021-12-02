@@ -167,6 +167,8 @@ rules:
   - configmaps
   - resourcequotas
   - limitranges
+  - roles
+  - rolebindings
   {{- range .Values.generatecontrollerExtraResources }}
   - {{ . }}
   {{- end }}

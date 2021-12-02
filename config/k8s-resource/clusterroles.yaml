@@ -130,7 +130,6 @@ metadata:
     app: kyverno
   name: kyverno:generate
 rules:
-# process generate rules to generate resources
 - apiGroups:
   - "*"
   resources:
@@ -140,6 +139,8 @@ rules:
   - configmaps
   - resourcequotas
   - limitranges
+  - roles
+  - rolebindings
   verbs:
   - create
   - update
