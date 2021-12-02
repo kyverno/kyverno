@@ -47,7 +47,7 @@ func (anyin AnyInHandler) Evaluate(key, value interface{}) bool {
 }
 
 func (anyin AnyInHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
-	invalidType, keyExists := anykeyExistsInArray(key, value, anyin.log)
+	invalidType, keyExists := anyKeyExistsInArray(key, value, anyin.log)
 	if invalidType {
 		anyin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
@@ -56,10 +56,10 @@ func (anyin AnyInHandler) validateValueWithStringPattern(key string, value inter
 	return keyExists
 }
 
-// keyExistsInArray checks if the  key exists in the array value
+// anykeyExistsInArray checks if the  key exists in the array value
 // The value can be a string, an array of strings, or a JSON format
 // array of strings (e.g. ["val1", "val2", "val3"].
-func anykeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
+func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
 
 	case []interface{}:
@@ -151,6 +151,7 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 				for _, k := range key {
 					if handleRange(k, stringForAnyNotIn, log) {
 						isAnyNotInBool = true
+						break
 					}
 				}
 				return false, isAnyNotInBool
@@ -159,6 +160,7 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 				for _, k := range key {
 					if handleRange(k, value, log) {
 						isAnyInBool = true
+						break
 					}
 				}
 				return false, isAnyInBool

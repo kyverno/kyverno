@@ -41,7 +41,7 @@ func (anynin AnyNotInHandler) Evaluate(key, value interface{}) bool {
 }
 
 func (anynin AnyNotInHandler) validateValueWithStringPattern(key string, value interface{}) bool {
-	invalidType, keyExists := anykeyExistsInArray(key, value, anynin.log)
+	invalidType, keyExists := anyKeyExistsInArray(key, value, anynin.log)
 	if invalidType {
 		anynin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false

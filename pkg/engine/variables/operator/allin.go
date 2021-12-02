@@ -44,7 +44,7 @@ func (allin AllInHandler) Evaluate(key, value interface{}) bool {
 }
 
 func (allin AllInHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
-	invalidType, keyExists := allkeyExistsInArray(key, value, allin.log)
+	invalidType, keyExists := allKeyExistsInArray(key, value, allin.log)
 	if invalidType {
 		allin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
@@ -53,7 +53,7 @@ func (allin AllInHandler) validateValueWithStringPattern(key string, value inter
 	return keyExists
 }
 
-func allkeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
+func allKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
 
 	case []interface{}:
