@@ -1,8 +1,10 @@
 package webhookconfig
 
 import (
+	"errors"
 	"io/ioutil"
 	"reflect"
+	"strings"
 
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tls"
@@ -72,12 +74,16 @@ func (wrc *Register) constructOwner() v1.OwnerReference {
 }
 
 func (wrc *Register) GetKubePolicyClusterRoleName() (*unstructured.Unstructured, error) {
-	clusterRole, err := wrc.client.ListResource(config.ClusterRoleAPIVersion, config.ClusterRoleKind, "", &v1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/ownerreference": "true"}})
+	clusterRoles, err := wrc.client.ListResource(config.ClusterRoleAPIVersion, config.ClusterRoleKind, "", &v1.LabelSelector{MatchLabels: map[string]string{"app": "kyverno"}})
 	if err != nil {
 		return nil, err
 	}
-
-	return &clusterRole.Items[0], nil
+	for _, cr := range clusterRoles.Items {
+		if strings.HasSuffix(cr.GetName(), "webhook") {
+			return &cr, nil
+		}
+	}
+	return nil, errors.New("failed to get cluster role with suffix webhook")
 }
 
 // GetKubePolicyDeployment gets Kyverno deployment using the resource cache
