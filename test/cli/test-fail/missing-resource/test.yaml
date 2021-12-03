@@ -13,4 +13,3 @@ spec:
     resource: missing
     kind: Pod
     result: pass
-   
