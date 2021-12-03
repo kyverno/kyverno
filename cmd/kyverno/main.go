@@ -111,16 +111,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	var profilingServerMux *http.ServeMux
 	var metricsServerMux *http.ServeMux
 	var promConfig *metrics.PromConfig
 
 	if profile {
-		profilingServerMux = http.NewServeMux()
 		addr := ":" + profilePort
 		setupLog.Info("Enable profiling, see details at https://github.com/kyverno/kyverno/wiki/Profiling-Kyverno-on-Kubernetes", "port", profilePort)
 		go func() {
-			if err := http.ListenAndServe(addr, profilingServerMux); err != nil {
+			if err := http.ListenAndServe(addr, nil); err != nil {
 				setupLog.Error(err, "Failed to enable profiling")
 				os.Exit(1)
 			}

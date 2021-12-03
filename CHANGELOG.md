@@ -1,3 +1,10 @@
+## v1.5.2-rc3
+
+### Bug Fixes
+- kyverno initContainer fail to start when external.metrics.k8s.io/v1beta1 return empty array for resources #1490
+- Installing kyverno as helm dependency fails when trying to use CustomResourceDefinition #2783
+- Fix profiling issue #2529
+
 ## v1.5.2-rc2
 
 ### Bug Fixes
