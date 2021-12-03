@@ -84,9 +84,9 @@ spec:
         namespace: "{{request.object.metadata.name}}"
         synchronize: true
         clone:
-              kind: Role
-              name: "ns-role"
-              namespace: "default"
+			kind: Role
+			name: "ns-role"
+			namespace: "default"
   - name: "gen-role-binding"
     match:
         resources:
@@ -112,7 +112,7 @@ metadata:
   name: ns-role
 rules:
 - apiGroups: ["*"]
-  resources: ["*"]
+  resources: ["pods", "configmaps"]
   verbs: ["get", "watch", "list", "delete", "create"]
 `)
 
