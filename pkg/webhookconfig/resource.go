@@ -12,8 +12,8 @@ import (
 
 func (wrc *Register) forceResourceWebhookRule() admregapi.Rule {
 	return admregapi.Rule{
-		Resources:   []string{"*/*"},
-		APIGroups:   []string{"*"},
+		Resources:   []string{"pods", "daemonsets", "deployments", "jobs", "statefulsets", "cronjobs"},
+		APIGroups:   []string{"", "apps", "batch"},
 		APIVersions: []string{"*"},
 	}
 }
@@ -23,7 +23,11 @@ func (wrc *Register) defaultResourceWebhookRule() admregapi.Rule {
 		return admregapi.Rule{}
 	}
 
-	return wrc.forceResourceWebhookRule()
+	return admregapi.Rule{
+		Resources:   []string{"*/*"},
+		APIGroups:   []string{"*"},
+		APIVersions: []string{"*"},
+	}
 }
 
 func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
@@ -41,7 +45,7 @@ func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				wrc.defaultResourceWebhookRule(),
+				wrc.forceResourceWebhookRule(), // Override autoUpdateWebhooks for Mutation
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
 				admregapi.Ignore,
 			),
@@ -51,7 +55,7 @@ func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *
 				caData,
 				true,
 				wrc.timeoutSeconds,
-				wrc.defaultResourceWebhookRule(),
+				wrc.forceResourceWebhookRule(), // Override autoUpdateWebhooks for Mutation
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
 				admregapi.Fail,
 			),
@@ -74,8 +78,8 @@ func (wrc *Register) constructDefaultMutatingWebhookConfig(caData []byte) *admre
 				caData,
 				false,
 				wrc.timeoutSeconds,
-				wrc.defaultResourceWebhookRule(),
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				wrc.forceResourceWebhookRule(), // Override autoUpdateWebhooks for Mutation
+				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
 				admregapi.Ignore,
 			),
 			generateMutatingWebhook(
@@ -84,8 +88,8 @@ func (wrc *Register) constructDefaultMutatingWebhookConfig(caData []byte) *admre
 				caData,
 				false,
 				wrc.timeoutSeconds,
-				wrc.defaultResourceWebhookRule(),
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+				wrc.forceResourceWebhookRule(), // Override autoUpdateWebhooks for Mutation
+				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete},
 				admregapi.Fail,
 			),
 		},
