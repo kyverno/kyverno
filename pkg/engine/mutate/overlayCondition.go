@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
-	"github.com/kyverno/kyverno/pkg/engine/validate"
+	"github.com/kyverno/kyverno/pkg/engine/common"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -144,7 +144,7 @@ func compareOverlay(resource, overlay interface{}, path string) (string, overlay
 			}
 		}
 	case string, float64, int, int64, bool, nil:
-		if !validate.ValidateValueWithPattern(log.Log, resource, overlay) {
+		if !common.ValidateValueWithPattern(log.Log, resource, overlay) {
 			log.Log.V(4).Info(fmt.Sprintf("Mutate rule: failed validating value %v with overlay %v", resource, overlay))
 			return path, newOverlayError(conditionFailure, fmt.Sprintf("Failed validating value %v with overlay %v", resource, overlay))
 		}

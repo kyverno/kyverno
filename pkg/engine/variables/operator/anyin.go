@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
-	"github.com/kyverno/kyverno/pkg/engine/validate"
 
 	"github.com/minio/pkg/wildcard"
 )
@@ -100,7 +100,7 @@ func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 }
 
 func handleRange(key string, value interface{}, log logr.Logger) bool {
-	if !validate.ValidateValueWithPattern(log, key, value) {
+	if !common.ValidateValueWithPattern(log, key, value) {
 		return false
 	} else {
 		return true

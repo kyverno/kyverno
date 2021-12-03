@@ -79,13 +79,13 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 		switch resource := resourceElement.(type) {
 		case []interface{}:
 			for _, res := range resource {
-				if !ValidateValueWithPattern(log, res, patternElement) {
+				if !common.ValidateValueWithPattern(log, res, patternElement) {
 					return path, fmt.Errorf("resource value '%v' does not match '%v' at path %s", resourceElement, patternElement, path)
 				}
 			}
 			return "", nil
 		default:
-			if !ValidateValueWithPattern(log, resourceElement, patternElement) {
+			if !common.ValidateValueWithPattern(log, resourceElement, patternElement) {
 				return path, fmt.Errorf("resource value '%v' does not match '%v' at path %s", resourceElement, patternElement, path)
 			}
 		}
