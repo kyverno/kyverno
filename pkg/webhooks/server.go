@@ -292,21 +292,6 @@ func writeResponse(rw http.ResponseWriter, admissionReview *v1beta1.AdmissionRev
 func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	logger := ws.log.WithName("MutateWebhook").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 
-	if request.Operation == v1beta1.Delete {
-		resource, err := utils.ConvertResource(request.OldObject.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
-		if err == nil {
-			if request.Operation == v1beta1.Delete {
-				ws.prGenerator.Add(buildDeletionPrInfo(resource))
-			}
-		} else {
-			logger.Info(fmt.Sprintf("Converting oldObject failed: %v", err))
-		}
-
-		ws.handleDelete(request)
-
-		return successResponse(nil)
-	}
-
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return successResponse(nil)
 	}
@@ -490,8 +475,16 @@ func registerAdmissionRequestsMetricGenerate(logger logr.Logger, promConfig metr
 
 func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	logger := ws.log.WithName("ValidateWebhook").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+
 	if request.Operation == v1beta1.Delete {
 		ws.handleDelete(request)
+
+		// resource, err := utils.ConvertResource(request.OldObject.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+		// if err == nil {
+		// 	ws.prGenerator.Add(buildDeletionPrInfo(resource))
+		// } else {
+		// 	logger.Info(fmt.Sprintf("Converting oldObject failed: %v", err))
+		// }
 	}
 
 	if excludeKyvernoResources(request.Kind.Kind) {
