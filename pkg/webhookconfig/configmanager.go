@@ -602,7 +602,7 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 				// init operations
 				ops := []string{string(admregapi.Create), string(admregapi.Update), string(admregapi.Delete), string(admregapi.Connect)}
 				if webhookKind == kindMutating {
-					ops = []string{string(admregapi.Create), string(admregapi.Update)}
+					ops = []string{string(admregapi.Create), string(admregapi.Update), string(admregapi.Delete)}
 				}
 
 				tmpRules = []interface{}{map[string]interface{}{}}
