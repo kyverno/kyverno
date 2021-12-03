@@ -84,9 +84,9 @@ spec:
         namespace: "{{request.object.metadata.name}}"
         synchronize: true
         clone:
-			kind: Role
-			name: "ns-role"
-			namespace: "default"
+            kind: Role
+            name: "ns-role"
+            namespace: "default"
   - name: "gen-role-binding"
     match:
         resources:
