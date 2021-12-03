@@ -644,7 +644,7 @@ func jpPathCanonicalize(arguments []interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	return filepath.Join("", str.String()), nil
+	return filepath.Join(str.String()), nil
 }
 
 // InterfaceToString casts an interface to a string type
