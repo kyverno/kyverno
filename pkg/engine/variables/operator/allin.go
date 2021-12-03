@@ -129,7 +129,6 @@ func allSetExistsInArray(key []string, value interface{}, log logr.Logger, allNo
 		operatorVariable := operator.GetOperatorFromStringPattern(fmt.Sprintf("%v", value))
 		if operatorVariable == operator.InRange {
 			if allNotIn {
-				fmt.Println("enter anynotin")
 				isAllNotInBool := true
 				//stringForAnyNotIn := strings.Replace(valuesAvailable, "-", "!-", 1)
 				for _, k := range key {
