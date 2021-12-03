@@ -124,7 +124,6 @@ func (anyin AnyInHandler) validateValueWithStringSetPattern(key []string, value 
 // array of strings (e.g. ["val1", "val2", "val3"].
 // notIn argument if set to true will check for NotIn
 func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNotIn bool) (invalidType bool, keyExists bool) {
-	fmt.Println("enter anyset \n", anyNotIn)
 	switch valuesAvailable := value.(type) {
 
 	case []interface{}:
@@ -138,7 +137,6 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 		return false, isAnyIn(key, valueSlice)
 
 	case string:
-		fmt.Println("enter string value")
 		if len(key) == 1 && key[0] == valuesAvailable {
 			return false, true
 		}
@@ -146,10 +144,8 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 		operatorVariable := operator.GetOperatorFromStringPattern(fmt.Sprintf("%v", value))
 		if operatorVariable == operator.InRange {
 			if anyNotIn {
-				fmt.Println("enter anynotin")
 				isAnyNotInBool := false
 				stringForAnyNotIn := strings.Replace(valuesAvailable, "-", "!-", 1)
-				fmt.Println(stringForAnyNotIn)
 				for _, k := range key {
 					if handleRange(k, stringForAnyNotIn, log) {
 						isAnyNotInBool = true
