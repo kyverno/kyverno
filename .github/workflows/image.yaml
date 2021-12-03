@@ -4,6 +4,8 @@ on:
     branches:
       - 'main'
       - 'release*'
+    tags:
+      - 'v*'
 jobs:
   push-init-kyverno:
     runs-on: ubuntu-latest
