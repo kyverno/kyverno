@@ -26,39 +26,32 @@ metadata:
   labels: {{ include "kyverno.labels" . | nindent 4 }}
     app: kyverno
 rules:
-# Kyverno CRs
 - apiGroups:
-  - 'kyverno.io'
+    - "*"
   resources:
-  - policies
-  - policies/status
-  - clusterpolicies
-  - clusterpolicies/status
-  - policyreports
-  - policyreports/status
-  - clusterpolicyreports
-  - clusterpolicyreports/status
-  - generaterequests
-  - generaterequests/status
-  - reportchangerequests
-  - reportchangerequests/status
-  - clusterreportchangerequests
-  - clusterreportchangerequests/status
+    - policies
+    - policies/status
+    - clusterpolicies
+    - clusterpolicies/status
+    - policyreports
+    - policyreports/status
+    - clusterpolicyreports
+    - clusterpolicyreports/status
+    - generaterequests
+    - generaterequests/status
+    - reportchangerequests
+    - reportchangerequests/status
+    - clusterreportchangerequests
+    - clusterreportchangerequests/status
   verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-  - deletecollection
-- apiGroups:
-  - 'apiextensions.k8s.io'
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - delete
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+    - deletecollection
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -67,7 +60,6 @@ metadata:
   labels: {{ include "kyverno.labels" . | nindent 4 }}
     app: kyverno
 rules:
-# background processing, identify all existing resources
 - apiGroups:
   - '*'
   resources:
@@ -158,59 +150,59 @@ metadata:
   labels: {{ include "kyverno.labels" . | nindent 4 }}
     app: kyverno
 rules:
-- apiGroups:
-  - networking.k8s.io
-  resources:
-  - ingresses
-  - ingressclasses
-  - networkpolicies
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+      - ingressclasses
+      - networkpolicies
 verbs:
   - create
   - update
   - patch
   - delete
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  - configmaps
-  - secrets
-  verbs:
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - rolebindings
-  - roles
-  verbs:
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - "quota"
-  resources:
-  - resourcequotas
-  - limitranges
-  verbs:
-  - create
-  - update
-  - patch
-  - delete
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+      - configmaps
+      - secrets
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - rolebindings
+      - roles
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - "quota"
+    resources:
+      - resourcequotas
+      - limitranges
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
 {{- if .Values.generatecontrollerExtraResources }}
 - apiGroups:
-  - "*"
+    - "*"
   resources:
   {{- range .Values.generatecontrollerExtraResources }}
   - {{ . }}
   {{- end }}
   verbs:
-  - create
-  - update
-  - delete
+    - create
+    - update
+    - delete
 {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
