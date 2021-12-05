@@ -109,8 +109,8 @@ metadata:
   namespace: default
   name: ns-role
 rules:
-- apiGroups: ["*"]
-  resources: ["pods", "configmaps"]
+- apiGroups: [""]
+  resources: ["configmaps"]
   verbs: ["get", "watch", "list", "delete", "create"]
 `)
 

@@ -172,7 +172,7 @@ var GenerateSynchronizeFlagTests = []struct {
 	{
 		TestName:           "test-generate-policy-for-namespace-with-label",
 		NetworkPolicyName:  "allow-dns",
-		GeneratePolicyName: "add-networkpolicy",
+		GeneratePolicyName: "add-update-network-policy",
 		ResourceNamespace:  "test",
 		Clone:              false,
 		Sync:               true,
