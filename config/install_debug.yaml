@@ -7178,16 +7178,42 @@ metadata:
   name: kyverno:generate
 rules:
 - apiGroups:
-  - '*'
+  - networking.k8s.io
+  resources:
+  - ingresses
+  - ingressclasses
+  - networkpolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
   resources:
   - namespaces
-  - networkpolicies
-  - secrets
   - configmaps
+  - secrets
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - quota
+  resources:
   - resourcequotas
   - limitranges
-  - roles
-  - rolebindings
   verbs:
   - create
   - update
@@ -7205,11 +7231,10 @@ rules:
   - ""
   resources:
   - configmaps
-  - events
+  - secrets
   - persistentvolumeclaims
   - replicationcontrollers
   - replicationcontrollers/scale
-  - secrets
   - serviceaccounts
   - services
   - services/proxy
@@ -7276,7 +7301,7 @@ metadata:
   name: kyverno:policies
 rules:
 - apiGroups:
-  - '*'
+  - kyverno.io
   resources:
   - policies
   - policies/status
@@ -7310,7 +7335,7 @@ metadata:
   name: kyverno:userinfo
 rules:
 - apiGroups:
-  - '*'
+  - rbac.authorization.k8s.io
   resources:
   - roles
   - clusterroles

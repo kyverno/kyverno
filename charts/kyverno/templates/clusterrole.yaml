@@ -7,7 +7,7 @@ metadata:
     app: kyverno
 rules:
 - apiGroups:
-  - "*"
+  - "rbac.authorization.k8s.io"
   resources:
   - roles
   - clusterroles
@@ -28,7 +28,7 @@ metadata:
 rules:
 # Kyverno CRs
 - apiGroups:
-  - '*'
+  - 'kyverno.io'
   resources:
   - policies
   - policies/status
@@ -159,16 +159,51 @@ metadata:
     app: kyverno
 rules:
 - apiGroups:
-  - "*"
+  - networking.k8s.io
+  resources:
+  - ingresses
+  - ingressclasses
+  - networkpolicies
+verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
   resources:
   - namespaces
-  - networkpolicies
-  - secrets
   - configmaps
+  - secrets
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - "quota"
+  resources:
   - resourcequotas
   - limitranges
-  - roles
-  - rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+{{- if .Values.generatecontrollerExtraResources }}
+- apiGroups:
+  - "*"
+  resources:
   {{- range .Values.generatecontrollerExtraResources }}
   - {{ . }}
   {{- end }}
@@ -176,6 +211,7 @@ rules:
   - create
   - update
   - delete
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
