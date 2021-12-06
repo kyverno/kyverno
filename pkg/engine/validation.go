@@ -74,7 +74,7 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 	resp.PolicyResponse.ValidationFailureAction = ctx.Policy.Spec.ValidationFailureAction
 
 	for _, v := range ctx.Policy.Spec.ValidationFailureActionOverrides {
-		resp.PolicyResponse.ValidationFailureActionOverrides = append(resp.PolicyResponse.ValidationFailureActionOverrides, response.ValidationFailureActionOverride{v.Action, v.Namespaces})
+		resp.PolicyResponse.ValidationFailureActionOverrides = append(resp.PolicyResponse.ValidationFailureActionOverrides, response.ValidationFailureActionOverride{Action: v.Action, Namespaces: v.Namespaces})
 	}
 
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
