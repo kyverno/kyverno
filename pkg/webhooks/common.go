@@ -51,7 +51,7 @@ func toBlockResource(engineReponses []*response.EngineResponse, log logr.Logger)
 			}
 		}
 
-		if !er.IsSuccessful() && ((actionOverride && nsAction == common.Enforce) || er.PolicyResponse.ValidationFailureAction == common.Enforce) {
+		if !er.IsSuccessful() && ((actionOverride && nsAction == common.Enforce) || (!actionOverride && er.PolicyResponse.ValidationFailureAction == common.Enforce)) {
 			log.Info("spec.ValidationFailureAction set to enforce blocking resource request", "policy", er.PolicyResponse.Policy.Name)
 			return true
 		}
@@ -87,7 +87,7 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 			}
 		}
 
-		if !er.IsSuccessful() && ((actionOverride && nsAction == common.Enforce) || er.PolicyResponse.ValidationFailureAction == common.Enforce) {
+		if !er.IsSuccessful() && ((actionOverride && nsAction == common.Enforce) || (!actionOverride && er.PolicyResponse.ValidationFailureAction == common.Enforce)) {
 			ruleToReason := make(map[string]string)
 			for _, rule := range er.PolicyResponse.Rules {
 				if rule.Status != response.RuleStatusPass {
