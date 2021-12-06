@@ -66,8 +66,28 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 	policyToRule := make(map[string]interface{})
 	var resourceName string
 	for _, er := range engineResponses {
-		nsAction, ok := er.PolicyResponse.ValidationFailureActionMap[er.PatchedResource.GetNamespace()]
-		if !er.IsSuccessful() && ((ok && nsAction == common.Enforce) || er.PolicyResponse.ValidationFailureAction == common.Enforce) {
+		nsAction := ""
+		actionOverride := false
+
+		for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
+			action := v.Action
+			if action != "enforce" && action != "audit" {
+				continue
+			}
+
+			for _, ns := range v.Namespaces {
+				if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
+					nsAction = action
+					actionOverride = true
+				}
+			}
+
+			if actionOverride {
+				break
+			}
+		}
+
+		if !er.IsSuccessful() && ((actionOverride && nsAction == common.Enforce) || er.PolicyResponse.ValidationFailureAction == common.Enforce) {
 			ruleToReason := make(map[string]string)
 			for _, rule := range er.PolicyResponse.Rules {
 				if rule.Status != response.RuleStatusPass {
