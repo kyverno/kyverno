@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -20,16 +19,16 @@ import (
 	coord "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	rest "k8s.io/client-go/rest"
-	clientcmd "k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
-	kubeconfig string
-	setupLog   = log.Log.WithName("setup")
+	kubeconfig           string
+	setupLog             = log.Log.WithName("setup")
+	clientRateLimitQPS   float64
+	clientRateLimitBurst int
 )
 
 const (
@@ -46,6 +45,8 @@ func main() {
 	log.SetLogger(klogr.New())
 	// arguments
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the master from Kyverno. Uses the client default if zero.")
+	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	if err := flag.Set("v", "2"); err != nil {
 		klog.Fatalf("failed to set log level: %v", err)
 	}
@@ -55,7 +56,7 @@ func main() {
 	// os signal handler
 	stopCh := signal.SetupSignalHandler()
 	// create client config
-	clientConfig, err := createClientConfig(kubeconfig)
+	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst, log.Log)
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
@@ -69,7 +70,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	pclientConfig, err := config.CreateClientConfig(kubeconfig, log.Log)
+	pclientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst, log.Log)
 	if err != nil {
 		setupLog.Error(err, "Failed to build client config")
 		os.Exit(1)
@@ -180,17 +181,6 @@ func executeRequest(client *client.Client, pclient *kyvernoclient.Clientset, req
 	}
 
 	return nil
-}
-
-func createClientConfig(kubeconfig string) (*rest.Config, error) {
-	logger := log.Log
-	if kubeconfig == "" {
-		logger.Info("Using in-cluster configuration")
-		return rest.InClusterConfig()
-	}
-
-	logger.Info(fmt.Sprintf("Using configuration from '%s'", kubeconfig))
-	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }
 
 type request struct {

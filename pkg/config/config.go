@@ -1,6 +1,7 @@
 package config
 
 import (
+	"math"
 	"os"
 
 	"github.com/go-logr/logr"
@@ -97,14 +98,32 @@ var (
 	ReadinessServicePath = "/health/readiness"
 )
 
-//CreateClientConfig creates client config
-func CreateClientConfig(kubeconfig string, log logr.Logger) (*rest.Config, error) {
+//CreateClientConfig creates client config and applies rate limit QPS and burst
+func CreateClientConfig(kubeconfig string, qps float64, burst int, log logr.Logger) (*rest.Config, error) {
 	logger := log.WithName("CreateClientConfig")
+
+	clientConfig, err := createClientConfig(kubeconfig, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	clientConfig.Burst = burst
+	if qps > math.MaxFloat32 {
+		clientConfig.QPS = math.MaxFloat32
+	} else {
+		clientConfig.QPS = float32(qps)
+	}
+
+	return clientConfig, nil
+}
+
+// createClientConfig creates client config
+func createClientConfig(kubeconfig string, log logr.Logger) (*rest.Config, error) {
 	if kubeconfig == "" {
-		logger.Info("Using in-cluster configuration")
+		log.Info("Using in-cluster configuration")
 		return rest.InClusterConfig()
 	}
-	logger.V(4).Info("Using specified kubeconfig", "kubeconfig", kubeconfig)
+	log.V(4).Info("Using specified kubeconfig", "kubeconfig", kubeconfig)
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }
 
