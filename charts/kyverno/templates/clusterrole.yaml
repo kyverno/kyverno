@@ -156,11 +156,11 @@ rules:
       - ingresses
       - ingressclasses
       - networkpolicies
-verbs:
-  - create
-  - update
-  - patch
-  - delete
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
   - apiGroups:
       - ""
     resources:
