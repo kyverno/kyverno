@@ -28,3 +28,8 @@ spec:
     resource: pattern-match-test-no-match
     kind: Namespace
     status: fail
+  - policy: path-canonicalize
+    rule: disallow-mount-containerd-sock
+    resource: mount-containerd-sock
+    kind: Pod
+    status: fail

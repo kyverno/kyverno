@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -50,6 +51,7 @@ var (
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
 	timeSince              = "time_since"
+	pathCanonicalize       = "path_canonicalize"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -230,6 +232,13 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpString}},
 			},
 			Handler: jpTimeSince,
+		},
+		{
+			Name: pathCanonicalize,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpPathCanonicalize,
 		},
 	}
 
@@ -626,6 +635,16 @@ func jpTimeSince(arguments []interface{}) (interface{}, error) {
 	}
 
 	return t2.Sub(t1).String(), nil
+}
+
+func jpPathCanonicalize(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg(pathCanonicalize, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	return filepath.Join(str.String()), nil
 }
 
 // InterfaceToString casts an interface to a string type
