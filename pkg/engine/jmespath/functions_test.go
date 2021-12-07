@@ -415,63 +415,395 @@ func Test_LabelMatch(t *testing.T) {
 }
 
 func Test_Add(t *testing.T) {
-	jp, err := New("add(`12`, `13`)")
-	assert.NilError(t, err)
+	testCases := []struct {
+		test           string
+		expectedResult interface{}
+		err            bool
+		retFloat       bool
+	}{
+		{
+			test: "add('12', '13s')",
+			err:  true,
+		},
+		{
+			test: "add('12Ki', '13s')",
+			err:  true,
+		},
+		{
+			test: "add('12s', '13')",
+			err:  true,
+		},
+		{
+			test: "add('12s', '13Ki')",
+			err:  true,
+		},
+		{
+			test:           "add(`12`, `13`)",
+			expectedResult: 25.0,
+			retFloat:       true,
+		},
+		{
+			test:           "add(`12`, '13s')",
+			expectedResult: `25s`,
+		},
+		{
+			test:           "add('12s', '13s')",
+			expectedResult: `25s`,
+		},
+		{
+			test:           "add(`12`, '-13s')",
+			expectedResult: `-1s`,
+		},
+		{
+			test:           "add(`12`, '13Ki')",
+			expectedResult: `13324`,
+		},
+		{
+			test:           "add('12Ki', '13Ki')",
+			expectedResult: `25Ki`,
+		},
+	}
 
-	result, err := jp.Search("")
-	assert.NilError(t, err)
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			jp, err := New(tc.test)
+			assert.NilError(t, err)
 
-	equal, ok := result.(float64)
-	assert.Assert(t, ok)
-	assert.Equal(t, equal, 25.0)
+			result, err := jp.Search("")
+			if !tc.err {
+				assert.NilError(t, err)
+			} else {
+				assert.Assert(t, err != nil)
+				return
+			}
+
+			if tc.retFloat {
+				equal, ok := result.(float64)
+				assert.Assert(t, ok)
+				assert.Equal(t, equal, tc.expectedResult.(float64))
+			} else {
+				equal, ok := result.(string)
+				assert.Assert(t, ok)
+				assert.Equal(t, equal, tc.expectedResult.(string))
+			}
+		})
+	}
 }
 
 func Test_Subtract(t *testing.T) {
-	jp, err := New("subtract(`12`, `7`)")
-	assert.NilError(t, err)
+	testCases := []struct {
+		test           string
+		expectedResult interface{}
+		err            bool
+		retFloat       bool
+	}{
+		{
+			test: "subtract('12', '13s')",
+			err:  true,
+		},
+		{
+			test: "subtract('12Ki', '13s')",
+			err:  true,
+		},
+		{
+			test: "subtract('12s', '13')",
+			err:  true,
+		},
+		{
+			test: "subtract('12s', '13Ki')",
+			err:  true,
+		},
+		{
+			test:           "subtract(`12`, `13`)",
+			expectedResult: -1.0,
+			retFloat:       true,
+		},
+		{
+			test:           "subtract(`12`, '13s')",
+			expectedResult: `-1s`,
+		},
+		{
+			test:           "subtract('12s', '13s')",
+			expectedResult: `-1s`,
+		},
+		{
+			test:           "subtract(`12`, '-13s')",
+			expectedResult: `25s`,
+		},
+		{
+			test:           "subtract(`12`, '13Ki')",
+			expectedResult: `-13300`,
+		},
+		{
+			test:           "subtract('12Ki', '13Ki')",
+			expectedResult: `-1Ki`,
+		},
+	}
 
-	result, err := jp.Search("")
-	assert.NilError(t, err)
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			jp, err := New(tc.test)
+			assert.NilError(t, err)
 
-	equal, ok := result.(float64)
-	assert.Assert(t, ok)
-	assert.Equal(t, equal, 5.0)
+			result, err := jp.Search("")
+			if !tc.err {
+				assert.NilError(t, err)
+			} else {
+				assert.Assert(t, err != nil)
+				return
+			}
+
+			if tc.retFloat {
+				equal, ok := result.(float64)
+				assert.Assert(t, ok)
+				assert.Equal(t, equal, tc.expectedResult.(float64))
+			} else {
+				equal, ok := result.(string)
+				assert.Assert(t, ok)
+				assert.Equal(t, equal, tc.expectedResult.(string))
+			}
+		})
+	}
 }
 
 func Test_Multiply(t *testing.T) {
-	jp, err := New("multiply(`3`, `2.5`)")
-	assert.NilError(t, err)
+	testCases := []struct {
+		test           string
+		expectedResult interface{}
+		err            bool
+		retFloat       bool
+	}{
+		{
+			test: "multiply('12', '13s')",
+			err:  true,
+		},
+		{
+			test: "multiply('12Ki', '13s')",
+			err:  true,
+		},
+		{
+			test: "multiply('12s', '13')",
+			err:  true,
+		},
+		{
+			test: "multiply('12s', '13Ki')",
+			err:  true,
+		},
+		{
+			test:           "multiply(`12`, `13`)",
+			expectedResult: 156.0,
+			retFloat:       true,
+		},
+		{
+			test:           "multiply(`12`, '13s')",
+			expectedResult: `2m36s`,
+		},
+		{
+			test:           "multiply('12s', '13s')",
+			expectedResult: `2m36s`,
+		},
+		{
+			test:           "multiply(`12`, '-13s')",
+			expectedResult: `-2m36s`,
+		},
+		{
+			test:           "multiply(`12`, '13Ki')",
+			expectedResult: `156Ki`,
+		},
+		{
+			test:           "multiply('12Ki', '13Ki')",
+			expectedResult: `156Mi`,
+		},
+	}
 
-	result, err := jp.Search("")
-	assert.NilError(t, err)
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			jp, err := New(tc.test)
+			assert.NilError(t, err)
 
-	equal, ok := result.(float64)
-	assert.Assert(t, ok)
-	assert.Equal(t, equal, 7.5)
+			result, err := jp.Search("")
+			if !tc.err {
+				assert.NilError(t, err)
+			} else {
+				assert.Assert(t, err != nil)
+				return
+			}
+
+			if tc.retFloat {
+				equal, ok := result.(float64)
+				assert.Assert(t, ok)
+				assert.Equal(t, equal, tc.expectedResult.(float64))
+			} else {
+				equal, ok := result.(string)
+				assert.Assert(t, ok)
+				assert.Equal(t, equal, tc.expectedResult.(string))
+			}
+		})
+	}
 }
 
 func Test_Divide(t *testing.T) {
-	jp, err := New("divide(`12`, `1.5`)")
-	assert.NilError(t, err)
+	testCases := []struct {
+		test           string
+		expectedResult interface{}
+		err            bool
+		retFloat       bool
+	}{
+		{
+			test: "divide('12', '13s')",
+			err:  true,
+		},
+		{
+			test: "divide('12Ki', '13s')",
+			err:  true,
+		},
+		{
+			test: "divide('12s', '13')",
+			err:  true,
+		},
+		{
+			test: "divide('12s', '13Ki')",
+			err:  true,
+		},
+		{
+			test: "divide('12s', `0`)",
+			err:  true,
+		},
+		{
+			test:           "divide(`25`, `2`)",
+			expectedResult: 12.5,
+			retFloat:       true,
+		},
+		{
+			test:           "divide(`12`, '2s')",
+			expectedResult: `6s`,
+		},
+		{
+			test:           "divide('25m0s', '2s')",
+			expectedResult: `12m30s`,
+		},
+		{
+			test:           "divide(`360`, '-2s')",
+			expectedResult: `-3m0s`,
+		},
+		{
+			test:           "divide(`13312`, '1Ki')",
+			expectedResult: `13`,
+		},
+		{
+			test:           "divide('26Gi', '13Ki')",
+			expectedResult: `2Mi`,
+		},
+		{
+			test:           "divide('500m', `2`)",
+			expectedResult: `250m`,
+		},
+	}
 
-	result, err := jp.Search("")
-	assert.NilError(t, err)
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			jp, err := New(tc.test)
+			assert.NilError(t, err)
 
-	equal, ok := result.(float64)
-	assert.Assert(t, ok)
-	assert.Equal(t, equal, 8.0)
+			result, err := jp.Search("")
+			if !tc.err {
+				assert.NilError(t, err)
+			} else {
+				assert.Assert(t, err != nil)
+				return
+			}
+
+			if tc.retFloat {
+				equal, ok := result.(float64)
+				assert.Assert(t, ok)
+				assert.Equal(t, equal, tc.expectedResult.(float64))
+			} else {
+				equal, ok := result.(string)
+				assert.Assert(t, ok)
+				assert.Equal(t, equal, tc.expectedResult.(string))
+			}
+		})
+	}
 }
 
 func Test_Modulo(t *testing.T) {
-	jp, err := New("modulo(`12`, `7`)")
-	assert.NilError(t, err)
+	testCases := []struct {
+		test           string
+		expectedResult interface{}
+		err            bool
+		retFloat       bool
+	}{
+		{
+			test: "modulo('12', '13s')",
+			err:  true,
+		},
+		{
+			test: "modulo('12Ki', '13s')",
+			err:  true,
+		},
+		{
+			test: "modulo('12s', '13')",
+			err:  true,
+		},
+		{
+			test: "modulo('12s', '13Ki')",
+			err:  true,
+		},
+		{
+			test: "modulo('12s', `0`)",
+			err:  true,
+		},
+		{
+			test:           "modulo(`25`, `2`)",
+			expectedResult: 1.0,
+			retFloat:       true,
+		},
+		{
+			test:           "modulo(`13`, '2s')",
+			expectedResult: `1s`,
+		},
+		{
+			test:           "modulo('25m13s', '32s')",
+			expectedResult: `9s`,
+		},
+		{
+			test:           "modulo(`371`, '-13s')",
+			expectedResult: `7s`,
+		},
+		{
+			test:           "modulo(`13312`, '513')",
+			expectedResult: `487`,
+		},
+		{
+			test:           "modulo('26Gi', '12Ki')",
+			expectedResult: `8Ki`,
+		},
+	}
 
-	result, err := jp.Search("")
-	assert.NilError(t, err)
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			jp, err := New(tc.test)
+			assert.NilError(t, err)
 
-	equal, ok := result.(int64)
-	assert.Assert(t, ok)
-	assert.Equal(t, equal, int64(5))
+			result, err := jp.Search("")
+			if !tc.err {
+				assert.NilError(t, err)
+			} else {
+				assert.Assert(t, err != nil)
+				return
+			}
+
+			if tc.retFloat {
+				equal, ok := result.(float64)
+				assert.Assert(t, ok)
+				assert.Equal(t, equal, tc.expectedResult.(float64))
+			} else {
+				equal, ok := result.(string)
+				assert.Assert(t, ok)
+				assert.Equal(t, equal, tc.expectedResult.(string))
+			}
+		})
+	}
 }
 
 func Test_Base64Decode(t *testing.T) {

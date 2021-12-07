@@ -21,6 +21,7 @@ var (
 	JpNumber      = gojmespath.JpNumber
 	JpArray       = gojmespath.JpArray
 	JpArrayString = gojmespath.JpArrayString
+	JpAny         = gojmespath.JpAny
 )
 
 type (
@@ -58,6 +59,7 @@ const errorPrefix = "JMESPath function '%s': "
 const invalidArgumentTypeError = errorPrefix + "%d argument is expected of %s type"
 const genericError = errorPrefix + "%s"
 const zeroDivisionError = errorPrefix + "Zero divisor passed"
+const undefinedQuoError = errorPrefix + "Undefined quotient"
 const nonIntModuloError = errorPrefix + "Non-integer argument(s) passed for modulo"
 
 func getFunctions() []*gojmespath.FunctionEntry {
@@ -173,40 +175,40 @@ func getFunctions() []*gojmespath.FunctionEntry {
 		{
 			Name: add,
 			Arguments: []ArgSpec{
-				{Types: []JpType{JpNumber}},
-				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpAny}},
+				{Types: []JpType{JpAny}},
 			},
 			Handler: jpAdd,
 		},
 		{
 			Name: subtract,
 			Arguments: []ArgSpec{
-				{Types: []JpType{JpNumber}},
-				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpAny}},
+				{Types: []JpType{JpAny}},
 			},
 			Handler: jpSubtract,
 		},
 		{
 			Name: multiply,
 			Arguments: []ArgSpec{
-				{Types: []JpType{JpNumber}},
-				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpAny}},
+				{Types: []JpType{JpAny}},
 			},
 			Handler: jpMultiply,
 		},
 		{
 			Name: divide,
 			Arguments: []ArgSpec{
-				{Types: []JpType{JpNumber}},
-				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpAny}},
+				{Types: []JpType{JpAny}},
 			},
 			Handler: jpDivide,
 		},
 		{
 			Name: modulo,
 			Arguments: []ArgSpec{
-				{Types: []JpType{JpNumber}},
-				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpAny}},
+				{Types: []JpType{JpAny}},
 			},
 			Handler: jpModulo,
 		},
@@ -476,97 +478,48 @@ func jpLabelMatch(arguments []interface{}) (interface{}, error) {
 }
 
 func jpAdd(arguments []interface{}) (interface{}, error) {
-	var err error
-	op1, err := validateArg(divide, arguments, 0, reflect.Float64)
+	op1, op2, err := ParseArithemticOperands(arguments, add)
 	if err != nil {
 		return nil, err
 	}
 
-	op2, err := validateArg(divide, arguments, 1, reflect.Float64)
-	if err != nil {
-		return nil, err
-	}
-
-	return op1.Float() + op2.Float(), nil
+	return op1.Add(op2)
 }
 
 func jpSubtract(arguments []interface{}) (interface{}, error) {
-	var err error
-	op1, err := validateArg(divide, arguments, 0, reflect.Float64)
+	op1, op2, err := ParseArithemticOperands(arguments, subtract)
 	if err != nil {
 		return nil, err
 	}
 
-	op2, err := validateArg(divide, arguments, 1, reflect.Float64)
-	if err != nil {
-		return nil, err
-	}
-
-	return op1.Float() - op2.Float(), nil
+	return op1.Subtract(op2)
 }
 
 func jpMultiply(arguments []interface{}) (interface{}, error) {
-	var err error
-	op1, err := validateArg(divide, arguments, 0, reflect.Float64)
+	op1, op2, err := ParseArithemticOperands(arguments, multiply)
 	if err != nil {
 		return nil, err
 	}
 
-	op2, err := validateArg(divide, arguments, 1, reflect.Float64)
-	if err != nil {
-		return nil, err
-	}
-
-	return op1.Float() * op2.Float(), nil
+	return op1.Multiply(op2)
 }
 
 func jpDivide(arguments []interface{}) (interface{}, error) {
-	var err error
-	op1, err := validateArg(divide, arguments, 0, reflect.Float64)
+	op1, op2, err := ParseArithemticOperands(arguments, divide)
 	if err != nil {
 		return nil, err
 	}
 
-	op2, err := validateArg(divide, arguments, 1, reflect.Float64)
-	if err != nil {
-		return nil, err
-	}
-
-	if op2.Float() == 0 {
-		return nil, fmt.Errorf(zeroDivisionError, divide)
-	}
-
-	return op1.Float() / op2.Float(), nil
+	return op1.Divide(op2)
 }
 
 func jpModulo(arguments []interface{}) (interface{}, error) {
-	var err error
-	op1, err := validateArg(divide, arguments, 0, reflect.Float64)
+	op1, op2, err := ParseArithemticOperands(arguments, modulo)
 	if err != nil {
 		return nil, err
 	}
 
-	op2, err := validateArg(divide, arguments, 1, reflect.Float64)
-	if err != nil {
-		return nil, err
-	}
-
-	val1 := int64(op1.Float())
-	val2 := int64(op2.Float())
-
-	if op1.Float() != float64(val1) {
-		return nil, fmt.Errorf(nonIntModuloError, modulo)
-	}
-
-	if op2.Float() != float64(val2) {
-		return nil, fmt.Errorf(nonIntModuloError, modulo)
-	}
-
-	if val2 == 0 {
-		return nil, fmt.Errorf(zeroDivisionError, modulo)
-	}
-
-	return val1 % val2, nil
+	return op1.Modulo(op2)
 }
 
 func jpBase64Decode(arguments []interface{}) (interface{}, error) {
