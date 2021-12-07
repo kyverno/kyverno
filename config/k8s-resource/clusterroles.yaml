@@ -7,7 +7,7 @@ metadata:
   name: kyverno:policies
 rules:
 - apiGroups:
-  - '*'
+  - "kyverno.io"
   resources:
   - policies
   - policies/status
@@ -60,11 +60,10 @@ rules:
   - ""
   resources:
   - configmaps
-  - events
+  - secrets
   - persistentvolumeclaims
   - replicationcontrollers
   - replicationcontrollers/scale
-  - secrets
   - serviceaccounts
   - services
   - services/proxy
@@ -130,19 +129,47 @@ metadata:
     app: kyverno
   name: kyverno:generate
 rules:
-# process generate rules to generate resources
 - apiGroups:
-  - "*"
+  - networking.k8s.io
+  resources:
+  - ingresses
+  - ingressclasses
+  - networkpolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
   resources:
   - namespaces
-  - networkpolicies
-  - secrets
   - configmaps
+  - secrets
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - "quota"
+  resources:
   - resourcequotas
   - limitranges
   verbs:
   - create
   - update
+  - patch
   - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -159,6 +186,7 @@ rules:
   verbs:
   - create
   - update
+  - patch 
   - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -169,7 +197,7 @@ metadata:
   name: kyverno:userinfo
 rules:
 - apiGroups:
-  - "*"
+  - "rbac.authorization.k8s.io"
   resources:
   - roles
   - clusterroles
@@ -184,10 +212,11 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/ownerreference: "true"
   name: kyverno:webhook
 rules:
 - apiGroups:
-  - 'admissionregistration.k8s.io/v1'
+  - 'admissionregistration.k8s.io'
   resources:
   - mutatingwebhookconfigurations
   - validatingwebhookconfigurations
