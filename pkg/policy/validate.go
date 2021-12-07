@@ -230,11 +230,6 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			}
 
 			if rule.HasMutate() {
-				if !mutatePermissions(rule)  {
-					return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-						" the rule does not match any kind")
-				}
-
 				if !ruleOnlyDealsWithResourceMetaData(rule) {
 					return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 						" the rule does not match any kind")
