@@ -32,20 +32,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   labels:
     app: kyverno
-  name: kyverno:mutate
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:mutate
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  labels:
-    app: kyverno
   name: kyverno:generate
 roleRef:
   apiGroup: rbac.authorization.k8s.io
