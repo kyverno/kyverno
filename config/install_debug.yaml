@@ -2071,11 +2071,17 @@ spec:
                   rule failure should disallow the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. The default value is "audit".
+                enum:
+                - audit
+                - enforce
                 type: string
               validationFailureActionOverrides:
                 items:
                   properties:
                     action:
+                      enum:
+                      - audit
+                      - enforce
                       type: string
                     namespaces:
                       items:
@@ -5724,11 +5730,17 @@ spec:
                   rule failure should disallow the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. The default value is "audit".
+                enum:
+                - audit
+                - enforce
                 type: string
               validationFailureActionOverrides:
                 items:
                   properties:
                     action:
+                      enum:
+                      - audit
+                      - enforce
                       type: string
                     namespaces:
                       items:

@@ -55,6 +55,7 @@ type Spec struct {
 	// the admission review request (enforce), or allow (audit) the admission review request
 	// and report an error in a policy report. Optional. The default value is "audit".
 	// +optional
+	// +kubebuilder:validation:Enum=audit;enforce
 	ValidationFailureAction string `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
@@ -627,6 +628,7 @@ type ResourceSpec struct {
 }
 
 type ValidationFailureActionOverride struct {
+	// +kubebuilder:validation:Enum=audit;enforce
 	Action     string   `json:"action,omitempty" yaml:"action,omitempty"`
 	Namespaces []string `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 }
