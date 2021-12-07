@@ -1,3 +1,7 @@
+## v1.5.2-rc4
+
+### Bug Fixes
+- Change ClusterRole `kyverno:webhook` labels #2776
 ## v1.5.2-rc3
 
 ### Bug Fixes
