@@ -39,6 +39,14 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 	policyContext.JSONContext.Checkpoint()
 	defer policyContext.JSONContext.Restore()
 
+	// update image registry secrets
+	if len(cosign.Secrets) > 0 {
+		logger.V(4).Info("updating registry credentials", "secrets", cosign.Secrets)
+		if err := cosign.UpdateKeychain(); err != nil {
+			logger.Error(err, "failed to update image pull secrets")
+		}
+	}
+
 	for i := range policyContext.Policy.Spec.Rules {
 		rule := &policyContext.Policy.Spec.Rules[i]
 		if len(rule.VerifyImages) == 0 {
