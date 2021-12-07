@@ -268,6 +268,30 @@ func Test_RegexMatchWithNumber(t *testing.T) {
 	assert.Equal(t, true, result)
 }
 
+func Test_PatternMatch(t *testing.T) {
+	data := make(map[string]interface{})
+	data["foo"] = "prefix-foo"
+
+	query, err := New("pattern_match('prefix-*', foo)")
+	assert.NilError(t, err)
+
+	result, err := query.Search(data)
+	assert.NilError(t, err)
+	assert.Equal(t, true, result)
+}
+
+func Test_PatternMatchWithNumber(t *testing.T) {
+	data := make(map[string]interface{})
+	data["foo"] = -12.0
+
+	query, err := New("pattern_match('12*', abs(foo))")
+	assert.NilError(t, err)
+
+	result, err := query.Search(data)
+	assert.NilError(t, err)
+	assert.Equal(t, true, result)
+}
+
 func Test_RegexReplaceAll(t *testing.T) {
 	resourceRaw := []byte(`
 	{
@@ -864,6 +888,60 @@ func Test_TimeSince(t *testing.T) {
 			assert.Assert(t, ok)
 
 			assert.Equal(t, result, tc.expectedResult)
+		})
+	}
+}
+
+func Test_PathCanonicalize(t *testing.T) {
+	testCases := []struct {
+		jmesPath       string
+		expectedResult string
+	}{
+		{
+			jmesPath:       "path_canonicalize('///')",
+			expectedResult: "/",
+		},
+		{
+			jmesPath:       "path_canonicalize('///var/run/containerd/containerd.sock')",
+			expectedResult: "/var/run/containerd/containerd.sock",
+		},
+		{
+			jmesPath:       "path_canonicalize('/var/run///containerd/containerd.sock')",
+			expectedResult: "/var/run/containerd/containerd.sock",
+		},
+		{
+			jmesPath:       "path_canonicalize('/var/run///containerd////')",
+			expectedResult: "/var/run/containerd",
+		},
+		{
+			jmesPath:       "path_canonicalize('/run///')",
+			expectedResult: "/run",
+		},
+		{
+			jmesPath:       "path_canonicalize('/run/../etc')",
+			expectedResult: "/etc",
+		},
+		{
+			jmesPath:       "path_canonicalize('///etc*')",
+			expectedResult: "/etc*",
+		},
+		{
+			jmesPath:       "path_canonicalize('/../../')",
+			expectedResult: "/",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.jmesPath, func(t *testing.T) {
+			jp, err := New(tc.jmesPath)
+			assert.NilError(t, err)
+
+			result, err := jp.Search("")
+			assert.NilError(t, err)
+
+			res, ok := result.(string)
+			assert.Assert(t, ok)
+			assert.Equal(t, res, tc.expectedResult)
 		})
 	}
 }

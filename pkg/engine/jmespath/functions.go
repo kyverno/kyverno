@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	gojmespath "github.com/jmespath/go-jmespath"
+	"github.com/minio/pkg/wildcard"
 )
 
 var (
@@ -40,6 +42,7 @@ var (
 	regexReplaceAll        = "regex_replace_all"
 	regexReplaceAllLiteral = "regex_replace_all_literal"
 	regexMatch             = "regex_match"
+	patternMatch           = "pattern_match"
 	labelMatch             = "label_match"
 	add                    = "add"
 	subtract               = "subtract"
@@ -49,6 +52,7 @@ var (
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
 	timeSince              = "time_since"
+	pathCanonicalize       = "path_canonicalize"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -152,6 +156,14 @@ func getFunctions() []*gojmespath.FunctionEntry {
 			Handler: jpRegexMatch,
 		},
 		{
+			Name: patternMatch,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpString, JpNumber}},
+			},
+			Handler: jpPatternMatch,
+		},
+		{
 			// Validates if label (param1) would match pod/host/etc labels (param2)
 			Name: labelMatch,
 			Arguments: []ArgSpec{
@@ -222,6 +234,13 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpString}},
 			},
 			Handler: jpTimeSince,
+		},
+		{
+			Name: pathCanonicalize,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpPathCanonicalize,
 		},
 	}
 
@@ -422,6 +441,20 @@ func jpRegexMatch(arguments []interface{}) (interface{}, error) {
 	return regexp.Match(regex.String(), []byte(src))
 }
 
+func jpPatternMatch(arguments []interface{}) (interface{}, error) {
+	pattern, err := validateArg(regexMatch, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	src, err := ifaceToString(arguments[1])
+	if err != nil {
+		return nil, fmt.Errorf(invalidArgumentTypeError, regexMatch, 2, "String or Real")
+	}
+
+	return wildcard.Match(pattern.String(), src), nil
+}
+
 func jpLabelMatch(arguments []interface{}) (interface{}, error) {
 	labelMap, ok := arguments[0].(map[string]interface{})
 
@@ -555,6 +588,16 @@ func jpTimeSince(arguments []interface{}) (interface{}, error) {
 	}
 
 	return t2.Sub(t1).String(), nil
+}
+
+func jpPathCanonicalize(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg(pathCanonicalize, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	return filepath.Join(str.String()), nil
 }
 
 // InterfaceToString casts an interface to a string type

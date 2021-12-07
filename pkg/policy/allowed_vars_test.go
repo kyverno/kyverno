@@ -200,6 +200,49 @@ func TestNotAllowedVars_JSONPatchPath(t *testing.T) {
 	assert.Error(t, err, "rule \"pCM1\" should not have variables in patchesJSON6902 path section")
 }
 
+func TestNotAllowedVars_JSONPatchPath_ContextPositive(t *testing.T) {
+	var policyWithVarInExclude = []byte(`{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+      "name": "policy-patch-cm"
+    },
+    "spec": {
+      "rules": [
+      {
+        "name": "pCM1",
+        "context": [
+          {
+            "name": "source",
+            "configMap":{
+              "name":"source-yaml-to-json",
+              "namespace":"default"
+            }
+          }
+        ],
+        "match": {
+        "resources": {
+          "name": "config-game",
+          "kinds": [
+          "ConfigMap"
+          ]
+        }
+        },
+        "mutate": {
+        "patchesJson6902": "- op: replace\n  path: /spec/strategy\n  value: {{ source.data.strategy }}"
+        }
+      }
+      ]
+    }
+    }`)
+
+	policy, err := ut.GetPolicy(policyWithVarInExclude)
+	assert.NilError(t, err)
+
+	err = hasInvalidVariables(policy[0], false)
+	assert.NilError(t, err)
+}
+
 func TestNotAllowedVars_JSONPatchPath_PositiveCase(t *testing.T) {
 	var policyWithVarInExclude = []byte(`{
     "apiVersion": "kyverno.io/v1",
