@@ -40,9 +40,8 @@ func Test_CreateClientConfig_LimitQPStoFloat32(t *testing.T) {
 
 	cf := createMinimalKubeconfig(t)
 	defer os.Remove(cf)
-	c, err := config.CreateClientConfig(cf, qps, 0, logr.Discard())
-	assert.NilError(t, err)
-	assert.Equal(t, float32(math.MaxFloat32), c.QPS)
+	_, err := config.CreateClientConfig(cf, qps, 0, logr.Discard())
+	assert.ErrorContains(t, err, "QPS")
 }
 
 func createMinimalKubeconfig(t *testing.T) string {

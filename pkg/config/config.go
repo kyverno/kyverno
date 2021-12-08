@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"math"
 	"os"
 
@@ -107,12 +108,11 @@ func CreateClientConfig(kubeconfig string, qps float64, burst int, log logr.Logg
 		return nil, err
 	}
 
-	clientConfig.Burst = burst
 	if qps > math.MaxFloat32 {
-		clientConfig.QPS = math.MaxFloat32
-	} else {
-		clientConfig.QPS = float32(qps)
+		return nil, fmt.Errorf("client rate limit QPS must not be higher than %e", math.MaxFloat32)
 	}
+	clientConfig.Burst = burst
+	clientConfig.QPS = float32(qps)
 
 	return clientConfig, nil
 }
