@@ -3,6 +3,7 @@ package jmespath
 import (
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"testing"
 
 	"gotest.tools/assert"
@@ -929,6 +930,32 @@ func Test_PathCanonicalize(t *testing.T) {
 			jmesPath:       "path_canonicalize('/../../')",
 			expectedResult: "/",
 		},
+	}
+
+	testCasesForWindows := []struct {
+		jmesPath       string
+		expectedResult string
+	}{
+		{
+			jmesPath:       "path_canonicalize('C:\\Windows\\\\..')",
+			expectedResult: "C:\\",
+		},
+		{
+			jmesPath:       "path_canonicalize('C:\\Windows\\\\...')",
+			expectedResult: "C:\\Windows\\...",
+		},
+		{
+			jmesPath:       "path_canonicalize('C:\\Users\\USERNAME\\\\\\Downloads')",
+			expectedResult: "C:\\Users\\USERNAME\\Downloads",
+		},
+		{
+			jmesPath:       "path_canonicalize('C:\\Users\\\\USERNAME\\..\\Downloads')",
+			expectedResult: "C:\\Users\\Downloads",
+		},
+	}
+
+	if runtime.GOOS == "windows" {
+		testCases = testCasesForWindows
 	}
 
 	for _, tc := range testCases {
