@@ -75,6 +75,7 @@ type Options struct {
 	Key        string
 	Roots      []byte
 	Subject    string
+	Issuer     string
 	Repository string
 	Log        logr.Logger
 }
@@ -135,6 +136,11 @@ func VerifySignature(opts Options) (digest string, err error) {
 		}
 
 		return "", err
+	}
+
+	issuer, _ := extractIssuer(opts.ImageRef, verified, log)
+	if issuer != "" && (issuer != opts.Issuer) {
+		return "", errors.Wrap(err, "issuer mismatch")
 	}
 
 	digest, err = extractDigest(opts.ImageRef, verified, log)
@@ -377,6 +383,33 @@ func extractDigest(imgRef string, verified []oci.Signature, log logr.Logger) (st
 	}
 
 	return "", fmt.Errorf("digest not found for " + imgRef)
+}
+
+func extractIssuer(imgRef string, verified []oci.Signature, log logr.Logger) (string, error) {
+	var jsonMap map[string]interface{}
+	for _, vp := range verified {
+		payload, err := vp.Payload()
+		if err != nil {
+			return "", errors.Wrap(err, "failed to get payload")
+		}
+
+		// TODO - change to using payload.SimpleContainerImage after the next Tekton release
+		if err := json.Unmarshal(payload, &jsonMap); err != nil {
+			return "", err
+		}
+
+		log.V(3).Info("image verification response", "image", imgRef, "payload", jsonMap)
+
+		optional := getMapValue(jsonMap, "optional", "Optional")
+		if optional != nil {
+			issuer := getStringValue(optional, "Issuer", "issuer")
+			return issuer, nil
+		} else {
+			log.Info("failed to extract issuer from verification response", "image", imgRef, "payload", jsonMap)
+			return "", fmt.Errorf("unknown image response for " + imgRef)
+		}
+	}
+	return "", fmt.Errorf("issuer not found for " + imgRef)
 }
 
 func getMapValue(m map[string]interface{}, keys ...string) map[string]interface{} {
