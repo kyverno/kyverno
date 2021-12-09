@@ -79,9 +79,13 @@ func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 		}
 
 		var arr []string
-		if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
-			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
-			return true, false
+		if json.Valid([]byte(valuesAvailable)) {
+			if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
+				log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
+				return true, false
+			}
+		} else {
+			arr = append(arr, valuesAvailable)
 		}
 
 		for _, val := range arr {
@@ -134,6 +138,9 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 
 	case string:
 		if len(key) == 1 && key[0] == valuesAvailable {
+			if anyNotIn {
+				return false, false
+			}
 			return false, true
 		}
 
