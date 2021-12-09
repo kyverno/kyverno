@@ -163,7 +163,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
+	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0)
+	kubeSyncedInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	kubedynamicInformer := client.NewDynamicSharedInformerFactory(resyncPeriod)
 
 	rCache, err := resourcecache.NewResourceCache(client, kubedynamicInformer, log.Log.WithName("resourcecache"))
@@ -257,7 +258,7 @@ func main() {
 	// if the configMap is update, the configuration will be updated :D
 	configData := config.NewConfigData(
 		kubeClient,
-		kubeInformer.Core().V1().ConfigMaps(),
+		kubeSyncedInformer.Core().V1().ConfigMaps(),
 		filterK8sResources,
 		excludeGroupRole,
 		excludeUsername,
@@ -380,7 +381,7 @@ func main() {
 
 	certRenewer := ktls.NewCertRenewer(client, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
 	certManager, err := webhookconfig.NewCertManager(
-		kubeInformer.Core().V1().Secrets(),
+		kubeSyncedInformer.Core().V1().Secrets(),
 		kubeClient,
 		certRenewer,
 		log.Log.WithName("CertManager"),
@@ -529,6 +530,7 @@ func main() {
 
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
+	kubeSyncedInformer.Start(stopCh)
 	kubedynamicInformer.Start(stopCh)
 
 	// verifies if the admission control is enabled and active
