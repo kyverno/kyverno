@@ -1,3 +1,8 @@
+## v1.5.2-rc5
+
+### Bug Fixes
+- `imagePullSecrets` are not refreshed in verifyImages rule resulting in expired credential failures #2790
+
 ## v1.5.2-rc4
 
 ### Bug Fixes
