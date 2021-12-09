@@ -146,7 +146,7 @@ docker-push-kyverno: docker-buildx-builder
 ##################################
 
 generate-api-docs:
-	go run github.com/ahmetb/gen-crd-api-reference-docs -api-dir ./api -config documentation/api/config.json -template-dir documentation/api/template -out-file documentation/index.html
+	go run gen-crd-api-reference-docs -api-dir ./api -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
 
 
 ##################################
