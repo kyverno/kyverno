@@ -86,8 +86,7 @@ func allKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 		}
 
 	default:
-		invalidType = true
-		return
+		return true, false
 	}
 
 	return false, false
@@ -130,7 +129,6 @@ func allSetExistsInArray(key []string, value interface{}, log logr.Logger, allNo
 		if operatorVariable == operator.InRange {
 			if allNotIn {
 				isAllNotInBool := true
-				//stringForAnyNotIn := strings.Replace(valuesAvailable, "-", "!-", 1)
 				for _, k := range key {
 					if handleRange(k, valuesAvailable, log) {
 						isAllNotInBool = false

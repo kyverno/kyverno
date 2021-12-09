@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
-
 	"github.com/minio/pkg/wildcard"
 )
 
@@ -92,8 +91,7 @@ func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 		}
 
 	default:
-		invalidType = true
-		return
+		return true, false
 	}
 
 	return false, false
