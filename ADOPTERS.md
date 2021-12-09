@@ -14,6 +14,7 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [Flux2](https://github.com/fluxcd/flux2-multi-tenancy#enforce-tenant-isolation) | Manage multi-tenancy and tenant isolation with GitOps |
 | [Nirmata](https://nirmata.com) | Kubernetes policy-as-code and multi-tenancy |
 | [Ohio Supercomputer Center](https://www.osc.edu/) | Support Kubernetes multi-user workflows through [Open OnDemand](http://openondemand.org/) |
+| [VSHN AG - APPUiO Cloud](https://www.vshn.ch/) | OpenShift Multi-Tenancy Self-Service for [APPUiO Cloud](https://www.appuio.ch), managed with [Project Syn](https://syn.tools). Kyverno policies are available on [GitHub](https://github.com/appuio/component-appuio-cloud). |
 
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 

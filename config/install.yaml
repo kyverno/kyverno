@@ -7360,7 +7360,6 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-    app.kubernetes.io/ownerreference: "true"
   name: kyverno:webhook
 rules:
 - apiGroups:
