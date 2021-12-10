@@ -54,10 +54,10 @@ func TestCosignPayload(t *testing.T) {
 	signedPayloads2 := cosign.SignedPayload{Payload: []byte(tektonPayload)}
 	p2, err := extractPayload(image2, []oci.Signature{&sig{cosignPayload: signedPayloads2}}, log)
 	assert.NilError(t, err)
-	i2, err := extractIssuer(image2, p, log)
+	i2, err := extractIssuer(image2, p2, log)
 	assert.NilError(t, err)
 	assert.Equal(t, i2, "https://github.com/login/oauth")
-	s2, err := extractSubject(image2, p, log)
+	s2, err := extractSubject(image2, p2, log)
 	assert.NilError(t, err)
 	assert.Assert(t, wildcard.Match("https://github.com/mycompany/*/.github/workflows/*.yml@refs/heads/main", s2))
 	d2, err := extractDigest(image2, p2, log)
