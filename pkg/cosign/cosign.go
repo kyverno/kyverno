@@ -18,6 +18,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/minio/pkg/wildcard"
 	"github.com/pkg/errors"
 	"github.com/sigstore/cosign/cmd/cosign/cli/options"
 	"github.com/sigstore/cosign/pkg/cosign"
@@ -104,7 +105,7 @@ func VerifySignature(opts Options) (digest string, err error) {
 			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRef(ctx, opts.Key)
 		}
 	} else {
-		cosignOpts.CertEmail = opts.Subject
+		cosignOpts.CertEmail = ""
 		cosignOpts.RootCerts, err = getX509CertPool(opts.Roots)
 	}
 
@@ -147,6 +148,11 @@ func VerifySignature(opts Options) (digest string, err error) {
 	issuer, _ := extractIssuer(opts.ImageRef, payload, log)
 	if issuer != "" && (issuer != opts.Issuer) {
 		return "", errors.Wrap(err, "issuer mismatch")
+	}
+
+	subject, _ := extractSubject(opts.ImageRef, payload, log)
+	if subject != "" && wildcard.Match(opts.Subject, subject) {
+		return "", errors.Wrap(err, "subject mismatch")
 	}
 
 	digest, err = extractDigest(opts.ImageRef, payload, log)
@@ -393,12 +399,24 @@ func extractDigest(imgRef string, payload []payload.SimpleContainerImage, log lo
 
 func extractIssuer(imgRef string, payload []payload.SimpleContainerImage, log logr.Logger) (string, error) {
 	for _, p := range payload {
-		if issuer := p.Optional["Issuer"].(string); issuer != "" {
-			return issuer, nil
+		if issuer := p.Optional["Issuer"]; issuer != nil {
+			return issuer.(string), nil
 		} else {
 			log.Info("failed to extract image issuer from verification response", "image", imgRef, "payload", p)
 			return "", fmt.Errorf("unknown image response for " + imgRef)
 		}
 	}
 	return "", fmt.Errorf("issuer not found for " + imgRef)
+}
+
+func extractSubject(imgRef string, payload []payload.SimpleContainerImage, log logr.Logger) (string, error) {
+	for _, p := range payload {
+		if subject := p.Optional["Subject"]; subject != nil {
+			return subject.(string), nil
+		} else {
+			log.Info("failed to extract image subject from verification response", "image", imgRef, "payload", p)
+			return "", fmt.Errorf("unknown image response for " + imgRef)
+		}
+	}
+	return "", fmt.Errorf("image subject not found for " + imgRef)
 }

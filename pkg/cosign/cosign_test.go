@@ -6,6 +6,7 @@ import (
 	"github.com/sigstore/cosign/pkg/oci"
 
 	"github.com/go-logr/logr"
+	"github.com/minio/pkg/wildcard"
 	"github.com/sigstore/cosign/pkg/cosign"
 	"gotest.tools/assert"
 )
@@ -33,7 +34,10 @@ const tektonPayload = `{
     },
     "Type": "Tekton container signature"
   },
-  "Optional": {}
+  "Optional": {
+	  "Issuer": "https://github.com/login/oauth"
+	  "Subject": "https://github.com/mycompany/demo/.github/workflows/ci.yml@refs/heads/main"
+  }
 }`
 
 func TestCosignPayload(t *testing.T) {
@@ -50,6 +54,12 @@ func TestCosignPayload(t *testing.T) {
 	signedPayloads2 := cosign.SignedPayload{Payload: []byte(tektonPayload)}
 	p2, err := extractPayload(image2, []oci.Signature{&sig{cosignPayload: signedPayloads2}}, log)
 	assert.NilError(t, err)
+	i2, err := extractIssuer(image2, p, log)
+	assert.NilError(t, err)
+	assert.Equal(t, i2, "https://github.com/login/oauth")
+	s2, err := extractSubject(image2, p, log)
+	assert.NilError(t, err)
+	assert.Assert(t, wildcard.Match("https://github.com/mycompany/*/.github/workflows/*.yml@refs/heads/main", s2))
 	d2, err := extractDigest(image2, p2, log)
 	assert.NilError(t, err)
 	assert.Equal(t, d2, "sha256:6a037d5ba27d9c6be32a9038bfe676fb67d2e4145b4f53e9c61fb3e69f06e816")

@@ -551,7 +551,7 @@ type ImageVerification struct {
 	// Subject is the verified identity used for keyless signing, for example the email address
 	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
 
-	// Issuer is the verified identity used for keyless signing.
+	// Issuer is the certificate issuer used for keyless signing.
 	Issuer string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
 
 	// Repository is an optional alternate OCI repository to use for image signatures that match this rule.
