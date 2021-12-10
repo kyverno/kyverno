@@ -145,13 +145,13 @@ func VerifySignature(opts Options) (digest string, err error) {
 		return "", errors.Wrap(err, "failed to get payload")
 	}
 
-	issuer, _ := extractIssuer(opts.ImageRef, payload, log)
-	if issuer != "" && (issuer != opts.Issuer) {
+	issuer, err := extractIssuer(opts.ImageRef, payload, log)
+	if err == nil && (issuer != opts.Issuer) {
 		return "", errors.Wrap(err, "issuer mismatch")
 	}
 
-	subject, _ := extractSubject(opts.ImageRef, payload, log)
-	if subject != "" && wildcard.Match(opts.Subject, subject) {
+	subject, err := extractSubject(opts.ImageRef, payload, log)
+	if err == nil && wildcard.Match(opts.Subject, subject) {
 		return "", errors.Wrap(err, "subject mismatch")
 	}
 

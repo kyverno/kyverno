@@ -35,7 +35,7 @@ const tektonPayload = `{
     "Type": "Tekton container signature"
   },
   "Optional": {
-	  "Issuer": "https://github.com/login/oauth"
+	  "Issuer": "https://github.com/login/oauth",
 	  "Subject": "https://github.com/mycompany/demo/.github/workflows/ci.yml@refs/heads/main"
   }
 }`
