@@ -16,5 +16,16 @@ rules:
   - get
   - patch
   - update
+# Allow update of Kyverno deployment annotations
+- apiGroups:
+    - apps
+  resources:
+    - deployments
+  verbs:
+    - get
+    - list
+    - patch
+    - update
+    - watch
 
 {{- end }}
