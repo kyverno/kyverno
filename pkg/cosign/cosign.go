@@ -431,7 +431,7 @@ func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[st
 	for _, p := range payload {
 		for key, val := range annotations {
 			if val != p.Optional[key] {
-				return fmt.Errorf("value of" + key + "does not match")
+				return fmt.Errorf("value of " + key + " does not match")
 			}
 		}
 	}

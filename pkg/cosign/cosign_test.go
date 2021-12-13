@@ -21,7 +21,10 @@ const cosignPayload = `{
  	    },
  	    "type": "cosign container image signature"
     },
-    "optional": null
+    "optional": {
+		"foo": "bar",
+		"bar": "baz"
+	}
 }`
 
 const tektonPayload = `{
@@ -45,6 +48,9 @@ func TestCosignPayload(t *testing.T) {
 	image := "registry-v2.nirmata.io/pause"
 	signedPayloads := cosign.SignedPayload{Payload: []byte(cosignPayload)}
 	p, err := extractPayload(image, []oci.Signature{&sig{cosignPayload: signedPayloads}}, log)
+	assert.NilError(t, err)
+	a := map[string]interface{}{"foo": "bar"}
+	err = checkAnnotations(p, a, log)
 	assert.NilError(t, err)
 	d, err := extractDigest(image, p, log)
 	assert.NilError(t, err)
