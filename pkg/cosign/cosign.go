@@ -73,13 +73,14 @@ func UpdateKeychain() error {
 }
 
 type Options struct {
-	ImageRef   string
-	Key        string
-	Roots      []byte
-	Subject    string
-	Issuer     string
-	Repository string
-	Log        logr.Logger
+	ImageRef    string
+	Key         string
+	Roots       []byte
+	Subject     string
+	Issuer      string
+	Annotations map[string]interface{}
+	Repository  string
+	Log         logr.Logger
 }
 
 // VerifySignature verifies that the image has the expected key
@@ -153,6 +154,11 @@ func VerifySignature(opts Options) (digest string, err error) {
 	subject, err := extractSubject(opts.ImageRef, payload, log)
 	if err == nil && wildcard.Match(opts.Subject, subject) {
 		return "", errors.Wrap(err, "subject mismatch")
+	}
+
+	err = checkAnnotations(payload, opts.Annotations, log)
+	if err != nil {
+		return "", errors.Wrap(err, "annotation mismatch")
 	}
 
 	digest, err = extractDigest(opts.ImageRef, payload, log)
@@ -419,4 +425,15 @@ func extractSubject(imgRef string, payload []payload.SimpleContainerImage, log l
 		}
 	}
 	return "", fmt.Errorf("image subject not found for " + imgRef)
+}
+
+func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]interface{}, log logr.Logger) error {
+	for _, p := range payload {
+		for key, val := range annotations {
+			if val != p.Optional[key] {
+				return fmt.Errorf("value of" + key + "does not match")
+			}
+		}
+	}
+	return nil
 }
