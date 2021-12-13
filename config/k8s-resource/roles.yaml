@@ -19,7 +19,7 @@ rules:
   - update
 # Allow update of Kyverno deployment annotations
 - apiGroups:
-    - 'apps'
+    - apps
   resources:
     - deployments
   verbs:
