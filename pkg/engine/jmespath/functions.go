@@ -13,6 +13,7 @@ import (
 
 	gojmespath "github.com/jmespath/go-jmespath"
 	"github.com/minio/pkg/wildcard"
+	"github.com/aquilax/truncate"
 )
 
 var (
@@ -53,6 +54,7 @@ var (
 	base64Encode           = "base64_encode"
 	timeSince              = "time_since"
 	pathCanonicalize       = "path_canonicalize"
+	stringTruncate         = "truncate"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -241,6 +243,14 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpString}},
 			},
 			Handler: jpPathCanonicalize,
+		},
+		{
+			Name: stringTruncate,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpNumber}},
+			},
+			Handler: jpStringTruncate,
 		},
 	}
 
@@ -598,6 +608,20 @@ func jpPathCanonicalize(arguments []interface{}) (interface{}, error) {
 	}
 
 	return filepath.Join(str.String()), nil
+}
+
+func jpStringTruncate(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg(stringTruncate, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	length, err := validateArg(stringTruncate, arguments, 1, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+
+	return truncate.Truncator(str.String(), int(length.Float()), truncate.CutStrategy{}), nil
 }
 
 // InterfaceToString casts an interface to a string type
