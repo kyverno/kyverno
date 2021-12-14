@@ -7069,6 +7069,35 @@ metadata:
   namespace: kyverno
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app: kyverno
+  name: kyverno:leaderelection
+  namespace: kyverno
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
@@ -7082,7 +7111,13 @@ rules:
   - policies
   - clusterpolicies
   verbs:
-  - '*'
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -7098,7 +7133,13 @@ rules:
   - policyreports
   - clusterpolicyreports
   verbs:
-  - '*'
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -7114,17 +7155,90 @@ rules:
   - reportchangerequests
   - clusterreportchangerequests
   verbs:
-  - '*'
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
     app: kyverno
-  name: kyverno:customresources
+  name: kyverno:events
 rules:
 - apiGroups:
   - '*'
+  resources:
+  - events
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: kyverno
+  name: kyverno:generate
+rules:
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  - ingressclasses
+  - networkpolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  - configmaps
+  - secrets
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - quota
+  resources:
+  - resourcequotas
+  - limitranges
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: kyverno
+  name: kyverno:policies
+rules:
+- apiGroups:
+  - kyverno.io
   resources:
   - policies
   - policies/status
@@ -7149,76 +7263,6 @@ rules:
   - update
   - watch
   - deletecollection
-- apiGroups:
-  - apiextensions.k8s.io
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - delete
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    app: kyverno
-  name: kyverno:generatecontroller
-rules:
-- apiGroups:
-  - '*'
-  resources:
-  - namespaces
-  - networkpolicies
-  - secrets
-  - configmaps
-  - resourcequotas
-  - limitranges
-  verbs:
-  - create
-  - update
-  - delete
-  - list
-  - get
-- apiGroups:
-  - '*'
-  resources:
-  - namespaces
-  verbs:
-  - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    app: kyverno
-  name: kyverno:leaderelection
-rules:
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - create
-  - delete
-  - get
-  - patch
-  - update
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    app: kyverno
-  name: kyverno:policycontroller
-rules:
-- apiGroups:
-  - '*'
-  resources:
-  - '*'
-  verbs:
-  - get
-  - list
-  - update
-  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -7228,17 +7272,31 @@ metadata:
   name: kyverno:userinfo
 rules:
 - apiGroups:
-  - '*'
+  - rbac.authorization.k8s.io
   resources:
   - roles
   - clusterroles
   - rolebindings
   - clusterrolebindings
-  - configmaps
-  - namespaces
   verbs:
   - watch
   - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: kyverno
+  name: kyverno:view
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -7248,13 +7306,10 @@ metadata:
   name: kyverno:webhook
 rules:
 - apiGroups:
-  - '*'
+  - admissionregistration.k8s.io
   resources:
-  - events
   - mutatingwebhookconfigurations
   - validatingwebhookconfigurations
-  - certificatesigningrequests
-  - certificatesigningrequests/approval
   verbs:
   - create
   - delete
@@ -7263,68 +7318,17 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - certificates.k8s.io
-  resourceNames:
-  - kubernetes.io/legacy-unknown
-  resources:
-  - certificatesigningrequests
-  - certificatesigningrequests/approval
-  - certificatesigningrequests/status
-  verbs:
-  - create
-  - delete
-  - get
-  - update
-  - watch
-- apiGroups:
-  - certificates.k8s.io
-  resourceNames:
-  - kubernetes.io/legacy-unknown
-  resources:
-  - signers
-  verbs:
-  - approve
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  labels:
-    app: kyverno
-  name: kyverno:customresources
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:customresources
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
-  namespace: kyverno
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  labels:
-    app: kyverno
-  name: kyverno:generatecontroller
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:generatecontroller
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
-  namespace: kyverno
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   labels:
     app: kyverno
   name: kyverno:leaderelection
+  namespace: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: Role
   name: kyverno:leaderelection
 subjects:
 - kind: ServiceAccount
@@ -7336,11 +7340,41 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     app: kyverno
-  name: kyverno:policycontroller
+  name: kyverno:events
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kyverno:policycontroller
+  name: kyverno:events
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: kyverno
+  name: kyverno:generate
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:generate
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: kyverno
+  name: kyverno:policies
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:policies
 subjects:
 - kind: ServiceAccount
   name: kyverno-service-account
@@ -7356,6 +7390,21 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: kyverno:userinfo
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: kyverno
+  name: kyverno:view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:view
 subjects:
 - kind: ServiceAccount
   name: kyverno-service-account
