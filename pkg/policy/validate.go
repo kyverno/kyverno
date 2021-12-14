@@ -1259,6 +1259,11 @@ func validateExcludeResourceDescription(rd kyverno.ResourceDescription) (string,
 // field type is checked through openapi
 func validateResourceDescription(rd kyverno.ResourceDescription) error {
 	if rd.Selector != nil {
+		for _, v := range rd.Selector.MatchLabels {
+			if v == "*" {
+				return nil
+			}
+		}
 		selector, err := metav1.LabelSelectorAsSelector(rd.Selector)
 		if err != nil {
 			return err
