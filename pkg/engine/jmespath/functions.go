@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aquilax/truncate"
 	gojmespath "github.com/jmespath/go-jmespath"
 	"github.com/minio/pkg/wildcard"
-	"github.com/aquilax/truncate"
 )
 
 var (
