@@ -10,15 +10,16 @@ import (
 	"sync"
 	"time"
 
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
+	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/utils"
 	coord "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -29,6 +30,16 @@ var (
 	setupLog             = log.Log.WithName("setup")
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
+
+	updateLabelSelector = &v1.LabelSelector{
+		MatchExpressions: []v1.LabelSelectorRequirement{
+			{
+				Key:      policyreport.LabelSelectorKey,
+				Operator: v1.LabelSelectorOpDoesNotExist,
+				Values:   []string{policyreport.LabelSelectorValue},
+			},
+		},
+	}
 )
 
 const (
@@ -65,17 +76,6 @@ func main() {
 	// DYNAMIC CLIENT
 	// - client for all registered resources
 	client, err := client.NewClient(clientConfig, 15*time.Minute, stopCh, log.Log)
-	if err != nil {
-		setupLog.Error(err, "Failed to create client")
-		os.Exit(1)
-	}
-
-	pclientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst, log.Log)
-	if err != nil {
-		setupLog.Error(err, "Failed to build client config")
-		os.Exit(1)
-	}
-	pclient, err := kyvernoclient.NewForConfig(pclientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
@@ -130,8 +130,8 @@ func main() {
 		in := gen(done, stopCh, requests...)
 		// process requests
 		// processing routine count : 2
-		p1 := process(client, pclient, done, stopCh, in)
-		p2 := process(client, pclient, done, stopCh, in)
+		p1 := process(client, done, stopCh, in)
+		p2 := process(client, done, stopCh, in)
 		// merge results from processing routines
 		for err := range merge(done, stopCh, p1, p2) {
 			if err != nil {
@@ -166,11 +166,15 @@ func main() {
 	le.Run(ctx)
 }
 
-func executeRequest(client *client.Client, pclient *kyvernoclient.Clientset, req request) error {
+func executeRequest(client *client.Client, req request) error {
 	switch req.kind {
 	case policyReportKind:
-		return removePolicyReport(client, pclient, req.kind)
+		addPolicyReportSelectorLabel(client, req.kind)
+
+		return removePolicyReport(client, req.kind)
 	case clusterPolicyReportKind:
+		addClusterPolicyReportSelectorLabel(client, req.kind)
+
 		return removeClusterPolicyReport(client, req.kind)
 	case reportChangeRequestKind:
 		return removeReportChangeRequest(client, req.kind)
@@ -217,14 +221,14 @@ func gen(done <-chan struct{}, stopCh <-chan struct{}, requests ...request) <-ch
 }
 
 // processes the requests
-func process(client *client.Client, pclient *kyvernoclient.Clientset, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
+func process(client *client.Client, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
 	logger := log.Log.WithName("process")
 	out := make(chan error)
 	go func() {
 		defer close(out)
 		for req := range requests {
 			select {
-			case out <- executeRequest(client, pclient, req):
+			case out <- executeRequest(client, req):
 			case <-done:
 				logger.Info("done")
 				return
@@ -274,7 +278,7 @@ func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan err
 func removeClusterPolicyReport(client *client.Client, kind string) error {
 	logger := log.Log.WithName("removeClusterPolicyReport")
 
-	cpolrs, err := client.ListResource("", kind, "", nil)
+	cpolrs, err := client.ListResource("", kind, "", policyreport.LabelSelector)
 	if err != nil {
 		logger.Error(err, "failed to list clusterPolicyReport")
 		return nil
@@ -286,24 +290,52 @@ func removeClusterPolicyReport(client *client.Client, kind string) error {
 	return nil
 }
 
-func removePolicyReport(client *client.Client, pclient *kyvernoclient.Clientset, kind string) error {
+func removePolicyReport(client *client.Client, kind string) error {
 	logger := log.Log.WithName("removePolicyReport")
 
-	namespaces, err := client.ListResource("", "Namespace", "", nil)
+	polrs, err := client.ListResource("", kind, v1.NamespaceAll, policyreport.LabelSelector)
 	if err != nil {
-		logger.Error(err, "failed to list namespaces")
-		return err
+		logger.Error(err, "failed to list policyReport")
+		return nil
 	}
 
-	for _, ns := range namespaces.Items {
-		logger.Info("Removing policy reports", "namespace", ns.GetName())
-		err := pclient.Wgpolicyk8sV1alpha2().PolicyReports(ns.GetName()).DeleteCollection(context.TODO(), v1.DeleteOptions{}, v1.ListOptions{})
-		if err != nil {
-			logger.Error(err, "Failed to delete policy reports", "namespace", ns.GetName())
-		}
+	for _, polr := range polrs.Items {
+		deleteResource(client, polr.GetAPIVersion(), polr.GetKind(), polr.GetNamespace(), polr.GetName())
 	}
 
 	return nil
+}
+
+func addClusterPolicyReportSelectorLabel(client *client.Client, kind string) {
+	logger := log.Log.WithName("addClusterPolicyReportSelectorLabel")
+
+	cpolrs, err := client.ListResource("", kind, "", updateLabelSelector)
+	if err != nil {
+		logger.Error(err, "failed to list clusterPolicyReport")
+		return
+	}
+
+	for _, cpolr := range cpolrs.Items {
+		if cpolr.GetName() == policyreport.GeneratePolicyReportName("") {
+			addSelectorLabel(client, cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName())
+		}
+	}
+}
+
+func addPolicyReportSelectorLabel(client *client.Client, kind string) {
+	logger := log.Log.WithName("addPolicyReportSelectorLabel")
+
+	polrs, err := client.ListResource("", kind, v1.NamespaceAll, updateLabelSelector)
+	if err != nil {
+		logger.Error(err, "failed to list policyReport")
+		return
+	}
+
+	for _, polr := range polrs.Items {
+		if polr.GetName() == policyreport.GeneratePolicyReportName(polr.GetNamespace()) {
+			addSelectorLabel(client, polr.GetAPIVersion(), polr.GetKind(), polr.GetNamespace(), polr.GetName())
+		}
+	}
 }
 
 func removeReportChangeRequest(client *client.Client, kind string) error {
@@ -368,4 +400,28 @@ func deleteResource(client *client.Client, apiversion, kind, ns, name string) {
 	}
 
 	log.Log.Info("successfully cleaned up resource", "kind", kind, "name", name)
+}
+
+func addSelectorLabel(client *client.Client, apiversion, kind, ns, name string) {
+	res, err := client.GetResource(apiversion, kind, ns, name)
+	if err != nil && !errors.IsNotFound(err) {
+		log.Log.Error(err, "failed to get resource", "kind", kind, "name", name)
+		return
+	}
+
+	l, err := v1.LabelSelectorAsMap(policyreport.LabelSelector)
+	if err != nil {
+		log.Log.Error(err, "failed to convert labels", "labels", policyreport.LabelSelector)
+		return
+	}
+
+	res.SetLabels(labels.Merge(res.GetLabels(), l))
+
+	_, err = client.UpdateResource(apiversion, kind, ns, res, false)
+	if err != nil {
+		log.Log.Error(err, "failed to update resource", "kind", kind, "name", name)
+		return
+	}
+
+	log.Log.Info("successfully updated resource labels", "kind", kind, "name", name)
 }
