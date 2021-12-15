@@ -208,7 +208,6 @@ func main() {
 	)
 
 	prgen, err := policyreport.NewReportGenerator(
-		kubeClient,
 		pclient,
 		client,
 		pInformer.Wgpolicyk8s().V1alpha2().ClusterPolicyReports(),
