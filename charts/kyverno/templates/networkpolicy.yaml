@@ -12,30 +12,44 @@ spec:
       app: kyverno
   policyTypes:
   - Ingress
+  {{- if or .Values.networkPolicy.namespaceExpressions .Values.networkPolicy.namespaceLabels .Values.networkPolicy.podExpressions .Values.networkPolicy.podLabels }}
   ingress:
   - from:
-      {{- with .Values.networkPolicy }}
+    {{- if or .Values.networkPolicy.namespaceExpressions .Values.networkPolicy.namespaceLabels }}
       - namespaceSelector:
+        {{- with .Values.networkPolicy.namespaceExpressions }}
           matchExpressions:
-            {{- toYaml .namespaceExpressions | nindent 10 }}
+            {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.networkPolicy.namespaceLabels }}
           matchLabels:
-            {{- range $key, $value := .namespaceLabels }}
+            {{- range $key, $value := . }}
             {{ $key | quote }}: {{ $value | quote }}
             {{- end }}
+        {{- end }}
+    {{- end }}
+    {{- if or .Values.networkPolicy.podExpressions .Values.networkPolicy.podLabels }}
         podSelector:
+          {{- with .Values.networkPolicy.podExpressions }}
           matchExpressions:
-            {{- toYaml .podExpressions | nindent 10 }}
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- with .Values.networkPolicy.podLabels }}
           matchLabels:
-            {{- range $key, $value := .podLabels }}
+            {{- range $key, $value := . }}
             {{ $key | quote }}: {{ $value | quote }}
             {{- end }}
-      {{- end }}
+          {{- end }}
+    {{- end }}
     ports:
     - protocol: TCP
       port: 9443 # webhook access
   # Allow prometheus scrapes for metrics
   {{- if .Values.metricsService.create }}
-  - ports:
-      - port: {{ .Values.metricsService.port }}
+    - protocol: TCP
+      port: {{ .Values.metricsService.port }}
+  {{- end }}
+  {{- else }}
+  ingress: {}
   {{- end }}
 {{- end }}
