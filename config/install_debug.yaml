@@ -1890,10 +1890,13 @@ spec:
                           include the SHA digest retrieved during the registration.
                         properties:
                           annotations:
+                            additionalProperties:
+                              type: string
                             description: Annotations are used for image verification.
                               Every specified key-value pair must exist and match
                               in the verified payload. The payload may contain other
                               key-value pairs.
+                            type: object
                           attestations:
                             description: Attestations are optional checks for signed
                               in-toto Statements used to verify the image. See https://github.com/in-toto/attestation.
@@ -5523,10 +5526,13 @@ spec:
                           include the SHA digest retrieved during the registration.
                         properties:
                           annotations:
+                            additionalProperties:
+                              type: string
                             description: Annotations are used for image verification.
                               Every specified key-value pair must exist and match
                               in the verified payload. The payload may contain other
                               key-value pairs.
+                            type: object
                           attestations:
                             description: Attestations are optional checks for signed
                               in-toto Statements used to verify the image. See https://github.com/in-toto/attestation.

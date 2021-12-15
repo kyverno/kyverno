@@ -78,7 +78,7 @@ type Options struct {
 	Roots       []byte
 	Subject     string
 	Issuer      string
-	Annotations map[string]interface{}
+	Annotations map[string]string
 	Repository  string
 	Log         logr.Logger
 }
@@ -427,7 +427,7 @@ func extractSubject(imgRef string, payload []payload.SimpleContainerImage, log l
 	return "", fmt.Errorf("image subject not found for " + imgRef)
 }
 
-func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]interface{}, log logr.Logger) error {
+func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]string, log logr.Logger) error {
 	for _, p := range payload {
 		for key, val := range annotations {
 			if val != p.Optional[key] {

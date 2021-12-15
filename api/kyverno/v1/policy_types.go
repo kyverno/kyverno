@@ -557,7 +557,7 @@ type ImageVerification struct {
 	// Annotations are used for image verification.
 	// Every specified key-value pair must exist and match in the verified payload.
 	// The payload may contain other key-value pairs.
-	Annotations map[string]interface{} `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 
 	// Repository is an optional alternate OCI repository to use for image signatures that match this rule.
 	// If specified Repository will override the default OCI image repository configured for the installation.

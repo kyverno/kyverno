@@ -49,7 +49,7 @@ func TestCosignPayload(t *testing.T) {
 	signedPayloads := cosign.SignedPayload{Payload: []byte(cosignPayload)}
 	p, err := extractPayload(image, []oci.Signature{&sig{cosignPayload: signedPayloads}}, log)
 	assert.NilError(t, err)
-	a := map[string]interface{}{"foo": "bar"}
+	a := map[string]string{"foo": "bar"}
 	err = checkAnnotations(p, a, log)
 	assert.NilError(t, err)
 	d, err := extractDigest(image, p, log)
