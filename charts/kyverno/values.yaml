@@ -247,7 +247,7 @@ installCRDs: true
 # policies in a default-deny setup.
 networkPolicy:
   enabled: false
-  namespaceExpressions: [{}]
+  namespaceExpressions: []
   namespaceLabels: {}
-  podExpressions: [{}]
+  podExpressions: []
   podLabels: {}
