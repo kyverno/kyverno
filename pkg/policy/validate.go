@@ -1260,7 +1260,7 @@ func validateExcludeResourceDescription(rd kyverno.ResourceDescription) (string,
 func validateResourceDescription(rd kyverno.ResourceDescription) error {
 	if rd.Selector != nil {
 		for _, v := range rd.Selector.MatchLabels {
-			if v == "*" {
+			if v == "*" || strings.HasPrefix(v, "*") || strings.HasSuffix(v, "*") {
 				return nil
 			}
 		}
