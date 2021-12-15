@@ -127,6 +127,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		for _, n := range name {
 			if r.Name == n {
 				r.Status = response.RuleStatusSkip
+				logger.V(4).Info("rule Status set as skip", "rule name", r.Name)
 			}
 		}
 	}
