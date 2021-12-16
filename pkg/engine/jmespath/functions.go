@@ -12,6 +12,7 @@ import (
 	"time"
 
 	trunc "github.com/aquilax/truncate"
+	"github.com/blang/semver/v4"
 	gojmespath "github.com/jmespath/go-jmespath"
 	"github.com/minio/pkg/wildcard"
 )
@@ -55,6 +56,7 @@ var (
 	timeSince              = "time_since"
 	pathCanonicalize       = "path_canonicalize"
 	truncate               = "truncate"
+	semverCompare          = "semver_compare"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -251,6 +253,14 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpNumber}},
 			},
 			Handler: jpTruncate,
+		},
+		{
+			Name: semverCompare,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpSemverCompare,
 		},
 	}
 
@@ -622,6 +632,30 @@ func jpTruncate(arguments []interface{}) (interface{}, error) {
 	}
 
 	return trunc.Truncator(str.String(), int(length.Float()), trunc.CutStrategy{}), nil
+}
+
+func jpSemverCompare(arguments []interface{}) (interface{}, error) {
+	var err error
+	v, err := validateArg(semverCompare, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := validateArg(semverCompare, arguments, 1, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	version, _ := semver.Parse(v.String())
+	expectedRange, err := semver.ParseRange(r.String())
+	if err != nil {
+		return nil, err
+	}
+
+	if expectedRange(version) {
+		return true, nil
+	}
+	return false, nil
 }
 
 // InterfaceToString casts an interface to a string type
