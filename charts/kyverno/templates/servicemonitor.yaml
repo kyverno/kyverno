@@ -1,9 +1,4 @@
 {{- if .Values.serviceMonitor.enabled }}
-
-{{- if not (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") -}}
-    {{- fail "Prometheus is not installed" }}
-{{ end }}
-
 apiVersion: "monitoring.coreos.com/v1"
 kind: ServiceMonitor
 metadata:

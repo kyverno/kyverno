@@ -690,6 +690,8 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.Cluste
 			// note: webhook stores GVR in its rules while policy stores GVK in its rules definition
 			gv, k := common.GetKindFromGVK(gvk)
 			switch k {
+			case "Binding":
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods/binding"})
 			case "NodeProxyOptions":
 				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes/proxy"})
 			case "PodAttachOptions":

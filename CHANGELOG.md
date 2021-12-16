@@ -1,4 +1,4 @@
-## v1.5.2-rc1
+## v1.6.0-rc1
 ### Note
 - Helm charts are changed to enforce PodDisruptionBudget for multi-replica clusters and PDB is removed from install manifests.
 
