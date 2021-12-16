@@ -4,10 +4,10 @@ They are approvers who have shown good technical judgement in feature design/dev
 
 | Maintainer  | GitHub ID                                   | Affiliation               |
 | ----------- | ------------------------------------------- | ------------------------- |
-| JimBugwadia | [github-id](https://github.com/JimBugwadia) | Nirmata Inc.              |
-| Realshuting | [github-id](https://github.com/realshuting) | Nirmata Inc.              |
-| Chip zoller | [github-id](https://github.com/chipzoller)  | dell                      |
-| Marcel Mue  | [github-id](https://github.com/MarcelMue)   | Giant Swarm GmbH          |
-| Treydock    | [github-id](https://github.com/treydock)    | Ohio Supercomputer Center |
+| JimBugwadia | [@JimBugwadia](https://github.com/JimBugwadia) | Nirmata Inc.              |
+| Realshuting | [@realshuting](https://github.com/realshuting) | Nirmata Inc.              |
+| Chip zoller | [@chipzoller](https://github.com/chipzoller)  | dell                      |
+| Marcel Mue  | [@MarcelMue](https://github.com/MarcelMue)   | Giant Swarm GmbH          |
+| Treydock    | [@treydock](https://github.com/treydock)    | Ohio Supercomputer Center |
 
 **Note**: Please refer to the [Project Governance](https://kyverno.io/community/project-governance/) for more information on the responsibilities and privileges of a maintainer in Kyverno.
