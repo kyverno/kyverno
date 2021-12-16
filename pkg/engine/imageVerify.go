@@ -184,7 +184,18 @@ func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imag
 		opts.Key = imageVerify.Key
 	} else {
 		opts.Roots = []byte(imageVerify.Roots)
+	}
+
+	if imageVerify.Issuer != "" {
+		opts.Issuer = imageVerify.Issuer
+	}
+
+	if imageVerify.Subject != "" {
 		opts.Subject = imageVerify.Subject
+	}
+
+	if imageVerify.Annotations != nil {
+		opts.Annotations = imageVerify.Annotations
 	}
 
 	start := time.Now()
