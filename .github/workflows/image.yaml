@@ -3,6 +3,12 @@ on:
   push:
     branches:
       - 'main'
+### only added for testing
+  pull_request:
+    branches:
+      - 'main'
+###
+
 jobs:
   push-init-kyverno:
     runs-on: ubuntu-latest
@@ -35,12 +41,12 @@ jobs:
       - name: docker images publish
         run: |
           make docker-publish-sigs
-          make docker-publish-initContainer
+          make docker-publish-initContainer-dev
 
       - name: Sign image
         run: |
           export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
-          KYVERNO_IMAGE_VERSION=$(git describe --match "v[0-9]*")
+          KYVERNO_IMAGE_VERSION=$(git describe --match "[0-9].[0-9]-dev*")
           echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyvernopre:${KYVERNO_IMAGE_VERSION}
 
   push-kyverno:
@@ -73,12 +79,12 @@ jobs:
 
       - name: docker images publish
         run: |
-          make docker-publish-kyverno
+          make docker-publish-kyverno-dev
 
       - name: Sign image
         run: |
           export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
-          KYVERNO_IMAGE_VERSION=$(git describe --match "v[0-9]*")
+          KYVERNO_IMAGE_VERSION=$(git describe --match "[0-9].[0-9]-dev*")
           echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno:${KYVERNO_IMAGE_VERSION}
 
   push-kyverno-cli:
@@ -111,10 +117,10 @@ jobs:
 
       - name: docker images publish
         run: |
-          make docker-publish-cli
+          make docker-publish-cli-dev
 
       - name: Sign image
         run: |
           export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
-          KYVERNO_IMAGE_VERSION=$(git describe --match "v[0-9]*")
+          KYVERNO_IMAGE_VERSION=$(git describe --match "[0-9].[0-9]-dev*")
           echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno-cli:${KYVERNO_IMAGE_VERSION}

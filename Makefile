@@ -13,6 +13,7 @@ VERSION ?= $(shell git describe --match "v[0-9]*")
 
 REGISTRY?=ghcr.io
 REPO=$(REGISTRY)/kyverno
+DEV_IMAGE_TAG=$(shell git describe --match "[0-9].[0-9]-dev*")
 IMAGE_TAG?=$(GIT_VERSION)
 GOOS ?= $(shell go env GOOS)
 ifeq ($(GOOS), darwin)
@@ -109,6 +110,12 @@ docker-build-initContainer-local:
 	@docker build -f $(PWD)/$(INITC_PATH)/localDockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) $(PWD)/$(INITC_PATH)
 	@docker tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) $(REPO)/$(INITC_IMAGE):latest
 
+docker-publish-initContainer-dev: docker-buildx-builder docker-push-initContainer-dev
+
+docker-push-initContainer-dev: docker-buildx-builder
+	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(INITC_IMAGE):$(DEV_IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(INITC_IMAGE):$(DEV_IMAGE_TAG)-latest . --build-arg LD_FLAGS=$(LD_FLAGS)
+
 ##################################
 # KYVERNO CONTAINER
 ##################################
@@ -140,6 +147,11 @@ docker-push-kyverno: docker-buildx-builder
 	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TAGS=$(TAGS)
 	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TAGS=$(TAGS)
 
+docker-publish-kyverno-dev: docker-buildx-builder docker-push-kyverno-dev
+
+docker-push-kyverno-dev: docker-buildx-builder
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(DEV_IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TAGS=$(TAGS)
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(DEV_IMAGE_TAG)-latest . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TAGS=$(TAGS)
 ##################################
 
 # Generate Docs for types.go
@@ -170,6 +182,12 @@ docker-build-cli-amd64:
 docker-push-cli: docker-buildx-builder
 	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_CLI_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS)
+
+docker-publish-cli-dev: docker-buildx-builder docker-push-cli-dev
+
+docker-push-cli-dev: docker-buildx-builder
+	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(DEV_IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(DEV_IMAGE_TAG)-latest . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 ##################################
 docker-publish-all: docker-buildx-builder docker-publish-initContainer docker-publish-kyverno docker-publish-cli
