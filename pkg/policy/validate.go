@@ -1276,10 +1276,20 @@ func validateResourceDescription(rd kyverno.ResourceDescription) error {
 }
 
 func labelSelectorContainWildcard(v *metav1.LabelSelector) bool {
-	for _, v := range v.MatchLabels {
-		if strings.Contains(v, "*") || strings.Contains(v, "?") {
+	for k, v := range v.MatchLabels {
+		if isWildcardPresent(k) {
 			return true
 		}
+		if isWildcardPresent(v) {
+			return true
+		}
+	}
+	return false
+}
+
+func isWildcardPresent(v string) bool {
+	if strings.Contains(v, "*") || strings.Contains(v, "?") {
+		return true
 	}
 	return false
 }
