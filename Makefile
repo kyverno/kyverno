@@ -230,7 +230,7 @@ $(GO_ACC):
 # go-acc merges the result for pks so that it be used by
 # go tool cover for reporting
 
-test: test-clean test-unit test-e2e test-cmd
+test: test-clean test-unit test-e2e
 
 test-clean:
 	@echo "	cleaning test cache"
@@ -266,17 +266,6 @@ test-e2e-local:
 	go test ./test/e2e/generate -v
 	kill  $!
 	$(eval export E2E="")
-
-#Test TestCmd Policy
-test-cmd: cli
-	$(PWD)/$(CLI_PATH)/kyverno test https://github.com/kyverno/policies/$(GIT_BRANCH)
-	$(PWD)/$(CLI_PATH)/kyverno test https://github.com/kyverno/policies --git-branch $(GIT_BRANCH)
-	$(PWD)/$(CLI_PATH)/kyverno test https://github.com/kyverno/policies/pod-security/restricted -b $(GIT_BRANCH)
-	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-mutate
-	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test
-	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
-	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-rule && exit 1 || exit 0
-	$(PWD)/$(CLI_PATH)/kyverno test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
 
 # godownloader create downloading script for kyverno-cli
 godownloader:
