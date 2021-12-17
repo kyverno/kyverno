@@ -5,7 +5,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -20,7 +19,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -2109,7 +2107,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -2792,7 +2789,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -3473,7 +3469,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -3671,7 +3666,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -5762,7 +5756,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -6443,7 +6436,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7122,7 +7114,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7136,7 +7127,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7161,7 +7151,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7189,7 +7178,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7217,7 +7205,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7245,7 +7232,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7268,7 +7254,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7324,7 +7309,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7364,7 +7348,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7388,7 +7371,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7410,7 +7392,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7437,7 +7418,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7459,7 +7439,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7480,7 +7459,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7501,7 +7479,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7522,7 +7499,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7543,7 +7519,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7564,7 +7539,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7589,7 +7563,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7606,7 +7579,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7620,7 +7592,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7642,7 +7613,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7664,7 +7634,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7687,7 +7656,6 @@ spec:
         app: kyverno
         app.kubernetes.io/component: kyverno
         app.kubernetes.io/instance: kyverno
-        app.kubernetes.io/managed-by: Kustomize
         app.kubernetes.io/name: kyverno
         app.kubernetes.io/part-of: kyverno
         app.kubernetes.io/version: latest
