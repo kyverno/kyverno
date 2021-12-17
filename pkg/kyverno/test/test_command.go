@@ -296,7 +296,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 			fmt.Printf("\n No test yamls available \n")
 		}
 		if testYamlNameCount > 0 {
-			fmt.Printf("\n Note : test.yaml file name will be deprecate from kyerno test command from 1.6.0 release. Please provide test yaml file as kyverno-test.yaml \n")
+			fmt.Printf("\n Note : test.yaml file name is deprecated in 1.6.0 release. Please provide test yaml file as kyverno-test.yaml \n")
 		}
 
 	} else {
@@ -358,7 +358,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 		fmt.Printf("\n No test yamls found. Please provide test yaml file as kyverno-test.yaml \n")
 	}
 	if dirTestYamlNameCount > 0 {
-		fmt.Printf("\n Note: test.yaml file name will be deprecate from kyerno test command from 1.6.0 release. Please provide test yaml file as kyverno-test.yaml \n")
+		fmt.Printf("\n Note: test.yaml file name is deprecated in 1.6.0 release. Please provide test yaml file as kyverno-test.yaml \n")
 	}
 	return errors
 }
