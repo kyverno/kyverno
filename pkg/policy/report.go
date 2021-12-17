@@ -100,9 +100,14 @@ func cleanupReportChangeRequests(pclient *kyvernoclient.Clientset, rcrLister cha
 }
 
 func eraseResultsEntries(pclient *kyvernoclient.Clientset, reportLister policyreportlister.PolicyReportLister, clusterReportLister policyreportlister.ClusterPolicyReportLister) error {
+	selector, err := metav1.LabelSelectorAsSelector(policyreport.LabelSelector)
+	if err != nil {
+		return fmt.Errorf("failed to erase results entries %v", err)
+	}
+
 	var errors []string
 
-	if polrs, err := reportLister.List(labels.Everything()); err != nil {
+	if polrs, err := reportLister.List(selector); err != nil {
 		errors = append(errors, err.Error())
 	} else {
 		for _, polr := range polrs {
@@ -114,7 +119,7 @@ func eraseResultsEntries(pclient *kyvernoclient.Clientset, reportLister policyre
 		}
 	}
 
-	if cpolrs, err := clusterReportLister.List(labels.Everything()); err != nil {
+	if cpolrs, err := clusterReportLister.List(selector); err != nil {
 		errors = append(errors, err.Error())
 	} else {
 		for _, cpolr := range cpolrs {

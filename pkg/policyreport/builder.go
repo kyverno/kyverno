@@ -40,7 +40,7 @@ const (
 	SourceValue = "Kyverno"
 )
 
-func generatePolicyReportName(ns string) string {
+func GeneratePolicyReportName(ns string) string {
 	if ns == "" {
 		return clusterpolicyreport
 	}
