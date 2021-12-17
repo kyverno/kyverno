@@ -3,11 +3,6 @@ on:
   push:
     branches:
       - 'main'
-### only added for testing
-  pull_request:
-    branches:
-      - 'main'
-###
 
 jobs:
   push-init-kyverno:
