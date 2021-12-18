@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/blang/semver/v4"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -37,14 +38,30 @@ func compareByCondition(key float64, value float64, op kyverno.ConditionOperator
 		return key <= value
 	case kyverno.LessThan:
 		return key < value
-	case kyverno.Equals:
-		return key == value
-	case kyverno.Equal:
-		return key == value
-	case kyverno.NotEquals:
-		return key != value
-	case kyverno.NotEqual:
-		return key != value
+	// case kyverno.Equals:
+	// 	return key == value
+	// case kyverno.Equal:
+	// 	return key == value
+	// case kyverno.NotEquals:
+	// 	return key != value
+	// case kyverno.NotEqual:
+	// 	return key != value
+	default:
+		(*log).Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
+		return false
+	}
+}
+
+func compareVersionByCondition(key semver.Version, value semver.Version, op kyverno.ConditionOperator, log *logr.Logger) bool {
+	switch op {
+	case kyverno.GreaterThanOrEquals:
+		return key.GTE(value)
+	case kyverno.GreaterThan:
+		return key.GT(value)
+	case kyverno.LessThanOrEquals:
+		return key.LTE(value)
+	case kyverno.LessThan:
+		return key.LT(value)
 	default:
 		(*log).Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
 		return false
@@ -141,6 +158,21 @@ func (noh NumericOperatorHandler) validateValueWithResourcePattern(key resource.
 	}
 }
 
+func (noh NumericOperatorHandler) validateValueWithVersionPattern(key semver.Version, value interface{}) bool {
+	switch typedValue := value.(type) {
+	case string:
+		versionValue, err := semver.Parse(typedValue)
+		if err != nil {
+			noh.log.Error(fmt.Errorf("parse error: "), "Failed to parse value type doesn't match key type")
+			return false
+		}
+		return compareVersionByCondition(key, versionValue, noh.condition, &noh.log)
+	default:
+		noh.log.Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))
+		return false
+	}
+}
+
 func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, value interface{}) bool {
 	// We need to check duration first as it's the only type that can be compared to a different type
 	durationKey, durationValue, err := parseDuration(key, value)
@@ -161,6 +193,11 @@ func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, val
 	resourceKey, err := resource.ParseQuantity(key)
 	if err == nil {
 		return noh.validateValueWithResourcePattern(resourceKey, value)
+	}
+	// attempt to extract version from string
+	versionKey, err := semver.Parse(key)
+	if err == nil {
+		return noh.validateValueWithVersionPattern(versionKey, value)
 	}
 
 	noh.log.Error(err, "Failed to parse from the string key, value is not float, int nor resource quantity")
