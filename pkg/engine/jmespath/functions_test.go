@@ -972,3 +972,54 @@ func Test_PathCanonicalize(t *testing.T) {
 		})
 	}
 }
+
+func Test_Truncate(t *testing.T) {
+	// Can't use integer literals due to
+	// https://github.com/jmespath/go-jmespath/issues/27
+	//
+	// TODO: fix this in https://github.com/kyverno/go-jmespath
+
+	testCases := []struct {
+		jmesPath       string
+		expectedResult string
+	}{
+		{
+			jmesPath:       "truncate('Lorem ipsum dolor sit amet', `5`)",
+			expectedResult: "Lorem",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum ipsum ipsum dolor sit amet', `11`)",
+			expectedResult: "Lorem ipsum",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum ipsum ipsum dolor sit amet', `40`)",
+			expectedResult: "Lorem ipsum ipsum ipsum dolor sit amet",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum', `2.6`)",
+			expectedResult: "Lo",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum', `0`)",
+			expectedResult: "",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum', `-1`)",
+			expectedResult: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.jmesPath, func(t *testing.T) {
+			jp, err := New(tc.jmesPath)
+			assert.NilError(t, err)
+
+			result, err := jp.Search("")
+			assert.NilError(t, err)
+
+			res, ok := result.(string)
+			assert.Assert(t, ok)
+			assert.Equal(t, res, tc.expectedResult)
+		})
+	}
+}
