@@ -38,14 +38,6 @@ func compareByCondition(key float64, value float64, op kyverno.ConditionOperator
 		return key <= value
 	case kyverno.LessThan:
 		return key < value
-	// case kyverno.Equals:
-	// 	return key == value
-	// case kyverno.Equal:
-	// 	return key == value
-	// case kyverno.NotEquals:
-	// 	return key != value
-	// case kyverno.NotEqual:
-	// 	return key != value
 	default:
 		(*log).Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
 		return false
