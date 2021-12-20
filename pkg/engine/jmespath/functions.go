@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	trunc "github.com/aquilax/truncate"
 	gojmespath "github.com/jmespath/go-jmespath"
 	"github.com/minio/pkg/wildcard"
 )
@@ -53,6 +54,7 @@ var (
 	base64Encode           = "base64_encode"
 	timeSince              = "time_since"
 	pathCanonicalize       = "path_canonicalize"
+	truncate               = "truncate"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -241,6 +243,14 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpString}},
 			},
 			Handler: jpPathCanonicalize,
+		},
+		{
+			Name: truncate,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpNumber}},
+			},
+			Handler: jpTruncate,
 		},
 	}
 
@@ -598,6 +608,27 @@ func jpPathCanonicalize(arguments []interface{}) (interface{}, error) {
 	}
 
 	return filepath.Join(str.String()), nil
+}
+
+func jpTruncate(arguments []interface{}) (interface{}, error) {
+	var err error
+	var normalizedLength float64
+	str, err := validateArg(truncate, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	length, err := validateArg(truncate, arguments, 1, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+
+	if length.Float() < 0 {
+		normalizedLength = float64(0)
+	} else {
+		normalizedLength = length.Float()
+	}
+
+	return trunc.Truncator(str.String(), int(normalizedLength), trunc.CutStrategy{}), nil
 }
 
 // InterfaceToString casts an interface to a string type

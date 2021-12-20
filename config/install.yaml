@@ -1900,6 +1900,14 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            description: Annotations are used for image verification.
+                              Every specified key-value pair must exist and match
+                              in the verified payload. The payload may contain other
+                              key-value pairs.
+                            type: object
                           attestations:
                             description: Attestations are optional checks for signed
                               in-toto Statements used to verify the image. See https://github.com/in-toto/attestation.
@@ -2031,6 +2039,10 @@ spec:
                             description: 'Image is the image name consisting of the
                               registry address, repository, image, and tag. Wildcards
                               (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                            type: string
+                          issuer:
+                            description: Issuer is the certificate issuer used for
+                              keyless signing.
                             type: string
                           key:
                             description: Key is the PEM encoded public key that the
@@ -5548,6 +5560,14 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            description: Annotations are used for image verification.
+                              Every specified key-value pair must exist and match
+                              in the verified payload. The payload may contain other
+                              key-value pairs.
+                            type: object
                           attestations:
                             description: Attestations are optional checks for signed
                               in-toto Statements used to verify the image. See https://github.com/in-toto/attestation.
@@ -5679,6 +5699,10 @@ spec:
                             description: 'Image is the image name consisting of the
                               registry address, repository, image, and tag. Wildcards
                               (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                            type: string
+                          issuer:
+                            description: Issuer is the certificate issuer used for
+                              keyless signing.
                             type: string
                           key:
                             description: Key is the PEM encoded public key that the
@@ -7143,6 +7167,16 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
