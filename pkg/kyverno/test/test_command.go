@@ -42,18 +42,22 @@ var longHelp = `
 The test command provides a facility to test resources against policies by comparing expected results, declared ahead of time in a test.yaml file, to actual results reported by Kyverno. Users provide the path to the folder containing a test.yaml file where the location could be on a local filesystem or a remote git repository
 `
 var exampleHelp = `
-kyverno test https://github.com/kyverno/policies/main
+kyverno test https://github.com/kyverno/policies/pod-security --git-branch main
     <snip>
 
-    Executing disallow-cri-sock-mount...
-    applying 1 policy to 1 resource...
-    │───│────────────────────────────────│────────────────────────────────│────────────────────────────│────────│
-    │ # │ POLICY                         │ RULE                           │ RESOURCE                   │ RESULT │
-    │───│────────────────────────────────│────────────────────────────────│────────────────────────────│────────│
-    │ 1 │ disallow-container-sock-mounts │ validate-docker-sock-mount     │ pod-with-docker-sock-mount │ Pass   │
-    │ 2 │ disallow-container-sock-mounts │ validate-containerd-sock-mount │ pod-with-docker-sock-mount │ Pass   │
-    │ 3 │ disallow-container-sock-mounts │ validate-crio-sock-mount       │ pod-with-docker-sock-mount │ Pass   │
-    │───│────────────────────────────────│────────────────────────────────│────────────────────────────│────────│
+    Executing require-non-root-groups...
+    applying 1 policy to 2 resources... 
+
+    │───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
+    │ # │ POLICY                  │ RULE                     │ RESOURCE                         │ RESULT │
+    │───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
+    │ 1 │ require-non-root-groups │ check-runasgroup         │ default/Pod/fs-group0            │ Pass   │
+    │ 2 │ require-non-root-groups │ check-supplementalGroups │ default/Pod/fs-group0            │ Pass   │
+    │ 3 │ require-non-root-groups │ check-fsGroup            │ default/Pod/fs-group0            │ Pass   │
+    │ 4 │ require-non-root-groups │ check-supplementalGroups │ default/Pod/supplemental-groups0 │ Pass   │
+    │ 5 │ require-non-root-groups │ check-fsGroup            │ default/Pod/supplemental-groups0 │ Pass   │
+    │ 6 │ require-non-root-groups │ check-runasgroup         │ default/Pod/supplemental-groups0 │ Pass   │
+    │───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
     <snip>
 
 
@@ -135,9 +139,9 @@ For more information visit https://kyverno.io/docs/kyverno-cli/#test
 // Command returns version command
 func Command() *cobra.Command {
 	var cmd *cobra.Command
-	var valuesFile, fileName string
+	var valuesFile, fileName, gitBranch string
 	cmd = &cobra.Command{
-		Use:     "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository>",
+		Use:     "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>",
 		Args:    cobra.ExactArgs(1),
 		Short:   "run tests from directory",
 		Long:    longHelp,
@@ -152,7 +156,7 @@ func Command() *cobra.Command {
 				}
 			}()
 
-			_, err = testCommandExecute(dirPath, valuesFile, fileName)
+			_, err = testCommandExecute(dirPath, valuesFile, fileName, gitBranch)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
 				return err
@@ -162,6 +166,7 @@ func Command() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "test filename")
+	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "test github repository branch")
 	return cmd
 }
 
@@ -217,7 +222,7 @@ type resultCounts struct {
 	Fail int
 }
 
-func testCommandExecute(dirPath []string, valuesFile string, fileName string) (rc *resultCounts, err error) {
+func testCommandExecute(dirPath []string, valuesFile string, fileName string, gitBranch string) (rc *resultCounts, err error) {
 	var errors []error
 	fs := memfs.New()
 	rc = &resultCounts{}
@@ -236,26 +241,45 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 
 		pathElems := strings.Split(gitURL.Path[1:], "/")
 		if len(pathElems) <= 1 {
-			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch", gitURL.Path)
+			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitURL.Path)
 			fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
 			os.Exit(1)
 		}
 
 		gitURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 		repoURL := gitURL.String()
-		branch := strings.ReplaceAll(dirPath[0], repoURL+"/", "")
-		if branch == "" {
-			branch = "main"
+
+		var gitPathToYamls string
+		if gitBranch == "" {
+			gitPathToYamls = "/"
+
+			if string(dirPath[0][len(dirPath[0])-1]) == "/" {
+				gitBranch = strings.ReplaceAll(dirPath[0], repoURL+"/", "")
+			} else {
+				gitBranch = strings.ReplaceAll(dirPath[0], repoURL, "")
+			}
+
+			if gitBranch == "" {
+				gitBranch = "main"
+			} else if string(gitBranch[0]) == "/" {
+				gitBranch = gitBranch[1:]
+			}
+		} else {
+			if string(dirPath[0][len(dirPath[0])-1]) == "/" {
+				gitPathToYamls = strings.ReplaceAll(dirPath[0], repoURL+"/", "/")
+			} else {
+				gitPathToYamls = strings.ReplaceAll(dirPath[0], repoURL, "/")
+			}
 		}
 
-		_, cloneErr := clone(repoURL, fs, branch)
+		_, cloneErr := clone(repoURL, fs, gitBranch)
 		if cloneErr != nil {
 			fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
 			log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
 			os.Exit(1)
 		}
 
-		policyYamls, err := listYAMLs(fs, "/")
+		policyYamls, err := listYAMLs(fs, gitPathToYamls)
 		if err != nil {
 			return rc, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
 		}

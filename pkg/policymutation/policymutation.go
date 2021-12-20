@@ -581,7 +581,7 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log l
 }
 
 // the kyvernoRule holds the temporary kyverno rule struct
-// each field is a pointer to the the actual object
+// each field is a pointer to the actual object
 // when serializing data, we would expect to drop the omitempty key
 // otherwise (without the pointer), it will be set to empty value
 // - an empty struct in this case, some may fail the schema validation
