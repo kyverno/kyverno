@@ -206,8 +206,10 @@ type Condition struct {
 	// +kubebuilder:validation:XPreserveUnknownFields
 	Key apiextensions.JSON `json:"key,omitempty" yaml:"key,omitempty"`
 
-	// Operator is the operation to perform. Valid operators
-	// are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
+	// Operator is the conditional operation to perform. Valid operators are:
+	// Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+	// GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+	// DurationLessThanOrEquals, DurationLessThan
 	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
 
 	// Value is the conditional value, or set of values. The values can be fixed set
