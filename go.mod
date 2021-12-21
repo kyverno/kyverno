@@ -16,7 +16,7 @@ require (
 	github.com/go-logr/logr v1.0.0
 	github.com/google/go-containerregistry v0.6.1-0.20210922191434-34b7f00d7a60
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20211004163346-9ae11fe20941
-	github.com/googleapis/gnostic v0.5.4
+	github.com/googleapis/gnostic v0.5.5
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/in-toto/in-toto-golang v0.3.3
 	github.com/jmespath/go-jmespath v0.4.0
@@ -40,17 +40,23 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.21.4
-	k8s.io/apiextensions-apiserver v0.21.4
-	k8s.io/apimachinery v0.21.4
-	k8s.io/cli-runtime v0.21.1
-	k8s.io/client-go v0.21.4
-	k8s.io/klog/v2 v2.20.0
-	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
-	sigs.k8s.io/controller-runtime v0.8.1
-	sigs.k8s.io/kustomize/api v0.8.8
-	sigs.k8s.io/kustomize/kyaml v0.10.17
+	k8s.io/api v0.22.4
+	k8s.io/apiextensions-apiserver v0.22.4
+	k8s.io/apimachinery v0.22.4
+	k8s.io/cli-runtime v0.22.4
+	k8s.io/client-go v0.22.4
+	k8s.io/klog/v2 v2.30.0
+	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65
+	sigs.k8s.io/controller-runtime v0.10.3
+	sigs.k8s.io/kustomize/api v0.10.1
+	sigs.k8s.io/kustomize/kyaml v0.13.0
 	sigs.k8s.io/yaml v1.3.0
+)
+
+require (
+	github.com/aquilax/truncate v1.0.0 // indirect
+	github.com/opencontainers/image-spec v1.0.2 // indirect
+	gopkg.in/inf.v0 v0.9.1
 )
 
 replace (

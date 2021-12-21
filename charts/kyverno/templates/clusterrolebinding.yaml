@@ -2,13 +2,73 @@
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: {{ template "kyverno.fullname" . }}:leaderelection
+  name: {{ template "kyverno.fullname" . }}:userinfo
   labels: {{ include "kyverno.labels" . | nindent 4 }}
     app: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ template "kyverno.fullname" . }}:leaderelection
+  name: {{ template "kyverno.fullname" . }}:userinfo
+subjects:
+- kind: ServiceAccount
+  name: {{ template "kyverno.serviceAccountName" . }}
+  namespace: {{ template "kyverno.namespace" . }}
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "kyverno.fullname" . }}:policies
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ template "kyverno.fullname" . }}:policies
+subjects:
+- kind: ServiceAccount
+  name: {{ template "kyverno.serviceAccountName" . }}
+  namespace: {{ template "kyverno.namespace" . }}
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "kyverno.fullname" . }}:view
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ template "kyverno.fullname" . }}:view
+subjects:
+- kind: ServiceAccount
+  name: {{ template "kyverno.serviceAccountName" . }}
+  namespace: {{ template "kyverno.namespace" . }}
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "kyverno.fullname" . }}:generate
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ template "kyverno.fullname" . }}:generate
+subjects:
+- kind: ServiceAccount
+  name: {{ template "kyverno.serviceAccountName" . }}
+  namespace: {{ template "kyverno.namespace" . }}
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "kyverno.fullname" . }}:events
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ template "kyverno.fullname" . }}:events
 subjects:
 - kind: ServiceAccount
   name: {{ template "kyverno.serviceAccountName" . }}
@@ -28,64 +88,5 @@ subjects:
 - kind: ServiceAccount
   name: {{ template "kyverno.serviceAccountName" . }}
   namespace: {{ template "kyverno.namespace" . }}
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: {{ template "kyverno.fullname" . }}:userinfo
-  labels: {{ include "kyverno.labels" . | nindent 4 }}
-    app: kyverno
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: {{ template "kyverno.fullname" . }}:userinfo
-subjects:
-- kind: ServiceAccount
-  name: {{ template "kyverno.serviceAccountName" . }}
-  namespace: {{ template "kyverno.namespace" . }}
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: {{ template "kyverno.fullname" . }}:customresources
-  labels: {{ include "kyverno.labels" . | nindent 4 }}
-    app: kyverno
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: {{ template "kyverno.fullname" . }}:customresources
-subjects:
-- kind: ServiceAccount
-  name: {{ template "kyverno.serviceAccountName" . }}
-  namespace: {{ template "kyverno.namespace" . }}
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: {{ template "kyverno.fullname" . }}:policycontroller
-  labels: {{ include "kyverno.labels" . | nindent 4 }}
-    app: kyverno
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: {{ template "kyverno.fullname" . }}:policycontroller
-subjects:
-- kind: ServiceAccount
-  name: {{ template "kyverno.serviceAccountName" . }}
-  namespace: {{ template "kyverno.namespace" . }}
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: {{ template "kyverno.fullname" . }}:generatecontroller
-  labels: {{ include "kyverno.labels" . | nindent 4 }}
-    app: kyverno
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: {{ template "kyverno.fullname" . }}:generatecontroller
-subjects:
-- kind: ServiceAccount
-  name: {{ template "kyverno.serviceAccountName" . }}
-  namespace: {{ template "kyverno.namespace" . }}
+
 {{- end }}

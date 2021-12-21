@@ -15,7 +15,7 @@ const (
 	RuleStatusPass RuleStatus = iota
 	// Fail indicates that the resource does not meet the policy rule requirements
 	RuleStatusFail
-	// Warn indicates that the the resource does not meet the policy rule requirements, but the policy is not scored
+	// Warn indicates that the resource does not meet the policy rule requirements, but the policy is not scored
 	RuleStatusWarn
 	// Error indicates that the policy rule could not be evaluated due to a processing error, for
 	// example when a variable cannot be resolved  in the policy rule definition. Note that variables

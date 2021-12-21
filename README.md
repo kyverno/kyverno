@@ -48,7 +48,7 @@ Thanks for your interest in contributing to Kyverno! Here are some steps to help
 
 ✔ Check out the [good first issues](https://github.com/kyverno/kyverno/labels/good%20first%20issue) list. Add a comment with `/assign` to request assignment of the issue.
 
-✔ Checkout out the Kyverno [Community page](https://kyverno.io/community/) for other ways to get involved.
+✔ Check out the Kyverno [Community page](https://kyverno.io/community/) for other ways to get involved.
 
 ## Contributors
 

@@ -1,81 +1,13 @@
+---
+# This role is required for e2e tests that generate and update a ClusterRole.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno:userinfo
+  name: kyverno:test-e2e
 rules:
-  # get the roleRef for incoming api-request user
   - apiGroups:
       - "*"
     resources:
-      - roles
-      - clusterroles
-      - rolebindings
-      - clusterrolebindings
-      - configmaps
-    verbs:
-      - watch
-      - create
-      - update
-      - delete
-      - patch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno:customresources
-rules:
-  # Kyverno CRs
-  - apiGroups:
-      - '*'
-    resources:
-      - clusterpolicies
-      - clusterpolicies/status
-      - generaterequests
-      - generaterequests/status
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno:policycontroller
-rules:
-  # background processing, identify all existing resources
-  - apiGroups:
-      - '*'
-    resources:
-      - '*'
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno:generatecontroller
-rules:
-  # process generate rules to generate resources
-  - apiGroups:
-      - "*"
-    resources:
-      - namespaces
-      - networkpolicies
-      - secrets
-      - configmaps
-      - resourcequotas
-      - limitranges
-      - roles
       - clusterroles
       - rolebindings
       - clusterrolebindings
@@ -87,11 +19,19 @@ rules:
       - patch
       - update
       - watch
-  # dynamic watches on trigger resources for generate rules
-  # re-evaluate the policy if the resource is updated
-  - apiGroups:
-      - '*'
-    resources:
-      - namespaces
-    verbs:
-      - watch
+---
+# This role binding is required for e2e tests that generate and update a ClusterRole.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  labels:
+    app: kyverno
+  name: kyverno:test-e2e
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:test-e2e
+subjects:
+  - kind: ServiceAccount
+    name: kyverno-service-account
+    namespace: kyverno
