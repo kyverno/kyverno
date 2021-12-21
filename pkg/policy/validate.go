@@ -1259,7 +1259,7 @@ func validateExcludeResourceDescription(rd kyverno.ResourceDescription) (string,
 // field type is checked through openapi
 func validateResourceDescription(rd kyverno.ResourceDescription) error {
 	if rd.Selector != nil {
-		if labelSelectorContainWildcard(rd.Selector) {
+		if labelSelectorContainsWildcard(rd.Selector) {
 			return nil
 		}
 
@@ -1275,7 +1275,7 @@ func validateResourceDescription(rd kyverno.ResourceDescription) error {
 	return nil
 }
 
-func labelSelectorContainWildcard(v *metav1.LabelSelector) bool {
+func labelSelectorContainsWildcard(v *metav1.LabelSelector) bool {
 	for k, v := range v.MatchLabels {
 		if isWildcardPresent(k) {
 			return true
