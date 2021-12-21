@@ -612,6 +612,7 @@ func jpPathCanonicalize(arguments []interface{}) (interface{}, error) {
 
 func jpTruncate(arguments []interface{}) (interface{}, error) {
 	var err error
+	var normalizedLength float64
 	str, err := validateArg(truncate, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
@@ -621,7 +622,13 @@ func jpTruncate(arguments []interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	return trunc.Truncator(str.String(), int(length.Float()), trunc.CutStrategy{}), nil
+	if length.Float() < 0 {
+		normalizedLength = float64(0)
+	} else {
+		normalizedLength = length.Float()
+	}
+
+	return trunc.Truncator(str.String(), int(normalizedLength), trunc.CutStrategy{}), nil
 }
 
 // InterfaceToString casts an interface to a string type
