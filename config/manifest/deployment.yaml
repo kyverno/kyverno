@@ -103,10 +103,10 @@ spec:
                 - all
           resources:
             requests:
-              memory: "50Mi"
-              cpu: "100m"
+              memory: 128Mi
+              cpu: 100m
             limits:
-              memory: "256Mi"
+              memory: 384Mi
           livenessProbe:
             httpGet:
               path: /health/liveness
