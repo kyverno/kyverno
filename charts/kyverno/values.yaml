@@ -45,6 +45,9 @@ podAnnotations: {}
 
 podSecurityContext: {}
 
+# Optional priority class to be used for kyverno pods
+priorityClassName: ""
+
 antiAffinity:
   # This can be disabled in a 1 node cluster.
   enable: true
