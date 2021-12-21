@@ -30,13 +30,13 @@ type NumericOperatorHandler struct {
 // compareByCondition compares a float64 key with a float64 value on the basis of the provided operator
 func compareByCondition(key float64, value float64, op kyverno.ConditionOperator, log *logr.Logger) bool {
 	switch op {
-	case kyverno.GreaterThanOrEquals:
+	case kyverno.ConditionOperators["GreaterThanOrEquals"]:
 		return key >= value
-	case kyverno.GreaterThan:
+	case kyverno.ConditionOperators["GreaterThan"]:
 		return key > value
-	case kyverno.LessThanOrEquals:
+	case kyverno.ConditionOperators["LessThanOrEquals"]:
 		return key <= value
-	case kyverno.LessThan:
+	case kyverno.ConditionOperators["LessThan"]:
 		return key < value
 	default:
 		(*log).Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
@@ -46,13 +46,13 @@ func compareByCondition(key float64, value float64, op kyverno.ConditionOperator
 
 func compareVersionByCondition(key semver.Version, value semver.Version, op kyverno.ConditionOperator, log *logr.Logger) bool {
 	switch op {
-	case kyverno.GreaterThanOrEquals:
+	case kyverno.ConditionOperators["GreaterThanOrEquals"]:
 		return key.GTE(value)
-	case kyverno.GreaterThan:
+	case kyverno.ConditionOperators["GreaterThan"]:
 		return key.GT(value)
-	case kyverno.LessThanOrEquals:
+	case kyverno.ConditionOperators["LessThanOrEquals"]:
 		return key.LTE(value)
-	case kyverno.LessThan:
+	case kyverno.ConditionOperators["LessThan"]:
 		return key.LT(value)
 	default:
 		(*log).Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
