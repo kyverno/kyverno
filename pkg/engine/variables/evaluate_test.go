@@ -51,6 +51,9 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{Key: []interface{}{map[string]string{"foo": "bar"}}, Operator: kyverno.Equals, Value: []interface{}{map[string]string{"bar": "foo"}}}, false},
 		{kyverno.Condition{Key: "1h", Operator: kyverno.Equals, Value: 3600}, true},
 		{kyverno.Condition{Key: "2h", Operator: kyverno.Equals, Value: 3600}, false},
+		{kyverno.Condition{Key: "1.5.2", Operator: kyverno.Equals, Value: "1.5.2"}, true},
+		{kyverno.Condition{Key: "1.5.2", Operator: kyverno.Equals, Value: "1.5.*"}, true},
+		{kyverno.Condition{Key: "1.5.0", Operator: kyverno.Equals, Value: "1.5.5"}, false},
 
 		// Not Equals
 		{kyverno.Condition{Key: "string", Operator: kyverno.NotEquals, Value: "string"}, false},
@@ -88,6 +91,9 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{Key: []interface{}{map[string]string{"foo": "bar"}}, Operator: kyverno.NotEquals, Value: []interface{}{map[string]string{"bar": "foo"}}}, true},
 		{kyverno.Condition{Key: "1h", Operator: kyverno.NotEquals, Value: 3600}, false},
 		{kyverno.Condition{Key: "2h", Operator: kyverno.NotEquals, Value: 3600}, true},
+		{kyverno.Condition{Key: "1.5.2", Operator: kyverno.NotEquals, Value: "1.5.5"}, true},
+		{kyverno.Condition{Key: "1.5.2", Operator: kyverno.NotEquals, Value: "1.5.*"}, false},
+		{kyverno.Condition{Key: "1.5.0", Operator: kyverno.NotEquals, Value: "1.5.0"}, false},
 
 		// Greater Than
 		{kyverno.Condition{Key: 10, Operator: kyverno.GreaterThan, Value: 1}, true},
@@ -129,6 +135,8 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{Key: -5, Operator: kyverno.GreaterThan, Value: 1}, false},
 		{kyverno.Condition{Key: -5, Operator: kyverno.GreaterThan, Value: -10}, true},
 		{kyverno.Condition{Key: 1, Operator: kyverno.GreaterThan, Value: -10}, true},
+		{kyverno.Condition{Key: "1.5.5", Operator: kyverno.GreaterThan, Value: "1.5.0"}, true},
+		{kyverno.Condition{Key: "1.5.0", Operator: kyverno.GreaterThan, Value: "1.5.5"}, false},
 
 		// Less Than
 		{kyverno.Condition{Key: 10, Operator: kyverno.LessThan, Value: 1}, false},
@@ -170,6 +178,8 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{Key: -5, Operator: kyverno.LessThan, Value: 1}, true},
 		{kyverno.Condition{Key: -5, Operator: kyverno.LessThan, Value: -10}, false},
 		{kyverno.Condition{Key: 1, Operator: kyverno.LessThan, Value: -10}, false},
+		{kyverno.Condition{Key: "1.5.5", Operator: kyverno.LessThan, Value: "1.5.0"}, false},
+		{kyverno.Condition{Key: "1.5.0", Operator: kyverno.LessThan, Value: "1.5.5"}, true},
 
 		// Greater Than or Equal
 		{kyverno.Condition{Key: 10, Operator: kyverno.GreaterThanOrEquals, Value: 1}, true},
@@ -206,6 +216,9 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{Key: 1, Operator: kyverno.GreaterThanOrEquals, Value: int64(1)}, true},
 		{kyverno.Condition{Key: 10, Operator: kyverno.GreaterThanOrEquals, Value: int64(1)}, true},
 		{kyverno.Condition{Key: 1, Operator: kyverno.GreaterThanOrEquals, Value: int64(10)}, false},
+		{kyverno.Condition{Key: "1.5.5", Operator: kyverno.GreaterThanOrEquals, Value: "1.5.5"}, true},
+		{kyverno.Condition{Key: "1.5.5", Operator: kyverno.GreaterThanOrEquals, Value: "1.5.0"}, true},
+		{kyverno.Condition{Key: "1.5.0", Operator: kyverno.GreaterThanOrEquals, Value: "1.5.5"}, false},
 
 		// Less Than or Equal
 		{kyverno.Condition{Key: 10, Operator: kyverno.LessThanOrEquals, Value: 1}, false},
@@ -242,6 +255,9 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{Key: 1, Operator: kyverno.LessThanOrEquals, Value: int64(1)}, true},
 		{kyverno.Condition{Key: 10, Operator: kyverno.LessThanOrEquals, Value: int64(1)}, false},
 		{kyverno.Condition{Key: 1, Operator: kyverno.LessThanOrEquals, Value: int64(10)}, true},
+		{kyverno.Condition{Key: "1.5.5", Operator: kyverno.LessThanOrEquals, Value: "1.5.5"}, true},
+		{kyverno.Condition{Key: "1.5.0", Operator: kyverno.LessThanOrEquals, Value: "1.5.5"}, true},
+		{kyverno.Condition{Key: "1.5.5", Operator: kyverno.LessThanOrEquals, Value: "1.5.0"}, false},
 
 		// In
 		{kyverno.Condition{Key: 1, Operator: kyverno.In, Value: []interface{}{1, 2, 3}}, true},
