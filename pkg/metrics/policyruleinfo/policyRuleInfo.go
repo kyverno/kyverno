@@ -3,7 +3,7 @@ package policyruleinfo
 import (
 	"fmt"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	prom "github.com/prometheus/client_golang/prometheus"
 )

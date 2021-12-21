@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"github.com/kyverno/kyverno/pkg/policy/common"
 )

@@ -11,8 +11,8 @@ metadata:
     policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
     {{- end }}
     policies.kyverno.io/description: >-
-      On supported hosts, the 'runtime/default' AppArmor profile is applied by default. 
-      The default policy should prevent overriding or disabling the policy, or restrict 
+      On supported hosts, the 'runtime/default' AppArmor profile is applied by default.
+      The default policy should prevent overriding or disabling the policy, or restrict
       overrides to an allowed set of profiles.
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
     app: kyverno

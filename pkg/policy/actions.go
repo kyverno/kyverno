@@ -3,7 +3,7 @@ package policy
 import (
 	"fmt"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/policy/generate"
 	"github.com/kyverno/kyverno/pkg/policy/mutate"

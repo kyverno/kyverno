@@ -74,8 +74,8 @@ jobs:
       - name: e2e testing
         run: |
           echo ">>> Install Kyverno"
-          sed 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' ${GITHUB_WORKSPACE}/definitions/install.yaml | kubectl apply -f -
-          kubectl apply -f ${GITHUB_WORKSPACE}/definitions/github/rbac.yaml
+          sed 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' ${GITHUB_WORKSPACE}/config/install.yaml | kubectl apply -f -
+          kubectl apply -f ${GITHUB_WORKSPACE}/config/github/rbac.yaml
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
           sleep 50
           echo ">>> Check kyverno"
@@ -86,7 +86,7 @@ jobs:
           kubectl port-forward svc/kyverno-svc-metrics -n kyverno 8000:8000 &
           echo ">>> Run Kyverno e2e test"
           make test-e2e
-          kubectl delete -f ${GITHUB_WORKSPACE}/definitions/install.yaml
+          kubectl delete -f ${GITHUB_WORKSPACE}/config/install.yaml
 
       - name: Update chart values
         run: |

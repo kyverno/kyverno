@@ -4,7 +4,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	"k8s.io/client-go/tools/cache"
 )

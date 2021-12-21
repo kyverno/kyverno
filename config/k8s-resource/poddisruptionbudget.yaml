@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kyverno
+  labels:
+    app: kyverno
+spec:  
+  minAvailable: 0
+  selector:
+    matchLabels:  
+      app: kyverno
+      # do not remove
+      app.kubernetes.io/name: kyverno

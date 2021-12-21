@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -24,7 +24,7 @@ import (
 	pm "github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
-	utils "github.com/kyverno/kyverno/pkg/utils"
+	"github.com/kyverno/kyverno/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -185,7 +185,7 @@ func (pc *PolicyController) canBackgroundProcess(p *kyverno.ClusterPolicy) bool 
 		return false
 	}
 
-	if err := ContainsVariablesOtherThanObject(*p); err != nil {
+	if err := ValidateVariables(p, true); err != nil {
 		logger.V(4).Info("policy cannot be processed in the background")
 		return false
 	}

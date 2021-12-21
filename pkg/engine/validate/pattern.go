@@ -177,17 +177,45 @@ func checkForAndConditionsAndValidate(log logr.Logger, value interface{}, patter
 // Handler for single pattern value during validation process
 // Detects if pattern has a number
 func validateValueWithStringPattern(log logr.Logger, value interface{}, pattern string) bool {
+	operatorVariable := operator.GetOperatorFromStringPattern(pattern)
 
-	operator := operator.GetOperatorFromStringPattern(pattern)
-	pattern = pattern[len(operator):]
+	// Upon encountering InRange operator split the string by `-` and basically
+	// verify the result of (x >= leftEndpoint & x <= rightEndpoint)
+	if operatorVariable == operator.InRange {
+		endpoints := strings.Split(pattern, "-")
+		leftEndpoint, rightEndpoint := endpoints[0], endpoints[1]
+
+		gt := validateValueWithStringPattern(log, value, fmt.Sprintf(">=%s", leftEndpoint))
+		if !gt {
+			return false
+		}
+		pattern = fmt.Sprintf("<=%s", rightEndpoint)
+		operatorVariable = operator.LessEqual
+	}
+
+	// Upon encountering NotInRange operator split the string by `!-` and basically
+	// verify the result of (x < leftEndpoint | x > rightEndpoint)
+	if operatorVariable == operator.NotInRange {
+		endpoints := strings.Split(pattern, "!-")
+		leftEndpoint, rightEndpoint := endpoints[0], endpoints[1]
+
+		lt := validateValueWithStringPattern(log, value, fmt.Sprintf("<%s", leftEndpoint))
+		if lt {
+			return true
+		}
+		pattern = fmt.Sprintf(">%s", rightEndpoint)
+		operatorVariable = operator.More
+	}
+
+	pattern = pattern[len(operatorVariable):]
 	pattern = strings.TrimSpace(pattern)
 	number, str := getNumberAndStringPartsFromPattern(pattern)
 
 	if number == "" {
-		return validateString(log, value, str, operator)
+		return validateString(log, value, str, operatorVariable)
 	}
 
-	return validateNumberWithStr(log, value, pattern, operator)
+	return validateNumberWithStr(log, value, pattern, operatorVariable)
 }
 
 // Handler for string values

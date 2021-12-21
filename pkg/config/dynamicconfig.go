@@ -104,12 +104,14 @@ func (cd *ConfigData) FilterNamespaces(namespaces []string) []string {
 	return results
 }
 
+// GetWebhooks returns the webhook configs
 func (cd *ConfigData) GetWebhooks() []WebhookConfig {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.webhooks
 }
 
+// GetInitConfigMapName returns the init configmap name
 func (cd *ConfigData) GetInitConfigMapName() string {
 	return cd.cmName
 }
@@ -170,7 +172,7 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 	return &cd
 }
 
-//Run checks syncing
+// Run checks syncing
 func (cd *ConfigData) Run(stopCh <-chan struct{}) {
 	logger := cd.log
 	// wait for cache to populate first time

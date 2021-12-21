@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"testing"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"gotest.tools/assert"
 )
 
@@ -833,7 +833,7 @@ func Test_BackGroundUserInfo_match_roles(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = containsUserVariables(policy, nil)
 	assert.Equal(t, err.Error(), "invalid variable used at path: spec/rules[0]/match/roles")
 }
 
@@ -865,8 +865,7 @@ func Test_BackGroundUserInfo_match_clusterRoles(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
-
+	err = containsUserVariables(policy, nil)
 	assert.Equal(t, err.Error(), "invalid variable used at path: spec/rules[0]/match/clusterRoles")
 }
 
@@ -901,8 +900,7 @@ func Test_BackGroundUserInfo_match_subjects(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
-
+	err = containsUserVariables(policy, nil)
 	assert.Equal(t, err.Error(), "invalid variable used at path: spec/rules[0]/match/subjects")
 }
 
@@ -933,7 +931,7 @@ func Test_BackGroundUserInfo_mutate_overlay1(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = ValidateVariables(policy, true)
 	assert.Assert(t, err != nil)
 }
 
@@ -964,7 +962,7 @@ func Test_BackGroundUserInfo_mutate_overlay2(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = ValidateVariables(policy, true)
 	assert.Assert(t, err != nil)
 }
 
@@ -995,7 +993,7 @@ func Test_BackGroundUserInfo_validate_pattern(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = ValidateVariables(policy, true)
 	assert.Assert(t, err != nil, err)
 }
 
@@ -1030,7 +1028,7 @@ func Test_BackGroundUserInfo_validate_anyPattern(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = ValidateVariables(policy, true)
 	assert.Assert(t, err != nil)
 }
 
@@ -1065,7 +1063,7 @@ func Test_BackGroundUserInfo_validate_anyPattern_multiple_var(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = ValidateVariables(policy, true)
 	assert.Assert(t, err != nil)
 }
 
@@ -1100,7 +1098,7 @@ func Test_BackGroundUserInfo_validate_anyPattern_serviceAccount(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = ContainsVariablesOtherThanObject(*policy)
+	err = ValidateVariables(policy, true)
 	assert.Assert(t, err != nil)
 }
 
@@ -1510,6 +1508,53 @@ func Test_Namespced_Policy(t *testing.T) {
 
 	openAPIController, _ := openapi.NewOpenAPIController()
 	err = Validate(policy, nil, true, openAPIController)
-	fmt.Println(err)
 	assert.Assert(t, err != nil)
+}
+
+func Test_patchesJson6902_Policy(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+   "apiVersion": "kyverno.io/v1",
+   "kind": "ClusterPolicy",
+   "metadata": {
+      "name": "set-max-surge-yaml-to-json"
+   },
+   "spec": {
+      "background": false,
+			"schemaValidation": false,
+      "rules": [
+         {
+            "name": "set-max-surge",
+            "context": [
+               {
+                  "name": "source",
+                  "configMap": {
+                     "name": "source-yaml-to-json",
+                     "namespace": "default"
+                  }
+               }
+            ],
+            "match": {
+               "resources": {
+                  "kinds": [
+                     "Deployment"
+                  ]
+               }
+            },
+            "mutate": {
+               "patchesJson6902": "- op: replace\n  path: /spec/strategy\n  value: {{ source.data.strategy }}"
+            }
+         }
+      ]
+   }
+}
+	`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openAPIController, _ := openapi.NewOpenAPIController()
+	err = Validate(policy, nil, false, openAPIController)
+	assert.NilError(t, err)
 }

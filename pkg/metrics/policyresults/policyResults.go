@@ -3,7 +3,7 @@ package policyresults
 import (
 	"fmt"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -76,9 +76,21 @@ func (pc PromConfig) ProcessEngineResponse(policy kyverno.ClusterPolicy, engineR
 	for _, rule := range ruleResponses {
 		ruleName := rule.Name
 		ruleType := ParseRuleTypeFromEngineRuleResponse(rule)
-		ruleResult := metrics.Fail
-		if rule.Status == response.RuleStatusPass {
+
+		var ruleResult metrics.RuleResult
+		switch rule.Status {
+		case response.RuleStatusPass:
 			ruleResult = metrics.Pass
+		case response.RuleStatusFail:
+			ruleResult = metrics.Fail
+		case response.RuleStatusWarn:
+			ruleResult = metrics.Warn
+		case response.RuleStatusError:
+			ruleResult = metrics.Error
+		case response.RuleStatusSkip:
+			ruleResult = metrics.Skip
+		default:
+			ruleResult = metrics.Fail
 		}
 
 		if err := pc.registerPolicyResultsMetric(

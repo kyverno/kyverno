@@ -1,9 +1,11 @@
 package webhookconfig
 
 import (
+	"errors"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
+	"strings"
 
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tls"
@@ -60,27 +62,31 @@ func extractCA(config *rest.Config) (result []byte) {
 func (wrc *Register) constructOwner() v1.OwnerReference {
 	logger := wrc.log
 
-	kubeNamespace, err := wrc.GetKubePolicyNamespace()
+	kubeClusterRoleName, err := wrc.GetKubePolicyClusterRoleName()
 	if err != nil {
-		logger.Error(err, "failed to construct OwnerReference")
+		logger.Error(err, "failed to get cluster role")
 		return v1.OwnerReference{}
 	}
 
 	return v1.OwnerReference{
-		APIVersion: config.NamespaceAPIVersion,
-		Kind:       config.NamespaceKind,
-		Name:       config.KyvernoNamespace,
-		UID:        kubeNamespace.GetUID(),
+		APIVersion: config.ClusterRoleAPIVersion,
+		Kind:       config.ClusterRoleKind,
+		Name:       kubeClusterRoleName.GetName(),
+		UID:        kubeClusterRoleName.GetUID(),
 	}
 }
 
-func (wrc *Register) GetKubePolicyNamespace() (*unstructured.Unstructured, error) {
-	kubeNamespace, err := wrc.client.GetResource(config.NamespaceAPIVersion, config.NamespaceKind, "", config.KyvernoNamespace)
+func (wrc *Register) GetKubePolicyClusterRoleName() (*unstructured.Unstructured, error) {
+	clusterRoles, err := wrc.client.ListResource(config.ClusterRoleAPIVersion, config.ClusterRoleKind, "", &v1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": "kyverno"}})
 	if err != nil {
 		return nil, err
 	}
-
-	return kubeNamespace, nil
+	for _, cr := range clusterRoles.Items {
+		if strings.HasSuffix(cr.GetName(), "webhook") {
+			return &cr, nil
+		}
+	}
+	return nil, errors.New("failed to get cluster role with suffix webhook")
 }
 
 // GetKubePolicyDeployment gets Kyverno deployment using the resource cache

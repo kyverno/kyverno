@@ -2,12 +2,18 @@ approvers:
 - JimBugwadia
 - realshuting
 - NoSkillGirl
-- evalsocket
 - chipzoller
+- vyankyGH
+- MarcelMue
+- treydock
 
 reviewers:
 - JimBugwadia
 - realshuting
 - NoSkillGirl
-- evalsocket
 - chipzoller
+- vyankyGH
+- MarcelMue
+- treydock
+- anushkamittal20
+- ojhaarjun1

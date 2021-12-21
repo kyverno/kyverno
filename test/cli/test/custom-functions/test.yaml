@@ -6,11 +6,26 @@ resources:
 results:
   - policy: base64
     rule: secret-value-must-match-label
-    resource: test-match
+    resource: base64-test-match
     kind: Secret
     status: pass
   - policy: base64
     rule: secret-value-must-match-label
-    resource: test-no-match
+    resource: base64-test-no-match
     kind: Secret
+    status: fail
+  - policy: pattern-match
+    rule: label-must-match-pattern
+    resource: pattern-match-test-match
+    kind: Namespace
+    status: pass
+  - policy: pattern-match
+    rule: label-must-match-pattern
+    resource: pattern-match-test-no-match
+    kind: Namespace
+    status: fail
+  - policy: path-canonicalize
+    rule: disallow-mount-containerd-sock
+    resource: mount-containerd-sock
+    kind: Pod
     status: fail

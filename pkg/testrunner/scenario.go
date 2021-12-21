@@ -5,17 +5,16 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+	"path"
 	ospath "path"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/stretchr/testify/assert"
 
-	"path"
-	"runtime"
-
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -32,13 +31,13 @@ type Scenario struct {
 	TestCases []TestCase
 }
 
-//CaseT defines input and output for a case
+// TestCase defines input and output for a case
 type TestCase struct {
 	Input    Input    `yaml:"input"`
 	Expected Expected `yaml:"expected"`
 }
 
-//Input defines input for a test scenario
+// Input defines input for a test scenario
 type Input struct {
 	Policy        string   `yaml:"policy"`
 	Resource      string   `yaml:"resource"`

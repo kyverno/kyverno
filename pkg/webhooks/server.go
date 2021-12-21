@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -31,12 +31,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	tlsutils "github.com/kyverno/kyverno/pkg/tls"
-	userinfo "github.com/kyverno/kyverno/pkg/userinfo"
+	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/generate"
 	"github.com/pkg/errors"
-	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	informers "k8s.io/client-go/informers/core/v1"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
@@ -300,20 +300,14 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	requestTime := time.Now().Unix()
 	kind := request.Kind.Kind
 	mutatePolicies := ws.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)
-	generatePolicies := ws.pCache.GetPolicies(policycache.Generate, kind, request.Namespace)
 	verifyImagesPolicies := ws.pCache.GetPolicies(policycache.VerifyImages, kind, request.Namespace)
 
-	if len(mutatePolicies) == 0 && len(generatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
+	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
 		logger.V(4).Info("no policies matched admission request")
-		if request.Operation == v1beta1.Update {
-			// handle generate source resource updates
-			go ws.handleUpdatesForGenerateRules(request, []*v1.ClusterPolicy{})
-		}
-
 		return successResponse(nil)
 	}
 
-	addRoles := containsRBACInfo(mutatePolicies, generatePolicies)
+	addRoles := containsRBACInfo(mutatePolicies)
 	policyContext, err := ws.buildPolicyContext(request, addRoles)
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
@@ -334,9 +328,6 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		return failureResponse(err.Error())
 	}
 
-	newRequest = patchRequest(imagePatches, newRequest, logger)
-	ws.applyGeneratePolicies(newRequest, policyContext, generatePolicies, requestTime, logger)
-
 	var patches = append(mutatePatches, imagePatches...)
 	return successResponse(patches)
 }
@@ -355,11 +346,10 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 	}
 
 	if addRoles {
-		if roles, clusterRoles, err := userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler); err != nil {
+		var err error
+		userRequestInfo.Roles, userRequestInfo.ClusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
+		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch RBAC information for request")
-		} else {
-			userRequestInfo.Roles = roles
-			userRequestInfo.ClusterRoles = clusterRoles
 		}
 	}
 
@@ -488,6 +478,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	if request.Operation == v1beta1.Delete {
 		ws.handleDelete(request)
 	}
+
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return successResponse(nil)
 	}
@@ -500,9 +491,15 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	// Get namespace policies from the cache for the requested resource namespace
 	nsPolicies := ws.pCache.GetPolicies(policycache.ValidateEnforce, kind, request.Namespace)
 	policies = append(policies, nsPolicies...)
+	generatePolicies := ws.pCache.GetPolicies(policycache.Generate, kind, request.Namespace)
+
+	if len(generatePolicies) == 0 && request.Operation == v1beta1.Update {
+		// handle generate source resource updates
+		go ws.handleUpdatesForGenerateRules(request, []*v1.ClusterPolicy{})
+	}
 
 	var roles, clusterRoles []string
-	if containsRBACInfo(policies) {
+	if containsRBACInfo(policies, generatePolicies) {
 		var err error
 		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
 		if err != nil {
@@ -560,6 +557,9 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 
 	// push admission request to audit handler, this won't block the admission request
 	ws.auditHandler.Add(request.DeepCopy())
+
+	// process generate policies
+	ws.applyGeneratePolicies(request, policyContext, generatePolicies, admissionRequestTimestamp, logger)
 
 	return successResponse(nil)
 }

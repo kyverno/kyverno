@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
@@ -77,10 +77,6 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 
 func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineResponse {
 	resp := &response.EngineResponse{}
-	if ManagedPodResource(ctx.Policy, ctx.NewResource) {
-		log.V(5).Info("skip validation of pods managed by workload controllers", "policy", ctx.Policy.GetName())
-		return resp
-	}
 
 	ctx.JSONContext.Checkpoint()
 	defer ctx.JSONContext.Restore()
@@ -425,7 +421,8 @@ func isSameRuleResponse(r1 *response.RuleResponse, r2 *response.RuleResponse) bo
 func (v *validator) validatePatterns(resource unstructured.Unstructured) *response.RuleResponse {
 	if v.pattern != nil {
 		if err := validate.MatchPattern(v.log, resource.Object, v.pattern); err != nil {
-			if pe, ok := err.(*validate.PatternError); ok {
+			pe, ok := err.(*validate.PatternError)
+			if ok {
 				v.log.V(3).Info("validation error", "path", pe.Path, "error", err.Error())
 
 				if pe.Skip {
@@ -437,9 +434,9 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 				}
 
 				return ruleResponse(v.rule, utils.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusFail)
-			} else {
-				return ruleResponse(v.rule, utils.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusError)
 			}
+
+			return ruleResponse(v.rule, utils.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusError)
 		}
 
 		v.log.V(4).Info("successfully processed rule")

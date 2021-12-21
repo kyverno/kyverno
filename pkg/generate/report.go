@@ -3,7 +3,7 @@ package generate
 import (
 	"fmt"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/event"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )

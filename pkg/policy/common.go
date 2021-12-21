@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/pkg/wildcard"
@@ -73,22 +73,6 @@ func MergeResources(a, b map[string]unstructured.Unstructured) {
 	for k, v := range b {
 		a[k] = v
 	}
-}
-
-// ExcludePod filters out the pods with ownerReference
-func ExcludePod(resourceMap map[string]unstructured.Unstructured, log logr.Logger) map[string]unstructured.Unstructured {
-	for uid, r := range resourceMap {
-		if r.GetKind() != "Pod" {
-			continue
-		}
-
-		if len(r.GetOwnerReferences()) > 0 {
-			log.V(4).Info("exclude Pod", "namespace", r.GetNamespace(), "name", r.GetName())
-			delete(resourceMap, uid)
-		}
-	}
-
-	return resourceMap
 }
 
 // getNamespacesForRule gets the matched namespaces list for the given rule
@@ -188,7 +172,7 @@ func (pc *PolicyController) getResourceList(kind, namespace string, labelSelecto
 
 	resourceList, err := pc.client.ListResource("", kind, namespace, labelSelector)
 	if err != nil {
-		log.Error(err, "failed to list resources", "kind")
+		log.Error(err, "failed to list resources", "kind", kind, "namespace", namespace)
 		return nil
 	}
 

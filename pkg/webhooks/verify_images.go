@@ -2,8 +2,9 @@ package webhooks
 
 import (
 	"errors"
+
 	"github.com/go-logr/logr"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"

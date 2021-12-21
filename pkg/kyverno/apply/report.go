@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/policyreport"

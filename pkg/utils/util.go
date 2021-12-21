@@ -6,10 +6,10 @@ import (
 	"regexp"
 	"strconv"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	common "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -24,7 +24,7 @@ import (
 
 var regexVersion = regexp.MustCompile(`v(\d+).(\d+).(\d+)\.*`)
 
-//Contains Check if strint is contained in a list of string
+// Contains checks if a string is contained in a list of string
 func contains(list []string, element string, fn func(string, string) bool) bool {
 	for _, e := range list {
 		if fn(e, element) {
@@ -44,12 +44,12 @@ func ContainsPod(list []string, element string) bool {
 	return false
 }
 
-//ContainsNamepace check if namespace satisfies any list of pattern(regex)
+// ContainsNamepace check if namespace satisfies any list of pattern(regex)
 func ContainsNamepace(patterns []string, ns string) bool {
 	return contains(patterns, ns, compareNamespaces)
 }
 
-//ContainsString check if the string is contains in a list
+// ContainsString checks if the string is contained in the list
 func ContainsString(list []string, element string) bool {
 	return contains(list, element, compareString)
 }
@@ -62,7 +62,7 @@ func compareString(str, name string) bool {
 	return str == name
 }
 
-//NewKubeClient returns a new kubernetes client
+// NewKubeClient returns a new kubernetes client
 func NewKubeClient(config *rest.Config) (kubernetes.Interface, error) {
 	kclient, err := kubernetes.NewForConfig(config)
 	if err != nil {
@@ -160,7 +160,7 @@ func HigherThanKubernetesVersion(client *client.Client, log logr.Logger, major, 
 
 	b, err := isVersionHigher(serverVersion.String(), major, minor, patch)
 	if err != nil {
-		logger.Error(err, "serverVersion", serverVersion)
+		logger.Error(err, "serverVersion", serverVersion.String())
 		return false
 	}
 
@@ -168,27 +168,29 @@ func HigherThanKubernetesVersion(client *client.Client, log logr.Logger, major, 
 }
 
 func isVersionHigher(version string, major int, minor int, patch int) (bool, error) {
-	groups := regexVersion.FindAllStringSubmatch(version, -1)
-	if len(groups) != 1 || len(groups[0]) != 4 {
+	groups := regexVersion.FindStringSubmatch(version)
+	if len(groups) != 4 {
 		return false, fmt.Errorf("invalid version %s. Expected {major}.{minor}.{patch}", version)
 	}
 
-	currentMajor, err := strconv.Atoi(groups[0][1])
+	currentMajor, err := strconv.Atoi(groups[1])
 	if err != nil {
 		return false, fmt.Errorf("failed to extract major version from %s", version)
 	}
 
-	currentMinor, err := strconv.Atoi(groups[0][2])
+	currentMinor, err := strconv.Atoi(groups[2])
 	if err != nil {
 		return false, fmt.Errorf("failed to extract minor version from %s", version)
 	}
 
-	currentPatch, err := strconv.Atoi(groups[0][3])
+	currentPatch, err := strconv.Atoi(groups[3])
 	if err != nil {
 		return false, fmt.Errorf("failed to extract minor version from %s", version)
 	}
 
-	if currentMajor <= major && currentMinor <= minor && currentPatch <= patch {
+	if currentMajor < major ||
+		(currentMajor == major && currentMinor < minor) ||
+		(currentMajor == major && currentMinor == minor && currentPatch <= patch) {
 		return false, nil
 	}
 
@@ -212,7 +214,7 @@ func SliceContains(slice []string, values ...string) bool {
 	return false
 }
 
-// ApiextensionsJsonTOKyvernoConditions takes in user-provided conditions in abstract apiextensions.JSON form
+// ApiextensionsJsonToKyvernoConditions takes in user-provided conditions in abstract apiextensions.JSON form
 // and converts it into []kyverno.Condition or kyverno.AnyAllConditions according to its content.
 // it also helps in validating the condtions as it returns an error when the conditions are provided wrongfully by the user.
 func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interface{}, error) {

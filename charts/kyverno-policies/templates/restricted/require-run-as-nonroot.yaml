@@ -35,12 +35,12 @@ spec:
               =(runAsNonRoot): true
           =(initContainers):
           - =(securityContext):
-              =(runAsNonRoot): true              
+              =(runAsNonRoot): true
       - spec:
           containers:
           - securityContext:
               runAsNonRoot: true
           =(initContainers):
           - securityContext:
-              runAsNonRoot: true         
+              runAsNonRoot: true
 {{- end -}}

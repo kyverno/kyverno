@@ -190,29 +190,6 @@ spec:
     - kuard
 `)
 
-var ingressExtensionV1beta1 = []byte(`
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  labels:
-    app: kuard
-  name: kuard-extensions
-  namespace: test-ingress
-spec:
-  rules:
-  - host: kuard
-    http:
-      paths:
-      - backend:
-          serviceName: kuard
-          servicePort: 8080
-        path: /
-        pathType: ImplementationSpecific
-  tls:
-  - hosts:
-    - kuard
-`)
-
 var setRunAsNonRootTrue = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy

@@ -53,8 +53,7 @@ antiAffinity:
   topologyKey: "kubernetes.io/hostname"
 
 podDisruptionBudget:
-  enabled: false
-  # minAvailable: 1
+  minAvailable: 1
   # maxUnavailable: 1
 
   # minAvailable and maxUnavailable can either be set to an integer (e.g. 1)
@@ -237,12 +236,17 @@ serviceMonitor:
 # If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false
 createSelfSignedCert: false
 
+# Whether to have Helm install the Kyverno CRDs
+# If the CRDs are not installed by Helm, they must be added
+# before policies can be created
+installCRDs: true
+
 # When true, use a NetworkPolicy to allow ingress to the webhook
 # This is useful on clusters using Calico and/or native k8s network
 # policies in a default-deny setup.
 networkPolicy:
   enabled: false
-  namespaceExpressions: [{}]
+  namespaceExpressions: []
   namespaceLabels: {}
-  podExpressions: [{}]
+  podExpressions: []
   podLabels: {}

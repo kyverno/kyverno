@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
 	"strings"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -36,8 +35,8 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resC
 			if trimmedTypedValue := strings.Trim(value, "\n"); strings.Contains(trimmedTypedValue, "\n") {
 				tmp := map[string]interface{}{key: value}
 				tmp = parseMultilineBlockBody(tmp)
-				new_val, _ := json.Marshal(tmp[key])
-				value = string(new_val)
+				newVal, _ := json.Marshal(tmp[key])
+				value = string(newVal)
 			}
 
 			jsonData := pkgcommon.VariableToJSON(key, value)
@@ -162,6 +161,10 @@ func fetchAPIData(log logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContex
 }
 
 func loadResourceList(ctx *PolicyContext, p *APIPath) ([]byte, error) {
+	if ctx.Client == nil {
+		return nil, fmt.Errorf("API client is not available")
+	}
+
 	l, err := ctx.Client.ListResource(p.Version, p.ResourceType, p.Namespace, nil)
 	if err != nil {
 		return nil, err
@@ -238,15 +241,16 @@ func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynam
 	return data, nil
 }
 
-// parseMultilineBlockBody recursively iterates through a map and updates its values in the following way
-// whenever it encounters a string value containing "\n",
-// it converts it into a []string by splitting it by "\n"
+// parseMultilineBlockBody recursively iterates through a map and updates its values to a list of strings
+// if it encounters a string value containing newline delimiters "\n" and not in PEM format. This is done to
+// allow specifying a list with newlines. Since PEM format keys can also contain newlines, an additional check
+// is performed to skip splitting those into an array.
 func parseMultilineBlockBody(m map[string]interface{}) map[string]interface{} {
 	for k, v := range m {
 		switch typedValue := v.(type) {
 		case string:
 			trimmedTypedValue := strings.Trim(typedValue, "\n")
-			if strings.Contains(trimmedTypedValue, "\n") {
+			if !pemFormat(trimmedTypedValue) && strings.Contains(trimmedTypedValue, "\n") {
 				m[k] = strings.Split(trimmedTypedValue, "\n")
 			} else {
 				m[k] = trimmedTypedValue // trimming a str if it has trailing newline characters
@@ -256,4 +260,9 @@ func parseMultilineBlockBody(m map[string]interface{}) map[string]interface{} {
 		}
 	}
 	return m
+}
+
+// check for PEM header found in certs and public keys
+func pemFormat(s string) bool {
+	return strings.Contains(s, "-----BEGIN")
 }

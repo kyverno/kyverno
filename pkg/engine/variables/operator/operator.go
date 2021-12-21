@@ -1,10 +1,12 @@
 package operator
 
 import (
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
@@ -35,11 +37,25 @@ func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvern
 		strings.ToLower(string(kyverno.NotEquals)):
 		return NewNotEqualHandler(log, ctx)
 
+	// deprecated
 	case strings.ToLower(string(kyverno.In)):
 		return NewInHandler(log, ctx)
 
+	case strings.ToLower(string(kyverno.AnyIn)):
+		return NewAnyInHandler(log, ctx)
+
+	case strings.ToLower(string(kyverno.AllIn)):
+		return NewAllInHandler(log, ctx)
+
+	// deprecated
 	case strings.ToLower(string(kyverno.NotIn)):
 		return NewNotInHandler(log, ctx)
+
+	case strings.ToLower(string(kyverno.AnyNotIn)):
+		return NewAnyNotInHandler(log, ctx)
+
+	case strings.ToLower(string(kyverno.AllNotIn)):
+		return NewAllNotInHandler(log, ctx)
 
 	case strings.ToLower(string(kyverno.GreaterThanOrEquals)),
 		strings.ToLower(string(kyverno.GreaterThan)),
@@ -59,4 +75,65 @@ func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvern
 	}
 
 	return nil
+}
+
+func parseDuration(key, value interface{}) (*time.Duration, *time.Duration, error) {
+	var keyDuration *time.Duration
+	var valueDuration *time.Duration
+	var err error
+
+	// We need to first ensure at least one of the values is actually a duration string.
+	switch typedKey := key.(type) {
+	case string:
+		duration, err := time.ParseDuration(typedKey)
+		if err == nil && key != "0" {
+			keyDuration = &duration
+		}
+	}
+	switch typedValue := value.(type) {
+	case string:
+		duration, err := time.ParseDuration(typedValue)
+		if err == nil && value != "0" {
+			valueDuration = &duration
+		}
+	}
+	if keyDuration == nil && valueDuration == nil {
+		return keyDuration, valueDuration, fmt.Errorf("neither value is a duration")
+	}
+
+	if keyDuration == nil {
+		var duration time.Duration
+
+		switch typedKey := key.(type) {
+		case int:
+			duration = time.Duration(typedKey) * time.Second
+		case int64:
+			duration = time.Duration(typedKey) * time.Second
+		case float64:
+			duration = time.Duration(typedKey) * time.Second
+		default:
+			return keyDuration, valueDuration, fmt.Errorf("no valid duration value")
+		}
+
+		keyDuration = &duration
+	}
+
+	if valueDuration == nil {
+		var duration time.Duration
+
+		switch typedValue := value.(type) {
+		case int:
+			duration = time.Duration(typedValue) * time.Second
+		case int64:
+			duration = time.Duration(typedValue) * time.Second
+		case float64:
+			duration = time.Duration(typedValue) * time.Second
+		default:
+			return keyDuration, valueDuration, fmt.Errorf("no valid duration value")
+		}
+
+		valueDuration = &duration
+	}
+
+	return keyDuration, valueDuration, err
 }

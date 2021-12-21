@@ -1,0 +1,4 @@
+# Areas of code where @marcelmue always wants to be a reviewer/notified.
+/pkg/webhooks @marcelmue
+/pkg/policy/mutate @marcelmue
+/pkg/engine @marcelmue

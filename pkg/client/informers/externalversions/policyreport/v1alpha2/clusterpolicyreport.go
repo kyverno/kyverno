@@ -22,7 +22,7 @@ import (
 	"context"
 	time "time"
 
-	policyreportv1alpha2 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
 	v1alpha2 "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"

@@ -103,14 +103,14 @@ jobs:
       - name: Set version
         run: |
           echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*")"
+          echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*")" >> $GITHUB_ENV
 
       - name: Generate SBOM JSON
-        uses: CycloneDX/gh-gomod-generate-sbom@v0.3.0
+        uses: CycloneDX/gh-gomod-generate-sbom@v1
         with:
-          json: true
-          output: kyverno-v${{ env.KYVERNO_VERSION }}-bom.cdx.json
-          resolve-licenses: true
-          version: ^v0
+          version: v1
+          args: mod -licenses -json -output kyverno-v${{ env.KYVERNO_VERSION }}-bom.cdx.json
+          
       - uses: actions/upload-artifact@v2
         with:
           name: kyverno-bom-cdx
@@ -130,7 +130,7 @@ jobs:
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@master
         with: 
-          image-ref: 'ghcr.io/kyverno/kyverno:latest'
+          image-ref: 'ghcr.io/kyverno/kyverno:${{env.KYVERNO_VERSION}}'
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true

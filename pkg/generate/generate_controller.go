@@ -4,11 +4,11 @@ import (
 	"reflect"
 	"time"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"

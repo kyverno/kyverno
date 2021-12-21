@@ -13,17 +13,18 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/kyverno/kyverno/pkg/engine/variables"
+
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-logr/logr"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/policymutation"
@@ -34,7 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	yaml_v2 "sigs.k8s.io/yaml"
+	k8syaml "sigs.k8s.io/yaml"
 )
 
 type ResultCounts struct {
@@ -71,6 +72,13 @@ type NamespaceSelector struct {
 	Labels map[string]string `json:"labels"`
 }
 
+// HasVariables - check for variables in the policy
+func HasVariables(policy *v1.ClusterPolicy) [][]string {
+	policyRaw, _ := json.Marshal(policy)
+	matches := variables.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
+	return matches
+}
+
 // GetPolicies - Extracting the policies from multiple YAML
 func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) {
 	for _, path := range paths {
@@ -81,10 +89,10 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 			err      error
 		)
 
-		isHttpPath := IsHttpRegex.MatchString(path)
+		isHTTPPath := IsHTTPRegex.MatchString(path)
 
 		// path clean and retrieving file info can be possible if it's not an HTTP URL
-		if !isHttpPath {
+		if !isHTTPPath {
 			path = filepath.Clean(path)
 			fileDesc, err = os.Stat(path)
 			if err != nil {
@@ -95,7 +103,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 		}
 
 		// apply file from a directory is possible only if the path is not HTTP URL
-		if !isHttpPath && fileDesc.IsDir() {
+		if !isHTTPPath && fileDesc.IsDir() {
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
 				err := fmt.Errorf("failed to process %v: %v", path, err.Error())
@@ -117,7 +125,7 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 
 		} else {
 			var fileBytes []byte
-			if isHttpPath {
+			if isHTTPPath {
 				// We accept here that a random URL might be called based on user provided input.
 				resp, err := http.Get(path) // #nosec
 				if err != nil {
@@ -163,101 +171,6 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 
 	log.Log.V(3).Info("read policies", "policies", len(policies), "errors", len(errors))
 	return policies, errors
-}
-
-// PolicyHasVariables - check for variables in the policy
-func PolicyHasVariables(policy v1.ClusterPolicy) [][]string {
-	policyRaw, _ := json.Marshal(policy)
-	matches := RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
-	return matches
-}
-
-// for now forbidden sections are match, exclude and
-func ruleForbiddenSectionsHaveVariables(rule v1.Rule) error {
-	var err error
-
-	err = JSONPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
-	if err != nil {
-		return fmt.Errorf("Rule \"%s\" should not have variables in patchesJSON6902 path section", rule.Name)
-	}
-
-	err = objectHasVariables(rule.ExcludeResources)
-	if err != nil {
-		return fmt.Errorf("Rule \"%s\" should not have variables in exclude section", rule.Name)
-	}
-
-	err = objectHasVariables(rule.MatchResources)
-	if err != nil {
-		return fmt.Errorf("Rule \"%s\" should not have variables in match section", rule.Name)
-	}
-
-	return nil
-}
-
-func JSONPatchPathHasVariables(patch string) error {
-	jsonPatch, err := yaml.ToJSON([]byte(patch))
-	if err != nil {
-		return err
-	}
-
-	decodedPatch, err := jsonpatch.DecodePatch(jsonPatch)
-	if err != nil {
-		return err
-	}
-
-	for _, operation := range decodedPatch {
-		path, err := operation.Path()
-		if err != nil {
-			return err
-		}
-
-		vars := variables.RegexVariables.FindAllString(path, -1)
-		if len(vars) > 0 {
-			return fmt.Errorf("Operation \"%s\" has forbidden variables", operation.Kind())
-		}
-	}
-
-	return nil
-}
-
-func objectHasVariables(object interface{}) error {
-	var err error
-	objectJSON, err := json.Marshal(object)
-	if err != nil {
-		return err
-	}
-
-	if len(RegexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
-		return fmt.Errorf("Object has forbidden variables")
-	}
-
-	return nil
-}
-
-// PolicyHasNonAllowedVariables - checks for unexpected variables in the policy
-func PolicyHasNonAllowedVariables(policy v1.ClusterPolicy) error {
-	for _, rule := range policy.Spec.Rules {
-		var err error
-
-		ruleJSON, err := json.Marshal(rule)
-		if err != nil {
-			return err
-		}
-
-		err = ruleForbiddenSectionsHaveVariables(rule)
-		if err != nil {
-			return err
-		}
-
-		matchesAll := RegexVariables.FindAllStringSubmatch(string(ruleJSON), -1)
-		matchesAllowed := AllowedVariables.FindAllStringSubmatch(string(ruleJSON), -1)
-
-		if (len(matchesAll) > len(matchesAllowed)) && len(rule.Context) == 0 {
-			return fmt.Errorf("Rule \"%s\" has forbidden variables. Allowed variables are: {{request.*}}, {{serviceAccountName}}, {{serviceAccountNamespace}}, {{@}} and ones defined by the context", rule.Name)
-		}
-	}
-
-	return nil
 }
 
 // MutatePolicy - applies mutation to a policy
@@ -365,7 +278,7 @@ func GetCRD(path string) (unstructuredCrds []*unstructured.Unstructured, err err
 			os.Exit(2)
 		}
 		var u unstructured.Unstructured
-		err = yaml_v2.Unmarshal(b, &u)
+		err = k8syaml.Unmarshal(b, &u)
 		if err != nil {
 			return nil, err
 		}
@@ -459,6 +372,18 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		for _, p := range values.Policies {
 			resourceMap := make(map[string]Resource)
 			for _, r := range p.Resources {
+				if val, ok := r.Values["request.operation"]; ok {
+					if val == "" {
+						r.Values["request.operation"] = "CREATE"
+						log.Log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
+					}
+				} else {
+					if r.Values == nil {
+						r.Values = make(map[string]string)
+					}
+					r.Values["request.operation"] = "CREATE"
+					log.Log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
+				}
 				for variableInFile := range r.Values {
 					if strings.Contains(variableInFile, "request.object") {
 						if !strings.Contains(reqObjVars, variableInFile) {
@@ -532,7 +457,9 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool, namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts, printPatchResource bool) ([]*response.EngineResponse, policyreport.Info, error) {
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool,
+	namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts,
+	printPatchResource bool) ([]*response.EngineResponse, policyreport.Info, error) {
 
 	var engineResponses []*response.EngineResponse
 	namespaceLabels := make(map[string]string)
@@ -573,6 +500,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	} else {
 		err = ctx.AddResource(resourceRaw)
 	}
+
 	if err != nil {
 		log.Log.Error(err, "failed to load resource in context")
 	}
@@ -582,6 +510,12 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		err = ctx.AddJSON(jsonData)
 		if err != nil {
 			log.Log.Error(err, "failed to add variable to context")
+		}
+	}
+
+	if err := ctx.AddImageInfo(resource); err != nil {
+		if err != nil {
+			log.Log.Error(err, "failed to add image variables to context")
 		}
 	}
 
