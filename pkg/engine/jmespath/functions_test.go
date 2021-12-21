@@ -995,6 +995,18 @@ func Test_Truncate(t *testing.T) {
 			jmesPath:       "truncate('Lorem ipsum ipsum ipsum dolor sit amet', `40`)",
 			expectedResult: "Lorem ipsum ipsum ipsum dolor sit amet",
 		},
+		{
+			jmesPath:       "truncate('Lorem ipsum', `2.6`)",
+			expectedResult: "Lo",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum', `0`)",
+			expectedResult: "",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum', `-1`)",
+			expectedResult: "",
+		},
 	}
 
 	for _, tc := range testCases {
