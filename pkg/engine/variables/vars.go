@@ -328,7 +328,6 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 		vars := RegexVariables.FindAllString(value, -1)
 		for len(vars) > 0 {
 			originalPattern := value
-
 			for _, v := range vars {
 				initial := len(regexVariableInit.FindAllString(v, -1)) > 0
 				old := v
@@ -415,6 +414,9 @@ var regexPathDigit = regexp.MustCompile(`\.?([\d])\.?`)
 // getJMESPath converts path to JMESPath format
 func getJMESPath(rawPath string) string {
 	tokens := strings.Split(rawPath, "/")[3:] // skip "/" + 2 elements (e.g. mutate.overlay | validate.pattern)
+	if strings.Contains(rawPath, "foreach") {
+		tokens = strings.Split(rawPath, "/")[5:] // skip "/" + 4 elements (e.g. mutate.foreach/list/overlay | validate.mutate.foreach/list/pattern)
+	}
 	path := strings.Join(tokens, ".")
 	b := regexPathDigit.ReplaceAll([]byte(path), []byte("[$1]."))
 	result := strings.Trim(string(b), ".")
