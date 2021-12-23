@@ -7219,7 +7219,7 @@ metadata:
   name: kyverno:admin-policyreport
 rules:
 - apiGroups:
-  - wgpolicyk8s.io/v1alpha2
+  - wgpolicyk8s.io
   resources:
   - policyreports
   - clusterpolicyreports
@@ -7355,16 +7355,28 @@ rules:
   - policies/status
   - clusterpolicies
   - clusterpolicies/status
-  - policyreports
-  - policyreports/status
-  - clusterpolicyreports
-  - clusterpolicyreports/status
   - generaterequests
   - generaterequests/status
   - reportchangerequests
   - reportchangerequests/status
   - clusterreportchangerequests
   - clusterreportchangerequests/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+  - deletecollection
+- apiGroups:
+  - wgpolicyk8s.io
+  resources:
+  - policyreports
+  - policyreports/status
+  - clusterpolicyreports
+  - clusterpolicyreports/status
   verbs:
   - create
   - delete
