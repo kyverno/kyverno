@@ -1004,3 +1004,46 @@ func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, po
 
 	return patchedResource, nil
 }
+
+func CheckAttestationsForPolicy(policy *v1.ClusterPolicy, attestationsFile string, isGit bool, fs billy.Filesystem, policyResourcePath string) error {
+	iv := engine.ImageVerifier{}
+	var (
+		err       error
+		jsonBytes []byte
+	)
+
+	if isGit {
+		filep, err := fs.Open(filepath.Join(policyResourcePath, attestationsFile))
+		if err != nil {
+			fmt.Printf("Unable to open variable file: %s. error: %s", attestationsFile, err)
+		}
+		jsonBytes, err = ioutil.ReadAll(filep)
+		if err != nil {
+			fmt.Printf("Unable to read variable files: %s. error: %s \n", filep, err)
+		}
+	} else {
+		// We accept the risk of including a user provided file here.
+		jsonBytes, err = ioutil.ReadFile(filepath.Join(policyResourcePath, attestationsFile)) // #nosec G304
+		if err != nil {
+			fmt.Printf("\n Unable to open variable file: %s. error: %s \n", attestationsFile, err)
+		}
+	}
+	if err != nil {
+		sanitizederror.NewWithError("unable to read yaml", err)
+	}
+
+	attestations := make(map[string][]map[string]interface{})
+	if err := json.Unmarshal(jsonBytes, &attestations); err != nil {
+		sanitizederror.NewWithError("failed to decode attestation json", err)
+	}
+
+	for _, rule := range policy.Spec.Rules {
+		if len(rule.VerifyImages) == 0 {
+			continue
+		}
+		for _, v := range rule.VerifyImages {
+			iv.AttestationCheck(attestations, v.Attestations, nil)
+		}
+	}
+	return nil
+}

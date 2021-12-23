@@ -70,7 +70,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 			continue
 		}
 
-		iv := &imageVerifier{
+		iv := &ImageVerifier{
 			logger:        logger,
 			policyContext: policyContext,
 			rule:          ruleCopy,
@@ -114,14 +114,14 @@ func substituteVariables(rule *v1.Rule, ctx context.EvalInterface, logger logr.L
 	return ruleCopy, nil
 }
 
-type imageVerifier struct {
+type ImageVerifier struct {
 	logger        logr.Logger
 	policyContext *PolicyContext
 	rule          *v1.Rule
 	resp          *response.EngineResponse
 }
 
-func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]*context.ImageInfo) {
+func (iv *ImageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]*context.ImageInfo) {
 	imagePattern := imageVerify.Image
 	key := imageVerify.Key
 	repository := getSignatureRepository(imageVerify)
@@ -165,7 +165,7 @@ func getSignatureRepository(imageVerify *v1.ImageVerification) string {
 	return repository
 }
 
-func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imageInfo *context.ImageInfo) (*response.RuleResponse, string) {
+func (iv *ImageVerifier) verifySignature(imageVerify *v1.ImageVerification, imageInfo *context.ImageInfo) (*response.RuleResponse, string) {
 	image := imageInfo.String()
 	iv.logger.Info("verifying image", "image", image)
 
@@ -213,7 +213,7 @@ func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imag
 	return ruleResp, digest
 }
 
-func (iv *imageVerifier) patchDigest(imageInfo *context.ImageInfo, digest string, ruleResp *response.RuleResponse) {
+func (iv *ImageVerifier) patchDigest(imageInfo *context.ImageInfo, digest string, ruleResp *response.RuleResponse) {
 	if imageInfo.Digest == "" {
 		patch, err := makeAddDigestPatch(imageInfo, digest)
 		if err != nil {
@@ -233,7 +233,7 @@ func makeAddDigestPatch(imageInfo *context.ImageInfo, digest string) ([]byte, er
 	return json.Marshal(patch)
 }
 
-func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.ImageInfo, attestationChecks []*v1.Attestation) *response.RuleResponse {
+func (iv *ImageVerifier) attestImage(repository, key string, imageInfo *context.ImageInfo, attestationChecks []*v1.Attestation) *response.RuleResponse {
 	image := imageInfo.String()
 	start := time.Now()
 
@@ -242,10 +242,12 @@ func (iv *imageVerifier) attestImage(repository, key string, imageInfo *context.
 		iv.logger.Info("failed to fetch attestations", "image", image, "error", err, "duration", time.Since(start).Seconds())
 		return ruleError(iv.rule, utils.ImageVerify, fmt.Sprintf("failed to fetch attestations for %s", image), err)
 	}
-
 	iv.logger.V(4).Info("received attestations", "statements", statements)
 	statementsByPredicate := buildStatementMap(statements)
+	return iv.AttestationCheck(statementsByPredicate, attestationChecks, imageInfo)
+}
 
+func (iv *ImageVerifier) AttestationCheck(statementsByPredicate map[string][]map[string]interface{}, attestationChecks []*v1.Attestation, imageInfo *context.ImageInfo) *response.RuleResponse {
 	for _, ac := range attestationChecks {
 		statements := statementsByPredicate[ac.PredicateType]
 		if statements == nil {
@@ -285,7 +287,7 @@ func buildStatementMap(statements []map[string]interface{}) map[string][]map[str
 	return results
 }
 
-func (iv *imageVerifier) checkAttestations(a *v1.Attestation, s map[string]interface{}, img *context.ImageInfo) (bool, error) {
+func (iv *ImageVerifier) checkAttestations(a *v1.Attestation, s map[string]interface{}, img *context.ImageInfo) (bool, error) {
 	if len(a.Conditions) == 0 {
 		return true, nil
 	}
