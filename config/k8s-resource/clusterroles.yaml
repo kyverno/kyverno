@@ -7,22 +7,34 @@ metadata:
   name: kyverno:policies
 rules:
 - apiGroups:
-  - "kyverno.io"
+  - kyverno.io
   resources:
   - policies
   - policies/status
   - clusterpolicies
   - clusterpolicies/status
-  - policyreports
-  - policyreports/status
-  - clusterpolicyreports
-  - clusterpolicyreports/status
   - generaterequests
   - generaterequests/status
   - reportchangerequests
   - reportchangerequests/status
   - clusterreportchangerequests
   - clusterreportchangerequests/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+  - deletecollection
+- apiGroups:
+  - wgpolicyk8s.io
+  resources:
+  - policyreports
+  - policyreports/status
+  - clusterpolicyreports
+  - clusterpolicyreports/status
   verbs:
   - create
   - delete
