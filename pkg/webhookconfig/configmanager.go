@@ -729,6 +729,10 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.Cluste
 		rsrcs = append(rsrcs, gvr.Resource)
 	}
 
+	if utils.ContainsString(rsrcs, "pods") {
+		rsrcs = append(rsrcs, "pods/ephemeralcontainers")
+	}
+
 	dst.rule[apiGroups] = removeDuplicates(groups)
 	dst.rule[apiVersions] = removeDuplicates(versions)
 	dst.rule[resources] = removeDuplicates(rsrcs)
