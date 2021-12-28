@@ -1259,6 +1259,10 @@ func validateExcludeResourceDescription(rd kyverno.ResourceDescription) (string,
 // field type is checked through openapi
 func validateResourceDescription(rd kyverno.ResourceDescription) error {
 	if rd.Selector != nil {
+		if labelSelectorContainsWildcard(rd.Selector) {
+			return nil
+		}
+
 		selector, err := metav1.LabelSelectorAsSelector(rd.Selector)
 		if err != nil {
 			return err
@@ -1269,6 +1273,25 @@ func validateResourceDescription(rd kyverno.ResourceDescription) error {
 		}
 	}
 	return nil
+}
+
+func labelSelectorContainsWildcard(v *metav1.LabelSelector) bool {
+	for k, v := range v.MatchLabels {
+		if isWildcardPresent(k) {
+			return true
+		}
+		if isWildcardPresent(v) {
+			return true
+		}
+	}
+	return false
+}
+
+func isWildcardPresent(v string) bool {
+	if strings.Contains(v, "*") || strings.Contains(v, "?") {
+		return true
+	}
+	return false
 }
 
 // checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in
