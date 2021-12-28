@@ -30,7 +30,7 @@ metadata:
   name: kyverno:admin-policyreport
 rules:
   - apiGroups:
-      - wgpolicyk8s.io/v1alpha2
+      - wgpolicyk8s.io
     resources:
       - policyreports
       - clusterpolicyreports

@@ -45,6 +45,9 @@ podAnnotations: {}
 
 podSecurityContext: {}
 
+# Optional priority class to be used for kyverno pods
+priorityClassName: ""
+
 antiAffinity:
   # This can be disabled in a 1 node cluster.
   enable: true
@@ -83,10 +86,10 @@ extraArgs: []
 
 resources:
   limits:
-    memory: 256Mi
+    memory: 384Mi
   requests:
     cpu: 100m
-    memory: 50Mi
+    memory: 128Mi
 
 initResources:
   limits:

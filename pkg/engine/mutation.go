@@ -153,7 +153,8 @@ func mutateForEachResource(rule *kyverno.Rule, ctx *PolicyContext, resource unst
 			return ruleError(rule, utils.Mutation, "failed to load context", err), resource
 		}
 
-		preconditionsPassed, err := checkPreconditions(logger, ctx, foreach.AnyAllConditions)
+		preconditionsPassed, err := checkPreconditions(logger, ctx, rule.AnyAllConditions)
+
 		if err != nil {
 			return ruleError(rule, utils.Mutation, "failed to evaluate preconditions", err), resource
 		} else if !preconditionsPassed {

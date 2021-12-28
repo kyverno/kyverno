@@ -13,7 +13,13 @@ rules:
   - policies
   - clusterpolicies
   verbs:
-  - "*"
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -24,12 +30,18 @@ metadata:
   name: {{ template "kyverno.fullname" . }}:admin-policyreport
 rules:
   - apiGroups:
-      - wgpolicyk8s.io/v1alpha2
+      - wgpolicyk8s.io
     resources:
       - policyreport
       - clusterpolicyreport
     verbs:
-      - '*'
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -45,6 +57,12 @@ rules:
   - reportchangerequests
   - clusterreportchangerequests
   verbs:
-  - "*"
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
 
 {{- end }}
