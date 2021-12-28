@@ -25,16 +25,12 @@ metadata:
     app: kyverno
 rules:
 - apiGroups:
-    - "kyverno.io"
+    - kyverno.io
   resources:
     - policies
     - policies/status
     - clusterpolicies
     - clusterpolicies/status
-    - policyreports
-    - policyreports/status
-    - clusterpolicyreports
-    - clusterpolicyreports/status
     - generaterequests
     - generaterequests/status
     - reportchangerequests
@@ -50,6 +46,23 @@ rules:
     - update
     - watch
     - deletecollection
+- apiGroups:
+  - wgpolicyk8s.io
+  resources:
+  - policyreports
+  - policyreports/status
+  - clusterpolicyreports
+  - clusterpolicyreports/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+  - deletecollection
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
