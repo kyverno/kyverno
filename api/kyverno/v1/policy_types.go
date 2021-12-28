@@ -206,8 +206,10 @@ type Condition struct {
 	// +kubebuilder:validation:XPreserveUnknownFields
 	Key apiextensions.JSON `json:"key,omitempty" yaml:"key,omitempty"`
 
-	// Operator is the operation to perform. Valid operators
-	// are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
+	// Operator is the conditional operation to perform. Valid operators are:
+	// Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+	// GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+	// DurationLessThanOrEquals, DurationLessThan
 	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
 
 	// Value is the conditional value, or set of values. The values can be fixed set
@@ -221,46 +223,46 @@ type Condition struct {
 // +kubebuilder:validation:Enum=Equals;NotEquals;In;AnyIn;AllIn;NotIn;AnyNotIn;AllNotIn;GreaterThanOrEquals;GreaterThan;LessThanOrEquals;LessThan;DurationGreaterThanOrEquals;DurationGreaterThan;DurationLessThanOrEquals;DurationLessThan
 type ConditionOperator string
 
-const (
-	// Equal evaluates if the key is equal to the value.
-	// Deprecated. Use Equals instead.
-	Equal ConditionOperator = "Equal"
-	// Equals evaluates if the key is equal to the value.
-	Equals ConditionOperator = "Equals"
-	// NotEqual evaluates if the key is not equal to the value.
-	// Deprecated. Use NotEquals instead.
-	NotEqual ConditionOperator = "NotEqual"
-	// NotEquals evaluates if the key is not equal to the value.
-	NotEquals ConditionOperator = "NotEquals"
-	// In evaluates if the key is contained in the set of values.
-	In ConditionOperator = "In"
-	// AnyIn evaluates if any of the keys are contained in the set of values.
-	AnyIn ConditionOperator = "AnyIn"
-	// AllIn evaluates if all the keys are contained in the set of values.
-	AllIn ConditionOperator = "AllIn"
-	// NotIn evaluates if the key is not contained in the set of values.
-	NotIn ConditionOperator = "NotIn"
-	// AnyNotIn evaluates if any of the keys are not contained in the set of values.
-	AnyNotIn ConditionOperator = "AnyNotIn"
-	// AllNotIn evaluates if all the keys are not contained in the set of values.
-	AllNotIn ConditionOperator = "AllNotIn"
-	// GreaterThanOrEquals evaluates if the key (numeric) is greater than or equal to the value (numeric).
-	GreaterThanOrEquals ConditionOperator = "GreaterThanOrEquals"
-	// GreaterThan evaluates if the key (numeric) is greater than the value (numeric).
-	GreaterThan ConditionOperator = "GreaterThan"
-	// LessThanOrEquals evaluates if the key (numeric) is less than or equal to the value (numeric).
-	LessThanOrEquals ConditionOperator = "LessThanOrEquals"
-	// LessThan evaluates if the key (numeric) is less than the value (numeric).
-	LessThan ConditionOperator = "LessThan"
-	// DurationGreaterThanOrEquals evaluates if the key (duration) is greater than or equal to the value (duration)
-	DurationGreaterThanOrEquals ConditionOperator = "DurationGreaterThanOrEquals"
-	// DurationGreaterThan evaluates if the key (duration) is greater than the value (duration)
-	DurationGreaterThan ConditionOperator = "DurationGreaterThan"
-	// DurationLessThanOrEquals evaluates if the key (duration) is less than or equal to the value (duration)
-	DurationLessThanOrEquals ConditionOperator = "DurationLessThanOrEquals"
-	// DurationLessThan evaluates if the key (duration) is greater than the value (duration)
-	DurationLessThan ConditionOperator = "DurationLessThan"
-)
+// ConditionOperators stores all the valid ConditionOperator types as key-value pairs.
+//
+// "Equal" evaluates if the key is equal to the value. (Deprecated; Use Equals instead)
+// "Equals" evaluates if the key is equal to the value.
+// "NotEqual" evaluates if the key is not equal to the value. (Deprecated; Use NotEquals instead)
+// "NotEquals" evaluates if the key is not equal to the value.
+// "In" evaluates if the key is contained in the set of values.
+// "AnyIn" evaluates if any of the keys are contained in the set of values.
+// "AllIn" evaluates if all the keys are contained in the set of values.
+// "NotIn" evaluates if the key is not contained in the set of values.
+// "AnyNotIn" evaluates if any of the keys are not contained in the set of values.
+// "AllNotIn" evaluates if all the keys are not contained in the set of values.
+// "GreaterThanOrEquals" evaluates if the key (numeric) is greater than or equal to the value (numeric).
+// "GreaterThan" evaluates if the key (numeric) is greater than the value (numeric).
+// "LessThanOrEquals" evaluates if the key (numeric) is less than or equal to the value (numeric).
+// "LessThan" evaluates if the key (numeric) is less than the value (numeric).
+// "DurationGreaterThanOrEquals" evaluates if the key (duration) is greater than or equal to the value (duration)
+// "DurationGreaterThan" evaluates if the key (duration) is greater than the value (duration)
+// "DurationLessThanOrEquals" evaluates if the key (duration) is less than or equal to the value (duration)
+// "DurationLessThan" evaluates if the key (duration) is greater than the value (duration)
+var ConditionOperators = map[string]ConditionOperator{
+	"Equal":                       ConditionOperator("Equal"),
+	"Equals":                      ConditionOperator("Equals"),
+	"NotEqual":                    ConditionOperator("NotEqual"),
+	"NotEquals":                   ConditionOperator("NotEquals"),
+	"In":                          ConditionOperator("In"),
+	"AnyIn":                       ConditionOperator("AnyIn"),
+	"AllIn":                       ConditionOperator("AllIn"),
+	"NotIn":                       ConditionOperator("NotIn"),
+	"AnyNotIn":                    ConditionOperator("AnyNotIn"),
+	"AllNotIn":                    ConditionOperator("AllNotIn"),
+	"GreaterThanOrEquals":         ConditionOperator("GreaterThanOrEquals"),
+	"GreaterThan":                 ConditionOperator("GreaterThan"),
+	"LessThanOrEquals":            ConditionOperator("LessThanOrEquals"),
+	"LessThan":                    ConditionOperator("LessThan"),
+	"DurationGreaterThanOrEquals": ConditionOperator("DurationGreaterThanOrEquals"),
+	"DurationGreaterThan":         ConditionOperator("DurationGreaterThan"),
+	"DurationLessThanOrEquals":    ConditionOperator("DurationLessThanOrEquals"),
+	"DurationLessThan":            ConditionOperator("DurationLessThan"),
+}
 
 // MatchResources is used to specify resource and admission review request data for
 // which a policy rule is applicable.

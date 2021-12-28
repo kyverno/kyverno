@@ -34,6 +34,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	policy := policyContext.Policy
 	patchedResource := policyContext.NewResource
 	ctx := policyContext.JSONContext
+	var name []string
 
 	resCache := policyContext.ResourceCache
 	logger := log.Log.WithName("EngineMutate").WithValues("policy", policy.Name, "kind", patchedResource.GetKind(),
@@ -62,6 +63,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 		if err = MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, policyContext.NamespaceLabels, policyContext.Policy.Namespace); err != nil {
 			logger.V(4).Info("rule not matched", "reason", err.Error())
+			name = append(name, rule.Name)
 			continue
 		}
 
@@ -117,6 +119,15 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 				incrementErrorCount(resp)
 			} else {
 				incrementAppliedCount(resp)
+			}
+		}
+	}
+
+	for _, r := range resp.PolicyResponse.Rules {
+		for _, n := range name {
+			if r.Name == n {
+				r.Status = response.RuleStatusSkip
+				logger.V(4).Info("rule Status set as skip", "rule name", r.Name)
 			}
 		}
 	}
