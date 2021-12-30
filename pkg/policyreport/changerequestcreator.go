@@ -59,13 +59,19 @@ func (c *changeRequestCreator) add(request *unstructured.Unstructured) {
 		err = c.CRCRCache.Add(uid.String(), request, cache.NoExpiration)
 		if err != nil {
 			c.log.Error(err, "failed to add ClusterReportChangeRequest to cache, replacing", "cache length", c.CRCRCache.ItemCount())
-			c.CRCRCache.Replace(uid.String(), request, cache.NoExpiration)
+			if err = c.CRCRCache.Replace(uid.String(), request, cache.NoExpiration); err != nil {
+				c.log.Error(err, "failed to replace CRCR")
+				return
+			}
 		}
 	case "ReportChangeRequest":
 		err = c.RCRCache.Add(uid.String(), request, cache.NoExpiration)
 		if err != nil {
 			c.log.Error(err, "failed to add ReportChangeRequest to cache, replacing", "cache length", c.RCRCache.ItemCount())
-			c.RCRCache.Replace(uid.String(), request, cache.NoExpiration)
+			if err = c.RCRCache.Replace(uid.String(), request, cache.NoExpiration); err != nil {
+				c.log.Error(err, "failed to replace RCR")
+				return
+			}
 		}
 	default:
 		return
