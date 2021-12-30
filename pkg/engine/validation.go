@@ -64,6 +64,7 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 		resp.PatchedResource = resource
 	}
 
+	resp.Policy = &ctx.Policy
 	resp.PolicyResponse.Policy.Name = ctx.Policy.GetName()
 	resp.PolicyResponse.Policy.Namespace = ctx.Policy.GetNamespace()
 	resp.PolicyResponse.Resource.Name = resp.PatchedResource.GetName()

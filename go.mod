@@ -54,7 +54,7 @@ require (
 )
 
 require (
-	github.com/aquilax/truncate v1.0.0 // indirect
+	github.com/aquilax/truncate v1.0.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	gopkg.in/inf.v0 v0.9.1
