@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/engine/common"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -368,43 +370,6 @@ func matchesResourceDescriptionExcludeHelper(rer kyverno.ResourceFilter, admissi
 	return errs
 }
 
-func copyAnyAllConditions(original kyverno.AnyAllConditions) kyverno.AnyAllConditions {
-	if reflect.DeepEqual(original, kyverno.AnyAllConditions{}) {
-		return kyverno.AnyAllConditions{}
-	}
-	return *original.DeepCopy()
-}
-
-// backwards compatibility
-func copyOldConditions(original []kyverno.Condition) []kyverno.Condition {
-	if original == nil || len(original) == 0 {
-		return []kyverno.Condition{}
-	}
-
-	var copies []kyverno.Condition
-	for _, condition := range original {
-		copies = append(copies, *condition.DeepCopy())
-	}
-
-	return copies
-}
-
-func transformConditions(original apiextensions.JSON) (interface{}, error) {
-	// conditions are currently in the form of []interface{}
-	kyvernoOriginalConditions, err := utils.ApiextensionsJsonToKyvernoConditions(original)
-	if err != nil {
-		return nil, err
-	}
-	switch typedValue := kyvernoOriginalConditions.(type) {
-	case kyverno.AnyAllConditions:
-		return copyAnyAllConditions(typedValue), nil
-	case []kyverno.Condition: // backwards compatibility
-		return copyOldConditions(typedValue), nil
-	}
-
-	return nil, fmt.Errorf("invalid preconditions")
-}
-
 // excludeResource checks if the resource has ownerRef set
 func excludeResource(podControllers string, resource unstructured.Unstructured) bool {
 	kind := resource.GetKind()
@@ -448,7 +413,7 @@ func checkPreconditions(logger logr.Logger, ctx *PolicyContext, anyAllConditions
 		return false, errors.Wrapf(err, "failed to substitute variables in preconditions")
 	}
 
-	typeConditions, err := transformConditions(preconditions)
+	typeConditions, err := common.TransformConditions(preconditions)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to parse preconditions")
 	}

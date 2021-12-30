@@ -1,13 +1,13 @@
-package mutate
+package patch
 
 import (
 	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
-	anchor "github.com/kyverno/kyverno/pkg/engine/anchor/common"
+	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
-	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
+	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 type ConditionError struct {
@@ -72,7 +72,7 @@ func walkMap(logger logr.Logger, pattern, resource *yaml.RNode) error {
 		return err
 	}
 
-	err = handleAddings(logger, pattern, resource)
+	err = handleAddings(pattern, resource)
 	if err != nil {
 		return err
 	}
@@ -226,7 +226,7 @@ func validateConditions(logger logr.Logger, pattern, resource *yaml.RNode) error
 // handleAddings handles adding anchors.
 // Remove anchor from pattern, if field already exists.
 // Remove anchor wrapping from key, if field does not exist in the resource.
-func handleAddings(logger logr.Logger, pattern, resource *yaml.RNode) error {
+func handleAddings(pattern, resource *yaml.RNode) error {
 	addings, err := filterKeys(pattern, anchor.IsAddingAnchor)
 	if err != nil {
 		return err
@@ -519,7 +519,7 @@ func validateConditionsInternal(logger logr.Logger, pattern, resource *yaml.RNod
 	}
 
 	for _, condition := range conditions {
-		conditionKey := removeAnchor(condition)
+		conditionKey, _ := anchor.RemoveAnchor(condition)
 		if resource == nil || resource.Field(conditionKey) == nil {
 			return fmt.Errorf("could not found \"%s\" key in the resource", conditionKey)
 		}

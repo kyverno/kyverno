@@ -3,6 +3,8 @@ package engine
 import (
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/engine/common"
+
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -109,7 +111,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	}
 
 	// operate on the copy of the conditions, as we perform variable substitution
-	copyConditions, err := transformConditions(ruleCopy.AnyAllConditions)
+	copyConditions, err := common.TransformConditions(ruleCopy.AnyAllConditions)
 	if err != nil {
 		logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
 		return nil

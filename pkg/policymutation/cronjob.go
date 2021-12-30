@@ -57,19 +57,6 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		}
 	}
 
-	if (jobRule.Mutation != nil) && (jobRule.Mutation.Overlay != nil) {
-		newMutation := &kyverno.Mutation{
-			Overlay: map[string]interface{}{
-				"spec": map[string]interface{}{
-					"jobTemplate": jobRule.Mutation.Overlay,
-				},
-			},
-		}
-
-		cronJobRule.Mutation = newMutation.DeepCopy()
-		return *cronJobRule
-	}
-
 	if (jobRule.Mutation != nil) && (jobRule.Mutation.PatchStrategicMerge != nil) {
 		newMutation := &kyverno.Mutation{
 			PatchStrategicMerge: map[string]interface{}{

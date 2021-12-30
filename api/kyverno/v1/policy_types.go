@@ -385,20 +385,6 @@ type ResourceDescription struct {
 
 // Mutation defines how resource are modified.
 type Mutation struct {
-	// Overlay specifies an overlay pattern to modify resources.
-	// DEPRECATED. Use PatchStrategicMerge instead. Scheduled for
-	// removal in release 1.5+.
-	// +kubebuilder:validation:XPreserveUnknownFields
-	// +optional
-	Overlay apiextensions.JSON `json:"overlay,omitempty"`
-
-	// Patches specifies a RFC 6902 JSON Patch to modify resources.
-	// DEPRECATED. Use PatchesJSON6902 instead. Scheduled for
-	// removal in release 1.5+.
-	// +kubebuilder:validation:XPreserveUnknownFields
-	// +nullable
-	// +optional
-	Patches []Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
 
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
@@ -441,25 +427,11 @@ type ForEachMutation struct {
 	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	PatchStrategicMerge apiextensions.JSON `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
-}
 
-// +k8s:deepcopy-gen=false
-
-// Patch is a RFC 6902 JSON Patch.
-// See: https://tools.ietf.org/html/rfc6902
-type Patch struct {
-
-	// Path specifies path of the resource.
-	Path string `json:"path,omitempty" yaml:"path,omitempty"`
-
-	// Operation specifies operations supported by JSON Patch.
-	// i.e:- add, replace and delete.
-	Operation string `json:"op,omitempty" yaml:"op,omitempty"`
-
-	// Value specifies the value to be applied.
-	// +kubebuilder:validation:XPreserveUnknownFields
+	// PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
+	// See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
 	// +optional
-	Value apiextensions.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+	PatchesJSON6902 string `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
 }
 
 // Validation defines checks to be performed on matching resources.
@@ -505,6 +477,12 @@ type ForEachValidation struct {
 	// List specifies a JMESPath expression that results in one or more elements
 	// to which the validation logic is applied.
 	List string `json:"list,omitempty" yaml:"list,omitempty"`
+
+	// Use the list element as the scope for validation. Defaults to "true" if not specified.
+	// When set to "false", "request.object" is used as the validation scope within the foreach
+	// block to allow referencing other elements in the subtree.
+	// +optional
+	ElementScope *bool `json:"elementScope,omitempty" yaml:"elementScope,omitempty"`
 
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional

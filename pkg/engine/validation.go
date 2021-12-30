@@ -180,7 +180,9 @@ func (v *validator) validate() *response.RuleResponse {
 	preconditionsPassed, err := checkPreconditions(v.log, v.ctx, v.anyAllConditions)
 	if err != nil {
 		return ruleError(v.rule, utils.Validation, "failed to evaluate preconditions", err)
-	} else if !preconditionsPassed {
+	}
+
+	if !preconditionsPassed {
 		return ruleResponse(v.rule, utils.Validation, "preconditions not met", response.RuleStatusSkip)
 	}
 
@@ -226,6 +228,11 @@ func (v *validator) validateForEach() *response.RuleResponse {
 			continue
 		}
 
+		elementScope := true
+		if foreach.ElementScope != nil {
+			elementScope = *foreach.ElementScope
+		}
+
 		v.ctx.JSONContext.Checkpoint()
 		defer v.ctx.JSONContext.Restore()
 
@@ -233,7 +240,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 			v.ctx.JSONContext.Reset()
 
 			ctx := v.ctx.Copy()
-			if err := addElementToContext(ctx, e); err != nil {
+			if err := addElementToContext(ctx, e, elementScope); err != nil {
 				v.log.Error(err, "failed to add element to context")
 				return ruleError(v.rule, utils.Validation, "failed to process foreach", err)
 			}
@@ -261,7 +268,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	return ruleResponse(v.rule, utils.Validation, "rule passed", response.RuleStatusPass)
 }
 
-func addElementToContext(ctx *PolicyContext, e interface{}) error {
+func addElementToContext(ctx *PolicyContext, e interface{}, elementScope bool) error {
 	data, err := common.ToMap(e)
 	if err != nil {
 		return err
@@ -275,9 +282,11 @@ func addElementToContext(ctx *PolicyContext, e interface{}) error {
 		return errors.Wrapf(err, "failed to add element (%v) to JSON context", e)
 	}
 
-	u := unstructured.Unstructured{}
-	u.SetUnstructuredContent(data)
-	ctx.Element = u
+	if elementScope {
+		u := unstructured.Unstructured{}
+		u.SetUnstructuredContent(data)
+		ctx.Element = u
+	}
 
 	return nil
 }
@@ -307,7 +316,7 @@ func (v *validator) validateDeny() *response.RuleResponse {
 		return ruleError(v.rule, utils.Validation, "failed to substitute variables in rule", err)
 	}
 
-	denyConditions, err := transformConditions(anyAllCond)
+	denyConditions, err := common.TransformConditions(anyAllCond)
 	if err != nil {
 		return ruleError(v.rule, utils.Validation, "invalid deny conditions", err)
 	}
@@ -340,8 +349,7 @@ func (v *validator) getDenyMessage(deny bool) string {
 
 func (v *validator) validateResourceWithRule() *response.RuleResponse {
 	if !isEmptyUnstructured(&v.ctx.Element) {
-		resp := v.validatePatterns(v.ctx.Element)
-		return resp
+		return v.validatePatterns(v.ctx.Element)
 	}
 
 	// if the OldResource is empty, the request is a CREATE

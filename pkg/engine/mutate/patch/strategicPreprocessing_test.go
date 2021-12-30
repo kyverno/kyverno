@@ -1,10 +1,11 @@
-package mutate
+package patch
 
 import (
 	"encoding/json"
 	"testing"
 
-	anchor "github.com/kyverno/kyverno/pkg/engine/anchor/common"
+	"github.com/kyverno/kyverno/pkg/engine/anchor"
+
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"

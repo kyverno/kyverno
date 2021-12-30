@@ -8,10 +8,11 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/kyverno/kyverno/pkg/engine/anchor"
+
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	jsonUtils "github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
@@ -543,7 +544,7 @@ func getValueFromReference(fullDocument interface{}, path string) (interface{}, 
 
 	if _, err := jsonUtils.NewTraversal(fullDocument, jsonUtils.OnlyForLeafsAndKeys(
 		func(data *jsonUtils.ActionData) (interface{}, error) {
-			if common.RemoveAnchorsFromPath(data.Path) == path {
+			if anchor.RemoveAnchorsFromPath(data.Path) == path {
 				element = data.Element
 			}
 
