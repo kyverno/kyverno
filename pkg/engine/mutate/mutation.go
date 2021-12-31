@@ -37,14 +37,13 @@ func newResponse(status response.RuleStatus, resource unstructured.Unstructured,
 }
 
 func Mutate(rule *kyverno.Rule, ctx *context.Context, resource unstructured.Unstructured, logger logr.Logger) *Response {
-
 	updatedRule, err := variables.SubstituteAllInRule(logger, ctx, *rule)
 	if err != nil {
 		return newErrorResponse("variable substitution failed", err)
 	}
 
 	m := updatedRule.Mutation
-	patcher := newPatcher(updatedRule.Name, m.PatchStrategicMerge, m.PatchesJSON6902, resource, ctx, logger)
+	patcher := NewPatcher(updatedRule.Name, m.PatchStrategicMerge, m.PatchesJSON6902, resource, ctx, logger)
 	if patcher == nil {
 		return newResponse(response.RuleStatusError, resource, nil, "empty mutate rule")
 	}
@@ -66,13 +65,12 @@ func Mutate(rule *kyverno.Rule, ctx *context.Context, resource unstructured.Unst
 }
 
 func ForEach(name string, foreach *kyverno.ForEachMutation, ctx *context.Context, resource unstructured.Unstructured, logger logr.Logger) *Response {
-
 	fe, err := substituteAllInForEach(foreach, ctx, logger)
 	if err != nil {
 		return newErrorResponse("variable substitution failed", err)
 	}
 
-	patcher := newPatcher(name, fe.PatchStrategicMerge, fe.PatchesJSON6902, resource, ctx, logger)
+	patcher := NewPatcher(name, fe.PatchStrategicMerge, fe.PatchesJSON6902, resource, ctx, logger)
 	if patcher == nil {
 		return newResponse(response.RuleStatusError, unstructured.Unstructured{}, nil, "no patches found")
 	}
@@ -117,7 +115,7 @@ func substituteAllInForEach(fe *kyverno.ForEachMutation, ctx *context.Context, l
 	return &updatedForEach, nil
 }
 
-func newPatcher(name string, strategicMergePatch apiextensions.JSON, jsonPatch string, r unstructured.Unstructured, ctx *context.Context, logger logr.Logger) patch.Patcher {
+func NewPatcher(name string, strategicMergePatch apiextensions.JSON, jsonPatch string, r unstructured.Unstructured, ctx *context.Context, logger logr.Logger) patch.Patcher {
 	if strategicMergePatch != nil {
 		return patch.NewPatchStrategicMerge(name, strategicMergePatch, r, ctx, logger)
 	}

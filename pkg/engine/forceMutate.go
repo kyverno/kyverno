@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -17,52 +18,53 @@ func ForceMutate(ctx *context.Context, policy kyverno.ClusterPolicy, resource un
 	logger := log.Log.WithName("EngineForceMutate").WithValues("policy", policy.Name, "kind", resource.GetKind(),
 		"namespace", resource.GetNamespace(), "name", resource.GetName())
 
-	if ctx == nil {
-		ctx = context.NewContext()
-		ctx.AddResourceAsObject(resource.Object)
-	}
-
 	patchedResource := resource
-	for i, rule := range policy.Spec.Rules {
+	for _, rule := range policy.Spec.Rules {
 		if !rule.HasMutate() {
 			continue
 		}
 
-		ruleCopy := removeConditions(&policy.Spec.Rules[i])
-		if ruleCopy.Mutation.ForEachMutation != nil {
-			for _, foreach := range ruleCopy.Mutation.ForEachMutation {
-				mutateResp := mutate.ForEach(rule.Name, foreach, ctx, patchedResource, logger)
-				if mutateResp.Status == response.RuleStatusError {
-					return patchedResource, fmt.Errorf("%s", mutateResp.Message)
+		r, err := variables.SubstituteAllForceMutate(logger, ctx, removeConditions(rule))
+		if err != nil {
+			return resource, err
+		}
+
+		if r.Mutation.ForEachMutation != nil {
+			for _, foreach := range r.Mutation.ForEachMutation {
+				patcher := mutate.NewPatcher(r.Name, foreach.PatchStrategicMerge, foreach.PatchesJSON6902, patchedResource, ctx, logger)
+				resp, mutatedResource := patcher.Patch()
+				if resp.Status != response.RuleStatusPass {
+					return patchedResource, fmt.Errorf("foreach mutate result %v: %s", resp.Status.String(), resp.Message)
 				}
 
-				patchedResource = mutateResp.PatchedResource
+				patchedResource = mutatedResource
 			}
 		} else {
-			mutateResp := mutate.Mutate(ruleCopy, ctx, patchedResource, logger)
-			if mutateResp.Status == response.RuleStatusError {
-				return patchedResource, fmt.Errorf("%s", mutateResp.Message)
+			m := r.Mutation
+			patcher := mutate.NewPatcher(r.Name, m.PatchStrategicMerge, m.PatchesJSON6902, patchedResource, ctx, logger)
+			resp, mutatedResource := patcher.Patch()
+			if resp.Status != response.RuleStatusPass {
+				return patchedResource, fmt.Errorf("mutate result %v: %s", resp.Status.String(), resp.Message)
 			}
 
-			patchedResource = mutateResp.PatchedResource
+			patchedResource = mutatedResource
 		}
 	}
 
 	return patchedResource, nil
 }
 
-func removeConditions(rule *kyverno.Rule) *kyverno.Rule {
+func removeConditions(rule kyverno.Rule) kyverno.Rule {
 	ruleCopy := rule.DeepCopy()
 
 	if ruleCopy.AnyAllConditions != nil {
 		ruleCopy.AnyAllConditions = nil
 	}
-
 	for i, fem := range ruleCopy.Mutation.ForEachMutation {
 		if fem.AnyAllConditions != nil {
 			ruleCopy.Mutation.ForEachMutation[i].AnyAllConditions = nil
 		}
 	}
 
-	return ruleCopy
+	return *ruleCopy
 }
