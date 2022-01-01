@@ -30,6 +30,8 @@ var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
 
 var regexVariableInit = regexp.MustCompile(`^\{\{[^{}]*\}\}`)
 
+var regexElementIndex = regexp.MustCompile(`{{\s*elementIndex\s*}}`)
+
 // IsVariable returns true if the element contains a 'valid' variable {{}}
 func IsVariable(value string) bool {
 	groups := RegexVariables.FindAllStringSubmatch(value, -1)
@@ -232,8 +234,8 @@ func validateElementInForEach(log logr.Logger) jsonUtils.Action {
 			}
 
 			variable := replaceBracesAndTrimSpaces(v)
-
-			if strings.HasPrefix(variable, "element") && !strings.Contains(data.Path, "/foreach/") {
+			isElementVar := strings.HasPrefix(variable, "element") ||  variable == "elementIndex"
+			if  isElementVar && !strings.Contains(data.Path, "/foreach/") {
 				return nil, fmt.Errorf("variable '%v' present outside of foreach at path %s", variable, data.Path)
 			}
 		}
@@ -562,13 +564,20 @@ func replaceSubstituteVariables(document interface{}) interface{} {
 		return document
 	}
 
-	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
 	for {
-		if len(regex.FindAllStringSubmatch(string(rawDocument), -1)) > 0 {
-			rawDocument = regex.ReplaceAll(rawDocument, []byte(`placeholderValue`))
-		} else {
+		if len(regexElementIndex.FindAllStringSubmatch(string(rawDocument), -1)) == 0 {
 			break
 		}
+
+		rawDocument = regexElementIndex.ReplaceAll(rawDocument, []byte(`0`))
+	}
+
+	for {
+		if len(RegexVariables.FindAllStringSubmatch(string(rawDocument), -1)) == 0 {
+			break
+		}
+
+		rawDocument = RegexVariables.ReplaceAll(rawDocument, []byte(`placeholderValue`))
 	}
 
 	var output interface{}

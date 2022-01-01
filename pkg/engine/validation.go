@@ -154,16 +154,17 @@ func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *vali
 	}
 }
 
-func newForeachValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule, foreachIndex int) *validator {
+func newForeachValidator(log logr.Logger, rule *kyverno.Rule, foreachIndex int) *validator {
 	ruleCopy := rule.DeepCopy()
 	foreach := ruleCopy.Validation.ForEachValidation
 	anyAllConditions, err := common.ToMap(foreach[foreachIndex].AnyAllConditions)
 	if err != nil {
 		log.Error(err, "failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions")
 	}
+
 	return &validator{
 		log:              log,
-		ctx:              ctx,
+		ctx:              nil,
 		rule:             ruleCopy,
 		contextEntries:   foreach[foreachIndex].Context,
 		anyAllConditions: anyAllConditions,
@@ -171,6 +172,10 @@ func newForeachValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule
 		anyPattern:       foreach[foreachIndex].AnyPattern,
 		deny:             foreach[foreachIndex].Deny,
 	}
+}
+
+func (v *validator) setContext(ctx *PolicyContext) {
+	v.ctx = ctx
 }
 
 func (v *validator) validate() *response.RuleResponse {
@@ -234,32 +239,13 @@ func (v *validator) validateForEach() *response.RuleResponse {
 			elementScope = *foreach.ElementScope
 		}
 
-		v.ctx.JSONContext.Checkpoint()
-		defer v.ctx.JSONContext.Restore()
-
-		for _, e := range elements {
-			v.ctx.JSONContext.Reset()
-
-			ctx := v.ctx.Copy()
-			if err := addElementToContext(ctx, e, elementScope); err != nil {
-				v.log.Error(err, "failed to add element to context")
-				return ruleError(v.rule, utils.Validation, "failed to process foreach", err)
-			}
-
-			foreach := newForeachValidator(v.log, ctx, v.rule, foreachIndex)
-			r := foreach.validate()
-			if r == nil {
-				v.log.Info("skipping rule due to empty result")
-				continue
-			} else if r.Status == response.RuleStatusSkip {
-				v.log.Info("skipping rule as preconditions were not met")
-				continue
-			} else if r.Status != response.RuleStatusPass {
-				msg := fmt.Sprintf("validation failed in foreach rule for %v", r.Message)
-				return ruleResponse(v.rule, utils.Validation, msg, r.Status)
-			}
-			applyCount++
+		foreachValidator := newForeachValidator(v.log, v.rule, foreachIndex)
+		resp, count := v.validateElements(foreachValidator, elements, elementScope)
+		if resp.Status != response.RuleStatusPass {
+			return resp
 		}
+
+		applyCount += count
 	}
 
 	if applyCount == 0 {
@@ -269,7 +255,41 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	return ruleResponse(v.rule, utils.Validation, "rule passed", response.RuleStatusPass)
 }
 
-func addElementToContext(ctx *PolicyContext, e interface{}, elementScope bool) error {
+func (v *validator) validateElements(foreachValidator *validator, elements []interface{}, elementScope bool) (*response.RuleResponse, int) {
+	v.ctx.JSONContext.Checkpoint()
+	defer v.ctx.JSONContext.Restore()
+	applyCount := 0
+
+	for i, e := range elements {
+		v.ctx.JSONContext.Reset()
+
+		ctx := v.ctx.Copy()
+		if err := addElementToContext(ctx, e, i, elementScope); err != nil {
+			v.log.Error(err, "failed to add element to context")
+			return ruleError(v.rule, utils.Validation, "failed to process foreach", err), applyCount
+		}
+
+		foreachValidator.setContext(ctx)
+
+		r := foreachValidator.validate()
+		if r == nil {
+			v.log.Info("skipping rule due to empty result")
+			continue
+		} else if r.Status == response.RuleStatusSkip {
+			v.log.Info("skipping rule as preconditions were not met")
+			continue
+		} else if r.Status != response.RuleStatusPass {
+			msg := fmt.Sprintf("validation failed in foreach rule for %v", r.Message)
+			return ruleResponse(v.rule, utils.Validation, msg, r.Status), applyCount
+		}
+
+		applyCount++
+	}
+
+	return ruleResponse(v.rule, utils.Validation, "", response.RuleStatusPass), applyCount
+}
+
+func addElementToContext(ctx *PolicyContext, e interface{}, elementIndex int, elementScope bool) error {
 	data, err := common.ToMap(e)
 	if err != nil {
 		return err
@@ -277,6 +297,7 @@ func addElementToContext(ctx *PolicyContext, e interface{}, elementScope bool) e
 
 	jsonData := map[string]interface{}{
 		"element": data,
+		"elementIndex": elementIndex,
 	}
 
 	if err := ctx.JSONContext.AddJSONObject(jsonData); err != nil {

@@ -2,8 +2,8 @@ package openapi
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"strconv"
 	"strings"
 	"sync"
@@ -166,10 +166,16 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 		if kind != "*" {
 			err = o.ValidateResource(*patchedResource.DeepCopy(), "", kind)
 			if err != nil {
-				return err
+				jsonResult := ""
+				b, marshalErr := patchedResource.MarshalJSON()
+				if marshalErr != nil {
+					jsonResult = marshalErr.Error()
+				}
+
+				jsonResult = string(b)
+				return errors.Wrapf(err, "invalid mutation result - %v: %s", err, jsonResult)
 			}
 		}
-
 	}
 
 	return nil

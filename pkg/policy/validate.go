@@ -28,9 +28,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var allowedVariables = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element\.|@|images\.|([a-z_0-9]+\()[^{}]`)
+var allowedVariables = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element\.|elementIndex|@|images\.|([a-z_0-9]+\()[^{}]`)
 
-var allowedVariablesBackground = regexp.MustCompile(`request\.|element\.|@|images\.|([a-z_0-9]+\()[^{}]`)
+var allowedVariablesBackground = regexp.MustCompile(`request\.|element\.|elementIndex|@|images\.|([a-z_0-9]+\()[^{}]`)
 
 // wildCardAllowedVariables represents regex for the allowed fields in wildcards
 var wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)

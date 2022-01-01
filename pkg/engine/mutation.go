@@ -197,11 +197,11 @@ func mutateElements(name string, foreach *kyverno.ForEachMutation, ctx *PolicyCo
 	patchedResource := resource
 	allPatches := make([][]byte, 0)
 
-	for _, e := range elements {
+	for i, e := range elements {
 		ctx.JSONContext.Reset()
 
 		ctx := ctx.Copy()
-		if err := addElementToContext(ctx, e, false); err != nil {
+		if err := addElementToContext(ctx, e, i,false); err != nil {
 			return &mutate.Response{
 				Status:          response.RuleStatusFail,
 				PatchedResource: unstructured.Unstructured{},
