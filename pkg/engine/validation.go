@@ -296,7 +296,7 @@ func addElementToContext(ctx *PolicyContext, e interface{}, elementIndex int, el
 	}
 
 	jsonData := map[string]interface{}{
-		"element": data,
+		"element":      data,
 		"elementIndex": elementIndex,
 	}
 
