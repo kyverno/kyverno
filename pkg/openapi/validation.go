@@ -171,9 +171,10 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 				b, marshalErr := patchedResource.MarshalJSON()
 				if marshalErr != nil {
 					jsonResult = marshalErr.Error()
+				} else {
+					jsonResult = string(b)
 				}
 
-				jsonResult = string(b)
 				return errors.Wrapf(err, "invalid mutation result - %v: %s", err, jsonResult)
 			}
 		}
