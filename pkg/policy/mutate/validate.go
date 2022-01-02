@@ -2,6 +2,7 @@ package mutate
 
 import (
 	"fmt"
+
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
@@ -27,12 +28,12 @@ func (m *Mutate) Validate() (string, error) {
 }
 
 func (m *Mutate) validateForEach() (string, error) {
-	if m.hasPatchStrategicMerge() || m.hasPatchesJSON6902(){
+	if m.hasPatchStrategicMerge() || m.hasPatchesJSON6902() {
 		return "foreach", fmt.Errorf("mutate rule must contain either a `foreach`, a `patchStrategicMerge`, or a `patchesJson6902` declaration")
 	}
 
 	for i, fe := range m.mutation.ForEachMutation {
-		if (fe.PatchesJSON6902 == "" && fe.PatchStrategicMerge == nil) ||  (fe.PatchesJSON6902 != "" && fe.PatchStrategicMerge != nil) {
+		if (fe.PatchesJSON6902 == "" && fe.PatchStrategicMerge == nil) || (fe.PatchesJSON6902 != "" && fe.PatchStrategicMerge != nil) {
 			return fmt.Sprintf("foreach[%d]", i), fmt.Errorf("foreach must contain either a `patchStrategicMerge`, or a `patchesJson6902` declaration")
 		}
 	}
