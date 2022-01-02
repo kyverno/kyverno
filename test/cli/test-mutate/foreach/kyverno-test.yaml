@@ -1,0 +1,12 @@
+name: foreach-mutate
+policies:
+  - policies.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: foreach-json-patch
+    rule: add-security-context
+    resource: nginx
+    patchedResource: patched-resource.yaml
+    kind: Pod
+    result: pass

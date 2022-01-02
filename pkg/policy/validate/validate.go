@@ -28,7 +28,6 @@ func NewValidateFactory(rule *kyverno.Validation) *Validate {
 //Validate validates the 'validate' rule
 func (v *Validate) Validate() (string, error) {
 	if err := v.validateElements(); err != nil {
-		// no need to proceed ahead
 		return "", err
 	}
 

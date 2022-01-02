@@ -199,7 +199,6 @@ func mutateElements(name string, foreach *kyverno.ForEachMutation, ctx *PolicyCo
 
 	for i, e := range elements {
 		ctx.JSONContext.Reset()
-
 		ctx := ctx.Copy()
 		if err := addElementToContext(ctx, e, i, false); err != nil {
 			return &mutate.Response{

@@ -154,28 +154,23 @@ func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *vali
 	}
 }
 
-func newForeachValidator(log logr.Logger, rule *kyverno.Rule, foreachIndex int) *validator {
+func newForeachValidator(foreach *kyverno.ForEachValidation, rule *kyverno.Rule, ctx *PolicyContext, log logr.Logger) *validator {
 	ruleCopy := rule.DeepCopy()
-	foreach := ruleCopy.Validation.ForEachValidation
-	anyAllConditions, err := common.ToMap(foreach[foreachIndex].AnyAllConditions)
+	anyAllConditions, err := common.ToMap(foreach.AnyAllConditions)
 	if err != nil {
 		log.Error(err, "failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions")
 	}
 
 	return &validator{
 		log:              log,
-		ctx:              nil,
+		ctx:              ctx,
 		rule:             ruleCopy,
-		contextEntries:   foreach[foreachIndex].Context,
+		contextEntries:   foreach.Context,
 		anyAllConditions: anyAllConditions,
-		pattern:          foreach[foreachIndex].Pattern,
-		anyPattern:       foreach[foreachIndex].AnyPattern,
-		deny:             foreach[foreachIndex].Deny,
+		pattern:          foreach.Pattern,
+		anyPattern:       foreach.AnyPattern,
+		deny:             foreach.Deny,
 	}
-}
-
-func (v *validator) setContext(ctx *PolicyContext) {
-	v.ctx = ctx
 }
 
 func (v *validator) validate() *response.RuleResponse {
@@ -227,7 +222,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 		return nil
 	}
 
-	for foreachIndex, foreach := range foreachList {
+	for _, foreach := range foreachList {
 		elements, err := evaluateList(foreach.List, v.ctx.JSONContext)
 		if err != nil {
 			v.log.Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
@@ -239,8 +234,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 			elementScope = *foreach.ElementScope
 		}
 
-		foreachValidator := newForeachValidator(v.log, v.rule, foreachIndex)
-		resp, count := v.validateElements(foreachValidator, elements, elementScope)
+		resp, count := v.validateElements(foreach, elements, elementScope)
 		if resp.Status != response.RuleStatusPass {
 			return resp
 		}
@@ -255,7 +249,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	return ruleResponse(v.rule, utils.Validation, "rule passed", response.RuleStatusPass)
 }
 
-func (v *validator) validateElements(foreachValidator *validator, elements []interface{}, elementScope bool) (*response.RuleResponse, int) {
+func (v *validator) validateElements(foreach *kyverno.ForEachValidation, elements []interface{}, elementScope bool) (*response.RuleResponse, int) {
 	v.ctx.JSONContext.Checkpoint()
 	defer v.ctx.JSONContext.Restore()
 	applyCount := 0
@@ -269,8 +263,7 @@ func (v *validator) validateElements(foreachValidator *validator, elements []int
 			return ruleError(v.rule, utils.Validation, "failed to process foreach", err), applyCount
 		}
 
-		foreachValidator.setContext(ctx)
-
+		foreachValidator := newForeachValidator(foreach, v.rule, ctx, v.log)
 		r := foreachValidator.validate()
 		if r == nil {
 			v.log.Info("skipping rule due to empty result")

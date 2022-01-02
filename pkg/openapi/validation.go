@@ -167,15 +167,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 		if kind != "*" {
 			err = o.ValidateResource(*patchedResource.DeepCopy(), "", kind)
 			if err != nil {
-				jsonResult := ""
-				b, marshalErr := patchedResource.MarshalJSON()
-				if marshalErr != nil {
-					jsonResult = marshalErr.Error()
-				} else {
-					jsonResult = string(b)
-				}
-
-				return errors.Wrapf(err, "invalid mutation result - %v: %s", err, jsonResult)
+				return errors.Wrapf(err, "mutate result violates resource schema")
 			}
 		}
 	}
