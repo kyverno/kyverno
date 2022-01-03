@@ -144,7 +144,6 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 	allPatches := make([][]byte, 0)
 
 	for _, foreach := range foreachList {
-
 		if err := LoadContext(logger, foreach.Context, ctx.ResourceCache, ctx, rule.Name); err != nil {
 			logger.Error(err, "failed to load context")
 			return ruleError(rule, utils.Mutation, "failed to load context", err), resource
