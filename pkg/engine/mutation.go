@@ -140,7 +140,7 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 	}
 
 	patchedResource := resource
-	applyCount := 0
+	var applyCount int
 	allPatches := make([][]byte, 0)
 
 	for _, foreach := range foreachList {
