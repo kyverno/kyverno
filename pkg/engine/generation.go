@@ -119,7 +119,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
-		logger.V(4).Info("preconditions not satisfied, skipping rule", "rule", ruleCopy.Name)
+		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
 		return nil
 	}
 
