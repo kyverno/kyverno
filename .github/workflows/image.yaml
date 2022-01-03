@@ -40,9 +40,9 @@ jobs:
           make docker-publish-initContainer-dev
 
       - name: Sign image
-        run: |
-          export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
-          echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyvernopre@${{ steps.push-step.outputs.digest }}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: cosign sign ghcr.io/kyverno/kyvernopre@${{ steps.push-step.outputs.digest }}
 
   push-kyverno:
     runs-on: ubuntu-latest
@@ -78,9 +78,9 @@ jobs:
           make docker-publish-kyverno-dev
 
       - name: Sign image
-        run: |
-          export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
-          echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno@${{ steps.push-step.outputs.digest }}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: cosign sign ghcr.io/kyverno/kyverno@${{ steps.push-step.outputs.digest }}
 
   push-kyverno-cli:
     runs-on: ubuntu-latest
@@ -116,6 +116,6 @@ jobs:
           make docker-publish-cli-dev
 
       - name: Sign image
-        run: |
-          export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
-          echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno-cli@${{ steps.push-step.outputs.digest }}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: cosign sign ghcr.io/kyverno/kyverno-cli@${{ steps.push-step.outputs.digest }}
