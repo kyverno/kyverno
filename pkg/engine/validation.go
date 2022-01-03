@@ -266,10 +266,10 @@ func (v *validator) validateElements(foreach *kyverno.ForEachValidation, element
 		foreachValidator := newForeachValidator(foreach, v.rule, ctx, v.log)
 		r := foreachValidator.validate()
 		if r == nil {
-			v.log.Info("skipping rule due to empty result")
+			v.log.Info("skip rule due to empty result")
 			continue
 		} else if r.Status == response.RuleStatusSkip {
-			v.log.Info("skipping rule as preconditions were not met")
+			v.log.Info("skip rule", "reason", r.Message)
 			continue
 		} else if r.Status != response.RuleStatusPass {
 			msg := fmt.Sprintf("validation failed in foreach rule for %v", r.Message)
