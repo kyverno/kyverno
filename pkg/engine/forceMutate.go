@@ -30,7 +30,7 @@ func ForceMutate(ctx *context.Context, policy kyverno.ClusterPolicy, resource un
 		}
 
 		if r.Mutation.ForEachMutation != nil {
-			for _, foreach := range r.Mutation.ForEachMutation {
+			for i, foreach := range r.Mutation.ForEachMutation {
 				patcher := mutate.NewPatcher(r.Name, foreach.PatchStrategicMerge, foreach.PatchesJSON6902, patchedResource, ctx, logger)
 				resp, mutatedResource := patcher.Patch()
 				if resp.Status != response.RuleStatusPass {
