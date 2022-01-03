@@ -48,5 +48,3 @@ spec:
                  ephemeral-storage: "?*"
                 limits:
                   ephemeral-storage: "?*"
-
-
