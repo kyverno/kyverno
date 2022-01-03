@@ -184,7 +184,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 			return "", fmt.Errorf("validate Array failed, array length mismatch, resource Array len is %d and pattern Array len is %d", len(resourceArray), len(patternArray))
 		}
 
-		applyCount := 0
+		var applyCount int
 		skipErrors := make([]error, 0)
 		for i, patternElement := range patternArray {
 			currentPath := path + strconv.Itoa(i) + "/"
