@@ -3,8 +3,9 @@ package validate
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"testing"
+
+	"github.com/kyverno/kyverno/pkg/engine/response"
 
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 
@@ -1593,21 +1594,18 @@ func Test_global_anchor(t *testing.T) {
 		pattern  []byte
 		resource []byte
 		status   response.RuleStatus
-
 	}{
 		{
 			name:     "check_global_anchor_skip",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:v1", "imagePullPolicy": "Always"}]}}`),
 			status:   response.RuleStatusSkip,
-
 		},
 		{
 			name:     "check_global_anchor_fail",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
 			status:   response.RuleStatusFail,
-
 		},
 		{
 			name:     "check_global_anchor_pass",

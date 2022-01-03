@@ -33,7 +33,7 @@ func MatchPattern(logger logr.Logger, resource, pattern interface{}) error {
 	if err != nil {
 		if skip(err) {
 			logger.V(2).Info("resource skipped", "reason", ac.AnchorError.Error())
-			return  &PatternError{err, "", true}
+			return &PatternError{err, "", true}
 		}
 
 		// check if an anchor defined in the policy rule is missing in the resource
@@ -103,7 +103,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 
 type validateResult struct {
 	path string
-	err error
+	err  error
 }
 
 // If validateResourceElement detects map element inside resource and pattern trees, it goes to validateMap
