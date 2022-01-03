@@ -101,11 +101,6 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 	return "", nil
 }
 
-type validateResult struct {
-	path string
-	err  error
-}
-
 // If validateResourceElement detects map element inside resource and pattern trees, it goes to validateMap
 // For each element of the map we must detect the type again, so we pass these elements to validateResourceElement
 func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string, ac *anchor.AnchorKey) (string, error) {
