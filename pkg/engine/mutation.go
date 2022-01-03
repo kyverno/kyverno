@@ -55,7 +55,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		}
 
 		logger := logger.WithValues("rule", rule.Name)
-		excludeResource := make([]string, 0)
+		var excludeResource []string
 		if len(policyContext.ExcludeGroupRole) > 0 {
 			excludeResource = policyContext.ExcludeGroupRole
 		}
