@@ -44,7 +44,7 @@ func ForceMutate(ctx *context.Context, policy kyverno.ClusterPolicy, resource un
 			patcher := mutate.NewPatcher(r.Name, m.PatchStrategicMerge, m.PatchesJSON6902, patchedResource, ctx, logger)
 			resp, mutatedResource := patcher.Patch()
 			if resp.Status != response.RuleStatusPass {
-				return patchedResource, fmt.Errorf("mutate result %v: %s", resp.Status.String(), resp.Message)
+				return patchedResource, fmt.Errorf("mutate result %q: %s", resp.Status.String(), resp.Message)
 			}
 
 			patchedResource = mutatedResource
