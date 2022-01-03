@@ -480,7 +480,7 @@ type ForEachValidation struct {
 	// to which the validation logic is applied.
 	List string `json:"list,omitempty" yaml:"list,omitempty"`
 
-	// Use the list element as the scope for validation. Defaults to "true" if not specified.
+	// ElementScope specifies whether to use the current list element as the scope for validation. Defaults to "true" if not specified.
 	// When set to "false", "request.object" is used as the validation scope within the foreach
 	// block to allow referencing other elements in the subtree.
 	// +optional
