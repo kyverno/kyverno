@@ -8,6 +8,16 @@ metadata:
   name: test
 `)
 
+// Namespace With Label Description
+var namespaceWithLabelYaml = []byte(`
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test
+  labels:
+    security: standard
+`)
+
 // Cluster Policy to generate Role and RoleBinding with synchronize=true
 var roleRoleBindingYamlWithSync = []byte(`
 apiVersion: kyverno.io/v1
