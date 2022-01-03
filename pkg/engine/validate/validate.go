@@ -157,7 +157,7 @@ func combineErrors(errors []error) error {
 	}
 
 	messages := make([]string, len(errors))
-	for i, _ := range errors {
+	for i := range errors {
 		messages[i] = errors[i].Error()
 	}
 

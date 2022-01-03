@@ -1621,7 +1621,7 @@ func Test_global_anchor(t *testing.T) {
 		},
 	}
 
-	for i, _ := range testCases {
+	for i := range testCases {
 		testMatchPattern(t, testCases[i])
 	}
 }
