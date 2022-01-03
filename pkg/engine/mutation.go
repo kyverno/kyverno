@@ -173,10 +173,9 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 		if mutateResp.Status != response.RuleStatusSkip {
 			applyCount++
 			if len(mutateResp.Patches) > 0 {
+				patchedResource = mutateResp.PatchedResource
 				allPatches = append(allPatches, mutateResp.Patches...)
 			}
-
-			patchedResource = mutateResp.PatchedResource
 		}
 	}
 
@@ -194,7 +193,7 @@ func mutateElements(name string, foreach *kyverno.ForEachMutation, ctx *PolicyCo
 	defer ctx.JSONContext.Restore()
 
 	patchedResource := resource
-	allPatches := make([][]byte, 0)
+	var allPatches [][]byte
 
 	for i, e := range elements {
 		ctx.JSONContext.Reset()

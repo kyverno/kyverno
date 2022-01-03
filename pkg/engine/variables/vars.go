@@ -565,7 +565,7 @@ func replaceSubstituteVariables(document interface{}) interface{} {
 	}
 
 	for {
-		if len(regexElementIndex.FindAllStringSubmatch(string(rawDocument), -1)) == 0 {
+		if len(regexElementIndex.FindAllSubmatch(rawDocument, -1)) == 0 {
 			break
 		}
 
@@ -573,7 +573,7 @@ func replaceSubstituteVariables(document interface{}) interface{} {
 	}
 
 	for {
-		if len(RegexVariables.FindAllStringSubmatch(string(rawDocument), -1)) == 0 {
+		if len(RegexVariables.FindAllSubmatch(rawDocument, -1)) == 0 {
 			break
 		}
 
