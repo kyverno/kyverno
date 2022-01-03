@@ -185,7 +185,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 		}
 
 		var applyCount int
-		skipErrors := make([]error, 0)
+		var skipErrors []error
 		for i, patternElement := range patternArray {
 			currentPath := path + strconv.Itoa(i) + "/"
 			elemPath, err := validateResourceElement(log, resourceArray[i], patternElement, originPattern, currentPath, ac)
