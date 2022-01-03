@@ -10,3 +10,9 @@ results:
     patchedResource: patched-resource.yaml
     kind: Pod
     result: pass
+  - policy: mutate-images
+    rule: test
+    resource: mypod
+    patchedResource: pod-updated-image.yaml
+    kind: Pod
+    result: pass

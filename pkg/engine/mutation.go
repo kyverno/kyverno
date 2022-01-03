@@ -210,12 +210,12 @@ func mutateElements(name string, foreach *kyverno.ForEachMutation, ctx *PolicyCo
 		}
 
 		mutateResp := mutate.ForEach(name, foreach, ctx.JSONContext, patchedResource, logger)
-		if mutateResp.Status != response.RuleStatusPass {
+		if mutateResp.Status == response.RuleStatusFail || mutateResp.Status == response.RuleStatusError {
 			return mutateResp
 		}
 
-		patchedResource = mutateResp.PatchedResource
 		if len(mutateResp.Patches) > 0 {
+			patchedResource = mutateResp.PatchedResource
 			allPatches = append(allPatches, mutateResp.Patches...)
 		}
 	}
