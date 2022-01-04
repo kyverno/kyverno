@@ -120,8 +120,12 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 
 	depl, err := c.client.GetResource("", "Deployment", props.Namespace, "kyverno")
 
-	rsHash := fmt.Sprintf("%v", depl.GetUID())
-	var rsHashSec string
+	rsHash := ""
+	if err != nil {
+		rsHash = fmt.Sprintf("%v", depl.GetUID())
+	}
+
+	var rsHashSec string = "default"
 	var ok bool
 
 	secretUnstr, err := c.client.GetResource("", "Secret", props.Namespace, name)
