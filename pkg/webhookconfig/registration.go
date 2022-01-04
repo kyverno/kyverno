@@ -648,7 +648,6 @@ func (wrc *Register) checkEndpoint() error {
 	wrc.removeWebhookConfigurations()
 
 	err = fmt.Errorf("endpoint not ready")
-	fmt.Println("======endpoint.Subsets, podIP: ", endpoint.Subsets, ips, config.KyvernoNamespace, config.KyvernoServiceName)
 	wrc.log.V(3).Info(err.Error(), "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
 	return err
 }
