@@ -25,7 +25,7 @@ func (m *Mutate) Validate() (string, error) {
 	}
 
 	if m.hasPatchesJSON6902() && m.hasPatchStrategicMerge() {
-		return "foreach", fmt.Errorf("mutate rule can contain either a `patchStrategicMerge` or a `patchesJson6902` declaration")
+		return "foreach", fmt.Errorf("only one of `patchStrategicMerge` or `patchesJson6902` is allowed")
 	}
 
 	return "", nil
@@ -33,12 +33,12 @@ func (m *Mutate) Validate() (string, error) {
 
 func (m *Mutate) validateForEach() (string, error) {
 	if m.hasPatchStrategicMerge() || m.hasPatchesJSON6902() {
-		return "foreach", fmt.Errorf("mutate rule must contain either a `foreach`, a `patchStrategicMerge`, or a `patchesJson6902` declaration")
+		return "foreach", fmt.Errorf("only one of `foreach`, `patchStrategicMerge`, or `patchesJson6902` is allowed")
 	}
 
 	for i, fe := range m.mutation.ForEachMutation {
 		if (fe.PatchesJSON6902 == "" && fe.PatchStrategicMerge == nil) || (fe.PatchesJSON6902 != "" && fe.PatchStrategicMerge != nil) {
-			return fmt.Sprintf("foreach[%d]", i), fmt.Errorf("foreach must contain either a `patchStrategicMerge`, or a `patchesJson6902` declaration")
+			return fmt.Sprintf("foreach[%d]", i), fmt.Errorf("only one of `patchStrategicMerge` or `patchesJson6902` is allowed")
 		}
 	}
 
