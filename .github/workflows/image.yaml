@@ -42,7 +42,11 @@ jobs:
       - name: Sign image
         env:
           COSIGN_EXPERIMENTAL: "true"
-        run: cosign sign ghcr.io/kyverno/kyvernopre@${{ steps.push-step.outputs.digest }}
+        run: cosign sign \ 
+          -a "repo=${{ github.repository }}" \
+          -a "workflow=${{ github.workflow }}" \
+          -a "ref=${{ github.sha }}" \
+          ghcr.io/kyverno/kyvernopre@${{ steps.push-step.outputs.digest }}
 
   push-kyverno:
     runs-on: ubuntu-latest
@@ -80,7 +84,11 @@ jobs:
       - name: Sign image
         env:
           COSIGN_EXPERIMENTAL: "true"
-        run: cosign sign ghcr.io/kyverno/kyverno@${{ steps.push-step.outputs.digest }}
+        run: cosign sign \ 
+          -a "repo=${{ github.repository }}" \
+          -a "workflow=${{ github.workflow }}" \
+          -a "ref=${{ github.sha }}" \
+          ghcr.io/kyverno/kyverno@${{ steps.push-step.outputs.digest }}
 
   push-kyverno-cli:
     runs-on: ubuntu-latest
@@ -118,4 +126,8 @@ jobs:
       - name: Sign image
         env:
           COSIGN_EXPERIMENTAL: "true"
-        run: cosign sign ghcr.io/kyverno/kyverno-cli@${{ steps.push-step.outputs.digest }}
+        run: cosign sign \ 
+          -a "repo=${{ github.repository }}" \
+          -a "workflow=${{ github.workflow }}" \
+          -a "ref=${{ github.sha }}" \
+          ghcr.io/kyverno/kyverno-cli@${{ steps.push-step.outputs.digest }}
