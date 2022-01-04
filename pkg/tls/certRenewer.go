@@ -118,7 +118,7 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 	logger := c.log.WithName("CAcert")
 	name := generateRootCASecretName(props)
 
-	depl, err := c.client.GetResource("", "Deployment", props.Namespace, "kyverno")
+	depl, err := c.client.GetResource("", "Deployment", props.Namespace, config.KyvernoDeploymentName)
 
 	rsHash := ""
 	if err != nil {
