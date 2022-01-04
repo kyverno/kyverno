@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - 'main'
+      - 'release*'
     paths-ignore:
       - 'README.md'
       - 'docs/**'
@@ -10,6 +11,7 @@ on:
   pull_request:
     branches:
       - 'main'
+      - 'release*'
     paths-ignore:
       - 'README.md'
       - 'docs/**'
@@ -48,7 +50,24 @@ jobs:
 
       - name: Test Policy
         run: |
-          make test-cmd
+          if [[ ${{ github.event_name }} == "push" ]]
+          then
+            GIT_BRANCH=${GITHUB_REF##*/}
+          elif [[ ${{ github.event_name }} == "pull_request" ]]
+          then
+            GIT_BRANCH=${{ github.event.pull_request.base.ref }}
+          fi
+
+          CLI_PATH=cmd/cli/kubectl-kyverno
+
+          go run $PWD/$CLI_PATH/main.go test https://github.com/kyverno/policies/$GIT_BRANCH
+          go run $PWD/$CLI_PATH/main.go test https://github.com/kyverno/policies --git-branch $GIT_BRANCH
+          go run $PWD/$CLI_PATH/main.go test https://github.com/kyverno/policies/pod-security/restricted -b $GIT_BRANCH
+          go run $PWD/$CLI_PATH/main.go test ./test/cli/test-mutate
+          go run $PWD/$CLI_PATH/main.go test ./test/cli/test
+          go run $PWD/$CLI_PATH/main.go test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
+          go run $PWD/$CLI_PATH/main.go test ./test/cli/test-fail/missing-rule && exit 1 || exit 0
+          go run $PWD/$CLI_PATH/main.go test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
       
       - name: gofmt check
         run: |

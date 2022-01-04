@@ -5,7 +5,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -20,7 +19,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -1902,6 +1900,14 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            description: Annotations are used for image verification.
+                              Every specified key-value pair must exist and match
+                              in the verified payload. The payload may contain other
+                              key-value pairs.
+                            type: object
                           attestations:
                             description: Attestations are optional checks for signed
                               in-toto Statements used to verify the image. See https://github.com/in-toto/attestation.
@@ -2034,6 +2040,10 @@ spec:
                               registry address, repository, image, and tag. Wildcards
                               (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
                             type: string
+                          issuer:
+                            description: Issuer is the certificate issuer used for
+                              keyless signing.
+                            type: string
                           key:
                             description: Key is the PEM encoded public key that the
                               image or attestation is signed with.
@@ -2109,7 +2119,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -2792,7 +2801,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -3473,7 +3481,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -3671,7 +3678,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -5554,6 +5560,14 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            description: Annotations are used for image verification.
+                              Every specified key-value pair must exist and match
+                              in the verified payload. The payload may contain other
+                              key-value pairs.
+                            type: object
                           attestations:
                             description: Attestations are optional checks for signed
                               in-toto Statements used to verify the image. See https://github.com/in-toto/attestation.
@@ -5686,6 +5700,10 @@ spec:
                               registry address, repository, image, and tag. Wildcards
                               (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
                             type: string
+                          issuer:
+                            description: Issuer is the certificate issuer used for
+                              keyless signing.
+                            type: string
                           key:
                             description: Key is the PEM encoded public key that the
                               image or attestation is signed with.
@@ -5762,7 +5780,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -6443,7 +6460,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7122,7 +7138,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7136,7 +7151,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7153,6 +7167,16 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -7161,7 +7185,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7189,7 +7212,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7197,7 +7219,7 @@ metadata:
   name: kyverno:admin-policyreport
 rules:
 - apiGroups:
-  - wgpolicyk8s.io/v1alpha2
+  - wgpolicyk8s.io
   resources:
   - policyreports
   - clusterpolicyreports
@@ -7217,7 +7239,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7245,7 +7266,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7268,7 +7288,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7324,7 +7343,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7337,16 +7355,28 @@ rules:
   - policies/status
   - clusterpolicies
   - clusterpolicies/status
-  - policyreports
-  - policyreports/status
-  - clusterpolicyreports
-  - clusterpolicyreports/status
   - generaterequests
   - generaterequests/status
   - reportchangerequests
   - reportchangerequests/status
   - clusterreportchangerequests
   - clusterreportchangerequests/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+  - deletecollection
+- apiGroups:
+  - wgpolicyk8s.io
+  resources:
+  - policyreports
+  - policyreports/status
+  - clusterpolicyreports
+  - clusterpolicyreports/status
   verbs:
   - create
   - delete
@@ -7364,7 +7394,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7388,7 +7417,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7410,7 +7438,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7437,7 +7464,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7459,7 +7485,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7480,7 +7505,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7501,7 +7525,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7522,7 +7545,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7543,7 +7565,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7564,7 +7585,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7589,7 +7609,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7606,7 +7625,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7620,7 +7638,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7642,7 +7659,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7664,7 +7680,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7687,7 +7702,6 @@ spec:
         app: kyverno
         app.kubernetes.io/component: kyverno
         app.kubernetes.io/instance: kyverno
-        app.kubernetes.io/managed-by: Kustomize
         app.kubernetes.io/name: kyverno
         app.kubernetes.io/part-of: kyverno
         app.kubernetes.io/version: latest
@@ -7751,10 +7765,10 @@ spec:
           timeoutSeconds: 5
         resources:
           limits:
-            memory: 256Mi
+            memory: 384Mi
           requests:
             cpu: 100m
-            memory: 50Mi
+            memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

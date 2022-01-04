@@ -972,3 +972,91 @@ func Test_PathCanonicalize(t *testing.T) {
 		})
 	}
 }
+
+func Test_Truncate(t *testing.T) {
+	// Can't use integer literals due to
+	// https://github.com/jmespath/go-jmespath/issues/27
+	//
+	// TODO: fix this in https://github.com/kyverno/go-jmespath
+
+	testCases := []struct {
+		jmesPath       string
+		expectedResult string
+	}{
+		{
+			jmesPath:       "truncate('Lorem ipsum dolor sit amet', `5`)",
+			expectedResult: "Lorem",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum ipsum ipsum dolor sit amet', `11`)",
+			expectedResult: "Lorem ipsum",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum ipsum ipsum dolor sit amet', `40`)",
+			expectedResult: "Lorem ipsum ipsum ipsum dolor sit amet",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum', `2.6`)",
+			expectedResult: "Lo",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum', `0`)",
+			expectedResult: "",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum', `-1`)",
+			expectedResult: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.jmesPath, func(t *testing.T) {
+			jp, err := New(tc.jmesPath)
+			assert.NilError(t, err)
+
+			result, err := jp.Search("")
+			assert.NilError(t, err)
+
+			res, ok := result.(string)
+			assert.Assert(t, ok)
+			assert.Equal(t, res, tc.expectedResult)
+		})
+	}
+}
+
+func Test_SemverCompare(t *testing.T) {
+	testCases := []struct {
+		jmesPath       string
+		expectedResult bool
+	}{
+		{
+			jmesPath:       "semver_compare('4.1.3','>=4.1.x')",
+			expectedResult: true,
+		},
+		{
+			jmesPath:       "semver_compare('4.1.3','!4.x.x')",
+			expectedResult: false,
+		},
+		{
+			jmesPath:       "semver_compare('1.8.6','>1.0.0 <2.0.0')", // >1.0.0 AND <2.0.0
+			expectedResult: true,
+		},
+		{
+			jmesPath:       "semver_compare('2.1.5','<2.0.0 || >=3.0.0')", // <2.0.0 OR >=3.0.0
+			expectedResult: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.jmesPath, func(t *testing.T) {
+			jp, err := New(tc.jmesPath)
+			assert.NilError(t, err)
+
+			result, err := jp.Search("")
+			assert.NilError(t, err)
+
+			res, ok := result.(bool)
+			assert.Assert(t, ok)
+			assert.Equal(t, res, tc.expectedResult)
+		})
+	}
+}
