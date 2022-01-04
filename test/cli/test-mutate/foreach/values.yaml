@@ -1,8 +1,12 @@
 policies:
-- name: replace-image-registry
+- name: foreach-json-patch
   rules:
-  - name: replace-image-registry
+  - name: add-security-context
+  - name: mutate-images
   resources:
-  - name: busybox
+  - name: nginx
+    values:
+      request.operation: CREATE
+  - name: myapp
     values:
       request.operation: CREATE

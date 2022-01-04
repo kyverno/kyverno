@@ -17,9 +17,3 @@ results:
     patchedResource: pod-updated-image.yaml
     kind: Pod
     result: pass
-  - policy: replace-image-registry
-    rule: replace-image-registry
-    resource: busybox
-    patchedResource: container-updated-image.yaml
-    kind: Pod
-    result: pass

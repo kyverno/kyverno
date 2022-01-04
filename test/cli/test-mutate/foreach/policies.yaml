@@ -11,13 +11,17 @@ spec:
         resources:
           kinds:
             - Pod
+      preconditions:
+      - key: "{{ request.operation }}"
+        operator: Equals
+        value: "CREATE"
       mutate:
-        foreach:
-          - list: "request.object.spec.containers"
-            patchesJson6902: |-
-              - path: /spec/containers/{{elementIndex}}/securityContext
-                op: add
-                value: {"runAsNonRoot" : true}
+        foreach: 
+        - list: "request.object.spec.containers"
+          patchesJson6902: |-
+            - path: /spec/containers/{{elementIndex}}/securityContext
+              op: add
+              value: {"runAsNonRoot" : true}
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -41,37 +45,3 @@ spec:
             containers:
             - name: "{{ element.name }}"
               image: registry.digitalocean.com/runlevl4/{{ images.containers."{{element.name}}".name}}:{{images.containers."{{element.name}}".tag}}
-
----
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: replace-image-registry
-  annotations:
-    pod-policies.kyverno.io/autogen-controllers: none
-spec:
-  background: false
-  rules:
-    context:
-      - name: roles-dictionary
-        configMap:
-          name: roles-dictionary
-          namespace: default
-    - name: replace-image-registry
-      match:
-        resources:
-          kinds:
-          - Pod
-      preconditions:
-      - key: "{{ request.operation }}"
-        operator: Equals
-        value: "CREATE"
-      mutate:
-        foreach:
-          - list: "request.object.spec.containers"
-            patchStrategicMerge:
-              spec:
-                containers:
-                  - name: "{{ element.name }}"   
-                    image: |-    
-                                {{ regex_replace_all('^[^/]+', '{{element.image}}', 'myregistry.corp.com' )}}
