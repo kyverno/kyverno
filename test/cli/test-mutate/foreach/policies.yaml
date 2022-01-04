@@ -14,7 +14,6 @@ spec:
       mutate:
         foreach:
           - list: "request.object.spec.containers"
-            elementScope: false
             patchesJson6902: |-
               - path: /spec/containers/{{elementIndex}}/securityContext
                 op: add

@@ -144,7 +144,7 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 	allPatches := make([][]byte, 0)
 
 	for _, foreach := range foreachList {
-		if err := LoadContext(logger, foreach.Context, ctx.ResourceCache, ctx, rule.Name); err != nil {
+		if err := LoadContext(logger, rule.Context, ctx.ResourceCache, ctx, rule.Name); err != nil {
 			logger.Error(err, "failed to load context")
 			return ruleError(rule, utils.Mutation, "failed to load context", err), resource
 		}
@@ -199,12 +199,21 @@ func mutateElements(name string, foreach *kyverno.ForEachMutation, ctx *PolicyCo
 		ctx.JSONContext.Reset()
 		ctx := ctx.Copy()
 		if err := addElementToContext(ctx, e, i, false); err != nil {
-			return &mutate.Response{
-				Status:          response.RuleStatusFail,
-				PatchedResource: unstructured.Unstructured{},
-				Patches:         nil,
-				Message:         fmt.Sprintf("failed to add element to context: %v", err),
-			}
+			return mutateError(err, fmt.Sprintf("failed to add element to mutate.foreach[%d].context", i))
+		}
+
+		if err := LoadContext(logger, foreach.Context, ctx.ResourceCache, ctx, name); err != nil {
+			return mutateError(err, fmt.Sprintf("failed to load to mutate.foreach[%d].context", i))
+		}
+
+		preconditionsPassed, err := checkPreconditions(logger, ctx, foreach.AnyAllConditions)
+		if err != nil {
+			return mutateError(err, fmt.Sprintf("failed to evaluate mutate.foreach[%d].preconditions", i))
+		}
+
+		if !preconditionsPassed {
+			logger.Info("mutate.foreach.preconditions not met", "elementIndex", i)
+			continue
 		}
 
 		mutateResp := mutate.ForEach(name, foreach, ctx.JSONContext, patchedResource, logger)
@@ -223,6 +232,15 @@ func mutateElements(name string, foreach *kyverno.ForEachMutation, ctx *PolicyCo
 		PatchedResource: patchedResource,
 		Patches:         allPatches,
 		Message:         "foreach mutation applied",
+	}
+}
+
+func mutateError(err error, message string) *mutate.Response {
+	return &mutate.Response{
+		Status:          response.RuleStatusFail,
+		PatchedResource: unstructured.Unstructured{},
+		Patches:         nil,
+		Message:         fmt.Sprintf("failed to add element to context: %v", err),
 	}
 }
 
