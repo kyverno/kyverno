@@ -19,6 +19,7 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [Giant Swarm](https://www.giantswarm.io/) | Use Kyverno extensively to handle defaulting logic on resources (primarily cluster-api resources) and some scenarios to replace PSPs to enforce certain restrictions. |
 | [Vodafone Group Plc](https://www.vodafone.com/)  | Policy enforcement and automation on an internal k8s service offering. |
 | [Deutsche Telekom](https://www.telekom.com/en)  | Use Kyverno to enforce Policies on managed clusters to prevent right escalation of internal customers and to enforce security rules. |
+| [VSHN AG - APPUiO Cloud](https://www.vshn.ch/) | OpenShift Multi-Tenancy Self-Service for [APPUiO Cloud](https://www.appuio.ch), managed with [Project Syn](https://syn.tools). Kyverno policies are available on [GitHub](https://github.com/appuio/component-appuio-cloud). |
 
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 

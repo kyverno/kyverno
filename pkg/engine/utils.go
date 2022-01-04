@@ -377,7 +377,7 @@ func copyAnyAllConditions(original kyverno.AnyAllConditions) kyverno.AnyAllCondi
 
 // backwards compatibility
 func copyOldConditions(original []kyverno.Condition) []kyverno.Condition {
-	if original == nil || len(original) == 0 {
+	if len(original) == 0 {
 		return []kyverno.Condition{}
 	}
 

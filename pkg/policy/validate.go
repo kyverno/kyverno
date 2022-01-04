@@ -35,8 +35,13 @@ var allowedVariablesBackground = regexp.MustCompile(`request\.|element\.|@|image
 // wildCardAllowedVariables represents regex for the allowed fields in wildcards
 var wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
 
+var errOperationForbidden = errors.New("variables are forbidden in the path of a JSONPatch")
+
 // validateJSONPatchPathForForwardSlash checks for forward slash
 func validateJSONPatchPathForForwardSlash(patch string) error {
+	// Replace all variables in PatchesJSON6902, all variable checks should have happened already.
+	// This prevents further checks from failing unexpectedly.
+	patch = variables.ReplaceAllVars(patch, func(s string) string { return "kyvernojsonpatchvariable" })
 
 	re, err := regexp.Compile("^/")
 	if err != nil {
@@ -325,11 +330,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 	}
 
-	if !mock {
-		if err := openAPIController.ValidatePolicyFields(*policy); err != nil {
-			return err
-		}
-	} else {
+	if policy.Spec.SchemaValidation == nil || *policy.Spec.SchemaValidation {
 		if err := openAPIController.ValidatePolicyMutation(*policy); err != nil {
 			return err
 		}
@@ -387,7 +388,7 @@ func ruleForbiddenSectionsHaveVariables(rule *kyverno.Rule) error {
 	var err error
 
 	err = jsonPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
-	if err != nil {
+	if err != nil && errors.Is(errOperationForbidden, err) {
 		return fmt.Errorf("rule \"%s\" should not have variables in patchesJSON6902 path section", rule.Name)
 	}
 
@@ -430,7 +431,7 @@ func jsonPatchPathHasVariables(patch string) error {
 
 		vars := variables.RegexVariables.FindAllString(path, -1)
 		if len(vars) > 0 {
-			return fmt.Errorf("operation \"%s\" has forbidden variables", operation.Kind())
+			return errOperationForbidden
 		}
 	}
 
@@ -1258,6 +1259,10 @@ func validateExcludeResourceDescription(rd kyverno.ResourceDescription) (string,
 // field type is checked through openapi
 func validateResourceDescription(rd kyverno.ResourceDescription) error {
 	if rd.Selector != nil {
+		if labelSelectorContainsWildcard(rd.Selector) {
+			return nil
+		}
+
 		selector, err := metav1.LabelSelectorAsSelector(rd.Selector)
 		if err != nil {
 			return err
@@ -1268,6 +1273,25 @@ func validateResourceDescription(rd kyverno.ResourceDescription) error {
 		}
 	}
 	return nil
+}
+
+func labelSelectorContainsWildcard(v *metav1.LabelSelector) bool {
+	for k, v := range v.MatchLabels {
+		if isWildcardPresent(k) {
+			return true
+		}
+		if isWildcardPresent(v) {
+			return true
+		}
+	}
+	return false
+}
+
+func isWildcardPresent(v string) bool {
+	if strings.Contains(v, "*") || strings.Contains(v, "?") {
+		return true
+	}
+	return false
 }
 
 // checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in

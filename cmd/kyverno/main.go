@@ -64,6 +64,8 @@ var (
 	policyControllerResyncPeriod time.Duration
 	imagePullSecrets             string
 	imageSignatureRepository     string
+	clientRateLimitQPS           float64
+	clientRateLimitBurst         int
 	setupLog                     = log.Log.WithName("setup")
 )
 
@@ -96,6 +98,8 @@ func main() {
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 	flag.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
+	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the master from Kyverno. Uses the client default if zero.")
+	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
@@ -107,7 +111,7 @@ func main() {
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
-	clientConfig, err := config.CreateClientConfig(kubeconfig, log.Log)
+	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst, log.Log)
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
@@ -210,7 +214,6 @@ func main() {
 	)
 
 	prgen, err := policyreport.NewReportGenerator(
-		kubeClient,
 		pclient,
 		client,
 		pInformer.Wgpolicyk8s().V1alpha2().ClusterPolicyReports(),

@@ -10,4 +10,5 @@ They are approvers who have shown good technical judgement in feature design/dev
 | Marcel Mue  | [@MarcelMue](https://github.com/MarcelMue)   | Giant Swarm GmbH          |
 | Treydock    | [@treydock](https://github.com/treydock)    | Ohio Supercomputer Center |
 
+
 **Note**: Please refer to the [Project Governance](https://kyverno.io/community/project-governance/) for more information on the responsibilities and privileges of a maintainer in Kyverno.
