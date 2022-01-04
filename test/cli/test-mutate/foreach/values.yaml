@@ -1,0 +1,8 @@
+policies:
+- name: replace-image-registry
+  rules:
+  - name: replace-image-registry
+  resources:
+  - name: busybox
+    values:
+      request.operation: CREATE

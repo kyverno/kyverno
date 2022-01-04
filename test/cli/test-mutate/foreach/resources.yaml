@@ -27,3 +27,18 @@ spec:
       args:
         - sleep
         - "9999"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    annotation.corp.com/restrict1: foo
+  labels:
+    app: busybox
+  name: busybox
+spec:
+  automountServiceAccountToken: false
+  containers:
+  - name: busybox
+    image: foo/busybox1:1.1241
+   
