@@ -38,7 +38,7 @@ func MatchPattern(logger logr.Logger, resource, pattern interface{}) error {
 
 		// check if an anchor defined in the policy rule is missing in the resource
 		if ac.IsAnchorError() {
-			logger.V(2).Info("missing anchor in resource")
+			logger.V(3).Info("missing anchor in resource")
 			return &PatternError{err, "", false}
 		}
 

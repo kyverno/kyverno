@@ -24,7 +24,9 @@ func ForceMutate(ctx *context.Context, policy kyverno.ClusterPolicy, resource un
 			continue
 		}
 
-		r, err := variables.SubstituteAllForceMutate(logger, ctx, removeConditions(rule))
+		ruleCopy := rule.DeepCopy()
+		removeConditions(ruleCopy)
+		r, err := variables.SubstituteAllForceMutate(logger, ctx, *ruleCopy)
 		if err != nil {
 			return resource, err
 		}
@@ -54,17 +56,15 @@ func ForceMutate(ctx *context.Context, policy kyverno.ClusterPolicy, resource un
 	return patchedResource, nil
 }
 
-func removeConditions(rule kyverno.Rule) kyverno.Rule {
-	ruleCopy := rule.DeepCopy()
-
-	if ruleCopy.AnyAllConditions != nil {
-		ruleCopy.AnyAllConditions = nil
+// removeConditions mutates the rule to remove AnyAllConditions
+func removeConditions(rule *kyverno.Rule) {
+	if rule.AnyAllConditions != nil {
+		rule.AnyAllConditions = nil
 	}
-	for i, fem := range ruleCopy.Mutation.ForEachMutation {
+
+	for i, fem := range rule.Mutation.ForEachMutation {
 		if fem.AnyAllConditions != nil {
-			ruleCopy.Mutation.ForEachMutation[i].AnyAllConditions = nil
+			rule.Mutation.ForEachMutation[i].AnyAllConditions = nil
 		}
 	}
-
-	return *ruleCopy
 }

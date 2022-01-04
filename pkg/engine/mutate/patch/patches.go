@@ -63,7 +63,7 @@ func (h patchesJSON6902Handler) Patch() (resp response.RuleResponse, patchedReso
 		resp.Status = response.RuleStatusFail
 		h.logger.Error(err, "error in type conversion")
 		resp.Message = err.Error()
-		return resp, h.patchedResource
+		return resp, unstructured.Unstructured{}
 	}
 
 	return ProcessPatchJSON6902(h.ruleName, patchesJSON6902, h.patchedResource, h.logger)

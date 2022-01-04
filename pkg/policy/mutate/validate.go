@@ -24,6 +24,10 @@ func (m *Mutate) Validate() (string, error) {
 		return m.validateForEach()
 	}
 
+	if m.hasPatchesJSON6902() && m.hasPatchStrategicMerge() {
+		return "foreach", fmt.Errorf("mutate rule can contain either a `patchStrategicMerge` or a `patchesJson6902` declaration")
+	}
+
 	return "", nil
 }
 
