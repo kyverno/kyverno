@@ -21,7 +21,8 @@ import (
 
 const (
 	// ManagedByLabel is added to Kyverno managed secrets
-	ManagedByLabel string = "cert.kyverno.io/managed-by"
+	ManagedByLabel      string = "cert.kyverno.io/managed-by"
+	MasterDeploymentUID string = "cert.kyverno.io/master-deployment-uid"
 
 	SelfSignedAnnotation    string = "self-signed-cert"
 	RootCAKey               string = "rootCA.crt"
@@ -117,8 +118,18 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 	logger := c.log.WithName("CAcert")
 	name := generateRootCASecretName(props)
 
+	depl, err := c.client.GetResource("", "Deployment", props.Namespace, "kyverno")
+
+	rsHash := fmt.Sprintf("%v", depl.GetUID())
+	var rsHashSec string
+	var ok bool
+
 	secretUnstr, err := c.client.GetResource("", "Secret", props.Namespace, name)
-	if err != nil {
+	if err == nil {
+		rsHashSec, ok = secretUnstr.GetAnnotations()[MasterDeploymentUID]
+	}
+
+	if err != nil || !ok || rsHashSec != rsHash {
 		secret := &v1.Secret{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Secret",
@@ -129,6 +140,7 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 				Namespace: props.Namespace,
 				Annotations: map[string]string{
 					SelfSignedAnnotation: "true",
+					MasterDeploymentUID:  rsHash,
 				},
 				Labels: map[string]string{
 					ManagedByLabel: "kyverno",
