@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
