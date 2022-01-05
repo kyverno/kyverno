@@ -296,6 +296,18 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 		return successResponse(nil)
 	}
 
+	if request.Operation == v1beta1.Delete {
+		resource, err := utils.ConvertResource(request.OldObject.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+
+		if err == nil {
+			ws.prGenerator.Add(buildDeletionPrInfo(resource))
+		} else {
+			logger.Info(fmt.Sprintf("Converting oldObject failed: %v", err))
+		}
+
+		return successResponse(nil)
+	}
+
 	logger.V(4).Info("received an admission request in mutating webhook")
 	requestTime := time.Now().Unix()
 	kind := request.Kind.Kind
@@ -475,6 +487,7 @@ func registerAdmissionRequestsMetricGenerate(logger logr.Logger, promConfig metr
 
 func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	logger := ws.log.WithName("ValidateWebhook").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+
 	if request.Operation == v1beta1.Delete {
 		ws.handleDelete(request)
 	}
