@@ -167,7 +167,7 @@ func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 	}
 
 	wrc.removeWebhookConfigurations()
-	// wrc.removeSecrets()
+	wrc.removeSecrets()
 	err := wrc.client.DeleteResource("coordination.k8s.io/v1", "Lease", config.KyvernoNamespace, "kyvernopre-lock", false)
 	if err != nil && errorsapi.IsNotFound(err) {
 		wrc.log.WithName("cleanup").Error(err, "failed to clean up Lease lock")
@@ -246,11 +246,6 @@ func (wrc *Register) ValidateWebhookConfigurations(namespace, name string) error
 func (wrc *Register) cleanupKyvernoResource() bool {
 	logger := wrc.log.WithName("cleanupKyvernoResource")
 	deploy, err := wrc.client.GetResource("", "Deployment", deployNamespace, deployName)
-	if err != nil {
-		logger.Error(err, "failed to get deployment, cleanup kyverno resources anyway")
-		return true
-	}
-
 	if deploy.GetDeletionTimestamp() != nil {
 		logger.Info("Kyverno is terminating, cleanup Kyverno resources")
 		return true
