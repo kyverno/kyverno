@@ -118,59 +118,59 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 	logger := c.log.WithName("CAcert")
 	name := generateRootCASecretName(props)
 
-	depl, err := c.client.GetResource("", "Deployment", props.Namespace, config.KyvernoDeploymentName)
+	// depl, err := c.client.GetResource("", "Deployment", props.Namespace, config.KyvernoDeploymentName)
 
-	deplHash := ""
-	if err == nil {
-		deplHash = fmt.Sprintf("%v", depl.GetUID())
-	}
+	// deplHash := ""
+	// if err == nil {
+	// 	deplHash = fmt.Sprintf("%v", depl.GetUID())
+	// }
 
-	var deplHashSec string = "default"
-	var ok, managedByKyverno bool
+	//	var deplHashSec string = "default"
+	//	var ok, managedByKyverno bool
 
 	secretUnstr, err := c.client.GetResource("", "Secret", props.Namespace, name)
-	if err == nil {
-		if label, ok := secretUnstr.GetLabels()[ManagedByLabel]; ok {
-			managedByKyverno = label == "kyverno"
-		}
-		deplHashSec, ok = secretUnstr.GetAnnotations()[MasterDeploymentUID]
-	}
-
-	secret := &v1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: props.Namespace,
-			Annotations: map[string]string{
-				SelfSignedAnnotation: "true",
-				MasterDeploymentUID:  deplHash,
-			},
-			Labels: map[string]string{
-				ManagedByLabel: "kyverno",
-			},
-		},
-		Data: map[string][]byte{
-			RootCAKey: caPEM.Certificate,
-		},
-		Type: v1.SecretTypeOpaque,
-	}
+	//	if err == nil {
+	//		if label, ok := secretUnstr.GetLabels()[ManagedByLabel]; ok {
+	//			managedByKyverno = label == "kyverno"
+	//		}
+	//		deplHashSec, ok = secretUnstr.GetAnnotations()[MasterDeploymentUID]
+	//	}
 
 	if err != nil {
+		secret := &v1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: props.Namespace,
+				Annotations: map[string]string{
+					SelfSignedAnnotation: "true",
+					//			MasterDeploymentUID:  deplHash,
+				},
+				Labels: map[string]string{
+					ManagedByLabel: "kyverno",
+				},
+			},
+			Data: map[string][]byte{
+				RootCAKey: caPEM.Certificate,
+			},
+			Type: v1.SecretTypeOpaque,
+		}
 		_, err := c.client.CreateResource("", "Secret", props.Namespace, secret, false)
 		if err == nil {
 			logger.Info("secret created", "name", name, "namespace", props.Namespace)
 		}
 		return err
-	} else if managedByKyverno && (!ok || deplHashSec != deplHash) {
-		_, err = c.client.UpdateResource("", "Secret", props.Namespace, secret, false)
-		if err == nil {
-			logger.Info("secret updated", "name", name, "namespace", props.Namespace)
-		}
-		return err
 	}
+	//	else if managedByKyverno && (!ok || deplHashSec != deplHash) {
+	//		_, err = c.client.UpdateResource("", "Secret", props.Namespace, secret, false)
+	//		if err == nil {
+	//			logger.Info("secret updated", "name", name, "namespace", props.Namespace)
+	//		}
+	//		return err
+	//	}
 
 	if _, ok := secretUnstr.GetAnnotations()[SelfSignedAnnotation]; !ok {
 		secretUnstr.SetAnnotations(map[string]string{SelfSignedAnnotation: "true"})
@@ -198,59 +198,59 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 
 	name := generateTLSPairSecretName(props)
 
-	depl, err := c.client.GetResource("", "Deployment", props.Namespace, config.KyvernoDeploymentName)
-
-	deplHash := ""
-	if err == nil {
-		deplHash = fmt.Sprintf("%v", depl.GetUID())
-	}
-
-	var deplHashSec string = "default"
-	var ok, managedByKyverno bool
+	//	depl, err := c.client.GetResource("", "Deployment", props.Namespace, config.KyvernoDeploymentName)
+	//
+	//	deplHash := ""
+	//	if err == nil {
+	//		deplHash = fmt.Sprintf("%v", depl.GetUID())
+	//	}
+	//
+	//	var deplHashSec string = "default"
+	//	var ok, managedByKyverno bool
 
 	secretUnstr, err := c.client.GetResource("", "Secret", props.Namespace, name)
-	if err == nil {
-		if label, ok := secretUnstr.GetLabels()[ManagedByLabel]; ok {
-			managedByKyverno = label == "kyverno"
-		}
-		deplHashSec, ok = secretUnstr.GetAnnotations()[MasterDeploymentUID]
-	}
-
-	secretPtr := &v1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: props.Namespace,
-			Annotations: map[string]string{
-				MasterDeploymentUID: deplHash,
-			},
-			Labels: map[string]string{
-				ManagedByLabel: "kyverno",
-			},
-		},
-		Data: map[string][]byte{
-			v1.TLSCertKey:       pemPair.Certificate,
-			v1.TLSPrivateKeyKey: pemPair.PrivateKey,
-		},
-		Type: v1.SecretTypeTLS,
-	}
+	//	if err == nil {
+	//		if label, ok := secretUnstr.GetLabels()[ManagedByLabel]; ok {
+	//			managedByKyverno = label == "kyverno"
+	//		}
+	//		deplHashSec, ok = secretUnstr.GetAnnotations()[MasterDeploymentUID]
+	//	}
 
 	if err != nil {
+		secretPtr := &v1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: props.Namespace,
+				//			Annotations: map[string]string{
+				//				MasterDeploymentUID: deplHash,
+				//			},
+				Labels: map[string]string{
+					ManagedByLabel: "kyverno",
+				},
+			},
+			Data: map[string][]byte{
+				v1.TLSCertKey:       pemPair.Certificate,
+				v1.TLSPrivateKeyKey: pemPair.PrivateKey,
+			},
+			Type: v1.SecretTypeTLS,
+		}
 		_, err := c.client.CreateResource("", "Secret", props.Namespace, secretPtr, false)
 		if err == nil {
 			logger.Info("secret created", "name", name, "namespace", props.Namespace)
 		}
 		return err
-	} else if managedByKyverno && (!ok || deplHashSec != deplHash) {
-		_, err := c.client.UpdateResource("", "Secret", props.Namespace, secretPtr, false)
-		if err == nil {
-			logger.Info("secret updated", "name", name, "namespace", props.Namespace)
-		}
-		return err
 	}
+	//else if managedByKyverno && (!ok || deplHashSec != deplHash) {
+	//	_, err := c.client.UpdateResource("", "Secret", props.Namespace, secretPtr, false)
+	//	if err == nil {
+	//		logger.Info("secret updated", "name", name, "namespace", props.Namespace)
+	//	}
+	//	return err
+	//}
 
 	dataMap := map[string][]byte{
 		v1.TLSCertKey:       pemPair.Certificate,

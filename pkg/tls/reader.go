@@ -22,15 +22,15 @@ func ReadRootCASecret(restConfig *rest.Config, client *client.Client) (result []
 		return nil, errors.Wrap(err, "failed to get TLS Cert Properties")
 	}
 
-	depl, err := client.GetResource("", "Deployment", certProps.Namespace, config.KyvernoDeploymentName)
+	// depl, err := client.GetResource("", "Deployment", certProps.Namespace, config.KyvernoDeploymentName)
 
-	deplHash := ""
-	if err == nil {
-		deplHash = fmt.Sprintf("%v", depl.GetUID())
-	}
+	// deplHash := ""
+	// if err == nil {
+	// 	deplHash = fmt.Sprintf("%v", depl.GetUID())
+	// }
 
-	var deplHashSec string = "default"
-	var ok, managedByKyverno bool
+	// var deplHashSec string = "default"
+	// var ok, managedByKyverno bool
 
 	sname := generateRootCASecretName(certProps)
 	stlsca, err := client.GetResource("", "Secret", certProps.Namespace, sname)
@@ -38,13 +38,13 @@ func ReadRootCASecret(restConfig *rest.Config, client *client.Client) (result []
 		return nil, err
 	}
 
-	if label, ok := stlsca.GetLabels()[ManagedByLabel]; ok {
-		managedByKyverno = label == "kyverno"
-	}
-	deplHashSec, ok = stlsca.GetAnnotations()[MasterDeploymentUID]
-	if managedByKyverno && (!ok || deplHashSec != deplHash) {
-		return nil, fmt.Errorf("outdated secret")
-	}
+	// if label, ok := stlsca.GetLabels()[ManagedByLabel]; ok {
+	// 	managedByKyverno = label == "kyverno"
+	// }
+	// deplHashSec, ok = stlsca.GetAnnotations()[MasterDeploymentUID]
+	// if managedByKyverno && (!ok || deplHashSec != deplHash) {
+	// 	return nil, fmt.Errorf("outdated secret")
+	// }
 
 	tlsca, err := convertToSecret(stlsca)
 	if err != nil {
@@ -66,27 +66,20 @@ func ReadTLSPair(restConfig *rest.Config, client *client.Client) (*PemPair, erro
 		return nil, errors.Wrap(err, "failed to get TLS Cert Properties")
 	}
 
-	depl, err := client.GetResource("", "Deployment", certProps.Namespace, config.KyvernoDeploymentName)
+	// depl, err := client.GetResource("", "Deployment", certProps.Namespace, config.KyvernoDeploymentName)
 
-	deplHash := ""
-	if err == nil {
-		deplHash = fmt.Sprintf("%v", depl.GetUID())
-	}
+	// deplHash := ""
+	// if err == nil {
+	// 	deplHash = fmt.Sprintf("%v", depl.GetUID())
+	// }
 
-	var deplHashSec string = "default"
-	var ok, managedByKyverno bool
+	// var deplHashSec string = "default"
+	// var ok, managedByKyverno bool
 
 	sname := generateTLSPairSecretName(certProps)
 	unstrSecret, err := client.GetResource("", "Secret", certProps.Namespace, sname)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get secret %s/%s: %v", certProps.Namespace, sname, err)
-	}
-	if label, ok := unstrSecret.GetLabels()[ManagedByLabel]; ok {
-		managedByKyverno = label == "kyverno"
-	}
-	deplHashSec, ok = unstrSecret.GetAnnotations()[MasterDeploymentUID]
-	if managedByKyverno && (!ok || deplHashSec != deplHash) {
-		return nil, fmt.Errorf("outdated secret")
 	}
 
 	// If secret contains annotation 'self-signed-cert', then it's created using helper scripts to setup self-signed certificates.
@@ -99,6 +92,15 @@ func ReadTLSPair(restConfig *rest.Config, client *client.Client) (*PemPair, erro
 			return nil, fmt.Errorf("rootCA secret is required while using self-signed certificate TLS pair, defaulting to generating new TLS pair  %s/%s", certProps.Namespace, sname)
 		}
 	}
+
+	// if label, ok := unstrSecret.GetLabels()[ManagedByLabel]; ok {
+	// 	managedByKyverno = label == "kyverno"
+	// }
+	// deplHashSec, ok = unstrSecret.GetAnnotations()[MasterDeploymentUID]
+	// if managedByKyverno && (!ok || deplHashSec != deplHash) {
+	// 	return nil, fmt.Errorf("outdated secret")
+	// }
+
 	secret, err := convertToSecret(unstrSecret)
 	if err != nil {
 		return nil, err
