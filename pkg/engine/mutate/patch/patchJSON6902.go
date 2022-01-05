@@ -1,4 +1,4 @@
-package mutate
+package patch
 
 import (
 	"fmt"
@@ -36,8 +36,8 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 	patchedResourceRaw, err := applyPatchesWithOptions(resourceRaw, patchesJSON6902)
 	if err != nil {
 		resp.Status = response.RuleStatusFail
-		logger.Error(err, "unable to apply RFC 6902 patches")
-		resp.Message = fmt.Sprintf("unable to apply RFC 6902 patches: %v", err)
+		logger.Error(err, "failed to apply JSON Patch")
+		resp.Message = fmt.Sprintf("failed to apply JSON Patch: %v", err)
 		return resp, resource
 	}
 
@@ -50,7 +50,7 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 	}
 
 	for _, p := range patchesBytes {
-		log.V(4).Info("generated RFC 6902 patches", "patch", string(p))
+		log.V(4).Info("generated JSON Patch (RFC 6902)", "patch", string(p))
 	}
 
 	err = patchedResource.UnmarshalJSON(patchedResourceRaw)
@@ -62,7 +62,7 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 	}
 
 	resp.Status = response.RuleStatusPass
-	resp.Message = string("successfully process JSON6902 patches")
+	resp.Message = string("applied JSON Patch")
 	resp.Patches = patchesBytes
 	return resp, patchedResource
 }
@@ -82,7 +82,7 @@ func applyPatchesWithOptions(resource, patch []byte) ([]byte, error) {
 	return patchedResource, nil
 }
 
-func convertPatchesToJSON(patchesJSON6902 string) ([]byte, error) {
+func ConvertPatchesToJSON(patchesJSON6902 string) ([]byte, error) {
 	if len(patchesJSON6902) == 0 {
 		return []byte(patchesJSON6902), nil
 	}

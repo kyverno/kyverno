@@ -99,7 +99,7 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 	req = new(unstructured.Unstructured)
 	for _, infoResult := range info.Results {
 		for _, rule := range infoResult.Rules {
-			if rule.Type != utils.Validation.String() {
+			if rule.Type != utils.Validation.String() && rule.Type != utils.ImageVerify.String() {
 				continue
 			}
 

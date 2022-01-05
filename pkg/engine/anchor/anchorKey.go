@@ -1,11 +1,9 @@
-package common
+package anchor
 
 import (
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/kyverno/kyverno/pkg/engine/anchor/common"
 )
 
 // IsConditionalAnchorError checks if error message has conditional anchor error string
@@ -79,7 +77,7 @@ var GlobalAnchorErrMsg = "global anchor mismatch"
 
 // AnchorKey - contains map of anchors
 type AnchorKey struct {
-	// anchorMap - for each anchor key in the patterns it will maintains information if the key exists in the resource
+	// anchorMap - for each anchor key in the patterns it will maintain information if the key exists in the resource
 	// if anchor key of the pattern exists in the resource then (key)=true else (key)=false
 	anchorMap map[string]bool
 	// AnchorError - used in validate to break execution of the recursion when if condition fails
@@ -108,7 +106,7 @@ func (ac *AnchorKey) CheckAnchorInResource(pattern interface{}, resource interfa
 	switch typed := pattern.(type) {
 	case map[string]interface{}:
 		for key := range typed {
-			if common.IsConditionAnchor(key) || common.IsExistenceAnchor(key) || common.IsNegationAnchor(key) {
+			if IsConditionAnchor(key) || IsExistenceAnchor(key) || IsNegationAnchor(key) {
 				val, ok := ac.anchorMap[key]
 				if !ok {
 					ac.anchorMap[key] = false
@@ -125,7 +123,7 @@ func (ac *AnchorKey) CheckAnchorInResource(pattern interface{}, resource interfa
 
 // Checks if anchor key has value in resource
 func doesAnchorsKeyHasValue(key string, resource interface{}) bool {
-	akey, _ := common.RemoveAnchor(key)
+	akey, _ := RemoveAnchor(key)
 	switch typed := resource.(type) {
 	case map[string]interface{}:
 		if _, ok := typed[akey]; ok {

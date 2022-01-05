@@ -25,7 +25,7 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 	pc.rm.Drop()
 
 	for _, rule := range policy.Spec.Rules {
-		if !rule.HasValidate() {
+		if !rule.HasValidate() && !rule.HasVerifyImages() {
 			continue
 		}
 

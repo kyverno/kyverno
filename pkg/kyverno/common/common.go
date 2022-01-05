@@ -301,7 +301,7 @@ func RemoveDuplicateAndObjectVariables(matches [][]string) string {
 		for _, v := range m {
 			foundVariable := strings.Contains(variableStr, v)
 			if !foundVariable {
-				if !strings.Contains(v, "request.object") && !strings.Contains(v, "element") {
+				if !strings.Contains(v, "request.object") && !strings.Contains(v, "element") && v == "elementIndex" {
 					variableStr = variableStr + " " + v
 				}
 			}

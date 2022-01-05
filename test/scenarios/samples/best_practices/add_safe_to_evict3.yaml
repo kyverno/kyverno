@@ -18,10 +18,10 @@ expected:
         - name: annotate-empty-dir
           type: Mutation
           status: skip
-          message: "resource does not match pattern"      
+          message: "no patches applied"
         - name: annotate-host-path
           type: Mutation
           status: skip
-          message: "resource does not match pattern"      
+          message: "no patches applied"
 
         
