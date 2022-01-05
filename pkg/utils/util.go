@@ -246,6 +246,20 @@ func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interfac
 
 	var kyvernoOldConditions []kyverno.Condition
 	if err = json.Unmarshal(jsonByte, &kyvernoOldConditions); err == nil {
+		var validConditionOperator bool
+
+		for _, jsonOp := range kyvernoOldConditions {
+			for _, validOp := range kyverno.ConditionOperators {
+				if jsonOp.Operator == validOp {
+					validConditionOperator = true
+				}
+			}
+			if !validConditionOperator {
+				return nil, fmt.Errorf("invalid condition operator: %s", jsonOp.Operator)
+			}
+			validConditionOperator = false
+		}
+
 		return kyvernoOldConditions, nil
 	}
 

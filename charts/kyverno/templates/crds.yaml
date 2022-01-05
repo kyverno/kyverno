@@ -5,11 +5,11 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.0
     config.kubernetes.io/index: '1'
+    internal.config.kubernetes.io/index: '1'
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -933,6 +933,9 @@ spec:
                               patchStrategicMerge:
                                 description: PatchStrategicMerge is a strategic merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/ and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                                 x-kubernetes-preserve-unknown-fields: true
+                              patchesJson6902:
+                                description: PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                type: string
                               preconditions:
                                 description: 'AnyAllConditions are used to determine if a policy rule should be applied by evaluating a set of conditions. The declaration can contain nested `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
                                 properties:
@@ -945,7 +948,7 @@ spec:
                                           description: Key is the context entry (using JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to perform. Valid operators are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
+                                          description: 'Operator is the conditional operation to perform. Valid operators are: Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -978,7 +981,7 @@ spec:
                                           description: Key is the context entry (using JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to perform. Valid operators are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
+                                          description: 'Operator is the conditional operation to perform. Valid operators are: Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -1006,29 +1009,8 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        overlay:
-                          description: Overlay specifies an overlay pattern to modify resources. DEPRECATED. Use PatchStrategicMerge instead. Scheduled for removal in release 1.5+.
-                          x-kubernetes-preserve-unknown-fields: true
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/ and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
-                          x-kubernetes-preserve-unknown-fields: true
-                        patches:
-                          description: Patches specifies a RFC 6902 JSON Patch to modify resources. DEPRECATED. Use PatchesJSON6902 instead. Scheduled for removal in release 1.5+.
-                          items:
-                            description: 'Patch is a RFC 6902 JSON Patch. See: https://tools.ietf.org/html/rfc6902'
-                            properties:
-                              op:
-                                description: Operation specifies operations supported by JSON Patch. i.e:- add, replace and delete.
-                                type: string
-                              path:
-                                description: Path specifies path of the resource.
-                                type: string
-                              value:
-                                description: Value specifies the value to be applied.
-                                x-kubernetes-preserve-unknown-fields: true
-                            type: object
-                          nullable: true
-                          type: array
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
@@ -1103,6 +1085,9 @@ spec:
                                     description: 'Multiple conditions can be declared under an `any` or `all` statement. A direct list of conditions (without `any` or `all` statements) is also supported for backwards compatibility but will be deprecated in the next major release. See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
+                              elementScope:
+                                description: Use the list element as the scope for validation. Defaults to "true" if not specified. When set to "false", "request.object" is used as the validation scope within the foreach block to allow referencing other elements in the subtree.
+                                type: boolean
                               list:
                                 description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                 type: string
@@ -1121,7 +1106,7 @@ spec:
                                           description: Key is the context entry (using JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to perform. Valid operators are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
+                                          description: 'Operator is the conditional operation to perform. Valid operators are: Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -1154,7 +1139,7 @@ spec:
                                           description: Key is the context entry (using JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to perform. Valid operators are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
+                                          description: 'Operator is the conditional operation to perform. Valid operators are: Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -1218,7 +1203,7 @@ spec:
                                               description: Key is the context entry (using JMESPath) for conditional rule evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
                                             operator:
-                                              description: Operator is the operation to perform. Valid operators are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
+                                              description: 'Operator is the conditional operation to perform. Valid operators are: Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
                                               enum:
                                               - Equals
                                               - NotEquals
@@ -1251,7 +1236,7 @@ spec:
                                               description: Key is the context entry (using JMESPath) for conditional rule evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
                                             operator:
-                                              description: Operator is the operation to perform. Valid operators are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
+                                              description: 'Operator is the conditional operation to perform. Valid operators are: Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
                                               enum:
                                               - Equals
                                               - NotEquals
@@ -1344,11 +1329,11 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.0
     config.kubernetes.io/index: '2'
+    internal.config.kubernetes.io/index: '2'
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -1837,11 +1822,11 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.0
     config.kubernetes.io/index: '3'
+    internal.config.kubernetes.io/index: '3'
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -2330,11 +2315,11 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.0
     config.kubernetes.io/index: '4'
+    internal.config.kubernetes.io/index: '4'
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -2512,11 +2497,11 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.0
     config.kubernetes.io/index: '5'
+    internal.config.kubernetes.io/index: '5'
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -3440,6 +3425,9 @@ spec:
                               patchStrategicMerge:
                                 description: PatchStrategicMerge is a strategic merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/ and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                                 x-kubernetes-preserve-unknown-fields: true
+                              patchesJson6902:
+                                description: PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                type: string
                               preconditions:
                                 description: 'AnyAllConditions are used to determine if a policy rule should be applied by evaluating a set of conditions. The declaration can contain nested `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
                                 properties:
@@ -3452,7 +3440,7 @@ spec:
                                           description: Key is the context entry (using JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to perform. Valid operators are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
+                                          description: 'Operator is the conditional operation to perform. Valid operators are: Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -3485,7 +3473,7 @@ spec:
                                           description: Key is the context entry (using JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to perform. Valid operators are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
+                                          description: 'Operator is the conditional operation to perform. Valid operators are: Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -3513,29 +3501,8 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        overlay:
-                          description: Overlay specifies an overlay pattern to modify resources. DEPRECATED. Use PatchStrategicMerge instead. Scheduled for removal in release 1.5+.
-                          x-kubernetes-preserve-unknown-fields: true
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/ and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
-                          x-kubernetes-preserve-unknown-fields: true
-                        patches:
-                          description: Patches specifies a RFC 6902 JSON Patch to modify resources. DEPRECATED. Use PatchesJSON6902 instead. Scheduled for removal in release 1.5+.
-                          items:
-                            description: 'Patch is a RFC 6902 JSON Patch. See: https://tools.ietf.org/html/rfc6902'
-                            properties:
-                              op:
-                                description: Operation specifies operations supported by JSON Patch. i.e:- add, replace and delete.
-                                type: string
-                              path:
-                                description: Path specifies path of the resource.
-                                type: string
-                              value:
-                                description: Value specifies the value to be applied.
-                                x-kubernetes-preserve-unknown-fields: true
-                            type: object
-                          nullable: true
-                          type: array
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
@@ -3610,6 +3577,9 @@ spec:
                                     description: 'Multiple conditions can be declared under an `any` or `all` statement. A direct list of conditions (without `any` or `all` statements) is also supported for backwards compatibility but will be deprecated in the next major release. See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
+                              elementScope:
+                                description: Use the list element as the scope for validation. Defaults to "true" if not specified. When set to "false", "request.object" is used as the validation scope within the foreach block to allow referencing other elements in the subtree.
+                                type: boolean
                               list:
                                 description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                 type: string
@@ -3628,7 +3598,7 @@ spec:
                                           description: Key is the context entry (using JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to perform. Valid operators are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
+                                          description: 'Operator is the conditional operation to perform. Valid operators are: Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -3661,7 +3631,7 @@ spec:
                                           description: Key is the context entry (using JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to perform. Valid operators are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
+                                          description: 'Operator is the conditional operation to perform. Valid operators are: Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -3725,7 +3695,7 @@ spec:
                                               description: Key is the context entry (using JMESPath) for conditional rule evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
                                             operator:
-                                              description: Operator is the operation to perform. Valid operators are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
+                                              description: 'Operator is the conditional operation to perform. Valid operators are: Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
                                               enum:
                                               - Equals
                                               - NotEquals
@@ -3758,7 +3728,7 @@ spec:
                                               description: Key is the context entry (using JMESPath) for conditional rule evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
                                             operator:
-                                              description: Operator is the operation to perform. Valid operators are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
+                                              description: 'Operator is the conditional operation to perform. Valid operators are: Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan'
                                               enum:
                                               - Equals
                                               - NotEquals
@@ -3851,11 +3821,11 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.0
     config.kubernetes.io/index: '6'
+    internal.config.kubernetes.io/index: '6'
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -4344,11 +4314,11 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.0
     config.kubernetes.io/index: '7'
+    internal.config.kubernetes.io/index: '7'
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
