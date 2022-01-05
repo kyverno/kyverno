@@ -30,7 +30,7 @@ var rawPolicy = []byte(`
 					}
 				},
 				"mutate": {
-					"overlay": {
+					"patchStrategicMerge": {
 						"metadata": {
 							"labels": {
 								"appname": "{{request.object.metadata.name}}"
@@ -104,47 +104,6 @@ func Test_ForceMutateSubstituteVars(t *testing.T) {
 	assert.NilError(t, err)
 
 	mutatedResource, err := ForceMutate(ctx, policy, *resourceUnstructured)
-	assert.NilError(t, err)
-
-	assert.DeepEqual(t, expectedResource, mutatedResource.UnstructuredContent())
-}
-
-func Test_ForceMutateSubstituteVarsWithNilContext(t *testing.T) {
-	expectedRawResource := []byte(`
-	{
-		"apiVersion": "v1",
-		"kind": "Pod",
-		"metadata": {
-			"name": "check-root-user",
-			"labels": {
-				"appname": "placeholderValue"
-			}
-		},
-		"spec": {
-			"containers": [
-				{
-					"name": "check-root-user",
-					"image": "nginxinc/nginx-unprivileged",
-					"securityContext": {
-						"runAsNonRoot": true
-					}
-				}
-			]
-		}
-	}
-	`)
-
-	var expectedResource interface{}
-	assert.NilError(t, json.Unmarshal(expectedRawResource, &expectedResource))
-
-	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
-
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
-	assert.NilError(t, err)
-
-	mutatedResource, err := ForceMutate(nil, policy, *resourceUnstructured)
 	assert.NilError(t, err)
 
 	assert.DeepEqual(t, expectedResource, mutatedResource.UnstructuredContent())

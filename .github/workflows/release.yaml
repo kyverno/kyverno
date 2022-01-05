@@ -50,14 +50,19 @@ jobs:
           echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*")"
 
       - name :  docker images publish
+        id: push-step
         run: |
           make docker-publish-sigs
           make docker-publish-initContainer
 
       - name: Sign image
-        run: |
-          export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
-          echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyvernopre:${KYVERNO_VERSION}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: cosign sign \ 
+          -a "repo=${{ github.repository }}" \
+          -a "workflow=${{ github.workflow }}" \
+          -a "ref=${{ github.sha }}" \
+          ghcr.io/kyverno/kyvernopre@${{ steps.push-step.outputs.digest }}
 
   release-kyverno:
     runs-on: ubuntu-latest
@@ -117,14 +122,19 @@ jobs:
           path: kyverno-v*-bom.cdx.json
 
       - name :  docker images publish
+        id: push-step
         run: |
           make docker-publish-sbom
           make docker-publish-kyverno
 
       - name: Sign image and SBOM
-        run: |
-          export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
-          echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno:${KYVERNO_VERSION}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: cosign sign \ 
+          -a "repo=${{ github.repository }}" \
+          -a "workflow=${{ github.workflow }}" \
+          -a "ref=${{ github.sha }}" \
+          ghcr.io/kyverno/kyverno@${{ steps.push-step.outputs.digest }}
           cosign attach sbom -sbom ./*-bom.cdx.json -type cyclonedx ghcr.io/kyverno/sbom:latest
 
       - name: Trivy Scan Image
@@ -183,13 +193,18 @@ jobs:
           echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*")"
 
       - name :  docker images publish
+        id: push-step
         run: |
           make docker-publish-cli
 
       - name: Sign image
-        run: |
-          export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
-          echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno-cli:${KYVERNO_VERSION}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: cosign sign \ 
+          -a "repo=${{ github.repository }}" \
+          -a "workflow=${{ github.workflow }}" \
+          -a "ref=${{ github.sha }}" \
+          ghcr.io/kyverno/kyverno-cli@${{ steps.push-step.outputs.digest }}
   
   create-release:
     runs-on: ubuntu-latest

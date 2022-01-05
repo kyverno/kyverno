@@ -111,7 +111,7 @@ func Test_Validate_RuleType_MultipleRule(t *testing.T) {
 					}
 				 },
 				 "mutate": {
-					"overlay": {
+					"patchStrategicMerge": {
 					   "spec": {
 						  "template": {
 							 "spec": {
@@ -630,7 +630,7 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 					}
 				 },
 				 "mutate": {
-					"overlay": {
+					"patchStrategicMerge": {
 					   "spec": {
 						  "template": {
 							 "spec": {
@@ -904,7 +904,7 @@ func Test_BackGroundUserInfo_match_subjects(t *testing.T) {
 	assert.Equal(t, err.Error(), "invalid variable used at path: spec/rules[0]/match/subjects")
 }
 
-func Test_BackGroundUserInfo_mutate_overlay1(t *testing.T) {
+func Test_BackGroundUserInfo_mutate_patchStrategicMerge1(t *testing.T) {
 	var err error
 	rawPolicy := []byte(`
 	{
@@ -918,7 +918,7 @@ func Test_BackGroundUserInfo_mutate_overlay1(t *testing.T) {
 			{
 			  "name": "mutate.overlay1",
 			  "mutate": {
-				"overlay": {
+				"patchStrategicMerge": {
 				  "var1": "{{request.userInfo}}"
 				}
 			  }
@@ -935,7 +935,7 @@ func Test_BackGroundUserInfo_mutate_overlay1(t *testing.T) {
 	assert.Assert(t, err != nil)
 }
 
-func Test_BackGroundUserInfo_mutate_overlay2(t *testing.T) {
+func Test_BackGroundUserInfo_mutate_patchStrategicMerge2(t *testing.T) {
 	var err error
 	rawPolicy := []byte(`
 	{
@@ -949,7 +949,7 @@ func Test_BackGroundUserInfo_mutate_overlay2(t *testing.T) {
 			{
 			  "name": "mutate.overlay2",
 			  "mutate": {
-				"overlay": {
+				"patchStrategicMerge": {
 				  "var1": "{{request.userInfo.userName}}"
 				}
 			  }
@@ -978,7 +978,7 @@ func Test_BackGroundUserInfo_validate_pattern(t *testing.T) {
 		"spec": {
 		  "rules": [
 			{
-			  "name": "validate.overlay",
+			  "name": "validate-patch-strategic-merge",
 			  "validate": {
 				"pattern": {
 				  "var1": "{{request.userInfo}}"
@@ -1109,43 +1109,43 @@ func Test_ruleOnlyDealsWithResourceMetaData(t *testing.T) {
 		expectedOutput bool
 	}{
 		{
-			description:    "Test mutate overlay - pass",
-			rule:           []byte(`{"name":"test","mutate":{"overlay":{"metadata":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}`),
+			description:    "Test mutate patchStrategicMerge - pass",
+			rule:           []byte(`{"name":"testPatches1","mutate":{"patchStrategicMerge":{"metadata":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}`),
 			expectedOutput: true,
 		},
 		{
-			description:    "Test mutate overlay - fail",
-			rule:           []byte(`{"name":"test","mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}`),
+			description:    "Test mutate patchStrategicMerge - fail",
+			rule:           []byte(`{"name":"testPatches2","mutate":{"patchStrategicMerge":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}`),
 			expectedOutput: false,
 		},
 		{
 			description:    "Test mutate patch - pass",
-			rule:           []byte(`{"name":"testPatches","mutate":{"patches":[{"path":"/metadata/labels/isMutated","op":"add","value":"true"},{"path":"/metadata/labels/app","op":"replace","value":"nginx_is_mutated"}]}}`),
+			rule:           []byte(`{"name":"testPatches3","mutate":{"patchesJson6902": "[{\"path\":\"/metadata/labels/isMutated\",\"op\":\"add\",\"value\":\"true\"},{\"path\":\"/metadata/labels/app\",\"op\":\"replace\",\"value\":\"nginx_is_mutated\"}]"}}`),
 			expectedOutput: true,
 		},
 		{
 			description:    "Test mutate patch - fail",
-			rule:           []byte(`{"name":"testPatches","mutate":{"patches":[{"path":"/spec/labels/isMutated","op":"add","value":"true"},{"path":"/metadata/labels/app","op":"replace","value":"nginx_is_mutated"}]}}`),
+			rule:           []byte(`{"name":"testPatches4","mutate":{"patchesJson6902": "[{\"path\":\"/spec/labels/isMutated\",\"op\":\"add\",\"value\":\"true\"},{\"path\":\"/metadata/labels/app\",\"op\":\"replace\",\"value\":\"nginx_is_mutated\"}]" }}`),
 			expectedOutput: false,
 		},
 		{
 			description:    "Test validate - pass",
-			rule:           []byte(`{"name":"testValidate","validate":{"message":"CPU and memory resource requests and limits are required","pattern":{"metadata":{"containers":[{"(name)":"*","ports":[{"containerPort":80}]}]}}}}`),
+			rule:           []byte(`{"name":"testValidate1","validate":{"message":"CPU and memory resource requests and limits are required","pattern":{"metadata":{"containers":[{"(name)":"*","ports":[{"containerPort":80}]}]}}}}`),
 			expectedOutput: true,
 		},
 		{
 			description:    "Test validate - fail",
-			rule:           []byte(`{"name":"testValidate","validate":{"message":"CPU and memory resource requests and limits are required","pattern":{"spec":{"containers":[{"(name)":"*","ports":[{"containerPort":80}]}]}}}}`),
+			rule:           []byte(`{"name":"testValidate2","validate":{"message":"CPU and memory resource requests and limits are required","pattern":{"spec":{"containers":[{"(name)":"*","ports":[{"containerPort":80}]}]}}}}`),
 			expectedOutput: false,
 		},
 		{
 			description:    "Test validate any pattern - pass",
-			rule:           []byte(`{"name":"testValidateAnyPattern","validate":{"message":"Volumes white list","anyPattern":[{"metadata":{"volumes":[{"hostPath":"*"}]}},{"metadata":{"volumes":[{"emptyDir":"*"}]}},{"metadata":{"volumes":[{"configMap":"*"}]}}]}}`),
+			rule:           []byte(`{"name":"testValidateAnyPattern1","validate":{"message":"Volumes white list","anyPattern":[{"metadata":{"volumes":[{"hostPath":"*"}]}},{"metadata":{"volumes":[{"emptyDir":"*"}]}},{"metadata":{"volumes":[{"configMap":"*"}]}}]}}`),
 			expectedOutput: true,
 		},
 		{
 			description:    "Test validate any pattern - fail",
-			rule:           []byte(`{"name":"testValidateAnyPattern","validate":{"message":"Volumes white list","anyPattern":[{"spec":{"volumes":[{"hostPath":"*"}]}},{"metadata":{"volumes":[{"emptyDir":"*"}]}},{"metadata":{"volumes":[{"configMap":"*"}]}}]}}`),
+			rule:           []byte(`{"name":"testValidateAnyPattern2","validate":{"message":"Volumes white list","anyPattern":[{"spec":{"volumes":[{"hostPath":"*"}]}},{"metadata":{"volumes":[{"emptyDir":"*"}]}},{"metadata":{"volumes":[{"configMap":"*"}]}}]}}`),
 			expectedOutput: false,
 		},
 	}
@@ -1155,7 +1155,7 @@ func Test_ruleOnlyDealsWithResourceMetaData(t *testing.T) {
 		_ = json.Unmarshal(testcase.rule, &rule)
 		output := ruleOnlyDealsWithResourceMetaData(rule)
 		if output != testcase.expectedOutput {
-			t.Errorf("Testcase [%d] failed", i+1)
+			t.Errorf("Testcase [%d] (%s) failed", i+1, testcase.description)
 		}
 	}
 }

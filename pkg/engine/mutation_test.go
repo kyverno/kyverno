@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -15,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func Test_VariableSubstitutionOverlay(t *testing.T) {
+func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 	policyRaw := []byte(`{
   "apiVersion": "kyverno.io/v1",
   "kind": "ClusterPolicy",
@@ -34,7 +35,7 @@ func Test_VariableSubstitutionOverlay(t *testing.T) {
           }
         },
         "mutate": {
-          "overlay": {
+          "patchStrategicMerge": {
             "metadata": {
               "labels": {
                 "appname": "{{request.object.metadata.name}}"
@@ -136,7 +137,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
           }
         },
         "mutate": {
-          "overlay": {
+          "patchStrategicMerge": {
             "spec": {
               "name": "{{request.object.metadata.name1}}"
             }
@@ -162,8 +163,8 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Mutate(policyContext)
-	expectedErrorStr := "variable substitution failed: Unknown key \"name1\" in path"
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, expectedErrorStr)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
 }
 
 func Test_variableSubstitutionCLI(t *testing.T) {

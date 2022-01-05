@@ -1,0 +1,50 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-empty-dir-mountpath
+spec:
+  rules:
+  - name: check-mount-paths
+    match:
+      resources:
+        kinds:
+          - Pod
+    validate:
+      message: "emptyDir volumes must be mounted under /tmp"
+      foreach:
+      - list: "request.object.spec.volumes[?contains(keys(@), 'emptyDir')]"
+        elementScope: false
+        pattern:
+          spec:
+            containers:
+              - name: "*"
+                volumeMounts:
+                - (name): "{{element.name}}"
+                  mountPath: "/tmp/*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-empty-dir-resources
+spec:
+  rules:
+  - name: check-resources
+    match:
+      resources:
+        kinds:
+          - Pod
+    validate:
+      message: "ephemeral-storage requests and limits are required for emptyDir volumes"
+      foreach:
+      - list: "request.object.spec.volumes[?contains(keys(@), 'emptyDir')]"
+        elementScope: false
+        pattern:
+          spec:
+            containers:
+            - volumeMounts:
+              - <(name): "{{element.name}}"
+              resources:
+                requests:
+                 ephemeral-storage: "?*"
+                limits:
+                  ephemeral-storage: "?*"

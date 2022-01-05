@@ -8,10 +8,11 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/kyverno/kyverno/pkg/engine/anchor"
+
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	jsonUtils "github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
@@ -28,6 +29,8 @@ var RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
 var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
 
 var regexVariableInit = regexp.MustCompile(`^\{\{[^{}]*\}\}`)
+
+var regexElementIndex = regexp.MustCompile(`{{\s*elementIndex\s*}}`)
 
 // IsVariable returns true if the element contains a 'valid' variable {{}}
 func IsVariable(value string) bool {
@@ -179,7 +182,7 @@ func substituteAll(log logr.Logger, ctx context.EvalInterface, document interfac
 	return substituteVars(log, ctx, document, resolver)
 }
 
-func SubstituteAllForceMutate(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
+func SubstituteAllForceMutate(log logr.Logger, ctx *context.Context, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
 	var rule interface{}
 
 	rule, err = RuleToUntyped(typedRule)
@@ -231,8 +234,8 @@ func validateElementInForEach(log logr.Logger) jsonUtils.Action {
 			}
 
 			variable := replaceBracesAndTrimSpaces(v)
-
-			if strings.HasPrefix(variable, "element") && !strings.Contains(data.Path, "/foreach/") {
+			isElementVar := strings.HasPrefix(variable, "element") || variable == "elementIndex"
+			if isElementVar && !strings.Contains(data.Path, "/foreach/") {
 				return nil, fmt.Errorf("variable '%v' present outside of foreach at path %s", variable, data.Path)
 			}
 		}
@@ -543,7 +546,7 @@ func getValueFromReference(fullDocument interface{}, path string) (interface{}, 
 
 	if _, err := jsonUtils.NewTraversal(fullDocument, jsonUtils.OnlyForLeafsAndKeys(
 		func(data *jsonUtils.ActionData) (interface{}, error) {
-			if common.RemoveAnchorsFromPath(data.Path) == path {
+			if anchor.RemoveAnchorsFromPath(data.Path) == path {
 				element = data.Element
 			}
 
@@ -561,13 +564,20 @@ func replaceSubstituteVariables(document interface{}) interface{} {
 		return document
 	}
 
-	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
 	for {
-		if len(regex.FindAllStringSubmatch(string(rawDocument), -1)) > 0 {
-			rawDocument = regex.ReplaceAll(rawDocument, []byte(`placeholderValue`))
-		} else {
+		if len(regexElementIndex.FindAllSubmatch(rawDocument, -1)) == 0 {
 			break
 		}
+
+		rawDocument = regexElementIndex.ReplaceAll(rawDocument, []byte(`0`))
+	}
+
+	for {
+		if len(RegexVariables.FindAllSubmatch(rawDocument, -1)) == 0 {
+			break
+		}
+
+		rawDocument = RegexVariables.ReplaceAll(rawDocument, []byte(`placeholderValue`))
 	}
 
 	var output interface{}

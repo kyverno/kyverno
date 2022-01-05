@@ -33,17 +33,12 @@ func (ctx *Context) Query(query string) (interface{}, error) {
 
 	var data interface{}
 	if err := json.Unmarshal(ctx.jsonRaw, &data); err != nil {
-		ctx.log.Error(err, "failed to unmarshal context")
-		return emptyResult, fmt.Errorf("failed to unmarshal context: %v", err)
+		return emptyResult, errors.Wrap(err, "failed to unmarshal context")
 	}
 
 	result, err := queryPath.Search(data)
 	if err != nil {
-		if !strings.HasPrefix(err.Error(), "Unknown key") {
-			ctx.log.Error(err, "JMESPath search failed", "query", query)
-		}
-
-		return emptyResult, err
+		return emptyResult, errors.Wrap(err, "JMESPath query failed")
 	}
 
 	return result, nil

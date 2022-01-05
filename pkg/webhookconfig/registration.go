@@ -14,6 +14,7 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/tls"
+	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	admregapi "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -621,13 +622,12 @@ func (wrc *Register) checkEndpoint() error {
 		return fmt.Errorf("failed to list Kyverno Pod: %v", err)
 	}
 
-	kyverno := pods.Items[0]
-	podIP, _, err := unstructured.NestedString(kyverno.UnstructuredContent(), "status", "podIP")
-	if err != nil {
-		return fmt.Errorf("failed to extract pod IP: %v", err)
+	ips, errs := getHealthyPodsIP(pods.Items)
+	if len(errs) != 0 {
+		return fmt.Errorf("error getting pod's IP: %v", errs)
 	}
 
-	if podIP == "" {
+	if len(ips) == 0 {
 		return fmt.Errorf("pod is not assigned to any node yet")
 	}
 
@@ -637,7 +637,7 @@ func (wrc *Register) checkEndpoint() error {
 		}
 
 		for _, addr := range subset.Addresses {
-			if addr.IP == podIP {
+			if utils.ContainsString(ips, addr.IP) {
 				wrc.log.Info("Endpoint ready", "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
 				return nil
 			}
@@ -650,6 +650,30 @@ func (wrc *Register) checkEndpoint() error {
 	err = fmt.Errorf("endpoint not ready")
 	wrc.log.V(3).Info(err.Error(), "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
 	return err
+}
+
+func getHealthyPodsIP(pods []unstructured.Unstructured) (ips []string, errs []error) {
+	for _, pod := range pods {
+		phase, _, err := unstructured.NestedString(pod.UnstructuredContent(), "status", "phase")
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to get pod %s status: %v", pod.GetName(), err))
+			continue
+		}
+
+		if phase != "Running" {
+			continue
+		}
+
+		ip, _, err := unstructured.NestedString(pod.UnstructuredContent(), "status", "podIP")
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to extract pod %s IP: %v", pod.GetName(), err))
+			continue
+		}
+
+		ips = append(ips, ip)
+	}
+
+	return
 }
 
 func (wrc *Register) updateResourceValidatingWebhookConfiguration(nsSelector map[string]interface{}) error {

@@ -1,0 +1,47 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: foreach-json-patch
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  rules:
+    - name: add-security-context
+      match:
+        resources:
+          kinds:
+            - Pod
+      preconditions:
+      - key: "{{ request.operation }}"
+        operator: Equals
+        value: "CREATE"
+      mutate:
+        foreach: 
+        - list: "request.object.spec.containers"
+          patchesJson6902: |-
+            - path: /spec/containers/{{elementIndex}}/securityContext
+              op: add
+              value: {"runAsNonRoot" : true}
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-images
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: false
+  rules:
+  - name: test
+    match:
+      resources:
+        kinds:
+        - Pod
+    mutate:
+      foreach:
+      - list: "request.object.spec.containers"
+        patchStrategicMerge:
+          spec:
+            containers:
+            - name: "{{ element.name }}"
+              image: registry.digitalocean.com/runlevl4/{{ images.containers."{{element.name}}".name}}:{{images.containers."{{element.name}}".tag}}
