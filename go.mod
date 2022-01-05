@@ -54,6 +54,7 @@ require (
 )
 
 require (
+	github.com/ahmetb/gen-crd-api-reference-docs v0.1.5
 	github.com/aquilax/truncate v1.0.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/opencontainers/image-spec v1.0.2 // indirect
