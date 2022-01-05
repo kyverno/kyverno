@@ -42,7 +42,8 @@ jobs:
       - name: Sign image
         env:
           COSIGN_EXPERIMENTAL: "true"
-        run: cosign sign \ 
+        run: |
+          cosign sign \ 
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
@@ -84,7 +85,8 @@ jobs:
       - name: Sign image
         env:
           COSIGN_EXPERIMENTAL: "true"
-        run: cosign sign \ 
+        run: |
+          cosign sign \ 
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
@@ -126,7 +128,8 @@ jobs:
       - name: Sign image
         env:
           COSIGN_EXPERIMENTAL: "true"
-        run: cosign sign \ 
+        run: |
+          cosign sign \ 
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
