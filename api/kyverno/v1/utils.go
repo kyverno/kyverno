@@ -195,17 +195,6 @@ func (in *Mutation) DeepCopyInto(out *Mutation) {
 	}
 
 	*out = *in
-	if in.Overlay != nil {
-		out.Overlay = *jsonDeepCopy(in.Overlay)
-	}
-
-	if in.Patches != nil {
-		out.Patches = make([]Patch, len(in.Patches))
-		for i, v := range in.Patches {
-			v.DeepCopyInto(&out.Patches[i])
-		}
-	}
-
 	if out.PatchStrategicMerge != nil {
 		out.PatchStrategicMerge = *jsonDeepCopy(in.PatchStrategicMerge)
 	}
@@ -225,16 +214,6 @@ func (in *Mutation) DeepCopyInto(out *Mutation) {
 // actually perform a deep copy.
 // Also see: https://github.com/kyverno/kyverno/pull/2000
 
-func (pp *Patch) DeepCopyInto(out *Patch) {
-	if out == nil {
-		return
-	}
-
-	*out = *pp
-	if pp.Value != nil {
-		out.Value = *jsonDeepCopy(pp.Value)
-	}
-}
 func (in *Validation) DeepCopyInto(out *Validation) {
 	if out == nil {
 		return

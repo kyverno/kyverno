@@ -70,3 +70,7 @@ spec:
             - key: "{{ path_canonicalize(element.hostPath.path) }}"
               operator: Equals
               value: "/run/containerd/containerd.sock"
+            # Allow variation in paths (to accommodate Windows) for local tests.
+            - key: "{{ path_canonicalize(element.hostPath.path) }}"
+              operator: Equals
+              value: "\\var\\run\\containerd\\containerd.sock"

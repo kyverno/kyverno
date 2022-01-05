@@ -2,11 +2,12 @@ package openapi
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/pkg/errors"
 
 	"github.com/googleapis/gnostic/compiler"
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
@@ -166,10 +167,9 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 		if kind != "*" {
 			err = o.ValidateResource(*patchedResource.DeepCopy(), "", kind)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "mutate result violates resource schema")
 			}
 		}
-
 	}
 
 	return nil

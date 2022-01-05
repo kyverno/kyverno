@@ -1,4 +1,4 @@
-package mutate
+package patch
 
 import (
 	"bytes"
@@ -78,7 +78,7 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 
 	resp.Status = response.RuleStatusPass
 	resp.Patches = jsonPatches
-	resp.Message = "successfully processed strategic merge patch"
+	resp.Message = "applied strategic merge patch"
 	return resp, patchedResource
 }
 

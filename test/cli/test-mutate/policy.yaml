@@ -1,4 +1,4 @@
-# Below there are both type of olicies: ClusterPolicy and Policy(Namespaced-Policy)
+# Below there are both type of policies: ClusterPolicy and Policy(Namespaced-Policy)
 
 #ClusterPolicy
 apiVersion: kyverno.io/v1

@@ -13,16 +13,16 @@ type RuleStatus int
 const (
 	// RuleStatusPass indicates that the resources meets the policy rule requirements
 	RuleStatusPass RuleStatus = iota
-	// Fail indicates that the resource does not meet the policy rule requirements
+	// RuleStatusFail indicates that the resource does not meet the policy rule requirements
 	RuleStatusFail
-	// Warn indicates that the resource does not meet the policy rule requirements, but the policy is not scored
+	// RuleStatusWarn indicates that the resource does not meet the policy rule requirements, but the policy is not scored
 	RuleStatusWarn
-	// Error indicates that the policy rule could not be evaluated due to a processing error, for
+	// RuleStatusError indicates that the policy rule could not be evaluated due to a processing error, for
 	// example when a variable cannot be resolved  in the policy rule definition. Note that variables
 	// that cannot be resolved in preconditions are replaced with empty values to allow existence
 	// checks.
 	RuleStatusError
-	// Skip indicates that the policy rule was not selected based on user inputs or applicability, for example
+	// RuleStatusSkip indicates that the policy rule was not selected based on user inputs or applicability, for example
 	// when preconditions are not met, or when conditional or global anchors are not satistied.
 	RuleStatusSkip
 )
