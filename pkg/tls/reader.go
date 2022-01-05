@@ -22,10 +22,28 @@ func ReadRootCASecret(restConfig *rest.Config, client *client.Client) (result []
 		return nil, errors.Wrap(err, "failed to get TLS Cert Properties")
 	}
 
+	depl, err := client.GetResource("", "Deployment", certProps.Namespace, config.KyvernoDeploymentName)
+
+	deplHash := ""
+	if err == nil {
+		deplHash = fmt.Sprintf("%v", depl.GetUID())
+	}
+
+	var deplHashSec string = "default"
+	var ok, managedByKyverno bool
+
 	sname := generateRootCASecretName(certProps)
 	stlsca, err := client.GetResource("", "Secret", certProps.Namespace, sname)
 	if err != nil {
 		return nil, err
+	}
+
+	if label, ok := stlsca.GetLabels()[ManagedByLabel]; ok {
+		managedByKyverno = label == "kyverno"
+	}
+	deplHashSec, ok = stlsca.GetAnnotations()[MasterDeploymentUID]
+	if managedByKyverno && (!ok || deplHashSec != deplHash) {
+		return nil, fmt.Errorf("Outdated Secret")
 	}
 
 	tlsca, err := convertToSecret(stlsca)
@@ -48,10 +66,29 @@ func ReadTLSPair(restConfig *rest.Config, client *client.Client) (*PemPair, erro
 		return nil, errors.Wrap(err, "failed to get TLS Cert Properties")
 	}
 
+	depl, err := client.GetResource("", "Deployment", certProps.Namespace, config.KyvernoDeploymentName)
+
+	deplHash := ""
+	if err == nil {
+		deplHash = fmt.Sprintf("%v", depl.GetUID())
+	}
+
+	var deplHashSec string = "default"
+	var ok, managedByKyverno bool
+
 	sname := generateTLSPairSecretName(certProps)
 	unstrSecret, err := client.GetResource("", "Secret", certProps.Namespace, sname)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get secret %s/%s: %v", certProps.Namespace, sname, err)
+	}
+	if err == nil {
+		if label, ok := unstrSecret.GetLabels()[ManagedByLabel]; ok {
+			managedByKyverno = label == "kyverno"
+		}
+		deplHashSec, ok = unstrSecret.GetAnnotations()[MasterDeploymentUID]
+	}
+	if managedByKyverno && (!ok || deplHashSec != deplHash) {
+		return nil, fmt.Errorf("Outdated Secret")
 	}
 
 	// If secret contains annotation 'self-signed-cert', then it's created using helper scripts to setup self-signed certificates.
