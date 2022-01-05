@@ -43,7 +43,7 @@ func ReadRootCASecret(restConfig *rest.Config, client *client.Client) (result []
 	}
 	deplHashSec, ok = stlsca.GetAnnotations()[MasterDeploymentUID]
 	if managedByKyverno && (!ok || deplHashSec != deplHash) {
-		return nil, fmt.Errorf("Outdated Secret")
+		return nil, fmt.Errorf("outdated secret")
 	}
 
 	tlsca, err := convertToSecret(stlsca)
@@ -81,14 +81,12 @@ func ReadTLSPair(restConfig *rest.Config, client *client.Client) (*PemPair, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to get secret %s/%s: %v", certProps.Namespace, sname, err)
 	}
-	if err == nil {
-		if label, ok := unstrSecret.GetLabels()[ManagedByLabel]; ok {
-			managedByKyverno = label == "kyverno"
-		}
-		deplHashSec, ok = unstrSecret.GetAnnotations()[MasterDeploymentUID]
+	if label, ok := unstrSecret.GetLabels()[ManagedByLabel]; ok {
+		managedByKyverno = label == "kyverno"
 	}
+	deplHashSec, ok = unstrSecret.GetAnnotations()[MasterDeploymentUID]
 	if managedByKyverno && (!ok || deplHashSec != deplHash) {
-		return nil, fmt.Errorf("Outdated Secret")
+		return nil, fmt.Errorf("outdated secret")
 	}
 
 	// If secret contains annotation 'self-signed-cert', then it's created using helper scripts to setup self-signed certificates.

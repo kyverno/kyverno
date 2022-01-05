@@ -165,7 +165,7 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 		}
 		return err
 	} else if managedByKyverno && (!ok || deplHashSec != deplHash) {
-		c.client.UpdateResource("", "Secret", props.Namespace, secret, false)
+		_, err = c.client.UpdateResource("", "Secret", props.Namespace, secret, false)
 		if err == nil {
 			logger.Info("secret updated", "name", name, "namespace", props.Namespace)
 		}
