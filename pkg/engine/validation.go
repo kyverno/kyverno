@@ -229,11 +229,11 @@ func (v *validator) validateForEach() *response.RuleResponse {
 		v.ctx.JSONContext.Checkpoint()
 		defer v.ctx.JSONContext.Restore()
 
-		for _, e := range elements {
+		for i, e := range elements {
 			v.ctx.JSONContext.Reset()
 
 			ctx := v.ctx.Copy()
-			if err := addElementToContext(ctx, e); err != nil {
+			if err := addElementToContext(ctx, e, i, false); err != nil {
 				v.log.Error(err, "failed to add element to context")
 				return ruleError(v.rule, utils.Validation, "failed to process foreach", err)
 			}
@@ -261,23 +261,26 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	return ruleResponse(v.rule, utils.Validation, "rule passed", response.RuleStatusPass)
 }
 
-func addElementToContext(ctx *PolicyContext, e interface{}) error {
+func addElementToContext(ctx *PolicyContext, e interface{}, elementIndex int, elementScope bool) error {
 	data, err := common.ToMap(e)
 	if err != nil {
 		return err
 	}
 
 	jsonData := map[string]interface{}{
-		"element": data,
+		"element":      data,
+		"elementIndex": elementIndex,
 	}
 
 	if err := ctx.JSONContext.AddJSONObject(jsonData); err != nil {
 		return errors.Wrapf(err, "failed to add element (%v) to JSON context", e)
 	}
 
-	u := unstructured.Unstructured{}
-	u.SetUnstructuredContent(data)
-	ctx.Element = u
+	if elementScope {
+		u := unstructured.Unstructured{}
+		u.SetUnstructuredContent(data)
+		ctx.Element = u
+	}
 
 	return nil
 }

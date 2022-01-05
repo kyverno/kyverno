@@ -6,6 +6,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -30,8 +31,6 @@ func CreateMutateHandler(ruleName string, mutate *kyverno.Mutation, patchedResou
 		return newPatchStrategicMergeHandler(ruleName, mutate, patchedResource, context, logger)
 	case isPatches(mutate):
 		return newPatchesHandler(ruleName, mutate, patchedResource, context, logger)
-	case isForEach(mutate):
-		return newForEachHandler(ruleName, mutate, patchedResource, context, logger, foreachIndex)
 	default:
 		return newEmptyHandler(patchedResource)
 	}
@@ -62,26 +61,24 @@ func (h patchStrategicMergeHandler) Handle() (response.RuleResponse, unstructure
 
 type forEachHandler struct {
 	ruleName        string
-	mutation        *kyverno.Mutation
+	patch           apiextensions.JSON
 	patchedResource unstructured.Unstructured
 	evalCtx         context.EvalInterface
 	logger          logr.Logger
-	foreachIndex    int
 }
 
-func newForEachHandler(ruleName string, mutate *kyverno.Mutation, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger, foreachIndex int) Handler {
+func NewForEachHandler(ruleName string, patch apiextensions.JSON, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Handler {
 	return forEachHandler{
 		ruleName:        ruleName,
-		mutation:        mutate,
+		patch:           patch,
 		patchedResource: patchedResource,
 		evalCtx:         context,
 		logger:          logger,
-		foreachIndex:    foreachIndex,
 	}
 }
 
 func (h forEachHandler) Handle() (response.RuleResponse, unstructured.Unstructured) {
-	return ProcessStrategicMergePatch(h.ruleName, h.mutation.ForEachMutation[h.foreachIndex].PatchStrategicMerge, h.patchedResource, h.logger)
+	return ProcessStrategicMergePatch(h.ruleName, h.patch, h.patchedResource, h.logger)
 }
 
 // overlayHandler

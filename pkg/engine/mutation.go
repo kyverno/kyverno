@@ -1,10 +1,13 @@
 package engine
 
 import (
+	"encoding/json"
 	"fmt"
+	"time"
+
+	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/pkg/errors"
-	"time"
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
@@ -13,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -134,14 +138,15 @@ func mutateForEachResource(rule *kyverno.Rule, ctx *PolicyContext, resource unst
 	patchedResource := resource
 	allPatches := make([][]byte, 0)
 
-	for foreachIndex, foreach := range foreachList {
+	for _, foreach := range foreachList {
 
 		if err := LoadContext(logger, foreach.Context, ctx.ResourceCache, ctx, rule.Name); err != nil {
 			logger.Error(err, "failed to load context")
 			return ruleError(rule, utils.Mutation, "failed to load context", err), resource
 		}
 
-		preconditionsPassed, err := checkPreconditions(logger, ctx, foreach.AnyAllConditions)
+		preconditionsPassed, err := checkPreconditions(logger, ctx, rule.AnyAllConditions)
+
 		if err != nil {
 			return ruleError(rule, utils.Mutation, "failed to evaluate preconditions", err), resource
 		} else if !preconditionsPassed {
@@ -157,17 +162,34 @@ func mutateForEachResource(rule *kyverno.Rule, ctx *PolicyContext, resource unst
 		ctx.JSONContext.Checkpoint()
 		defer ctx.JSONContext.Restore()
 
-		for _, e := range elements {
+		for i, e := range elements {
 			ctx.JSONContext.Reset()
 
 			ctx := ctx.Copy()
-			if err := addElementToContext(ctx, e); err != nil {
+			if err := addElementToContext(ctx, e, i, false); err != nil {
 				logger.Error(err, "failed to add element to context")
 				return ruleError(rule, utils.Mutation, "failed to process foreach", err), resource
 			}
 
+			if err := LoadContext(logger, foreach.Context, ctx.ResourceCache, ctx, rule.Name); err != nil {
+				logger.Error(err, "failed to load context")
+				return ruleError(rule, utils.Mutation, "failed to load context", err), resource
+			}
+
+			preconditionsPassed, err := checkPreconditions(logger, ctx, rule.AnyAllConditions)
+
+			if err != nil {
+				return ruleError(rule, utils.Mutation, "failed to evaluate preconditions", err), resource
+			} else if !preconditionsPassed {
+				return ruleResponse(rule, utils.Mutation, "preconditions not met", response.RuleStatusSkip), resource
+			}
+
 			var skip = false
-			err, mutateResp := mutateResource(rule, ctx.JSONContext, patchedResource, logger, foreachIndex)
+			fe, err := substituteAllInForEach(foreach, ctx.JSONContext, logger)
+			if err != nil {
+				return ruleError(rule, utils.Mutation, "variable substitution failed", err), resource
+			}
+			mutateResp, err := mutateForeachResource(rule.Name, fe.PatchStrategicMerge, resource, ctx.JSONContext, logger)
 			if err != nil && !skip {
 				return ruleResponse(rule, utils.Mutation, err.Error(), response.RuleStatusError), resource
 			}
@@ -246,6 +268,55 @@ func mutateResource(rule *kyverno.Rule, ctx *context.Context, resource unstructu
 	}
 
 	return nil, mutateResp
+}
+func mutateForeachResource(name string, strategicMergePatch apiextensions.JSON, r unstructured.Unstructured, ctx *context.Context, logger logr.Logger) (*mutateResponse, error) {
+	mutateResp := &mutateResponse{false, unstructured.Unstructured{}, nil, ""}
+
+	foreachHandler := mutate.NewForEachHandler(name, strategicMergePatch, r, ctx, logger)
+	resp, patchedResource := foreachHandler.Handle()
+
+	if resp.Status == response.RuleStatusPass {
+		// - overlay pattern does not match the resource conditions
+		if resp.Patches == nil {
+			mutateResp.skip = true
+			return mutateResp, fmt.Errorf("resource does not match pattern")
+		}
+
+		mutateResp.skip = false
+		mutateResp.patchedResource = patchedResource
+		mutateResp.patches = resp.Patches
+		mutateResp.message = resp.Message
+		logger.V(4).Info("mutate rule applied successfully", "ruleName", name)
+	}
+
+	if err := ctx.AddResourceAsObject(patchedResource.Object); err != nil {
+		logger.Error(err, "failed to update resource in the JSON context")
+	}
+
+	return mutateResp, nil
+}
+func substituteAllInForEach(fe *kyverno.ForEachMutation, ctx *context.Context, logger logr.Logger) (*kyverno.ForEachMutation, error) {
+	jsonObj, err := common.ToMap(fe)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := variables.SubstituteAll(logger, ctx, jsonObj)
+	if err != nil {
+		return nil, err
+	}
+
+	bytes, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	var updatedForEach kyverno.ForEachMutation
+	if err := json.Unmarshal(bytes, &updatedForEach); err != nil {
+		return nil, err
+	}
+
+	return &updatedForEach, nil
 }
 
 func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.ClusterPolicy, resource unstructured.Unstructured) {
