@@ -57,6 +57,9 @@ jobs:
         run: |
           make unused-package-check
 
+      - name: make generate-and-diff
+        run: make generate-and-diff
+
   build-init-kyverno:
     runs-on: ubuntu-latest
     needs: pre-checks

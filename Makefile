@@ -295,6 +295,15 @@ kyverno-crd: controller-gen
 report-crd: controller-gen
 	$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
 
+
+.PHONY: generate-and-diff
+generate-and-diff: kyverno-crd report-crd generate-api-docs
+	git add --all
+	git diff HEAD
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make kyverno-crd report-crd generate-api-docs".'
+	@echo 'To correct this, locally run "make kyverno-crd report-crd generate-api-docs", commit the changes, and re-run tests.'
+	git diff HEAD --quiet --exit-code
+
 # install the right version of controller-gen
 install-controller-gen:
 	@{ \
