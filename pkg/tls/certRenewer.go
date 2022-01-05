@@ -126,14 +126,17 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 	}
 
 	var rsHashSec string = "default"
-	var ok bool
+	var ok, managedByKyverno bool
 
 	secretUnstr, err := c.client.GetResource("", "Secret", props.Namespace, name)
 	if err == nil {
+		if label, ok := secretUnstr.GetLabels()[ManagedByLabel]; ok {
+			managedByKyverno = label == "kyverno"
+		}
 		rsHashSec, ok = secretUnstr.GetAnnotations()[MasterDeploymentUID]
 	}
 
-	if err != nil || !ok || rsHashSec != rsHash {
+	if err != nil || (managedByKyverno && (!ok || rsHashSec != rsHash)) {
 		secret := &v1.Secret{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Secret",
@@ -188,8 +191,26 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 	logger := c.log.WithName("WriteTLSPair")
 
 	name := generateTLSPairSecretName(props)
-	secretUnstr, err := c.client.GetResource("", "Secret", props.Namespace, name)
+
+	depl, err := c.client.GetResource("", "Deployment", props.Namespace, config.KyvernoDeploymentName)
+
+	rsHash := ""
 	if err != nil {
+		rsHash = fmt.Sprintf("%v", depl.GetUID())
+	}
+
+	var rsHashSec string = "default"
+	var ok, managedByKyverno bool
+
+	secretUnstr, err := c.client.GetResource("", "Secret", props.Namespace, name)
+	if err == nil {
+		if label, ok := secretUnstr.GetLabels()[ManagedByLabel]; ok {
+			managedByKyverno = label == "kyverno"
+		}
+		rsHashSec, ok = secretUnstr.GetAnnotations()[MasterDeploymentUID]
+	}
+
+	if err != nil || (managedByKyverno && (!ok || rsHashSec != rsHash)) {
 		secret := &v1.Secret{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Secret",
@@ -198,6 +219,9 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: props.Namespace,
+				Annotations: map[string]string{
+					MasterDeploymentUID: rsHash,
+				},
 				Labels: map[string]string{
 					ManagedByLabel: "kyverno",
 				},
