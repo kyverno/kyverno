@@ -51,9 +51,19 @@ priorityClassName: ""
 antiAffinity:
   # This can be disabled in a 1 node cluster.
   enable: true
-  # By default this will make sure two pods don't end up on the same node
-  # Changing this to a region would allow you to spread pods across regions
-  topologyKey: "kubernetes.io/hostname"
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 1
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - kyverno
+        topologyKey: kubernetes.io/hostname
 
 podDisruptionBudget:
   minAvailable: 1
