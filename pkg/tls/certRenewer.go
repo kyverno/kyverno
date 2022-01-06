@@ -160,7 +160,7 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 	}
 
 	if err != nil && strings.HasSuffix(err.Error(), "not found") {
-		_, err := c.client.CreateResource("", "Secret", props.Namespace, secret, false)
+		_, err = c.client.CreateResource("", "Secret", props.Namespace, secret, false)
 		if err == nil {
 			logger.Info("secret created", "name", name, "namespace", props.Namespace)
 		}
@@ -180,7 +180,7 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 	dataMap := map[string]interface{}{
 		RootCAKey: base64.StdEncoding.EncodeToString(caPEM.Certificate)}
 
-	if err := unstructured.SetNestedMap(secretUnstr.Object, dataMap, "data"); err != nil {
+	if err = unstructured.SetNestedMap(secretUnstr.Object, dataMap, "data"); err != nil {
 		return err
 	}
 
