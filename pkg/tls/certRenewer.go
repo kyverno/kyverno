@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -158,7 +159,7 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 		Type: v1.SecretTypeOpaque,
 	}
 
-	if err != nil {
+	if err != nil && strings.HasSuffix(err.Error(), "not found") {
 		_, err := c.client.CreateResource("", "Secret", props.Namespace, secret, false)
 		if err == nil {
 			logger.Info("secret created", "name", name, "namespace", props.Namespace)
@@ -238,14 +239,14 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 		Type: v1.SecretTypeTLS,
 	}
 
-	if err != nil {
-		_, err := c.client.CreateResource("", "Secret", props.Namespace, secretPtr, false)
+	if err != nil && strings.HasSuffix(err.Error(), "not found") {
+		_, err = c.client.CreateResource("", "Secret", props.Namespace, secretPtr, false)
 		if err == nil {
 			logger.Info("secret created", "name", name, "namespace", props.Namespace)
 		}
 		return err
 	} else if managedByKyverno && (!ok || deplHashSec != deplHash) {
-		_, err := c.client.UpdateResource("", "Secret", props.Namespace, secretPtr, false)
+		_, err = c.client.UpdateResource("", "Secret", props.Namespace, secretPtr, false)
 		if err == nil {
 			logger.Info("secret updated", "name", name, "namespace", props.Namespace)
 		}
