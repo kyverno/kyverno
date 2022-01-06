@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -15,6 +14,7 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
+	k8errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/rest"
@@ -159,10 +159,12 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 		Type: v1.SecretTypeOpaque,
 	}
 
-	if err != nil && strings.HasSuffix(err.Error(), "not found") {
-		_, err = c.client.CreateResource("", "Secret", props.Namespace, secret, false)
-		if err == nil {
-			logger.Info("secret created", "name", name, "namespace", props.Namespace)
+	if err != nil {
+		if k8errors.IsNotFound(err) {
+			_, err = c.client.CreateResource("", "Secret", props.Namespace, secret, false)
+			if err == nil {
+				logger.Info("secret created", "name", name, "namespace", props.Namespace)
+			}
 		}
 		return err
 	} else if managedByKyverno && (!ok || deplHashSec != deplHash) {
@@ -239,10 +241,12 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 		Type: v1.SecretTypeTLS,
 	}
 
-	if err != nil && strings.HasSuffix(err.Error(), "not found") {
-		_, err = c.client.CreateResource("", "Secret", props.Namespace, secretPtr, false)
-		if err == nil {
-			logger.Info("secret created", "name", name, "namespace", props.Namespace)
+	if err != nil {
+		if k8errors.IsNotFound(err) {
+			_, err = c.client.CreateResource("", "Secret", props.Namespace, secretPtr, false)
+			if err == nil {
+				logger.Info("secret created", "name", name, "namespace", props.Namespace)
+			}
 		}
 		return err
 	} else if managedByKyverno && (!ok || deplHashSec != deplHash) {
