@@ -3,7 +3,8 @@ package wildcards
 import (
 	"strings"
 
-	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor/common"
+	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor"
+
 	"github.com/minio/pkg/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

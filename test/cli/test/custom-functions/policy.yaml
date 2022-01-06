@@ -17,3 +17,60 @@ spec:
         - key: "{{base64_decode(request.object.data.value)}}"
           operator: NotEquals
           value: "{{request.object.metadata.labels.value}}"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: pattern-match
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+    - match:
+        all:
+          - resources:
+              kinds:
+                - Namespace
+      name: label-must-match-pattern
+      validate:
+        deny:
+          conditions:
+            all:
+              - key: "{{pattern_match('prefix-*', request.object.metadata.labels.value)}}"
+                operator: Equals
+                value: false
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: path-canonicalize
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+  - name: disallow-mount-containerd-sock
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      foreach:
+      - list: "request.object.spec.volumes[]"
+        preconditions:
+          all:
+          - key: "{{ element.hostPath.path }}"
+            operator: NotEquals
+            value: ""
+        deny:
+          conditions:
+            any:
+            - key: "{{ path_canonicalize(element.hostPath.path) }}"
+              operator: Equals
+              value: "/var/run/containerd/containerd.sock"
+            - key: "{{ path_canonicalize(element.hostPath.path) }}"
+              operator: Equals
+              value: "/run/containerd/containerd.sock"
+            # Allow variation in paths (to accommodate Windows) for local tests.
+            - key: "{{ path_canonicalize(element.hostPath.path) }}"
+              operator: Equals
+              value: "\\var\\run\\containerd\\containerd.sock"

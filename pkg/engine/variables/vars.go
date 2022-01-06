@@ -8,10 +8,11 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/kyverno/kyverno/pkg/engine/anchor"
+
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	jsonUtils "github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
@@ -28,6 +29,8 @@ var RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
 var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
 
 var regexVariableInit = regexp.MustCompile(`^\{\{[^{}]*\}\}`)
+
+var regexElementIndex = regexp.MustCompile(`{{\s*elementIndex\s*}}`)
 
 // IsVariable returns true if the element contains a 'valid' variable {{}}
 func IsVariable(value string) bool {
@@ -179,7 +182,7 @@ func substituteAll(log logr.Logger, ctx context.EvalInterface, document interfac
 	return substituteVars(log, ctx, document, resolver)
 }
 
-func SubstituteAllForceMutate(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
+func SubstituteAllForceMutate(log logr.Logger, ctx *context.Context, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
 	var rule interface{}
 
 	rule, err = RuleToUntyped(typedRule)
@@ -212,47 +215,8 @@ func substituteReferences(log logr.Logger, rule interface{}) (interface{}, error
 	return jsonUtils.NewTraversal(rule, substituteReferencesIfAny(log)).TraverseJSON()
 }
 
-// ValidateBackgroundModeVars validates variables against the specified context,
-// which contains a list of allowed JMESPath queries in background processing,
-// and throws an error if the variable is not allowed.
-func ValidateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface, rule interface{}) (interface{}, error) {
-	return jsonUtils.NewTraversal(rule, validateBackgroundModeVars(log, ctx)).TraverseJSON()
-}
-
 func ValidateElementInForEach(log logr.Logger, rule interface{}) (interface{}, error) {
 	return jsonUtils.NewTraversal(rule, validateElementInForEach(log)).TraverseJSON()
-}
-
-func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) jsonUtils.Action {
-	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
-		value, ok := data.Element.(string)
-		if !ok {
-			return data.Element, nil
-		}
-		vars := RegexVariables.FindAllString(value, -1)
-		for _, v := range vars {
-			initial := len(regexVariableInit.FindAllString(v, -1)) > 0
-
-			if !initial {
-				v = v[1:]
-			}
-
-			variable := replaceBracesAndTrimSpaces(v)
-
-			_, err := ctx.Query(variable)
-			if err != nil {
-				switch err.(type) {
-				case gojmespath.NotFoundError:
-					return nil, nil
-				case context.InvalidVariableErr:
-					return nil, err
-				default:
-					return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
-				}
-			}
-		}
-		return nil, nil
-	})
 }
 
 func validateElementInForEach(log logr.Logger) jsonUtils.Action {
@@ -270,8 +234,8 @@ func validateElementInForEach(log logr.Logger) jsonUtils.Action {
 			}
 
 			variable := replaceBracesAndTrimSpaces(v)
-
-			if strings.HasPrefix(variable, "element") && !strings.Contains(data.Path, "/foreach/") {
+			isElementVar := strings.HasPrefix(variable, "element") || variable == "elementIndex"
+			if isElementVar && !strings.Contains(data.Path, "/foreach/") {
 				return nil, fmt.Errorf("variable '%v' present outside of foreach at path %s", variable, data.Path)
 			}
 		}
@@ -367,7 +331,6 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 		vars := RegexVariables.FindAllString(value, -1)
 		for len(vars) > 0 {
 			originalPattern := value
-
 			for _, v := range vars {
 				initial := len(regexVariableInit.FindAllString(v, -1)) > 0
 				old := v
@@ -379,7 +342,15 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 				variable := replaceBracesAndTrimSpaces(v)
 
 				if variable == "@" {
-					variable = strings.Replace(variable, "@", fmt.Sprintf("request.object.%s", getJMESPath(data.Path)), -1)
+					path := getJMESPath(data.Path)
+					var val string
+					if strings.HasPrefix(path, "[") {
+						val = fmt.Sprintf("request.object%s", path)
+					} else {
+						val = fmt.Sprintf("request.object.%s", path)
+					}
+
+					variable = strings.Replace(variable, "@", val, -1)
 				}
 
 				if isDeleteRequest {
@@ -441,12 +412,18 @@ func isDeleteRequest(ctx context.EvalInterface) bool {
 	return false
 }
 
-// getJMESPath converts path to JMES format
+var regexPathDigit = regexp.MustCompile(`\.?([\d])\.?`)
+
+// getJMESPath converts path to JMESPath format
 func getJMESPath(rawPath string) string {
-	tokens := strings.Split(rawPath, "/")[3:] // skip empty element and two non-resource (like mutate.overlay)
+	tokens := strings.Split(rawPath, "/")[3:] // skip "/" + 2 elements (e.g. mutate.overlay | validate.pattern)
+	if strings.Contains(rawPath, "foreach") {
+		tokens = strings.Split(rawPath, "/")[5:] // skip "/" + 4 elements (e.g. mutate.foreach/list/overlay | validate.mutate.foreach/list/pattern)
+	}
 	path := strings.Join(tokens, ".")
-	regex := regexp.MustCompile(`\.([\d])\.`)
-	return string(regex.ReplaceAll([]byte(path), []byte("[$1].")))
+	b := regexPathDigit.ReplaceAll([]byte(path), []byte("[$1]."))
+	result := strings.Trim(string(b), ".")
+	return result
 }
 
 func substituteVarInPattern(prefix, pattern, variable string, value interface{}) (string, error) {
@@ -569,7 +546,7 @@ func getValueFromReference(fullDocument interface{}, path string) (interface{}, 
 
 	if _, err := jsonUtils.NewTraversal(fullDocument, jsonUtils.OnlyForLeafsAndKeys(
 		func(data *jsonUtils.ActionData) (interface{}, error) {
-			if common.RemoveAnchorsFromPath(data.Path) == path {
+			if anchor.RemoveAnchorsFromPath(data.Path) == path {
 				element = data.Element
 			}
 
@@ -587,13 +564,20 @@ func replaceSubstituteVariables(document interface{}) interface{} {
 		return document
 	}
 
-	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
 	for {
-		if len(regex.FindAllStringSubmatch(string(rawDocument), -1)) > 0 {
-			rawDocument = regex.ReplaceAll(rawDocument, []byte(`placeholderValue`))
-		} else {
+		if len(regexElementIndex.FindAllSubmatch(rawDocument, -1)) == 0 {
 			break
 		}
+
+		rawDocument = regexElementIndex.ReplaceAll(rawDocument, []byte(`0`))
+	}
+
+	for {
+		if len(RegexVariables.FindAllSubmatch(rawDocument, -1)) == 0 {
+			break
+		}
+
+		rawDocument = RegexVariables.ReplaceAll(rawDocument, []byte(`placeholderValue`))
 	}
 
 	var output interface{}

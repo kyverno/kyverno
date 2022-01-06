@@ -45,16 +45,28 @@ podAnnotations: {}
 
 podSecurityContext: {}
 
+# Optional priority class to be used for kyverno pods
+priorityClassName: ""
+
 antiAffinity:
   # This can be disabled in a 1 node cluster.
   enable: true
-  # By default this will make sure two pods don't end up on the same node
-  # Changing this to a region would allow you to spread pods across regions
-  topologyKey: "kubernetes.io/hostname"
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 1
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - kyverno
+        topologyKey: kubernetes.io/hostname
 
 podDisruptionBudget:
-  enabled: false
-  # minAvailable: 1
+  minAvailable: 1
   # maxUnavailable: 1
 
   # minAvailable and maxUnavailable can either be set to an integer (e.g. 1)
@@ -84,10 +96,10 @@ extraArgs: []
 
 resources:
   limits:
-    memory: 256Mi
+    memory: 384Mi
   requests:
     cpu: 100m
-    memory: 50Mi
+    memory: 128Mi
 
 initResources:
   limits:
@@ -247,7 +259,7 @@ installCRDs: true
 # policies in a default-deny setup.
 networkPolicy:
   enabled: false
-  namespaceExpressions: [{}]
+  namespaceExpressions: []
   namespaceLabels: {}
-  podExpressions: [{}]
+  podExpressions: []
   podLabels: {}

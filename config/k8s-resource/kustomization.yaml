@@ -4,8 +4,10 @@ kind: Kustomization
 resources:
 - ./clusterroles.yaml
 - ./clusterrolebindings.yaml
+- ./roles.yaml
+- ./rolebindings.yaml
+- ./aggregateroles.yaml
 - ./configmap.yaml
 - ./metricsconfigmap.yaml
 - ./service.yaml
 - ./serviceaccount.yaml
-- ./poddisruptionbudget.yaml

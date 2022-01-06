@@ -101,6 +101,9 @@ const (
 
 	// Completed - the Generate Request Controller created resources defined in the policy.
 	Completed GenerateRequestState = "Completed"
+
+	// Skip - the Generate Request Controller skips to generate the resource.
+	Skip GenerateRequestState = "Skip"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

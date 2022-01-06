@@ -4,12 +4,17 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
+	trunc "github.com/aquilax/truncate"
+	"github.com/blang/semver/v4"
 	gojmespath "github.com/jmespath/go-jmespath"
+	"github.com/minio/pkg/wildcard"
 )
 
 var (
@@ -18,6 +23,7 @@ var (
 	JpNumber      = gojmespath.JpNumber
 	JpArray       = gojmespath.JpArray
 	JpArrayString = gojmespath.JpArrayString
+	JpAny         = gojmespath.JpAny
 )
 
 type (
@@ -38,6 +44,7 @@ var (
 	regexReplaceAll        = "regex_replace_all"
 	regexReplaceAllLiteral = "regex_replace_all_literal"
 	regexMatch             = "regex_match"
+	patternMatch           = "pattern_match"
 	labelMatch             = "label_match"
 	add                    = "add"
 	subtract               = "subtract"
@@ -46,12 +53,17 @@ var (
 	modulo                 = "modulo"
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
+	timeSince              = "time_since"
+	pathCanonicalize       = "path_canonicalize"
+	truncate               = "truncate"
+	semverCompare          = "semver_compare"
 )
 
 const errorPrefix = "JMESPath function '%s': "
 const invalidArgumentTypeError = errorPrefix + "%d argument is expected of %s type"
 const genericError = errorPrefix + "%s"
 const zeroDivisionError = errorPrefix + "Zero divisor passed"
+const undefinedQuoError = errorPrefix + "Undefined quotient"
 const nonIntModuloError = errorPrefix + "Non-integer argument(s) passed for modulo"
 
 func getFunctions() []*gojmespath.FunctionEntry {
@@ -148,6 +160,14 @@ func getFunctions() []*gojmespath.FunctionEntry {
 			Handler: jpRegexMatch,
 		},
 		{
+			Name: patternMatch,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpString, JpNumber}},
+			},
+			Handler: jpPatternMatch,
+		},
+		{
 			// Validates if label (param1) would match pod/host/etc labels (param2)
 			Name: labelMatch,
 			Arguments: []ArgSpec{
@@ -159,40 +179,40 @@ func getFunctions() []*gojmespath.FunctionEntry {
 		{
 			Name: add,
 			Arguments: []ArgSpec{
-				{Types: []JpType{JpNumber}},
-				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpAny}},
+				{Types: []JpType{JpAny}},
 			},
 			Handler: jpAdd,
 		},
 		{
 			Name: subtract,
 			Arguments: []ArgSpec{
-				{Types: []JpType{JpNumber}},
-				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpAny}},
+				{Types: []JpType{JpAny}},
 			},
 			Handler: jpSubtract,
 		},
 		{
 			Name: multiply,
 			Arguments: []ArgSpec{
-				{Types: []JpType{JpNumber}},
-				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpAny}},
+				{Types: []JpType{JpAny}},
 			},
 			Handler: jpMultiply,
 		},
 		{
 			Name: divide,
 			Arguments: []ArgSpec{
-				{Types: []JpType{JpNumber}},
-				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpAny}},
+				{Types: []JpType{JpAny}},
 			},
 			Handler: jpDivide,
 		},
 		{
 			Name: modulo,
 			Arguments: []ArgSpec{
-				{Types: []JpType{JpNumber}},
-				{Types: []JpType{JpNumber}},
+				{Types: []JpType{JpAny}},
+				{Types: []JpType{JpAny}},
 			},
 			Handler: jpModulo,
 		},
@@ -209,6 +229,38 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpString}},
 			},
 			Handler: jpBase64Encode,
+		},
+		{
+			Name: timeSince,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpTimeSince,
+		},
+		{
+			Name: pathCanonicalize,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpPathCanonicalize,
+		},
+		{
+			Name: truncate,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpNumber}},
+			},
+			Handler: jpTruncate,
+		},
+		{
+			Name: semverCompare,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpSemverCompare,
 		},
 	}
 
@@ -409,6 +461,20 @@ func jpRegexMatch(arguments []interface{}) (interface{}, error) {
 	return regexp.Match(regex.String(), []byte(src))
 }
 
+func jpPatternMatch(arguments []interface{}) (interface{}, error) {
+	pattern, err := validateArg(regexMatch, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	src, err := ifaceToString(arguments[1])
+	if err != nil {
+		return nil, fmt.Errorf(invalidArgumentTypeError, regexMatch, 2, "String or Real")
+	}
+
+	return wildcard.Match(pattern.String(), src), nil
+}
+
 func jpLabelMatch(arguments []interface{}) (interface{}, error) {
 	labelMap, ok := arguments[0].(map[string]interface{})
 
@@ -432,97 +498,48 @@ func jpLabelMatch(arguments []interface{}) (interface{}, error) {
 }
 
 func jpAdd(arguments []interface{}) (interface{}, error) {
-	var err error
-	op1, err := validateArg(divide, arguments, 0, reflect.Float64)
+	op1, op2, err := ParseArithemticOperands(arguments, add)
 	if err != nil {
 		return nil, err
 	}
 
-	op2, err := validateArg(divide, arguments, 1, reflect.Float64)
-	if err != nil {
-		return nil, err
-	}
-
-	return op1.Float() + op2.Float(), nil
+	return op1.Add(op2)
 }
 
 func jpSubtract(arguments []interface{}) (interface{}, error) {
-	var err error
-	op1, err := validateArg(divide, arguments, 0, reflect.Float64)
+	op1, op2, err := ParseArithemticOperands(arguments, subtract)
 	if err != nil {
 		return nil, err
 	}
 
-	op2, err := validateArg(divide, arguments, 1, reflect.Float64)
-	if err != nil {
-		return nil, err
-	}
-
-	return op1.Float() - op2.Float(), nil
+	return op1.Subtract(op2)
 }
 
 func jpMultiply(arguments []interface{}) (interface{}, error) {
-	var err error
-	op1, err := validateArg(divide, arguments, 0, reflect.Float64)
+	op1, op2, err := ParseArithemticOperands(arguments, multiply)
 	if err != nil {
 		return nil, err
 	}
 
-	op2, err := validateArg(divide, arguments, 1, reflect.Float64)
-	if err != nil {
-		return nil, err
-	}
-
-	return op1.Float() * op2.Float(), nil
+	return op1.Multiply(op2)
 }
 
 func jpDivide(arguments []interface{}) (interface{}, error) {
-	var err error
-	op1, err := validateArg(divide, arguments, 0, reflect.Float64)
+	op1, op2, err := ParseArithemticOperands(arguments, divide)
 	if err != nil {
 		return nil, err
 	}
 
-	op2, err := validateArg(divide, arguments, 1, reflect.Float64)
-	if err != nil {
-		return nil, err
-	}
-
-	if op2.Float() == 0 {
-		return nil, fmt.Errorf(zeroDivisionError, divide)
-	}
-
-	return op1.Float() / op2.Float(), nil
+	return op1.Divide(op2)
 }
 
 func jpModulo(arguments []interface{}) (interface{}, error) {
-	var err error
-	op1, err := validateArg(divide, arguments, 0, reflect.Float64)
+	op1, op2, err := ParseArithemticOperands(arguments, modulo)
 	if err != nil {
 		return nil, err
 	}
 
-	op2, err := validateArg(divide, arguments, 1, reflect.Float64)
-	if err != nil {
-		return nil, err
-	}
-
-	val1 := int64(op1.Float())
-	val2 := int64(op2.Float())
-
-	if op1.Float() != float64(val1) {
-		return nil, fmt.Errorf(nonIntModuloError, modulo)
-	}
-
-	if op2.Float() != float64(val2) {
-		return nil, fmt.Errorf(nonIntModuloError, modulo)
-	}
-
-	if val2 == 0 {
-		return nil, fmt.Errorf(zeroDivisionError, modulo)
-	}
-
-	return val1 % val2, nil
+	return op1.Modulo(op2)
 }
 
 func jpBase64Decode(arguments []interface{}) (interface{}, error) {
@@ -548,6 +565,104 @@ func jpBase64Encode(arguments []interface{}) (interface{}, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(str.String())), nil
+}
+
+func jpTimeSince(arguments []interface{}) (interface{}, error) {
+	var err error
+	layout, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	ts1, err := validateArg("", arguments, 1, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	ts2, err := validateArg("", arguments, 2, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	var t1, t2 time.Time
+	if layout.String() != "" {
+		t1, err = time.Parse(layout.String(), ts1.String())
+	} else {
+		t1, err = time.Parse(time.RFC3339, ts1.String())
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	t2 = time.Now()
+	if ts2.String() != "" {
+		if layout.String() != "" {
+			t2, err = time.Parse(layout.String(), ts2.String())
+		} else {
+			t2, err = time.Parse(time.RFC3339, ts2.String())
+		}
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return t2.Sub(t1).String(), nil
+}
+
+func jpPathCanonicalize(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg(pathCanonicalize, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	return filepath.Join(str.String()), nil
+}
+
+func jpTruncate(arguments []interface{}) (interface{}, error) {
+	var err error
+	var normalizedLength float64
+	str, err := validateArg(truncate, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	length, err := validateArg(truncate, arguments, 1, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+
+	if length.Float() < 0 {
+		normalizedLength = float64(0)
+	} else {
+		normalizedLength = length.Float()
+	}
+
+	return trunc.Truncator(str.String(), int(normalizedLength), trunc.CutStrategy{}), nil
+}
+
+func jpSemverCompare(arguments []interface{}) (interface{}, error) {
+	var err error
+	v, err := validateArg(semverCompare, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := validateArg(semverCompare, arguments, 1, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	version, _ := semver.Parse(v.String())
+	expectedRange, err := semver.ParseRange(r.String())
+	if err != nil {
+		return nil, err
+	}
+
+	if expectedRange(version) {
+		return true, nil
+	}
+	return false, nil
 }
 
 // InterfaceToString casts an interface to a string type

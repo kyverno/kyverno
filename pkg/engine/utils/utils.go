@@ -5,8 +5,9 @@ import (
 	"strconv"
 	"strings"
 
+	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor"
+
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )

@@ -50,14 +50,20 @@ jobs:
           echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*")"
 
       - name :  docker images publish
+        id: push-step
         run: |
           make docker-publish-sigs
           make docker-publish-initContainer
 
       - name: Sign image
+        env:
+          COSIGN_EXPERIMENTAL: "true"
         run: |
-          export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
-          echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyvernopre:${KYVERNO_VERSION}
+          cosign sign \ 
+          -a "repo=${{ github.repository }}" \
+          -a "workflow=${{ github.workflow }}" \
+          -a "ref=${{ github.sha }}" \
+          ghcr.io/kyverno/kyvernopre@${{ steps.push-step.outputs.digest }}
 
   release-kyverno:
     runs-on: ubuntu-latest
@@ -103,6 +109,7 @@ jobs:
       - name: Set version
         run: |
           echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*")"
+          echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*")" >> $GITHUB_ENV
 
       - name: Generate SBOM JSON
         uses: CycloneDX/gh-gomod-generate-sbom@v1
@@ -116,20 +123,26 @@ jobs:
           path: kyverno-v*-bom.cdx.json
 
       - name :  docker images publish
+        id: push-step
         run: |
           make docker-publish-sbom
           make docker-publish-kyverno
 
       - name: Sign image and SBOM
+        env:
+          COSIGN_EXPERIMENTAL: "true"
         run: |
-          export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
-          echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno:${KYVERNO_VERSION}
+          cosign sign \ 
+          -a "repo=${{ github.repository }}" \
+          -a "workflow=${{ github.workflow }}" \
+          -a "ref=${{ github.sha }}" \
+          ghcr.io/kyverno/kyverno@${{ steps.push-step.outputs.digest }}
           cosign attach sbom -sbom ./*-bom.cdx.json -type cyclonedx ghcr.io/kyverno/sbom:latest
 
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@master
         with: 
-          image-ref: 'ghcr.io/kyverno/kyverno:latest'
+          image-ref: 'ghcr.io/kyverno/kyverno:${{env.KYVERNO_VERSION}}'
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
@@ -182,13 +195,19 @@ jobs:
           echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*")"
 
       - name :  docker images publish
+        id: push-step
         run: |
           make docker-publish-cli
 
       - name: Sign image
+        env:
+          COSIGN_EXPERIMENTAL: "true"
         run: |
-          export COSIGN_REPOSITORY=ghcr.io/kyverno/signatures
-          echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY_PASSWORD }}" | cosign sign -key <(echo -n "${{ secrets.KYVERNO_COSIGN_PRIVATE_KEY }}") ghcr.io/kyverno/kyverno-cli:${KYVERNO_VERSION}
+          cosign sign \ 
+          -a "repo=${{ github.repository }}" \
+          -a "workflow=${{ github.workflow }}" \
+          -a "ref=${{ github.sha }}" \
+          ghcr.io/kyverno/kyverno-cli@${{ steps.push-step.outputs.digest }}
   
   create-release:
     runs-on: ubuntu-latest

@@ -162,15 +162,23 @@ func jsonDeepCopy(in apiextensions.JSON) *apiextensions.JSON {
 		out_tmp := make([]interface{}, len(in))
 
 		for i, v := range in {
-			out_tmp[i] = *jsonDeepCopy(v)
+			if v != nil {
+				out_tmp[i] = *jsonDeepCopy(v)
+			} else {
+				out_tmp[i] = nil
+			}
 		}
 
 		*out = out_tmp
 	case map[string]interface{}:
 		out_tmp := make(map[string]interface{})
 
-		for i, v := range in {
-			out_tmp[i] = *jsonDeepCopy(v)
+		for k, v := range in {
+			if v != nil {
+				out_tmp[k] = *jsonDeepCopy(v)
+			} else {
+				out_tmp[k] = nil
+			}
 		}
 
 		*out = out_tmp
@@ -187,17 +195,6 @@ func (in *Mutation) DeepCopyInto(out *Mutation) {
 	}
 
 	*out = *in
-	if in.Overlay != nil {
-		out.Overlay = *jsonDeepCopy(in.Overlay)
-	}
-
-	if in.Patches != nil {
-		out.Patches = make([]Patch, len(in.Patches))
-		for i, v := range in.Patches {
-			v.DeepCopyInto(&out.Patches[i])
-		}
-	}
-
 	if out.PatchStrategicMerge != nil {
 		out.PatchStrategicMerge = *jsonDeepCopy(in.PatchStrategicMerge)
 	}
@@ -217,16 +214,6 @@ func (in *Mutation) DeepCopyInto(out *Mutation) {
 // actually perform a deep copy.
 // Also see: https://github.com/kyverno/kyverno/pull/2000
 
-func (pp *Patch) DeepCopyInto(out *Patch) {
-	if out == nil {
-		return
-	}
-
-	*out = *pp
-	if pp.Value != nil {
-		out.Value = *jsonDeepCopy(pp.Value)
-	}
-}
 func (in *Validation) DeepCopyInto(out *Validation) {
 	if out == nil {
 		return
