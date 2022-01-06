@@ -7,6 +7,10 @@ on:
 jobs:
   push-init-kyverno:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -22,7 +26,7 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@main
         with:
-          cosign-release: 'v1.2.1'
+          cosign-release: 'v1.4.0'
 
       - name: login to GitHub Container Registry
         run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
@@ -55,6 +59,10 @@ jobs:
 
   push-kyverno:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -70,7 +78,7 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@main
         with:
-          cosign-release: 'v1.2.1'
+          cosign-release: 'v1.4.0'
 
       - name: login to GitHub Container Registry
         run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
@@ -102,6 +110,10 @@ jobs:
 
   push-kyverno-cli:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -117,7 +129,7 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@main
         with:
-          cosign-release: 'v1.2.1'
+          cosign-release: 'v1.4.0'
 
       - name: login to GitHub Container Registry
         run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
