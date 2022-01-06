@@ -248,10 +248,9 @@ func (wrc *Register) cleanupKyvernoResource() bool {
 	logger := wrc.log.WithName("cleanupKyvernoResource")
 	deploy, err := wrc.client.GetResource("", "Deployment", deployNamespace, deployName)
 	if err != nil {
-		logger.Error(err, "failed to get deployment, cleanup kyverno resources anyway")
-		return true
+		logger.Error(err, "failed to get deployment, not cleaning up kyverno resources")
+		return false
 	}
-
 	if deploy.GetDeletionTimestamp() != nil {
 		logger.Info("Kyverno is terminating, cleanup Kyverno resources")
 		return true
