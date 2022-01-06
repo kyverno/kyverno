@@ -1,3 +1,19 @@
+## v1.5.3-rc1
+
+### Bug Fixes
+- Ensure Helm chart networkpolicy is valid by default #2827
+- Wildcards are rejected in match/exclude resources selector matchLabels #2460
+- SBOM unavailable #2705
+- Env mutate removes image on CronJob #2865
+- Support for ephemeral containers #2821
+- Fix policy report reconciliation on resource/policy deletion #2886
+- ResourceExhausted: trying to send message larger than max #2330
+- Improve endpoint check #2902
+- Excluding clusterRoles is broken if nested under `any` or`all` #2819
+- TLS handshake error - remote error: tls: bad certificate #2805
+- Getting "webhook configurations error" #2179
+- Huge memory usage when running Kyverno on a big cluster #2524
+
 ## v1.5.2
 
 ## v1.5.2-rc5

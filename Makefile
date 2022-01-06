@@ -257,7 +257,7 @@ godownloader:
 # kustomize-crd will create install.yaml
 kustomize-crd:
 	# Create CRD for helm deployment Helm
-	kustomize build ./config/release | kustomize cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
+	kustomize build ./definitions/release | kustomize cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
 	kustomize build ./definitions > ./definitions/install.yaml
 	# Generate install_debug.yaml that for developer testing
