@@ -34,10 +34,14 @@ jobs:
           install: true
 
       - name: docker images publish
-        id: push-step
         run: |
           make docker-publish-sigs
           make docker-publish-initContainer-dev
+
+      - name: get digest
+        id: get-step
+        run: |
+          echo "::set-output name=digest::$(make docker-get-initContainer-digest)"
 
       - name: Sign image
         env:
@@ -47,7 +51,7 @@ jobs:
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
-          ghcr.io/kyverno/kyvernopre@${{ steps.push-step.outputs.digest }}
+          ghcr.io/kyverno/kyvernopre@sha256:${{ steps.get-step.outputs.digest }}
 
   push-kyverno:
     runs-on: ubuntu-latest
@@ -78,9 +82,13 @@ jobs:
           install: true
 
       - name: docker images publish
-        id: push-step
         run: |
           make docker-publish-kyverno-dev
+
+      - name: get digest
+        id: get-step
+        run: |
+          echo "::set-output name=digest::$(make docker-get-kyverno-digest)"
 
       - name: Sign image
         env:
@@ -90,7 +98,7 @@ jobs:
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
-          ghcr.io/kyverno/kyverno@${{ steps.push-step.outputs.digest }}
+          ghcr.io/kyverno/kyverno@sha256:${{ steps.get-step.outputs.digest }}
 
   push-kyverno-cli:
     runs-on: ubuntu-latest
@@ -121,9 +129,13 @@ jobs:
           install: true
 
       - name: docker images publish
-        id: push-step
         run: |
           make docker-publish-cli-dev
+
+      - name: get digest
+        id: get-step
+        run: |
+          echo "::set-output name=digest::$(make docker-get-cli-digest)"
 
       - name: Sign image
         env:
@@ -133,4 +145,4 @@ jobs:
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
-          ghcr.io/kyverno/kyverno-cli@${{ steps.push-step.outputs.digest }}
+          ghcr.io/kyverno/kyverno-cli@sha256:${{ steps.get-step.outputs.digest }}
