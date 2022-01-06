@@ -778,7 +778,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 			testRes = val
 		} else {
 			res.Result = boldYellow.Sprintf("Not found")
-			rc.Fail++
+			rc.Skip++
 			table = append(table, res)
 			continue
 		}

@@ -8,4 +8,4 @@ results:
     rule: missing
     resource: test
     kind: Pod
-    status: pass
+    status: skip

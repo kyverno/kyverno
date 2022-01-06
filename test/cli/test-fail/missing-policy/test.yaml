@@ -4,8 +4,8 @@ policies:
 resources:
   - resources.yaml
 results:
-  - policy: missing
+  - policy: disallow-latest-tag
     rule: validate-image-tag
-    resource: test
+    resource: test-ignore
     kind: Pod
-    result: pass
+    result: fail
