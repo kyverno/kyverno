@@ -8,18 +8,20 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/in-toto/in-toto-golang/in_toto"
-	"github.com/kyverno/kyverno/pkg/engine/common"
-	"github.com/sigstore/cosign/pkg/cosign/attestation"
+	"github.com/sigstore/cosign/pkg/oci"
+	"github.com/sigstore/cosign/pkg/oci/remote"
 
-	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/in-toto/in-toto-golang/in_toto"
+	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/pkg/errors"
+	"github.com/sigstore/cosign/cmd/cosign/cli/options"
 	"github.com/sigstore/cosign/pkg/cosign"
+	"github.com/sigstore/cosign/pkg/cosign/attestation"
+	sigs "github.com/sigstore/cosign/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"k8s.io/client-go/kubernetes"
 )
@@ -67,18 +69,25 @@ func UpdateKeychain() error {
 }
 
 func VerifySignature(imageRef string, key []byte, repository string, log logr.Logger) (digest string, err error) {
-	pubKey, err := decodePEM(key)
+	ctx := context.Background()
+	var remoteOpts []remote.Option
+	ro := options.RegistryOptions{}
+	remoteOpts, err = ro.ClientOpts(ctx)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to decode PEM %v", string(key))
+		return "", errors.Wrap(err, "constructing client options")
 	}
 
 	cosignOpts := &cosign.CheckOpts{
-		//RootCerts:   fulcio.GetRoots(),
-		Annotations: map[string]interface{}{},
-		SigVerifier: pubKey,
-		RegistryClientOpts: []remote.Option{
-			remote.WithAuthFromKeychain(authn.DefaultKeychain),
-		},
+		Annotations:        map[string]interface{}{},
+		RegistryClientOpts: remoteOpts,
+	}
+
+	if key != nil {
+		cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRef(ctx, string(key))
+	}
+
+	if err != nil {
+		return "", errors.Wrap(err, "loading credentials")
 	}
 
 	ref, err := name.ParseReference(imageRef)
@@ -86,20 +95,19 @@ func VerifySignature(imageRef string, key []byte, repository string, log logr.Lo
 		return "", errors.Wrap(err, "failed to parse image")
 	}
 
-	cosignOpts.SignatureRepo = ref.Context()
 	if repository != "" {
 		signatureRepo, err := name.NewRepository(repository)
 		if err != nil {
 			return "", errors.Wrapf(err, "failed to parse signature repository %s", repository)
 		}
 
-		cosignOpts.SignatureRepo = signatureRepo
+		cosignOpts.RegistryClientOpts = append(cosignOpts.RegistryClientOpts, remote.WithTargetRepository(signatureRepo))
 	}
 
-	verified, err := client.Verify(context.Background(), ref, cosignOpts)
+	verified, _, err := client.Verify(ctx, ref, cosign.SignaturesAccessor, cosignOpts)
 	if err != nil {
 		msg := err.Error()
-		logger.Info("image verification failed", "error", msg)
+		log.Info("image verification failed", "error", msg)
 		if strings.Contains(msg, "NAME_UNKNOWN: repository name not known to registry") {
 			return "", fmt.Errorf("signature not found")
 		} else if strings.Contains(msg, "no matching signatures") {
@@ -120,9 +128,35 @@ func VerifySignature(imageRef string, key []byte, repository string, log logr.Lo
 // FetchAttestations retrieves signed attestations and decodes them into in-toto statements
 // https://github.com/in-toto/attestation/blob/main/spec/README.md#statement
 func FetchAttestations(imageRef string, key []byte, repository string) ([]map[string]interface{}, error) {
-	pubKey, err := decodePEM(key)
+	ctx := context.Background()
+	var pubKey signature.Verifier
+	var err error
+
+	pubKey, err = decodePEM([]byte(key))
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to decode PEM %v", string(key))
+		return nil, errors.Wrap(err, "decode pem")
+	}
+
+	var opts []remote.Option
+	ro := options.RegistryOptions{}
+
+	opts, err = ro.ClientOpts(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "constructing client options")
+	}
+
+	if repository != "" {
+		signatureRepo, err := name.NewRepository(repository)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to parse signature repository %s", repository)
+		}
+		opts = append(opts, remote.WithTargetRepository(signatureRepo))
+	}
+
+	cosignOpts := &cosign.CheckOpts{
+		ClaimVerifier:      cosign.IntotoSubjectClaimVerifier,
+		SigVerifier:        pubKey,
+		RegistryClientOpts: opts,
 	}
 
 	ref, err := name.ParseReference(imageRef)
@@ -130,19 +164,7 @@ func FetchAttestations(imageRef string, key []byte, repository string) ([]map[st
 		return nil, errors.Wrap(err, "failed to parse image")
 	}
 
-	cosignOpts := &cosign.CheckOpts{
-		//RootCerts:            fulcio.GetRoots(),
-		ClaimVerifier:        cosign.IntotoSubjectClaimVerifier,
-		SigTagSuffixOverride: cosign.AttestationTagSuffix,
-		SigVerifier:          pubKey,
-		VerifyBundle:         false,
-	}
-
-	if err := setSignatureRepo(cosignOpts, ref, repository); err != nil {
-		return nil, errors.Wrap(err, "failed to set signature repository")
-	}
-
-	verified, err := client.Verify(context.Background(), ref, cosignOpts)
+	verified, _, err := client.Verify(context.Background(), ref, cosign.AttestationsAccessor, cosignOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to verify image attestations")
 	}
@@ -155,15 +177,20 @@ func FetchAttestations(imageRef string, key []byte, repository string) ([]map[st
 	return inTotoStatements, nil
 }
 
-func decodeStatements(sigs []cosign.SignedPayload) ([]map[string]interface{}, error) {
+func decodeStatements(sigs []oci.Signature) ([]map[string]interface{}, error) {
 	if len(sigs) == 0 {
 		return []map[string]interface{}{}, nil
 	}
 
 	decodedStatements := make([]map[string]interface{}, len(sigs))
 	for i, sig := range sigs {
+		payload, err := sig.Payload()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get payload")
+		}
+
 		data := make(map[string]interface{})
-		if err := json.Unmarshal(sig.Payload, &data); err != nil {
+		if err := json.Unmarshal(payload, &data); err != nil {
 			return nil, errors.Wrapf(err, "failed to unmarshal JSON payload: %v", sig)
 		}
 
@@ -241,19 +268,6 @@ func stringToJSONMap(i interface{}) (map[string]interface{}, error) {
 	return data, nil
 }
 
-func setSignatureRepo(cosignOpts *cosign.CheckOpts, ref name.Reference, repository string) error {
-	cosignOpts.SignatureRepo = ref.Context()
-	if repository != "" {
-		signatureRepo, err := name.NewRepository(repository)
-		if err != nil {
-			return errors.Wrapf(err, "failed to parse signature repository %s", repository)
-		}
-
-		cosignOpts.SignatureRepo = signatureRepo
-	}
-	return nil
-}
-
 func decodePEM(raw []byte) (signature.Verifier, error) {
 	// PEM encoded file.
 	ed, err := cosign.PemToECDSAKey(raw)
@@ -264,10 +278,15 @@ func decodePEM(raw []byte) (signature.Verifier, error) {
 	return signature.LoadECDSAVerifier(ed, crypto.SHA256)
 }
 
-func extractDigest(imgRef string, verified []cosign.SignedPayload, log logr.Logger) (string, error) {
+func extractDigest(imgRef string, verified []oci.Signature, log logr.Logger) (string, error) {
 	var jsonMap map[string]interface{}
 	for _, vp := range verified {
-		if err := json.Unmarshal(vp.Payload, &jsonMap); err != nil {
+		payload, err := vp.Payload()
+		if err != nil {
+			return "", errors.Wrap(err, "failed to get payload")
+		}
+
+		if err := json.Unmarshal(payload, &jsonMap); err != nil {
 			return "", err
 		}
 
