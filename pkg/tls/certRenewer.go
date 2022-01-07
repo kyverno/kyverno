@@ -332,6 +332,38 @@ func (c *CertRenewer) RollingUpdate() error {
 func (c *CertRenewer) ValidCert() (bool, error) {
 	logger := c.log.WithName("ValidCert")
 
+	certProps, err := GetTLSCertProps(c.clientConfig)
+	var managedByKyverno bool
+	snameTLS := generateTLSPairSecretName(certProps)
+	snameCA := generateRootCASecretName(certProps)
+	unstrSecret, err := c.client.GetResource("", "Secret", certProps.Namespace, snameTLS)
+	if err != nil {
+		return false, nil
+	}
+
+	if label, ok := unstrSecret.GetLabels()[ManagedByLabel]; ok {
+		managedByKyverno = label == "kyverno"
+	}
+
+	_, ok := unstrSecret.GetAnnotations()[MasterDeploymentUID]
+	if managedByKyverno && !ok {
+		return false, nil
+	}
+
+	unstrSecret, err = c.client.GetResource("", "Secret", certProps.Namespace, snameCA)
+	if err != nil {
+		return false, err
+	}
+
+	if label, ok := unstrSecret.GetLabels()[ManagedByLabel]; ok {
+		managedByKyverno = label == "kyverno"
+	}
+
+	_, ok = unstrSecret.GetAnnotations()[MasterDeploymentUID]
+	if managedByKyverno && !ok {
+		return false, err
+	}
+
 	rootCA, err := ReadRootCASecret(c.clientConfig, c.client)
 	if err != nil {
 		return false, errors.Wrap(err, "unable to read CA from secret")
