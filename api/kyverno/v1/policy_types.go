@@ -58,6 +58,9 @@ type Spec struct {
 	// +kubebuilder:validation:Enum=audit;enforce
 	ValidationFailureAction string `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
+	// ValidationFailureActionOverrides is a Cluter Policy attribute that specifies ValidationFailureAction
+	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+	// +optional
 	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
 
 	// Background controls if rules are applied to existing resources during a background scan.
