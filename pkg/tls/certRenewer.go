@@ -352,7 +352,7 @@ func (c *CertRenewer) ValidCert() (bool, error) {
 
 	unstrSecret, err = c.client.GetResource("", "Secret", certProps.Namespace, snameCA)
 	if err != nil {
-		return false, err
+		return false, nil
 	}
 
 	if label, ok := unstrSecret.GetLabels()[ManagedByLabel]; ok {
@@ -361,7 +361,7 @@ func (c *CertRenewer) ValidCert() (bool, error) {
 
 	_, ok = unstrSecret.GetAnnotations()[MasterDeploymentUID]
 	if managedByKyverno && !ok {
-		return false, err
+		return false, nil
 	}
 
 	rootCA, err := ReadRootCASecret(c.clientConfig, c.client)
