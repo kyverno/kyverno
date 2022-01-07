@@ -42,7 +42,7 @@ func ReadRootCASecret(restConfig *rest.Config, client *client.Client) (result []
 		managedByKyverno = label == "kyverno"
 	}
 	deplHashSec, ok = stlsca.GetAnnotations()[MasterDeploymentUID]
-	if managedByKyverno && (!ok || deplHashSec != deplHash) {
+	if managedByKyverno && (ok && deplHashSec != deplHash) {
 		return nil, fmt.Errorf("outdated secret")
 	}
 
@@ -85,7 +85,7 @@ func ReadTLSPair(restConfig *rest.Config, client *client.Client) (*PemPair, erro
 		managedByKyverno = label == "kyverno"
 	}
 	deplHashSec, ok = unstrSecret.GetAnnotations()[MasterDeploymentUID]
-	if managedByKyverno && (!ok || deplHashSec != deplHash) {
+	if managedByKyverno && (ok && deplHashSec != deplHash) {
 		return nil, fmt.Errorf("outdated secret")
 	}
 
