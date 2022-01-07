@@ -333,6 +333,9 @@ func (c *CertRenewer) ValidCert() (bool, error) {
 	logger := c.log.WithName("ValidCert")
 
 	certProps, err := GetTLSCertProps(c.clientConfig)
+	if err != nil {
+		return false, nil
+	}
 	var managedByKyverno bool
 	snameTLS := generateTLSPairSecretName(certProps)
 	snameCA := generateRootCASecretName(certProps)
