@@ -105,6 +105,10 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		clusterResourcesMap := make(map[string]*struct{})
 		// Get all the cluster type kind supported by cluster
 
+		if len(policy.Spec.ValidationFailureActionOverrides) > 0 {
+			return fmt.Errorf("invalid policy: use of ValidationFailureActionOverrides in a Namespace Policy")
+		}
+
 		res, err := client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
 		if err != nil {
 			return err
