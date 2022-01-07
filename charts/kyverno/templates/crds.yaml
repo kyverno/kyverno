@@ -1086,7 +1086,7 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               elementScope:
-                                description: Use the list element as the scope for validation. Defaults to "true" if not specified. When set to "false", "request.object" is used as the validation scope within the foreach block to allow referencing other elements in the subtree.
+                                description: ElementScope specifies whether to use the current list element as the scope for validation. Defaults to "true" if not specified. When set to "false", "request.object" is used as the validation scope within the foreach block to allow referencing other elements in the subtree.
                                 type: boolean
                               list:
                                 description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
@@ -1299,6 +1299,7 @@ spec:
                 - enforce
                 type: string
               validationFailureActionOverrides:
+                description: ValidationFailureActionOverrides is a Cluter Policy attribute that specifies ValidationFailureAction namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
                 items:
                   properties:
                     action:
@@ -3595,7 +3596,7 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               elementScope:
-                                description: Use the list element as the scope for validation. Defaults to "true" if not specified. When set to "false", "request.object" is used as the validation scope within the foreach block to allow referencing other elements in the subtree.
+                                description: ElementScope specifies whether to use the current list element as the scope for validation. Defaults to "true" if not specified. When set to "false", "request.object" is used as the validation scope within the foreach block to allow referencing other elements in the subtree.
                                 type: boolean
                               list:
                                 description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
@@ -3808,6 +3809,7 @@ spec:
                 - enforce
                 type: string
               validationFailureActionOverrides:
+                description: ValidationFailureActionOverrides is a Cluter Policy attribute that specifies ValidationFailureAction namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
                 items:
                   properties:
                     action:
