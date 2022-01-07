@@ -177,7 +177,7 @@ func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 }
 
 // UpdateWebhookConfigurations updates resource webhook configurations dynamically
-// base on the UPDATEs of Kyverno init-config ConfigMap
+// based on the UPDATEs of Kyverno ConfigMap defined in INIT_CONFIG env
 //
 // it currently updates namespaceSelector only, can be extend to update other fields
 // +deprecated
