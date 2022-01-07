@@ -93,7 +93,9 @@ func strategicMergePatch(logger logr.Logger, base, overlay string) ([]byte, erro
 				return []byte{}, err
 			}
 		} else {
-			return []byte{}, fmt.Errorf("failed to preProcess rule: %+v", err)
+			if err = preprocessedYaml.UnmarshalJSON([]byte(`{}`)); err != nil {
+				return []byte{}, fmt.Errorf("failed to preProcess rule: %+v", err)
+			}
 		}
 	}
 

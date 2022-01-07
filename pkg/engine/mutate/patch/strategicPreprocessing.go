@@ -133,6 +133,9 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 	if err != nil {
 		return err
 	}
+	if resourceElements == nil {
+		return fmt.Errorf("resource doesn't contain any conditional anchors")
+	}
 
 	for _, patternElement := range patternElements {
 		// If pattern has conditions, look for matching elements and process them
