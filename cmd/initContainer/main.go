@@ -130,17 +130,10 @@ func main() {
 				deplHash = fmt.Sprintf("%v", depl.GetUID())
 			}
 
-			var deplHashSec string = "default"
-			var ok, managedByKyverno bool
-
 			name := tls.GenerateRootCASecretName(certProps)
 			secretUnstr, err := client.GetResource("", "Secret", getKyvernoNameSpace(), name)
 			if err == nil {
-				if label, ok := secretUnstr.GetLabels()[tls.ManagedByLabel]; ok {
-					managedByKyverno = label == "kyverno"
-				}
-				deplHashSec, ok = secretUnstr.GetAnnotations()[tls.MasterDeploymentUID]
-				if managedByKyverno && (!ok || deplHashSec != deplHash) {
+				if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
 					secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
 					_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
 
@@ -155,12 +148,7 @@ func main() {
 			name = tls.GenerateTLSPairSecretName(certProps)
 			secretUnstr, err = client.GetResource("", "Secret", getKyvernoNameSpace(), name)
 			if err == nil {
-				if label, ok := secretUnstr.GetLabels()[tls.ManagedByLabel]; ok {
-					managedByKyverno = label == "kyverno"
-				}
-				deplHashSec, ok = secretUnstr.GetAnnotations()[tls.MasterDeploymentUID]
-
-				if managedByKyverno && (!ok || deplHashSec != deplHash) {
+				if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
 					secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
 					_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
 

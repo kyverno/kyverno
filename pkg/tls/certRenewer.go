@@ -126,16 +126,7 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 		deplHash = fmt.Sprintf("%v", depl.GetUID())
 	}
 
-	var deplHashSec string = "default"
-	var ok, managedByKyverno bool
-
 	secretUnstr, err := c.client.GetResource("", "Secret", props.Namespace, name)
-	if err == nil {
-		if label, ok := secretUnstr.GetLabels()[ManagedByLabel]; ok {
-			managedByKyverno = label == "kyverno"
-		}
-		deplHashSec, ok = secretUnstr.GetAnnotations()[MasterDeploymentUID]
-	}
 
 	secret := &v1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -167,7 +158,7 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 			}
 		}
 		return err
-	} else if managedByKyverno && (!ok || deplHashSec != deplHash) {
+	} else if CanAddAnnotationToSecret(deplHash, secretUnstr) {
 		_, err = c.client.UpdateResource("", "Secret", props.Namespace, secret, false)
 		if err == nil {
 			logger.Info("secret updated", "name", name, "namespace", props.Namespace)
@@ -208,16 +199,7 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 		deplHash = fmt.Sprintf("%v", depl.GetUID())
 	}
 
-	var deplHashSec string = "default"
-	var ok, managedByKyverno bool
-
 	secretUnstr, err := c.client.GetResource("", "Secret", props.Namespace, name)
-	if err == nil {
-		if label, ok := secretUnstr.GetLabels()[ManagedByLabel]; ok {
-			managedByKyverno = label == "kyverno"
-		}
-		deplHashSec, ok = secretUnstr.GetAnnotations()[MasterDeploymentUID]
-	}
 
 	secretPtr := &v1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -249,7 +231,7 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 			}
 		}
 		return err
-	} else if managedByKyverno && (!ok || deplHashSec != deplHash) {
+	} else if CanAddAnnotationToSecret(deplHash, secretUnstr) {
 		_, err = c.client.UpdateResource("", "Secret", props.Namespace, secretPtr, false)
 		if err == nil {
 			logger.Info("secret updated", "name", name, "namespace", props.Namespace)
@@ -450,4 +432,16 @@ func GenerateTLSPairSecretName(props CertificateProps) string {
 
 func GenerateRootCASecretName(props CertificateProps) string {
 	return generateInClusterServiceName(props) + ".kyverno-tls-ca"
+}
+
+func CanAddAnnotationToSecret(deplHash string, secret *unstructured.Unstructured) bool {
+	var deplHashSec string = "default"
+	var ok, managedByKyverno bool
+
+	if label, ok := secret.GetLabels()[ManagedByLabel]; ok {
+		managedByKyverno = label == "kyverno"
+	}
+	deplHashSec, ok = secret.GetAnnotations()[MasterDeploymentUID]
+
+	return managedByKyverno && (!ok || deplHashSec != deplHash)
 }
