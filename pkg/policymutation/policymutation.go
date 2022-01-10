@@ -64,7 +64,6 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 	}
 	patches = append(patches, formatedGVK...)
 
-	fmt.Println(string(utils.JoinPatches(patches)))
 	return utils.JoinPatches(patches), updateMsgs
 }
 
