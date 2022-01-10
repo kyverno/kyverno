@@ -26,7 +26,7 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@main
         with:
-          cosign-release: 'v1.4.0'
+          cosign-release: 'v1.4.1'
 
       - name: login to GitHub Container Registry
         run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
@@ -45,7 +45,7 @@ jobs:
       - name: get digest
         id: get-step
         run: |
-          echo "::set-output name=digest::$(make docker-get-initContainer-digest)"
+          echo "::set-output name=digest::$(make docker-get-initContainer-dev-digest)"
 
       - name: Sign image
         env:
@@ -78,7 +78,7 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@main
         with:
-          cosign-release: 'v1.4.0'
+          cosign-release: 'v1.4.1'
 
       - name: login to GitHub Container Registry
         run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
@@ -96,7 +96,7 @@ jobs:
       - name: get digest
         id: get-step
         run: |
-          echo "::set-output name=digest::$(make docker-get-kyverno-digest)"
+          echo "::set-output name=digest::$(make docker-get-kyverno-dev-digest)"
 
       - name: Sign image
         env:
@@ -129,7 +129,7 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@main
         with:
-          cosign-release: 'v1.4.0'
+          cosign-release: 'v1.4.1'
 
       - name: login to GitHub Container Registry
         run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
@@ -147,7 +147,7 @@ jobs:
       - name: get digest
         id: get-step
         run: |
-          echo "::set-output name=digest::$(make docker-get-cli-digest)"
+          echo "::set-output name=digest::$(make docker-get-cli-dev-digest)"
 
       - name: Sign image
         env:
