@@ -140,11 +140,16 @@ func main() {
 					managedByKyverno = label == "kyverno"
 				}
 				deplHashSec, ok = secretUnstr.GetAnnotations()[tls.MasterDeploymentUID]
-			}
+				if managedByKyverno && (!ok || deplHashSec != deplHash) {
+					secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
+					_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
 
-			if managedByKyverno && (!ok || deplHashSec != deplHash) {
-				secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
-				_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
+					if err != nil {
+						log.Log.Info("failed to update cert: %v", err.Error())
+					}
+				}
+			} else {
+				log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
 			}
 
 			name = tls.GenerateTLSPairSecretName(certProps)
@@ -154,11 +159,17 @@ func main() {
 					managedByKyverno = label == "kyverno"
 				}
 				deplHashSec, ok = secretUnstr.GetAnnotations()[tls.MasterDeploymentUID]
-			}
 
-			if managedByKyverno && (!ok || deplHashSec != deplHash) {
-				secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
-				_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
+				if managedByKyverno && (!ok || deplHashSec != deplHash) {
+					secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
+					_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
+
+					if err != nil {
+						log.Log.Info("failed to update cert: %v", err.Error())
+					}
+				}
+			} else {
+				log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
 			}
 		} else {
 			log.Log.Info("failed to get cert properties: %v", err.Error())
