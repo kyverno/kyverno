@@ -117,7 +117,7 @@ func (c *CertRenewer) buildTLSPemPairAndWriteToSecrets(props CertificateProps, s
 // WriteCACertToSecret stores the CA cert in secret
 func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps) error {
 	logger := c.log.WithName("CAcert")
-	name := generateRootCASecretName(props)
+	name := GenerateRootCASecretName(props)
 
 	depl, err := c.client.GetResource("", "Deployment", props.Namespace, config.KyvernoDeploymentName)
 
@@ -199,7 +199,7 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemPair) error {
 	logger := c.log.WithName("WriteTLSPair")
 
-	name := generateTLSPairSecretName(props)
+	name := GenerateTLSPairSecretName(props)
 
 	depl, err := c.client.GetResource("", "Deployment", props.Namespace, config.KyvernoDeploymentName)
 
@@ -337,8 +337,8 @@ func (c *CertRenewer) ValidCert() (bool, error) {
 		return false, nil
 	}
 	var managedByKyverno bool
-	snameTLS := generateTLSPairSecretName(certProps)
-	snameCA := generateRootCASecretName(certProps)
+	snameTLS := GenerateTLSPairSecretName(certProps)
+	snameCA := GenerateRootCASecretName(certProps)
 	unstrSecret, err := c.client.GetResource("", "Secret", certProps.Namespace, snameTLS)
 	if err != nil {
 		return false, nil
@@ -444,10 +444,10 @@ func IsKyvernoInRollingUpdate(deploy map[string]interface{}, logger logr.Logger)
 	return false
 }
 
-func generateTLSPairSecretName(props CertificateProps) string {
+func GenerateTLSPairSecretName(props CertificateProps) string {
 	return generateInClusterServiceName(props) + ".kyverno-tls-pair"
 }
 
-func generateRootCASecretName(props CertificateProps) string {
+func GenerateRootCASecretName(props CertificateProps) string {
 	return generateInClusterServiceName(props) + ".kyverno-tls-ca"
 }
