@@ -128,6 +128,9 @@ func main() {
 			deplHash := ""
 			if err == nil {
 				deplHash = fmt.Sprintf("%v", depl.GetUID())
+			} else {
+				log.Log.Info("failed to fetch deployment '%v': %v", config.KyvernoDeploymentName, err.Error())
+				os.Exit(1)
 			}
 
 			name := tls.GenerateRootCASecretName(certProps)
@@ -139,10 +142,12 @@ func main() {
 
 					if err != nil {
 						log.Log.Info("failed to update cert: %v", err.Error())
+						os.Exit(1)
 					}
 				}
 			} else {
 				log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
+				os.Exit(1)
 			}
 
 			name = tls.GenerateTLSPairSecretName(certProps)
@@ -154,13 +159,16 @@ func main() {
 
 					if err != nil {
 						log.Log.Info("failed to update cert: %v", err.Error())
+						os.Exit(1)
 					}
 				}
 			} else {
 				log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
+				os.Exit(1)
 			}
 		} else {
 			log.Log.Info("failed to get cert properties: %v", err.Error())
+			os.Exit(1)
 		}
 
 		_, err = kubeClientLeaderElection.CoordinationV1().Leases(getKyvernoNameSpace()).Get(ctx, "kyvernopre-lock", v1.GetOptions{})
