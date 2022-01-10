@@ -717,6 +717,9 @@ func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *r
 	printCount := 0
 	for _, policyRule := range policy.Spec.Rules {
 		ruleFoundInEngineResponse := false
+		if !policyRule.HasValidate() {
+			continue
+		}
 
 		for i, valResponseRule := range validateResponse.PolicyResponse.Rules {
 			if policyRule.Name == valResponseRule.Name {
