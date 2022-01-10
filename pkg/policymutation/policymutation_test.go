@@ -264,7 +264,7 @@ func Test_getControllers(t *testing.T) {
 		{
 			name:                "rule-with-deny",
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"testpolicy","deny":{"conditions":[{"key":"{{request.object.metadata.labels.foo}}","operator":"Equals","value":"bar"}]}}}]}}`),
-			expectedControllers: "none",
+			expectedControllers: engine.PodControllers,
 		},
 
 		{
