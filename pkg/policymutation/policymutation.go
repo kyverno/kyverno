@@ -64,6 +64,7 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 	}
 	patches = append(patches, formatedGVK...)
 
+	fmt.Println(string(utils.JoinPatches(patches)))
 	return utils.JoinPatches(patches), updateMsgs
 }
 
@@ -347,8 +348,7 @@ func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bo
 			}
 		}
 
-		if rule.Mutation.PatchesJSON6902 != "" ||
-			rule.Validation.Deny != nil || rule.HasGenerate() {
+		if rule.Mutation.PatchesJSON6902 != "" || rule.HasGenerate() {
 			return false, "none"
 		}
 	}
@@ -642,6 +642,15 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 			},
 		}
 		controllerRule.Validation = newValidate.DeepCopy()
+		return *controllerRule
+	}
+
+	if rule.Validation.Deny != nil {
+		deny := &kyverno.Validation{
+			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "deny"),
+			Deny:    rule.Validation.Deny,
+		}
+		controllerRule.Validation = deny.DeepCopy()
 		return *controllerRule
 	}
 

@@ -426,3 +426,41 @@ func Test_checkForGVKFormatPatch(t *testing.T) {
 		}
 	}
 }
+
+func Test_Deny(t *testing.T) {
+	dir, err := os.Getwd()
+	baseDir := filepath.Dir(filepath.Dir(dir))
+	assert.NilError(t, err)
+	file, err := ioutil.ReadFile(baseDir + "/test/policy/deny/policy.yaml")
+	if err != nil {
+		t.Log(err)
+	}
+	policies, err := utils.GetPolicy(file)
+	if err != nil {
+		t.Log(err)
+	}
+
+	policy := policies[0]
+	policy.Spec.Rules[0].MatchResources.Any = kyverno.ResourceFilters{
+		{
+			ResourceDescription: kyverno.ResourceDescription{
+				Kinds: []string{"Pod"},
+			},
+		},
+	}
+
+	rulePatches, errs := generateRulePatches(*policy, engine.PodControllers, log.Log)
+	fmt.Println("utils.JoinPatches(patches)erterter", string(utils.JoinPatches(rulePatches)))
+	if len(errs) != 0 {
+		t.Log(errs)
+	}
+	expectedPatches := [][]byte{
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-disallow-mount-containerd-sock","match":{"any":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}}],"resources":{"kinds":["Pod"]}},"validate":{"foreach":[{"list":"request.object.spec.template.spec.volumes[]","deny":{"conditions":{"any":[{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/var/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"\\var\\run\\containerd\\containerd.sock"}]}}}]}}}`),
+		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-disallow-mount-containerd-sock","match":{"any":[{"resources":{"kinds":["CronJob"]}}],"resources":{"kinds":["Pod"]}},"validate":{"foreach":[{"list":"request.object.spec.jobTemplate.spec.template.spec.volumes[]","deny":{"conditions":{"any":[{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/var/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"\\var\\run\\containerd\\containerd.sock"}]}}}]}}}`),
+	}
+
+	for i, ep := range expectedPatches {
+		assert.Equal(t, string(rulePatches[i]), string(ep),
+			fmt.Sprintf("unexpected patch: %s\nexpected: %s", rulePatches[i], ep))
+	}
+}
