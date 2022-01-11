@@ -14,8 +14,8 @@ const (
 
 func (s Source) String() string {
 	return [...]string{
-		"admission-controller",
-		"policy-controller",
-		"generate-policy-controller",
+		"kyverno-admission-controller",
+		"kyverno-policy-controller",
+		"kyverno-generate-policy-controller",
 	}[s]
 }
