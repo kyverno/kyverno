@@ -174,11 +174,12 @@ type ContextEntry struct {
 	ImageRegistry *ImageRegistry `json:"imageRegistry,omitempty" yaml:"imageRegistry,omitempty"`
 }
 
-//
+// ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
+// details.
 type ImageRegistry struct {
 	// Reference is image reference to a container image in the registry.
 	// Example: ghcr.io/kyverno/kyverno:latest
-	Reference string `json:"ref" yaml:"ref"`
+	Reference string `json:"reference" yaml:"reference"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to
 	// transform the ImageData struct returned as a result of processing

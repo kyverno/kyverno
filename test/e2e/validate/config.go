@@ -87,4 +87,26 @@ var ValidateTests = []struct {
 		ResourceRaw:       kyverno_global_anchor_validate_resource_2,
 		MustSucceed:       false,
 	},
+	{
+		// Case for image validation
+		TestDescription:   "checks that images are trustable",
+		PolicyName:        "check-trustable-images",
+		PolicyRaw:         kyverno_trustable_image_policy,
+		ResourceName:      "pod-with-trusted-registry",
+		ResourceNamespace: "",
+		ResourceGVR:       podGVR,
+		ResourceRaw:       kyverno_trusted_image_pod,
+		MustSucceed:       true,
+	},
+	{
+		// Case for image validation
+		TestDescription:   "checks that images are trustable",
+		PolicyName:        "check-trustable-images",
+		PolicyRaw:         kyverno_trustable_image_policy,
+		ResourceName:      "pod-with-root-user",
+		ResourceNamespace: "",
+		ResourceGVR:       podGVR,
+		ResourceRaw:       kyverno_pod_with_root_user,
+		MustSucceed:       false,
+	},
 }

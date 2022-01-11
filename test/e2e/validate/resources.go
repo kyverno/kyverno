@@ -632,6 +632,43 @@ spec:
         - CAP_SOMETHING
 `)
 
+var kyverno_trustable_image_policy = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-trustable-images
+spec:
+  validationFailureAction: enforce
+  rules:
+  - name: only-allow-trusted-images
+    match:
+      resources:
+        kinds:
+        - Pod
+    preconditions:
+      - key: "{{request.operation}}"
+        operator: NotEquals
+        value: DELETE
+    validate:
+      message: "images with root user are not allowed"  
+      foreach:
+      - list: "request.object.spec.containers"
+        context: 
+        - name: imageData
+          imageRegistry: 
+            reference: "{{ element.image }}"
+            jmesPath: "{user: configData.config.User || '', registry: registry}"
+        deny:
+          conditions:
+            all:
+              - key: "{{ imageData.user }}"
+                operator: Equals
+                value: ""
+              - key: "{{ imageData.registry }}"
+                operator: NotEquals
+                value: "ghcr.io"
+`)
+
 var kyverno_global_anchor_validate_policy = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -679,4 +716,26 @@ spec:
     image: nginx
   imagePullSecrets:
   - name: other-registory-secret
+`)
+
+var kyverno_trusted_image_pod = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-trusted-registry
+spec:
+  containers:
+  - name: kyverno
+    image: ghcr.io/kyverno/kyverno:latest
+`)
+
+var kyverno_pod_with_root_user = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-root-user
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu:bionic
 `)

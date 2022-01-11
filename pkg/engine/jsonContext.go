@@ -29,7 +29,7 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resC
 	policyName := ctx.Policy.Name
 	if store.GetMock() {
 		rule := store.GetPolicyRuleFromContext(policyName, ruleName)
-		if len(rule.Values) == 0 {
+		if rule == nil || len(rule.Values) == 0 {
 			return fmt.Errorf("No values found for policy %s rule %s", policyName, ruleName)
 		}
 		variables := rule.Values
@@ -48,7 +48,6 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resC
 				return err
 			}
 		}
-
 	} else {
 		// get GVR Cache for "configmaps"
 		// can get cache for other resources if the informers are enabled in resource cache
@@ -125,23 +124,23 @@ func fetchImageData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyC
 func fetchImageDataMap(ref string) (interface{}, error) {
 	parsedRef, err := name.ParseReference(ref)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse image ref: %s, error: %v", ref, err)
+		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
 	}
 	desc, err := remote.Get(parsedRef)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch image ref: %s, error: %v", ref, err)
+		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
 	}
 	image, err := desc.Image()
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve image ref: %s, error: %v", ref, err)
+		return nil, fmt.Errorf("failed to resolve image reference: %s, error: %v", ref, err)
 	}
 	manifest, err := image.Manifest()
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch manifest for image ref: %s, error: %v", ref, err)
+		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %v", ref, err)
 	}
 	config, err := image.ConfigFile()
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch config for image ref: %s, error: %v", ref, err)
+		return nil, fmt.Errorf("failed to fetch config for image reference: %s, error: %v", ref, err)
 	}
 	data := map[string]interface{}{
 		"image":         ref,
@@ -150,9 +149,23 @@ func fetchImageDataMap(ref string) (interface{}, error) {
 		"repository":    parsedRef.Context().RepositoryStr(),
 		"identifier":    parsedRef.Identifier(),
 		"manifest":      manifest,
-		"config":        config,
+		"configData":    config,
 	}
-	return data, nil
+	// we need to do the conversion from struct types to an interface type so that jmespath
+	// evaluation works correctly. go-jmespath cannot handle function calls like max/sum
+	// for types like integers for eg. the conversion to untyped allows the stdlib json
+	// to convert all the types to types that are compatible with jmespath.
+	jsonDoc, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	var untyped interface{}
+	err = json.Unmarshal(jsonDoc, &untyped)
+	if err != nil {
+		return nil, err
+	}
+	return untyped, nil
 }
 
 func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) error {

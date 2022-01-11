@@ -1206,11 +1206,11 @@ func validateImageRegistry(entry kyverno.ContextEntry) error {
 	// If JMESPath contains variables, the validation will fail because it's not possible to infer which value
 	// will be inserted by the variable
 	// Skip validation if a variable is detected
-	jmesPath := variables.ReplaceAllVars(entry.APICall.JMESPath, func(s string) string { return "kyvernojmespathvariable" })
+	jmesPath := variables.ReplaceAllVars(entry.ImageRegistry.JMESPath, func(s string) string { return "kyvernojmespathvariable" })
 
-	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.APICall.JMESPath != "" {
-		if _, err := jmespath.NewParser().Parse(entry.APICall.JMESPath); err != nil {
-			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.APICall.JMESPath, err)
+	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.ImageRegistry.JMESPath != "" {
+		if _, err := jmespath.NewParser().Parse(entry.ImageRegistry.JMESPath); err != nil {
+			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.ImageRegistry.JMESPath, err)
 		}
 	}
 
