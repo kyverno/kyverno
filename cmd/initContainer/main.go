@@ -122,59 +122,55 @@ func main() {
 
 	run := func() {
 		certProps, err := tls.GetTLSCertProps(clientConfig)
-		if err == nil {
-			depl, err := client.GetResource("", "Deployment", getKyvernoNameSpace(), config.KyvernoDeploymentName)
-
-			deplHash := ""
-			if err == nil {
-				deplHash = fmt.Sprintf("%v", depl.GetUID())
-			} else {
-				log.Log.Info("failed to fetch deployment '%v': %v", config.KyvernoDeploymentName, err.Error())
-				os.Exit(1)
-			}
-
-			name := tls.GenerateRootCASecretName(certProps)
-			secretUnstr, err := client.GetResource("", "Secret", getKyvernoNameSpace(), name)
-			if err == nil {
-				if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
-					secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
-					_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
-
-					if err != nil {
-						log.Log.Info("failed to update cert: %v", err.Error())
-						os.Exit(1)
-					}
-				}
-			} else {
-				log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
-
-				if !errors.IsNotFound(err) {
-					os.Exit(1)
-				}
-			}
-
-			name = tls.GenerateTLSPairSecretName(certProps)
-			secretUnstr, err = client.GetResource("", "Secret", getKyvernoNameSpace(), name)
-			if err == nil {
-				if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
-					secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
-					_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
-
-					if err != nil {
-						log.Log.Info("failed to update cert: %v", err.Error())
-						os.Exit(1)
-					}
-				}
-			} else {
-				log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
-
-				if !errors.IsNotFound(err) {
-					os.Exit(1)
-				}
-			}
-		} else {
+		if err != nil {
 			log.Log.Info("failed to get cert properties: %v", err.Error())
 			os.Exit(1)
+		}
+
+		depl, err := client.GetResource("", "Deployment", getKyvernoNameSpace(), config.KyvernoDeploymentName)
+		deplHash := ""
+		if err != nil {
+			log.Log.Info("failed to fetch deployment '%v': %v", config.KyvernoDeploymentName, err.Error())
+			os.Exit(1)
+		}
+		deplHash = fmt.Sprintf("%v", depl.GetUID())
+
+		name := tls.GenerateRootCASecretName(certProps)
+		secretUnstr, err := client.GetResource("", "Secret", getKyvernoNameSpace(), name)
+		if err != nil {
+			log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
+
+			if !errors.IsNotFound(err) {
+				os.Exit(1)
+			}
+		}
+
+		if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
+			secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
+			_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
+			if err != nil {
+				log.Log.Info("failed to update cert: %v", err.Error())
+				os.Exit(1)
+			}
+		}
+
+		name = tls.GenerateTLSPairSecretName(certProps)
+		secretUnstr, err = client.GetResource("", "Secret", getKyvernoNameSpace(), name)
+		if err != nil {
+			log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
+
+			if !errors.IsNotFound(err) {
+				os.Exit(1)
+			}
+		}
+
+		if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
+			secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
+			_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
+			if err != nil {
+				log.Log.Info("failed to update cert: %v", err.Error())
+				os.Exit(1)
+			}
 		}
 
 		_, err = kubeClientLeaderElection.CoordinationV1().Leases(getKyvernoNameSpace()).Get(ctx, "kyvernopre-lock", v1.GetOptions{})
