@@ -147,7 +147,10 @@ func main() {
 				}
 			} else {
 				log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
-				os.Exit(1)
+
+				if !errors.IsNotFound(err) {
+					os.Exit(1)
+				}
 			}
 
 			name = tls.GenerateTLSPairSecretName(certProps)
@@ -164,7 +167,10 @@ func main() {
 				}
 			} else {
 				log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
-				os.Exit(1)
+
+				if !errors.IsNotFound(err) {
+					os.Exit(1)
+				}
 			}
 		} else {
 			log.Log.Info("failed to get cert properties: %v", err.Error())
