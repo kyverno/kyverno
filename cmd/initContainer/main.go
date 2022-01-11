@@ -143,9 +143,7 @@ func main() {
 			if !errors.IsNotFound(err) {
 				os.Exit(1)
 			}
-		}
-
-		if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
+		} else if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
 			secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
 			_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
 			if err != nil {
@@ -162,9 +160,7 @@ func main() {
 			if !errors.IsNotFound(err) {
 				os.Exit(1)
 			}
-		}
-
-		if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
+		} else if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
 			secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
 			_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
 			if err != nil {
