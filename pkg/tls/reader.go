@@ -32,7 +32,7 @@ func ReadRootCASecret(restConfig *rest.Config, client *client.Client) (result []
 	var deplHashSec string = "default"
 	var ok, managedByKyverno bool
 
-	sname := generateRootCASecretName(certProps)
+	sname := GenerateRootCASecretName(certProps)
 	stlsca, err := client.GetResource("", "Secret", certProps.Namespace, sname)
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func ReadTLSPair(restConfig *rest.Config, client *client.Client) (*PemPair, erro
 	var deplHashSec string = "default"
 	var ok, managedByKyverno bool
 
-	sname := generateTLSPairSecretName(certProps)
+	sname := GenerateTLSPairSecretName(certProps)
 	unstrSecret, err := client.GetResource("", "Secret", certProps.Namespace, sname)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get secret %s/%s: %v", certProps.Namespace, sname, err)
@@ -93,7 +93,7 @@ func ReadTLSPair(restConfig *rest.Config, client *client.Client) (*PemPair, erro
 	// As the root CA used to sign the certificate is required for webhook configuration, check if the corresponding secret is created
 	annotations := unstrSecret.GetAnnotations()
 	if _, ok := annotations[SelfSignedAnnotation]; ok {
-		sname := generateRootCASecretName(certProps)
+		sname := GenerateRootCASecretName(certProps)
 		_, err := client.GetResource("", "Secret", certProps.Namespace, sname)
 		if err != nil {
 			return nil, fmt.Errorf("rootCA secret is required while using self-signed certificate TLS pair, defaulting to generating new TLS pair  %s/%s", certProps.Namespace, sname)
