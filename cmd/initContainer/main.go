@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/signal"
+	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
 	coord "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -119,8 +121,55 @@ func main() {
 	failure := false
 
 	run := func() {
-		_, err := kubeClientLeaderElection.CoordinationV1().Leases(getKyvernoNameSpace()).Get(ctx, "kyvernopre-lock", v1.GetOptions{})
+		certProps, err := tls.GetTLSCertProps(clientConfig)
+		if err != nil {
+			log.Log.Info("failed to get cert properties: %v", err.Error())
+			os.Exit(1)
+		}
 
+		depl, err := client.GetResource("", "Deployment", getKyvernoNameSpace(), config.KyvernoDeploymentName)
+		deplHash := ""
+		if err != nil {
+			log.Log.Info("failed to fetch deployment '%v': %v", config.KyvernoDeploymentName, err.Error())
+			os.Exit(1)
+		}
+		deplHash = fmt.Sprintf("%v", depl.GetUID())
+
+		name := tls.GenerateRootCASecretName(certProps)
+		secretUnstr, err := client.GetResource("", "Secret", getKyvernoNameSpace(), name)
+		if err != nil {
+			log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
+
+			if !errors.IsNotFound(err) {
+				os.Exit(1)
+			}
+		} else if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
+			secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
+			_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
+			if err != nil {
+				log.Log.Info("failed to update cert: %v", err.Error())
+				os.Exit(1)
+			}
+		}
+
+		name = tls.GenerateTLSPairSecretName(certProps)
+		secretUnstr, err = client.GetResource("", "Secret", getKyvernoNameSpace(), name)
+		if err != nil {
+			log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
+
+			if !errors.IsNotFound(err) {
+				os.Exit(1)
+			}
+		} else if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
+			secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
+			_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
+			if err != nil {
+				log.Log.Info("failed to update cert: %v", err.Error())
+				os.Exit(1)
+			}
+		}
+
+		_, err = kubeClientLeaderElection.CoordinationV1().Leases(getKyvernoNameSpace()).Get(ctx, "kyvernopre-lock", v1.GetOptions{})
 		if err != nil {
 			log.Log.Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
 		} else {
