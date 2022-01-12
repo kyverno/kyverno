@@ -286,6 +286,118 @@ spec:
       runAsNonRoot: true
 `)
 
+var kyverno_mutate_json_patch = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: policy-change-memory-limit
+  # env array needs to exist (least one env var is present)
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: None
+spec:
+  background: false
+  schemaValidation: false
+  rules:
+  - name: pod-containers-1-inject-image
+    match:
+      resources:
+        kinds:
+        - Pod
+    preconditions:
+      all:
+      - key: "{{request.object.spec.containers[] | length(@)}}"
+        operator: Equals
+        value: "1"
+    mutate:
+      patchesJson6902: |-
+        - op: add
+          path: "/spec/containers/0/env/-"
+          value: {"name":"K8S_IMAGE","value":"{{request.object.spec.containers[0].image}}"}
+  - name: pod-containers-2-inject-image
+    match:
+      resources:
+        kinds:
+        - Pod
+    preconditions:
+      all:
+      - key: "{{request.object.spec.containers[] | length(@)}}"
+        operator: Equals
+        value: "2"
+    mutate:
+      patchesJson6902: |-
+        - op: add
+          path: "/spec/containers/0/env/-"
+          value: {"name":"K8S_IMAGE","value":"{{request.object.spec.containers[0].image}}"}
+        - op: add
+          path: "/spec/containers/1/env/-"
+          value: {"name":"K8S_IMAGE","value":"{{request.object.spec.containers[1].image}}"}
+`)
+
+var podWithEnvArray = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: foo
+spec:
+  initContainers:
+  - name: jimmy
+    image: defdasdabian:923
+    command: ["/bin/sh", "-c", "sleep infinity"]
+  containers:
+  - name: foo
+    image: defdasdabian:923
+    command: ["/bin/sh", "-c", "sleep infinity"]
+    env:
+      - name: FOO
+        value: bar
+  - name: asdf
+    image: asdfasdfasdf:123
+    command: ["/bin/sh", "-c", "sleep infinity"]
+	  env:
+	    - name: FOO
+	      value: bar
+`)
+
+var podWithEnvArrayPattern = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: foo
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: None
+	spec:
+	initContainers:
+	- (name): "*"
+	  command: ["/bin/sh", "-c", "sleep infinity"]
+	  securityContext:
+		  capabilities:
+		    drop:
+		    - NET_RAW
+		    - SETUID
+	containers:
+	- (name): "*"
+	  command: ["/bin/sh", "-c", "sleep infinity"]
+	  securityContext:
+		  capabilities:
+		    drop:
+		    - SETUID
+		    - CAP_FOO_BAR
+		    - NET_RAW
+	  env:
+		  - name: FOO
+		    value: bar
+	- (name): "*"
+	  command: ["/bin/sh", "-c", "sleep infinity"]
+	  securityContext:
+	    capabilities:
+	      drop:
+	      - NET_RAW
+	      - SOME_THING
+    env:
+	    - name: FOO
+	      value: bar
+`)
+
 var kyverno_2316_policy = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -328,11 +440,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      appa: busybox
+      app: busybox
   template:
     metadata:
       labels:
-        appa: busybox
+        app: busybox
         # foo: blaaah
     spec:
       containers:
