@@ -29,3 +29,13 @@ results:
     resource: mount-containerd-sock
     kind: Pod
     status: fail
+  - policy: test-parse-json
+    rule: test-json-parsing-jmespath
+    resource: valid-test
+    kind: ConfigMap
+    result: pass
+  - policy: test-parse-json
+    rule: test-json-parsing-jmespath
+    resource: invalid-test
+    kind: ConfigMap
+    result: fail

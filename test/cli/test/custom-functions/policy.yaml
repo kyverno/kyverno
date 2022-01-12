@@ -74,3 +74,24 @@ spec:
             - key: "{{ path_canonicalize(element.hostPath.path) }}"
               operator: Equals
               value: "\\var\\run\\containerd\\containerd.sock"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-parse-json
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+  - name: test-json-parsing-jmespath
+    match:
+      resources:
+        kinds:
+         - ConfigMap
+    validate:
+      message: "Test JMESPath"
+      deny:
+        conditions:
+        - key: "{{request.object.metadata.annotations.test | parse_json(@).a }}"
+          operator: NotEquals
+          value: b
