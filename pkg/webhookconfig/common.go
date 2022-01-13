@@ -92,16 +92,17 @@ func (wrc *Register) GetKubePolicyClusterRoleName() (*unstructured.Unstructured,
 // GetKubePolicyDeployment gets Kyverno deployment using the resource cache
 // it does not initialize any client call
 func (wrc *Register) GetKubePolicyDeployment() (*apps.Deployment, *unstructured.Unstructured, error) {
-	lister, _ := wrc.resCache.GetGVRCache("Deployment")
-	kubePolicyDeployment, err := lister.NamespacedLister(config.KyvernoNamespace).Get(config.KyvernoDeploymentName)
+	deploy, err := wrc.kDeplLister.Deployments(config.KyvernoNamespace).Get(config.KyvernoDeploymentName)
 	if err != nil {
 		return nil, nil, err
 	}
-	deploy := apps.Deployment{}
-	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(kubePolicyDeployment.UnstructuredContent(), &deploy); err != nil {
-		return nil, kubePolicyDeployment, err
+	kubePolicyDeployment := unstructured.Unstructured{}
+	content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(deploy)
+	if err != nil {
+		return deploy, nil, err
 	}
-	return &deploy, kubePolicyDeployment, nil
+	kubePolicyDeployment.SetUnstructuredContent(content)
+	return deploy, &kubePolicyDeployment, nil
 }
 
 // debug mutating webhook
