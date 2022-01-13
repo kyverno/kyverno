@@ -146,14 +146,22 @@ func VerifySignature(opts Options) (digest string, err error) {
 		return "", errors.Wrap(err, "failed to get payload")
 	}
 
-	issuer, err := extractIssuer(opts.ImageRef, payload, log)
-	if err == nil && (issuer != opts.Issuer) {
-		return "", errors.Wrap(err, "issuer mismatch")
+	if opts.Issuer != "" {
+		issuer, err := extractIssuer(opts.ImageRef, payload, log)
+		if err == nil && (issuer != opts.Issuer) {
+			return "", errors.Wrap(err, "issuer mismatch")
+		}
+
+		return "", errors.Wrap(err, "issuer not found")
 	}
 
-	subject, err := extractSubject(opts.ImageRef, payload, log)
-	if err == nil && wildcard.Match(opts.Subject, subject) {
-		return "", errors.Wrap(err, "subject mismatch")
+	if opts.Subject != "" {
+		subject, err := extractSubject(opts.ImageRef, payload, log)
+		if err == nil && wildcard.Match(opts.Subject, subject) {
+			return "", errors.Wrap(err, "subject mismatch")
+		}
+
+		return "", errors.Wrap(err, "subject not found")
 	}
 
 	err = checkAnnotations(payload, opts.Annotations, log)
@@ -408,7 +416,7 @@ func extractIssuer(imgRef string, payload []payload.SimpleContainerImage, log lo
 		if issuer := p.Optional["Issuer"]; issuer != nil {
 			return issuer.(string), nil
 		} else {
-			log.Info("failed to extract image issuer from verification response", "image", imgRef, "payload", p)
+			log.V(3).Info("failed to extract image issuer from verification response", "image", imgRef, "payload", p)
 			return "", fmt.Errorf("unknown image response for " + imgRef)
 		}
 	}
@@ -420,7 +428,7 @@ func extractSubject(imgRef string, payload []payload.SimpleContainerImage, log l
 		if subject := p.Optional["Subject"]; subject != nil {
 			return subject.(string), nil
 		} else {
-			log.Info("failed to extract image subject from verification response", "image", imgRef, "payload", p)
+			log.V(3).Info("failed to extract image subject from verification response", "image", imgRef, "payload", p)
 			return "", fmt.Errorf("unknown image response for " + imgRef)
 		}
 	}
