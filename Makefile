@@ -59,6 +59,11 @@ initContainer: fmt vet
 
 .PHONY: docker-build-initContainer docker-push-initContainer
 
+docker-buildx-builder:
+	if ! docker buildx ls | grep -q kyverno; then\
+		docker buildx create --name kyverno --use;\
+	fi
+
 docker-publish-initContainer: docker-buildx-builder docker-build-initContainer docker-push-initContainer
 
 docker-build-initContainer: docker-buildx-builder
