@@ -51,3 +51,19 @@ spec:
       mountPath: /sock
     - name: test
       mountPath: /test 
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valid-test
+  annotations:
+    test: |
+      {"a": "b"}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: invalid-test
+  annotations:
+    test: |
+      {"a": "not-b"}
