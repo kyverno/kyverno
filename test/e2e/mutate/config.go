@@ -87,14 +87,14 @@ var tests = []struct {
 		ExpectedPatternRaw: kyverno_2316_pattern,
 	},
 	{
-		TestDescription:    "checks that policy mutate env elements of an array with specific index numbers",
-		PolicyName:         "policy-change-memory-limit",
+		TestDescription:    "checks that policy mutate env variables of an array with specific index numbers",
+		PolicyName:         "add-image-as-env-var",
 		PolicyRaw:          kyverno_mutate_json_patch,
 		ResourceName:       "foo",
 		ResourceNamespace:  "",
 		ResourceGVR:        podGVR,
-		ResourceRaw:        podWithEnvArray,
-		ExpectedPatternRaw: podWithEnvArrayPattern,
+		ResourceRaw:        podWithEnvVar,
+		ExpectedPatternRaw: podWithEnvVarPattern,
 	},
 }
 
