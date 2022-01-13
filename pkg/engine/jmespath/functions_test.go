@@ -59,11 +59,9 @@ func Test_ParseJsonSerde(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc, func(t *testing.T) {
 			jp, err := New(fmt.Sprintf(`to_string(parse_json('%s'))`, tc))
-			fmt.Println(err)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
-			fmt.Println(err)
 			assert.NilError(t, err)
 
 			assert.Equal(t, result, tc)
@@ -93,11 +91,9 @@ func Test_ParseJsonComplex(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.input, func(t *testing.T) {
 			jp, err := New(tc.input)
-			fmt.Println(err)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
-			fmt.Println(err)
 			assert.NilError(t, err)
 
 			assert.Equal(t, result, tc.expectedResult)
