@@ -37,6 +37,11 @@ func MatchPattern(logger logr.Logger, resource, pattern interface{}) error {
 			return &PatternError{err, "", true}
 		}
 
+		if fail(err) {
+			logger.V(3).Info("failed to apply rule on resource", "msg", ac.AnchorError.Error())
+			return &PatternError{err, elemPath, false}
+		}
+
 		// check if an anchor defined in the policy rule is missing in the resource
 		if ac.IsAnchorError() {
 			logger.V(3).Info("missing anchor in resource")
@@ -52,6 +57,11 @@ func MatchPattern(logger logr.Logger, resource, pattern interface{}) error {
 func skip(err error) bool {
 	// if conditional or global anchors report errors, the rule does not apply to the resource
 	return anchor.IsConditionalAnchorError(err.Error()) || anchor.IsGlobalAnchorError(err.Error())
+}
+
+func fail(err error) bool {
+	// if negation anchors report errors, the rule will fail
+	return anchor.IsNegationAnchorError(err.Error())
 }
 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)
