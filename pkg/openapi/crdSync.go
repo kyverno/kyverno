@@ -171,13 +171,13 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 
 	schemaRaw, _ := json.Marshal(openV3schema)
 	if len(schemaRaw) < 1 {
-		log.Log.V(4).Info("could not parse crd schema", "name", crdName)
+		log.Log.V(4).Info("failed to parse crd schema", "name", crdName)
 		return
 	}
 
-	schemaRaw, err = addingDefaultFieldsToSchema(schemaRaw)
+	schemaRaw, err = addingDefaultFieldsToSchema(crdName, schemaRaw)
 	if err != nil {
-		log.Log.Error(err, "could not parse crd schema", "name", crdName)
+		log.Log.Error(err, "failed to parse crd schema", "name", crdName)
 		return
 	}
 
@@ -188,7 +188,7 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 	if err != nil {
 		v3valueFound := isOpenV3Error(err)
 		if v3valueFound == false {
-			log.Log.Error(err, "could not parse crd schema", "name", crdName)
+			log.Log.Error(err, "failed to parse crd schema", "name", crdName)
 		}
 		return
 	}
@@ -211,14 +211,15 @@ func isOpenV3Error(err error) bool {
 }
 
 // addingDefaultFieldsToSchema will add any default missing fields like apiVersion, metadata
-func addingDefaultFieldsToSchema(schemaRaw []byte) ([]byte, error) {
+func addingDefaultFieldsToSchema(crdName string, schemaRaw []byte) ([]byte, error) {
 	var schema struct {
 		Properties map[string]interface{} `json:"properties"`
 	}
 	_ = json.Unmarshal(schemaRaw, &schema)
 
 	if len(schema.Properties) < 1 {
-		return nil, errors.New("crd schema has no properties")
+		log.Log.V(4).Info("crd schema has no properties", "name", crdName)
+		return schemaRaw, nil
 	}
 
 	if schema.Properties["apiVersion"] == nil {
