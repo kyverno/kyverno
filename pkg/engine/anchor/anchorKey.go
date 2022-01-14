@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// IsNegationAnchorError checks if error message has conditional anchor error string
+// IsNegationAnchorError checks if error message has negation anchor error string
 func IsNegationAnchorError(msg string) bool {
 	return strings.Contains(msg, NegationAnchorErrMsg)
 }
