@@ -29,7 +29,7 @@ func NewNegationAnchorError(msg string) ValidateAnchorError {
 	}
 }
 
-// IsNegationAnchorError checks if the error is a conditional anchor error
+// IsNegationAnchorError checks if the error is a negation anchor error
 func (e ValidateAnchorError) IsNegationAnchorError() bool {
 	return e.Err == NegationAnchorErr
 }
