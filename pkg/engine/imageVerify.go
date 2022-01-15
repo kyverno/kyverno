@@ -80,6 +80,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 		for _, imageVerify := range ruleCopy.VerifyImages {
 			iv.verify(imageVerify, images.Containers)
 			iv.verify(imageVerify, images.InitContainers)
+			iv.verify(imageVerify, images.EphemeralContainers)
 		}
 	}
 

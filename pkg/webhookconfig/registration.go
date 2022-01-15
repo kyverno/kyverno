@@ -177,7 +177,7 @@ func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 }
 
 // UpdateWebhookConfigurations updates resource webhook configurations dynamically
-// base on the UPDATEs of Kyverno init-config ConfigMap
+// based on the UPDATEs of Kyverno ConfigMap defined in INIT_CONFIG env
 //
 // it currently updates namespaceSelector only, can be extend to update other fields
 // +deprecated
@@ -248,10 +248,9 @@ func (wrc *Register) cleanupKyvernoResource() bool {
 	logger := wrc.log.WithName("cleanupKyvernoResource")
 	deploy, err := wrc.client.GetResource("", "Deployment", deployNamespace, deployName)
 	if err != nil {
-		logger.Error(err, "failed to get deployment, cleanup kyverno resources anyway")
-		return true
+		logger.Error(err, "failed to get deployment, not cleaning up kyverno resources")
+		return false
 	}
-
 	if deploy.GetDeletionTimestamp() != nil {
 		logger.Info("Kyverno is terminating, cleanup Kyverno resources")
 		return true

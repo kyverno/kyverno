@@ -7736,7 +7736,7 @@ spec:
         - -v=2
         env:
         - name: INIT_CONFIG
-          value: init-config
+          value: kyverno
         - name: METRICS_CONFIG
           value: kyverno-metrics
         - name: KYVERNO_NAMESPACE
