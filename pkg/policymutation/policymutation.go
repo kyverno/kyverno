@@ -618,6 +618,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		for _, foreach := range rule.Mutation.ForEachMutation {
 			newForeachMutation = append(newForeachMutation, &kyverno.ForEachMutation{
 				List:             foreach.List,
+				Context:          foreach.Context,
 				AnyAllConditions: foreach.AnyAllConditions,
 				PatchStrategicMerge: map[string]interface{}{
 					"spec": map[string]interface{}{
