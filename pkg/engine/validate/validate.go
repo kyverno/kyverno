@@ -38,7 +38,7 @@ func MatchPattern(logger logr.Logger, resource, pattern interface{}) error {
 		}
 
 		if fail(err) {
-			logger.V(3).Info("failed to apply rule on resource", "msg", ac.AnchorError.Error())
+			logger.V(2).Info("failed to apply rule on resource", "msg", ac.AnchorError.Error())
 			return &PatternError{err, elemPath, false}
 		}
 
