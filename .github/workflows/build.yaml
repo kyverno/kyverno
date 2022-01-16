@@ -7,8 +7,6 @@ on:
     branches:
       - 'main'
 
-permissions: read-all
-
 jobs:
   pre-checks:
     runs-on: ubuntu-latest
