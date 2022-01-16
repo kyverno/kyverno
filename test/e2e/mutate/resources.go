@@ -363,3 +363,56 @@ metadata:
   annotations:
     fluentbit.io/exclude-busybox: "true"
 `)
+
+var kyverno_2971_policy = []byte(`
+apiVersion : kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: replace-docker-hub
+spec:
+  rules:
+  - name: replace-docker-hub
+    match:
+      resources:
+        kinds:
+        - Pod
+    preconditions:
+      all:
+      - key: "{{request.operation}}"
+        operator: In
+        value:
+        - CREATE
+        - UPDATE
+    mutate:
+      foreach:
+      - list: "request.object.spec.containers"
+        preconditions:
+          all:
+            - key: '{{images.containers."{{element.name}}".registry}}'
+              operator: Equals
+              value: 'docker.io'
+        patchStrategicMerge:
+          spec:
+            containers:
+            - name: "{{ element.name }}"           
+              image: 'my-private-registry/{{images.containers."{{element.name}}".path}}:{{images.containers."{{element.name}}".tag}}'
+`)
+
+var kyverno_2971_resource = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  namespace: test-mutate
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.14.2
+`)
+
+var kyverno_2971_pattern = []byte(`
+spec:
+  containers:
+  - name: "nginx"           
+    image: 'my-private-registry/nginx:1.14.2'
+`)
