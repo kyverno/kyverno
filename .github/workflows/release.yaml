@@ -3,11 +3,13 @@ on:
   push:
     tags:
       - 'v*'
+
+permissions: read-all
+
 jobs:
   release-init-kyverno:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       packages: write
       id-token: write
     steps:
@@ -76,7 +78,6 @@ jobs:
   release-kyverno:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       packages: write
       id-token: write
     steps:
@@ -168,7 +169,6 @@ jobs:
   release-kyverno-cli:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       packages: write
       id-token: write
     steps:
