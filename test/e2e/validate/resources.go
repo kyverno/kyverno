@@ -650,12 +650,12 @@ spec:
         operator: NotEquals
         value: DELETE
     validate:
-      message: "images with root user are not allowed"  
+      message: "images with root user are not allowed"
       foreach:
       - list: "request.object.spec.containers"
-        context: 
+        context:
         - name: imageData
-          imageRegistry: 
+          imageRegistry:
             reference: "{{ element.image }}"
             jmesPath: "{user: configData.config.User || '', registry: registry}"
         deny:
@@ -738,4 +738,61 @@ spec:
   containers:
   - name: ubuntu
     image: ubuntu:bionic
+`)
+
+var kyverno_small_image_policy = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: images
+spec:
+  validationFailureAction: enforce
+  rules:
+  - name: only-allow-small-images
+    match:
+      resources:
+        kinds:
+        - Pod
+    preconditions:
+      - key: "{{request.operation}}"
+        operator: NotEquals
+        value: DELETE
+    validate:
+      message: "images with size greater than 2Gi not allowed"
+      foreach:
+      - list: "request.object.spec.containers"
+        context:
+        - name: imageSize
+          imageRegistry:
+            reference: "{{ element.image }}"
+            # Note that we need to use "to_string" here to allow kyverno to treat it like a resource quantity of type memory
+            # the total size of an image as calculated by docker is the total sum of its layer sizes
+            jmesPath: "to_string(sum(manifest.layers[*].size))"
+        deny:
+          conditions:
+            - key: "2Gi"
+              operator: LessThan
+              value: "{{imageSize}}"
+`)
+
+var kyverno_pod_with_small_image = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: small-image
+spec:
+  containers:
+  - name: small-image
+    image: busybox:latest
+`)
+
+var kyverno_pod_with_large_image = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: large-image
+spec:
+  containers:
+  - name: large-image
+    image: nvidia/cuda:11.6.0-devel-ubi8
 `)
