@@ -17,6 +17,8 @@ on:
       - 'docs/**'
       - '.github/config.yml'
 
+permissions: read-all
+
 jobs:
   e2e-test:
     runs-on: ubuntu-latest
