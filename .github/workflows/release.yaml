@@ -14,6 +14,7 @@ jobs:
       digest_command: docker-get-initContainer-digest
       image_name: kyvernopre
       tag: release
+      main: cmd/initContainer
     secrets:
       registry_username: ${{ github.actor }}
       registry_password: ${{ secrets.CR_PAT }}
@@ -25,6 +26,7 @@ jobs:
       digest_command: docker-get-kyverno-digest
       image_name: kyverno
       tag: release
+      main: cmd/kyverno
     secrets:
       registry_username: ${{ github.actor }}
       registry_password: ${{ secrets.CR_PAT }}
@@ -36,6 +38,7 @@ jobs:
       digest_command: docker-get-cli-digest
       image_name: kyverno-cli
       tag: release
+      main: cmd/cli/kubectl-kyverno
     secrets:
       registry_username: ${{ github.actor }}
       registry_password: ${{ secrets.CR_PAT }}

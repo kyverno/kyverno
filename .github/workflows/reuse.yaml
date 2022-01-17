@@ -15,6 +15,9 @@ on:
       tag: 
         required: true
         type: string
+      main: 
+        required: true
+        type: string
     secrets:
       registry_username:
         required: true
@@ -61,10 +64,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Refresh Go report card
-        if: ${{ inputs.tag == 'release'}}
-        uses: creekorful/goreportcard-action@1f35ced8cdac2cba28c9a2f2288a16aacfd507f9 # v1.0
-
       - name: Log into ghcr.io
         uses: docker/login-action@master
         with:
@@ -88,7 +87,7 @@ jobs:
         uses: CycloneDX/gh-gomod-generate-sbom@c18e41a4e3defe6dbf69b594e4d831a89db82ead # v1.0.0
         with:
           version: v1
-          args: mod -licenses -json -output ${{inputs.image_name}}-${{ env.KYVERNO_VERSION }}-bom.cdx.json
+          args: app -licenses -json -output ${{inputs.image_name}}-${{ env.KYVERNO_VERSION }}-bom.cdx.json -main ${{inputs.main}}
           
       - name: Upload SBOM JSON
         if: ${{inputs.tag == 'release'}}
