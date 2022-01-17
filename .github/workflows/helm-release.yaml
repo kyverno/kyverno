@@ -4,6 +4,8 @@ on:
     tags:
       - 'helm-chart-v*'
 
+permissions: read-all
+
 jobs:
   helm-tests:
     runs-on: ubuntu-latest
