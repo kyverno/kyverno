@@ -489,13 +489,16 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	log.Log.V(3).Info("applying policy on resource", "policy", policy.Name, "resource", resPath)
 
-	resourceRaw, _ := resource.MarshalJSON()
-	updated_resource, err := ut.ConvertToUnstructured(resourceRaw)
-	ctx := context.NewContext()
-
+	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
 		log.Log.Error(err, "failed to marshal resource")
 	}
+
+	updated_resource, err := ut.ConvertToUnstructured(resourceRaw)
+	if err != nil {
+		log.Log.Error(err, "unable to convert raw resource to unstructured")
+	}
+	ctx := context.NewContext()
 
 	if operationIsDelete {
 		err = ctx.AddResourceInOldObject(resourceRaw)
