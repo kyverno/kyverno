@@ -96,6 +96,16 @@ var tests = []struct {
 		ResourceRaw:        podWithEnvVar,
 		ExpectedPatternRaw: podWithEnvVarPattern,
 	},
+	{
+		TestDescription:    "checks that preconditions are substituted correctly",
+		PolicyName:         "replace-docker-hub",
+		PolicyRaw:          kyverno_2971_policy,
+		ResourceName:       "nginx",
+		ResourceNamespace:  "test-mutate",
+		ResourceGVR:        podGVR,
+		ResourceRaw:        kyverno_2971_resource,
+		ExpectedPatternRaw: kyverno_2971_pattern,
+	},
 }
 
 var ingressTests = struct {

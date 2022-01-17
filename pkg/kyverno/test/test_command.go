@@ -46,7 +46,7 @@ kyverno test https://github.com/kyverno/policies/pod-security --git-branch main
     <snip>
 
     Executing require-non-root-groups...
-    applying 1 policy to 2 resources... 
+    applying 1 policy to 2 resources...
 
     │───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
     │ # │ POLICY                  │ RULE                     │ RESOURCE                         │ RESULT │
@@ -324,8 +324,17 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string, gi
 		}
 
 	} else {
+		var testFiles int
+		var deprecatedFiles int
 		path := filepath.Clean(dirPath[0])
-		errors = getLocalDirTestFiles(fs, path, fileName, valuesFile, rc)
+		errors = getLocalDirTestFiles(fs, path, fileName, valuesFile, rc, &testFiles, &deprecatedFiles)
+
+		if testFiles == 0 {
+			fmt.Printf("\n No test files found. Please provide test YAML files named kyverno-test.yaml \n")
+		}
+		if deprecatedFiles > 0 {
+			fmt.Printf("\n Note: The test.yaml file name is deprecated in 1.6.0 release. Please use kyverno-test.yaml instead. \n")
+		}
 	}
 
 	if len(errors) > 0 && log.Log.V(1).Enabled() {
@@ -339,27 +348,28 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string, gi
 		os.Exit(1)
 	}
 
+	fmt.Printf("\nTest Summary: %d tests passed and %d tests failed\n", rc.Pass+rc.Skip, rc.Fail)
+
 	os.Exit(0)
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts, testFiles *int, deprecatedFiles *int) []error {
 	var errors []error
-	var count int
-	var dirTestYamlNameCount int
+
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
 		return []error{fmt.Errorf("failed to read %v: %v", path, err.Error())}
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc, testFiles, deprecatedFiles)
 			continue
 		}
 		if strings.Contains(file.Name(), fileName) || strings.Contains(file.Name(), "test.yaml") {
-			count++
-			if strings.Contains(file.Name(), "test.yaml") {
-				dirTestYamlNameCount++
+			*testFiles++
+			if strings.Compare(file.Name(), "test.yaml") == 0 {
+				*deprecatedFiles++
 			}
 			// We accept the risk of including files here as we read the test dir only.
 			yamlFile, err := ioutil.ReadFile(filepath.Join(path, file.Name())) // #nosec G304
@@ -377,12 +387,6 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 				continue
 			}
 		}
-	}
-	if count == 0 {
-		fmt.Printf("\n No test yamls found. Please provide test yaml file as kyverno-test.yaml \n")
-	}
-	if dirTestYamlNameCount > 0 {
-		fmt.Printf("\n Note: test.yaml file name is deprecated in 1.6.0 release. Please provide test yaml file as kyverno-test.yaml \n")
 	}
 	return errors
 }
