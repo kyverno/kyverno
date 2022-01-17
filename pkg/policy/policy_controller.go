@@ -82,12 +82,6 @@ type PolicyController struct {
 	// npListerSynced returns true if the namespace policy store has been synced at least once
 	npListerSynced cache.InformerSynced
 
-	// pvListerSynced returns true if the cluster policy violation store has been synced at least once
-	cpvListerSynced cache.InformerSynced
-
-	// pvListerSynced returns true if the policy violation store has been synced at least once
-	nspvListerSynced cache.InformerSynced
-
 	// nsListerSynced returns true if the namespace store has been synced at least once
 	nsListerSynced cache.InformerSynced
 
