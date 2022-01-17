@@ -1,6 +1,7 @@
 package webhookconfig
 
 import (
+	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"path/filepath"
@@ -13,7 +14,6 @@ import (
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -97,11 +97,15 @@ func (wrc *Register) GetKubePolicyDeployment() (*apps.Deployment, *unstructured.
 		return nil, nil, err
 	}
 	kubePolicyDeployment := unstructured.Unstructured{}
-	content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(deploy)
+	rawDepl, err := json.Marshal(deploy)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = json.Unmarshal(rawDepl, &kubePolicyDeployment)
 	if err != nil {
 		return deploy, nil, err
 	}
-	kubePolicyDeployment.SetUnstructuredContent(content)
 	return deploy, &kubePolicyDeployment, nil
 }
 
