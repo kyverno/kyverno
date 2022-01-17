@@ -244,10 +244,7 @@ func (iv *ImageVerifier) attestImage(repository, key string, imageInfo *context.
 	}
 	iv.logger.V(4).Info("received attestations", "statements", statements)
 	statementsByPredicate := buildStatementMap(statements)
-	return iv.AttestationCheck(statementsByPredicate, attestationChecks, imageInfo)
-}
 
-func (iv *ImageVerifier) AttestationCheck(statementsByPredicate map[string][]map[string]interface{}, attestationChecks []*v1.Attestation, imageInfo *context.ImageInfo) *response.RuleResponse {
 	for _, ac := range attestationChecks {
 		statements := statementsByPredicate[ac.PredicateType]
 		if statements == nil {
@@ -300,10 +297,6 @@ func (iv *ImageVerifier) checkAttestations(a *v1.Attestation, s map[string]inter
 		return false, fmt.Errorf("failed to extract predicate from statement: %v", s)
 	}
 
-	if err := iv.policyContext.JSONContext.AddJSONObject(predicate); err != nil {
-		return false, errors.Wrapf(err, fmt.Sprintf("failed to add Statement to the context %v", s))
-	}
-
 	imgMap := map[string]interface{}{
 		"image": map[string]interface{}{
 			"image":    img.String(),
@@ -317,6 +310,19 @@ func (iv *ImageVerifier) checkAttestations(a *v1.Attestation, s map[string]inter
 
 	if err := iv.policyContext.JSONContext.AddJSONObject(imgMap); err != nil {
 		return false, errors.Wrapf(err, fmt.Sprintf("failed to add image to the context %v", s))
+	}
+
+	res, err := iv.checkPredicate(predicate, a)
+	if err != nil {
+		return false, errors.Wrapf(err, fmt.Sprintf("failed to check predicate %v", s))
+	}
+	return res, nil
+}
+
+func (iv *ImageVerifier) checkPredicate(predicate map[string]interface{}, a *v1.Attestation) (bool, error) {
+
+	if err := iv.policyContext.JSONContext.AddJSONObject(predicate); err != nil {
+		return false, errors.Wrapf(err, "failed to add predicate to the context")
 	}
 
 	conditions, err := variables.SubstituteAllInConditions(iv.logger, iv.policyContext.JSONContext, a.Conditions)

@@ -714,6 +714,8 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.Name, resource.GetName()), err)
 			}
 
+			if thisPolicyResourceValues
+
 			err = common.CheckAttestationsForPolicy(policy, values.Attestations, isGit, fs, policyResourcePath)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to match attestations").Error(), err)
