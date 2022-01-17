@@ -84,18 +84,18 @@ jobs:
           echo "KYVERNO_VERSION=$(git tag --list --sort=-version:refname "v[0-9]*" | head -n 1)" >> $GITHUB_ENV
 
       - name: Generate SBOM JSON
-        if: ${{ inputs.image_name == 'kyverno' && inputs.tag == 'release'}}
-        uses: CycloneDX/gh-gomod-generate-sbom@v1
+        if: ${{inputs.tag == 'release'}}
+        uses: CycloneDX/gh-gomod-generate-sbom@c18e41a4e3defe6dbf69b594e4d831a89db82ead # v1.0.0
         with:
           version: v1
-          args: mod -licenses -json -output kyverno-${{ env.KYVERNO_VERSION }}-bom.cdx.json
+          args: mod -licenses -json -output ${{inputs.image_name}}-${{ env.KYVERNO_VERSION }}-bom.cdx.json
           
       - name: Upload SBOM JSON
-        if: ${{ inputs.image_name == 'kyverno' && inputs.tag == 'release'}}
-        uses: actions/upload-artifact@v2
+        if: ${{inputs.tag == 'release'}}
+        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.1
         with:
-          name: kyverno-bom-cdx
-          path: kyverno-v*-bom.cdx.json
+          name: ${{inputs.image_name}}-bom-cdx
+          path: ${{inputs.image_name}}-v*-bom.cdx.json
 
       - name : Docker images publish
         run: make ${{inputs.publish_command}}
@@ -116,17 +116,17 @@ jobs:
           -a "ref=${{ github.sha }}" \
           ghcr.io/kyverno/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}
 
-      - name : Sign SBOM
-        if: ${{ inputs.image_name == 'kyverno' && inputs.tag == 'release'}}
+      - name : Attach SBOM
+        if: ${{inputs.tag == 'release'}}
         env:
           COSIGN_REPOSITORY: "ghcr.io/kyverno/sbom"
-        run: cosign attach sbom --sbom ./*-bom.cdx.json --type cyclonedx  ghcr.io/kyverno/kyverno:${{env.KYVERNO_VERSION}}
+        run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx  ghcr.io/kyverno/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}
 
       - name: Trivy Scan Image
         if: ${{ inputs.tag == 'release'}}
         uses: aquasecurity/trivy-action@master
         with: 
-          image-ref: 'ghcr.io/kyverno/${{inputs.image_name}}:${{env.KYVERNO_VERSION}}'
+          image-ref: 'ghcr.io/kyverno/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}'
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
