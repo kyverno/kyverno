@@ -34,6 +34,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/signal"
 	ktls "github.com/kyverno/kyverno/pkg/tls"
@@ -176,7 +177,7 @@ func main() {
 	secrets := strings.Split(imagePullSecrets, ",")
 	if imagePullSecrets != "" && len(secrets) > 0 {
 		setupLog.Info("initializing registry credentials", "secrets", secrets)
-		if err := cosign.Initialize(kubeClient, config.KyvernoNamespace, "", secrets); err != nil {
+		if err := registryclient.Initialize(kubeClient, config.KyvernoNamespace, "", secrets); err != nil {
 			setupLog.Error(err, "failed to initialize image pull secrets")
 			os.Exit(1)
 		}
