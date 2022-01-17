@@ -3,6 +3,7 @@ policies:
   - policies.yaml
 resources:
   - resources.yaml
+variables: variables.yaml
 results:
   - policy: validate-empty-dir-mountpath
     rule: check-mount-paths

@@ -7,6 +7,8 @@ on:
       - 'charts/kyverno/**'
       - '.github/workflows/helm-test.yaml'
 
+permissions: read-all
+
 jobs:
   helm-tests:
     runs-on: ubuntu-latest

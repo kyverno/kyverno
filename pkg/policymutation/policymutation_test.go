@@ -165,6 +165,38 @@ func Test_CronJobOnly(t *testing.T) {
 	assert.DeepEqual(t, rulePatches, expectedPatches)
 }
 
+func Test_ForEachPod(t *testing.T) {
+	dir, err := os.Getwd()
+	baseDir := filepath.Dir(filepath.Dir(dir))
+	assert.NilError(t, err)
+	file, err := ioutil.ReadFile(baseDir + "/test/policy/mutate/policy_mutate_pod_foreach_with_context.yaml")
+	if err != nil {
+		t.Log(err)
+	}
+	policies, err := utils.GetPolicy(file)
+	if err != nil {
+		t.Log(err)
+	}
+
+	policy := policies[0]
+	policy.Spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
+
+	rulePatches, errs := generateRulePatches(*policy, engine.PodControllers, log.Log)
+	if len(errs) != 0 {
+		t.Log(errs)
+	}
+
+	expectedPatches := [][]byte{
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-resolve-image-containers","match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"preconditions":{"all":[{"key":"{{request.operation}}","operator":"In","value":["CREATE","UPDATE"]}]},"mutate":{"foreach":[{"list":"request.object.spec.template.spec.containers","context":[{"name":"dictionary","configMap":{"name":"some-config-map","namespace":"some-namespace"}}],"patchStrategicMerge":{"spec":{"template":{"spec":{"containers":[{"image":"{{ dictionary.data.image }}","name":"{{ element.name }}"}]}}}}}]}}}`),
+		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-resolve-image-containers","match":{"resources":{"kinds":["CronJob"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"preconditions":{"all":[{"key":"{{request.operation}}","operator":"In","value":["CREATE","UPDATE"]}]},"mutate":{"foreach":[{"list":"request.object.spec.jobTemplate.spec.template.spec.containers","context":[{"name":"dictionary","configMap":{"name":"some-config-map","namespace":"some-namespace"}}],"patchStrategicMerge":{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"containers":[{"image":"{{ dictionary.data.image }}","name":"{{ element.name }}"}]}}}}}}}]}}}`),
+	}
+
+	for i, ep := range expectedPatches {
+		assert.Equal(t, string(rulePatches[i]), string(ep),
+			fmt.Sprintf("unexpected patch: %s\nexpected: %s", rulePatches[i], ep))
+	}
+}
+
 func Test_CronJob_hasExclude(t *testing.T) {
 
 	controllers := engine.PodControllerCronJob

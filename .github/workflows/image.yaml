@@ -4,11 +4,12 @@ on:
     branches:
       - 'main'
 
+permissions: read-all
+
 jobs:
   push-init-kyverno:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       packages: write
       id-token: write
     steps:
@@ -60,7 +61,6 @@ jobs:
   push-kyverno:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       packages: write
       id-token: write
     steps:
@@ -111,7 +111,6 @@ jobs:
   push-kyverno-cli:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       packages: write
       id-token: write
     steps:
