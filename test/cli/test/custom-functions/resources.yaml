@@ -67,3 +67,28 @@ metadata:
   annotations:
     test: |
       {"a": "not-b"}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valid-yaml-test
+  annotations:
+    test: |
+      value: a
+      array:
+        - a
+        - b
+        - c 
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: invalid-yaml-test
+  annotations:
+    test: |
+      value: b
+      array:
+        - d
+        - e
+        - f
+
