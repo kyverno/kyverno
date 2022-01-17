@@ -688,19 +688,24 @@ func (wrc *Register) updateResourceValidatingWebhookConfiguration(nsSelector map
 		return errors.Wrapf(err, "unable to load validatingWebhookConfigurations.webhooks")
 	}
 
-	var webhooks map[string]interface{}
-	var ok bool
-	if webhooksUntyped != nil {
-		webhooks, ok = webhooksUntyped[0].(map[string]interface{})
+	var (
+		webhook  map[string]interface{}
+		webhooks []interface{}
+		ok       bool
+	)
+
+	for i, whu := range webhooksUntyped {
+		webhook, ok = whu.(map[string]interface{})
 		if !ok {
-			return errors.Wrapf(err, "type mismatched, expected map[string]interface{}, got %T", webhooksUntyped[0])
+			return errors.Wrapf(err, "type mismatched, expected map[string]interface{}, got %T", webhooksUntyped[i])
 		}
-	}
-	if err = unstructured.SetNestedMap(webhooks, nsSelector, "namespaceSelector"); err != nil {
-		return errors.Wrapf(err, "unable to set validatingWebhookConfigurations.webhooks[0].namespaceSelector")
+		if err = unstructured.SetNestedMap(webhook, nsSelector, "namespaceSelector"); err != nil {
+			return errors.Wrapf(err, "unable to set validatingWebhookConfigurations.webhooks["+fmt.Sprint(i)+"].namespaceSelector")
+		}
+		webhooks = append(webhooks, webhook)
 	}
 
-	if err = unstructured.SetNestedSlice(resourceValidating.UnstructuredContent(), []interface{}{webhooks}, "webhooks"); err != nil {
+	if err = unstructured.SetNestedSlice(resourceValidating.UnstructuredContent(), webhooks, "webhooks"); err != nil {
 		return errors.Wrapf(err, "unable to set validatingWebhookConfigurations.webhooks")
 	}
 
@@ -724,19 +729,24 @@ func (wrc *Register) updateResourceMutatingWebhookConfiguration(nsSelector map[s
 		return errors.Wrapf(err, "unable to load mutatingWebhookConfigurations.webhooks")
 	}
 
-	var webhooks map[string]interface{}
-	var ok bool
-	if webhooksUntyped != nil {
-		webhooks, ok = webhooksUntyped[0].(map[string]interface{})
+	var (
+		webhook  map[string]interface{}
+		webhooks []interface{}
+		ok       bool
+	)
+
+	for i, whu := range webhooksUntyped {
+		webhook, ok = whu.(map[string]interface{})
 		if !ok {
-			return errors.Wrapf(err, "type mismatched, expected map[string]interface{}, got %T", webhooksUntyped[0])
+			return errors.Wrapf(err, "type mismatched, expected map[string]interface{}, got %T", webhooksUntyped[i])
 		}
-	}
-	if err = unstructured.SetNestedMap(webhooks, nsSelector, "namespaceSelector"); err != nil {
-		return errors.Wrapf(err, "unable to set mutatingWebhookConfigurations.webhooks[0].namespaceSelector")
+		if err = unstructured.SetNestedMap(webhook, nsSelector, "namespaceSelector"); err != nil {
+			return errors.Wrapf(err, "unable to set mutatingWebhookConfigurations.webhooks["+fmt.Sprint(i)+"].namespaceSelector")
+		}
+		webhooks = append(webhooks, webhook)
 	}
 
-	if err = unstructured.SetNestedSlice(resourceMutating.UnstructuredContent(), []interface{}{webhooks}, "webhooks"); err != nil {
+	if err = unstructured.SetNestedSlice(resourceMutating.UnstructuredContent(), webhooks, "webhooks"); err != nil {
 		return errors.Wrapf(err, "unable to set mutatingWebhookConfigurations.webhooks")
 	}
 

@@ -195,13 +195,21 @@ func (cd *ConfigData) updateCM(old, cur interface{}) {
 		return
 	}
 	// if data has not changed then dont load configmap
-	reconcilePolicyReport, updateWebook := cd.load(*cm)
-	if reconcilePolicyReport {
+	reconcilePolicyReport, updateWebhook := cd.load(*cm)
+
+	cd.ReconcilePolicyReport(reconcilePolicyReport)
+	cd.UpdateWebhook(updateWebhook)
+}
+
+func (cd *ConfigData) ReconcilePolicyReport(reconcile bool) {
+	if reconcile {
 		cd.log.Info("resource filters changed, sending reconcile signal to the policy controller")
 		cd.reconcilePolicyReport <- true
 	}
+}
 
-	if updateWebook {
+func (cd *ConfigData) UpdateWebhook(update bool) {
+	if update {
 		cd.log.Info("webhook configurations changed, updating webhook configurations")
 		cd.updateWebhookConfigurations <- true
 	}
@@ -284,7 +292,13 @@ func (cd *ConfigData) load(cm v1.ConfigMap) (reconcilePolicyReport, updateWebhoo
 
 	webhooks, ok := cm.Data["webhooks"]
 	if !ok {
-		logger.V(4).Info("configuration: No webhook configurations defined in ConfigMap")
+		if len(cd.webhooks) > 0 {
+			cd.webhooks = nil
+			updateWebhook = true
+			logger.V(4).Info("configuration: Removed webhook configurations defined in ConfigMap")
+		} else {
+			logger.V(4).Info("configuration: No webhook configurations defined in ConfigMap")
+		}
 	} else {
 		cfgs, err := parseWebhooks(webhooks)
 		if err != nil {
