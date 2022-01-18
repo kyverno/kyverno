@@ -39,3 +39,23 @@ results:
     resource: invalid-test
     kind: ConfigMap
     result: fail
+  - policy: test-parse-yaml
+    rule: test-yaml-parsing-jmespath
+    resource: valid-yaml-test
+    kind: ConfigMap
+    result: pass
+  - policy: test-parse-yaml
+    rule: test-yaml-parsing-jmespath
+    resource: invalid-yaml-test
+    kind: ConfigMap
+    result: fail
+  - policy: test-parse-yaml-array
+    rule: test-yaml-parsing-jmespath
+    resource: valid-yaml-test
+    kind: ConfigMap
+    result: pass
+  - policy: test-parse-yaml-array
+    rule: test-yaml-parsing-jmespath
+    resource: invalid-yaml-test
+    kind: ConfigMap
+    result: fail

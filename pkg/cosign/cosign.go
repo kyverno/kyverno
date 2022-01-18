@@ -13,8 +13,6 @@ import (
 	"github.com/sigstore/cosign/pkg/oci/remote"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/pkg/engine/common"
@@ -27,50 +25,10 @@ import (
 	sigs "github.com/sigstore/cosign/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
-	"k8s.io/client-go/kubernetes"
 )
 
-var (
-	// ImageSignatureRepository is an alternate signature repository
-	ImageSignatureRepository string
-	Secrets                  []string
-
-	kubeClient            kubernetes.Interface
-	kyvernoNamespace      string
-	kyvernoServiceAccount string
-)
-
-// Initialize loads the image pull secrets and initializes the default auth method for container registry API calls
-func Initialize(client kubernetes.Interface, namespace, serviceAccount string, imagePullSecrets []string) error {
-	kubeClient = client
-	kyvernoNamespace = namespace
-	kyvernoServiceAccount = serviceAccount
-	Secrets = imagePullSecrets
-
-	var kc authn.Keychain
-	kcOpts := &k8schain.Options{
-		Namespace:          namespace,
-		ServiceAccountName: serviceAccount,
-		ImagePullSecrets:   imagePullSecrets,
-	}
-
-	kc, err := k8schain.New(context.Background(), client, *kcOpts)
-	if err != nil {
-		return errors.Wrap(err, "failed to initialize registry keychain")
-	}
-
-	authn.DefaultKeychain = kc
-	return nil
-}
-
-// UpdateKeychain reinitializes the image pull secrets and default auth method for container registry API calls
-func UpdateKeychain() error {
-	var err = Initialize(kubeClient, kyvernoNamespace, kyvernoServiceAccount, Secrets)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+// ImageSignatureRepository is an alternate signature repository
+var ImageSignatureRepository string
 
 type Options struct {
 	ImageRef    string
