@@ -267,6 +267,11 @@ func (wrc *Register) cleanupKyvernoResource() bool {
 	logger := wrc.log.WithName("cleanupKyvernoResource")
 	deploy, err := wrc.client.GetResource("", "Deployment", deployNamespace, deployName)
 	if err != nil {
+		if errorsapi.IsNotFound(err) {
+			logger.Info("Kyverno deployment not found, cleanup Kyverno resources")
+			return true
+		}
+
 		logger.Error(err, "failed to get deployment, not cleaning up kyverno resources")
 		return false
 	}
