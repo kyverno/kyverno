@@ -14,6 +14,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -96,13 +97,13 @@ func (wrc *Register) GetKubePolicyDeployment() (*apps.Deployment, *unstructured.
 	if err != nil {
 		return nil, nil, err
 	}
+	deploy.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "apps/v1", Kind: "Deployment"})
 	kubePolicyDeployment := unstructured.Unstructured{}
 	rawDepl, err := json.Marshal(deploy)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	err = json.Unmarshal(rawDepl, &kubePolicyDeployment)
+	err = json.Unmarshal(rawDepl, &kubePolicyDeployment.Object)
 	if err != nil {
 		return deploy, nil, err
 	}
