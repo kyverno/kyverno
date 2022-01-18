@@ -83,7 +83,11 @@ func VerifySignature(imageRef string, key []byte, repository string, log logr.Lo
 	}
 
 	if key != nil {
-		cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRef(ctx, string(key))
+		if strings.HasPrefix(string(key), "-----BEGIN PUBLIC KEY-----") {
+			cosignOpts.SigVerifier, err = decodePEM([]byte(string(key)))
+		} else {
+			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRef(ctx, string(key))
+		}
 	}
 
 	if err != nil {
