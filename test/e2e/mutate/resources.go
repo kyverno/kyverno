@@ -303,8 +303,8 @@ metadata:
       The Kubernetes downward API only has the ability to express so many
       options as environment variables. The image consumed in a Pod is commonly
       needed to make the application aware of some logic it must take. This policy
-      takes the value of the `image` field and adds it as an environment variable
-      to bare Pods and Deployments having no more than two containers. The `env` array must already exist for the policy
+      takes the value of the 'image' field and adds it as an environment variable
+      to bare Pods and Deployments having no more than two containers. The 'env' array must already exist for the policy
       to operate correctly. This policy may be easily extended to support other higher-level
       Pod controllers as well as more containers by following the established rules.      
 spec:
