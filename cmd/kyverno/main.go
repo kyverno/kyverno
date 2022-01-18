@@ -203,7 +203,6 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
-		rCache,
 		log.Log.WithName("EventGenerator"))
 
 	// POLICY Report GENERATOR
