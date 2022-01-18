@@ -22,7 +22,11 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	informers "k8s.io/client-go/informers/apps/v1"
+	coreinformers "k8s.io/client-go/informers/core/v1"
+	listers "k8s.io/client-go/listers/apps/v1"
 	rest "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -45,9 +49,13 @@ type Register struct {
 	log                logr.Logger
 	debug              bool
 	autoUpdateWebhooks bool
+	stopCh             <-chan struct{}
 
 	UpdateWebhookChan    chan bool
 	createDefaultWebhook chan string
+
+	kDeplLister       listers.DeploymentLister
+	kDeplListerSynced func() bool
 
 	// manage implements methods to manage webhook configurations
 	manage
@@ -59,6 +67,8 @@ func NewRegister(
 	client *client.Client,
 	kyvernoClient *kyvernoclient.Clientset,
 	resCache resourcecache.ResourceCache,
+	kDeplInformer informers.DeploymentInformer,
+	nsInformer coreinformers.NamespaceInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	serverIP string,
@@ -78,9 +88,12 @@ func NewRegister(
 		autoUpdateWebhooks:   autoUpdateWebhooks,
 		UpdateWebhookChan:    make(chan bool),
 		createDefaultWebhook: make(chan string),
+		kDeplLister:          kDeplInformer.Lister(),
+		kDeplListerSynced:    kDeplInformer.Informer().HasSynced,
+		stopCh:               stopCh,
 	}
 
-	register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, resCache, serverIP, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
+	register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, resCache, nsInformer, serverIP, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
 
 	return register
 }
@@ -130,6 +143,12 @@ func (wrc *Register) Register() error {
 
 	go wrc.manage.start()
 	return nil
+}
+
+func (wrc *Register) Start() {
+	if !cache.WaitForCacheSync(wrc.stopCh, wrc.kDeplListerSynced) {
+		wrc.log.Info("failed to sync kyverno deployment informer cache")
+	}
 }
 
 // Check returns an error if any of the webhooks are not configured
