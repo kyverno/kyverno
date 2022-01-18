@@ -539,6 +539,27 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		}
 	}
 
+	var policyHasImageVerify bool
+	for _, rule := range policy.Spec.Rules {
+		if rule.HasVerifyImages() {
+			policyHasImageVerify = true
+		}
+	}
+	var imageVerifyResponse *response.EngineResponse
+	if policyHasImageVerify {
+		policyCtx := &engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels}
+		imageVerifyResponse = engine.VerifyAndPatchImages(policyCtx)
+		err = ProcessImageVerifyEngineResponse(policy, imageVerifyResponse, resPath, rc)
+		if err != nil {
+			if !sanitizederror.IsErrorSanitized(err) {
+				return engineResponses, policyreport.Info{}, sanitizederror.NewWithError("failed to print imageVerify result", err)
+			}
+		}
+	}
+	if imageVerifyResponse != nil {
+		engineResponses = append(engineResponses, imageVerifyResponse)
+	}
+
 	var policyHasValidate bool
 	for _, rule := range policy.Spec.Rules {
 		if rule.HasValidate() {
