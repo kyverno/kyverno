@@ -29,7 +29,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -122,9 +121,6 @@ type WebhookServer struct {
 
 	openAPIController *openapi.Controller
 
-	// resCache - controls creation and fetching of resource informer cache
-	resCache resourcecache.ResourceCache
-
 	grController *generate.Controller
 
 	promConfig *metrics.PromConfig
@@ -154,7 +150,6 @@ func NewWebhookServer(
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
-	resCache resourcecache.ResourceCache,
 	grc *generate.Controller,
 	promConfig *metrics.PromConfig,
 ) (*WebhookServer, error) {
@@ -200,7 +195,6 @@ func NewWebhookServer(
 		auditHandler:      auditHandler,
 		log:               log,
 		openAPIController: openAPIController,
-		resCache:          resCache,
 		promConfig:        promConfig,
 	}
 
@@ -385,7 +379,6 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 		AdmissionInfo:       userRequestInfo,
 		ExcludeGroupRole:    ws.configHandler.GetExcludeGroupRole(),
 		ExcludeResourceFunc: ws.configHandler.ToFilter,
-		ResourceCache:       ws.resCache,
 		JSONContext:         ctx,
 		Client:              ws.client,
 	}
@@ -551,7 +544,6 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		AdmissionInfo:       userRequestInfo,
 		ExcludeGroupRole:    ws.configHandler.GetExcludeGroupRole(),
 		ExcludeResourceFunc: ws.configHandler.ToFilter,
-		ResourceCache:       ws.resCache,
 		JSONContext:         ctx,
 		Client:              ws.client,
 	}
