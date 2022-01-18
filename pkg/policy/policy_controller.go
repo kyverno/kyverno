@@ -23,7 +23,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	pm "github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -99,9 +98,6 @@ type PolicyController struct {
 
 	policyReportEraser policyreport.PolicyReportEraser
 
-	// resCache - controls creation and fetching of resource informer cache
-	resCache resourcecache.ResourceCache
-
 	reconcilePeriod time.Duration
 
 	log logr.Logger
@@ -123,7 +119,6 @@ func NewPolicyController(
 	policyReportEraser policyreport.PolicyReportEraser,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
-	resCache resourcecache.ResourceCache,
 	reconcilePeriod time.Duration,
 	promConfig *metrics.PromConfig) (*PolicyController, error) {
 
@@ -147,7 +142,6 @@ func NewPolicyController(
 		configHandler:      configHandler,
 		prGenerator:        prGenerator,
 		policyReportEraser: policyReportEraser,
-		resCache:           resCache,
 		reconcilePeriod:    reconcilePeriod,
 		promConfig:         promConfig,
 		log:                log,

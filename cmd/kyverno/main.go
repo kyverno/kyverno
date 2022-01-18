@@ -310,7 +310,6 @@ func main() {
 		prgen,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
-		rCache,
 		policyControllerResyncPeriod,
 		promConfig,
 	)
@@ -335,7 +334,6 @@ func main() {
 		kubedynamicInformer,
 		log.Log.WithName("GenerateController"),
 		configData,
-		rCache,
 	)
 	if err != nil {
 		setupLog.Error(err, "Failed to create generate controller")
@@ -373,7 +371,6 @@ func main() {
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("ValidateAuditHandler"),
 		configData,
-		rCache,
 		client,
 		promConfig,
 	)
@@ -469,7 +466,6 @@ func main() {
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
-		rCache,
 		grc,
 		promConfig,
 	)
