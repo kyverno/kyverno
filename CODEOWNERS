@@ -2,3 +2,7 @@
 /pkg/webhooks @marcelmue
 /pkg/policy/mutate @marcelmue
 /pkg/engine @marcelmue
+/pkg/kyverno @vyankyGH
+/pkg/openapi @vyankyGH
+/pkg/policycache @vyankyGH
+/pkg/policy/validate @vyankyGH
