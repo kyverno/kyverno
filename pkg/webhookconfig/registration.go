@@ -25,6 +25,7 @@ import (
 	informers "k8s.io/client-go/informers/apps/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	listers "k8s.io/client-go/listers/apps/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	adminformers "k8s.io/client-go/informers/admissionregistration/v1"
 	admlisters "k8s.io/client-go/listers/admissionregistration/v1"
 	rest "k8s.io/client-go/rest"
@@ -710,6 +711,7 @@ func (wrc *Register) updateResourceValidatingWebhookConfiguration(nsSelector map
 	if err != nil {
 		return errors.Wrapf(err, "unable to get validatingWebhookConfigurations")
 	}
+	resourceValidatingTyped.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "admissionregistration.k8s.io/v1", Kind: kindValidating})
 
 	resourceValidating := unstructured.Unstructured{}
 	content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(resourceValidatingTyped)
@@ -756,6 +758,7 @@ func (wrc *Register) updateResourceMutatingWebhookConfiguration(nsSelector map[s
 	if err != nil {
 		return errors.Wrapf(err, "unable to get mutatingWebhookConfigurations")
 	}
+	resourceMutatingTyped.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "admissionregistration.k8s.io/v1", Kind: kindMutating})
 
 	resourceMutating := unstructured.Unstructured{}
 	content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(resourceMutatingTyped)

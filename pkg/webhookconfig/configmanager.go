@@ -552,6 +552,7 @@ func (m *webhookConfigManager) getWebhook(webhookKind, webhookName string) (reso
 				m.createDefaultWebhook <- webhookKind
 				return err
 			}
+			resourceWebhookTyped.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "admissionregistration.k8s.io/v1", Kind: kindMutating})
 			content, err = runtime.DefaultUnstructuredConverter.ToUnstructured(resourceWebhookTyped)
 		case kindValidating:
 			resourceWebhookTyped, err := m.validateLister.Get(webhookName)
@@ -561,6 +562,7 @@ func (m *webhookConfigManager) getWebhook(webhookKind, webhookName string) (reso
 				m.createDefaultWebhook <- webhookKind
 				return err
 			}
+			resourceWebhookTyped.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "admissionregistration.k8s.io/v1", Kind: kindValidating})
 			content, err = runtime.DefaultUnstructuredConverter.ToUnstructured(resourceWebhookTyped)
 		default:
 			return fmt.Errorf("unknown webhook kind: must be '%v' or '%v'", kindMutating, kindValidating)
