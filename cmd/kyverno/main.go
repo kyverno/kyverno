@@ -67,6 +67,7 @@ var (
 	imageSignatureRepository     string
 	clientRateLimitQPS           float64
 	clientRateLimitBurst         int
+	webhookRegistrationTimeout   time.Duration
 	setupLog                     = log.Log.WithName("setup")
 )
 
@@ -102,6 +103,7 @@ func main() {
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the master from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 
+	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -389,7 +391,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	registerWrapperRetry := common.RetryFunc(time.Second, 30*time.Second, webhookCfg.Register, setupLog)
+	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, setupLog)
 	registerWebhookConfigurations := func() {
 		certManager.InitTLSPemPair()
 
