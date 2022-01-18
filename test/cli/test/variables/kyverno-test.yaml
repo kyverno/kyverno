@@ -4,6 +4,7 @@ policies:
   - cm-array-example.yaml
   - cm-blk-scalar-example.yaml
   - cm-globalval-example.yaml
+  - image-example.yaml
 resources:
   - resources.yaml
 variables: variables.yaml
@@ -48,3 +49,18 @@ results:
     resource: test-global-prod
     kind: Pod
     result: fail
+  - policy: images
+    rule: only-allow-trusted-images
+    resource: test-pod-with-non-root-user-image
+    kind: Pod
+    status: pass
+  - policy: images
+    rule: only-allow-trusted-images
+    resource: test-pod-with-trusted-registry
+    kind: Pod
+    status: pass
+  - policy: images
+    rule: only-allow-trusted-images
+    resource: test-pod-with-non-trusted-registry
+    kind: Pod
+    status: fail

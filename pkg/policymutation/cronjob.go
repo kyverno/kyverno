@@ -122,7 +122,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 
 		var newForeachMutation []*kyverno.ForEachMutation
 
-		for _, foreach := range rule.Mutation.ForEachMutation {
+		for _, foreach := range jobRule.Mutation.ForEachMutation {
 			newForeachMutation = append(newForeachMutation, &kyverno.ForEachMutation{
 				List:             foreach.List,
 				Context:          foreach.Context,
