@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/pkg/errors"
@@ -74,7 +73,7 @@ func (t *Monitor) SetTime(tm time.Time) {
 }
 
 // Run runs the checker and verify the resource update
-func (t *Monitor) Run(register *Register, configData *config.ConfigData, certRenewer *tls.CertRenewer, eventGen event.Interface, stopCh <-chan struct{}) {
+func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen event.Interface, stopCh <-chan struct{}) {
 	logger := t.log.WithName("webhookMonitor")
 
 	logger.V(4).Info("starting webhook monitor", "interval", idleCheckInterval.String())
@@ -110,7 +109,7 @@ func (t *Monitor) Run(register *Register, configData *config.ConfigData, certRen
 			// update namespaceSelector every 30 seconds
 			if register.autoUpdateWebhooks {
 				logger.V(3).Info("updating webhook configurations for namespaceSelector with latest kyverno ConfigMap")
-				configData.UpdateWebhook()
+				register.UpdateWebhookChan <- true
 			}
 
 			timeDiff := time.Since(t.Time())

@@ -523,7 +523,7 @@ func main() {
 	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)
 	if !debug {
-		go webhookMonitor.Run(webhookCfg, configData, certRenewer, eventGenerator, stopCh)
+		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
 	}
 
 	go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())

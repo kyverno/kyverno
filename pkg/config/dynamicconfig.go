@@ -199,21 +199,13 @@ func (cd *ConfigData) updateCM(old, cur interface{}) {
 
 	if reconcilePolicyReport {
 		cd.log.Info("resource filters changed, sending reconcile signal to the policy controller")
-		cd.ReconcilePolicyReport()
+		cd.reconcilePolicyReport <- true
 	}
 
 	if updateWebhook {
 		cd.log.Info("webhook configurations changed, updating webhook configurations")
-		cd.UpdateWebhook()
+		cd.updateWebhookConfigurations <- true
 	}
-}
-
-func (cd *ConfigData) ReconcilePolicyReport() {
-	cd.reconcilePolicyReport <- true
-}
-
-func (cd *ConfigData) UpdateWebhook() {
-	cd.updateWebhookConfigurations <- true
 }
 
 func (cd *ConfigData) deleteCM(obj interface{}) {
