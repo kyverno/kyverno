@@ -16,6 +16,7 @@ import (
 	"github.com/blang/semver/v4"
 	gojmespath "github.com/jmespath/go-jmespath"
 	"github.com/minio/pkg/wildcard"
+	"sigs.k8s.io/yaml"
 )
 
 var (
@@ -59,6 +60,7 @@ var (
 	truncate               = "truncate"
 	semverCompare          = "semver_compare"
 	parseJson              = "parse_json"
+	parseYAML              = "parse_yaml"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -270,6 +272,13 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpString}},
 			},
 			Handler: jpParseJson,
+		},
+		{
+			Name: parseYAML,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpParseYAML,
 		},
 	}
 
@@ -681,6 +690,20 @@ func jpParseJson(arguments []interface{}) (interface{}, error) {
 	}
 	var output interface{}
 	err = json.Unmarshal([]byte(input.String()), &output)
+	return output, err
+}
+
+func jpParseYAML(arguments []interface{}) (interface{}, error) {
+	input, err := validateArg(parseYAML, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	jsonData, err := yaml.YAMLToJSON([]byte(input.String()))
+	if err != nil {
+		return nil, err
+	}
+	var output interface{}
+	err = json.Unmarshal(jsonData, &output)
 	return output, err
 }
 
