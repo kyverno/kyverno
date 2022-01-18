@@ -16,7 +16,6 @@ on:
         required: true
         type: string
       main: 
-        required: true
         type: string
     secrets:
       registry_username:
@@ -77,6 +76,17 @@ jobs:
         with:
           install: true
 
+      - name: Run Trivy vulnerability scanner in repo mode
+        if: ${{inputs.tag == 'release'}}
+        uses: aquasecurity/trivy-action@8f4c7160b470bafe4299efdc1c8a1fb495f8325a # v0.2.1
+        with: 
+          scan-type: 'fs'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
       - name: Set Version
         if: ${{ inputs.tag == 'release'}}
         run: |
@@ -120,14 +130,3 @@ jobs:
         env:
           COSIGN_REPOSITORY: "ghcr.io/kyverno/sbom"
         run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx  ghcr.io/kyverno/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}
-
-      - name: Trivy Scan Image
-        if: ${{ inputs.tag == 'release'}}
-        uses: aquasecurity/trivy-action@master
-        with: 
-          image-ref: 'ghcr.io/kyverno/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
