@@ -770,3 +770,142 @@ func Test_foreach_element_mutation(t *testing.T) {
 		assert.Equal(t, securityContext["privileged"], false)
 	}
 }
+
+func Test_Container_InitContainer_foreach(t *testing.T) {
+	policyRaw := []byte(`{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+       "name": "prepend-registry",
+       "annotations": {
+          "pod-policies.kyverno.io/autogen-controllers": "none"
+       }
+    },
+    "spec": {
+       "background": false,
+       "rules": [
+          {
+             "name": "prepend-registry-containers",
+             "match": {
+                "resources": {
+                   "kinds": [
+                      "Pod"
+                   ]
+                }
+             },
+             "mutate": {
+                "foreach": [
+                   {
+                      "list": "request.object.spec.containers",
+                      "patchStrategicMerge": {
+                         "spec": {
+                            "containers": [
+                               {
+                                  "name": "{{ element.name }}",
+                                  "image": "registry.io/{{ images.containers.\"{{element.name}}\".path}}:{{images.containers.\"{{element.name}}\".tag}}"
+                               }
+                            ]
+                         }
+                      }
+                   },
+                   {
+                      "list": "request.object.spec.initContainers",
+                      "patchStrategicMerge": {
+                         "spec": {
+                            "initContainers": [
+                               {
+                                  "name": "{{ element.name }}",
+                                  "image": "registry.io/{{ images.initContainers.\"{{element.name}}\".name}}:{{images.initContainers.\"{{element.name}}\".tag}}"
+                               }
+                            ]
+                         }
+                      }
+                   }
+                ]
+             }
+          }
+       ]
+    }
+ }`)
+	resourceRaw := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+       "name": "mypod"
+    },
+    "spec": {
+       "automountServiceAccountToken": false,
+       "initContainers": [
+          {
+             "name": "alpine",
+             "image": "alpine:latest"
+          },
+          {
+             "name": "busybox",
+             "image": "busybox:1.28"
+          }
+       ],
+       "containers": [
+          {
+             "name": "nginx",
+             "image": "nginx:1.2.3"
+          },
+          {
+             "name": "redis",
+             "image": "redis:latest"
+          }
+       ]
+    }
+ }`)
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &policy)
+	assert.NilError(t, err)
+
+	resource, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResourceAsObject(resource.Object)
+	assert.NilError(t, err)
+
+	policyContext := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		NewResource: *resource,
+	}
+
+	err = ctx.AddImageInfo(resource)
+	assert.NilError(t, err)
+
+	err = context.MutateResourceWithImageInfo(resourceRaw, ctx)
+	assert.NilError(t, err)
+
+	er := Mutate(policyContext)
+
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+
+	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
+	assert.NilError(t, err)
+	for _, c := range containers {
+		ctnr := c.(map[string]interface{})
+		switch ctnr["name"] {
+		case "alpine":
+			assert.Equal(t, ctnr["image"], "registry.io/alpine:latest")
+		case "busybox":
+			assert.Equal(t, ctnr["image"], "registry.io/busybox:1.28")
+		}
+	}
+
+	initContainers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "initContainers")
+	assert.NilError(t, err)
+	for _, c := range initContainers {
+		ctnr := c.(map[string]interface{})
+		switch ctnr["name"] {
+		case "nginx":
+			assert.Equal(t, ctnr["image"], "registry.io/nginx:1.2.3")
+		case "redis":
+			assert.Equal(t, ctnr["image"], "registry.io/redis:latest")
+		}
+	}
+}
