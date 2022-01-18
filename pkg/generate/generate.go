@@ -194,7 +194,6 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		AdmissionInfo:       gr.Spec.Context.UserRequestInfo,
 		ExcludeGroupRole:    c.Config.GetExcludeGroupRole(),
 		ExcludeResourceFunc: c.Config.ToFilter,
-		ResourceCache:       c.resCache,
 		JSONContext:         ctx,
 		NamespaceLabels:     namespaceLabels,
 		Client:              c.client,
@@ -256,7 +255,6 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 	policy := policyContext.Policy
 	resource := policyContext.NewResource
 
-	resCache := policyContext.ResourceCache
 	jsonContext := policyContext.JSONContext
 	// To manage existing resources, we compare the creation time for the default resource to be generated and policy creation time
 
@@ -284,7 +282,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 		}
 
 		// add configmap json data to context
-		if err := engine.LoadContext(log, rule.Context, resCache, policyContext, rule.Name); err != nil {
+		if err := engine.LoadContext(log, rule.Context, policyContext, rule.Name); err != nil {
 			log.Error(err, "cannot add configmaps to context")
 			return nil, processExisting, err
 		}
