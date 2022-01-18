@@ -4,7 +4,6 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -34,9 +33,6 @@ type PolicyContext struct {
 
 	ExcludeResourceFunc func(kind, namespace, name string) bool
 
-	// ResourceCache provides listers to resources. Currently Supports Configmap
-	ResourceCache resourcecache.ResourceCache
-
 	// JSONContext is the variable context
 	JSONContext *context.Context
 
@@ -53,7 +49,6 @@ func (pc *PolicyContext) Copy() *PolicyContext {
 		Client:              pc.Client,
 		ExcludeGroupRole:    pc.ExcludeGroupRole,
 		ExcludeResourceFunc: pc.ExcludeResourceFunc,
-		ResourceCache:       pc.ResourceCache,
 		JSONContext:         pc.JSONContext,
 		NamespaceLabels:     pc.NamespaceLabels,
 	}

@@ -1,6 +1,7 @@
 package webhookconfig
 
 import (
+	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"path/filepath"
@@ -13,7 +14,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -92,16 +93,21 @@ func (wrc *Register) GetKubePolicyClusterRoleName() (*unstructured.Unstructured,
 // GetKubePolicyDeployment gets Kyverno deployment using the resource cache
 // it does not initialize any client call
 func (wrc *Register) GetKubePolicyDeployment() (*apps.Deployment, *unstructured.Unstructured, error) {
-	lister, _ := wrc.resCache.GetGVRCache("Deployment")
-	kubePolicyDeployment, err := lister.NamespacedLister(config.KyvernoNamespace).Get(config.KyvernoDeploymentName)
+	deploy, err := wrc.kDeplLister.Deployments(config.KyvernoNamespace).Get(config.KyvernoDeploymentName)
 	if err != nil {
 		return nil, nil, err
 	}
-	deploy := apps.Deployment{}
-	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(kubePolicyDeployment.UnstructuredContent(), &deploy); err != nil {
-		return nil, kubePolicyDeployment, err
+	deploy.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "apps/v1", Kind: "Deployment"})
+	kubePolicyDeployment := unstructured.Unstructured{}
+	rawDepl, err := json.Marshal(deploy)
+	if err != nil {
+		return nil, nil, err
 	}
-	return &deploy, kubePolicyDeployment, nil
+	err = json.Unmarshal(rawDepl, &kubePolicyDeployment.Object)
+	if err != nil {
+		return deploy, nil, err
+	}
+	return deploy, &kubePolicyDeployment, nil
 }
 
 // debug mutating webhook
