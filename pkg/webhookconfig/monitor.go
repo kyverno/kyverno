@@ -110,7 +110,7 @@ func (t *Monitor) Run(register *Register, configData *config.ConfigData, certRen
 			// update namespaceSelector every 30 seconds
 			if register.autoUpdateWebhooks {
 				logger.V(3).Info("updating webhook configurations for namespaceSelector with latest kyverno ConfigMap")
-				configData.UpdateWebhook(true)
+				configData.UpdateWebhook()
 			}
 
 			timeDiff := time.Since(t.Time())
