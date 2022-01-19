@@ -217,7 +217,7 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface)
 	logger := wrc.log.WithName("UpdateWebhookConfigurations")
 	for {
 		<-wrc.UpdateWebhookChan
-		logger.Info("received the signal to update webhook configurations")
+		logger.V(4).Info("received the signal to update webhook configurations")
 
 		var nsSelector map[string]interface{}
 		webhookCfgs := configHandler.GetWebhooks()
@@ -239,14 +239,14 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface)
 			logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
 			go func() { wrc.UpdateWebhookChan <- true }()
 		} else {
-			logger.Info("successfully updated mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
+			logger.V(4).Info("successfully updated mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
 		}
 
 		if err := wrc.updateResourceValidatingWebhookConfiguration(nsSelector); err != nil {
 			logger.Error(err, "unable to update validatingWebhookConfigurations", "name", getResourceValidatingWebhookConfigName(wrc.serverIP))
 			go func() { wrc.UpdateWebhookChan <- true }()
 		} else {
-			logger.Info("successfully updated validatingWebhookConfigurations", "name", getResourceValidatingWebhookConfigName(wrc.serverIP))
+			logger.V(4).Info("successfully updated validatingWebhookConfigurations", "name", getResourceValidatingWebhookConfigName(wrc.serverIP))
 		}
 	}
 }
