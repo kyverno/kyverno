@@ -50,43 +50,6 @@ build: kyverno
 PWD := $(CURDIR)
 
 ##################################
-# SIGNATURE CONTAINER
-##################################
-ALPINE_PATH := cmd/alpineBase
-SIG_IMAGE := signatures
-.PHONY: docker-build-signature docker-push-signature
-
-docker-buildx-builder:
-	if ! docker buildx ls | grep -q kyverno; then\
-		docker buildx create --name kyverno --use;\
-	fi
-
-docker-publish-sigs: docker-buildx-builder docker-build-signature docker-push-signature
-
-docker-build-signature: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --tag $(REPO)/$(SIG_IMAGE):$(IMAGE_TAG) .
-
-docker-push-signature: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SIG_IMAGE):$(IMAGE_TAG) .
-	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SIG_IMAGE):latest .
-
-##################################
-# SBOM CONTAINER
-##################################
-ALPINE_PATH := cmd/alpineBase
-SBOM_IMAGE := sbom
-.PHONY: docker-build-sbom docker-push-sbom
-
-docker-publish-sbom: docker-buildx-builder docker-build-sbom docker-push-sbom
-
-docker-build-sbom: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --tag $(REPO)/$(SBOM_IMAGE):$(IMAGE_TAG) .
-
-docker-push-sbom: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SBOM_IMAGE):$(IMAGE_TAG) .
-	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SBOM_IMAGE):latest .
-
-##################################
 # INIT CONTAINER
 ##################################
 INITC_PATH := cmd/initContainer
@@ -95,6 +58,11 @@ initContainer: fmt vet
 	GOOS=$(GOOS) go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
 
 .PHONY: docker-build-initContainer docker-push-initContainer
+
+docker-buildx-builder:
+	if ! docker buildx ls | grep -q kyverno; then\
+		docker buildx create --name kyverno --use;\
+	fi
 
 docker-publish-initContainer: docker-buildx-builder docker-build-initContainer docker-push-initContainer
 
