@@ -339,6 +339,11 @@ func Test_getControllers(t *testing.T) {
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"set-service-labels-env"},"annotations":null,"pod-policies.kyverno.io/autogen-controllers":"none","spec":{"background":false,"rules":[{"name":"set-service-label","match":{"resources":{"kinds":["Pod","Deployment"]}},"mutate":{"patchStrategicMerge":{"metadata":{"labels":{"+(service)":"{{request.object.spec.template.metadata.labels.app}}"}}}}}]}}`),
 			expectedControllers: "none",
 		},
+		{
+			name:                "rule-with-only-predefined-valid-controllers",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"set-service-labels-env"},"annotations":null,"pod-policies.kyverno.io/autogen-controllers":"none","spec":{"background":false,"rules":[{"name":"set-service-label","match":{"resources":{"kinds":["Namespace"]}},"mutate":{"patchStrategicMerge":{"metadata":{"labels":{"+(service)":"{{request.object.spec.template.metadata.labels.app}}"}}}}}]}}`),
+			expectedControllers: "none",
+		},
 	}
 
 	for _, test := range testCases {
@@ -346,7 +351,10 @@ func Test_getControllers(t *testing.T) {
 		err := json.Unmarshal(test.policy, &policy)
 		assert.NilError(t, err)
 
-		_, controllers := CanAutoGen(&policy, log.Log)
+		applyAutoGen, controllers := CanAutoGen(&policy, log.Log)
+		if !applyAutoGen {
+			controllers = "none"
+		}
 		assert.Equal(t, test.expectedControllers, controllers, fmt.Sprintf("test %s failed", test.name))
 	}
 }
