@@ -2,7 +2,6 @@ package engine
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -11,17 +10,14 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	pkgcommon "github.com/kyverno/kyverno/pkg/common"
-	"github.com/kyverno/kyverno/pkg/engine/context"
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
-	"k8s.io/client-go/dynamic/dynamiclister"
 )
 
 // LoadContext - Fetches and adds external data to the Context.
-func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCache, ctx *PolicyContext, ruleName string) error {
+func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, ctx *PolicyContext, ruleName string) error {
 	if len(contextEntries) == 0 {
 		return nil
 	}
@@ -49,18 +45,9 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resC
 			}
 		}
 	} else {
-		// get GVR Cache for "configmaps"
-		// can get cache for other resources if the informers are enabled in resource cache
-		gvrC, ok := resCache.GetGVRCache("ConfigMap")
-		if !ok {
-			return errors.New("configmaps GVR Cache not found")
-		}
-
-		lister := gvrC.Lister()
-
 		for _, entry := range contextEntries {
 			if entry.ConfigMap != nil {
-				if err := loadConfigMap(logger, entry, lister, ctx.JSONContext); err != nil {
+				if err := loadConfigMap(logger, entry, ctx); err != nil {
 					return err
 				}
 			} else if entry.APICall != nil {
@@ -286,13 +273,13 @@ func loadResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 	return r.MarshalJSON()
 }
 
-func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynamiclister.Lister, ctx *context.Context) error {
-	data, err := fetchConfigMap(logger, entry, lister, ctx)
+func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) error {
+	data, err := fetchConfigMap(logger, entry, ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve config map for context entry %s: %v", entry.Name, err)
 	}
 
-	err = ctx.AddJSON(data)
+	err = ctx.JSONContext.AddJSON(data)
 	if err != nil {
 		return fmt.Errorf("failed to add config map for context entry %s: %v", entry.Name, err)
 	}
@@ -300,15 +287,15 @@ func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynami
 	return nil
 }
 
-func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynamiclister.Lister, jsonContext *context.Context) ([]byte, error) {
+func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) ([]byte, error) {
 	contextData := make(map[string]interface{})
 
-	name, err := variables.SubstituteAll(logger, jsonContext, entry.ConfigMap.Name)
+	name, err := variables.SubstituteAll(logger, ctx.JSONContext, entry.ConfigMap.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.name %s: %v", entry.Name, entry.ConfigMap.Name, err)
 	}
 
-	namespace, err := variables.SubstituteAll(logger, jsonContext, entry.ConfigMap.Namespace)
+	namespace, err := variables.SubstituteAll(logger, ctx.JSONContext, entry.ConfigMap.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.namespace %s: %v", entry.Name, entry.ConfigMap.Namespace, err)
 	}
@@ -317,10 +304,9 @@ func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynam
 		namespace = "default"
 	}
 
-	key := fmt.Sprintf("%s/%s", namespace, name)
-	obj, err := lister.Get(key)
+	obj, err := ctx.Client.GetResource("v1", "ConfigMap", namespace.(string), name.(string))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read configmap %s/%s from cache: %v", namespace, name, err)
+		return nil, fmt.Errorf("failed to get configmap %s/%s : %v", namespace, name, err)
 	}
 
 	unstructuredObj := obj.DeepCopy().Object

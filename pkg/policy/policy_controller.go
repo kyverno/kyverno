@@ -23,7 +23,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	pm "github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -82,12 +81,6 @@ type PolicyController struct {
 	// npListerSynced returns true if the namespace policy store has been synced at least once
 	npListerSynced cache.InformerSynced
 
-	// pvListerSynced returns true if the cluster policy violation store has been synced at least once
-	cpvListerSynced cache.InformerSynced
-
-	// pvListerSynced returns true if the policy violation store has been synced at least once
-	nspvListerSynced cache.InformerSynced
-
 	// nsListerSynced returns true if the namespace store has been synced at least once
 	nsListerSynced cache.InformerSynced
 
@@ -104,9 +97,6 @@ type PolicyController struct {
 	prGenerator policyreport.GeneratorInterface
 
 	policyReportEraser policyreport.PolicyReportEraser
-
-	// resCache - controls creation and fetching of resource informer cache
-	resCache resourcecache.ResourceCache
 
 	reconcilePeriod time.Duration
 
@@ -129,7 +119,6 @@ func NewPolicyController(
 	policyReportEraser policyreport.PolicyReportEraser,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
-	resCache resourcecache.ResourceCache,
 	reconcilePeriod time.Duration,
 	promConfig *metrics.PromConfig) (*PolicyController, error) {
 
@@ -153,7 +142,6 @@ func NewPolicyController(
 		configHandler:      configHandler,
 		prGenerator:        prGenerator,
 		policyReportEraser: policyReportEraser,
-		resCache:           resCache,
 		reconcilePeriod:    reconcilePeriod,
 		promConfig:         promConfig,
 		log:                log,

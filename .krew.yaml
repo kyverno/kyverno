@@ -30,6 +30,17 @@ spec:
       bin: kyverno
     - selector:
         matchLabels:
+          os: darwin
+          arch: arm64
+      {{addURIAndSha "https://github.com/kyverno/kyverno/releases/download/{{ .TagName }}/kyverno-cli_{{ .TagName }}_darwin_arm64.tar.gz" .TagName | indent 6 }}
+      files:
+        - from: kyverno
+          to: .
+        - from: LICENSE
+          to: .
+      bin: kyverno
+    - selector:
+        matchLabels:
           os: windows
           arch: amd64
       {{addURIAndSha "https://github.com/kyverno/kyverno/releases/download/{{ .TagName }}/kyverno-cli_{{ .TagName }}_windows_x86_64.zip" .TagName | indent 6 }}

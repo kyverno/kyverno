@@ -73,7 +73,6 @@ func (ws *WebhookServer) handleGenerate(
 			AdmissionInfo:       userRequestInfo,
 			ExcludeGroupRole:    dynamicConfig.GetExcludeGroupRole(),
 			ExcludeResourceFunc: ws.configHandler.ToFilter,
-			ResourceCache:       ws.resCache,
 			JSONContext:         ctx,
 			Client:              ws.client,
 		}
