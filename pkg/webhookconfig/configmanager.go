@@ -2,6 +2,7 @@ package webhookconfig
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -24,7 +25,6 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	informers "k8s.io/client-go/informers/core/v1"
@@ -513,6 +513,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 
 func (m *webhookConfigManager) updateWebhookConfig(webhooks []*webhook) error {
 	logger := m.log.WithName("updateWebhookConfig")
+
 	webhooksMap := make(map[string]interface{}, len(webhooks))
 	for _, w := range webhooks {
 		key := webhookKey(w.kind, string(w.failurePolicy))
@@ -538,10 +539,11 @@ func (m *webhookConfigManager) updateWebhookConfig(webhooks []*webhook) error {
 }
 
 func (m *webhookConfigManager) getWebhook(webhookKind, webhookName string) (resourceWebhook *unstructured.Unstructured, err error) {
-	resourceWebhook = &unstructured.Unstructured{}
 	get := func() error {
+		resourceWebhook = &unstructured.Unstructured{}
 		err = nil
-		var content map[string]interface{}
+
+		var rawResc []byte
 
 		switch webhookKind {
 		case kindMutating:
@@ -553,7 +555,10 @@ func (m *webhookConfigManager) getWebhook(webhookKind, webhookName string) (reso
 				return err
 			}
 			resourceWebhookTyped.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "admissionregistration.k8s.io/v1", Kind: kindMutating})
-			content, err = runtime.DefaultUnstructuredConverter.ToUnstructured(resourceWebhookTyped)
+			rawResc, err = json.Marshal(resourceWebhookTyped)
+			if err != nil {
+				return err
+			}
 		case kindValidating:
 			resourceWebhookTyped, err := m.validateLister.Get(webhookName)
 			if err != nil && !apierrors.IsNotFound(err) {
@@ -563,14 +568,16 @@ func (m *webhookConfigManager) getWebhook(webhookKind, webhookName string) (reso
 				return err
 			}
 			resourceWebhookTyped.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "admissionregistration.k8s.io/v1", Kind: kindValidating})
-			content, err = runtime.DefaultUnstructuredConverter.ToUnstructured(resourceWebhookTyped)
+			rawResc, err = json.Marshal(resourceWebhookTyped)
+			if err != nil {
+				return err
+			}
 		default:
 			return fmt.Errorf("unknown webhook kind: must be '%v' or '%v'", kindMutating, kindValidating)
 		}
 
-		if err == nil {
-			resourceWebhook.SetUnstructuredContent(content)
-		}
+		err = json.Unmarshal(rawResc, &resourceWebhook.Object)
+
 		return err
 	}
 

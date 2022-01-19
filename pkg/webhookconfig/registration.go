@@ -713,12 +713,15 @@ func (wrc *Register) updateResourceValidatingWebhookConfiguration(nsSelector map
 	}
 	resourceValidatingTyped.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "admissionregistration.k8s.io/v1", Kind: kindValidating})
 
-	resourceValidating := unstructured.Unstructured{}
-	content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(resourceValidatingTyped)
+	resourceValidating := &unstructured.Unstructured{}
+	rawResc, err := json.Marshal(resourceValidatingTyped)
 	if err != nil {
 		return err
 	}
-	resourceValidating.SetUnstructuredContent(content)
+	err = json.Unmarshal(rawResc, &resourceValidating.Object)
+	if err != nil {
+		return err
+	}
 
 	webhooksUntyped, _, err := unstructured.NestedSlice(resourceValidating.UnstructuredContent(), "webhooks")
 	if err != nil {
@@ -760,12 +763,15 @@ func (wrc *Register) updateResourceMutatingWebhookConfiguration(nsSelector map[s
 	}
 	resourceMutatingTyped.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "admissionregistration.k8s.io/v1", Kind: kindMutating})
 
-	resourceMutating := unstructured.Unstructured{}
-	content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(resourceMutatingTyped)
+	resourceMutating := &unstructured.Unstructured{}
+	rawResc, err := json.Marshal(resourceMutatingTyped)
 	if err != nil {
 		return err
 	}
-	resourceMutating.SetUnstructuredContent(content)
+	err = json.Unmarshal(rawResc, &resourceMutating.Object)
+	if err != nil {
+		return err
+	}
 
 	webhooksUntyped, _, err := unstructured.NestedSlice(resourceMutating.UnstructuredContent(), "webhooks")
 	if err != nil {
