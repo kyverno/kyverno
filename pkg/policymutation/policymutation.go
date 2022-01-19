@@ -292,7 +292,7 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 
 // CanAutoGen checks whether the rule(s) (in policy) can be applied to Pod controllers
 // returns controllers as:
-// - "none" if:
+// - "" if:
 //          - name or selector is defined
 //          - mixed kinds (Pod + pod controller) is defined
 //          - Pod and PodControllers are not defined
@@ -314,7 +314,7 @@ func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bo
 			return false, ""
 		}
 
-		needAutogen = hasAutogenKinds(match.Kinds)
+		needAutogen = hasAutogenKinds(match.Kinds) || hasAutogenKinds(exclude.Kinds)
 
 		for _, value := range match.Any {
 			if isKindOtherthanPod(value.Kinds) {
@@ -344,6 +344,9 @@ func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bo
 			if isKindOtherthanPod(value.Kinds) {
 				return false, ""
 			}
+			if !needAutogen {
+				needAutogen = hasAutogenKinds(value.Kinds)
+			}
 			if value.Name != "" || value.Selector != nil || value.Annotations != nil {
 				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not be applicable.", "rule", rule.Name)
 				return false, ""
@@ -352,6 +355,9 @@ func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bo
 		for _, value := range exclude.All {
 			if isKindOtherthanPod(value.Kinds) {
 				return false, ""
+			}
+			if !needAutogen {
+				needAutogen = hasAutogenKinds(value.Kinds)
 			}
 			if value.Name != "" || value.Selector != nil || value.Annotations != nil {
 				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not be applicable.", "rule", rule.Name)
