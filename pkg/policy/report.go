@@ -32,9 +32,11 @@ func (pc *PolicyController) report(engineResponses []*response.EngineResponse, l
 
 	// as engineResponses holds the results for all matched resources in one namespace
 	// we can merge pvInfos into a single object to reduce update frequency (throttling request) on RCR
-	info := mergePvInfos(pvInfos)
-	pc.prGenerator.Add(info)
-	logger.V(4).Info("added a request to RCR generator", "key", info.ToKey())
+	infos := mergePvInfos(pvInfos)
+	for _, info := range infos {
+		pc.prGenerator.Add(info)
+		logger.V(4).Info("added a request to RCR generator", "key", info.ToKey())
+	}
 }
 
 // forceReconciliation forces a background scan by adding all policies to the workqueue
@@ -264,21 +266,25 @@ func generateFailEventsPerEr(log logr.Logger, er *response.EngineResponse) []eve
 	return eventInfos
 }
 
-func mergePvInfos(infos []policyreport.Info) policyreport.Info {
-	aggregatedInfo := policyreport.Info{}
+func mergePvInfos(infos []policyreport.Info) []policyreport.Info {
+	aggregatedInfo := []policyreport.Info{}
 	if len(infos) == 0 {
-		return aggregatedInfo
+		return nil
 	}
 
-	var results []policyreport.EngineResponseResult
+	aggregatedInfoPerNamespace := make(map[string]policyreport.Info)
 	for _, info := range infos {
-		for _, res := range info.Results {
-			results = append(results, res)
+		if tmpInfo, ok := aggregatedInfoPerNamespace[info.Namespace]; !ok {
+			aggregatedInfoPerNamespace[info.Namespace] = info
+		} else {
+			tmpInfo.Results = append(tmpInfo.Results, info.Results...)
+			aggregatedInfoPerNamespace[info.Namespace] = tmpInfo
 		}
+
 	}
 
-	aggregatedInfo.PolicyName = infos[0].PolicyName
-	aggregatedInfo.Namespace = infos[0].Namespace
-	aggregatedInfo.Results = results
+	for _, i := range aggregatedInfoPerNamespace {
+		aggregatedInfo = append(aggregatedInfo, i)
+	}
 	return aggregatedInfo
 }
