@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
@@ -28,13 +28,13 @@ type DurationOperatorHandler struct {
 // durationCompareByCondition compares a time.Duration key with a time.Duration value on the basis of the provided operator
 func durationCompareByCondition(key time.Duration, value time.Duration, op kyverno.ConditionOperator, log *logr.Logger) bool {
 	switch op {
-	case kyverno.DurationGreaterThanOrEquals:
+	case kyverno.ConditionOperators["DurationGreaterThanOrEquals"]:
 		return key >= value
-	case kyverno.DurationGreaterThan:
+	case kyverno.ConditionOperators["DurationGreaterThan"]:
 		return key > value
-	case kyverno.DurationLessThanOrEquals:
+	case kyverno.ConditionOperators["DurationLessThanOrEquals"]:
 		return key <= value
-	case kyverno.DurationLessThan:
+	case kyverno.ConditionOperators["DurationLessThan"]:
 		return key < value
 	default:
 		(*log).Info(fmt.Sprintf("Expected operator, one of [DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan], found %s", op))

@@ -14,6 +14,7 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/tls"
+	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	admregapi "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,7 +22,11 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	informers "k8s.io/client-go/informers/apps/v1"
+	coreinformers "k8s.io/client-go/informers/core/v1"
+	listers "k8s.io/client-go/listers/apps/v1"
 	rest "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -44,9 +49,13 @@ type Register struct {
 	log                logr.Logger
 	debug              bool
 	autoUpdateWebhooks bool
+	stopCh             <-chan struct{}
 
 	UpdateWebhookChan    chan bool
 	createDefaultWebhook chan string
+
+	kDeplLister       listers.DeploymentLister
+	kDeplListerSynced func() bool
 
 	// manage implements methods to manage webhook configurations
 	manage
@@ -58,6 +67,8 @@ func NewRegister(
 	client *client.Client,
 	kyvernoClient *kyvernoclient.Clientset,
 	resCache resourcecache.ResourceCache,
+	kDeplInformer informers.DeploymentInformer,
+	nsInformer coreinformers.NamespaceInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	serverIP string,
@@ -77,9 +88,12 @@ func NewRegister(
 		autoUpdateWebhooks:   autoUpdateWebhooks,
 		UpdateWebhookChan:    make(chan bool),
 		createDefaultWebhook: make(chan string),
+		kDeplLister:          kDeplInformer.Lister(),
+		kDeplListerSynced:    kDeplInformer.Informer().HasSynced,
+		stopCh:               stopCh,
 	}
 
-	register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, resCache, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
+	register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, resCache, nsInformer, serverIP, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
 
 	return register
 }
@@ -131,6 +145,12 @@ func (wrc *Register) Register() error {
 	return nil
 }
 
+func (wrc *Register) Start() {
+	if !cache.WaitForCacheSync(wrc.stopCh, wrc.kDeplListerSynced) {
+		wrc.log.Info("failed to sync kyverno deployment informer cache")
+	}
+}
+
 // Check returns an error if any of the webhooks are not configured
 func (wrc *Register) Check() error {
 	mutatingCache, _ := wrc.resCache.GetGVRCache(kindMutating)
@@ -175,11 +195,11 @@ func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 
 }
 
-// +deprecated
 // UpdateWebhookConfigurations updates resource webhook configurations dynamically
-// base on the UPDATEs of Kyverno init-config ConfigMap
+// based on the UPDATEs of Kyverno ConfigMap defined in INIT_CONFIG env
 //
 // it currently updates namespaceSelector only, can be extend to update other fields
+// +deprecated
 func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface) {
 	logger := wrc.log.WithName("UpdateWebhookConfigurations")
 	for {
@@ -247,10 +267,14 @@ func (wrc *Register) cleanupKyvernoResource() bool {
 	logger := wrc.log.WithName("cleanupKyvernoResource")
 	deploy, err := wrc.client.GetResource("", "Deployment", deployNamespace, deployName)
 	if err != nil {
-		logger.Error(err, "failed to get deployment, cleanup kyverno resources anyway")
-		return true
-	}
+		if errorsapi.IsNotFound(err) {
+			logger.Info("Kyverno deployment not found, cleanup Kyverno resources")
+			return true
+		}
 
+		logger.Error(err, "failed to get deployment, not cleaning up kyverno resources")
+		return false
+	}
 	if deploy.GetDeletionTimestamp() != nil {
 		logger.Info("Kyverno is terminating, cleanup Kyverno resources")
 		return true
@@ -621,13 +645,12 @@ func (wrc *Register) checkEndpoint() error {
 		return fmt.Errorf("failed to list Kyverno Pod: %v", err)
 	}
 
-	kyverno := pods.Items[0]
-	podIp, _, err := unstructured.NestedString(kyverno.UnstructuredContent(), "status", "podIP")
-	if err != nil {
-		return fmt.Errorf("failed to extract pod IP: %v", err)
+	ips, errs := getHealthyPodsIP(pods.Items)
+	if len(errs) != 0 {
+		return fmt.Errorf("error getting pod's IP: %v", errs)
 	}
 
-	if podIp == "" {
+	if len(ips) == 0 {
 		return fmt.Errorf("pod is not assigned to any node yet")
 	}
 
@@ -637,7 +660,7 @@ func (wrc *Register) checkEndpoint() error {
 		}
 
 		for _, addr := range subset.Addresses {
-			if addr.IP == podIp {
+			if utils.ContainsString(ips, addr.IP) {
 				wrc.log.Info("Endpoint ready", "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
 				return nil
 			}
@@ -650,6 +673,30 @@ func (wrc *Register) checkEndpoint() error {
 	err = fmt.Errorf("endpoint not ready")
 	wrc.log.V(3).Info(err.Error(), "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
 	return err
+}
+
+func getHealthyPodsIP(pods []unstructured.Unstructured) (ips []string, errs []error) {
+	for _, pod := range pods {
+		phase, _, err := unstructured.NestedString(pod.UnstructuredContent(), "status", "phase")
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to get pod %s status: %v", pod.GetName(), err))
+			continue
+		}
+
+		if phase != "Running" {
+			continue
+		}
+
+		ip, _, err := unstructured.NestedString(pod.UnstructuredContent(), "status", "podIP")
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to extract pod %s IP: %v", pod.GetName(), err))
+			continue
+		}
+
+		ips = append(ips, ip)
+	}
+
+	return
 }
 
 func (wrc *Register) updateResourceValidatingWebhookConfiguration(nsSelector map[string]interface{}) error {

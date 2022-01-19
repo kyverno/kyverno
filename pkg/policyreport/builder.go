@@ -1,23 +1,25 @@
 package policyreport
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	request "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha2"
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	request "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/version"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -35,11 +37,11 @@ const (
 	deletedAnnotationResourceName string = "kyverno.io/delete.resource.name"
 	deletedAnnotationResourceKind string = "kyverno.io/delete.resource.kind"
 
-	// static value for PolicyReportResult.Source
+	// SourceValue is the static value for PolicyReportResult.Source
 	SourceValue = "Kyverno"
 )
 
-func generatePolicyReportName(ns string) string {
+func GeneratePolicyReportName(ns string) string {
 	if ns == "" {
 		return clusterpolicyreport
 	}
@@ -62,6 +64,10 @@ func GeneratePRsFromEngineResponse(ers []*response.EngineResponse, log logr.Logg
 		}
 
 		if len(er.PolicyResponse.Rules) == 0 {
+			continue
+		}
+
+		if er.Policy != nil && engine.ManagedPodResource(*er.Policy, er.PatchedResource) {
 			continue
 		}
 
@@ -90,9 +96,10 @@ func NewBuilder(cpolLister kyvernolister.ClusterPolicyLister, polLister kyvernol
 
 func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured, err error) {
 	results := []*report.PolicyReportResult{}
+	req = new(unstructured.Unstructured)
 	for _, infoResult := range info.Results {
 		for _, rule := range infoResult.Rules {
-			if rule.Type != utils.Validation.String() {
+			if rule.Type != utils.Validation.String() && rule.Type != utils.ImageVerify.String() {
 				continue
 			}
 
@@ -107,12 +114,19 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 			Results: results,
 		}
 
-		obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(rr)
+		gv := report.SchemeGroupVersion
+		rr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "ReportChangeRequest"})
+
+		rawRcr, err := json.Marshal(rr)
 		if err != nil {
 			return nil, err
 		}
 
-		req = &unstructured.Unstructured{Object: obj}
+		err = json.Unmarshal(rawRcr, req)
+		if err != nil {
+			return nil, err
+		}
+
 		set(req, info)
 	} else {
 		rr := &request.ClusterReportChangeRequest{
@@ -120,11 +134,19 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 			Results: results,
 		}
 
-		obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(rr)
+		gv := report.SchemeGroupVersion
+		rr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "ClusterReportChangeRequest"})
+
+		rawRcr, err := json.Marshal(rr)
 		if err != nil {
 			return nil, err
 		}
-		req = &unstructured.Unstructured{Object: obj}
+
+		err = json.Unmarshal(rawRcr, req)
+		if err != nil {
+			return nil, err
+		}
+
 		set(req, info)
 	}
 

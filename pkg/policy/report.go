@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	v1alpha2 "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	changerequestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	policyreportlister "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
@@ -100,9 +100,14 @@ func cleanupReportChangeRequests(pclient *kyvernoclient.Clientset, rcrLister cha
 }
 
 func eraseResultsEntries(pclient *kyvernoclient.Clientset, reportLister policyreportlister.PolicyReportLister, clusterReportLister policyreportlister.ClusterPolicyReportLister) error {
+	selector, err := metav1.LabelSelectorAsSelector(policyreport.LabelSelector)
+	if err != nil {
+		return fmt.Errorf("failed to erase results entries %v", err)
+	}
+
 	var errors []string
 
-	if polrs, err := reportLister.List(labels.Everything()); err != nil {
+	if polrs, err := reportLister.List(selector); err != nil {
 		errors = append(errors, err.Error())
 	} else {
 		for _, polr := range polrs {
@@ -114,7 +119,7 @@ func eraseResultsEntries(pclient *kyvernoclient.Clientset, reportLister policyre
 		}
 	}
 
-	if cpolrs, err := clusterReportLister.List(labels.Everything()); err != nil {
+	if cpolrs, err := clusterReportLister.List(selector); err != nil {
 		errors = append(errors, err.Error())
 	} else {
 		for _, cpolr := range cpolrs {
@@ -208,7 +213,7 @@ func generateFailEventsPerEr(log logr.Logger, er *response.EngineResponse) []eve
 	logger.V(4).Info("reporting fail results for policy")
 
 	for _, rule := range er.PolicyResponse.Rules {
-		if rule.Status != response.RuleStatusPass {
+		if rule.Status == response.RuleStatusPass {
 			continue
 		}
 		// generate event on resource for each failed rule

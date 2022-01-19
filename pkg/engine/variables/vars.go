@@ -8,12 +8,13 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/kyverno/kyverno/pkg/engine/anchor"
+
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/anchor/common"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	jsonUtils "github.com/kyverno/kyverno/pkg/engine/json-utils"
+	jsonUtils "github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 )
 
@@ -21,13 +22,15 @@ var RegexVariables = regexp.MustCompile(`^\{\{[^{}]*\}\}|[^\\]\{\{[^{}]*\}\}`)
 
 var RegexEscpVariables = regexp.MustCompile(`\\\{\{[^{}]*\}\}`)
 
-// Regex for '$(...)' at the beginning of the string, and 'x$(...)' where 'x' is not '\'
+// RegexReferences is the Regex for '$(...)' at the beginning of the string, and 'x$(...)' where 'x' is not '\'
 var RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
 
-// Regex for '\$(...)'
+// RegexEscpReferences is the Regex for '\$(...)'
 var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
 
 var regexVariableInit = regexp.MustCompile(`^\{\{[^{}]*\}\}`)
+
+var regexElementIndex = regexp.MustCompile(`{{\s*elementIndex\s*}}`)
 
 // IsVariable returns true if the element contains a 'valid' variable {{}}
 func IsVariable(value string) bool {
@@ -80,12 +83,19 @@ func SubstituteAll(log logr.Logger, ctx context.EvalInterface, document interfac
 }
 
 func SubstituteAllInPreconditions(log logr.Logger, ctx context.EvalInterface, document interface{}) (_ interface{}, err error) {
-	return substituteAll(log, ctx, document, newPreconditionsVariableResolver(log))
+	// We must convert all incoming conditions to JSON data i.e.
+	// string, []interface{}, map[string]interface{}
+	// we cannot use structs otherwise json traverse doesn't work
+	untypedDoc, err := DocumentToUntyped(document)
+	if err != nil {
+		return document, err
+	}
+	return substituteAll(log, ctx, untypedDoc, newPreconditionsVariableResolver(log))
 }
 
 func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
 	var rule interface{}
-	rule, err = RuleToUntyped(typedRule)
+	rule, err = DocumentToUntyped(typedRule)
 	if err != nil {
 		return typedRule, err
 	}
@@ -98,14 +108,14 @@ func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, typedRule k
 	return UntypedToRule(rule)
 }
 
-func RuleToUntyped(rule kyverno.Rule) (interface{}, error) {
-	jsonRule, err := json.Marshal(rule)
+func DocumentToUntyped(doc interface{}) (interface{}, error) {
+	jsonDoc, err := json.Marshal(doc)
 	if err != nil {
 		return nil, err
 	}
 
 	var untyped interface{}
-	err = json.Unmarshal(jsonRule, &untyped)
+	err = json.Unmarshal(jsonDoc, &untyped)
 	if err != nil {
 		return nil, err
 	}
@@ -179,10 +189,10 @@ func substituteAll(log logr.Logger, ctx context.EvalInterface, document interfac
 	return substituteVars(log, ctx, document, resolver)
 }
 
-func SubstituteAllForceMutate(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
+func SubstituteAllForceMutate(log logr.Logger, ctx *context.Context, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
 	var rule interface{}
 
-	rule, err = RuleToUntyped(typedRule)
+	rule, err = DocumentToUntyped(typedRule)
 	if err != nil {
 		return kyverno.Rule{}, err
 	}
@@ -212,47 +222,8 @@ func substituteReferences(log logr.Logger, rule interface{}) (interface{}, error
 	return jsonUtils.NewTraversal(rule, substituteReferencesIfAny(log)).TraverseJSON()
 }
 
-// ValidateBackgroundModeVars validates variables against the specified context,
-// which contains a list of allowed JMESPath queries in background processing,
-// and throws an error if the variable is not allowed.
-func ValidateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface, rule interface{}) (interface{}, error) {
-	return jsonUtils.NewTraversal(rule, validateBackgroundModeVars(log, ctx)).TraverseJSON()
-}
-
 func ValidateElementInForEach(log logr.Logger, rule interface{}) (interface{}, error) {
 	return jsonUtils.NewTraversal(rule, validateElementInForEach(log)).TraverseJSON()
-}
-
-func validateBackgroundModeVars(log logr.Logger, ctx context.EvalInterface) jsonUtils.Action {
-	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
-		value, ok := data.Element.(string)
-		if !ok {
-			return data.Element, nil
-		}
-		vars := RegexVariables.FindAllString(value, -1)
-		for _, v := range vars {
-			initial := len(regexVariableInit.FindAllString(v, -1)) > 0
-
-			if !initial {
-				v = v[1:]
-			}
-
-			variable := replaceBracesAndTrimSpaces(v)
-
-			_, err := ctx.Query(variable)
-			if err != nil {
-				switch err.(type) {
-				case gojmespath.NotFoundError:
-					return nil, nil
-				case context.InvalidVariableErr:
-					return nil, err
-				default:
-					return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
-				}
-			}
-		}
-		return nil, nil
-	})
 }
 
 func validateElementInForEach(log logr.Logger) jsonUtils.Action {
@@ -270,8 +241,8 @@ func validateElementInForEach(log logr.Logger) jsonUtils.Action {
 			}
 
 			variable := replaceBracesAndTrimSpaces(v)
-
-			if strings.HasPrefix(variable, "element") && !strings.Contains(data.Path, "/foreach/") {
+			isElementVar := strings.HasPrefix(variable, "element") || variable == "elementIndex"
+			if isElementVar && !strings.Contains(data.Path, "/foreach/") {
 				return nil, fmt.Errorf("variable '%v' present outside of foreach at path %s", variable, data.Path)
 			}
 		}
@@ -298,7 +269,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 
 		for _, v := range RegexReferences.FindAllString(value, -1) {
 			initial := v[:2] == `$(`
-			v_old := v
+			old := v
 
 			if !initial {
 				v = v[1:]
@@ -321,15 +292,15 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 			log.V(3).Info("reference resolved", "reference", v, "value", resolvedReference, "path", data.Path)
 
 			if val, ok := resolvedReference.(string); ok {
-				replace_with := ""
+				replacement := ""
 
 				if !initial {
-					replace_with = string(v_old[0])
+					replacement = string(old[0])
 				}
 
-				replace_with += val
+				replacement += val
 
-				value = strings.Replace(value, v_old, replace_with, 1)
+				value = strings.Replace(value, old, replacement, 1)
 				continue
 			}
 
@@ -367,10 +338,9 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 		vars := RegexVariables.FindAllString(value, -1)
 		for len(vars) > 0 {
 			originalPattern := value
-
 			for _, v := range vars {
 				initial := len(regexVariableInit.FindAllString(v, -1)) > 0
-				v_old := v
+				old := v
 
 				if !initial {
 					v = v[1:]
@@ -379,7 +349,15 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 				variable := replaceBracesAndTrimSpaces(v)
 
 				if variable == "@" {
-					variable = strings.Replace(variable, "@", fmt.Sprintf("request.object.%s", getJMESPath(data.Path)), -1)
+					path := getJMESPath(data.Path)
+					var val string
+					if strings.HasPrefix(path, "[") {
+						val = fmt.Sprintf("request.object%s", path)
+					} else {
+						val = fmt.Sprintf("request.object.%s", path)
+					}
+
+					variable = strings.Replace(variable, "@", val, -1)
 				}
 
 				if isDeleteRequest {
@@ -406,7 +384,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 				prefix := ""
 
 				if !initial {
-					prefix = string(v_old[0])
+					prefix = string(old[0])
 				}
 
 				if value, err = substituteVarInPattern(prefix, originalPattern, v, substitutedVar); err != nil {
@@ -441,12 +419,18 @@ func isDeleteRequest(ctx context.EvalInterface) bool {
 	return false
 }
 
-// getJMESPath converts path to JMES format
+var regexPathDigit = regexp.MustCompile(`\.?([\d])\.?`)
+
+// getJMESPath converts path to JMESPath format
 func getJMESPath(rawPath string) string {
-	tokens := strings.Split(rawPath, "/")[3:] // skip empty element and two non-resource (like mutate.overlay)
+	tokens := strings.Split(rawPath, "/")[3:] // skip "/" + 2 elements (e.g. mutate.overlay | validate.pattern)
+	if strings.Contains(rawPath, "foreach") {
+		tokens = strings.Split(rawPath, "/")[5:] // skip "/" + 4 elements (e.g. mutate.foreach/list/overlay | validate.mutate.foreach/list/pattern)
+	}
 	path := strings.Join(tokens, ".")
-	regex := regexp.MustCompile(`\.([\d])\.`)
-	return string(regex.ReplaceAll([]byte(path), []byte("[$1].")))
+	b := regexPathDigit.ReplaceAll([]byte(path), []byte("[$1]."))
+	result := strings.Trim(string(b), ".")
+	return result
 }
 
 func substituteVarInPattern(prefix, pattern, variable string, value interface{}) (string, error) {
@@ -524,7 +508,7 @@ func valFromReferenceToString(value interface{}, operator string) (string, error
 func FindAndShiftReferences(log logr.Logger, value, shift, pivot string) string {
 	for _, reference := range RegexReferences.FindAllString(value, -1) {
 		initial := reference[:2] == `$(`
-		reference_old := reference
+		oldReference := reference
 
 		if !initial {
 			reference = reference[1:]
@@ -542,15 +526,15 @@ func FindAndShiftReferences(log logr.Logger, value, shift, pivot string) string 
 		}
 
 		shiftedReference := strings.Replace(reference, pivot, pivot+"/"+shift, -1)
-		replace_with := ""
+		replacement := ""
 
 		if !initial {
-			replace_with = string(reference_old[0])
+			replacement = string(oldReference[0])
 		}
 
-		replace_with += shiftedReference
+		replacement += shiftedReference
 
-		value = strings.Replace(value, reference_old, replace_with, 1)
+		value = strings.Replace(value, oldReference, replacement, 1)
 	}
 
 	return value
@@ -569,7 +553,7 @@ func getValueFromReference(fullDocument interface{}, path string) (interface{}, 
 
 	if _, err := jsonUtils.NewTraversal(fullDocument, jsonUtils.OnlyForLeafsAndKeys(
 		func(data *jsonUtils.ActionData) (interface{}, error) {
-			if common.RemoveAnchorsFromPath(data.Path) == path {
+			if anchor.RemoveAnchorsFromPath(data.Path) == path {
 				element = data.Element
 			}
 
@@ -587,13 +571,20 @@ func replaceSubstituteVariables(document interface{}) interface{} {
 		return document
 	}
 
-	regex := regexp.MustCompile(`\{\{([^{}]*)\}\}`)
 	for {
-		if len(regex.FindAllStringSubmatch(string(rawDocument), -1)) > 0 {
-			rawDocument = regex.ReplaceAll(rawDocument, []byte(`placeholderValue`))
-		} else {
+		if len(regexElementIndex.FindAllSubmatch(rawDocument, -1)) == 0 {
 			break
 		}
+
+		rawDocument = regexElementIndex.ReplaceAll(rawDocument, []byte(`0`))
+	}
+
+	for {
+		if len(RegexVariables.FindAllSubmatch(rawDocument, -1)) == 0 {
+			break
+		}
+
+		rawDocument = RegexVariables.ReplaceAll(rawDocument, []byte(`placeholderValue`))
 	}
 
 	var output interface{}

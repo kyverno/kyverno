@@ -19,7 +19,7 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	v12 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -30,10 +30,10 @@ import (
 type ClusterPolicyLister interface {
 	// List lists all ClusterPolicies in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.ClusterPolicy, err error)
+	List(selector labels.Selector) (ret []*v12.ClusterPolicy, err error)
 	// Get retrieves the ClusterPolicy from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.ClusterPolicy, error)
+	Get(name string) (*v12.ClusterPolicy, error)
 	ClusterPolicyListerExpansion
 }
 
@@ -48,21 +48,21 @@ func NewClusterPolicyLister(indexer cache.Indexer) ClusterPolicyLister {
 }
 
 // List lists all ClusterPolicies in the indexer.
-func (s *clusterPolicyLister) List(selector labels.Selector) (ret []*v1.ClusterPolicy, err error) {
+func (s *clusterPolicyLister) List(selector labels.Selector) (ret []*v12.ClusterPolicy, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.ClusterPolicy))
+		ret = append(ret, m.(*v12.ClusterPolicy))
 	})
 	return ret, err
 }
 
 // Get retrieves the ClusterPolicy from the index for a given name.
-func (s *clusterPolicyLister) Get(name string) (*v1.ClusterPolicy, error) {
+func (s *clusterPolicyLister) Get(name string) (*v12.ClusterPolicy, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("clusterpolicy"), name)
+		return nil, errors.NewNotFound(v12.Resource("clusterpolicy"), name)
 	}
-	return obj.(*v1.ClusterPolicy), nil
+	return obj.(*v12.ClusterPolicy), nil
 }

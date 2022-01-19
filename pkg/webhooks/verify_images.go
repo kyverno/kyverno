@@ -2,11 +2,13 @@ package webhooks
 
 import (
 	"errors"
+
 	"github.com/go-logr/logr"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/policyreport"
 	"k8s.io/api/admission/v1beta1"
 )
 
@@ -39,6 +41,9 @@ func (ws *WebhookServer) handleVerifyImages(request *v1beta1.AdmissionRequest,
 		engineResponses = append(engineResponses, resp)
 		patches = append(patches, resp.GetPatches()...)
 	}
+
+	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
+	ws.prGenerator.Add(prInfos...)
 
 	blocked := toBlockResource(engineResponses, logger)
 	if blocked {

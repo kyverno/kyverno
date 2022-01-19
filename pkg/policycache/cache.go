@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
@@ -197,11 +197,11 @@ func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, muta
 	}
 }
 
-func (pc *pMap) get(key PolicyType, gvk, namespace string) (names []string) {
-	pc.RLock()
-	defer pc.RUnlock()
+func (m *pMap) get(key PolicyType, gvk, namespace string) (names []string) {
+	m.RLock()
+	defer m.RUnlock()
 	_, kind := common.GetKindFromGVK(gvk)
-	for _, policyName := range pc.kindDataMap[kind][key] {
+	for _, policyName := range m.kindDataMap[kind][key] {
 		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
 		if !isNamespacedPolicy && namespace == "" {
 			names = append(names, key)
@@ -262,19 +262,19 @@ func removeCacheHelper(rmr kyverno.ResourceFilter, m *pMap, pName string) {
 	}
 }
 
-func (m *policyCache) getPolicyObject(key PolicyType, gvk string, nspace string) (policyObject []*kyverno.ClusterPolicy) {
+func (pc *policyCache) getPolicyObject(key PolicyType, gvk string, nspace string) (policyObject []*kyverno.ClusterPolicy) {
 	_, kind := common.GetKindFromGVK(gvk)
-	policyNames := m.pMap.get(key, kind, nspace)
-	wildcardPolicies := m.pMap.get(key, "*", nspace)
+	policyNames := pc.pMap.get(key, kind, nspace)
+	wildcardPolicies := pc.pMap.get(key, "*", nspace)
 	policyNames = append(policyNames, wildcardPolicies...)
 	for _, policyName := range policyNames {
 		var policy *kyverno.ClusterPolicy
 		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
 		if !isNamespacedPolicy {
-			policy, _ = m.pLister.Get(key)
+			policy, _ = pc.pLister.Get(key)
 		} else {
 			if ns == nspace {
-				nspolicy, _ := m.npLister.Policies(ns).Get(key)
+				nspolicy, _ := pc.npLister.Policies(ns).Get(key)
 				policy = policy2.ConvertPolicyToClusterPolicy(nspolicy)
 			}
 		}

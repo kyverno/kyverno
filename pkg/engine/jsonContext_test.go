@@ -3,8 +3,9 @@ package engine
 import (
 	"bytes"
 	"encoding/json"
-	"gotest.tools/assert"
 	"testing"
+
+	"gotest.tools/assert"
 )
 
 func Test_parseMultilineBlockBody(t *testing.T) {
