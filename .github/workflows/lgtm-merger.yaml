@@ -1,7 +1,7 @@
 name: "Merge on lgtm label"
 on:
   schedule:
-  - cron: "*/20 * * * *"
+    - cron: "*/20 * * * *"
 
 jobs:
   execute:
@@ -12,9 +12,6 @@ jobs:
       - run: npm run build
       - uses: ./
         with:
-          jobs: 'lgtm'
+          jobs: "lgtm"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
-          merge-method: 'squash'
-
-
-          
+          merge-method: "squash"
