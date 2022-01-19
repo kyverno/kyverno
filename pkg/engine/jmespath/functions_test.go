@@ -43,6 +43,140 @@ func Test_Compare(t *testing.T) {
 	}
 }
 
+func Test_ParseJsonSerde(t *testing.T) {
+	testCases := []string{
+		`{"a":"b"}`,
+		`true`,
+		`[1,2,3,{"a":"b"}]`,
+		`null`,
+		`[]`,
+		`{}`,
+		`0`,
+		`1.2`,
+		`[1.2,true,{"a":{"a":"b"}}]`,
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc, func(t *testing.T) {
+			jp, err := New(fmt.Sprintf(`to_string(parse_json('%s'))`, tc))
+			assert.NilError(t, err)
+
+			result, err := jp.Search("")
+			assert.NilError(t, err)
+
+			assert.Equal(t, result, tc)
+		})
+	}
+}
+
+func Test_ParseJsonComplex(t *testing.T) {
+	testCases := []struct {
+		input          string
+		expectedResult interface{}
+	}{
+		{
+			input:          `parse_json('{"a": "b"}').a`,
+			expectedResult: "b",
+		},
+		{
+			input:          `parse_json('{"a": [1, 2, 3, 4]}').a[0]`,
+			expectedResult: 1.0,
+		},
+		{
+			input:          `parse_json('[1, 2, {"a": {"b": {"c": [1, 2]}}}]')[2].a.b.c[1]`,
+			expectedResult: 2.0,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.input, func(t *testing.T) {
+			jp, err := New(tc.input)
+			assert.NilError(t, err)
+
+			result, err := jp.Search("")
+			assert.NilError(t, err)
+
+			assert.Equal(t, result, tc.expectedResult)
+		})
+	}
+}
+
+func Test_ParseYAML(t *testing.T) {
+	testCases := []struct {
+		input  string
+		output interface{}
+	}{
+		{
+			input: `a: b`,
+			output: map[string]interface{}{
+				"a": "b",
+			},
+		},
+		{
+			input: `
+- 1
+- 2
+- 3
+- a: b`,
+			output: []interface{}{
+				1.0,
+				2.0,
+				3.0,
+				map[string]interface{}{
+					"a": "b",
+				},
+			},
+		},
+		{
+			input: `
+spec:
+  test: 1
+  test2:
+    - 2
+    - 3
+`,
+			output: map[string]interface{}{
+				"spec": map[string]interface{}{
+					"test":  1.0,
+					"test2": []interface{}{2.0, 3.0},
+				},
+			},
+		},
+		{
+			input: `
+bar: >
+  this is not a normal string it
+  spans more than
+  one line
+  see?`,
+			output: map[string]interface{}{
+				"bar": "this is not a normal string it spans more than one line see?",
+			},
+		},
+		{
+			input: `
+---
+foo: ~
+bar: null
+`,
+			output: map[string]interface{}{
+				"bar": nil,
+				"foo": nil,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.input, func(t *testing.T) {
+			jp, err := New(fmt.Sprintf(`parse_yaml('%s')`, tc.input))
+			assert.NilError(t, err)
+			result, err := jp.Search("")
+			assert.NilError(t, err)
+			assert.DeepEqual(t, result, tc.output)
+		})
+	}
+}
+
 func Test_EqualFold(t *testing.T) {
 	testCases := []struct {
 		jmesPath       string

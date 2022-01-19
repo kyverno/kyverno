@@ -138,6 +138,22 @@ spec:
                             required:
                             - name
                             type: object
+                          imageRegistry:
+                            description: ImageRegistry defines requests to an OCI/Docker
+                              V2 registry to fetch image details.
+                            properties:
+                              jmesPath:
+                                description: JMESPath is an optional JSON Match Expression
+                                  that can be used to transform the ImageData struct
+                                  returned as a result of processing the image reference.
+                                type: string
+                              reference:
+                                description: 'Reference is image reference to a container
+                                  image in the registry. Example: ghcr.io/kyverno/kyverno:latest'
+                                type: string
+                            required:
+                            - reference
+                            type: object
                           name:
                             description: Name is the variable name.
                             type: string
@@ -1507,6 +1523,25 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests
+                                        to an OCI/Docker V2 registry to fetch image
+                                        details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the ImageData struct returned as a result
+                                            of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference
+                                            to a container image in the registry.
+                                            Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
+                                      type: object
                                     name:
                                       description: Name is the variable name.
                                       type: string
@@ -1522,6 +1557,11 @@ spec:
                                   patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
                                   and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                                 x-kubernetes-preserve-unknown-fields: true
+                              patchesJson6902:
+                                description: PatchesJSON6902 is a list of RFC 6902
+                                  JSON Patch declarations used to modify resources.
+                                  See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                type: string
                               preconditions:
                                 description: 'AnyAllConditions are used to determine
                                   if a policy rule should be applied by evaluating
@@ -1544,10 +1584,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -1590,10 +1633,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -1624,36 +1670,10 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        overlay:
-                          description: Overlay specifies an overlay pattern to modify
-                            resources. DEPRECATED. Use PatchStrategicMerge instead.
-                            Scheduled for removal in release 1.5+.
-                          x-kubernetes-preserve-unknown-fields: true
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch
                             used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
                             and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
-                          x-kubernetes-preserve-unknown-fields: true
-                        patches:
-                          description: Patches specifies a RFC 6902 JSON Patch to
-                            modify resources. DEPRECATED. Use PatchesJSON6902 instead.
-                            Scheduled for removal in release 1.5+.
-                          items:
-                            description: 'Patch is a RFC 6902 JSON Patch. See: https://tools.ietf.org/html/rfc6902'
-                            properties:
-                              op:
-                                description: Operation specifies operations supported
-                                  by JSON Patch. i.e:- add, replace and delete.
-                                type: string
-                              path:
-                                description: Path specifies path of the resource.
-                                type: string
-                              value:
-                                description: Value specifies the value to be applied.
-                                x-kubernetes-preserve-unknown-fields: true
-                            type: object
-                          nullable: true
-                          type: array
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: PatchesJSON6902 is a list of RFC 6902 JSON
@@ -1753,6 +1773,25 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests
+                                        to an OCI/Docker V2 registry to fetch image
+                                        details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the ImageData struct returned as a result
+                                            of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference
+                                            to a container image in the registry.
+                                            Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
+                                      type: object
                                     name:
                                       description: Name is the variable name.
                                       type: string
@@ -1771,6 +1810,14 @@ spec:
                                       See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
+                              elementScope:
+                                description: ElementScope specifies whether to use
+                                  the current list element as the scope for validation.
+                                  Defaults to "true" if not specified. When set to
+                                  "false", "request.object" is used as the validation
+                                  scope within the foreach block to allow referencing
+                                  other elements in the subtree.
+                                type: boolean
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -1802,10 +1849,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -1848,10 +1898,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -1950,10 +2003,14 @@ spec:
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
                                             operator:
-                                              description: Operator is the operation
-                                                to perform. Valid operators are Equals,
-                                                NotEquals, In, AnyIn, AllIn and NotIn,
-                                                AnyNotIn, AllNotIn.
+                                              description: 'Operator is the conditional
+                                                operation to perform. Valid operators
+                                                are: Equals, NotEquals, In, AnyIn,
+                                                AllIn, NotIn, AnyNotIn, AllNotIn,
+                                                GreaterThanOrEquals, GreaterThan,
+                                                LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
+                                                DurationGreaterThan, DurationLessThanOrEquals,
+                                                DurationLessThan'
                                               enum:
                                               - Equals
                                               - NotEquals
@@ -1997,10 +2054,14 @@ spec:
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
                                             operator:
-                                              description: Operator is the operation
-                                                to perform. Valid operators are Equals,
-                                                NotEquals, In, AnyIn, AllIn and NotIn,
-                                                AnyNotIn, AllNotIn.
+                                              description: 'Operator is the conditional
+                                                operation to perform. Valid operators
+                                                are: Equals, NotEquals, In, AnyIn,
+                                                AllIn, NotIn, AnyNotIn, AllNotIn,
+                                                GreaterThanOrEquals, GreaterThan,
+                                                LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
+                                                DurationGreaterThan, DurationLessThanOrEquals,
+                                                DurationLessThan'
                                               enum:
                                               - Equals
                                               - NotEquals
@@ -2222,8 +2283,8 @@ spec:
                             type: string
                           operator:
                             description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, AnyIn, AllIn,
-                              NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the
@@ -2393,8 +2454,7 @@ spec:
                       type: string
                     operator:
                       description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn,
-                        AllNotIn Exists and DoesNotExist.
+                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator
@@ -2535,8 +2595,8 @@ spec:
                             type: string
                           operator:
                             description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, AnyIn, AllIn,
-                              NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the
@@ -2731,8 +2791,7 @@ spec:
                       type: string
                     operator:
                       description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn,
-                        AllNotIn Exists and DoesNotExist.
+                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator
@@ -3798,6 +3857,22 @@ spec:
                             required:
                             - name
                             type: object
+                          imageRegistry:
+                            description: ImageRegistry defines requests to an OCI/Docker
+                              V2 registry to fetch image details.
+                            properties:
+                              jmesPath:
+                                description: JMESPath is an optional JSON Match Expression
+                                  that can be used to transform the ImageData struct
+                                  returned as a result of processing the image reference.
+                                type: string
+                              reference:
+                                description: 'Reference is image reference to a container
+                                  image in the registry. Example: ghcr.io/kyverno/kyverno:latest'
+                                type: string
+                            required:
+                            - reference
+                            type: object
                           name:
                             description: Name is the variable name.
                             type: string
@@ -5167,6 +5242,25 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests
+                                        to an OCI/Docker V2 registry to fetch image
+                                        details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the ImageData struct returned as a result
+                                            of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference
+                                            to a container image in the registry.
+                                            Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
+                                      type: object
                                     name:
                                       description: Name is the variable name.
                                       type: string
@@ -5182,6 +5276,11 @@ spec:
                                   patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
                                   and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                                 x-kubernetes-preserve-unknown-fields: true
+                              patchesJson6902:
+                                description: PatchesJSON6902 is a list of RFC 6902
+                                  JSON Patch declarations used to modify resources.
+                                  See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                type: string
                               preconditions:
                                 description: 'AnyAllConditions are used to determine
                                   if a policy rule should be applied by evaluating
@@ -5204,10 +5303,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -5250,10 +5352,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -5284,36 +5389,10 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        overlay:
-                          description: Overlay specifies an overlay pattern to modify
-                            resources. DEPRECATED. Use PatchStrategicMerge instead.
-                            Scheduled for removal in release 1.5+.
-                          x-kubernetes-preserve-unknown-fields: true
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch
                             used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
                             and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
-                          x-kubernetes-preserve-unknown-fields: true
-                        patches:
-                          description: Patches specifies a RFC 6902 JSON Patch to
-                            modify resources. DEPRECATED. Use PatchesJSON6902 instead.
-                            Scheduled for removal in release 1.5+.
-                          items:
-                            description: 'Patch is a RFC 6902 JSON Patch. See: https://tools.ietf.org/html/rfc6902'
-                            properties:
-                              op:
-                                description: Operation specifies operations supported
-                                  by JSON Patch. i.e:- add, replace and delete.
-                                type: string
-                              path:
-                                description: Path specifies path of the resource.
-                                type: string
-                              value:
-                                description: Value specifies the value to be applied.
-                                x-kubernetes-preserve-unknown-fields: true
-                            type: object
-                          nullable: true
-                          type: array
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: PatchesJSON6902 is a list of RFC 6902 JSON
@@ -5413,6 +5492,25 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests
+                                        to an OCI/Docker V2 registry to fetch image
+                                        details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the ImageData struct returned as a result
+                                            of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference
+                                            to a container image in the registry.
+                                            Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
+                                      type: object
                                     name:
                                       description: Name is the variable name.
                                       type: string
@@ -5431,6 +5529,14 @@ spec:
                                       See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
+                              elementScope:
+                                description: ElementScope specifies whether to use
+                                  the current list element as the scope for validation.
+                                  Defaults to "true" if not specified. When set to
+                                  "false", "request.object" is used as the validation
+                                  scope within the foreach block to allow referencing
+                                  other elements in the subtree.
+                                type: boolean
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -5462,10 +5568,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -5508,10 +5617,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -5610,10 +5722,14 @@ spec:
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
                                             operator:
-                                              description: Operator is the operation
-                                                to perform. Valid operators are Equals,
-                                                NotEquals, In, AnyIn, AllIn and NotIn,
-                                                AnyNotIn, AllNotIn.
+                                              description: 'Operator is the conditional
+                                                operation to perform. Valid operators
+                                                are: Equals, NotEquals, In, AnyIn,
+                                                AllIn, NotIn, AnyNotIn, AllNotIn,
+                                                GreaterThanOrEquals, GreaterThan,
+                                                LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
+                                                DurationGreaterThan, DurationLessThanOrEquals,
+                                                DurationLessThan'
                                               enum:
                                               - Equals
                                               - NotEquals
@@ -5657,10 +5773,14 @@ spec:
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
                                             operator:
-                                              description: Operator is the operation
-                                                to perform. Valid operators are Equals,
-                                                NotEquals, In, AnyIn, AllIn and NotIn,
-                                                AnyNotIn, AllNotIn.
+                                              description: 'Operator is the conditional
+                                                operation to perform. Valid operators
+                                                are: Equals, NotEquals, In, AnyIn,
+                                                AllIn, NotIn, AnyNotIn, AllNotIn,
+                                                GreaterThanOrEquals, GreaterThan,
+                                                LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
+                                                DurationGreaterThan, DurationLessThanOrEquals,
+                                                DurationLessThan'
                                               enum:
                                               - Equals
                                               - NotEquals
@@ -5882,8 +6002,8 @@ spec:
                             type: string
                           operator:
                             description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, AnyIn, AllIn,
-                              NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the
@@ -6053,8 +6173,7 @@ spec:
                       type: string
                     operator:
                       description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn,
-                        AllNotIn Exists and DoesNotExist.
+                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator
@@ -6194,8 +6313,8 @@ spec:
                             type: string
                           operator:
                             description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, AnyIn, AllIn,
-                              NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the
@@ -6390,8 +6509,7 @@ spec:
                       type: string
                     operator:
                       description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn,
-                        AllNotIn Exists and DoesNotExist.
+                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator
@@ -7724,7 +7842,7 @@ spec:
         - -v=2
         env:
         - name: INIT_CONFIG
-          value: init-config
+          value: kyverno
         - name: METRICS_CONFIG
           value: kyverno-metrics
         - name: KYVERNO_NAMESPACE

@@ -26,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	informers "k8s.io/client-go/informers/core/v1"
+	listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -75,6 +77,9 @@ type webhookConfigManager struct {
 	stopCh <-chan struct{}
 
 	log logr.Logger
+
+	nsLister       listers.NamespaceLister
+	nsListerSynced func() bool
 }
 
 type manage interface {
@@ -87,6 +92,7 @@ func newWebhookConfigManager(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	resCache resourcecache.ResourceCache,
+	nsInformer informers.NamespaceInformer,
 	serverIP string,
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
@@ -110,6 +116,9 @@ func newWebhookConfigManager(
 
 	m.pLister = pInformer.Lister()
 	m.npLister = npInformer.Lister()
+
+	m.nsLister = nsInformer.Lister()
+	m.nsListerSynced = nsInformer.Informer().HasSynced
 
 	m.pListerSynced = pInformer.Informer().HasSynced
 	m.npListerSynced = npInformer.Informer().HasSynced
@@ -265,16 +274,7 @@ func (m *webhookConfigManager) enqueueAllPolicies() {
 		logger.V(4).Info("added CLusterPolicy to the queue", "name", cpol.GetName())
 	}
 
-	nsCache, ok := m.resCache.GetGVRCache("Namespace")
-	if !ok {
-		nsCache, err = m.resCache.CreateGVKInformer("Namespace")
-		if err != nil {
-			logger.Error(err, "unabled to create Namespace listser")
-			return
-		}
-	}
-
-	namespaces, err := nsCache.Lister().List(labels.Everything())
+	namespaces, err := m.nsLister.List(labels.Everything())
 	if err != nil {
 		logger.Error(err, "unabled to list namespaces")
 		return
@@ -311,7 +311,7 @@ func (m *webhookConfigManager) start() {
 	m.log.Info("starting")
 	defer m.log.Info("shutting down")
 
-	if !cache.WaitForCacheSync(m.stopCh, m.pListerSynced, m.npListerSynced, m.mutateInformerSynced, m.validateInformerSynced) {
+	if !cache.WaitForCacheSync(m.stopCh, m.pListerSynced, m.npListerSynced, m.mutateInformerSynced, m.validateInformerSynced, m.nsListerSynced) {
 		m.log.Info("failed to sync informer cache")
 		return
 	}
@@ -602,7 +602,7 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 				// init operations
 				ops := []string{string(admregapi.Create), string(admregapi.Update), string(admregapi.Delete), string(admregapi.Connect)}
 				if webhookKind == kindMutating {
-					ops = []string{string(admregapi.Create), string(admregapi.Update)}
+					ops = []string{string(admregapi.Create), string(admregapi.Update), string(admregapi.Delete)}
 				}
 
 				tmpRules = []interface{}{map[string]interface{}{}}

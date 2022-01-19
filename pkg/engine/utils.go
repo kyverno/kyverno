@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/engine/common"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -448,7 +450,7 @@ func checkPreconditions(logger logr.Logger, ctx *PolicyContext, anyAllConditions
 		return false, errors.Wrapf(err, "failed to substitute variables in preconditions")
 	}
 
-	typeConditions, err := transformConditions(preconditions)
+	typeConditions, err := common.TransformConditions(preconditions)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to parse preconditions")
 	}
