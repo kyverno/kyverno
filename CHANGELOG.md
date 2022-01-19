@@ -1,3 +1,10 @@
+## v1.5.4
+
+## v1.5.4-rc2
+
+### Bug Fixes
+- TLS: Bad Certificate Error on Rolling Upgrade to 1.5.4-rc1 #2955
+
 ## v1.5.4-rc1
 
 ## v1.5.3
