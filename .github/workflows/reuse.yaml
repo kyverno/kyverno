@@ -71,7 +71,7 @@ jobs:
           password: ${{secrets.registry_password}}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4ab11c41e45d028884a99163086648e898eed25 # v1.6.0
+        uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25 # v1.6.0
         id: buildx
         with:
           install: true
