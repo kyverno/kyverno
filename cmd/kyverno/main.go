@@ -238,6 +238,8 @@ func main() {
 		clientConfig,
 		client,
 		pclient,
+		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
+		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		rCache,
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Namespaces(),
