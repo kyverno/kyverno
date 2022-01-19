@@ -83,7 +83,11 @@ func VerifySignature(imageRef string, key []byte, repository string, log logr.Lo
 	}
 
 	if key != nil {
-		cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRef(ctx, string(key))
+		if strings.HasPrefix(string(key), "-----BEGIN PUBLIC KEY-----") {
+			cosignOpts.SigVerifier, err = decodePEM(key)
+		} else {
+			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRef(ctx, string(key))
+		}
 	}
 
 	if err != nil {
@@ -132,9 +136,16 @@ func FetchAttestations(imageRef string, key []byte, repository string) ([]map[st
 	var pubKey signature.Verifier
 	var err error
 
-	pubKey, err = decodePEM([]byte(key))
-	if err != nil {
-		return nil, errors.Wrap(err, "decode pem")
+	if strings.HasPrefix(string(key), "-----BEGIN PUBLIC KEY-----") {
+		pubKey, err = decodePEM(key)
+		if err != nil {
+			return nil, errors.Wrap(err, "decode pem")
+		}
+	} else {
+		pubKey, err = sigs.PublicKeyFromKeyRef(ctx, string(key))
+		if err != nil {
+			return nil, errors.Wrap(err, "loading public key")
+		}
 	}
 
 	var opts []remote.Option
