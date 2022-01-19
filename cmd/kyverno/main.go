@@ -405,7 +405,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if !autoUpdateWebhooks {
+		if autoUpdateWebhooks {
 			go webhookCfg.UpdateWebhookConfigurations(configData)
 		}
 		if registrationErr := registerWrapperRetry(); registrationErr != nil {
