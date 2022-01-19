@@ -1,0 +1,25 @@
+area:
+  - 'bug'
+  - 'important'
+
+kind:
+  - 'failing-test'
+  - 'cleanup'
+
+priority:
+  - 'low'
+  - 'mid'
+  - 'high'
+
+# File globs for PR labeler
+# refer to github actions/labeler for further documentation
+
+tests:
+  - '**/*.test.ts'
+
+source:
+  - 'src/**'
+
+
+
+
