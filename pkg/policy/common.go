@@ -153,7 +153,10 @@ func (pc *PolicyController) getResourceList(kind, namespace string, labelSelecto
 	return resourceList
 }
 
-// GetResourcesPerNamespace ...
+// GetResourcesPerNamespace returns
+// - Namespaced resources across all namespaces if namespace is set to empty "", for Namespaced Kind
+// - Namespaced resources in the given namespace
+// - Cluster-wide resources for Cluster-wide Kind
 func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace string, rule kyverno.Rule, log logr.Logger) map[string]unstructured.Unstructured {
 	resourceMap := map[string]unstructured.Unstructured{}
 
