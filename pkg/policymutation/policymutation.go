@@ -2,7 +2,6 @@ package policymutation
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -54,17 +53,6 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 	}
 	patches = append(patches, patch...)
 
-	convertPatch, errs := convertPatchToJSON6902(policy, log)
-	if len(errs) > 0 {
-		var errMsgs []string
-		for _, err := range errs {
-			errMsgs = append(errMsgs, err.Error())
-			log.Error(err, "failed to generate pod controller rule")
-		}
-		updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
-	}
-	patches = append(patches, convertPatch...)
-
 	formatedGVK, errs := checkForGVKFormatPatch(policy, log)
 	if len(errs) > 0 {
 		var errMsgs []string
@@ -75,17 +63,6 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 		updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
 	}
 	patches = append(patches, formatedGVK...)
-
-	overlaySMPPatches, errs := convertOverlayToStrategicMerge(policy, log)
-	if len(errs) > 0 {
-		var errMsgs []string
-		for _, err := range errs {
-			errMsgs = append(errMsgs, err.Error())
-			log.Error(err, "failed to generate pod controller rule")
-		}
-		updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
-	}
-	patches = append(patches, overlaySMPPatches...)
 
 	return utils.JoinPatches(patches), updateMsgs
 }
@@ -177,82 +154,6 @@ func buildReplaceJsonPatch(path string, kindList []string) ([]byte, error) {
 		kindList,
 	}
 	return json.Marshal(jsonPatch)
-}
-
-func convertPatchToJSON6902(policy *kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
-	patches = make([][]byte, 0)
-
-	for i, rule := range policy.Spec.Rules {
-		if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) {
-			if len(rule.Mutation.Patches) > 0 {
-				mutation := rule.Mutation
-				patchesJSON6902 := ""
-				for _, patch := range mutation.Patches {
-					patchesJSON6902 += fmt.Sprintf("- path : %s\n  op : %s\n  value: %s\n", patch.Path, patch.Operation, patch.Value)
-				}
-				mutation.PatchesJSON6902 = patchesJSON6902
-				mutation.Patches = []kyverno.Patch{}
-
-				jsonPatch := struct {
-					Path  string            `json:"path"`
-					Op    string            `json:"op"`
-					Value *kyverno.Mutation `json:"value"`
-				}{
-					fmt.Sprintf("/spec/rules/%s/mutate", strconv.Itoa(i)),
-					"replace",
-					&mutation,
-				}
-
-				patchByte, err := json.Marshal(jsonPatch)
-				if err != nil {
-					errs = append(errs, fmt.Errorf("failed to convert patch to patchesJson6902 for policy '%s': %v", policy.Name, err))
-				}
-
-				patches = append(patches, patchByte)
-			}
-		}
-	}
-
-	return patches, errs
-}
-
-func convertOverlayToStrategicMerge(policy *kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
-	patches = make([][]byte, 0)
-	if len(policy.Spec.Rules) == 0 {
-		return patches, []error{
-			errors.New("a policy should have at least one rule"),
-		}
-	}
-
-	for i, rule := range policy.Spec.Rules {
-		if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) {
-			if !reflect.DeepEqual(rule.Mutation.Overlay, kyverno.Mutation{}.Overlay) {
-				mutation := rule.Mutation
-				mutation.PatchStrategicMerge = mutation.Overlay
-				var a interface{}
-				mutation.Overlay = a
-
-				jsonPatch := struct {
-					Path  string            `json:"path"`
-					Op    string            `json:"op"`
-					Value *kyverno.Mutation `json:"value"`
-				}{
-					fmt.Sprintf("/spec/rules/%s/mutate", strconv.Itoa(i)),
-					"replace",
-					&mutation,
-				}
-
-				patchByte, err := json.Marshal(jsonPatch)
-				if err != nil {
-					errs = append(errs, fmt.Errorf("failed to convert overlay to patchStrategicMerge for policy '%s': %v", policy.Name, err))
-				}
-
-				patches = append(patches, patchByte)
-			}
-		}
-	}
-
-	return patches, errs
 }
 
 func defaultBackgroundFlag(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, string) {
@@ -446,8 +347,7 @@ func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bo
 			}
 		}
 
-		if rule.Mutation.Patches != nil || rule.Mutation.PatchesJSON6902 != "" ||
-			rule.Validation.Deny != nil || rule.HasGenerate() {
+		if rule.Mutation.PatchesJSON6902 != "" || rule.HasGenerate() {
 			return false, "none"
 		}
 	}
@@ -581,7 +481,7 @@ func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log l
 }
 
 // the kyvernoRule holds the temporary kyverno rule struct
-// each field is a pointer to the the actual object
+// each field is a pointer to the actual object
 // when serializing data, we would expect to drop the omitempty key
 // otherwise (without the pointer), it will be set to empty value
 // - an empty struct in this case, some may fail the schema validation
@@ -699,19 +599,6 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		}
 	}
 
-	if rule.Mutation.Overlay != nil {
-		newMutation := &kyverno.Mutation{
-			PatchStrategicMerge: map[string]interface{}{
-				"spec": map[string]interface{}{
-					"template": rule.Mutation.Overlay,
-				},
-			},
-		}
-
-		controllerRule.Mutation = newMutation.DeepCopy()
-		return *controllerRule
-	}
-
 	if rule.Mutation.PatchStrategicMerge != nil {
 		newMutation := &kyverno.Mutation{
 			PatchStrategicMerge: map[string]interface{}{
@@ -730,6 +617,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		for _, foreach := range rule.Mutation.ForEachMutation {
 			newForeachMutation = append(newForeachMutation, &kyverno.ForEachMutation{
 				List:             foreach.List,
+				Context:          foreach.Context,
 				AnyAllConditions: foreach.AnyAllConditions,
 				PatchStrategicMerge: map[string]interface{}{
 					"spec": map[string]interface{}{
@@ -754,6 +642,15 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 			},
 		}
 		controllerRule.Validation = newValidate.DeepCopy()
+		return *controllerRule
+	}
+
+	if rule.Validation.Deny != nil {
+		deny := &kyverno.Validation{
+			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "deny"),
+			Deny:    rule.Validation.Deny,
+		}
+		controllerRule.Validation = deny.DeepCopy()
 		return *controllerRule
 	}
 

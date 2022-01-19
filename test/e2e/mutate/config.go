@@ -86,6 +86,16 @@ var tests = []struct {
 		ResourceRaw:        kyverno_2316_resource,
 		ExpectedPatternRaw: kyverno_2316_pattern,
 	},
+	{
+		TestDescription:    "checks that preconditions are substituted correctly",
+		PolicyName:         "replace-docker-hub",
+		PolicyRaw:          kyverno_2971_policy,
+		ResourceName:       "nginx",
+		ResourceNamespace:  "test-mutate",
+		ResourceGVR:        podGVR,
+		ResourceRaw:        kyverno_2971_resource,
+		ExpectedPatternRaw: kyverno_2971_pattern,
+	},
 }
 
 var ingressTests = struct {
@@ -114,7 +124,7 @@ var ingressTests = struct {
 			resourceName: "kuard-v1",
 			resource:     ingressNetworkingV1,
 		},
-		// the following two tests can be removed after 1.22 cluster
+		// the following test can be removed after 1.22 cluster
 		{
 			testName:     "test-networking-v1beta1-ingress",
 			group:        "networking.k8s.io",
@@ -122,14 +132,6 @@ var ingressTests = struct {
 			rsc:          "ingresses",
 			resourceName: "kuard-v1beta1",
 			resource:     ingressNetworkingV1beta1,
-		},
-		{
-			testName:     "test-extensions-v1beta1-ingress",
-			group:        "extensions",
-			version:      "v1beta1",
-			rsc:          "ingresses",
-			resourceName: "kuard-extensions",
-			resource:     ingressExtensionV1beta1,
 		},
 	},
 }

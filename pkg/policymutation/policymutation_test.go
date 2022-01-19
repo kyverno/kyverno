@@ -165,6 +165,38 @@ func Test_CronJobOnly(t *testing.T) {
 	assert.DeepEqual(t, rulePatches, expectedPatches)
 }
 
+func Test_ForEachPod(t *testing.T) {
+	dir, err := os.Getwd()
+	baseDir := filepath.Dir(filepath.Dir(dir))
+	assert.NilError(t, err)
+	file, err := ioutil.ReadFile(baseDir + "/test/policy/mutate/policy_mutate_pod_foreach_with_context.yaml")
+	if err != nil {
+		t.Log(err)
+	}
+	policies, err := utils.GetPolicy(file)
+	if err != nil {
+		t.Log(err)
+	}
+
+	policy := policies[0]
+	policy.Spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
+
+	rulePatches, errs := generateRulePatches(*policy, engine.PodControllers, log.Log)
+	if len(errs) != 0 {
+		t.Log(errs)
+	}
+
+	expectedPatches := [][]byte{
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-resolve-image-containers","match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"preconditions":{"all":[{"key":"{{request.operation}}","operator":"In","value":["CREATE","UPDATE"]}]},"mutate":{"foreach":[{"list":"request.object.spec.template.spec.containers","context":[{"name":"dictionary","configMap":{"name":"some-config-map","namespace":"some-namespace"}}],"patchStrategicMerge":{"spec":{"template":{"spec":{"containers":[{"image":"{{ dictionary.data.image }}","name":"{{ element.name }}"}]}}}}}]}}}`),
+		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-resolve-image-containers","match":{"resources":{"kinds":["CronJob"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"preconditions":{"all":[{"key":"{{request.operation}}","operator":"In","value":["CREATE","UPDATE"]}]},"mutate":{"foreach":[{"list":"request.object.spec.jobTemplate.spec.template.spec.containers","context":[{"name":"dictionary","configMap":{"name":"some-config-map","namespace":"some-namespace"}}],"patchStrategicMerge":{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"containers":[{"image":"{{ dictionary.data.image }}","name":"{{ element.name }}"}]}}}}}}}]}}}`),
+	}
+
+	for i, ep := range expectedPatches {
+		assert.Equal(t, string(rulePatches[i]), string(ep),
+			fmt.Sprintf("unexpected patch: %s\nexpected: %s", rulePatches[i], ep))
+	}
+}
+
 func Test_CronJob_hasExclude(t *testing.T) {
 
 	controllers := engine.PodControllerCronJob
@@ -264,7 +296,7 @@ func Test_getControllers(t *testing.T) {
 		{
 			name:                "rule-with-deny",
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"testpolicy","deny":{"conditions":[{"key":"{{request.object.metadata.labels.foo}}","operator":"Equals","value":"bar"}]}}}]}}`),
-			expectedControllers: "none",
+			expectedControllers: engine.PodControllers,
 		},
 
 		{
@@ -424,5 +456,43 @@ func Test_checkForGVKFormatPatch(t *testing.T) {
 		for _, p := range patches {
 			assert.Equal(t, string(p), string(test.expectedPatches), fmt.Sprintf("test %s failed", test.name))
 		}
+	}
+}
+
+func Test_Deny(t *testing.T) {
+	dir, err := os.Getwd()
+	baseDir := filepath.Dir(filepath.Dir(dir))
+	assert.NilError(t, err)
+	file, err := ioutil.ReadFile(baseDir + "/test/policy/deny/policy.yaml")
+	if err != nil {
+		t.Log(err)
+	}
+	policies, err := utils.GetPolicy(file)
+	if err != nil {
+		t.Log(err)
+	}
+
+	policy := policies[0]
+	policy.Spec.Rules[0].MatchResources.Any = kyverno.ResourceFilters{
+		{
+			ResourceDescription: kyverno.ResourceDescription{
+				Kinds: []string{"Pod"},
+			},
+		},
+	}
+
+	rulePatches, errs := generateRulePatches(*policy, engine.PodControllers, log.Log)
+	fmt.Println("utils.JoinPatches(patches)erterter", string(utils.JoinPatches(rulePatches)))
+	if len(errs) != 0 {
+		t.Log(errs)
+	}
+	expectedPatches := [][]byte{
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-disallow-mount-containerd-sock","match":{"any":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}}],"resources":{"kinds":["Pod"]}},"validate":{"foreach":[{"list":"request.object.spec.template.spec.volumes[]","deny":{"conditions":{"any":[{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/var/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"\\var\\run\\containerd\\containerd.sock"}]}}}]}}}`),
+		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-disallow-mount-containerd-sock","match":{"any":[{"resources":{"kinds":["CronJob"]}}],"resources":{"kinds":["Pod"]}},"validate":{"foreach":[{"list":"request.object.spec.jobTemplate.spec.template.spec.volumes[]","deny":{"conditions":{"any":[{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/var/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"\\var\\run\\containerd\\containerd.sock"}]}}}]}}}`),
+	}
+
+	for i, ep := range expectedPatches {
+		assert.Equal(t, string(rulePatches[i]), string(ep),
+			fmt.Sprintf("unexpected patch: %s\nexpected: %s", rulePatches[i], ep))
 	}
 }

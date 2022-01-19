@@ -2,7 +2,6 @@ package policy
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -25,24 +24,13 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 	pc.rm.Drop()
 
 	for _, rule := range policy.Spec.Rules {
-		if !rule.HasValidate() {
+		if !rule.HasValidate() && !rule.HasVerifyImages() {
 			continue
 		}
 
 		matchKinds := rule.MatchKinds()
 		pc.processExistingKinds(matchKinds, policy, rule, logger)
 	}
-}
-
-func (pc *PolicyController) registerResource(gvk string) (err error) {
-	genericCache, ok := pc.resCache.GetGVRCache(gvk)
-	if !ok {
-		if genericCache, err = pc.resCache.CreateGVKInformer(gvk); err != nil {
-			return fmt.Errorf("failed to create informer for %s: %v", gvk, err)
-		}
-	}
-	pc.rm.RegisterScope(gvk, genericCache.IsNamespaced())
-	return nil
 }
 
 func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPolicy, kind string, ns string, rule kyverno.Rule, logger logr.Logger, metricAlreadyRegistered *bool) {
@@ -90,7 +78,7 @@ func (pc *PolicyController) applyPolicy(policy *kyverno.ClusterPolicy, resource 
 	}
 
 	namespaceLabels := common.GetNamespaceSelectorsFromNamespaceLister(resource.GetKind(), resource.GetNamespace(), pc.nsLister, logger)
-	engineResponse := applyPolicy(*policy, resource, logger, pc.configHandler.GetExcludeGroupRole(), pc.resCache, pc.client, namespaceLabels)
+	engineResponse := applyPolicy(*policy, resource, logger, pc.configHandler.GetExcludeGroupRole(), pc.client, namespaceLabels)
 	engineResponses = append(engineResponses, engineResponse...)
 
 	// post-processing, register the resource as processed
@@ -217,11 +205,13 @@ func (pc *PolicyController) processExistingKinds(kind []string, policy *kyverno.
 		logger = logger.WithValues("rule", rule.Name, "kind", k)
 		namespaced, err := pc.rm.GetScope(k)
 		if err != nil {
-			if err := pc.registerResource(k); err != nil {
+			resourceSchema, _, err := pc.client.DiscoveryClient.FindResource("", k)
+			if err != nil {
 				logger.Error(err, "failed to find resource", "kind", k)
 				continue
 			}
-			namespaced, _ = pc.rm.GetScope(k)
+			namespaced = resourceSchema.Namespaced
+			pc.rm.RegisterScope(k, namespaced)
 		}
 
 		// this tracker would help to ensure that even for multiple namespaces, duplicate metric are not generated
@@ -231,6 +221,7 @@ func (pc *PolicyController) processExistingKinds(kind []string, policy *kyverno.
 			pc.applyAndReportPerNamespace(policy, k, "", rule, logger.WithValues("kind", k), &metricRegisteredTracker)
 			continue
 		}
+
 		namespaces := pc.getNamespacesForRule(&rule, logger.WithValues("kind", k))
 		for _, ns := range namespaces {
 			// for kind: Policy, consider only the namespace which the policy belongs to.
