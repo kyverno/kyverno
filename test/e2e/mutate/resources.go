@@ -416,3 +416,92 @@ spec:
   - name: "nginx"           
     image: 'my-private-registry/nginx:1.14.2'
 `)
+
+var annotate_host_path_policy = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata: 
+  name: add-safe-to-evict
+  annotations:
+    policies.kyverno.io/category: Workload Management
+    policies.kyverno.io/description: The Kubernetes cluster autoscaler does not evict pods that 
+      use hostPath or emptyDir volumes. To allow eviction of these pods, the annotation 
+      cluster-autoscaler.kubernetes.io/safe-to-evict=true must be added to the pods. 
+spec: 
+  rules: 
+  - name: annotate-empty-dir
+    match:
+      resources:
+        kinds:
+        - Pod
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          annotations:
+            +(cluster-autoscaler.kubernetes.io/safe-to-evict): "true"
+        spec:          
+          volumes: 
+          - <(emptyDir): {}
+  - name: annotate-host-path
+    match:
+      resources:
+        kinds:
+        - Pod
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          annotations:
+            +(cluster-autoscaler.kubernetes.io/safe-to-evict): "true"
+        spec:          
+          volumes: 
+          - hostPath:
+              <(path): "*"
+`)
+
+var podWithEmptyDirAsVolume = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-emptydir
+  namespace: emptydir
+  labels:
+    foo: bar
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    volumeMounts:
+    - mountPath: /cache
+      name: cache-volume
+  volumes:
+  - name: cache-volume
+    emptyDir: {}
+`)
+
+var podWithVolumePattern = []byte(`
+metadata:
+  annotations:
+    cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+`)
+
+var podWithHostPathAsVolume = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-hostpath
+  namespace: hostpath
+  labels:
+    foo: bar
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    volumeMounts:
+    - mountPath: /usr/share/nginx/html
+      name: test-volume
+  volumes:
+  - hostPath:
+      path: /var/local/aaa
+      type: DirectoryOrCreate
+    name: test-volume
+`)
