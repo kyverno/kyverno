@@ -35,7 +35,7 @@ func toBlockResource(engineReponses []*response.EngineResponse, log logr.Logger)
 
 		for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
 			action := v.Action
-			if action != "enforce" && action != "audit" {
+			if action != common.Enforce && action != common.Audit {
 				continue
 			}
 
@@ -71,7 +71,7 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 
 		for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
 			action := v.Action
-			if action != "enforce" && action != "audit" {
+			if action != common.Enforce && action != common.Audit {
 				continue
 			}
 
