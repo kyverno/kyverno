@@ -494,7 +494,6 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	admissionRequestTimestamp := time.Now().Unix()
 	kind := request.Kind.Kind
 	policies := ws.pCache.GetPolicies(policycache.ValidateEnforce, kind, "")
-	policies = append(policies, ws.pCache.GetPolicies(policycache.ValidateAudit, kind, "")...)
 	// Get namespace policies from the cache for the requested resource namespace
 	nsPolicies := ws.pCache.GetPolicies(policycache.ValidateEnforce, kind, request.Namespace)
 	policies = append(policies, nsPolicies...)
