@@ -4,13 +4,11 @@ import (
 	"encoding/json"
 	"os"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/go-logr/logr"
-	"github.com/minio/pkg/wildcard"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	informers "k8s.io/client-go/informers/core/v1"
@@ -33,7 +31,6 @@ type ConfigData struct {
 	client                      kubernetes.Interface
 	cmName                      string
 	mux                         sync.RWMutex
-	filters                     []k8Resource
 	excludeGroupRole            []string
 	excludeUsername             []string
 	restrictDevelopmentUsername []string
@@ -43,25 +40,6 @@ type ConfigData struct {
 	reconcilePolicyReport       chan<- bool
 	updateWebhookConfigurations chan<- bool
 	log                         logr.Logger
-}
-
-// ToFilter checks if the given resource is set to be filtered in the configuration
-func (cd *ConfigData) ToFilter(kind, namespace, name string) bool {
-	cd.mux.RLock()
-	defer cd.mux.RUnlock()
-	for _, f := range cd.filters {
-		if wildcard.Match(f.Kind, kind) && wildcard.Match(f.Namespace, namespace) && wildcard.Match(f.Name, name) {
-			return true
-		}
-
-		if kind == "Namespace" {
-			// [Namespace,kube-system,*] || [*,kube-system,*]
-			if (f.Kind == "Namespace" || f.Kind == "*") && wildcard.Match(f.Namespace, name) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // GetExcludeGroupRole return exclude roles
@@ -92,18 +70,6 @@ func (cd *ConfigData) GetGenerateSuccessEvents() bool {
 	return cd.generateSuccessEvents
 }
 
-// FilterNamespaces filters exclude namespace
-func (cd *ConfigData) FilterNamespaces(namespaces []string) []string {
-	var results []string
-
-	for _, ns := range namespaces {
-		if !cd.ToFilter("", ns, "") {
-			results = append(results, ns)
-		}
-	}
-	return results
-}
-
 // GetWebhooks returns the webhook configs
 func (cd *ConfigData) GetWebhooks() []WebhookConfig {
 	cd.mux.RLock()
@@ -118,18 +84,16 @@ func (cd *ConfigData) GetInitConfigMapName() string {
 
 // Interface to be used by consumer to check filters
 type Interface interface {
-	ToFilter(kind, namespace, name string) bool
 	GetExcludeGroupRole() []string
 	GetExcludeUsername() []string
 	GetGenerateSuccessEvents() bool
 	RestrictDevelopmentUsername() []string
-	FilterNamespaces(namespaces []string) []string
 	GetWebhooks() []WebhookConfig
 	GetInitConfigMapName() string
 }
 
 // NewConfigData ...
-func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8sResources, excludeGroupRole, excludeUsername string, reconcilePolicyReport, updateWebhookConfigurations chan<- bool, log logr.Logger) *ConfigData {
+func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, excludeGroupRole, excludeUsername string, reconcilePolicyReport, updateWebhookConfigurations chan<- bool, log logr.Logger) *ConfigData {
 	// environment var is read at start only
 	if cmNameEnv == "" {
 		log.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
@@ -145,11 +109,6 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 	}
 
 	cd.restrictDevelopmentUsername = []string{"minikube-user", "kubernetes-admin"}
-
-	if filterK8sResources != "" {
-		cd.log.Info("init configuration from commandline arguments for filterK8sResources")
-		cd.initFilters(filterK8sResources)
-	}
 
 	if excludeGroupRole != "" {
 		cd.log.Info("init configuration from commandline arguments for excludeGroupRole")
@@ -241,20 +200,6 @@ func (cd *ConfigData) load(cm v1.ConfigMap) (reconcilePolicyReport, updateWebhoo
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
 
-	filters, ok := cm.Data["resourceFilters"]
-	if !ok {
-		logger.V(4).Info("configuration: No resourceFilters defined in ConfigMap")
-	} else {
-		newFilters := parseKinds(filters)
-		if reflect.DeepEqual(newFilters, cd.filters) {
-			logger.V(4).Info("resourceFilters did not change")
-		} else {
-			logger.V(2).Info("Updated resource filters", "oldFilters", cd.filters, "newFilters", newFilters)
-			cd.filters = newFilters
-			reconcilePolicyReport = true
-		}
-	}
-
 	excludeGroupRole, ok := cm.Data["excludeGroupRole"]
 	if !ok {
 		logger.V(4).Info("configuration: No excludeGroupRole defined in ConfigMap")
@@ -327,18 +272,6 @@ func (cd *ConfigData) load(cm v1.ConfigMap) (reconcilePolicyReport, updateWebhoo
 	return
 }
 
-func (cd *ConfigData) initFilters(filters string) {
-	logger := cd.log
-	// parse and load the configuration
-	cd.mux.Lock()
-	defer cd.mux.Unlock()
-
-	newFilters := parseKinds(filters)
-	logger.V(2).Info("Init resource filters", "filters", newFilters)
-	// update filters
-	cd.filters = newFilters
-}
-
 func (cd *ConfigData) initRbac(action, exclude string) {
 	logger := cd.log
 	// parse and load the configuration
@@ -361,7 +294,6 @@ func (cd *ConfigData) unload(cm v1.ConfigMap) {
 	logger.Info("ConfigMap deleted, removing configuration filters", "name", cm.Name, "namespace", cm.Namespace)
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
-	cd.filters = []k8Resource{}
 	cd.excludeGroupRole = []string{}
 	cd.excludeGroupRole = append(cd.excludeGroupRole, defaultExcludeGroupRole...)
 	cd.excludeUsername = []string{}
@@ -372,34 +304,6 @@ type k8Resource struct {
 	Kind      string //TODO: as we currently only support one GVK version, we use the kind only. But if we support multiple GVK, then GV need to be added
 	Namespace string
 	Name      string
-}
-
-//ParseKinds parses the kinds if a single string contains comma separated kinds
-// {"1,2,3","4","5"} => {"1","2","3","4","5"}
-func parseKinds(list string) []k8Resource {
-	resources := []k8Resource{}
-	var resource k8Resource
-	re := regexp.MustCompile(`\[([^\[\]]*)\]`)
-	submatchall := re.FindAllString(list, -1)
-	for _, element := range submatchall {
-		element = strings.Trim(element, "[")
-		element = strings.Trim(element, "]")
-		elements := strings.Split(element, ",")
-		if len(elements) == 0 {
-			continue
-		}
-		if len(elements) == 3 {
-			resource = k8Resource{Kind: elements[0], Namespace: elements[1], Name: elements[2]}
-		}
-		if len(elements) == 2 {
-			resource = k8Resource{Kind: elements[0], Namespace: elements[1]}
-		}
-		if len(elements) == 1 {
-			resource = k8Resource{Kind: elements[0]}
-		}
-		resources = append(resources, resource)
-	}
-	return resources
 }
 
 func parseRbac(list string) []string {

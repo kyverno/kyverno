@@ -185,10 +185,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 				Policy:           *policy,
 				Client:           client,
 				ExcludeGroupRole: []string{},
-				ExcludeResourceFunc: func(s1, s2, s3 string) bool {
-					return false
-				},
-				JSONContext: context.NewContext(),
+				JSONContext:      context.NewContext(),
 			}
 
 			er = engine.Generate(policyContext)

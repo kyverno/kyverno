@@ -254,13 +254,7 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 			UID:     admissionReview.Request.UID,
 		}
 
-		// Do not process the admission requests for kinds that are in filterKinds for filtering
 		request := admissionReview.Request
-		if filter && ws.configHandler.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-			writeResponse(rw, admissionReview)
-			return
-		}
-
 		admissionReview.Response = handler(request)
 		writeResponse(rw, admissionReview)
 		logger.V(4).Info("admission review request processed", "time", time.Since(startTime).String())
@@ -375,12 +369,11 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 	}
 
 	policyContext := &engine.PolicyContext{
-		NewResource:         resource,
-		AdmissionInfo:       userRequestInfo,
-		ExcludeGroupRole:    ws.configHandler.GetExcludeGroupRole(),
-		ExcludeResourceFunc: ws.configHandler.ToFilter,
-		JSONContext:         ctx,
-		Client:              ws.client,
+		NewResource:      resource,
+		AdmissionInfo:    userRequestInfo,
+		ExcludeGroupRole: ws.configHandler.GetExcludeGroupRole(),
+		JSONContext:      ctx,
+		Client:           ws.client,
 	}
 
 	if request.Operation == v1beta1.Update {
@@ -539,13 +532,12 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	}
 
 	policyContext := &engine.PolicyContext{
-		NewResource:         newResource,
-		OldResource:         oldResource,
-		AdmissionInfo:       userRequestInfo,
-		ExcludeGroupRole:    ws.configHandler.GetExcludeGroupRole(),
-		ExcludeResourceFunc: ws.configHandler.ToFilter,
-		JSONContext:         ctx,
-		Client:              ws.client,
+		NewResource:      newResource,
+		OldResource:      oldResource,
+		AdmissionInfo:    userRequestInfo,
+		ExcludeGroupRole: ws.configHandler.GetExcludeGroupRole(),
+		JSONContext:      ctx,
+		Client:           ws.client,
 	}
 
 	vh := &validationHandler{

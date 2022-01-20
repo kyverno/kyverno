@@ -31,8 +31,6 @@ type PolicyContext struct {
 	// Config handler
 	ExcludeGroupRole []string
 
-	ExcludeResourceFunc func(kind, namespace, name string) bool
-
 	// JSONContext is the variable context
 	JSONContext *context.Context
 
@@ -42,14 +40,13 @@ type PolicyContext struct {
 
 func (pc *PolicyContext) Copy() *PolicyContext {
 	return &PolicyContext{
-		Policy:              pc.Policy,
-		NewResource:         pc.NewResource,
-		OldResource:         pc.OldResource,
-		AdmissionInfo:       pc.AdmissionInfo,
-		Client:              pc.Client,
-		ExcludeGroupRole:    pc.ExcludeGroupRole,
-		ExcludeResourceFunc: pc.ExcludeResourceFunc,
-		JSONContext:         pc.JSONContext,
-		NamespaceLabels:     pc.NamespaceLabels,
+		Policy:           pc.Policy,
+		NewResource:      pc.NewResource,
+		OldResource:      pc.OldResource,
+		AdmissionInfo:    pc.AdmissionInfo,
+		Client:           pc.Client,
+		ExcludeGroupRole: pc.ExcludeGroupRole,
+		JSONContext:      pc.JSONContext,
+		NamespaceLabels:  pc.NamespaceLabels,
 	}
 }

@@ -43,11 +43,6 @@ func filterRules(policyContext *PolicyContext, startTime time.Time) *response.En
 		},
 	}
 
-	if policyContext.ExcludeResourceFunc(kind, namespace, name) {
-		log.Log.WithName("Generate").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
-		return resp
-	}
-
 	for _, rule := range policyContext.Policy.Spec.Rules {
 		if ruleResp := filterRule(rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)

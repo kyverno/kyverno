@@ -144,25 +144,6 @@ generatecontrollerExtraResources:
 # - ResourceB
 
 config:
-  # resource types to be skipped by kyverno policy engine
-  # Make sure to surround each entry in quotes so that it doesn't get parsed
-  # as a nested YAML list. These are joined together without spaces in the configmap
-  resourceFilters:
-  - "[Event,*,*]"
-  - "[*,kube-system,*]"
-  - "[*,kube-public,*]"
-  - "[*,kube-node-lease,*]"
-  - "[Node,*,*]"
-  - "[APIService,*,*]"
-  - "[TokenReview,*,*]"
-  - "[SubjectAccessReview,*,*]"
-  - "[SelfSubjectAccessReview,*,*]"
-  - "[*,kyverno,*]"
-  - "[Binding,*,*]"
-  - "[ReplicaSet,*,*]"
-  - "[ReportChangeRequest,*,*]"
-  - "[ClusterReportChangeRequest,*,*]"
-  # Or give the name of an existing config map (ignores default/provided resourceFilters)
   existingConfig: ''
   excludeGroupRole:
 #  - ""

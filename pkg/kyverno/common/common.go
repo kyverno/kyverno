@@ -577,11 +577,8 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 			NewResource:      *resource,
 			Policy:           *policy,
 			ExcludeGroupRole: []string{},
-			ExcludeResourceFunc: func(s1, s2, s3 string) bool {
-				return false
-			},
-			JSONContext:     context.NewContext(),
-			NamespaceLabels: namespaceLabels,
+			JSONContext:      context.NewContext(),
+			NamespaceLabels:  namespaceLabels,
 		}
 		generateResponse := engine.Generate(policyContext)
 		if generateResponse != nil {

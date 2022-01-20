@@ -68,13 +68,12 @@ func (ws *WebhookServer) handleGenerate(
 		}
 
 		policyContext := &engine.PolicyContext{
-			NewResource:         new,
-			OldResource:         old,
-			AdmissionInfo:       userRequestInfo,
-			ExcludeGroupRole:    dynamicConfig.GetExcludeGroupRole(),
-			ExcludeResourceFunc: ws.configHandler.ToFilter,
-			JSONContext:         ctx,
-			Client:              ws.client,
+			NewResource:      new,
+			OldResource:      old,
+			AdmissionInfo:    userRequestInfo,
+			ExcludeGroupRole: dynamicConfig.GetExcludeGroupRole(),
+			JSONContext:      ctx,
+			Client:           ws.client,
 		}
 
 		for _, policy := range policies {

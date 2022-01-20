@@ -186,13 +186,12 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	}
 
 	policyContext := &engine.PolicyContext{
-		NewResource:         newResource,
-		OldResource:         oldResource,
-		AdmissionInfo:       userRequestInfo,
-		ExcludeGroupRole:    h.configHandler.GetExcludeGroupRole(),
-		ExcludeResourceFunc: h.configHandler.ToFilter,
-		JSONContext:         ctx,
-		Client:              h.client,
+		NewResource:      newResource,
+		OldResource:      oldResource,
+		AdmissionInfo:    userRequestInfo,
+		ExcludeGroupRole: h.configHandler.GetExcludeGroupRole(),
+		JSONContext:      ctx,
+		Client:           h.client,
 	}
 
 	vh := &validationHandler{

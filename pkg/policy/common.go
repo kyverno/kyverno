@@ -80,7 +80,7 @@ func (pc *PolicyController) getNamespacesForRule(rule *kyverno.Rule, log logr.Lo
 	var matchedNS []string
 	if len(rule.MatchResources.Namespaces) == 0 {
 		matchedNS = GetAllNamespaces(pc.nsLister, log)
-		return pc.configHandler.FilterNamespaces(matchedNS)
+		return matchedNS
 	}
 
 	var wildcards []string
@@ -97,7 +97,7 @@ func (pc *PolicyController) getNamespacesForRule(rule *kyverno.Rule, log logr.Lo
 		matchedNS = append(matchedNS, wildcardMatches...)
 	}
 
-	return pc.configHandler.FilterNamespaces(matchedNS)
+	return matchedNS
 }
 
 // HasWildcard ...
@@ -202,10 +202,6 @@ func (pc *PolicyController) match(r unstructured.Unstructured, rule kyverno.Rule
 			return false
 		}
 	}
-	// Skip the filtered resources
-	if pc.configHandler.ToFilter(r.GetKind(), r.GetNamespace(), r.GetName()) {
-		return false
-	}
 
 	return true
 }
@@ -290,11 +286,6 @@ func excludeResources(included map[string]unstructured.Unstructured, exclude kyv
 		}
 		if ret := excludeKind(resource.GetKind()); ret != NotEvaluate {
 			excludeEval = append(excludeEval, ret)
-		}
-		// exclude the filtered resources
-		if configHandler.ToFilter(resource.GetKind(), resource.GetNamespace(), resource.GetName()) {
-			delete(included, uid)
-			continue
 		}
 
 		func() {
