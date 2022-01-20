@@ -1431,9 +1431,10 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources [
 		// should not be mentioned
 		if rule.HasGenerate() {
 			generateResourceKind := rule.Generation.Kind
+			generateResourceAPIVersion := rule.Generation.APIVersion
 			for _, resList := range res {
 				for _, r := range resList.APIResources {
-					if r.Kind == generateResourceKind {
+					if r.Kind == generateResourceKind && (len(generateResourceAPIVersion) == 0 || r.Version == generateResourceAPIVersion) {
 						if r.Namespaced {
 							if rule.Generation.Namespace == "" {
 								return fmt.Errorf("path: spec.rules[%v]: please mention the namespace to generate a namespaced resource", rule.Name)

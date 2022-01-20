@@ -254,6 +254,10 @@ func defaultFailurePolicy(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byt
 func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
 	applyAutoGen, desiredControllers := CanAutoGen(&policy, log)
 
+	if !applyAutoGen {
+		desiredControllers = "none"
+	}
+
 	ann := policy.GetAnnotations()
 	actualControllers, ok := ann[engine.PodControllersAnnotation]
 
@@ -288,12 +292,14 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 
 // CanAutoGen checks whether the rule(s) (in policy) can be applied to Pod controllers
 // returns controllers as:
-// - "none" if:
+// - "" if:
 //          - name or selector is defined
 //          - mixed kinds (Pod + pod controller) is defined
+//          - Pod and PodControllers are not defined
 //          - mutate.Patches/mutate.PatchesJSON6902/validate.deny/generate rule is defined
 // - otherwise it returns all pod controllers
 func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bool, controllers string) {
+	var needAutogen bool
 	for _, rule := range policy.Spec.Rules {
 		match := rule.MatchResources
 		exclude := rule.ExcludeResources
@@ -301,56 +307,71 @@ func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bo
 		if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil || match.ResourceDescription.Annotations != nil ||
 			exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil || exclude.ResourceDescription.Annotations != nil {
 			log.V(3).Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
-			return false, "none"
+			return false, ""
 		}
 
 		if isKindOtherthanPod(match.Kinds) || isKindOtherthanPod(exclude.Kinds) {
-			return false, "none"
+			return false, ""
 		}
+
+		needAutogen = hasAutogenKinds(match.Kinds) || hasAutogenKinds(exclude.Kinds)
 
 		for _, value := range match.Any {
 			if isKindOtherthanPod(value.Kinds) {
-				return false, "none"
+				return false, ""
+			}
+			if !needAutogen {
+				needAutogen = hasAutogenKinds(value.Kinds)
 			}
 			if value.Name != "" || value.Selector != nil || value.Annotations != nil {
 				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in match any block is not be applicable.", "rule", rule.Name)
-				return false, "none"
+				return false, ""
 			}
 		}
 		for _, value := range match.All {
-
 			if isKindOtherthanPod(value.Kinds) {
-				return false, "none"
+				return false, ""
+			}
+			if !needAutogen {
+				needAutogen = hasAutogenKinds(value.Kinds)
 			}
 			if value.Name != "" || value.Selector != nil || value.Annotations != nil {
 				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in match all block is not be applicable.", "rule", rule.Name)
-				return false, "none"
+				return false, ""
 			}
 		}
 		for _, value := range exclude.Any {
 			if isKindOtherthanPod(value.Kinds) {
-				return false, "none"
+				return false, ""
+			}
+			if !needAutogen {
+				needAutogen = hasAutogenKinds(value.Kinds)
 			}
 			if value.Name != "" || value.Selector != nil || value.Annotations != nil {
 				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not be applicable.", "rule", rule.Name)
-				return false, "none"
+				return false, ""
 			}
 		}
 		for _, value := range exclude.All {
-
 			if isKindOtherthanPod(value.Kinds) {
-				return false, "none"
+				return false, ""
+			}
+			if !needAutogen {
+				needAutogen = hasAutogenKinds(value.Kinds)
 			}
 			if value.Name != "" || value.Selector != nil || value.Annotations != nil {
 				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not be applicable.", "rule", rule.Name)
-				return false, "none"
+				return false, ""
 			}
 		}
 
-		if rule.Mutation.PatchesJSON6902 != "" ||
-			rule.Validation.Deny != nil || rule.HasGenerate() {
+		if rule.Mutation.PatchesJSON6902 != "" || rule.HasGenerate() {
 			return false, "none"
 		}
+	}
+
+	if !needAutogen {
+		return false, ""
 	}
 
 	return true, engine.PodControllers
@@ -360,6 +381,16 @@ func isKindOtherthanPod(kinds []string) bool {
 	if len(kinds) > 1 && utils.ContainsPod(kinds, "Pod") {
 		return true
 	}
+	return false
+}
+
+func hasAutogenKinds(kind []string) bool {
+	for _, v := range kind {
+		if v == "Pod" || strings.Contains(engine.PodControllers, v) {
+			return true
+		}
+	}
+
 	return false
 }
 
@@ -643,6 +674,15 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 			},
 		}
 		controllerRule.Validation = newValidate.DeepCopy()
+		return *controllerRule
+	}
+
+	if rule.Validation.Deny != nil {
+		deny := &kyverno.Validation{
+			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "deny"),
+			Deny:    rule.Validation.Deny,
+		}
+		controllerRule.Validation = deny.DeepCopy()
 		return *controllerRule
 	}
 

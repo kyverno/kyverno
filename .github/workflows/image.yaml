@@ -4,156 +4,41 @@ on:
     branches:
       - 'main'
 
-permissions: read-all
+permissions:
+  contents: read
+  packages: write
+  id-token: write 
 
 jobs:
   push-init-kyverno:
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      id-token: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - name: Set up Go
-        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
-        with:
-          go-version: 1.16
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@116dc6872c0a067bcb78758f18955414cdbf918f # v1.4.1
-        with:
-          cosign-release: 'v1.4.1'
-
-      - name: login to GitHub Container Registry
-        run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25 # v1.6.0
-        id: buildx
-        with:
-          install: true
-
-      - name: docker images publish
-        run: |
-          make docker-publish-sigs
-          make docker-publish-initContainer-dev
-
-      - name: get digest
-        id: get-step
-        run: |
-          echo "::set-output name=digest::$(make docker-get-initContainer-dev-digest)"
-
-      - name: Sign image
-        env:
-          COSIGN_EXPERIMENTAL: "true"
-        run: |
-          cosign sign \
-          -a "repo=${{ github.repository }}" \
-          -a "workflow=${{ github.workflow }}" \
-          -a "ref=${{ github.sha }}" \
-          ghcr.io/kyverno/kyvernopre@sha256:${{ steps.get-step.outputs.digest }}
+    uses: kyverno/kyverno/.github/workflows/reuse.yaml@main
+    with:
+      publish_command: docker-publish-initContainer-dev
+      digest_command: docker-get-initContainer-dev-digest
+      image_name: kyvernopre
+      tag: image
+    secrets:
+      registry_username: ${{ github.actor }}
+      registry_password: ${{ secrets.CR_PAT }}
 
   push-kyverno:
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      id-token: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - name: Set up Go
-        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
-        with:
-          go-version: 1.16
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@116dc6872c0a067bcb78758f18955414cdbf918f # v1.4.1
-        with:
-          cosign-release: 'v1.4.1'
-
-      - name: login to GitHub Container Registry
-        run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25 # v1.6.0
-        id: buildx
-        with:
-          install: true
-
-      - name: docker images publish
-        run: |
-          make docker-publish-kyverno-dev
-
-      - name: get digest
-        id: get-step
-        run: |
-          echo "::set-output name=digest::$(make docker-get-kyverno-dev-digest)"
-
-      - name: Sign image
-        env:
-          COSIGN_EXPERIMENTAL: "true"
-        run: |
-          cosign sign \
-          -a "repo=${{ github.repository }}" \
-          -a "workflow=${{ github.workflow }}" \
-          -a "ref=${{ github.sha }}" \
-          ghcr.io/kyverno/kyverno@sha256:${{ steps.get-step.outputs.digest }}
+    uses: kyverno/kyverno/.github/workflows/reuse.yaml@main
+    with:
+      publish_command: docker-publish-kyverno-dev
+      digest_command: docker-get-kyverno-dev-digest
+      image_name: kyverno
+      tag: image
+    secrets:
+      registry_username: ${{ github.actor }}
+      registry_password: ${{ secrets.CR_PAT }}
 
   push-kyverno-cli:
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      id-token: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - name: Set up Go
-        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
-        with:
-          go-version: 1.16
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@116dc6872c0a067bcb78758f18955414cdbf918f # v1.4.1
-        with:
-          cosign-release: 'v1.4.1'
-
-      - name: login to GitHub Container Registry
-        run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25 # v1.6.0
-        id: buildx
-        with:
-          install: true
-
-      - name: docker images publish
-        run: |
-          make docker-publish-cli-dev
-
-      - name: get digest
-        id: get-step
-        run: |
-          echo "::set-output name=digest::$(make docker-get-cli-dev-digest)"
-
-      - name: Sign image
-        env:
-          COSIGN_EXPERIMENTAL: "true"
-        run: |
-          cosign sign \
-          -a "repo=${{ github.repository }}" \
-          -a "workflow=${{ github.workflow }}" \
-          -a "ref=${{ github.sha }}" \
-          ghcr.io/kyverno/kyverno-cli@sha256:${{ steps.get-step.outputs.digest }}
+    uses: kyverno/kyverno/.github/workflows/reuse.yaml@main
+    with:
+      publish_command: docker-publish-cli-dev
+      digest_command: docker-get-cli-dev-digest
+      image_name: kyverno-cli
+      tag: image
+    secrets:
+      registry_username: ${{ github.actor }}
+      registry_password: ${{ secrets.CR_PAT }}
