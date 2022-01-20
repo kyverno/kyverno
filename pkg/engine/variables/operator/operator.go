@@ -29,44 +29,44 @@ func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvern
 	str := strings.ToLower(string(op))
 	switch str {
 
-	case strings.ToLower(string(kyverno.Equal)),
-		strings.ToLower(string(kyverno.Equals)):
+	case strings.ToLower(string(kyverno.ConditionOperators["Equal"])),
+		strings.ToLower(string(kyverno.ConditionOperators["Equals"])):
 		return NewEqualHandler(log, ctx)
 
-	case strings.ToLower(string(kyverno.NotEqual)),
-		strings.ToLower(string(kyverno.NotEquals)):
+	case strings.ToLower(string(kyverno.ConditionOperators["NotEqual"])),
+		strings.ToLower(string(kyverno.ConditionOperators["NotEquals"])):
 		return NewNotEqualHandler(log, ctx)
 
 	// deprecated
-	case strings.ToLower(string(kyverno.In)):
+	case strings.ToLower(string(kyverno.ConditionOperators["In"])):
 		return NewInHandler(log, ctx)
 
-	case strings.ToLower(string(kyverno.AnyIn)):
+	case strings.ToLower(string(kyverno.ConditionOperators["AnyIn"])):
 		return NewAnyInHandler(log, ctx)
 
-	case strings.ToLower(string(kyverno.AllIn)):
+	case strings.ToLower(string(kyverno.ConditionOperators["AllIn"])):
 		return NewAllInHandler(log, ctx)
 
 	// deprecated
-	case strings.ToLower(string(kyverno.NotIn)):
+	case strings.ToLower(string(kyverno.ConditionOperators["NotIn"])):
 		return NewNotInHandler(log, ctx)
 
-	case strings.ToLower(string(kyverno.AnyNotIn)):
+	case strings.ToLower(string(kyverno.ConditionOperators["AnyNotIn"])):
 		return NewAnyNotInHandler(log, ctx)
 
-	case strings.ToLower(string(kyverno.AllNotIn)):
+	case strings.ToLower(string(kyverno.ConditionOperators["AllNotIn"])):
 		return NewAllNotInHandler(log, ctx)
 
-	case strings.ToLower(string(kyverno.GreaterThanOrEquals)),
-		strings.ToLower(string(kyverno.GreaterThan)),
-		strings.ToLower(string(kyverno.LessThanOrEquals)),
-		strings.ToLower(string(kyverno.LessThan)):
+	case strings.ToLower(string(kyverno.ConditionOperators["GreaterThanOrEquals"])),
+		strings.ToLower(string(kyverno.ConditionOperators["GreaterThan"])),
+		strings.ToLower(string(kyverno.ConditionOperators["LessThanOrEquals"])),
+		strings.ToLower(string(kyverno.ConditionOperators["LessThan"])):
 		return NewNumericOperatorHandler(log, ctx, op)
 
-	case strings.ToLower(string(kyverno.DurationGreaterThanOrEquals)),
-		strings.ToLower(string(kyverno.DurationGreaterThan)),
-		strings.ToLower(string(kyverno.DurationLessThanOrEquals)),
-		strings.ToLower(string(kyverno.DurationLessThan)):
+	case strings.ToLower(string(kyverno.ConditionOperators["DurationGreaterThanOrEquals"])),
+		strings.ToLower(string(kyverno.ConditionOperators["DurationGreaterThan"])),
+		strings.ToLower(string(kyverno.ConditionOperators["DurationLessThanOrEquals"])),
+		strings.ToLower(string(kyverno.ConditionOperators["DurationLessThan"])):
 		log.Info("DEPRECATED: The Duration* operators have been replaced with the other existing operators that now also support duration values", "operator", str)
 		return NewDurationOperatorHandler(log, ctx, op)
 

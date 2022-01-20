@@ -12,6 +12,7 @@ import (
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/version"
@@ -66,6 +67,10 @@ func GeneratePRsFromEngineResponse(ers []*response.EngineResponse, log logr.Logg
 			continue
 		}
 
+		if er.Policy != nil && engine.ManagedPodResource(*er.Policy, er.PatchedResource) {
+			continue
+		}
+
 		// build policy violation info
 		pvInfos = append(pvInfos, buildPVInfo(er))
 	}
@@ -94,7 +99,7 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 	req = new(unstructured.Unstructured)
 	for _, infoResult := range info.Results {
 		for _, rule := range infoResult.Rules {
-			if rule.Type != utils.Validation.String() {
+			if rule.Type != utils.Validation.String() && rule.Type != utils.ImageVerify.String() {
 				continue
 			}
 

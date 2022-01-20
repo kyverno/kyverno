@@ -90,7 +90,9 @@ func (ws *WebhookServer) handleMutation(
 		if len(policyPatches) > 0 {
 			patches = append(patches, policyPatches...)
 			rules := engineResponse.GetSuccessRules()
-			logger.Info("mutation rules from policy applied successfully", "policy", policy.Name, "rules", rules)
+			if len(rules) != 0 {
+				logger.Info("mutation rules from policy applied successfully", "policy", policy.Name, "rules", rules)
+			}
 		}
 
 		policyContext.NewResource = engineResponse.PatchedResource

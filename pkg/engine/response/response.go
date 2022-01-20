@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -11,6 +12,10 @@ import (
 type EngineResponse struct {
 	// Resource patched with the engine action changes
 	PatchedResource unstructured.Unstructured
+
+	// Original policy
+	Policy *kyverno.ClusterPolicy
+
 	// Policy Response
 	PolicyResponse PolicyResponse
 }

@@ -254,7 +254,7 @@ func newPolicy(t *testing.T) *kyverno.ClusterPolicy {
 				}
 			  },
 			  "mutate": {
-				"overlay": {
+				"patchStrategicMerge": {
 				  "metadata": {
 					"annotations": {
 					  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
@@ -412,7 +412,7 @@ func newAnyPolicy(t *testing.T) *kyverno.ClusterPolicy {
 						]
 					},
 					"mutate": {
-						"overlay": {
+						"patchStrategicMerge": {
 							"metadata": {
 								"annotations": {
 									"+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
@@ -535,7 +535,7 @@ func newNsPolicy(t *testing.T) *kyverno.ClusterPolicy {
 				}
 			  },
 			  "mutate": {
-				"overlay": {
+				"patchStrategicMerge": {
 				  "metadata": {
 					"annotations": {
 					  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
