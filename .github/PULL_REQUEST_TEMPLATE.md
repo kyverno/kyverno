@@ -83,17 +83,17 @@ Put an `x` in the boxes that apply. You can also fill these out after creating t
 them, don't hesitate to ask. We're here to help! This is simply a reminder of what we are going to look for before merging your code.
 -->
 
-- [] I have read the [contributing guidelines](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md).
-- [] I have added tests that prove my fix is effective or that my feature works.
-- [] My PR contains new or altered behavior to Kyverno and
-  - [] CLI support should be added my PR doesn't contain that functionality.
-  - [] I have added or changed [the documentation](https://github.com/kyverno/website) myself in an existing PR and the link is:
+- [ ] I have read the [contributing guidelines](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md).
+- [ ] I have read the [PR documentation guide](https://github.com/kyverno/kyverno/blob/main/.github/pr_documentation.md) and followed the process including adding proof manifests to this PR.
+- [ ] I have added tests that prove my fix is effective or that my feature works.
+- [ ] My PR contains new or altered behavior to Kyverno and
+  - [ ] CLI support should be added my PR doesn't contain that functionality.
+  - [ ] I have added or changed [the documentation](https://github.com/kyverno/website) myself in an existing PR and the link is:
   <!-- Uncomment to link to the PR -->
   <!-- https://github.com/kyverno/website/pull/123 -->
-  - [] I have raised an issue in [kyverno/website](https://github.com/kyverno/website) to track the doc update and the link is:
+  - [ ] I have raised an issue in [kyverno/website](https://github.com/kyverno/website) to track the doc update and the link is:
   <!-- Uncomment to link to the issue -->
   <!-- https://github.com/kyverno/website/issues/1 -->
-  - [] I have read the [PR documentation guide](https://github.com/kyverno/kyverno/blob/main/.github/pr_documentation.md) and followed the process including adding proof manifests to this PR.
 
 ## Further Comments
 

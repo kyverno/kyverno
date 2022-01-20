@@ -81,3 +81,30 @@ spec:
   containers:
   - name: nginx
     image: nginx:1.12
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-with-non-root-user-image
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.14.2
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-with-trusted-registry
+spec:
+  containers:
+  - name: kyverno
+    image: ghcr.io/kyverno/kyverno
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-with-non-trusted-registry
+spec:
+  containers:
+  - name: not-kyverno
+    image: gcr.io/not-kyverno/kyverno

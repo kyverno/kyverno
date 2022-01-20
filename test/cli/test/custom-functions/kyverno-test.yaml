@@ -1,0 +1,61 @@
+name: test-custom-funcs
+policies:
+  - policy.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: base64
+    rule: secret-value-must-match-label
+    resource: base64-test-match
+    kind: Secret
+    status: pass
+  - policy: base64
+    rule: secret-value-must-match-label
+    resource: base64-test-no-match
+    kind: Secret
+    status: fail
+  - policy: pattern-match
+    rule: label-must-match-pattern
+    resource: pattern-match-test-match
+    kind: Namespace
+    status: pass
+  - policy: pattern-match
+    rule: label-must-match-pattern
+    resource: pattern-match-test-no-match
+    kind: Namespace
+    status: fail
+  - policy: path-canonicalize
+    rule: disallow-mount-containerd-sock
+    resource: mount-containerd-sock
+    kind: Pod
+    status: fail
+  - policy: test-parse-json
+    rule: test-json-parsing-jmespath
+    resource: valid-test
+    kind: ConfigMap
+    result: pass
+  - policy: test-parse-json
+    rule: test-json-parsing-jmespath
+    resource: invalid-test
+    kind: ConfigMap
+    result: fail
+  - policy: test-parse-yaml
+    rule: test-yaml-parsing-jmespath
+    resource: valid-yaml-test
+    kind: ConfigMap
+    result: pass
+  - policy: test-parse-yaml
+    rule: test-yaml-parsing-jmespath
+    resource: invalid-yaml-test
+    kind: ConfigMap
+    result: fail
+  - policy: test-parse-yaml-array
+    rule: test-yaml-parsing-jmespath
+    resource: valid-yaml-test
+    kind: ConfigMap
+    result: pass
+  - policy: test-parse-yaml-array
+    rule: test-yaml-parsing-jmespath
+    resource: invalid-yaml-test
+    kind: ConfigMap
+    result: fail

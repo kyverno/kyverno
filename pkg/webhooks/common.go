@@ -117,9 +117,44 @@ func containsRBACInfo(policies ...[]*kyverno.ClusterPolicy) bool {
 	for _, policySlice := range policies {
 		for _, policy := range policySlice {
 			for _, rule := range policy.Spec.Rules {
-				if len(rule.MatchResources.Roles) > 0 || len(rule.MatchResources.ClusterRoles) > 0 || len(rule.ExcludeResources.Roles) > 0 || len(rule.ExcludeResources.ClusterRoles) > 0 {
+				if checkForRBACInfo(rule) {
 					return true
 				}
+			}
+		}
+	}
+	return false
+}
+
+func checkForRBACInfo(rule kyverno.Rule) bool {
+	if len(rule.MatchResources.Roles) > 0 || len(rule.MatchResources.ClusterRoles) > 0 || len(rule.ExcludeResources.Roles) > 0 || len(rule.ExcludeResources.ClusterRoles) > 0 {
+		return true
+	}
+	if len(rule.MatchResources.All) > 0 {
+		for _, rf := range rule.MatchResources.All {
+			if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
+				return true
+			}
+		}
+	}
+	if len(rule.MatchResources.Any) > 0 {
+		for _, rf := range rule.MatchResources.Any {
+			if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
+				return true
+			}
+		}
+	}
+	if len(rule.ExcludeResources.All) > 0 {
+		for _, rf := range rule.ExcludeResources.All {
+			if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
+				return true
+			}
+		}
+	}
+	if len(rule.ExcludeResources.Any) > 0 {
+		for _, rf := range rule.ExcludeResources.Any {
+			if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
+				return true
 			}
 		}
 	}

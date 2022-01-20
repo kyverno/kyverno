@@ -10,7 +10,7 @@ func Test_Mutate_Validate_qos(t *testing.T) {
 	testScenario(t, "/test/scenarios/other/scenario_mutate_validate_qos.yaml")
 }
 
-func Test_disallow_priviledged(t *testing.T) {
+func Test_disallow_privileged(t *testing.T) {
 	testScenario(t, "test/scenarios/samples/best_practices/disallow_priviledged.yaml")
 }
 

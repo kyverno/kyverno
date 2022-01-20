@@ -168,6 +168,24 @@ type ContextEntry struct {
 	// APICall defines an HTTP request to the Kubernetes API server. The JSON
 	// data retrieved is stored in the context.
 	APICall *APICall `json:"apiCall,omitempty" yaml:"apiCall,omitempty"`
+
+	// ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
+	// details.
+	ImageRegistry *ImageRegistry `json:"imageRegistry,omitempty" yaml:"imageRegistry,omitempty"`
+}
+
+// ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
+// details.
+type ImageRegistry struct {
+	// Reference is image reference to a container image in the registry.
+	// Example: ghcr.io/kyverno/kyverno:latest
+	Reference string `json:"reference" yaml:"reference"`
+
+	// JMESPath is an optional JSON Match Expression that can be used to
+	// transform the ImageData struct returned as a result of processing
+	// the image reference.
+	// +optional
+	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
 }
 
 // ConfigMapReference refers to a ConfigMap
@@ -206,8 +224,10 @@ type Condition struct {
 	// +kubebuilder:validation:XPreserveUnknownFields
 	Key apiextensions.JSON `json:"key,omitempty" yaml:"key,omitempty"`
 
-	// Operator is the operation to perform. Valid operators
-	// are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.
+	// Operator is the conditional operation to perform. Valid operators are:
+	// Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+	// GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+	// DurationLessThanOrEquals, DurationLessThan
 	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
 
 	// Value is the conditional value, or set of values. The values can be fixed set
@@ -221,46 +241,46 @@ type Condition struct {
 // +kubebuilder:validation:Enum=Equals;NotEquals;In;AnyIn;AllIn;NotIn;AnyNotIn;AllNotIn;GreaterThanOrEquals;GreaterThan;LessThanOrEquals;LessThan;DurationGreaterThanOrEquals;DurationGreaterThan;DurationLessThanOrEquals;DurationLessThan
 type ConditionOperator string
 
-const (
-	// Equal evaluates if the key is equal to the value.
-	// Deprecated. Use Equals instead.
-	Equal ConditionOperator = "Equal"
-	// Equals evaluates if the key is equal to the value.
-	Equals ConditionOperator = "Equals"
-	// NotEqual evaluates if the key is not equal to the value.
-	// Deprecated. Use NotEquals instead.
-	NotEqual ConditionOperator = "NotEqual"
-	// NotEquals evaluates if the key is not equal to the value.
-	NotEquals ConditionOperator = "NotEquals"
-	// In evaluates if the key is contained in the set of values.
-	In ConditionOperator = "In"
-	// AnyIn evaluates if any of the keys are contained in the set of values.
-	AnyIn ConditionOperator = "AnyIn"
-	// AllIn evaluates if all the keys are contained in the set of values.
-	AllIn ConditionOperator = "AllIn"
-	// NotIn evaluates if the key is not contained in the set of values.
-	NotIn ConditionOperator = "NotIn"
-	// AnyNotIn evaluates if any of the keys are not contained in the set of values.
-	AnyNotIn ConditionOperator = "AnyNotIn"
-	// AllNotIn evaluates if all the keys are not contained in the set of values.
-	AllNotIn ConditionOperator = "AllNotIn"
-	// GreaterThanOrEquals evaluates if the key (numeric) is greater than or equal to the value (numeric).
-	GreaterThanOrEquals ConditionOperator = "GreaterThanOrEquals"
-	// GreaterThan evaluates if the key (numeric) is greater than the value (numeric).
-	GreaterThan ConditionOperator = "GreaterThan"
-	// LessThanOrEquals evaluates if the key (numeric) is less than or equal to the value (numeric).
-	LessThanOrEquals ConditionOperator = "LessThanOrEquals"
-	// LessThan evaluates if the key (numeric) is less than the value (numeric).
-	LessThan ConditionOperator = "LessThan"
-	// DurationGreaterThanOrEquals evaluates if the key (duration) is greater than or equal to the value (duration)
-	DurationGreaterThanOrEquals ConditionOperator = "DurationGreaterThanOrEquals"
-	// DurationGreaterThan evaluates if the key (duration) is greater than the value (duration)
-	DurationGreaterThan ConditionOperator = "DurationGreaterThan"
-	// DurationLessThanOrEquals evaluates if the key (duration) is less than or equal to the value (duration)
-	DurationLessThanOrEquals ConditionOperator = "DurationLessThanOrEquals"
-	// DurationLessThan evaluates if the key (duration) is greater than the value (duration)
-	DurationLessThan ConditionOperator = "DurationLessThan"
-)
+// ConditionOperators stores all the valid ConditionOperator types as key-value pairs.
+//
+// "Equal" evaluates if the key is equal to the value. (Deprecated; Use Equals instead)
+// "Equals" evaluates if the key is equal to the value.
+// "NotEqual" evaluates if the key is not equal to the value. (Deprecated; Use NotEquals instead)
+// "NotEquals" evaluates if the key is not equal to the value.
+// "In" evaluates if the key is contained in the set of values.
+// "AnyIn" evaluates if any of the keys are contained in the set of values.
+// "AllIn" evaluates if all the keys are contained in the set of values.
+// "NotIn" evaluates if the key is not contained in the set of values.
+// "AnyNotIn" evaluates if any of the keys are not contained in the set of values.
+// "AllNotIn" evaluates if all the keys are not contained in the set of values.
+// "GreaterThanOrEquals" evaluates if the key (numeric) is greater than or equal to the value (numeric).
+// "GreaterThan" evaluates if the key (numeric) is greater than the value (numeric).
+// "LessThanOrEquals" evaluates if the key (numeric) is less than or equal to the value (numeric).
+// "LessThan" evaluates if the key (numeric) is less than the value (numeric).
+// "DurationGreaterThanOrEquals" evaluates if the key (duration) is greater than or equal to the value (duration)
+// "DurationGreaterThan" evaluates if the key (duration) is greater than the value (duration)
+// "DurationLessThanOrEquals" evaluates if the key (duration) is less than or equal to the value (duration)
+// "DurationLessThan" evaluates if the key (duration) is greater than the value (duration)
+var ConditionOperators = map[string]ConditionOperator{
+	"Equal":                       ConditionOperator("Equal"),
+	"Equals":                      ConditionOperator("Equals"),
+	"NotEqual":                    ConditionOperator("NotEqual"),
+	"NotEquals":                   ConditionOperator("NotEquals"),
+	"In":                          ConditionOperator("In"),
+	"AnyIn":                       ConditionOperator("AnyIn"),
+	"AllIn":                       ConditionOperator("AllIn"),
+	"NotIn":                       ConditionOperator("NotIn"),
+	"AnyNotIn":                    ConditionOperator("AnyNotIn"),
+	"AllNotIn":                    ConditionOperator("AllNotIn"),
+	"GreaterThanOrEquals":         ConditionOperator("GreaterThanOrEquals"),
+	"GreaterThan":                 ConditionOperator("GreaterThan"),
+	"LessThanOrEquals":            ConditionOperator("LessThanOrEquals"),
+	"LessThan":                    ConditionOperator("LessThan"),
+	"DurationGreaterThanOrEquals": ConditionOperator("DurationGreaterThanOrEquals"),
+	"DurationGreaterThan":         ConditionOperator("DurationGreaterThan"),
+	"DurationLessThanOrEquals":    ConditionOperator("DurationLessThanOrEquals"),
+	"DurationLessThan":            ConditionOperator("DurationLessThan"),
+}
 
 // MatchResources is used to specify resource and admission review request data for
 // which a policy rule is applicable.
@@ -385,20 +405,6 @@ type ResourceDescription struct {
 
 // Mutation defines how resource are modified.
 type Mutation struct {
-	// Overlay specifies an overlay pattern to modify resources.
-	// DEPRECATED. Use PatchStrategicMerge instead. Scheduled for
-	// removal in release 1.5+.
-	// +kubebuilder:validation:XPreserveUnknownFields
-	// +optional
-	Overlay apiextensions.JSON `json:"overlay,omitempty"`
-
-	// Patches specifies a RFC 6902 JSON Patch to modify resources.
-	// DEPRECATED. Use PatchesJSON6902 instead. Scheduled for
-	// removal in release 1.5+.
-	// +kubebuilder:validation:XPreserveUnknownFields
-	// +nullable
-	// +optional
-	Patches []Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
 
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
@@ -441,25 +447,11 @@ type ForEachMutation struct {
 	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
 	PatchStrategicMerge apiextensions.JSON `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
-}
 
-// +k8s:deepcopy-gen=false
-
-// Patch is a RFC 6902 JSON Patch.
-// See: https://tools.ietf.org/html/rfc6902
-type Patch struct {
-
-	// Path specifies path of the resource.
-	Path string `json:"path,omitempty" yaml:"path,omitempty"`
-
-	// Operation specifies operations supported by JSON Patch.
-	// i.e:- add, replace and delete.
-	Operation string `json:"op,omitempty" yaml:"op,omitempty"`
-
-	// Value specifies the value to be applied.
-	// +kubebuilder:validation:XPreserveUnknownFields
+	// PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
+	// See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
 	// +optional
-	Value apiextensions.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+	PatchesJSON6902 string `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
 }
 
 // Validation defines checks to be performed on matching resources.
@@ -506,6 +498,12 @@ type ForEachValidation struct {
 	// to which the validation logic is applied.
 	List string `json:"list,omitempty" yaml:"list,omitempty"`
 
+	// ElementScope specifies whether to use the current list element as the scope for validation. Defaults to "true" if not specified.
+	// When set to "false", "request.object" is used as the validation scope within the foreach
+	// block to allow referencing other elements in the subtree.
+	// +optional
+	ElementScope *bool `json:"elementScope,omitempty" yaml:"elementScope,omitempty"`
+
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
 	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
@@ -550,6 +548,14 @@ type ImageVerification struct {
 
 	// Subject is the verified identity used for keyless signing, for example the email address
 	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
+
+	// Issuer is the certificate issuer used for keyless signing.
+	Issuer string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
+
+	// Annotations are used for image verification.
+	// Every specified key-value pair must exist and match in the verified payload.
+	// The payload may contain other key-value pairs.
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 
 	// Repository is an optional alternate OCI repository to use for image signatures that match this rule.
 	// If specified Repository will override the default OCI image repository configured for the installation.
