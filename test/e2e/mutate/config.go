@@ -96,6 +96,26 @@ var tests = []struct {
 		ResourceRaw:        kyverno_2971_resource,
 		ExpectedPatternRaw: kyverno_2971_pattern,
 	},
+	{
+		TestDescription:    "checks the global anchor variables for emptyDir",
+		PolicyName:         "add-safe-to-evict",
+		PolicyRaw:          annotate_host_path_policy,
+		ResourceName:       "pod-with-emptydir",
+		ResourceNamespace:  "emptydir",
+		ResourceGVR:        podGVR,
+		ResourceRaw:        podWithEmptyDirAsVolume,
+		ExpectedPatternRaw: podWithVolumePattern,
+	},
+	{
+		TestDescription:    "checks the global anchor variables for hostPath",
+		PolicyName:         "add-safe-to-evict",
+		PolicyRaw:          annotate_host_path_policy,
+		ResourceName:       "pod-with-hostpath",
+		ResourceNamespace:  "hostpath",
+		ResourceGVR:        podGVR,
+		ResourceRaw:        podWithHostPathAsVolume,
+		ExpectedPatternRaw: podWithVolumePattern,
+	},
 }
 
 var ingressTests = struct {
