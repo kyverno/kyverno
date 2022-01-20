@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+// IsNegationAnchorError checks if error message has negation anchor error string
+func IsNegationAnchorError(msg string) bool {
+	return strings.Contains(msg, NegationAnchorErrMsg)
+}
+
 // IsConditionalAnchorError checks if error message has conditional anchor error string
 func IsConditionalAnchorError(msg string) bool {
 	return strings.Contains(msg, ConditionalAnchorErrMsg)
@@ -14,6 +19,19 @@ func IsConditionalAnchorError(msg string) bool {
 // IsGlobalAnchorError checks if error message has global anchor error string
 func IsGlobalAnchorError(msg string) bool {
 	return strings.Contains(msg, GlobalAnchorErrMsg)
+}
+
+// NewNegationAnchorError returns a new instance of NegationAnchorError
+func NewNegationAnchorError(msg string) ValidateAnchorError {
+	return ValidateAnchorError{
+		Err:     NegationAnchorErr,
+		Message: fmt.Sprintf("%s: %s", NegationAnchorErrMsg, msg),
+	}
+}
+
+// IsNegationAnchorError checks if the error is a negation anchor error
+func (e ValidateAnchorError) IsNegationAnchorError() bool {
+	return e.Err == NegationAnchorErr
 }
 
 // NewConditionalAnchorError returns a new instance of ConditionalAnchorError
@@ -61,6 +79,9 @@ const (
 
 	// GlobalAnchorErr refers to global condition violation
 	GlobalAnchorErr
+
+	// NegationAnchorErr refers to negation violation
+	NegationAnchorErr
 )
 
 // ValidateAnchorError represents the error type of validation anchors
@@ -68,6 +89,9 @@ type ValidateAnchorError struct {
 	Err     AnchorError
 	Message string
 }
+
+// NegationAnchorErrMsg - the error message for negation anchor error
+var NegationAnchorErrMsg = "negation anchor matched in resource"
 
 // ConditionalAnchorErrMsg - the error message for conditional anchor error
 var ConditionalAnchorErrMsg = "conditional anchor mismatch"
