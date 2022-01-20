@@ -105,8 +105,8 @@ var tests = []struct {
 		ResourceGVR:        podGVR,
 		ResourceRaw:        podWithNoSecrets2,
 		ExpectedPatternRaw: podWithSecretPattern2,
-  },
-  {
+	},
+	{
 		TestDescription:    "checks that preconditions are substituted correctly",
 		PolicyName:         "replace-docker-hub",
 		PolicyRaw:          kyverno_2971_policy,

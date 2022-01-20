@@ -364,7 +364,6 @@ metadata:
     fluentbit.io/exclude-busybox: "true"
 `)
 
-
 var setImagePullSecret = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
