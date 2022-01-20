@@ -2,6 +2,7 @@ package jmespath
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"github.com/blang/semver/v4"
 	gojmespath "github.com/jmespath/go-jmespath"
 	"github.com/minio/pkg/wildcard"
+	"sigs.k8s.io/yaml"
 )
 
 var (
@@ -57,6 +59,8 @@ var (
 	pathCanonicalize       = "path_canonicalize"
 	truncate               = "truncate"
 	semverCompare          = "semver_compare"
+	parseJson              = "parse_json"
+	parseYAML              = "parse_yaml"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -261,6 +265,20 @@ func getFunctions() []*gojmespath.FunctionEntry {
 				{Types: []JpType{JpString}},
 			},
 			Handler: jpSemverCompare,
+		},
+		{
+			Name: parseJson,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpParseJson,
+		},
+		{
+			Name: parseYAML,
+			Arguments: []ArgSpec{
+				{Types: []JpType{JpString}},
+			},
+			Handler: jpParseYAML,
 		},
 	}
 
@@ -665,6 +683,30 @@ func jpSemverCompare(arguments []interface{}) (interface{}, error) {
 	return false, nil
 }
 
+func jpParseJson(arguments []interface{}) (interface{}, error) {
+	input, err := validateArg(parseJson, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	var output interface{}
+	err = json.Unmarshal([]byte(input.String()), &output)
+	return output, err
+}
+
+func jpParseYAML(arguments []interface{}) (interface{}, error) {
+	input, err := validateArg(parseYAML, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	jsonData, err := yaml.YAMLToJSON([]byte(input.String()))
+	if err != nil {
+		return nil, err
+	}
+	var output interface{}
+	err = json.Unmarshal(jsonData, &output)
+	return output, err
+}
+
 // InterfaceToString casts an interface to a string type
 func ifaceToString(iface interface{}) (string, error) {
 	switch i := iface.(type) {
@@ -686,7 +728,7 @@ func ifaceToString(iface interface{}) (string, error) {
 func validateArg(f string, arguments []interface{}, index int, expectedType reflect.Kind) (reflect.Value, error) {
 	arg := reflect.ValueOf(arguments[index])
 	if arg.Type().Kind() != expectedType {
-		return reflect.Value{}, fmt.Errorf(invalidArgumentTypeError, equalFold, index+1, expectedType.String())
+		return reflect.Value{}, fmt.Errorf(invalidArgumentTypeError, f, index+1, expectedType.String())
 	}
 
 	return arg, nil

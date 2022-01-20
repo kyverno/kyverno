@@ -13,8 +13,6 @@ import (
 	"github.com/sigstore/cosign/pkg/oci/remote"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/pkg/engine/common"
@@ -27,50 +25,10 @@ import (
 	sigs "github.com/sigstore/cosign/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
-	"k8s.io/client-go/kubernetes"
 )
 
-var (
-	// ImageSignatureRepository is an alternate signature repository
-	ImageSignatureRepository string
-	Secrets                  []string
-
-	kubeClient            kubernetes.Interface
-	kyvernoNamespace      string
-	kyvernoServiceAccount string
-)
-
-// Initialize loads the image pull secrets and initializes the default auth method for container registry API calls
-func Initialize(client kubernetes.Interface, namespace, serviceAccount string, imagePullSecrets []string) error {
-	kubeClient = client
-	kyvernoNamespace = namespace
-	kyvernoServiceAccount = serviceAccount
-	Secrets = imagePullSecrets
-
-	var kc authn.Keychain
-	kcOpts := &k8schain.Options{
-		Namespace:          namespace,
-		ServiceAccountName: serviceAccount,
-		ImagePullSecrets:   imagePullSecrets,
-	}
-
-	kc, err := k8schain.New(context.Background(), client, *kcOpts)
-	if err != nil {
-		return errors.Wrap(err, "failed to initialize registry keychain")
-	}
-
-	authn.DefaultKeychain = kc
-	return nil
-}
-
-// UpdateKeychain reinitializes the image pull secrets and default auth method for container registry API calls
-func UpdateKeychain() error {
-	var err = Initialize(kubeClient, kyvernoNamespace, kyvernoServiceAccount, Secrets)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+// ImageSignatureRepository is an alternate signature repository
+var ImageSignatureRepository string
 
 type Options struct {
 	ImageRef    string
@@ -146,14 +104,22 @@ func VerifySignature(opts Options) (digest string, err error) {
 		return "", errors.Wrap(err, "failed to get payload")
 	}
 
-	issuer, err := extractIssuer(opts.ImageRef, payload, log)
-	if err == nil && (issuer != opts.Issuer) {
-		return "", errors.Wrap(err, "issuer mismatch")
+	if opts.Issuer != "" {
+		issuer, err := extractIssuer(opts.ImageRef, payload, log)
+		if err == nil && (issuer != opts.Issuer) {
+			return "", errors.Wrap(err, "issuer mismatch")
+		}
+
+		return "", errors.Wrap(err, "issuer not found")
 	}
 
-	subject, err := extractSubject(opts.ImageRef, payload, log)
-	if err == nil && wildcard.Match(opts.Subject, subject) {
-		return "", errors.Wrap(err, "subject mismatch")
+	if opts.Subject != "" {
+		subject, err := extractSubject(opts.ImageRef, payload, log)
+		if err == nil && wildcard.Match(opts.Subject, subject) {
+			return "", errors.Wrap(err, "subject mismatch")
+		}
+
+		return "", errors.Wrap(err, "subject not found")
 	}
 
 	err = checkAnnotations(payload, opts.Annotations, log)
@@ -408,7 +374,7 @@ func extractIssuer(imgRef string, payload []payload.SimpleContainerImage, log lo
 		if issuer := p.Optional["Issuer"]; issuer != nil {
 			return issuer.(string), nil
 		} else {
-			log.Info("failed to extract image issuer from verification response", "image", imgRef, "payload", p)
+			log.V(3).Info("failed to extract image issuer from verification response", "image", imgRef, "payload", p)
 			return "", fmt.Errorf("unknown image response for " + imgRef)
 		}
 	}
@@ -420,7 +386,7 @@ func extractSubject(imgRef string, payload []payload.SimpleContainerImage, log l
 		if subject := p.Optional["Subject"]; subject != nil {
 			return subject.(string), nil
 		} else {
-			log.Info("failed to extract image subject from verification response", "image", imgRef, "payload", p)
+			log.V(3).Info("failed to extract image subject from verification response", "image", imgRef, "payload", p)
 			return "", fmt.Errorf("unknown image response for " + imgRef)
 		}
 	}

@@ -98,6 +98,18 @@ spec:
                             required:
                             - name
                             type: object
+                          imageRegistry:
+                            description: ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image details.
+                            properties:
+                              jmesPath:
+                                description: JMESPath is an optional JSON Match Expression that can be used to transform the ImageData struct returned as a result of processing the image reference.
+                                type: string
+                              reference:
+                                description: 'Reference is image reference to a container image in the registry. Example: ghcr.io/kyverno/kyverno:latest'
+                                type: string
+                            required:
+                            - reference
+                            type: object
                           name:
                             description: Name is the variable name.
                             type: string
@@ -922,6 +934,18 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON Match Expression that can be used to transform the ImageData struct returned as a result of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference to a container image in the registry. Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
+                                      type: object
                                     name:
                                       description: Name is the variable name.
                                       type: string
@@ -1072,6 +1096,18 @@ spec:
                                           type: string
                                       required:
                                       - name
+                                      type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON Match Expression that can be used to transform the ImageData struct returned as a result of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference to a container image in the registry. Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
                                       type: object
                                     name:
                                       description: Name is the variable name.
@@ -1438,7 +1474,7 @@ spec:
                             description: key is the label key that the selector applies to.
                             type: string
                           operator:
-                            description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                            description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
@@ -1547,7 +1583,7 @@ spec:
                       description: key is the label key that the selector applies to.
                       type: string
                     operator:
-                      description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                      description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
@@ -1659,7 +1695,7 @@ spec:
                             description: key is the label key that the selector applies to.
                             type: string
                           operator:
-                            description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                            description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
@@ -1786,7 +1822,7 @@ spec:
                       description: key is the label key that the selector applies to.
                       type: string
                     operator:
-                      description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                      description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
@@ -2608,6 +2644,18 @@ spec:
                             required:
                             - name
                             type: object
+                          imageRegistry:
+                            description: ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image details.
+                            properties:
+                              jmesPath:
+                                description: JMESPath is an optional JSON Match Expression that can be used to transform the ImageData struct returned as a result of processing the image reference.
+                                type: string
+                              reference:
+                                description: 'Reference is image reference to a container image in the registry. Example: ghcr.io/kyverno/kyverno:latest'
+                                type: string
+                            required:
+                            - reference
+                            type: object
                           name:
                             description: Name is the variable name.
                             type: string
@@ -3432,6 +3480,18 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON Match Expression that can be used to transform the ImageData struct returned as a result of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference to a container image in the registry. Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
+                                      type: object
                                     name:
                                       description: Name is the variable name.
                                       type: string
@@ -3582,6 +3642,18 @@ spec:
                                           type: string
                                       required:
                                       - name
+                                      type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON Match Expression that can be used to transform the ImageData struct returned as a result of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference to a container image in the registry. Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
                                       type: object
                                     name:
                                       description: Name is the variable name.
@@ -3948,7 +4020,7 @@ spec:
                             description: key is the label key that the selector applies to.
                             type: string
                           operator:
-                            description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                            description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
@@ -4057,7 +4129,7 @@ spec:
                       description: key is the label key that the selector applies to.
                       type: string
                     operator:
-                      description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                      description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
@@ -4169,7 +4241,7 @@ spec:
                             description: key is the label key that the selector applies to.
                             type: string
                           operator:
-                            description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                            description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
@@ -4296,7 +4368,7 @@ spec:
                       description: key is the label key that the selector applies to.
                       type: string
                     operator:
-                      description: operator represents a key's relationship to a set of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                      description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.

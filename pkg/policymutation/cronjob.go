@@ -82,6 +82,15 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		return *cronJobRule
 	}
 
+	if (jobRule.Validation != nil) && (jobRule.Validation.Deny != nil) {
+		newValidate := &kyverno.Validation{
+			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "pattern"),
+			Deny:    jobRule.Validation.Deny,
+		}
+		cronJobRule.Validation = newValidate.DeepCopy()
+		return *cronJobRule
+	}
+
 	if (jobRule.Validation != nil) && (jobRule.Validation.AnyPattern != nil) {
 		var patterns []interface{}
 		anyPatterns, err := jobRule.Validation.DeserializeAnyPattern()
@@ -122,7 +131,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 
 		var newForeachMutation []*kyverno.ForEachMutation
 
-		for _, foreach := range rule.Mutation.ForEachMutation {
+		for _, foreach := range jobRule.Mutation.ForEachMutation {
 			newForeachMutation = append(newForeachMutation, &kyverno.ForEachMutation{
 				List:             foreach.List,
 				Context:          foreach.Context,

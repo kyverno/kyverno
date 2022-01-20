@@ -123,6 +123,22 @@ spec:
                             required:
                             - name
                             type: object
+                          imageRegistry:
+                            description: ImageRegistry defines requests to an OCI/Docker
+                              V2 registry to fetch image details.
+                            properties:
+                              jmesPath:
+                                description: JMESPath is an optional JSON Match Expression
+                                  that can be used to transform the ImageData struct
+                                  returned as a result of processing the image reference.
+                                type: string
+                              reference:
+                                description: 'Reference is image reference to a container
+                                  image in the registry. Example: ghcr.io/kyverno/kyverno:latest'
+                                type: string
+                            required:
+                            - reference
+                            type: object
                           name:
                             description: Name is the variable name.
                             type: string
@@ -1492,6 +1508,25 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests
+                                        to an OCI/Docker V2 registry to fetch image
+                                        details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the ImageData struct returned as a result
+                                            of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference
+                                            to a container image in the registry.
+                                            Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
+                                      type: object
                                     name:
                                       description: Name is the variable name.
                                       type: string
@@ -1722,6 +1757,25 @@ spec:
                                           type: string
                                       required:
                                       - name
+                                      type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests
+                                        to an OCI/Docker V2 registry to fetch image
+                                        details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the ImageData struct returned as a result
+                                            of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference
+                                            to a container image in the registry.
+                                            Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
                                       type: object
                                     name:
                                       description: Name is the variable name.

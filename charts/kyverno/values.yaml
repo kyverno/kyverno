@@ -174,7 +174,7 @@ config:
   webhooks:
   # webhooks: [{"namespaceSelector":{"matchExpressions":[{"key":"environment","operator":"In","values":["prod"]}]}}]
   generateSuccessEvents: 'false'
-  # existingConfig: init-config
+  # existingConfig: kyverno
   metricsConfig:
     namespaces: {
       "include": [],
