@@ -1,3 +1,10 @@
+## v1.5.5-rc1
+
+### Bug Fixes
+- Image signature verification failed for: loading credentials #3014
+- Can't verify attestations with KMS key reference #3017
+- Add flag webhookRegistrationTimeout #2980
+
 ## v1.5.4
 
 ## v1.5.4-rc2
