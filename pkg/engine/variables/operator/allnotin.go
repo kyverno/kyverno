@@ -26,10 +26,12 @@ func (allnin AllNotInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
 		return allnin.validateValueWithStringPattern(typedKey, value)
+	case int, int32, int64, float32, float64:
+		return allnin.validateValueWithStringPattern(fmt.Sprint(typedKey), value)
 	case []interface{}:
 		var stringSlice []string
 		for _, v := range typedKey {
-			stringSlice = append(stringSlice, v.(string))
+			stringSlice = append(stringSlice, fmt.Sprint(v))
 		}
 		return allnin.validateValueWithStringSetPattern(stringSlice, value)
 	default:
@@ -39,7 +41,7 @@ func (allnin AllNotInHandler) Evaluate(key, value interface{}) bool {
 }
 
 func (allnin AllNotInHandler) validateValueWithStringPattern(key string, value interface{}) bool {
-	invalidType, keyExists := keyExistsInArray(key, value, allnin.log)
+	invalidType, keyExists := allKeyExistsInArray(key, value, allnin.log)
 	if invalidType {
 		allnin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false

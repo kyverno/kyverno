@@ -9,14 +9,14 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
 )
 
@@ -220,7 +220,7 @@ func getFileBytes(path string) ([]byte, error) {
 		err  error
 	)
 
-	if IsHttpRegex.MatchString(path) {
+	if IsHTTPRegex.MatchString(path) {
 		// We accept here that a random URL might be called based on user provided input.
 		resp, err := http.Get(path) // #nosec
 		if err != nil {

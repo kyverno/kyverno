@@ -19,7 +19,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha2"
+	"github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )

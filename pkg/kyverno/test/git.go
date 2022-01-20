@@ -22,11 +22,17 @@ func clone(path string, fs billy.Filesystem, branch string) (*git.Repository, er
 
 func listYAMLs(fs billy.Filesystem, path string) ([]string, error) {
 	path = filepath.Clean(path)
+
+	if _, err := fs.Stat(path); err != nil {
+		return nil, err
+	}
+
 	fis, err := fs.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
 	yamls := make([]string, 0)
+
 	for _, fi := range fis {
 		name := filepath.Join(path, fi.Name())
 		if fi.IsDir() {

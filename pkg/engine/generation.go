@@ -3,7 +3,9 @@ package engine
 import (
 	"time"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/common"
+
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -68,7 +70,6 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	oldResource := policyContext.OldResource
 	admissionInfo := policyContext.AdmissionInfo
 	ctx := policyContext.JSONContext
-	resCache := policyContext.ResourceCache
 	excludeGroupRole := policyContext.ExcludeGroupRole
 	namespaceLabels := policyContext.NamespaceLabels
 
@@ -96,7 +97,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	policyContext.JSONContext.Checkpoint()
 	defer policyContext.JSONContext.Restore()
 
-	if err = LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
+	if err = LoadContext(logger, rule.Context, policyContext, rule.Name); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}
@@ -109,7 +110,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	}
 
 	// operate on the copy of the conditions, as we perform variable substitution
-	copyConditions, err := transformConditions(ruleCopy.AnyAllConditions)
+	copyConditions, err := common.TransformConditions(ruleCopy.AnyAllConditions)
 	if err != nil {
 		logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
 		return nil
@@ -117,7 +118,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
-		logger.V(4).Info("preconditions not satisfied, skipping rule", "rule", ruleCopy.Name)
+		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
 		return nil
 	}
 

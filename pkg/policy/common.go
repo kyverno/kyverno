@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/minio/pkg/wildcard"
@@ -73,22 +73,6 @@ func MergeResources(a, b map[string]unstructured.Unstructured) {
 	for k, v := range b {
 		a[k] = v
 	}
-}
-
-// ExcludePod filters out the pods with ownerReference
-func ExcludePod(resourceMap map[string]unstructured.Unstructured, log logr.Logger) map[string]unstructured.Unstructured {
-	for uid, r := range resourceMap {
-		if r.GetKind() != "Pod" {
-			continue
-		}
-
-		if len(r.GetOwnerReferences()) > 0 {
-			log.V(4).Info("exclude Pod", "namespace", r.GetNamespace(), "name", r.GetName())
-			delete(resourceMap, uid)
-		}
-	}
-
-	return resourceMap
 }
 
 // getNamespacesForRule gets the matched namespaces list for the given rule
@@ -160,42 +144,19 @@ func GetAllNamespaces(nslister listerv1.NamespaceLister, log logr.Logger) []stri
 }
 
 func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) interface{} {
-	list, err := func() (list []*unstructured.Unstructured, err error) {
-		var selector labels.Selector
-		if labelSelector == nil {
-			selector = labels.Everything()
-		} else {
-			if selector, err = metav1.LabelSelectorAsSelector(labelSelector); err != nil {
-				return nil, err
-			}
-		}
-
-		genericCache, _ := pc.resCache.GetGVRCache(kind)
-
-		if namespace != "" {
-			list, err = genericCache.NamespacedLister(namespace).List(selector)
-		} else {
-			list, err = genericCache.Lister().List(selector)
-		}
-		return list, err
-	}()
-
-	if err != nil {
-		log.V(3).Info("failed to list resource using lister, try to query from the API server", "err", err.Error())
-	} else {
-		return list
-	}
-
 	resourceList, err := pc.client.ListResource("", kind, namespace, labelSelector)
 	if err != nil {
-		log.Error(err, "failed to list resources", "kind")
+		log.Error(err, "failed to list resources", "kind", kind, "namespace", namespace)
 		return nil
 	}
 
 	return resourceList
 }
 
-// GetResourcesPerNamespace ...
+// GetResourcesPerNamespace returns
+// - Namespaced resources across all namespaces if namespace is set to empty "", for Namespaced Kind
+// - Namespaced resources in the given namespace
+// - Cluster-wide resources for Cluster-wide Kind
 func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace string, rule kyverno.Rule, log logr.Logger) map[string]unstructured.Unstructured {
 	resourceMap := map[string]unstructured.Unstructured{}
 

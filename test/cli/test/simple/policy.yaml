@@ -93,3 +93,46 @@ spec:
         - key: "{{ request.object.metadata.annotations.\"pod.kubernetes.io/lifetime\" }}"
           operator: LessThanOrEquals
           value: "8h"
+
+
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-pod-counts
+  annotations:
+    policies.kyverno.io/title: Restrict Pod Count per Node
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/minversion: 1.3.2
+    policies.kyverno.io/description: >-
+      Sometimes Kubernetes Nodes may have a maximum number of Pods they can accommodate due to
+      resources outside CPU and memory such as licensing, or in some
+      development cases. This policy restricts Pod count on a Node named `minikube` to be no more than 10.
+    # pod-policies.kyverno.io/autogen-controllers: None
+spec:
+  validationFailureAction: audit
+  background: false
+  rules:
+    - name: restrict-pod-count
+      match:
+        resources:
+          kinds:
+            - Pod
+      context:
+        - name: podcounts
+          apiCall:
+            urlPath: "/api/v1/pods"
+            jmesPath: "items[?spec.nodeName=='minikube'] | length(@)"
+      preconditions:
+        - key: "{{ request.operation }}"
+          operator: Equals
+          value: "CREATE"
+      validate:
+        message: "A maximum of 10 Pods are allowed on the Node `minikube`"
+        deny:
+          conditions:
+            - key: "{{ podcounts }}"
+              operator: GreaterThan
+              value: 10

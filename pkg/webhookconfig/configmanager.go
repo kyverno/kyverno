@@ -2,6 +2,7 @@ package webhookconfig
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -9,7 +10,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -26,6 +27,10 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	adminformers "k8s.io/client-go/informers/admissionregistration/v1"
+	informers "k8s.io/client-go/informers/core/v1"
+	admlisters "k8s.io/client-go/listers/admissionregistration/v1"
+	listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -57,10 +62,15 @@ type webhookConfigManager struct {
 
 	mutateInformer         cache.SharedIndexInformer
 	validateInformer       cache.SharedIndexInformer
+	mutateLister           admlisters.MutatingWebhookConfigurationLister
+	validateLister         admlisters.ValidatingWebhookConfigurationLister
 	mutateInformerSynced   cache.InformerSynced
 	validateInformerSynced cache.InformerSynced
 
 	queue workqueue.RateLimitingInterface
+
+	// serverIP used to get the name of debug webhooks
+	serverIP string
 
 	autoUpdateWebhooks bool
 
@@ -72,6 +82,9 @@ type webhookConfigManager struct {
 	stopCh <-chan struct{}
 
 	log logr.Logger
+
+	nsLister       listers.NamespaceLister
+	nsListerSynced func() bool
 }
 
 type manage interface {
@@ -83,7 +96,11 @@ func newWebhookConfigManager(
 	kyvernoClient *kyvernoclient.Clientset,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
+	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
+	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
 	resCache resourcecache.ResourceCache,
+	nsInformer informers.NamespaceInformer,
+	serverIP string,
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
 	stopCh <-chan struct{},
@@ -97,6 +114,7 @@ func newWebhookConfigManager(
 		resCache:             resCache,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "configmanager"),
 		wildcardPolicy:       0,
+		serverIP:             serverIP,
 		autoUpdateWebhooks:   autoUpdateWebhooks,
 		createDefaultWebhook: createDefaultWebhook,
 		stopCh:               stopCh,
@@ -106,16 +124,19 @@ func newWebhookConfigManager(
 	m.pLister = pInformer.Lister()
 	m.npLister = npInformer.Lister()
 
+	m.nsLister = nsInformer.Lister()
+	m.nsListerSynced = nsInformer.Informer().HasSynced
+
 	m.pListerSynced = pInformer.Informer().HasSynced
 	m.npListerSynced = npInformer.Informer().HasSynced
 
-	mutateCache, _ := m.resCache.GetGVRCache(kindMutating)
-	m.mutateInformer = mutateCache.GetInformer()
-	m.mutateInformerSynced = mutateCache.GetInformer().HasSynced
+	m.mutateInformer = mwcInformer.Informer()
+	m.mutateLister = mwcInformer.Lister()
+	m.mutateInformerSynced = mwcInformer.Informer().HasSynced
 
-	validateCache, _ := m.resCache.GetGVRCache(kindValidating)
-	m.validateInformer = validateCache.GetInformer()
-	m.validateInformerSynced = validateCache.GetInformer().HasSynced
+	m.validateInformer = vwcInformer.Informer()
+	m.validateLister = vwcInformer.Lister()
+	m.validateInformerSynced = vwcInformer.Informer().HasSynced
 
 	return m
 }
@@ -260,16 +281,7 @@ func (m *webhookConfigManager) enqueueAllPolicies() {
 		logger.V(4).Info("added CLusterPolicy to the queue", "name", cpol.GetName())
 	}
 
-	nsCache, ok := m.resCache.GetGVRCache("Namespace")
-	if !ok {
-		nsCache, err = m.resCache.CreateGVKInformer("Namespace")
-		if err != nil {
-			logger.Error(err, "unabled to create Namespace listser")
-			return
-		}
-	}
-
-	namespaces, err := nsCache.Lister().List(labels.Everything())
+	namespaces, err := m.nsLister.List(labels.Everything())
 	if err != nil {
 		logger.Error(err, "unabled to list namespaces")
 		return
@@ -306,7 +318,7 @@ func (m *webhookConfigManager) start() {
 	m.log.Info("starting")
 	defer m.log.Info("shutting down")
 
-	if !cache.WaitForCacheSync(m.stopCh, m.pListerSynced, m.npListerSynced, m.mutateInformerSynced, m.validateInformerSynced) {
+	if !cache.WaitForCacheSync(m.stopCh, m.pListerSynced, m.npListerSynced, m.mutateInformerSynced, m.validateInformerSynced, m.nsListerSynced) {
 		m.log.Info("failed to sync informer cache")
 		return
 	}
@@ -486,7 +498,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 			}
 		}
 
-		if p.HasMutate() || p.HasVerifyImages() || p.HasGenerate() {
+		if p.HasMutate() || p.HasVerifyImages() {
 			if p.Spec.FailurePolicy != nil && *p.Spec.FailurePolicy == kyverno.Ignore {
 				m.mergeWebhook(mutateIgnore, p, false)
 			} else {
@@ -501,6 +513,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 
 func (m *webhookConfigManager) updateWebhookConfig(webhooks []*webhook) error {
 	logger := m.log.WithName("updateWebhookConfig")
+
 	webhooksMap := make(map[string]interface{}, len(webhooks))
 	for _, w := range webhooks {
 		key := webhookKey(w.kind, string(w.failurePolicy))
@@ -508,12 +521,12 @@ func (m *webhookConfigManager) updateWebhookConfig(webhooks []*webhook) error {
 	}
 
 	var errs []string
-	if err := m.compareAndUpdateWebhook(kindMutating, getResourceMutatingWebhookConfigName(""), webhooksMap); err != nil {
+	if err := m.compareAndUpdateWebhook(kindMutating, getResourceMutatingWebhookConfigName(m.serverIP), webhooksMap); err != nil {
 		logger.V(4).Info("failed to update mutatingwebhookconfigurations", "error", err.Error())
 		errs = append(errs, err.Error())
 	}
 
-	if err := m.compareAndUpdateWebhook(kindValidating, getResourceValidatingWebhookConfigName(""), webhooksMap); err != nil {
+	if err := m.compareAndUpdateWebhook(kindValidating, getResourceValidatingWebhookConfigName(m.serverIP), webhooksMap); err != nil {
 		logger.V(4).Info("failed to update validatingwebhookconfigurations", "error", err.Error())
 		errs = append(errs, err.Error())
 	}
@@ -527,16 +540,45 @@ func (m *webhookConfigManager) updateWebhookConfig(webhooks []*webhook) error {
 
 func (m *webhookConfigManager) getWebhook(webhookKind, webhookName string) (resourceWebhook *unstructured.Unstructured, err error) {
 	get := func() error {
-		webhookCache, _ := m.resCache.GetGVRCache(webhookKind)
+		resourceWebhook = &unstructured.Unstructured{}
+		err = nil
 
-		resourceWebhook, err = webhookCache.Lister().Get(webhookName)
-		if err != nil && !apierrors.IsNotFound(err) {
-			return errors.Wrapf(err, "unable to get %s/%s", webhookKind, webhookName)
-		} else if apierrors.IsNotFound(err) {
-			m.createDefaultWebhook <- webhookKind
-			return err
+		var rawResc []byte
+
+		switch webhookKind {
+		case kindMutating:
+			resourceWebhookTyped, err := m.mutateLister.Get(webhookName)
+			if err != nil && !apierrors.IsNotFound(err) {
+				return errors.Wrapf(err, "unable to get %s/%s", webhookKind, webhookName)
+			} else if apierrors.IsNotFound(err) {
+				m.createDefaultWebhook <- webhookKind
+				return err
+			}
+			resourceWebhookTyped.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "admissionregistration.k8s.io/v1", Kind: kindMutating})
+			rawResc, err = json.Marshal(resourceWebhookTyped)
+			if err != nil {
+				return err
+			}
+		case kindValidating:
+			resourceWebhookTyped, err := m.validateLister.Get(webhookName)
+			if err != nil && !apierrors.IsNotFound(err) {
+				return errors.Wrapf(err, "unable to get %s/%s", webhookKind, webhookName)
+			} else if apierrors.IsNotFound(err) {
+				m.createDefaultWebhook <- webhookKind
+				return err
+			}
+			resourceWebhookTyped.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "admissionregistration.k8s.io/v1", Kind: kindValidating})
+			rawResc, err = json.Marshal(resourceWebhookTyped)
+			if err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("unknown webhook kind: must be '%v' or '%v'", kindMutating, kindValidating)
 		}
-		return nil
+
+		err = json.Unmarshal(rawResc, &resourceWebhook.Object)
+
+		return err
 	}
 
 	retryGetWebhook := common.RetryFunc(time.Second, 10*time.Second, get, m.log)
@@ -597,7 +639,7 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 				// init operations
 				ops := []string{string(admregapi.Create), string(admregapi.Update), string(admregapi.Delete), string(admregapi.Connect)}
 				if webhookKind == kindMutating {
-					ops = []string{string(admregapi.Create), string(admregapi.Update)}
+					ops = []string{string(admregapi.Create), string(admregapi.Update), string(admregapi.Delete)}
 				}
 
 				tmpRules = []interface{}{map[string]interface{}{}}
@@ -685,6 +727,8 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.Cluste
 			// note: webhook stores GVR in its rules while policy stores GVK in its rules definition
 			gv, k := common.GetKindFromGVK(gvk)
 			switch k {
+			case "Binding":
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods/binding"})
 			case "NodeProxyOptions":
 				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes/proxy"})
 			case "PodAttachOptions":
@@ -727,6 +771,10 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.Cluste
 		groups = append(groups, gvr.Group)
 		versions = append(versions, gvr.Version)
 		rsrcs = append(rsrcs, gvr.Resource)
+	}
+
+	if utils.ContainsString(rsrcs, "pods") {
+		rsrcs = append(rsrcs, "pods/ephemeralcontainers")
 	}
 
 	dst.rule[apiGroups] = removeDuplicates(groups)

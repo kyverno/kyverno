@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	preport "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	preport "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	kyvCommon "github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -143,29 +142,29 @@ func Test_buildPolicyResults(t *testing.T) {
 		for _, r := range result {
 			switch r.Rule {
 			case "pods-require-limits":
-				assert.Assert(t, r.Result == report.PolicyResult(preport.StatusPass))
+				assert.Assert(t, r.Result == preport.StatusPass)
 			case "pods-require-account":
-				assert.Assert(t, r.Result == report.PolicyResult(preport.StatusFail))
+				assert.Assert(t, r.Result == preport.StatusFail)
 			}
 		}
 	}
 }
 
 func Test_calculateSummary(t *testing.T) {
-	results := []*report.PolicyReportResult{
+	results := []*preport.PolicyReportResult{
 		{
 			Resources: make([]*v1.ObjectReference, 5),
-			Result:    report.PolicyResult(preport.StatusPass),
+			Result:    preport.PolicyResult(preport.StatusPass),
 		},
-		{Result: report.PolicyResult(preport.StatusFail)},
-		{Result: report.PolicyResult(preport.StatusFail)},
-		{Result: report.PolicyResult(preport.StatusFail)},
+		{Result: preport.PolicyResult(preport.StatusFail)},
+		{Result: preport.PolicyResult(preport.StatusFail)},
+		{Result: preport.PolicyResult(preport.StatusFail)},
 		{
 			Resources: make([]*v1.ObjectReference, 1),
-			Result:    report.PolicyResult(preport.StatusPass)},
+			Result:    preport.PolicyResult(preport.StatusPass)},
 		{
 			Resources: make([]*v1.ObjectReference, 4),
-			Result:    report.PolicyResult(preport.StatusPass),
+			Result:    preport.PolicyResult(preport.StatusPass),
 		},
 	}
 

@@ -1,10 +1,12 @@
 package webhooks
 
 import (
-	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/utils"
 	"strings"
 	"time"
+
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/utils"
 
 	"github.com/pkg/errors"
 
@@ -12,13 +14,11 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 
 	"github.com/go-logr/logr"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"k8s.io/api/admission/v1beta1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -61,7 +61,6 @@ type auditHandler struct {
 
 	log           logr.Logger
 	configHandler config.Interface
-	resCache      resourcecache.ResourceCache
 	promConfig    *metrics.PromConfig
 }
 
@@ -74,7 +73,6 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
 	dynamicConfig config.Interface,
-	resCache resourcecache.ResourceCache,
 	client *client.Client,
 	promConfig *metrics.PromConfig) AuditHandler {
 
@@ -91,7 +89,6 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		log:            log,
 		prGenerator:    prGenerator,
 		configHandler:  dynamicConfig,
-		resCache:       resCache,
 		client:         client,
 		promConfig:     promConfig,
 	}
@@ -194,7 +191,6 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 		AdmissionInfo:       userRequestInfo,
 		ExcludeGroupRole:    h.configHandler.GetExcludeGroupRole(),
 		ExcludeResourceFunc: h.configHandler.ToFilter,
-		ResourceCache:       h.resCache,
 		JSONContext:         ctx,
 		Client:              h.client,
 	}

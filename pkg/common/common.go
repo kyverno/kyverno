@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/pkg/errors"
@@ -22,8 +22,10 @@ import (
 
 // Policy Reporting Modes
 const (
-	Enforce = "enforce" // blocks the request on failure
-	Audit   = "audit"   // dont block the request on failure, but report failiures as policy violations
+	// Enforce blocks the request on failure
+	Enforce = "enforce"
+	// Audit indicates not to block the request on failure, but report failiures as policy violations
+	Audit = "audit"
 )
 
 // Policy Reporting Types
@@ -51,7 +53,7 @@ func GetNamespaceSelectorsFromGenericInformer(kind, namespaceOfResource string, 
 // GetNamespaceSelectorsFromNamespaceLister - extract the namespacelabels when namespace lister is passed
 func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, nsLister listerv1.NamespaceLister, logger logr.Logger) map[string]string {
 	namespaceLabels := make(map[string]string)
-	if kind != "Namespace" {
+	if kind != "Namespace" && namespaceOfResource != "" {
 		namespaceObj, err := nsLister.Get(namespaceOfResource)
 		if err != nil {
 			log.Log.Error(err, "failed to get the namespace", "name", namespaceOfResource)
@@ -118,6 +120,7 @@ func VariableToJSON(key, value string) []byte {
 	return jsonData
 }
 
+// RetryFunc allows retrying a function on error within a given timeout
 func RetryFunc(retryInterval, timeout time.Duration, run func() error, logger logr.Logger) func() error {
 	return func() error {
 		registerTimeout := time.After(timeout)

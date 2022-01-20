@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strconv"
 
-	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
+	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
 )
 
 //ValidatePattern validates the pattern

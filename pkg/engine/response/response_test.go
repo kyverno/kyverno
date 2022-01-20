@@ -1,9 +1,10 @@
 package response
 
 import (
+	"testing"
+
 	"gopkg.in/yaml.v2"
 	"gotest.tools/assert"
-	"testing"
 )
 
 var sourceYAML = `

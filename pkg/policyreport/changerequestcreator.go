@@ -10,7 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
-	cache "github.com/patrickmn/go-cache"
+	"github.com/patrickmn/go-cache"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -58,12 +58,20 @@ func (c *changeRequestCreator) add(request *unstructured.Unstructured) {
 	case "ClusterReportChangeRequest":
 		err = c.CRCRCache.Add(uid.String(), request, cache.NoExpiration)
 		if err != nil {
-			c.log.Error(err, "failed to add ClusterReportChangeRequest to cache")
+			c.log.Error(err, "failed to add ClusterReportChangeRequest to cache, replacing", "cache length", c.CRCRCache.ItemCount())
+			if err = c.CRCRCache.Replace(uid.String(), request, cache.NoExpiration); err != nil {
+				c.log.Error(err, "failed to replace CRCR")
+				return
+			}
 		}
 	case "ReportChangeRequest":
 		err = c.RCRCache.Add(uid.String(), request, cache.NoExpiration)
 		if err != nil {
-			c.log.Error(err, "failed to add ReportChangeRequest to cache")
+			c.log.Error(err, "failed to add ReportChangeRequest to cache, replacing", "cache length", c.RCRCache.ItemCount())
+			if err = c.RCRCache.Replace(uid.String(), request, cache.NoExpiration); err != nil {
+				c.log.Error(err, "failed to replace RCR")
+				return
+			}
 		}
 	default:
 		return

@@ -4,7 +4,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyChangesMetric "github.com/kyverno/kyverno/pkg/metrics/policychanges"
 	policyRuleInfoMetric "github.com/kyverno/kyverno/pkg/metrics/policyruleinfo"
 )

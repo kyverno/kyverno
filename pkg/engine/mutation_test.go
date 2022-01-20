@@ -3,11 +3,12 @@ package engine
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
@@ -15,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func Test_VariableSubstitutionOverlay(t *testing.T) {
+func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 	policyRaw := []byte(`{
   "apiVersion": "kyverno.io/v1",
   "kind": "ClusterPolicy",
@@ -34,7 +35,7 @@ func Test_VariableSubstitutionOverlay(t *testing.T) {
           }
         },
         "mutate": {
-          "overlay": {
+          "patchStrategicMerge": {
             "metadata": {
               "labels": {
                 "appname": "{{request.object.metadata.name}}"
@@ -136,7 +137,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
           }
         },
         "mutate": {
-          "overlay": {
+          "patchStrategicMerge": {
             "spec": {
               "name": "{{request.object.metadata.name1}}"
             }
@@ -162,8 +163,8 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Mutate(policyContext)
-	expectedErrorStr := "variable substitution failed: Unknown key \"name1\" in path"
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, expectedErrorStr)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
 }
 
 func Test_variableSubstitutionCLI(t *testing.T) {
@@ -767,5 +768,144 @@ func Test_foreach_element_mutation(t *testing.T) {
 
 		securityContext := _securityContext.(map[string]interface{})
 		assert.Equal(t, securityContext["privileged"], false)
+	}
+}
+
+func Test_Container_InitContainer_foreach(t *testing.T) {
+	policyRaw := []byte(`{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+       "name": "prepend-registry",
+       "annotations": {
+          "pod-policies.kyverno.io/autogen-controllers": "none"
+       }
+    },
+    "spec": {
+       "background": false,
+       "rules": [
+          {
+             "name": "prepend-registry-containers",
+             "match": {
+                "resources": {
+                   "kinds": [
+                      "Pod"
+                   ]
+                }
+             },
+             "mutate": {
+                "foreach": [
+                   {
+                      "list": "request.object.spec.containers",
+                      "patchStrategicMerge": {
+                         "spec": {
+                            "containers": [
+                               {
+                                  "name": "{{ element.name }}",
+                                  "image": "registry.io/{{ images.containers.\"{{element.name}}\".path}}:{{images.containers.\"{{element.name}}\".tag}}"
+                               }
+                            ]
+                         }
+                      }
+                   },
+                   {
+                      "list": "request.object.spec.initContainers",
+                      "patchStrategicMerge": {
+                         "spec": {
+                            "initContainers": [
+                               {
+                                  "name": "{{ element.name }}",
+                                  "image": "registry.io/{{ images.initContainers.\"{{element.name}}\".name}}:{{images.initContainers.\"{{element.name}}\".tag}}"
+                               }
+                            ]
+                         }
+                      }
+                   }
+                ]
+             }
+          }
+       ]
+    }
+ }`)
+	resourceRaw := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+       "name": "mypod"
+    },
+    "spec": {
+       "automountServiceAccountToken": false,
+       "initContainers": [
+          {
+             "name": "alpine",
+             "image": "alpine:latest"
+          },
+          {
+             "name": "busybox",
+             "image": "busybox:1.28"
+          }
+       ],
+       "containers": [
+          {
+             "name": "nginx",
+             "image": "nginx:1.2.3"
+          },
+          {
+             "name": "redis",
+             "image": "redis:latest"
+          }
+       ]
+    }
+ }`)
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &policy)
+	assert.NilError(t, err)
+
+	resource, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResourceAsObject(resource.Object)
+	assert.NilError(t, err)
+
+	policyContext := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		NewResource: *resource,
+	}
+
+	err = ctx.AddImageInfo(resource)
+	assert.NilError(t, err)
+
+	err = context.MutateResourceWithImageInfo(resourceRaw, ctx)
+	assert.NilError(t, err)
+
+	er := Mutate(policyContext)
+
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+
+	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
+	assert.NilError(t, err)
+	for _, c := range containers {
+		ctnr := c.(map[string]interface{})
+		switch ctnr["name"] {
+		case "alpine":
+			assert.Equal(t, ctnr["image"], "registry.io/alpine:latest")
+		case "busybox":
+			assert.Equal(t, ctnr["image"], "registry.io/busybox:1.28")
+		}
+	}
+
+	initContainers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "initContainers")
+	assert.NilError(t, err)
+	for _, c := range initContainers {
+		ctnr := c.(map[string]interface{})
+		switch ctnr["name"] {
+		case "nginx":
+			assert.Equal(t, ctnr["image"], "registry.io/nginx:1.2.3")
+		case "redis":
+			assert.Equal(t, ctnr["image"], "registry.io/redis:latest")
+		}
 	}
 }

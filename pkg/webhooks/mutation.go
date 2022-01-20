@@ -5,11 +5,10 @@ import (
 	"reflect"
 	"time"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -18,12 +17,12 @@ import (
 	policyResults "github.com/kyverno/kyverno/pkg/metrics/policyresults"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
-	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func (ws *WebhookServer) applyMutatePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*v1.ClusterPolicy, ts int64, logger logr.Logger) []byte {
+func (ws *WebhookServer) applyMutatePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*kyverno.ClusterPolicy, ts int64, logger logr.Logger) []byte {
 	var mutateEngineResponses []*response.EngineResponse
 
 	mutatePatches, mutateEngineResponses := ws.handleMutation(request, policyContext, policies)
@@ -91,7 +90,9 @@ func (ws *WebhookServer) handleMutation(
 		if len(policyPatches) > 0 {
 			patches = append(patches, policyPatches...)
 			rules := engineResponse.GetSuccessRules()
-			logger.Info("mutation rules from policy applied successfully", "policy", policy.Name, "rules", rules)
+			if len(rules) != 0 {
+				logger.Info("mutation rules from policy applied successfully", "policy", policy.Name, "rules", rules)
+			}
 		}
 
 		policyContext.NewResource = engineResponse.PatchedResource
@@ -117,7 +118,7 @@ func (ws *WebhookServer) handleMutation(
 	//   all policies were applied successfully.
 	//   create an event on the resource
 	// ADD EVENTS
-	events := generateEvents(engineResponses, false, (request.Operation == v1beta1.Update), logger)
+	events := generateEvents(engineResponses, false, request.Operation == v1beta1.Update, logger)
 	ws.eventGen.Add(events...)
 
 	// debug info

@@ -10,8 +10,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-// deprecated
-//NewInHandler returns handler to manage In operations
+// NewInHandler returns handler to manage In operations
+//
+// Deprecated: Use `NewAllInHandler` or `NewAnyInHandler` instead
 func NewInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return InHandler{
 		ctx: ctx,
@@ -19,17 +20,19 @@ func NewInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	}
 }
 
-//InHandler provides implementation to handle In Operator
+// InHandler provides implementation to handle In Operator
 type InHandler struct {
 	ctx context.EvalInterface
 	log logr.Logger
 }
 
-//Evaluate evaluates expression with In Operator
+// Evaluate evaluates expression with In Operator
 func (in InHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
 		return in.validateValueWithStringPattern(typedKey, value)
+	case int, int32, int64, float32, float64:
+		return in.validateValueWithStringPattern(fmt.Sprint(typedKey), value)
 	case []interface{}:
 		var stringSlice []string
 		for _, v := range typedKey {
@@ -60,18 +63,12 @@ func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidTy
 
 	case []interface{}:
 		for _, val := range valuesAvailable {
-			v, ok := val.(string)
-			if !ok {
-				return true, false
-			}
-
-			if ok && wildcard.Match(key, v) {
+			if wildcard.Match(key, fmt.Sprint(val)) {
 				return false, true
 			}
 		}
 
 	case string:
-
 		if wildcard.Match(valuesAvailable, key) {
 			return false, true
 		}

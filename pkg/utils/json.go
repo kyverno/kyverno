@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
 // JoinPatches joins array of serialized JSON patches to the single JSONPatch array

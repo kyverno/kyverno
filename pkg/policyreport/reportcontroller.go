@@ -7,23 +7,22 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	changerequest "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	labels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	changerequest "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha2"
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	requestinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
 	policyreportinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha2"
@@ -37,7 +36,16 @@ import (
 const (
 	prWorkQueueName     = "policy-report-controller"
 	clusterpolicyreport = "clusterpolicyreport"
+
+	LabelSelectorKey   = "managed-by"
+	LabelSelectorValue = "kyverno"
 )
+
+var LabelSelector = &metav1.LabelSelector{
+	MatchLabels: map[string]string{
+		LabelSelectorKey: LabelSelectorValue,
+	},
+}
 
 // ReportGenerator creates policy report
 type ReportGenerator struct {
@@ -75,7 +83,6 @@ type ReportGenerator struct {
 
 // NewReportGenerator returns a new instance of policy report generator
 func NewReportGenerator(
-	kubeClient kubernetes.Interface,
 	pclient *kyvernoclient.Clientset,
 	dclient *dclient.Client,
 	clusterReportInformer policyreportinformer.ClusterPolicyReportInformer,
@@ -319,6 +326,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 	g.log.V(4).Info("syncing policy report", "key", key)
 
 	if policy, rule, ok := isDeletedPolicyKey(key); ok {
+		g.log.V(4).Info("sync policy report on policy deletion")
 		return g.removePolicyEntryFromReport(policy, rule)
 	}
 
@@ -332,7 +340,9 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 	if old, err = g.createReportIfNotPresent(namespace, new, aggregatedRequests); err != nil {
 		return aggregatedRequests, err
 	}
+
 	if old == nil {
+		g.log.V(4).Info("no existing policy report is found, clean up related report change requests")
 		g.cleanupReportRequests(aggregatedRequests)
 		return nil, nil
 	}
@@ -369,7 +379,7 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstru
 			return nil, nil
 		}
 
-		report, err = g.reportLister.PolicyReports(namespace).Get(generatePolicyReportName((namespace)))
+		report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace))
 		if err != nil {
 			if apierrors.IsNotFound(err) && new != nil {
 				if _, err := g.dclient.CreateResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new, false); err != nil {
@@ -384,7 +394,7 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstru
 			return nil, fmt.Errorf("unable to get policyReport: %v", err)
 		}
 	} else {
-		report, err = g.clusterReportLister.Get(generatePolicyReportName((namespace)))
+		report, err = g.clusterReportLister.Get(GeneratePolicyReportName(namespace))
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				if new != nil {
@@ -462,9 +472,10 @@ func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) er
 		return fmt.Errorf("unable to list namespace %v", err)
 	}
 
+	selector, err := metav1.LabelSelectorAsSelector(LabelSelector)
 	policyReports := []*report.PolicyReport{}
 	for _, ns := range namespaces.Items {
-		reports, err := g.reportLister.PolicyReports(ns.GetName()).List(labels.Everything())
+		reports, err := g.reportLister.PolicyReports(ns.GetName()).List(selector)
 		if err != nil {
 			return fmt.Errorf("unable to list policyReport for namespace %s %v", ns.GetName(), err)
 		}
@@ -598,14 +609,15 @@ func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured
 
 func setReport(reportUnstructured *unstructured.Unstructured, ns *v1.Namespace) {
 	reportUnstructured.SetAPIVersion(report.SchemeGroupVersion.String())
+	reportUnstructured.SetLabels(LabelSelector.MatchLabels)
 
 	if ns == nil {
-		reportUnstructured.SetName(generatePolicyReportName(""))
+		reportUnstructured.SetName(GeneratePolicyReportName(""))
 		reportUnstructured.SetKind("ClusterPolicyReport")
 		return
 	}
 
-	reportUnstructured.SetName(generatePolicyReportName(ns.GetName()))
+	reportUnstructured.SetName(GeneratePolicyReportName(ns.GetName()))
 	reportUnstructured.SetNamespace(ns.GetName())
 	reportUnstructured.SetKind("PolicyReport")
 
@@ -629,6 +641,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		g.log.V(4).Info("empty report to update")
 		return nil
 	}
+	g.log.V(4).Info("reconcile policy report")
 
 	oldUnstructured := make(map[string]interface{})
 
@@ -655,6 +668,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		new.SetResourceVersion(oldTyped.GetResourceVersion())
 	}
 
+	g.log.V(4).Info("update results entries")
 	obj, _, err := updateResults(oldUnstructured, new.UnstructuredContent(), aggregatedRequests)
 	if err != nil {
 		return fmt.Errorf("failed to update results entry: %v", err)

@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
