@@ -1,9 +1,13 @@
-name: test-foreach
-policies:
-  - policies.yaml
-resources:
+apiVersion: cli.kyverno.io/v1alpha1
+kind: PolicyTests
+metadata:
+ name: test-foreach
+spec:
+  policies:
+  - policy.yaml
+  resources:
   - resources.yaml
-variables: variables.yaml
+  variables: variables.yaml
 results:
   - policy: validate-empty-dir-mountpath
     rule: check-mount-paths

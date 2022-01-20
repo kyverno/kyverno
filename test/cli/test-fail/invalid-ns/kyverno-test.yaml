@@ -1,9 +1,13 @@
-name: test-exclude
-policies:
+apiVersion: cli.kyverno.io/v1alpha1
+kind: PolicyTests
+metadata:
+ name: test-exclude
+spec:
+ policies:
   - policy.yaml
-resources:
+ resources:
   - resources.yaml
-results:
+ results:
   - policy: restrict-labels
     rule: restrict-labels
     resource: kyverno-system-tst
