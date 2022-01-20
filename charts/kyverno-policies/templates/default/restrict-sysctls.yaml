@@ -25,6 +25,10 @@ spec:
       resources:
         kinds:
         - Pod
+    {{- with index .Values "policyExclude" $name }}
+    exclude:
+      {{ toYaml . | indent 6 }}
+    {{- end }}
     validate:
       message: >-
         Setting additional sysctls above the allowed type is disallowed.

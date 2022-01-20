@@ -23,6 +23,10 @@ spec:
       resources:
         kinds:
         - Pod
+    {{- with index .Values "policyExclude" $name }}
+    exclude:
+      {{ toYaml . | indent 6 }}
+    {{- end }}
     validate:
       message: >-
         Adding of additional capabilities beyond the default set is not allowed.

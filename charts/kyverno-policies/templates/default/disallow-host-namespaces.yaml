@@ -24,6 +24,10 @@ spec:
       resources:
         kinds:
         - Pod
+    {{- with index .Values "policyExclude" $name }}
+    exclude:
+      {{ toYaml . | indent 6 }}
+    {{- end }}
     validate:
       message: >-
         Sharing the host namespaces is disallowed. The fields spec.hostNetwork,

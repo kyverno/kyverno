@@ -22,6 +22,10 @@ spec:
       resources:
         kinds:
         - Pod
+    {{- with index .Values "policyExclude" $name }}
+    exclude:
+      {{ toYaml . | indent 6 }}
+    {{- end }}
     validate:
       message: >-
         Changing the proc mount from the default is not allowed. The fields

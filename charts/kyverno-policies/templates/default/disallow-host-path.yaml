@@ -23,7 +23,11 @@ spec:
     match:
       resources:
         kinds:
-        - Pod
+          - Pod
+    {{- with index .Values "policyExclude" $name }}
+    exclude:
+      {{ toYaml . | indent 6 }}
+    {{- end }}
     validate:
       message: >-
         HostPath volumes are forbidden. The fields spec.volumes[*].hostPath must not be set.

@@ -22,6 +22,10 @@ spec:
       resources:
         kinds:
         - Pod
+    {{- with index .Values "policyExclude" $name }}
+    exclude:
+      {{ toYaml . | indent 6 }}
+    {{- end }}
     validate:
       message: >-
         Privilege escalation is disallowed. The fields

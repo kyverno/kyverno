@@ -1,0 +1,8 @@
+policyExclude:
+  disallow-host-path:
+    any:
+      - resources:
+          kinds:
+            - Pod
+          namespaces:
+            - fluent
