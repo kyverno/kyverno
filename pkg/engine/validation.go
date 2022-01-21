@@ -72,6 +72,11 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 	resp.PolicyResponse.Resource.Kind = resp.PatchedResource.GetKind()
 	resp.PolicyResponse.Resource.APIVersion = resp.PatchedResource.GetAPIVersion()
 	resp.PolicyResponse.ValidationFailureAction = ctx.Policy.Spec.ValidationFailureAction
+
+	for _, v := range ctx.Policy.Spec.ValidationFailureActionOverrides {
+		resp.PolicyResponse.ValidationFailureActionOverrides = append(resp.PolicyResponse.ValidationFailureActionOverrides, response.ValidationFailureActionOverride{Action: v.Action, Namespaces: v.Namespaces})
+	}
+
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
 	resp.PolicyResponse.PolicyExecutionTimestamp = startTime.Unix()
 }
