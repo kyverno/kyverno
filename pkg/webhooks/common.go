@@ -117,7 +117,9 @@ func containsRBACInfo(policies ...[]*kyverno.ClusterPolicy) bool {
 	for _, policySlice := range policies {
 		for _, policy := range policySlice {
 			for _, rule := range policy.Spec.Rules {
-				checkForRBACInfo(rule)
+				if checkForRBACInfo(rule) {
+					return true
+				}
 			}
 		}
 	}
