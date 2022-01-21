@@ -408,12 +408,12 @@ func (c *CertRenewer) ValidCert() (bool, error) {
 
 // IsKyvernoInRollingUpdate returns true if Kyverno is in rolling update
 func IsKyvernoInRollingUpdate(deploy map[string]interface{}, logger logr.Logger) bool {
-	replicas, _, err := unstructured.NestedInt64(deploy, "spec", "replicas")
+	replicas, _, err := unstructured.NestedFloat64(deploy, "spec", "replicas")
 	if err != nil {
 		logger.Error(err, "unable to fetch spec.replicas")
 	}
 
-	nonTerminatedReplicas, _, err := unstructured.NestedInt64(deploy, "status", "replicas")
+	nonTerminatedReplicas, _, err := unstructured.NestedFloat64(deploy, "status", "replicas")
 	if err != nil {
 		logger.Error(err, "unable to fetch status.replicas")
 	}
