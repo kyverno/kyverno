@@ -1,0 +1,19 @@
+name: ondemand
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: ondemand
+    rule: ondemand-nodeselector
+    resource: nodeselector
+    patchedResource: patched-resource.yaml
+    namespace: user-space
+    kind: Pod
+    result: pass
+  - policy: ondemand
+    rule: ondemand-managed_by
+    resource: nodeselector
+    namespace: user-space
+    kind: Pod
+    result: pass
