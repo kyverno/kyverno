@@ -733,6 +733,50 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 	return resources, err
 }
 
+func ProcessImageVerifyEngineResponse(policy *v1.ClusterPolicy, imageVerifyResponse *response.EngineResponse, resPath string, rc *ResultCounts) error {
+	printCount := 0
+	for _, policyRule := range policy.Spec.Rules {
+		if !policyRule.HasVerifyImages() {
+			continue
+		}
+
+		ruleFoundInEngineResponse := false
+		for i, imageVerifyResponseRule := range imageVerifyResponse.PolicyResponse.Rules {
+			if policyRule.Name == imageVerifyResponseRule.Name {
+				ruleFoundInEngineResponse = true
+
+				if imageVerifyResponseRule.Status == response.RuleStatusPass {
+					rc.Pass++
+
+				} else if imageVerifyResponseRule.Status == response.RuleStatusSkip {
+					fmt.Printf("\nskipped imageVerify policy %s -> resource %s", policy.Name, resPath)
+					rc.Skip++
+
+				} else if imageVerifyResponseRule.Status == response.RuleStatusError {
+					fmt.Printf("\nerror while applying imageVerify policy %s -> resource %s\nerror: %s", policy.Name, resPath, imageVerifyResponseRule.Message)
+					rc.Error++
+
+				} else {
+					if printCount < 1 {
+						fmt.Printf("\nfailed to apply imageVerify policy %s -> resource %s", policy.Name, resPath)
+						printCount++
+
+					}
+					fmt.Printf("%d. %s - %s \n", i+1, imageVerifyResponseRule.Name, imageVerifyResponseRule.Message)
+					rc.Fail++
+				}
+				continue
+			}
+		}
+		if !ruleFoundInEngineResponse {
+			rc.Skip++
+		}
+
+	}
+
+	return nil
+}
+
 func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) policyreport.Info {
 	var violatedRules []v1.ViolatedRule
 	printCount := 0
