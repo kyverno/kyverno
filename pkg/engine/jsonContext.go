@@ -65,8 +65,10 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, ctx 
 }
 
 func loadImageData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) error {
-	if err := registryclient.UpdateKeychain(); err != nil {
-		return fmt.Errorf("unable to load image registry credentials, %w", err)
+	if len(registryclient.Secrets) > 0 {
+		if err := registryclient.UpdateKeychain(); err != nil {
+			return fmt.Errorf("unable to load image registry credentials, %w", err)
+		}
 	}
 	imageData, err := fetchImageData(logger, entry, ctx)
 	if err != nil {

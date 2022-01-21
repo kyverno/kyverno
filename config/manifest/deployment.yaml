@@ -93,10 +93,6 @@ spec:
                   fieldPath: metadata.namespace
             - name: KYVERNO_SVC
               value: kyverno-svc
-            - name: KYVERNO_SVC_ACCOUNT
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.serviceAccountName
           securityContext:
             runAsNonRoot: true
             privileged: false

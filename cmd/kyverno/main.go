@@ -182,7 +182,7 @@ func main() {
 		secrets = strings.Split(imagePullSecrets, ",")
 	}
 	setupLog.Info("initializing registry credentials", "secrets", secrets)
-	if err := registryclient.Initialize(kubeClient, config.KyvernoNamespace, config.KyvernoServiceAccountName, secrets); err != nil {
+	if err := registryclient.Initialize(kubeClient, config.KyvernoNamespace, secrets); err != nil {
 		setupLog.Error(err, "failed to initialize registry credentials")
 		os.Exit(1)
 	}

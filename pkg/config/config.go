@@ -77,9 +77,6 @@ var (
 	//KyvernoServiceName is the Kyverno service name
 	KyvernoServiceName = getKyvernoServiceName()
 
-	//KyvernoServiceAccountName is the Kyverno service account name
-	KyvernoServiceAccountName = getKyvernoServiceAccountName()
-
 	//MutatingWebhookServicePath is the path for mutation webhook
 	MutatingWebhookServicePath = "/mutate"
 
@@ -155,13 +152,4 @@ func getKyvernoDeploymentName() string {
 		name = "kyverno"
 	}
 	return name
-}
-
-// getKyvernoServiceAccountName - setting default KyvernoServiceAccountName
-func getKyvernoServiceAccountName() string {
-	serviceAccountName := os.Getenv("KYVERNO_SVC_ACCOUNT")
-	if serviceAccountName == "" {
-		serviceAccountName = "kyverno"
-	}
-	return serviceAccountName
 }
