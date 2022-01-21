@@ -3,7 +3,7 @@ kind: Pod
 metadata:
   labels:
     app.kubernetes.io/managed-by: open-ondemand
-  name: nodeselector
+  name: nodeselector-with-labels-on-mutation
   namespace: user-space
 spec:
   containers:

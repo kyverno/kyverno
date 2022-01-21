@@ -18,11 +18,11 @@ spec:
           namespaces:
           - "user-?*"
     validate:
-      message: "{{ request.object.spec.nodeSelector }} nodeSelector must be managed by osc.edu/role: ondemand"
+      message: "{{ request.object.metadata.namespace }} pods must be managed by open-ondemand"
       pattern:
-        spec:
-          nodeSelector:
-            osc.edu/role: ondemand
+        metadata:
+          labels:
+            app.kubernetes.io/managed-by: "open-ondemand"
   - name: ondemand-nodeselector
     match:
       any:
