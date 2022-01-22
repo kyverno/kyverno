@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -416,7 +415,7 @@ func (m *webhookConfigManager) listAllPolicies() ([]*kyverno.ClusterPolicy, erro
 
 	namespaces, err := m.nsLister.List(labels.Everything())
 	if err != nil {
-		logger.Error(err, "unabled to list namespaces")
+		m.log.Error(err, "unabled to list namespaces")
 		return nil, err
 	}
 
