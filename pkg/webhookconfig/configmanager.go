@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -272,31 +273,14 @@ func (m *webhookConfigManager) deleteWebhook(obj interface{}) {
 func (m *webhookConfigManager) enqueueAllPolicies() {
 	logger := m.log.WithName("enqueueAllPolicies")
 
-	cpols, err := m.listPolicies("")
+	policies, err := m.listAllPolicies()
 	if err != nil {
-		logger.Error(err, "unabled to list clusterpolicies")
-	}
-	for _, cpol := range cpols {
-		m.enqueue(cpol)
-		logger.V(4).Info("added CLusterPolicy to the queue", "name", cpol.GetName())
+		logger.Error(err, "unabled to list policies")
 	}
 
-	namespaces, err := m.nsLister.List(labels.Everything())
-	if err != nil {
-		logger.Error(err, "unabled to list namespaces")
-		return
-	}
-
-	for _, ns := range namespaces {
-		pols, err := m.listPolicies(ns.GetName())
-		if err != nil {
-			logger.Error(err, "unabled to list policies", "namespace", ns.GetName())
-		}
-
-		for _, p := range pols {
-			m.enqueue(p)
-			logger.V(4).Info("added Policy to the queue", "namespace", p.GetName(), "name", p.GetName())
-		}
+	for _, policy := range policies {
+		m.enqueue(policy)
+		logger.V(4).Info("added policy to the queue", "namespace", policy.GetNamespace(), "name", policy.GetName())
 	}
 }
 
@@ -414,7 +398,6 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 }
 
 func (m *webhookConfigManager) getPolicy(namespace, name string) (*kyverno.ClusterPolicy, error) {
-	// TODO: test default/policy
 	if namespace == "" {
 		return m.pLister.Get(name)
 	}
@@ -428,11 +411,17 @@ func (m *webhookConfigManager) getPolicy(namespace, name string) (*kyverno.Clust
 	return nil, err
 }
 
-func (m *webhookConfigManager) listPolicies(namespace string) ([]*kyverno.ClusterPolicy, error) {
+func (m *webhookConfigManager) listAllPolicies() ([]*kyverno.ClusterPolicy, error) {
 	policies := []*kyverno.ClusterPolicy{}
 
-	if namespace != "" {
-		polList, err := m.npLister.Policies(namespace).List(labels.Everything())
+	namespaces, err := m.nsLister.List(labels.Everything())
+	if err != nil {
+		logger.Error(err, "unabled to list namespaces")
+		return nil, err
+	}
+
+	for _, ns := range namespaces {
+		polList, err := m.npLister.Policies(ns.GetName()).List(labels.Everything())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to list Policy")
 		}
@@ -485,7 +474,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 		return append(res, mutateIgnore, mutateFail, validateIgnore, validateFail), nil
 	}
 
-	policies, err := m.listPolicies(namespace)
+	policies, err := m.listAllPolicies()
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to list current policies")
 	}
