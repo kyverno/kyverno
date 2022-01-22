@@ -429,18 +429,18 @@ func (m *webhookConfigManager) getPolicy(namespace, name string) (*kyverno.Clust
 }
 
 func (m *webhookConfigManager) listPolicies(namespace string) ([]*kyverno.ClusterPolicy, error) {
+	policies := []*kyverno.ClusterPolicy{}
+
 	if namespace != "" {
 		polList, err := m.npLister.Policies(namespace).List(labels.Everything())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to list Policy")
 		}
 
-		policies := make([]*kyverno.ClusterPolicy, len(polList))
-		for i, pol := range polList {
+		for _, pol := range polList {
 			p := kyverno.ClusterPolicy(*pol)
-			policies[i] = &p
+			policies = append(policies, &p)
 		}
-		return policies, nil
 	}
 
 	cpolList, err := m.pLister.List(labels.Everything())
@@ -448,7 +448,8 @@ func (m *webhookConfigManager) listPolicies(namespace string) ([]*kyverno.Cluste
 		return nil, errors.Wrapf(err, "failed to list ClusterPolicy")
 	}
 
-	return cpolList, nil
+	policies = append(policies, cpolList...)
+	return policies, nil
 }
 
 const (
