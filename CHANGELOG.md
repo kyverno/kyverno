@@ -1,7 +1,7 @@
 ## v1.6.0-rc1
 ### Note
 - Helm charts are changed to enforce PodDisruptionBudget for multi-replica clusters and PDB is removed from install manifests.
-- `anyPattern` of type `apiextensions.JSON` breaks for kyverno cluster policy CRD in k8s v1.23 but works for previous k8s versions due to a regression issue in v1.23 being tracked by this [PR](https://github.com/kubernetes/kubernetes/pull/107688) by kubernetes community. For context, please refer to this [issue #3004](https://github.com/kyverno/kyverno/issues/3004)
+- `anyPattern` for Kyverno validate policies breaks in Kubernetes `v1.23.0` and `v1.23.1`, and the fix is being tracked by this [PR](https://github.com/kubernetes/kubernetes/pull/107688) and will be available in `v1.23.3`.
 ## v1.5.0-rc1
 ### Note
 - The Helm CRDs was switched back to kyverno chart. To upgrade using Helm, please refer to https://github.com/kyverno/website/pull/304.
