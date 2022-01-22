@@ -13,7 +13,7 @@ require (
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.0.0
 	github.com/go-git/go-git/v5 v5.2.0
-	github.com/go-logr/logr v1.2.0
+	github.com/go-logr/logr v1.2.2
 	github.com/google/go-containerregistry v0.6.1-0.20210922191434-34b7f00d7a60
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20211004163346-9ae11fe20941
 	github.com/googleapis/gnostic v0.5.5
@@ -239,7 +239,7 @@ replace (
 	github.com/containerd/containerd => github.com/containerd/containerd v1.5.9
 	github.com/docker/cli => github.com/docker/cli v20.10.9+incompatible
 	github.com/evanphx/json-patch/v5 => github.com/kyverno/json-patch/v5 v5.5.1-0.20210915204938-7578f4ee9c77
-	github.com/go-logr/logr => github.com/go-logr/logr v1.2.0
+	github.com/go-logr/logr => github.com/go-logr/logr v1.2.2
 	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20210511164400-a1d46efa2ed6
 	github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.2
 	k8s.io/klog/v2 => k8s.io/klog/v2 v2.30.0
