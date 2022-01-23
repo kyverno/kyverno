@@ -277,7 +277,7 @@ func (v *validator) validateElements(foreach *kyverno.ForEachValidation, element
 			v.log.Info("skip rule", "reason", r.Message)
 			continue
 		} else if r.Status != response.RuleStatusPass {
-			msg := fmt.Sprintf("validation failed in foreach rule for %v", r.Message)
+			msg := fmt.Sprintf("validation failure: %v", r.Message)
 			return ruleResponse(v.rule, utils.Validation, msg, r.Status), applyCount
 		}
 
