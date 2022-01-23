@@ -3,6 +3,7 @@ package patch
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/pkg/errors"
 
 	"github.com/go-logr/logr"
@@ -158,7 +159,7 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 					anyGlobalConditionPassed = true
 				} else {
 					if err := handlePatternName(pattern, patternElement, resourceElement); err != nil {
-						return errors.Wrap(err,"failed to update name in pattern")
+						return errors.Wrap(err, "failed to update name in pattern")
 					}
 				}
 			}
@@ -284,7 +285,7 @@ func filterKeys(pattern *yaml.RNode, condition func(string) bool) ([]string, err
 }
 
 func isMappingNode(node *yaml.RNode) bool {
-	if err := yaml.ErrorIfInvalid(node, yaml.MappingNode); err != nil  {
+	if err := yaml.ErrorIfInvalid(node, yaml.MappingNode); err != nil {
 		return false
 	}
 

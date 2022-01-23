@@ -25,7 +25,7 @@ func IsGlobalAnchor(str string) bool {
 		return false
 	}
 
-	leftMatch :=  strings.TrimSpace(str[:len(left)]) == left
+	leftMatch := strings.TrimSpace(str[:len(left)]) == left
 	rightMatch := strings.TrimSpace(str[len(str)-len(right):]) == right
 	return leftMatch && rightMatch
 }
