@@ -23,7 +23,7 @@ spec:
         - Pod
     {{- with index .Values "policyExclude" $name }}
     exclude:
-      {{ toYaml . | indent 6 }}
+      {{- toYaml . | nindent 6 }}
     {{- end }}
     validate:
       message: >-
