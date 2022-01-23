@@ -56,6 +56,7 @@ require (
 require (
 	github.com/aquilax/truncate v1.0.0
 	github.com/blang/semver/v4 v4.0.0
+	github.com/nsf/jsondiff v0.0.0-20210926074059-1e845ec5d249
 	gopkg.in/inf.v0 v0.9.1
 )
 

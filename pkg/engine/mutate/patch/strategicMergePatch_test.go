@@ -164,9 +164,7 @@ func TestMergePatch(t *testing.T) {
 		t.Logf("Running test %d...", i+1)
 		out, err := strategicMergePatch(log.Log, string(test.rawResource), string(test.rawPolicy))
 		assert.NilError(t, err)
-
-		// has assertions inside
-		areEqualJSONs(t, test.expected, out)
+		assert.DeepEqual(t, toJSON(t, test.expected), toJSON(t, out))
 	}
 }
 
