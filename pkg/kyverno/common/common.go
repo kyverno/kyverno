@@ -470,7 +470,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	}
 
 	policyWithNamespaceSelector := false
-	OuterLoop:
+OuterLoop:
 	for _, p := range policy.Spec.Rules {
 		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
 			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
