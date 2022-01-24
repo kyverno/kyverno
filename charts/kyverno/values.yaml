@@ -60,14 +60,15 @@ podAntiAffinity:
                 - kyverno
         topologyKey: kubernetes.io/hostname
 
-nodeAffinity: {}
+otherAffinity: {}
+  # This can be e.g. nodeAffinity
 
 affinity:
   enable: true
   podAntiAffinity:
     # This can be disabled in a 1 node cluster.
     enable: true
-  nodeAffinity:
+  otherAffinity:
     enable: false
 
 podDisruptionBudget:
