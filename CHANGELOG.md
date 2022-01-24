@@ -1,3 +1,8 @@
+## v1.5.6
+
+## Bug Fixes
+- Policy 'XXX' (Validation) rule 'autogen-YYY' failed. validation rule 'autogen-YYY' passed #3065
+
 ## v1.5.5
 
 ## v1.5.5-rc1
