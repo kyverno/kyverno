@@ -4,7 +4,7 @@ kind: LabelTransformer
 metadata:
   name: labelTransformer
 labels:
-  app.kubernetes.io/version: v1.5.5
+  app.kubernetes.io/version: v1.5.6
 fieldSpecs:
 - path: metadata/labels
   create: true
