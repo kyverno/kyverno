@@ -4,7 +4,10 @@ on:
     tags:
       - 'v*'
 
-permissions: read-all
+permissions:
+  contents: read
+  packages: write
+  id-token: write 
 
 jobs:
   release-init-kyverno:
