@@ -25,15 +25,19 @@ spec:
     validate:
       message: >-
         Privilege escalation is disallowed. The fields
-        spec.containers[*].securityContext.allowPrivilegeEscalation, and
-        spec.initContainers[*].securityContext.allowPrivilegeEscalation must
-        be undefined or set to `false`.
+        spec.containers[*].securityContext.allowPrivilegeEscalation,
+        spec.initContainers[*].securityContext.allowPrivilegeEscalation,
+        and spec.ephemeralContainers[*].securityContext.allowPrivilegeEscalation
+        must be set to `false`.
       pattern:
         spec:
+          =(ephemeralContainers):
+          - securityContext:
+              allowPrivilegeEscalation: "false"
           =(initContainers):
-          - =(securityContext):
-              =(allowPrivilegeEscalation): "false"
+          - securityContext:
+              allowPrivilegeEscalation: "false"
           containers:
-          - =(securityContext):
-              =(allowPrivilegeEscalation): "false"
+          - securityContext:
+              allowPrivilegeEscalation: "false"
 {{- end -}}
