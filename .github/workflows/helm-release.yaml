@@ -4,7 +4,10 @@ on:
     tags:
       - 'helm-chart-v*'
 
-permissions: read-all
+permissions: 
+  contents: read
+  packages: write
+  id-token: write 
 
 jobs:
   helm-tests:
