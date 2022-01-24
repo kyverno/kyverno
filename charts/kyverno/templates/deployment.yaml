@@ -30,9 +30,16 @@ spec:
       {{- with .Values.podSecurityContext }}
       securityContext: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- if and .Values.antiAffinity.enable .Values.affinity }}
+      {{- if .Values.affinity.enable }}
       affinity:
-        {{- toYaml .Values.affinity | nindent 8 }}
+        {{- if and .Values.affinity.podAntiAffinity.enable .Values.podAntiAffinity }}
+        podAntiAffinity:
+          {{- toYaml .Values.podAntiAffinity | nindent 10 }}
+        {{- end }}
+        {{- if and .Values.affinity.nodeAffinity.enable .Values.nodeAffinity }}
+        nodeAffinity:
+          {{- toYaml .Values.podAntiAffinity | nindent 10 }}
+        {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector: {{ tpl (toYaml .) $ | nindent 8 }}

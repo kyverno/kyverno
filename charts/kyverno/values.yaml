@@ -48,22 +48,27 @@ podSecurityContext: {}
 # Optional priority class to be used for kyverno pods
 priorityClassName: ""
 
-antiAffinity:
-  # This can be disabled in a 1 node cluster.
-  enable: true
-
-affinity:
-  podAntiAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
+podAntiAffinity:
+  preferredDuringSchedulingIgnoredDuringExecution:
     - weight: 1
       podAffinityTerm:
         labelSelector:
           matchExpressions:
-          - key: app.kubernetes.io/name
-            operator: In
-            values:
-            - kyverno
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - kyverno
         topologyKey: kubernetes.io/hostname
+
+nodeAffinity: {}
+
+affinity:
+  enable: true
+  podAntiAffinity:
+    # This can be disabled in a 1 node cluster.
+    enable: true
+  nodeAffinity:
+    enable: false
 
 podDisruptionBudget:
   minAvailable: 1
