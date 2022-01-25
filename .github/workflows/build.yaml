@@ -96,7 +96,6 @@ jobs:
       - name: docker images build
         run: |
           make docker-build-initContainer
-          make docker-publish-initContainer
 
   build-kyverno:
     runs-on: ubuntu-latest
@@ -130,7 +129,6 @@ jobs:
       - name: docker images build
         run: |
           make docker-build-kyverno
-          make docker-publish-kyverno
 
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@8f4c7160b470bafe4299efdc1c8a1fb495f8325a # v0.2.1
@@ -174,7 +172,6 @@ jobs:
       - name: docker images build
         run: |
           make docker-build-cli
-          make docker-publish-cli
 
   tests:
     runs-on: ubuntu-latest
