@@ -1,6 +1,7 @@
 package policyreport
 
 import (
+	"context"
 	"crypto/rand"
 	"math/big"
 	"reflect"
@@ -8,9 +9,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	policyreportclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/patrickmn/go-cache"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -23,7 +25,7 @@ type creator interface {
 }
 
 type changeRequestCreator struct {
-	dclient *dclient.Client
+	client *policyreportclient.Clientset
 
 	// addCache preserves requests that are to be added to report
 	RCRCache *cache.Cache
@@ -39,9 +41,9 @@ type changeRequestCreator struct {
 	log logr.Logger
 }
 
-func newChangeRequestCreator(client *dclient.Client, tickerInterval time.Duration, log logr.Logger) creator {
+func newChangeRequestCreator(client *policyreportclient.Clientset, tickerInterval time.Duration, log logr.Logger) creator {
 	return &changeRequestCreator{
-		dclient:        client,
+		client:         client,
 		RCRCache:       cache.New(0, 24*time.Hour),
 		CRCRCache:      cache.New(0, 24*time.Hour),
 		queue:          []string{},
@@ -86,8 +88,21 @@ func (c *changeRequestCreator) create(request *unstructured.Unstructured) error 
 	ns := ""
 	if request.GetKind() == "ReportChangeRequest" {
 		ns = config.KyvernoNamespace
+		rcr, err := convertToRCR(request)
+		if err != nil {
+			return err
+		}
+
+		_, err = c.client.KyvernoV1alpha2().ReportChangeRequests(ns).Create(context.TODO(), rcr, metav1.CreateOptions{})
+		return err
 	}
-	_, err := c.dclient.CreateResource(request.GetAPIVersion(), request.GetKind(), ns, request, false)
+
+	crcr, err := convertToCRCR(request)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.KyvernoV1alpha2().ClusterReportChangeRequests().Create(context.TODO(), crcr, metav1.CreateOptions{})
 	return err
 }
 

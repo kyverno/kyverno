@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: svc-sizelimit-test
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      test: svc-sizelimit-test
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        test: svc-sizelimit-test
+    spec:
+      securityContext:
+        runAsUser: 65000
+        runAsGroup: 65000
+      containers:
+        - name: pause
+          image: k8s.gcr.io/pause:3.3
+          resources:
+            limits:
+              cpu: 10m
+              memory: 32Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          volumeMounts:
+            - name: vol02
+              mountPath: /opt02
+      volumes:
+        - name: vol02
+          emptyDir: {}
+   

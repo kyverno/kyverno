@@ -80,7 +80,7 @@ func NewReportChangeRequestGenerator(client *policyreportclient.Clientset,
 		polListerSynced:                  polInformer.Informer().HasSynced,
 		queue:                            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:                        newDataStore(),
-		requestCreator:                   newChangeRequestCreator(dclient, 3*time.Second, log.WithName("requestCreator")),
+		requestCreator:                   newChangeRequestCreator(client, 3*time.Second, log.WithName("requestCreator")),
 		log:                              log,
 	}
 

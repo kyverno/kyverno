@@ -151,6 +151,10 @@ func validateValueWithNilPattern(log logr.Logger, value interface{}) bool {
 
 // Handler for pattern values during validation process
 func validateValueWithStringPatterns(log logr.Logger, value interface{}, pattern string) bool {
+	if value == pattern {
+		return true
+	}
+
 	conditions := strings.Split(pattern, "|")
 	for _, condition := range conditions {
 		condition = strings.Trim(condition, " ")
