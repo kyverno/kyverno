@@ -50,6 +50,22 @@ build: kyverno
 PWD := $(CURDIR)
 
 ##################################
+# SIGNATURE CONTAINER
+##################################
+ALPINE_PATH := cmd/alpineBase
+SIG_IMAGE := signatures
+.PHONY: docker-build-signature docker-push-signature
+
+docker-publish-sigs: docker-build-signature docker-push-signature
+
+docker-build-signature:
+	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --tag $(REPO)/$(SIG_IMAGE):$(IMAGE_TAG) .
+
+docker-push-signature:
+	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SIG_IMAGE):$(IMAGE_TAG) .
+	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SIG_IMAGE):latest .
+
+##################################
 # INIT CONTAINER
 ##################################
 INITC_PATH := cmd/initContainer
