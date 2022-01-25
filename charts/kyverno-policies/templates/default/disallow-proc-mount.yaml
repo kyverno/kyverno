@@ -19,9 +19,10 @@ spec:
   rules:
   - name: check-proc-mount
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
     {{- with index .Values "policyExclude" $name }}
     exclude:
       {{- toYaml . | nindent 6 }}

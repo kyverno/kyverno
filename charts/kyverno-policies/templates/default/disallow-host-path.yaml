@@ -21,8 +21,9 @@ spec:
   rules:
   - name: host-path
     match:
-      resources:
-        kinds:
+      any:
+      - resources:
+          kinds:
           - Pod
     {{- with index .Values "policyExclude" $name }}
     exclude:

@@ -19,10 +19,11 @@ spec:
   rules:
     - name: check-runasgroup
       match:
-        resources:
-          kinds:
+        any:
+        - resources:
+            kinds:
             - Pod
-      {{- with index .Values "policyExclude" $name }}
+      {{- with merge (index .Values "policyExclude" "check-runasgroup") (index .Values "policyExclude" $name) }}
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -44,9 +45,14 @@ spec:
                   =(runAsGroup): ">0"
     - name: check-supplementalGroups
       match:
-        resources:
-          kinds:
+        any:
+        - resources:
+            kinds:
             - Pod
+      {{- with merge (index .Values "policyExclude" "check-supplementalGroups") (index .Values "policyExclude" $name) }}
+      exclude:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       validate:
         message: >-
           Adding of supplemental group IDs is not allowed. The field
@@ -57,9 +63,14 @@ spec:
               =(supplementalGroups): ">0"
     - name: check-fsGroup
       match:
-        resources:
-          kinds:
+        any:
+        - resources:
+            kinds:
             - Pod
+      {{- with merge (index .Values "policyExclude" "check-fsGroup") (index .Values "policyExclude" $name) }}
+      exclude:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       validate:
         message: >-
           Changing to root group ID is disallowed. The field

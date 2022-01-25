@@ -22,9 +22,10 @@ spec:
   rules:
   - name: app-armor
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
     {{- with index .Values "policyExclude" $name }}
     exclude:
       {{- toYaml . | nindent 6 }}

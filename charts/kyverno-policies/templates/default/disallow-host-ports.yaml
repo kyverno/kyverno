@@ -20,9 +20,10 @@ spec:
   rules:
   - name: host-ports
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
     {{- with index .Values "policyExclude" $name }}
     exclude:
       {{- toYaml . | nindent 6 }}

@@ -20,12 +20,13 @@ spec:
   rules:
   - name: restricted-vol-gcePersistentDisk
     match:
-      resources:
-        kinds:
-        - Pod
-    {{- with index .Values "policyExclude" $name }}
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-gcePersistentDisk") (index .Values "policyExclude" $name) }}
     exclude:
-      {{- toYaml . | nindent 6 }}
+      {{- toYaml . | nindent 8 }}
     {{- end }}
     validate:
       message: >-
@@ -37,9 +38,14 @@ spec:
           - X(gcePersistentDisk): "null"
   - name: restricted-vol-awsElasticBlockStore
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-awsElasticBlockStore") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the awsElasticBlockStore type volume is disallowed.
@@ -50,9 +56,14 @@ spec:
           - X(awsElasticBlockStore): "null"
   - name: restricted-vol-gitRepo
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-gitRepo") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the gitRepo type volume is disallowed.
@@ -63,9 +74,14 @@ spec:
           - X(gitRepo): "null"
   - name: restricted-vol-nfs
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-nfs") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the nfs type volume is disallowed.
@@ -76,9 +92,14 @@ spec:
           - X(nfs): "null"
   - name: restricted-vol-iscsi
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-iscsi") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the iscsi type volume is disallowed.
@@ -89,9 +110,14 @@ spec:
           - X(iscsi): "null"
   - name: restricted-vol-glusterfs
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-glusterfs") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the glusterfs type volume is disallowed.
@@ -102,9 +128,14 @@ spec:
           - X(glusterfs): "null"
   - name: restricted-vol-rbd
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-rbd") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the rbd type volume is disallowed.
@@ -115,9 +146,14 @@ spec:
           - X(rbd): "null"
   - name: restricted-vol-flexVolume
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-flexVolume") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the flexVolume type volume is disallowed.
@@ -128,9 +164,14 @@ spec:
           - X(flexVolume): "null"
   - name: restricted-vol-cinder
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-cinder") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the cinder type volume is disallowed.
@@ -141,9 +182,14 @@ spec:
           - X(cinder): "null"
   - name: restricted-vol-cephfs
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-cephfs") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the cephfs type volume is disallowed.
@@ -154,9 +200,14 @@ spec:
           - X(cephfs): "null"
   - name: restricted-vol-flocker
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-flocker") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the flocker type volume is disallowed.
@@ -167,9 +218,14 @@ spec:
           - X(flocker): "null"
   - name: restricted-vol-fc
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-fc") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the fc type volume is disallowed.
@@ -180,9 +236,14 @@ spec:
           - X(fc): "null"
   - name: restricted-vol-azureFile
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-azureFile") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the azureFile type volume is disallowed.
@@ -193,9 +254,14 @@ spec:
           - X(azureFile): "null"
   - name: restricted-vol-vsphereVolume
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-vsphereVolume") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the vsphereVolume type volume is disallowed.
@@ -206,9 +272,14 @@ spec:
           - X(vsphereVolume): "null"
   - name: restricted-vol-quobyte
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-quobyte") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the quobyte type volume is disallowed.
@@ -219,9 +290,14 @@ spec:
           - X(quobyte): "null"
   - name: restricted-vol-azureDisk
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-azureDisk") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the azureDisk type volume is disallowed.
@@ -232,9 +308,14 @@ spec:
           - X(azureDisk): "null"
   - name: restricted-vol-portworxVolume
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-portworxVolume") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the portworxVolume type volume is disallowed.
@@ -245,9 +326,14 @@ spec:
           - X(portworxVolume): "null"
   - name: restricted-vol-scaleIO
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-scaleIO") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the scaleIO type volume is disallowed.
@@ -258,9 +344,14 @@ spec:
           - X(scaleIO): "null"
   - name: restricted-vol-storageos
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-storageos") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the storageos type volume is disallowed.
@@ -271,9 +362,14 @@ spec:
           - X(storageos): "null"
   - name: restricted-vol-csi
     match:
-      resources:
-        kinds:
-        - Pod
+      any:
+      - resources:
+          kinds:
+          - Pod
+    {{- with merge (index .Values "policyExclude" "restricted-vol-csi") (index .Values "policyExclude" $name) }}
+    exclude:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     validate:
       message: >-
         Use of the csi type volume is disallowed.
