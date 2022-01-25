@@ -104,15 +104,6 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		}
 	}
 
-	for _, r := range resp.PolicyResponse.Rules {
-		for _, n := range name {
-			if r.Name == n {
-				r.Status = response.RuleStatusSkip
-				logger.V(4).Info("rule Status set as skip", "rule name", r.Name)
-			}
-		}
-	}
-
 	resp.PatchedResource = patchedResource
 	return resp
 }
@@ -163,7 +154,7 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 			return ruleError(rule, utils.Mutation, msg, err), resource
 		}
 
-		mutateResp := mutateElements(rule.Name, foreach, ctx, elements, resource, logger)
+		mutateResp := mutateElements(rule.Name, foreach, ctx, elements, patchedResource, logger)
 		if mutateResp.Status == response.RuleStatusError {
 			logger.Error(err, "failed to mutate elements")
 			return buildRuleResponse(rule, mutateResp), resource
