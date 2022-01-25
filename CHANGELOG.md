@@ -1,3 +1,9 @@
+## v1.5.7
+
+## Bug Fixes
+- Excluding clusterRoles is broken if nested under any or all #2819
+- Exclude clusterRole from Policy broken #2964
+
 ## v1.5.6
 
 ## Bug Fixes
