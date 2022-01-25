@@ -66,6 +66,22 @@ docker-push-signature:
 	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SIG_IMAGE):latest .
 
 ##################################
+# SBOM CONTAINER
+##################################
+ALPINE_PATH := cmd/alpineBase
+SBOM_IMAGE := sbom
+.PHONY: docker-build-sbom docker-push-sbom
+
+docker-publish-sbom: docker-buildx-builder docker-build-sbom docker-push-sbom
+
+docker-build-sbom: docker-buildx-builder
+	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --tag $(REPO)/$(SBOM_IMAGE):$(IMAGE_TAG) .
+
+docker-push-sbom: docker-buildx-builder
+	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SBOM_IMAGE):$(IMAGE_TAG) .
+	@docker buildx build --file $(PWD)/$(ALPINE_PATH)/Dockerfile --push --tag $(REPO)/$(SBOM_IMAGE):latest .
+	
+##################################
 # INIT CONTAINER
 ##################################
 INITC_PATH := cmd/initContainer
