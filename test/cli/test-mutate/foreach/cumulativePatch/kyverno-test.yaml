@@ -1,0 +1,12 @@
+name: foreach-mutate
+policies:
+  - policies.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: add-default-resources
+    rule: add-default-requests
+    resource: badpod
+    patchedResource: patched.yaml
+    kind: Pod
+    result: pass

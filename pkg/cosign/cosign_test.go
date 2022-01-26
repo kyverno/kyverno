@@ -44,7 +44,7 @@ const tektonPayload = `{
 }`
 
 func TestCosignPayload(t *testing.T) {
-	var log logr.Logger = logr.DiscardLogger{}
+	var log logr.Logger = logr.Discard()
 	image := "registry-v2.nirmata.io/pause"
 	signedPayloads := cosign.SignedPayload{Payload: []byte(cosignPayload)}
 	p, err := extractPayload(image, []oci.Signature{&sig{cosignPayload: signedPayloads}}, log)
