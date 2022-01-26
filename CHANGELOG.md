@@ -1,3 +1,7 @@
+## v1.5.8
+## Bug Fixes
+- Kyverno CLI test and apply both fail when using `namespaceSelector` under `match.any` or `exclude.any` #3047
+
 ## v1.5.7
 
 ## Bug Fixes
