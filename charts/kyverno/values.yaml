@@ -49,25 +49,24 @@ podSecurityContext: {}
 priorityClassName: ""
 
 antiAffinity:
+  # using this option will schedule pods on different nodes if possible
+  enable: true
+
+podAntiAffinity:
   preferredDuringSchedulingIgnoredDuringExecution:
     - weight: 1
       podAffinityTerm:
         labelSelector:
           matchExpressions:
-            - key: app.kubernetes.io/name
-              operator: In
-              values:
-                - kyverno
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - kyverno
         topologyKey: kubernetes.io/hostname
 
 podAffinity: {}
 
 nodeAffinity: {}
-
-affinity:
-  podAntiAffinity:
-    # using this option will schedule pods on different nodes if possible
-    enable: true
 
 podDisruptionBudget:
   minAvailable: 1
