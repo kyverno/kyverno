@@ -34,7 +34,7 @@ spec:
       affinity:
         {{- if and .Values.affinity.podAntiAffinity.enable .Values.podAntiAffinity }}
         podAntiAffinity:
-          {{- toYaml .Values.podAntiAffinity | nindent 10 }}
+          {{- toYaml .Values.antiAffinity | nindent 10 }}
         {{- end }}
         {{- if and .Values.affinity.podAffinity.enable .Values.podAffinity }}
         podAffinity:

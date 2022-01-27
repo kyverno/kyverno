@@ -48,7 +48,7 @@ podSecurityContext: {}
 # Optional priority class to be used for kyverno pods
 priorityClassName: ""
 
-podAntiAffinity:
+antiAffinity:
   preferredDuringSchedulingIgnoredDuringExecution:
     - weight: 1
       podAffinityTerm:
