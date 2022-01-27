@@ -66,12 +66,8 @@ nodeAffinity: {}
 
 affinity:
   podAntiAffinity:
-    # This can be disabled in a 1 node cluster.
+    # using this option will schedule pods on different nodes if possible
     enable: true
-  podAffinity:
-    enable: false
-  nodeAffinity:
-    enable: false
 
 podDisruptionBudget:
   minAvailable: 1

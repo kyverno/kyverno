@@ -36,11 +36,11 @@ spec:
         podAntiAffinity:
           {{- toYaml .Values.antiAffinity | nindent 10 }}
         {{- end }}
-        {{- if and .Values.affinity.podAffinity.enable .Values.podAffinity }}
+        {{- if .Values.podAffinity }}
         podAffinity:
           {{- toYaml .Values.podAffinity | nindent 10 }}
         {{- end }}
-        {{- if and .Values.affinity.nodeAffinity.enable .Values.nodeAffinity }}
+        {{- if .Values.nodeAffinity }}
         nodeAffinity:
           {{- toYaml .Values.nodeAffinity | nindent 10 }}
         {{- end }}
