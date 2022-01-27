@@ -110,22 +110,8 @@ func VerifySignature(opts Options) (digest string, err error) {
 		return "", errors.Wrap(err, "failed to get pld")
 	}
 
-	if opts.Issuer != "" {
-		issuer, err := extractIssuer(opts.ImageRef, pld, log)
-		if err == nil && (issuer != opts.Issuer) {
-			return "", errors.Wrap(err, "issuer mismatch")
-		}
-
-		return "", errors.Wrap(err, "issuer not found")
-	}
-
-	if opts.Subject != "" {
-		subject, err := extractSubject(opts.ImageRef, pld, log)
-		if err == nil && wildcard.Match(opts.Subject, subject) {
-			return "", errors.Wrap(err, "subject mismatch")
-		}
-
-		return "", errors.Wrap(err, "subject not found")
+	if err := matchSubjectAndIssuer(signatures, opts.Subject, opts.Issuer); err != nil {
+		return "", err
 	}
 
 	err = checkAnnotations(pld, opts.Annotations)
@@ -354,28 +340,33 @@ func extractDigest(imgRef string, payload []payload.SimpleContainerImage, log lo
 	return "", fmt.Errorf("digest not found for " + imgRef)
 }
 
-func extractIssuer(imgRef string, payload []payload.SimpleContainerImage, log logr.Logger) (string, error) {
-	for _, p := range payload {
-		if issuer := p.Optional["Issuer"]; issuer != nil {
-			return issuer.(string), nil
-		} else {
-			log.V(3).Info("failed to extract image issuer from verification response", "image", imgRef, "payload", p)
-			return "", fmt.Errorf("invalid image response for " + imgRef)
-		}
+func matchSubjectAndIssuer(signatures []oci.Signature, subject, issuer string) error {
+	if subject == "" && issuer == "" {
+		return  nil
 	}
-	return "", fmt.Errorf("issuer not found for " + imgRef)
-}
 
-func extractSubject(imgRef string, payload []payload.SimpleContainerImage, log logr.Logger) (string, error) {
-	for _, p := range payload {
-		if subject := p.Optional["Subject"]; subject != nil {
-			return subject.(string), nil
-		} else {
-			log.V(3).Info("failed to extract image subject from verification response", "image", imgRef, "payload", p)
-			return "", fmt.Errorf("invalid image response for " + imgRef)
+	for _, sig := range signatures {
+		cert, err := sig.Cert()
+		if err == nil {
+			return errors.Wrap(err, "failed to read certificate")
+		}
+
+		if cert == nil {
+			return errors.Wrap(err, "certificate not found")
+		}
+
+		s := sigs.CertSubject(cert)
+		i := sigs.CertIssuerExtension(cert)
+		if subject == "" || wildcard.Match(subject, s) {
+			if issuer == "" || (issuer == i) {
+				return nil
+			} else {
+				return fmt.Errorf("issuer mismatch")
+			}
 		}
 	}
-	return "", fmt.Errorf("subject not found for " + imgRef)
+
+	return fmt.Errorf("subject mismatch")
 }
 
 func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]string) error {
