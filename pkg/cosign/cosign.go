@@ -326,6 +326,22 @@ func extractPayload(imgRef string, verified []oci.Signature, log logr.Logger) ([
 			return nil, errors.Wrap(err, "error decoding the payload")
 		}
 
+		if cert, err := sig.Cert(); err == nil && cert != nil {
+			if ss.Optional == nil {
+				ss.Optional = make(map[string]interface{})
+			}
+			ss.Optional["Subject"] = sigs.CertSubject(cert)
+			if issuerURL := sigs.CertIssuerExtension(cert); issuerURL != "" {
+				ss.Optional["Issuer"] = issuerURL
+			}
+		}
+		if bundle, err := sig.Bundle(); err == nil && bundle != nil {
+			if ss.Optional == nil {
+				ss.Optional = make(map[string]interface{})
+			}
+			ss.Optional["Bundle"] = bundle
+		}
+
 		log.V(3).Info("image verification response", "image", imgRef, "payload", ss)
 		// The expected payload is in one of these JSON formats:
 		// {
