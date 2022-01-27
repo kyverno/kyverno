@@ -114,6 +114,11 @@ spec:
                           configMap:
                             description: ConfigMap is the ConfigMap reference.
                             properties:
+                              jmesPath:
+                                description: JMESPath is an optional JSON Match Expression
+                                  that can be used to transform the configmap data
+                                  and metadata.
+                                type: string
                               name:
                                 description: Name is the ConfigMap name.
                                 type: string
@@ -1498,6 +1503,11 @@ spec:
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
                                       properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the configmap data and metadata.
+                                          type: string
                                         name:
                                           description: Name is the ConfigMap name.
                                           type: string
@@ -1748,6 +1758,11 @@ spec:
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
                                       properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the configmap data and metadata.
+                                          type: string
                                         name:
                                           description: Name is the ConfigMap name.
                                           type: string

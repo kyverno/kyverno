@@ -288,7 +288,7 @@ func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCo
 }
 
 func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) ([]byte, error) {
-	contextData := make(map[string]interface{})
+	var contextData interface{}
 
 	name, err := variables.SubstituteAll(logger, ctx.JSONContext, entry.ConfigMap.Name)
 	if err != nil {
@@ -315,16 +315,23 @@ func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyC
 	unstructuredObj["data"] = parseMultilineBlockBody(unstructuredObj["data"].(map[string]interface{}))
 
 	// extract configmap data
-	contextData["data"] = unstructuredObj["data"]
-	contextData["metadata"] = unstructuredObj["metadata"]
-	contextNamedData := make(map[string]interface{})
-	contextNamedData[entry.Name] = contextData
-	data, err := json.Marshal(contextNamedData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal configmap %s/%s: %v", namespace, name, err)
+	contextData = map[string]interface{}{
+		"data":     unstructuredObj["data"],
+		"metadata": unstructuredObj["metadata"],
 	}
-
-	return data, nil
+	path, err := variables.SubstituteAll(logger, ctx.JSONContext, entry.ConfigMap.JMESPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.ConfigMap.JMESPath, err)
+	}
+	if path != "" {
+		contextData, err = applyJMESPath(path.(string), contextData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply JMESPath (%s) results to context entry %s, error: %v", entry.ImageRegistry.JMESPath, entry.Name, err)
+		}
+	}
+	return json.Marshal(map[string]interface{}{
+		entry.Name: contextData,
+	})
 }
 
 // parseMultilineBlockBody recursively iterates through a map and updates its values to a list of strings

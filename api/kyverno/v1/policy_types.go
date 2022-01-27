@@ -202,6 +202,11 @@ type ConfigMapReference struct {
 
 	// Namespace is the ConfigMap namespace.
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+
+	// JMESPath is an optional JSON Match Expression that can be used to
+	// transform the configmap data and metadata.
+	// +optional
+	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
 }
 
 // APICall defines an HTTP request to the Kubernetes API server. The JSON
