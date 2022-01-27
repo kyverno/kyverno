@@ -15,7 +15,7 @@ var (
 	kubeClient            kubernetes.Interface
 	kyvernoNamespace      string
 	kyvernoServiceAccount string
-	DefaultKeychain       authn.Keychain
+	DefaultKeychain       authn.Keychain = authn.DefaultKeychain
 )
 
 // Initialize loads the image pull secrets and initializes the default auth method for container registry API calls
