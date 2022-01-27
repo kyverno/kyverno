@@ -15,6 +15,7 @@ var (
 	kubeClient            kubernetes.Interface
 	kyvernoNamespace      string
 	kyvernoServiceAccount string
+	DefaultKeychain       authn.Keychain = authn.DefaultKeychain
 )
 
 // Initialize loads the image pull secrets and initializes the default auth method for container registry API calls
@@ -36,7 +37,7 @@ func Initialize(client kubernetes.Interface, namespace, serviceAccount string, i
 		return errors.Wrap(err, "failed to initialize registry keychain")
 	}
 
-	authn.DefaultKeychain = kc
+	DefaultKeychain = kc
 	return nil
 }
 
