@@ -347,10 +347,10 @@ func matchSubjectAndIssuer(signatures []oci.Signature, subject, issuer string) e
 	if subject == "" && issuer == "" {
 		return nil
 	}
-
+	var s string
 	for _, sig := range signatures {
 		cert, err := sig.Cert()
-		if err == nil {
+		if err != nil {
 			return errors.Wrap(err, "failed to read certificate")
 		}
 
@@ -358,18 +358,18 @@ func matchSubjectAndIssuer(signatures []oci.Signature, subject, issuer string) e
 			return errors.Wrap(err, "certificate not found")
 		}
 
-		s := sigs.CertSubject(cert)
+		s = sigs.CertSubject(cert)
 		i := sigs.CertIssuerExtension(cert)
 		if subject == "" || wildcard.Match(subject, s) {
 			if issuer == "" || (issuer == i) {
 				return nil
 			} else {
-				return fmt.Errorf("issuer mismatch")
+				return fmt.Errorf("issuer mismatch: expected %s, got %s", i, issuer)
 			}
 		}
 	}
 
-	return fmt.Errorf("subject mismatch")
+	return fmt.Errorf("subject mismatch: expected %s, got %s", s, subject)
 }
 
 func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]string) error {
