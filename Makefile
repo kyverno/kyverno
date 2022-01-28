@@ -27,10 +27,6 @@ PACKAGE ?=github.com/kyverno/kyverno
 LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 LD_FLAGS_DEV="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION_DEV) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 
-# Used to disable inclusion of cloud provider code in k8schain
-# https://github.com/google/go-containerregistry/tree/main/pkg/authn/k8schain
-TAGS=disable_aws,disable_azure,disable_gcp
-
 ##################################
 # KYVERNO
 ##################################
@@ -80,7 +76,7 @@ docker-get-initContainer-digest:
 	@docker buildx imagetools inspect --raw $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 
 docker-build-initContainer-local:
-	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
 	@docker build -f $(PWD)/$(INITC_PATH)/localDockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) $(PWD)/$(INITC_PATH)
 	@docker tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) $(REPO)/$(INITC_IMAGE):latest
 
@@ -100,28 +96,28 @@ KYVERNO_PATH := cmd/kyverno
 KYVERNO_IMAGE := kyverno
 
 local:
-	go build -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)
-	go build -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)
+	go build -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)
+	go build -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)
 
 kyverno: fmt vet
-	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -tags $(TAGS) -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
+	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)/main.go
 
 docker-publish-kyverno: docker-buildx-builder docker-build-kyverno docker-push-kyverno
 
 docker-build-kyverno: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TAGS=$(TAGS)
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 docker-build-kyverno-local:
-	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -tags $(TAGS) -ldflags=$(LD_FLAGS_DEV) $(PWD)/$(KYVERNO_PATH)/main.go
+	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS_DEV) $(PWD)/$(KYVERNO_PATH)/main.go
 	@docker build -f $(PWD)/$(KYVERNO_PATH)/localDockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) -t $(REPO)/$(KYVERNO_IMAGE):latest $(PWD)/$(KYVERNO_PATH)
 	@docker tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest
 
 docker-build-kyverno-amd64:
-	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64" --build-arg TAGS=$(TAGS)
+	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64"
 
 docker-push-kyverno: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TAGS=$(TAGS)
-	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TAGS=$(TAGS)
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 docker-get-kyverno-digest:
 	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
@@ -129,8 +125,8 @@ docker-get-kyverno-digest:
 docker-publish-kyverno-dev: docker-buildx-builder docker-push-kyverno-dev
 
 docker-push-kyverno-dev: docker-buildx-builder
-	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) . --build-arg LD_FLAGS=$(LD_FLAGS_DEV) --build-arg TAGS=$(TAGS)
-	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest . --build-arg LD_FLAGS=$(LD_FLAGS_DEV) --build-arg TAGS=$(TAGS)
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64 --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 
 docker-get-kyverno-dev-digest:
 	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
