@@ -7,8 +7,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/sigstore/cosign/cmd/cosign/cli/rekor"
 	"strings"
+
+	"github.com/sigstore/cosign/cmd/cosign/cli/rekor"
 
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/pkg/oci/remote"
@@ -223,7 +224,7 @@ func decodeStatements(sigs []oci.Signature) ([]map[string]interface{}, error) {
 			return nil, errors.Wrapf(err, "failed to unmarshal JSON payload: %v", sig)
 		}
 
-		if dataPayload, ok := data["payload"]; !ok  {
+		if dataPayload, ok := data["payload"]; !ok {
 			return nil, fmt.Errorf("missing payload in %v", data)
 		} else {
 			decodedStatement, err := decodeStatement(dataPayload.(string))
@@ -342,7 +343,7 @@ func extractDigest(imgRef string, payload []payload.SimpleContainerImage, log lo
 
 func matchSubjectAndIssuer(signatures []oci.Signature, subject, issuer string) error {
 	if subject == "" && issuer == "" {
-		return  nil
+		return nil
 	}
 
 	for _, sig := range signatures {
