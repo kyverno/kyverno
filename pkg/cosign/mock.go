@@ -34,6 +34,14 @@ type mock struct {
 }
 
 func (m *mock) VerifyImageSignatures(_ context.Context, signedImgRef name.Reference, _ *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+	return m.getSignatures(signedImgRef)
+}
+
+func (m *mock) VerifyImageAttestations(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) (checkedAttestations []oci.Signature, bundleVerified bool, err error) {
+	return m.getSignatures(signedImgRef)
+}
+
+func (m *mock) getSignatures(signedImgRef name.Reference) ([]oci.Signature, bool, error) {
 	results, ok := m.data[signedImgRef.String()]
 	if !ok {
 		return nil, false, fmt.Errorf("failed to find mock data for %s", signedImgRef.String())
@@ -45,10 +53,6 @@ func (m *mock) VerifyImageSignatures(_ context.Context, signedImgRef name.Refere
 	}
 
 	return sigs, true, nil
-}
-
-func (m *mock) VerifyImageAttestations(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) (checkedAttestations []oci.Signature, bundleVerified bool, err error) {
-	return nil, false, fmt.Errorf("not implemented")
 }
 
 type sig struct {
