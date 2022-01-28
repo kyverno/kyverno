@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sigstore/cosign/cmd/cosign/cli/rekor"
+
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/pkg/oci/remote"
 
@@ -57,6 +59,7 @@ func VerifySignature(opts Options) (digest string, err error) {
 	cosignOpts := &cosign.CheckOpts{
 		Annotations:        map[string]interface{}{},
 		RegistryClientOpts: remoteOpts,
+		ClaimVerifier:      cosign.SimpleClaimVerifier,
 	}
 
 	if opts.Key != "" {
@@ -67,7 +70,10 @@ func VerifySignature(opts Options) (digest string, err error) {
 		}
 	} else {
 		cosignOpts.CertEmail = ""
-		cosignOpts.RootCerts, err = getX509CertPool(opts.Roots)
+		cosignOpts.RootCerts, err = getFulcioRoots(opts.Roots)
+		if err == nil {
+			cosignOpts.RekorClient, err = rekor.NewClient("https://rekor.sigstore.dev")
+		}
 	}
 
 	if err != nil {
@@ -88,7 +94,7 @@ func VerifySignature(opts Options) (digest string, err error) {
 		return "", errors.Wrap(err, "failed to parse image")
 	}
 
-	verified, _, err := client.Verify(ctx, ref, cosign.SignaturesAccessor, cosignOpts)
+	signatures, bundleVerified, err := client.VerifyImageSignatures(ctx, ref, cosignOpts)
 	if err != nil {
 		msg := err.Error()
 		log.Info("image verification failed", "error", msg)
@@ -101,35 +107,22 @@ func VerifySignature(opts Options) (digest string, err error) {
 		return "", err
 	}
 
-	payload, err := extractPayload(opts.ImageRef, verified, log)
+	log.V(3).Info("verified image", "count", len(signatures), "bundleVerified", bundleVerified)
+	pld, err := extractPayload(signatures)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to get payload")
+		return "", errors.Wrap(err, "failed to get pld")
 	}
 
-	if opts.Issuer != "" {
-		issuer, err := extractIssuer(opts.ImageRef, payload, log)
-		if err == nil && (issuer != opts.Issuer) {
-			return "", errors.Wrap(err, "issuer mismatch")
-		}
-
-		return "", errors.Wrap(err, "issuer not found")
+	if err := matchSubjectAndIssuer(signatures, opts.Subject, opts.Issuer); err != nil {
+		return "", err
 	}
 
-	if opts.Subject != "" {
-		subject, err := extractSubject(opts.ImageRef, payload, log)
-		if err == nil && wildcard.Match(opts.Subject, subject) {
-			return "", errors.Wrap(err, "subject mismatch")
-		}
-
-		return "", errors.Wrap(err, "subject not found")
-	}
-
-	err = checkAnnotations(payload, opts.Annotations, log)
+	err = checkAnnotations(pld, opts.Annotations)
 	if err != nil {
 		return "", errors.Wrap(err, "annotation mismatch")
 	}
 
-	digest, err = extractDigest(opts.ImageRef, payload, log)
+	digest, err = extractDigest(opts.ImageRef, pld, log)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get digest")
 	}
@@ -137,8 +130,8 @@ func VerifySignature(opts Options) (digest string, err error) {
 	return digest, nil
 }
 
-func getX509CertPool(roots []byte) (*x509.CertPool, error) {
-	if roots == nil {
+func getFulcioRoots(roots []byte) (*x509.CertPool, error) {
+	if len(roots) == 0 {
 		return fulcio.GetRoots(), nil
 	}
 
@@ -196,7 +189,7 @@ func FetchAttestations(imageRef string, key string, repository string, log logr.
 		return nil, errors.Wrap(err, "failed to parse image")
 	}
 
-	verified, _, err := client.Verify(context.Background(), ref, cosign.AttestationsAccessor, cosignOpts)
+	signatures, bundleVerified, err := client.VerifyImageAttestations(context.Background(), ref, cosignOpts)
 	if err != nil {
 		msg := err.Error()
 		log.Info("failed to fetch attestations", "error", msg)
@@ -207,7 +200,8 @@ func FetchAttestations(imageRef string, key string, repository string, log logr.
 		return nil, err
 	}
 
-	inTotoStatements, err := decodeStatements(verified)
+	log.V(3).Info("verified images", "count", len(signatures), "bundleVerified", bundleVerified)
+	inTotoStatements, err := decodeStatements(signatures)
 	if err != nil {
 		return nil, err
 	}
@@ -222,20 +216,26 @@ func decodeStatements(sigs []oci.Signature) ([]map[string]interface{}, error) {
 
 	decodedStatements := make([]map[string]interface{}, len(sigs))
 	for i, sig := range sigs {
-		payload, err := sig.Payload()
+		pld, err := sig.Payload()
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get payload")
-		}
-		data := make(map[string]interface{})
-		if err := json.Unmarshal(payload, &data); err != nil {
-			return nil, errors.Wrapf(err, "failed to unmarshal JSON payload: %v", sig)
-		}
-		decodedStatement, err := decodeStatement(data["payload"].(string))
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to decode statement %s", string(payload))
+			return nil, errors.Wrap(err, "failed to decode payload")
 		}
 
-		decodedStatements[i] = decodedStatement
+		data := make(map[string]interface{})
+		if err := json.Unmarshal(pld, &data); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal JSON payload: %v", sig)
+		}
+
+		if dataPayload, ok := data["payload"]; !ok {
+			return nil, fmt.Errorf("missing payload in %v", data)
+		} else {
+			decodedStatement, err := decodeStatement(dataPayload.(string))
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to decode statement %s", string(pld))
+			}
+
+			decodedStatements[i] = decodedStatement
+		}
 	}
 
 	return decodedStatements, nil
@@ -313,50 +313,22 @@ func decodePEM(raw []byte) (signature.Verifier, error) {
 	return signature.LoadECDSAVerifier(ed, crypto.SHA256)
 }
 
-func extractPayload(imgRef string, verified []oci.Signature, log logr.Logger) ([]payload.SimpleContainerImage, error) {
-	var sigPayload []payload.SimpleContainerImage
+func extractPayload(verified []oci.Signature) ([]payload.SimpleContainerImage, error) {
+	var sigPayloads []payload.SimpleContainerImage
 	for _, sig := range verified {
-		p, err := sig.Payload()
+		pld, err := sig.Payload()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get payload")
 		}
 
-		ss := payload.SimpleContainerImage{}
-		if err := json.Unmarshal(p, &ss); err != nil {
+		sci := payload.SimpleContainerImage{}
+		if err := json.Unmarshal(pld, &sci); err != nil {
 			return nil, errors.Wrap(err, "error decoding the payload")
 		}
 
-		log.V(3).Info("image verification response", "image", imgRef, "payload", ss)
-		// The expected payload is in one of these JSON formats:
-		// {
-		//   "critical": {
-		// 	   "identity": {
-		// 	     "docker-reference": "registry-v2.nirmata.io/pause"
-		// 	    },
-		//   	"image": {
-		// 	     "docker-manifest-digest": "sha256:4a1c4b21597c1b4415bdbecb28a3296c6b5e23ca4f9feeb599860a1dac6a0108"
-		// 	    },
-		// 	    "type": "cosign container image signature"
-		//    },
-		//    "optional": null
-		// }
-		//
-		// {
-		//   "Critical": {
-		//     "Identity": {
-		//       "docker-reference": "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/nop"
-		//     },
-		//     "Image": {
-		//       "Docker-manifest-digest": "sha256:6a037d5ba27d9c6be32a9038bfe676fb67d2e4145b4f53e9c61fb3e69f06e816"
-		//     },
-		//     "Type": "Tekton container signature"
-		//   },
-		//   "Optional": {}
-		// }
-
-		sigPayload = append(sigPayload, ss)
+		sigPayloads = append(sigPayloads, sci)
 	}
-	return sigPayload, nil
+	return sigPayloads, nil
 }
 
 func extractDigest(imgRef string, payload []payload.SimpleContainerImage, log logr.Logger) (string, error) {
@@ -371,35 +343,40 @@ func extractDigest(imgRef string, payload []payload.SimpleContainerImage, log lo
 	return "", fmt.Errorf("digest not found for " + imgRef)
 }
 
-func extractIssuer(imgRef string, payload []payload.SimpleContainerImage, log logr.Logger) (string, error) {
-	for _, p := range payload {
-		if issuer := p.Optional["Issuer"]; issuer != nil {
-			return issuer.(string), nil
-		} else {
-			log.V(3).Info("failed to extract image issuer from verification response", "image", imgRef, "payload", p)
-			return "", fmt.Errorf("unknown image response for " + imgRef)
+func matchSubjectAndIssuer(signatures []oci.Signature, subject, issuer string) error {
+	if subject == "" && issuer == "" {
+		return nil
+	}
+
+	for _, sig := range signatures {
+		cert, err := sig.Cert()
+		if err == nil {
+			return errors.Wrap(err, "failed to read certificate")
+		}
+
+		if cert == nil {
+			return errors.Wrap(err, "certificate not found")
+		}
+
+		s := sigs.CertSubject(cert)
+		i := sigs.CertIssuerExtension(cert)
+		if subject == "" || wildcard.Match(subject, s) {
+			if issuer == "" || (issuer == i) {
+				return nil
+			} else {
+				return fmt.Errorf("issuer mismatch")
+			}
 		}
 	}
-	return "", fmt.Errorf("issuer not found for " + imgRef)
+
+	return fmt.Errorf("subject mismatch")
 }
 
-func extractSubject(imgRef string, payload []payload.SimpleContainerImage, log logr.Logger) (string, error) {
-	for _, p := range payload {
-		if subject := p.Optional["Subject"]; subject != nil {
-			return subject.(string), nil
-		} else {
-			log.V(3).Info("failed to extract image subject from verification response", "image", imgRef, "payload", p)
-			return "", fmt.Errorf("unknown image response for " + imgRef)
-		}
-	}
-	return "", fmt.Errorf("image subject not found for " + imgRef)
-}
-
-func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]string, log logr.Logger) error {
+func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]string) error {
 	for _, p := range payload {
 		for key, val := range annotations {
 			if val != p.Optional[key] {
-				return fmt.Errorf("value of " + key + " does not match")
+				return fmt.Errorf("annotation value for %s does not match", key)
 			}
 		}
 	}
