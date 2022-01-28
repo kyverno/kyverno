@@ -15,7 +15,6 @@ require (
 	github.com/go-git/go-git/v5 v5.2.0
 	github.com/go-logr/logr v1.2.2
 	github.com/google/go-containerregistry v0.8.1-0.20220125170349-50dfc2733d10
-	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20220125170349-50dfc2733d10
 	github.com/googleapis/gnostic v0.5.5
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/in-toto/in-toto-golang v0.3.4-0.20211211042327-af1f9fb822bf
@@ -55,7 +54,10 @@ require (
 
 require (
 	github.com/aquilax/truncate v1.0.0
+	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20211215200129-69c85dc22db6
 	github.com/blang/semver/v4 v4.0.0
+	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220119192733-fe33c00cee21
+	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20220125170349-50dfc2733d10
 	gopkg.in/inf.v0 v0.9.1
 )
 
@@ -101,12 +103,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.9.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.14.0 // indirect
 	github.com/aws/smithy-go v1.10.0 // indirect
-	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20211215200129-69c85dc22db6 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
-	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220119192733-fe33c00cee21 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.10.1 // indirect
 	github.com/coreos/go-oidc/v3 v3.1.0 // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20210823021906-dc406ceaf94b // indirect
@@ -144,7 +144,6 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
-	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20220125170349-50dfc2733d10 // indirect
 	github.com/google/go-github/v42 v42.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
