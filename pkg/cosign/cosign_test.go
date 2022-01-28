@@ -65,3 +65,25 @@ func TestCosignPayload(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, d2, "sha256:6a037d5ba27d9c6be32a9038bfe676fb67d2e4145b4f53e9c61fb3e69f06e816")
 }
+
+func TestCosignKeyless(t *testing.T) {
+	var log logr.Logger = logr.Discard()
+	opts := Options{
+		ImageRef: "ghcr.io/jimbugwadia/pause2",
+		Issuer:   "https://github.com/",
+		Subject:  "jim",
+		Log:      log,
+	}
+
+	_, err := VerifySignature(opts)
+	assert.Error(t, err, "subject mismatch: expected jim@nirmata.com, got jim")
+
+	opts.Subject = "jim@nirmata.com"
+	_, err = VerifySignature(opts)
+	assert.Error(t, err, "issuer mismatch: expected https://github.com/login/oauth, got https://github.com/")
+
+	opts.Issuer = "https://github.com/login/oauth"
+	_, err = VerifySignature(opts)
+	assert.NilError(t, err)
+
+}
