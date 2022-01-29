@@ -166,10 +166,20 @@ func (noh NumericOperatorHandler) validateValueWithVersionPattern(key semver.Ver
 }
 
 func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, value interface{}) bool {
+	if key == "" {
+		key = "0"
+	}
 	// We need to check duration first as it's the only type that can be compared to a different type
 	durationKey, durationValue, err := parseDuration(key, value)
 	if err == nil {
 		return compareByCondition(float64(durationKey.Seconds()), float64(durationValue.Seconds()), noh.condition, &noh.log)
+	}
+	// attempt to extract resource quantity from string
+	resourceKey, err := resource.ParseQuantity(key)
+	if err == nil {
+		if _, err := resource.ParseQuantity(fmt.Sprint(value)); err == nil {
+			return noh.validateValueWithResourcePattern(resourceKey, value)
+		}
 	}
 	// extracting float64 from the string key
 	float64key, err := strconv.ParseFloat(key, 64)
@@ -180,11 +190,6 @@ func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, val
 	int64key, err := strconv.ParseInt(key, 10, 64)
 	if err == nil {
 		return noh.validateValueWithIntPattern(int64key, value)
-	}
-	// attempt to extract resource quantity from string
-	resourceKey, err := resource.ParseQuantity(key)
-	if err == nil {
-		return noh.validateValueWithResourcePattern(resourceKey, value)
 	}
 	// attempt to extract version from string
 	versionKey, err := semver.Parse(key)
