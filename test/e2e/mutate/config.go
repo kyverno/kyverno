@@ -96,6 +96,16 @@ var tests = []struct {
 		ResourceRaw:        kyverno_2971_resource,
 		ExpectedPatternRaw: kyverno_2971_pattern,
 	},
+	{
+		TestDescription:    "checks that preconditions having empty string as key with a numeric condition operator are handled properly",
+		PolicyName:         "add-default-resources",
+		PolicyRaw:          kyverno_3075_policy,
+		ResourceName:       "nginx",
+		ResourceNamespace:  "test-mutate",
+		ResourceGVR:        podGVR,
+		ResourceRaw:        kyverno_3075_resource,
+		ExpectedPatternRaw: kyverno_3075_pattern,
+	},
 }
 
 var ingressTests = struct {

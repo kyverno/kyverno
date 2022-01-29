@@ -416,3 +416,66 @@ spec:
   - name: "nginx"           
     image: 'my-private-registry/nginx:1.14.2'
 `)
+
+var kyverno_3075_policy = []byte(`
+apiVersion : kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-default-resources
+spec:
+  background: false
+  rules:
+  - name: add-default-requests-memory
+    match:
+      resources:
+        kinds:
+        - Pod
+    preconditions:
+      all:
+      - key: "{{request.operation}}"
+        operator: In
+        value:
+        - CREATE
+        - UPDATE
+    mutate:
+      foreach:
+      - list: "request.object.spec.containers"
+        preconditions:
+          all:
+          - key: "{{ element.resources.requests.memory || '' }}"
+            operator: LessThan
+            value: 100Mi
+        patchStrategicMerge:
+          spec:
+            containers:
+            - name: "{{ element.name }}"
+              resources:
+                requests:
+                  memory: 100Mi
+`)
+
+var kyverno_3075_resource = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  namespace: test-mutate
+  labels:
+    app: myapp
+  annotations:
+    iam.amazonaws.com/role: cert-manager_mycluster
+spec:
+  containers:
+  - name: nginx
+    image: docker.io/nginx
+`)
+
+var kyverno_3075_pattern = []byte(`
+spec:
+  containers:
+  - name: nginx
+    image: docker.io/nginx
+    resources:
+      requests:
+        memory: 100Mi
+`)
