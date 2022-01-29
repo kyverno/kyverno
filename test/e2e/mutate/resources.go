@@ -382,24 +382,27 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: foo
+  namespace: test-mutate-env-array
 spec:
   initContainers:
-  - name: jimmy
-    image: defdasdabian:923
-    command: ["/bin/sh", "-c", "sleep infinity"]
+  - name: nginx
+    image: nginx:1.14
+    command: ["sleep infinity"]
+    securityContext:
+      capabilities:
+        drop:
+        - SETUID
   containers:
-  - name: foo
-    image: defdasdabian:923
-    command: ["/bin/sh", "-c", "sleep infinity"]
+  - name: busybox
+    image: busybox:1.11
+    command: ["sleep infinity"]
+    securityContext:
+      capabilities:
+        drop:
+        - SETUID
     env:
       - name: FOO
         value: bar
-  - name: asdf
-    image: asdfasdfasdf:123
-    command: ["/bin/sh", "-c", "sleep infinity"]
-	  env:
-	    - name: FOO
-	      value: bar
 `)
 
 var podWithEnvVarPattern = []byte(`
@@ -407,37 +410,38 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: foo
-	spec:
-	initContainers:
-	- (name): "*"
-	  command: ["/bin/sh", "-c", "sleep infinity"]
-	  securityContext:
-		  capabilities:
-		    drop:
-		    - NET_RAW
-		    - SETUID
-	containers:
-	- (name): "*"
-	  command: ["/bin/sh", "-c", "sleep infinity"]
-	  securityContext:
-		  capabilities:
-		    drop:
-		    - SETUID
-		    - CAP_FOO_BAR
-		    - NET_RAW
-	  env:
-		  - name: FOO
-		    value: bar
-	- (name): "*"
-	  command: ["/bin/sh", "-c", "sleep infinity"]
-	  securityContext:
-	    capabilities:
-	      drop:
-	      - NET_RAW
-	      - SOME_THING
+  namespace: test-mutate-env-array
+spec:
+  initContainers:
+  - name: nginx
+    image: nginx:1.14
+    command: ["sleep infinity"]
+    securityContext:
+      capabilities:
+        drop:
+        - SETUID
+  containers:
+  - name: busybox
+    image: busybox:1.11
+    command: ["sleep infinity"]
+    securityContext:
+      capabilities:
+        drop:
+        - SETUID
     env:
-	    - name: FOO
-	      value: bar
+    - name: FOO
+      value: bar
+  - name: linkerd
+    image: linkerd:1.21
+    command: ["sleep infinity"]
+    securityContext:
+      capabilities:
+        drop:
+        - NET_RAW
+        - SOME_THING
+    env:
+      - name: FOO
+        value: bar
 `)
 
 var kyverno_2316_policy = []byte(`
