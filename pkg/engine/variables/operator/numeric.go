@@ -177,8 +177,10 @@ func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, val
 	// attempt to extract resource quantity from string
 	resourceKey, err := resource.ParseQuantity(key)
 	if err == nil {
-		if _, err := resource.ParseQuantity(fmt.Sprint(value)); err == nil {
-			return noh.validateValueWithResourcePattern(resourceKey, value)
+		if quant, err := resource.ParseQuantity(fmt.Sprint(value)); err == nil {
+			if quant.Format == resource.BinarySI {
+				return noh.validateValueWithResourcePattern(resourceKey, value)
+			}
 		}
 	}
 	// extracting float64 from the string key
