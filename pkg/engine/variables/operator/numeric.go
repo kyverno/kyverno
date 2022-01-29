@@ -178,7 +178,14 @@ func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, val
 	resourceKey, err := resource.ParseQuantity(key)
 	if err == nil {
 		if quant, err := resource.ParseQuantity(fmt.Sprint(value)); err == nil {
-			if quant.Format == resource.BinarySI {
+			// int64QuantityExpectedBytes is the expected width in bytes of the canonical string representation
+			// of most Quantity values.
+			const int64QuantityExpectedBytes = 18
+
+			cb := make([]byte, int64QuantityExpectedBytes)
+			_, suffix := quant.CanonicalizeBytes(cb)
+
+			if string(suffix) != "" {
 				return noh.validateValueWithResourcePattern(resourceKey, value)
 			}
 		}
