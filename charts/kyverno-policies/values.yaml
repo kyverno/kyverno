@@ -21,7 +21,7 @@ validationFailureAction: audit
 #
 # Policies with multiple rules can have individual rules excluded:
 # policyExclude:
-#   check-runasgroup:
+#   adding-capabilities-strict:
 #     any:
 #     - resources:
 #         kinds:
