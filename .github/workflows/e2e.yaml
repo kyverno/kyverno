@@ -124,7 +124,7 @@ jobs:
       - name: Run chart-testing (policies)
         run: |
           helm install kyverno charts/kyverno -n kyverno
-          helm install kyverno-policies charts/kyverno-policies -n kyverno
+          ct install --target-branch=main --namespace=kyverno --charts charts/kyverno-policies
 
       - name: Debug failure
         if: failure()
