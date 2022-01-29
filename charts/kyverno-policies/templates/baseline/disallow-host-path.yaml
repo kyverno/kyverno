@@ -1,0 +1,41 @@
+{{- $name := "disallow-host-path" }}
+{{- if eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    policies.kyverno.io/title: Disallow hostPath
+    policies.kyverno.io/category: Pod Security Standards (Baseline)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity }}
+    {{- end }}
+    policies.kyverno.io/subject: Pod,Volume
+    kyverno.io/kyverno-version: 1.6.0
+    kyverno.io/kubernetes-version: "1.22-1.23"
+    policies.kyverno.io/description: >-
+      HostPath volumes let Pods use host directories and volumes in containers.
+      Using host resources can be used to access shared data or escalate privileges
+      and should not be allowed. This policy ensures no hostPath volumes are in use.
+spec:
+  validationFailureAction: {{ .Values.validationFailureAction }}
+  background: true
+  rules:
+    - name: host-path
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      {{- with index .Values "policyExclude" $name }}
+      exclude:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      validate:
+        message: >-
+          HostPath volumes are forbidden. The field spec.volumes[*].hostPath must be unset.
+        pattern:
+          spec:
+            =(volumes):
+              - X(hostPath): "null"
+{{- end }}

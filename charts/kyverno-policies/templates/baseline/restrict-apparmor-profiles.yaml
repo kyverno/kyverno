@@ -1,0 +1,45 @@
+{{- $name := "restrict-apparmor-profiles" }}
+{{- if eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    policies.kyverno.io/title: Restrict AppArmor
+    policies.kyverno.io/category: Pod Security Standards (Baseline)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity }}
+    {{- end }}
+    policies.kyverno.io/subject: Pod, Annotation
+    policies.kyverno.io/minversion: 1.3.0
+    kyverno.io/kyverno-version: 1.6.0
+    kyverno.io/kubernetes-version: "1.22-1.23"
+    policies.kyverno.io/description: >-
+      On supported hosts, the 'runtime/default' AppArmor profile is applied by default.
+      The default policy should prevent overriding or disabling the policy, or restrict
+      overrides to an allowed set of profiles. This policy ensures Pods do not
+      specify any other AppArmor profiles than `runtime/default` or `localhost/*`.
+spec:
+  validationFailureAction: {{ .Values.validationFailureAction }}
+  background: true
+  rules:
+    - name: app-armor
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      {{- with index .Values "policyExclude" $name }}
+      exclude:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      validate:
+        message: >-
+          Specifying other AppArmor profiles is disallowed. The annotation
+          `container.apparmor.security.beta.kubernetes.io` if defined
+          must not be set to anything other than `runtime/default` or `localhost/*`.
+        pattern:
+          =(metadata):
+            =(annotations):
+              =(container.apparmor.security.beta.kubernetes.io/*): "runtime/default | localhost/*"
+{{- end }}

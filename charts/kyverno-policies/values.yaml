@@ -8,6 +8,27 @@ podSecurityPolicies: []
 # Supported values- `audit`, `enforce`
 # For more info- https://kyverno.io/docs/writing-policies/validate/
 validationFailureAction: audit
+# Exclude resources from individual policies
+# Eg:
+# policyExclude:
+#   disallow-host-path:
+#     any:
+#     - resources:
+#         kinds:
+#         - Pod
+#         namespaces:
+#         - fluent
+#
+# Policies with multiple rules can have individual rules excluded:
+# policyExclude:
+#   check-runasgroup:
+#     any:
+#     - resources:
+#         kinds:
+#         - Pod
+#         namespaces:
+#         - kube-system
+policyExclude: {}
 
 nameOverride:
 # -- Additional labels

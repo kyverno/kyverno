@@ -1,0 +1,44 @@
+{{- $name := "disallow-host-namespaces" }}
+{{- if eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    policies.kyverno.io/title: Disallow Host Namespaces
+    policies.kyverno.io/category: Pod Security Standards (Baseline)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity }}
+    {{- end }}
+    kyverno.io/kyverno-version: 1.6.0
+    kyverno.io/kubernetes-version: "1.22-1.23"
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Host namespaces (Process ID namespace, Inter-Process Communication namespace, and
+      network namespace) allow access to shared information and can be used to elevate
+      privileges. Pods should not be allowed access to host namespaces. This policy ensures
+      fields which make use of these host namespaces are unset or set to `false`.
+spec:
+  validationFailureAction: {{ .Values.validationFailureAction }}
+  background: true
+  rules:
+    - name: host-namespaces
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      {{- with index .Values "policyExclude" $name }}
+      exclude:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      validate:
+        message: >-
+          Sharing the host namespaces is disallowed. The fields spec.hostNetwork,
+          spec.hostIPC, and spec.hostPID must be unset or set to `false`.
+        pattern:
+          spec:
+            =(hostPID): "false"
+            =(hostIPC): "false"
+            =(hostNetwork): "false"
+{{- end }}
