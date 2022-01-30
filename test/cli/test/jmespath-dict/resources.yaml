@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-valid1
+  labels:
+    a: "1"
+spec:
+  containers:
+  - image: busybox:1.28
+    name: busybox
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-valid2
+  labels:
+    a: "1"
+    test: "not-equal"
+spec:
+  containers:
+  - image: busybox:1.28
+    name: busybox
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-valid3
+  labels:
+    a: "1"
+spec:
+  containers:
+  - image: busybox:1.28
+    name: busybox
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-invalid
+  labels:
+    a: "2"
+spec:
+  containers:
+  - image: busybox:1.28
+    name: busybox
