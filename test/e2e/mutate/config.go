@@ -91,7 +91,7 @@ var tests = []struct {
 		PolicyName:         "add-image-as-env-var",
 		PolicyRaw:          kyverno_mutate_json_patch,
 		ResourceName:       "foo",
-		ResourceNamespace:  "",
+		ResourceNamespace:  "test-mutate-env-array",
 		ResourceGVR:        podGVR,
 		ResourceRaw:        podWithEnvVar,
 		ExpectedPatternRaw: podWithEnvVarPattern,

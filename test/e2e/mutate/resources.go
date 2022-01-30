@@ -384,25 +384,27 @@ metadata:
   name: foo
   namespace: test-mutate-env-array
 spec:
-  initContainers:
-  - name: nginx
-    image: nginx:1.14
-    command: ["sleep infinity"]
-    securityContext:
-      capabilities:
-        drop:
-        - SETUID
   containers:
-  - name: busybox
+  - command:
+    - sleep infinity
+    env:
+    - name: K8S_IMAGE
+      value: docker.io/busybox:1.11
     image: busybox:1.11
-    command: ["sleep infinity"]
+    name: busybox
     securityContext:
       capabilities:
         drop:
         - SETUID
-    env:
-      - name: FOO
-        value: bar
+  initContainers:
+  - command:
+    - sleep infinity
+    image: nginx:1.14
+    name: nginx
+    securityContext:
+      capabilities:
+        drop:
+        - SETUID
 `)
 
 var podWithEnvVarPattern = []byte(`
@@ -412,36 +414,39 @@ metadata:
   name: foo
   namespace: test-mutate-env-array
 spec:
-  initContainers:
-  - name: nginx
-    image: nginx:1.14
-    command: ["sleep infinity"]
-    securityContext:
-      capabilities:
-        drop:
-        - SETUID
   containers:
-  - name: busybox
+  - command:
+    - sleep infinity
+    env:
+    - name: K8S_IMAGE
+      value: docker.io/busybox:1.11
     image: busybox:1.11
-    command: ["sleep infinity"]
+    name: busybox
     securityContext:
       capabilities:
         drop:
         - SETUID
+  - command:
+    - sleep infinity
     env:
-    - name: FOO
-      value: bar
-  - name: linkerd
+    - name: K8S_IMAGE
+      value: linkerd:1.21
     image: linkerd:1.21
-    command: ["sleep infinity"]
+    name: linkerd
     securityContext:
       capabilities:
         drop:
         - NET_RAW
         - SOME_THING
-    env:
-      - name: FOO
-        value: bar
+  initContainers:
+  - command:
+    - sleep infinity
+    image: nginx:1.14
+    name: nginx
+    securityContext:
+      capabilities:
+        drop:
+        - SETUID
 `)
 
 var kyverno_2316_policy = []byte(`
