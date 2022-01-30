@@ -346,6 +346,11 @@ func ValidateVariables(p *kyverno.ClusterPolicy, backgroundMode bool) error {
 		return nil
 	}
 
+	valJMESPath := validateJMESPath(p)
+	if !valJMESPath {
+		return fmt.Errorf("%s", "JMESPath is not valid")
+	}
+
 	if err := hasInvalidVariables(p, backgroundMode); err != nil {
 		return fmt.Errorf("policy contains invalid variables: %s", err.Error())
 	}
@@ -411,6 +416,16 @@ func hasVariables(policy *kyverno.ClusterPolicy) [][]string {
 	policyRaw, _ := json.Marshal(policy)
 	matches := variables.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
 	return matches
+}
+
+func validateJMESPath(policy *ClusterPolicy) bool {
+	for _, rule := range policy.Spec.Rules {
+		for _, context := range rule.Context {
+			if context.apiCall.Type == "jmesPath" {
+				if strings.HasPrefix(context.ApiCall.Expression, "{{") && strings.HasSuffix(context.ApiCall.Expression, "}}") {
+					return true
+				}
+			}
 }
 
 func jsonPatchPathHasVariables(patch string) error {
