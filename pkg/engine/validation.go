@@ -159,6 +159,8 @@ type validator struct {
 	pattern          apiextensions.JSON
 	anyPattern       apiextensions.JSON
 	deny             *kyverno.Deny
+	key              string
+	ignoreFields     []string
 }
 
 func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *validator {
@@ -172,6 +174,8 @@ func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *vali
 		pattern:          ruleCopy.Validation.Pattern,
 		anyPattern:       ruleCopy.Validation.AnyPattern,
 		deny:             ruleCopy.Validation.Deny,
+		key:              ruleCopy.Validation.Key,
+		ignoreFields:     ruleCopy.Validation.IgnoreFields,
 	}
 }
 
@@ -231,6 +235,17 @@ func (v *validator) validate() *response.RuleResponse {
 		}
 
 		return ruleResponse
+	}
+
+	if v.key != "" {
+		verified, diff, err := VerifyManifest(v.ctx, v.key, v.ignoreFields)
+		if err != nil {
+			return ruleError(v.rule, utils.Validation, "manifest verification failed", err)
+		}
+		if !verified {
+			v.log.Info("invalid request ", "verified: ", verified, "diff: ", diff)
+			return ruleResponse(v.rule, utils.Validation, "manifest mismatch", response.RuleStatusFail)
+		}
 	}
 
 	v.log.Info("invalid validation rule: either patterns or deny conditions are expected")
