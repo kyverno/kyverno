@@ -227,11 +227,17 @@ func (op1 Scalar) Multiply(op2 interface{}) (interface{}, error) {
 func (op1 Quantity) Divide(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Quantity:
+		if v.ToDec().AsApproximateFloat64() == 0 {
+			return nil, fmt.Errorf(zeroDivisionError, divide)
+		}
 		var quo inf.Dec
 		scale := inf.Scale(math.Max(float64(op1.AsDec().Scale()), float64(v.AsDec().Scale())))
 		quo.QuoRound(op1.AsDec(), v.AsDec(), scale, inf.RoundDown)
 		return strconv.ParseFloat(quo.String(), 64)
 	case Scalar:
+		if v.float64 == 0 {
+			return nil, fmt.Errorf(zeroDivisionError, divide)
+		}
 		q, err := resource.ParseQuantity(fmt.Sprintf("%v", v.float64))
 		if err != nil {
 			return nil, err
@@ -283,6 +289,9 @@ func (op1 Scalar) Divide(op2 interface{}) (interface{}, error) {
 
 		return op1.float64 / v.float64, nil
 	case Quantity:
+		if v.ToDec().AsApproximateFloat64() == 0 {
+			return nil, fmt.Errorf(zeroDivisionError, divide)
+		}
 		q, err := resource.ParseQuantity(fmt.Sprintf("%v", op1.float64))
 		if err != nil {
 			return nil, err
