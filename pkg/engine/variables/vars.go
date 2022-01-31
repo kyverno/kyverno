@@ -18,9 +18,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 )
 
-var RegexVariables = regexp.MustCompile(`^\{\{[^{}]*\}\}|[^\\]\{\{[^{}]*\}\}`)
+var RegexVariables = regexp.MustCompile(`^\{\{(\{[^{}]*\}|[^{}])*\}\}|[^\\]\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
-var RegexEscpVariables = regexp.MustCompile(`\\\{\{[^{}]*\}\}`)
+var RegexEscpVariables = regexp.MustCompile(`\\\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
 // RegexReferences is the Regex for '$(...)' at the beginning of the string, and 'x$(...)' where 'x' is not '\'
 var RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
@@ -28,7 +28,7 @@ var RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
 // RegexEscpReferences is the Regex for '\$(...)'
 var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
 
-var regexVariableInit = regexp.MustCompile(`^\{\{[^{}]*\}\}`)
+var regexVariableInit = regexp.MustCompile(`^\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
 var regexElementIndex = regexp.MustCompile(`{{\s*elementIndex\s*}}`)
 
