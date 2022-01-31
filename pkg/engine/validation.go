@@ -235,9 +235,7 @@ func (v *validator) validate() *response.RuleResponse {
 		}
 
 		return ruleResponse
-	}
-
-	if v.key != "" {
+	} else if v.key != "" {
 		verified, diff, err := VerifyManifest(v.ctx, v.key, v.ignoreFields)
 		if err != nil {
 			return ruleError(v.rule, utils.Validation, "manifest verification failed", err)
@@ -245,6 +243,8 @@ func (v *validator) validate() *response.RuleResponse {
 		if !verified {
 			v.log.Info("invalid request ", "verified: ", verified, "diff: ", diff)
 			return ruleResponse(v.rule, utils.Validation, "manifest mismatch", response.RuleStatusFail)
+		} else {
+			return ruleResponse(v.rule, utils.Validation, "manifest match successfull", response.RuleStatusPass)
 		}
 	}
 

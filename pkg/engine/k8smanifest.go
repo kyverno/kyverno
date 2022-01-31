@@ -12,7 +12,6 @@ import (
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	// "github.com/kyverno/kyverno/pkg/engine"
 )
 
 const DefaultAnnotationKeyDomain = "cosign.sigstore.dev/"

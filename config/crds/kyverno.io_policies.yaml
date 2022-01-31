@@ -1920,6 +1920,16 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        ignoreFields:
+                          description: Fields which will be ignored will comparing
+                            manifests.
+                          items:
+                            type: string
+                          type: array
+                        key:
+                          description: Key is the PEM encoded public key that the
+                            yaml manifest is signed with.
+                          type: string
                         message:
                           description: Message specifies a custom message to be displayed
                             on failure.
