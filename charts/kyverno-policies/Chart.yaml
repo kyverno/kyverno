@@ -17,4 +17,4 @@ maintainers:
   - name: Nirmata
     url: https://kyverno.io/
 engine: gotpl
-kubeVersion: ">=1.10.0-0"
+kubeVersion: ">=1.16.0-0"
