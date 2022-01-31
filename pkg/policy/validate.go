@@ -418,14 +418,17 @@ func hasVariables(policy *kyverno.ClusterPolicy) [][]string {
 	return matches
 }
 
-func validateJMESPath(policy *ClusterPolicy) bool {
+func validateJMESPath(policy *kyverno.ClusterPolicy) bool {
 	for _, rule := range policy.Spec.Rules {
 		for _, context := range rule.Context {
-			if context.apiCall.Type == "jmesPath" {
-				if strings.HasPrefix(context.ApiCall.Expression, "{{") && strings.HasSuffix(context.ApiCall.Expression, "}}") {
+			if context.APICall.JMESPath == "jmesPath" {
+				if strings.HasPrefix(context.APICall.JMESPath, "{{") && strings.HasSuffix(context.APICall.JMESPath, "}}") {
 					return true
 				}
 			}
+		}
+	}
+	return false
 }
 
 func jsonPatchPathHasVariables(patch string) error {
