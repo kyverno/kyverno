@@ -42,3 +42,17 @@ spec:
   containers:
   - image: busybox:1.28
     name: busybox
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    aadobjectid: 51e5fe10-5325-4a32-bce8-7ebe9708
+  name: test-invalid
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    aadobjectid: 51e5fe10-5325-4a32-9ce8-7ebe97087ebe
+  name: test-valid

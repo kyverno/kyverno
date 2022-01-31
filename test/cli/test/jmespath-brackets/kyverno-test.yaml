@@ -24,3 +24,13 @@ results:
     resource: test-invalid
     kind: Pod
     status: fail
+  - policy: namespace-validation
+    rule: namespace-validation
+    resource: test-invalid
+    kind: Namespace
+    status: fail
+  - policy: namespace-validation
+    rule: namespace-validation
+    resource: test-valid
+    kind: Namespace
+    status: pass
