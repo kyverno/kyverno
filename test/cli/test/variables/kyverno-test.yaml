@@ -1,6 +1,7 @@
 name: test-variables
 policies:
   - cm-variable-example.yaml
+  - cm-multiple-example.yaml
   - cm-array-example.yaml
   - cm-blk-scalar-example.yaml
   - cm-globalval-example.yaml
@@ -9,6 +10,16 @@ resources:
   - resources.yaml
 variables: variables.yaml
 results:
+  - policy: cm-multiple-example
+    rule: example-configmap-lookup
+    resource: test-env-test
+    kind: Pod
+    result: pass
+  - policy: cm-multiple-example
+    rule: example-configmap-lookup
+    resource: test-env-dev
+    kind: Pod
+    result: fail
   - policy: cm-variable-example
     rule: example-configmap-lookup
     resource: test-env-test
