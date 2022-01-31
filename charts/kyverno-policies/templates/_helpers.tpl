@@ -45,6 +45,15 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- end -}}
 {{- end -}}
 
+{{/* Set if a other policies are managed */}}
+{{- define "kyverno-policies.podSecurityOther" -}}
+{{- if has .name .Values.includeOtherPolicies }}
+{{- true }}
+{{- else -}}
+{{- false }}
+{{- end -}}
+{{- end -}}
+
 {{/* Get deployed Kyverno version from Kubernetes */}}
 {{- define "kyverno-policies.kyvernoVersion" -}}
 {{- $version := "" -}}

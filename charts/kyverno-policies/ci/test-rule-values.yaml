@@ -1,4 +1,6 @@
 podSecurityStandard: restricted
+includeOtherPolicies:
+- require-non-root-groups
 policyExclude:
   disallow-host-path:
     any:
