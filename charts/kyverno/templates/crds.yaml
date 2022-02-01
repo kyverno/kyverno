@@ -1203,7 +1203,7 @@ spec:
                             type: object
                           type: array
                         ignoreFields:
-                          description: Fields which will be ignored will comparing manifests.
+                          description: Fields which will be ignored while comparing manifests.
                           items:
                             type: string
                           type: array
@@ -3753,7 +3753,7 @@ spec:
                             type: object
                           type: array
                         ignoreFields:
-                          description: Fields which will be ignored will comparing manifests.
+                          description: Fields which will be ignored while comparing manifests.
                           items:
                             type: string
                           type: array
