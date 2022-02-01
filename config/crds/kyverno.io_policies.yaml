@@ -1921,7 +1921,7 @@ spec:
                             type: object
                           type: array
                         ignoreFields:
-                          description: Fields which will be ignored will comparing
+                          description: Fields which will be ignored while comparing
                             manifests.
                           items:
                             type: string

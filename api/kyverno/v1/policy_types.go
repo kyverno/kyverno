@@ -468,9 +468,11 @@ type Validation struct {
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
 	// Key is the PEM encoded public key that the yaml manifest is signed with.
+	// +optional
 	Key string `json:"key,omitempty" yaml:"key,omitempty"`
 
-	// Fields which will be ignored will comparing manifests.
+	// Fields which will be ignored while comparing manifests.
+	// +optional
 	IgnoreFields []string `json:"ignoreFields,omitempty" yaml:"ignoreFields,omitempty"`
 
 	// ForEach applies policy rule changes to nested elements.

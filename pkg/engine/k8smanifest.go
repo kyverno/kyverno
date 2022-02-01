@@ -32,7 +32,7 @@ func VerifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields 
 	message := k8smnfutil.GzipDecompress(gzipMsg)
 	yamls, err := k8smnfutil.GetYAMLsInArtifact(message)
 	if err != nil {
-		return false, nil, fmt.Errorf("failed to read YAMLs in the gzipped message: %v", err)
+		return false, nil, fmt.Errorf("failed to read YAMLs in the gzipped message: %v & msg: %v", err, message)
 	}
 	concatYAMLbytes := k8smnfutil.ConcatenateYAMLs(yamls)
 	found, resourceManifests := k8smnfutil.FindManifestYAML(concatYAMLbytes, objManifest, nil, ignoreFields)
