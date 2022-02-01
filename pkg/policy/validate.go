@@ -873,6 +873,9 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 }
 
 func validateResources(rule kyverno.Rule) (string, error) {
+	if len(rule.MatchResources.RequestTypes) > 0 {
+		validateRequestTypes(rule.MatchResources)
+	}
 	// validate userInfo in match and exclude
 	if path, err := validateUserInfo(rule); err != nil {
 		return fmt.Sprintf("resources.%s", path), err
@@ -949,6 +952,24 @@ func validateResources(rule kyverno.Rule) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+func validateRequestTypes(rt kyverno.MatchResources) string {
+	for i := 0; i < len(rt.RequestTypes); i++ {
+		if (reflect.TypeOf(rt.RequestTypes[i]).Kind()) != reflect.String {
+			return fmt.Sprintf("requestTypes value's type is not string")
+		}
+		valuesAllowed := map[string]bool{
+			"CREATE":  true,
+			"UPDATE":  true,
+			"DELETE":  true,
+			"CONNECT": true,
+		}
+		if !valuesAllowed[rt.RequestTypes[i]] {
+			return fmt.Sprintf("value not correct")
+		}
+	}
+	return ""
 }
 
 // validateConditions validates all the 'conditions' or 'preconditions' of a rule depending on the corresponding 'condition.key'.

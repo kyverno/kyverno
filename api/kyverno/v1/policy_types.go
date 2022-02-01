@@ -291,6 +291,7 @@ var ConditionOperators = map[string]ConditionOperator{
 // MatchResources is used to specify resource and admission review request data for
 // which a policy rule is applicable.
 type MatchResources struct {
+	RequestTypes []string `json:"requestTypes,omitempty" yaml:"requestTypes,omitempty"`
 	// Any allows specifying resources which will be ORed
 	// +optional
 	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
@@ -316,6 +317,7 @@ type MatchResources struct {
 // ExcludeResources specifies resource and admission review request data for
 // which a policy rule is not applicable.
 type ExcludeResources struct {
+	RequestTypes []string `json:"requestTypes,omitempty" yaml:"requestTypes,omitempty"`
 	// Any allows specifying resources which will be ORed
 	// +optional
 	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
