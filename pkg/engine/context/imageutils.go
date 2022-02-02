@@ -134,8 +134,13 @@ func convertToImageInfo(containers []interface{}, jsonPath string) (images []*Co
 	var index = 0
 	for _, ctr := range containers {
 		if container, ok := ctr.(map[string]interface{}); ok {
-			name := container["name"].(string)
-			image := container["image"].(string)
+			var name, image string
+
+			name = container["name"].(string)
+			if _, ok := container["image"]; ok {
+				image = container["image"].(string)
+			}
+
 			jp := strings.Join([]string{jsonPath, strconv.Itoa(index), "image"}, "/")
 			imageInfo, err := newImageInfo(image, jp)
 			if err != nil {
