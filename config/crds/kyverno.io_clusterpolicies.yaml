@@ -1454,11 +1454,9 @@ spec:
                       description: Mutation is used to modify matching resources.
                       properties:
                         foreach:
-                          description: ForEachMutation applies policy rule changes
-                            to nested elements.
+                          description: foreach declaration can contain multiple sub-entries to apply policy rule changes on sub-elements of the resource.
                           items:
-                            description: ForEachMutation applies policy rule changes
-                              to nested elements.
+                            description: ForEachMutation applies policy rule(mutate) changes to multiple sub-elements declared, foreach declaration must include list attribute to select a sub-element, there can be multiple list attribute as per required sub-elements.
                             properties:
                               context:
                                 description: Context defines variables and data sources
@@ -1699,11 +1697,9 @@ spec:
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
                         foreach:
-                          description: ForEach applies policy rule changes to nested
-                            elements.
+                          description: foreach declaration can contain multiple sub-entries to apply policy rule changes on sub-elements of the resource.
                           items:
-                            description: ForEachValidation applies policy rule checks
-                              to nested elements.
+                            description: ForEachValidation applies policy rule(validate) changes to multiple sub-elements declared, foreach declaration must include list attribute to select a sub-element, there can be multiple list attribute as per required sub-elements.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
