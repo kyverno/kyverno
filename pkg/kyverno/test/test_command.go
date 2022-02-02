@@ -171,12 +171,11 @@ func Command() *cobra.Command {
 }
 
 type Test struct {
-	Name         string        `json:"name"`
-	Policies     []string      `json:"policies"`
-	Resources    []string      `json:"resources"`
-	Variables    string        `json:"variables"`
-	Attestations string        `json:"attestations"`
-	Results      []TestResults `json:"results"`
+	Name      string        `json:"name"`
+	Policies  []string      `json:"policies"`
+	Resources []string      `json:"resources"`
+	Variables string        `json:"variables"`
+	Results   []TestResults `json:"results"`
 }
 
 type TestResults struct {
@@ -714,12 +713,6 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.Name, resource.GetName()), err)
 			}
 
-			if thisPolicyResourceValues
-
-			err = common.CheckAttestationsForPolicy(policy, values.Attestations, isGit, fs, policyResourcePath)
-			if err != nil {
-				return sanitizederror.NewWithError(fmt.Errorf("failed to match attestations").Error(), err)
-			}
 			ers, info, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false, &resultCounts, false)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)

@@ -312,14 +312,14 @@ func (iv *ImageVerifier) checkAttestations(a *v1.Attestation, s map[string]inter
 		return false, errors.Wrapf(err, fmt.Sprintf("failed to add image to the context %v", s))
 	}
 
-	res, err := iv.checkPredicate(predicate, a)
+	res, err := iv.CheckPredicate(predicate, a)
 	if err != nil {
 		return false, errors.Wrapf(err, fmt.Sprintf("failed to check predicate %v", s))
 	}
 	return res, nil
 }
 
-func (iv *ImageVerifier) checkPredicate(predicate map[string]interface{}, a *v1.Attestation) (bool, error) {
+func (iv *ImageVerifier) CheckPredicate(predicate map[string]interface{}, a *v1.Attestation) (bool, error) {
 
 	if err := iv.policyContext.JSONContext.AddJSONObject(predicate); err != nil {
 		return false, errors.Wrapf(err, "failed to add predicate to the context")
