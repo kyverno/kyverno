@@ -14,4 +14,4 @@ Maintainers are approvers who have shown good technical judgement in guiding fea
 | Sambhav Kothari       | [@samj1912](https://github.com/samj1912)               | Bloomberg                 |
 
 
-**Note**: Please refer to the [Project Governance](https://main.kyverno.io/community//project-governance/) for more information on the responsibilities and privileges of a maintainer in Kyverno.
+**Note**: Please refer to the [Project Governance](https://main.kyverno.io/community/#project-governance) for more information on the responsibilities and privileges of a maintainer in Kyverno.
