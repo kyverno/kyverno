@@ -242,7 +242,7 @@ func (v *validator) validate() *response.RuleResponse {
 		}
 		if !verified {
 			v.log.Info("invalid request ", "verified: ", verified, "diff: ", diff)
-			return ruleResponse(v.rule, utils.Validation, "manifest mismatch", response.RuleStatusFail)
+			return ruleResponse(v.rule, utils.Validation, "manifest mismatch: diff: "+diff.String(), response.RuleStatusFail)
 		} else {
 			return ruleResponse(v.rule, utils.Validation, "manifest match successfull", response.RuleStatusPass)
 		}

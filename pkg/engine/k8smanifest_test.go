@@ -43,5 +43,4 @@ func Test_VerifyManifest(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, verified, true)
 	assert.Equal(t, diff, diffVar)
-
 }

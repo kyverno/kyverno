@@ -1,10 +1,14 @@
 package engine
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"strings"
 
 	"github.com/ghodss/yaml"
 	k8smnfutil "github.com/sigstore/k8s-manifest-sigstore/pkg/util"
@@ -30,14 +34,20 @@ func VerifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields 
 	gzipMsg, _ := base64.StdEncoding.DecodeString(annotation[messageAnnotationKey])
 	// `gzipMsg` is a gzip compressed .tar.gz file, so getting a tar ball by decompressing it.
 	message := k8smnfutil.GzipDecompress(gzipMsg)
-	yamls, err := k8smnfutil.GetYAMLsInArtifact(message)
-	if err != nil {
-		return false, nil, fmt.Errorf("failed to read YAMLs in the gzipped message: %v & msg: %v", err, message)
-	}
-	concatYAMLbytes := k8smnfutil.ConcatenateYAMLs(yamls)
-	found, resourceManifests := k8smnfutil.FindManifestYAML(concatYAMLbytes, objManifest, nil, ignoreFields)
-	if !found {
-		return false, nil, fmt.Errorf("failed to find a YAML manifest in the gzipped message: %v", err)
+	byteStream := bytes.NewBuffer(message)
+	uncompressedStream, err := gzip.NewReader(byteStream)
+	defer uncompressedStream.Close()
+
+	byteSlice, _ := ioutil.ReadAll(uncompressedStream)
+	i := strings.Index(string(byteSlice), "api")
+	byteSlice = byteSlice[i:]
+	var foundManifest []byte
+	for _, ch := range byteSlice {
+		if ch != 0 {
+			foundManifest = append(foundManifest, ch)
+		} else {
+			break
+		}
 	}
 
 	// fields which needs to be ignored while comparing manifests.
@@ -46,17 +56,13 @@ func VerifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields 
 	var mnfMatched bool
 	var diff *mapnode.DiffResult
 	var diffsForAllCandidates []*mapnode.DiffResult
-	for _, candidate := range resourceManifests {
-		// log.Debugf("try matching with the candidate %v out of %v", i+1, len(resourceManifests))
-		cndMatched, tmpDiff, err := matchManifest(objManifest, candidate, ignoreFields)
-		if err != nil {
-			return false, nil, fmt.Errorf("error occurred during matching manifest: %v", err)
-		}
-		diffsForAllCandidates = append(diffsForAllCandidates, tmpDiff)
-		if cndMatched {
-			mnfMatched = true
-			break
-		}
+	cndMatched, tmpDiff, err := matchManifest(objManifest, foundManifest, ignoreFields)
+	if err != nil {
+		return false, nil, fmt.Errorf("error occurred during matching manifest: %v", err)
+	}
+	diffsForAllCandidates = append(diffsForAllCandidates, tmpDiff)
+	if cndMatched {
+		mnfMatched = true
 	}
 	if !mnfMatched && len(diffsForAllCandidates) > 0 {
 		diff = diffsForAllCandidates[0]
