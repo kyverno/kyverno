@@ -1,6 +1,6 @@
 {{- $name := "restrict-volume-types" }}
 {{- if eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
-{{- include "kyverno-policies.supportedKyvernoCheck" (dict "top" . "ver" ">= v1.6.0-rc1") }}
+{{- include "kyverno-policies.supportedKyvernoCheck" (dict "top" . "ver" ">= v1.6.0-0") }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
