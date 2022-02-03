@@ -1008,21 +1008,9 @@ func validateConditionValues(c kyverno.Condition) (string, error) {
 	case reflect.String:
 		value, err := validateValuesKeyRequest(c)
 		return value, err
-	case reflect.Slice:
-		values := reflect.ValueOf(c.Key)
-		for i := 0; i < values.Len(); i++ {
-			switch reflect.TypeOf(values).Kind() {
-			case reflect.String:
-				value, err := validateValuesKeyRequest(c)
-				return value, err
-			default:
-				return "", nil
-			}
-		}
 	default:
 		return "", nil
 	}
-	return "", nil
 }
 
 func validateValuesKeyRequest(c kyverno.Condition) (string, error) {
