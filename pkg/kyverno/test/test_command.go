@@ -584,7 +584,7 @@ func getAndComparePatchedResource(path string, enginePatchedResource unstructure
 	}
 	matched, err := generate.ValidateResourceWithPattern(log.Log, enginePatchedResource.UnstructuredContent(), patchedResources.UnstructuredContent())
 	if err != nil {
-		log.Log.Info("patched resource mismatch", "error", err.Error())
+		log.Log.V(3).Info("patched resource mismatch", "error", err.Error())
 		status = "fail"
 	}
 
