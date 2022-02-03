@@ -31,7 +31,7 @@ testImage:
   # testImage.repository defaults to "busybox" if omitted
   repository:
   # testImage.tag defaults to "latest" if omitted
-  tag:
+  tagTest:
   # testImage.pullPolicy defaults to image.pullPolicy if omitted
   pullPolicy:
 
