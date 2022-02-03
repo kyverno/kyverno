@@ -1004,6 +1004,16 @@ func validateConditionValues(c kyverno.Condition) (string, error) {
 	if c.Key == nil || c.Value == nil || c.Operator == "" {
 		return "", fmt.Errorf("entered value of `key`, `value` or `operator` is missing or misspelled")
 	}
+	switch reflect.TypeOf(c.Key).Kind() {
+	case reflect.String:
+		value, err := validateValuesKeyRequest(c)
+		return value, err
+	default:
+		return "", nil
+	}
+}
+
+func validateValuesKeyRequest(c kyverno.Condition) (string, error) {
 	switch strings.ReplaceAll(c.Key.(string), " ", "") {
 	case "{{request.operation}}":
 		return validateConditionValuesKeyRequestOperation(c)
