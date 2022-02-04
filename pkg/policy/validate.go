@@ -873,8 +873,15 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 }
 
 func validateResources(rule kyverno.Rule) (string, error) {
-	if len(rule.MatchResources.RequestTypes) > 0 {
-		validateRequestTypes(rule.MatchResources)
+	// if len(rule.MatchResources.RequestTypes) > 0 {
+	// 	validateRequestTypes(rule.MatchResources)
+	// }
+	if path, err := validateMatchRequestTypes(rule.MatchResources); err != nil {
+		return fmt.Sprintf("resources.%s", path), err
+	}
+
+	if path, err := validateExcludeRequestTypes(rule.ExcludeResources); err != nil {
+		return fmt.Sprintf("resources.%s", path), err
 	}
 	// validate userInfo in match and exclude
 	if path, err := validateUserInfo(rule); err != nil {
@@ -954,10 +961,10 @@ func validateResources(rule kyverno.Rule) (string, error) {
 	return "", nil
 }
 
-func validateRequestTypes(rt kyverno.MatchResources) string {
+func validateMatchRequestTypes(rt kyverno.MatchResources) (string, error) {
 	for i := 0; i < len(rt.RequestTypes); i++ {
 		if (reflect.TypeOf(rt.RequestTypes[i]).Kind()) != reflect.String {
-			return fmt.Sprintf("requestTypes value's type is not string")
+			return fmt.Sprint("Type: ", reflect.TypeOf(rt.RequestTypes[i]).Kind()), fmt.Errorf("only string type of values are allowed in feild 'requestTypes'")
 		}
 		valuesAllowed := map[string]bool{
 			"CREATE":  true,
@@ -966,10 +973,28 @@ func validateRequestTypes(rt kyverno.MatchResources) string {
 			"CONNECT": true,
 		}
 		if !valuesAllowed[rt.RequestTypes[i]] {
-			return fmt.Sprintf("value not correct")
+			return fmt.Sprint("requestTypes: ", rt.RequestTypes[i]), fmt.Errorf("unknown value '%s' found under the 'requestTypes' field. Only the following values are allowed: [CREATE, UPDATE, DELETE, CONNECT]", rt.RequestTypes[i])
 		}
 	}
-	return ""
+	return "", nil
+}
+
+func validateExcludeRequestTypes(rt kyverno.ExcludeResources) (string, error) {
+	for i := 0; i < len(rt.RequestTypes); i++ {
+		if (reflect.TypeOf(rt.RequestTypes[i]).Kind()) != reflect.String {
+			return fmt.Sprint("Type: ", reflect.TypeOf(rt.RequestTypes[i]).Kind()), fmt.Errorf("only string type of values are allowed in feild 'requestTypes'")
+		}
+		valuesAllowed := map[string]bool{
+			"CREATE":  true,
+			"UPDATE":  true,
+			"DELETE":  true,
+			"CONNECT": true,
+		}
+		if !valuesAllowed[rt.RequestTypes[i]] {
+			return fmt.Sprint("requestTypes: ", rt.RequestTypes[i]), fmt.Errorf("unknown value '%s' found under the 'requestTypes' field. Only the following values are allowed: [CREATE, UPDATE, DELETE, CONNECT]", rt.RequestTypes[i])
+		}
+	}
+	return "", nil
 }
 
 // validateConditions validates all the 'conditions' or 'preconditions' of a rule depending on the corresponding 'condition.key'.
