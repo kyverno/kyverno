@@ -1,0 +1,52 @@
+{{- $name := "disallow-proc-mount" }}
+{{- if eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    policies.kyverno.io/title: Disallow procMount
+    policies.kyverno.io/category: Pod Security Standards (Baseline)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity }}
+    {{- end }}
+    policies.kyverno.io/subject: Pod
+    kyverno.io/kyverno-version: 1.6.0
+    kyverno.io/kubernetes-version: "1.22-1.23"
+    policies.kyverno.io/description: >-
+      The default /proc masks are set up to reduce attack surface and should be required. This policy
+      ensures nothing but the default procMount can be specified. Note that in order for users
+      to deviate from the `Default` procMount requires setting a feature gate at the API
+      server.
+spec:
+  validationFailureAction: {{ .Values.validationFailureAction }}
+  background: true
+  rules:
+    - name: check-proc-mount
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      {{- with index .Values "policyExclude" $name }}
+      exclude:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      validate:
+        message: >-
+          Changing the proc mount from the default is not allowed. The fields
+          spec.containers[*].securityContext.procMount, spec.initContainers[*].securityContext.procMount,
+          and spec.ephemeralContainers[*].securityContext.procMount must be unset or
+          set to `Default`.
+        pattern:
+          spec:
+            =(ephemeralContainers):
+              - =(securityContext):
+                  =(procMount): "Default"
+            =(initContainers):
+              - =(securityContext):
+                  =(procMount): "Default"
+            containers:
+              - =(securityContext):
+                  =(procMount): "Default"
+{{- end }}
