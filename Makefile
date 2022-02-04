@@ -251,6 +251,12 @@ test-e2e-local:
 	kill  $!
 	$(eval export E2E="")
 
+helm-test-values:
+	sed -i -e "s|nameOverride:.*|nameOverride: kyverno|g" charts/kyverno/values.yaml
+	sed -i -e "s|fullnameOverride:.*|fullnameOverride: kyverno|g" charts/kyverno/values.yaml
+	sed -i -e "s|namespace:.*|namespace: kyverno|g" charts/kyverno/values.yaml
+	sed -i -e "s|tag:.*|tag: $(GIT_VERSION_DEV)|" charts/kyverno/values.yaml
+
 # godownloader create downloading script for kyverno-cli
 godownloader:
 	godownloader .goreleaser.yml --repo kyverno/kyverno -o ./scripts/install-cli.sh  --source="raw"

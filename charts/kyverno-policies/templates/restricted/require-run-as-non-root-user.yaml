@@ -1,11 +1,11 @@
-{{- $name := "require-run-as-nonroot" }}
+{{- $name := "require-run-as-non-root-user" }}
 {{- if eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: {{ $name }}
   annotations:
-    policies.kyverno.io/title: Require runAsNonRoot
+    policies.kyverno.io/title: Require Run As Non-Root User
     policies.kyverno.io/category: Pod Security Standards (Restricted)
     {{- if .Values.podSecuritySeverity }}
     policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
@@ -15,13 +15,12 @@ metadata:
     kyverno.io/kubernetes-version: "1.22-1.23"
     policies.kyverno.io/description: >-
       Containers must be required to run as non-root users. This policy ensures
-      `runAsNonRoot` is set to `true`. A known issue prevents a policy such as this
-      using `anyPattern` from being persisted properly in Kubernetes 1.23.0-1.23.2.
+      `runAsUser` is either unset or set to a number greater than zero.
 spec:
   validationFailureAction: {{ .Values.validationFailureAction }}
   background: true
   rules:
-    - name: run-as-non-root
+    - name: run-as-non-root-user
       match:
         any:
         - resources:
@@ -33,31 +32,21 @@ spec:
       {{- end }}
       validate:
         message: >-
-          Running as root is not allowed. Either the field spec.securityContext.runAsNonRoot
-          must be set to `true`, or the fields spec.containers[*].securityContext.runAsNonRoot,
-          spec.initContainers[*].securityContext.runAsNonRoot, and spec.ephemeralContainers[*].securityContext.runAsNonRoot
-          must be set to `true`.
-        anyPattern:
-        - spec:
-            securityContext:
-              runAsNonRoot: true
+          Running as root is not allowed. The fields spec.securityContext.runAsUser,
+          spec.containers[*].securityContext.runAsUser, spec.initContainers[*].securityContext.runAsUser,
+          and spec.ephemeralContainers[*].securityContext.runAsUser must be unset or
+          set to a number greater than zero.
+        pattern:
+          spec:
+            =(securityContext):
+              =(runAsUser): ">0"
             =(ephemeralContainers):
             - =(securityContext):
-                =(runAsNonRoot): true
+                =(runAsUser): ">0"
             =(initContainers):
             - =(securityContext):
-                =(runAsNonRoot): true
+                =(runAsUser): ">0"
             containers:
             - =(securityContext):
-                =(runAsNonRoot): true
-        - spec:
-            =(ephemeralContainers):
-            - securityContext:
-                runAsNonRoot: true
-            =(initContainers):
-            - securityContext:
-                runAsNonRoot: true
-            containers:
-            - securityContext:
-                runAsNonRoot: true
+                =(runAsUser): ">0"
 {{- end }}
