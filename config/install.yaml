@@ -601,6 +601,10 @@ spec:
                           items:
                             type: string
                           type: array
+                        requestTypes:
+                          items:
+                            type: string
+                          type: array
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified. Specifying ResourceDescription
@@ -1273,6 +1277,10 @@ spec:
                         clusterRoles:
                           description: ClusterRoles is the list of cluster-wide role
                             names for the user.
+                          items:
+                            type: string
+                          type: array
+                        requestTypes:
                           items:
                             type: string
                           type: array
@@ -4340,6 +4348,10 @@ spec:
                           items:
                             type: string
                           type: array
+                        requestTypes:
+                          items:
+                            type: string
+                          type: array
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified. Specifying ResourceDescription
@@ -5012,6 +5024,10 @@ spec:
                         clusterRoles:
                           description: ClusterRoles is the list of cluster-wide role
                             names for the user.
+                          items:
+                            type: string
+                          type: array
+                        requestTypes:
                           items:
                             type: string
                           type: array
