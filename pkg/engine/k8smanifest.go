@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"crypto/ecdsa"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -20,7 +21,40 @@ import (
 
 const DefaultAnnotationKeyDomain = "cosign.sigstore.dev/"
 
+type VerifyResourceOption struct {
+	verifyOption `json:""`
+}
+
+// common options for verify functions
+// this verifyOption should not be used directly by those functions
+type verifyOption struct {
+	IgnoreFields ObjectFieldBindingList `json:"ignoreFields,omitempty"`
+}
+
+type ObjectReferenceList []ObjectReference
+
+type ObjectReference struct {
+	Group     string `json:"group,omitempty"`
+	Version   string `json:"version,omitempty"`
+	Kind      string `json:"kind,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+}
+
+type ObjectFieldBinding struct {
+	Fields  []string            `json:"fields,omitempty"`
+	Objects ObjectReferenceList `json:"objects,omitempty"`
+}
+
+type ObjectFieldBindingList []ObjectFieldBinding
+
+// This is common ignore fields for changes by k8s system
+//go:embed resources/default-config.yaml
+var defaultConfigBytes []byte
+
 func VerifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields []string) (bool, *mapnode.DiffResult, error) {
+	vo := &VerifyResourceOption{}
+	vo = AddDefaultConfig(vo)
 	objManifest, err := yaml.Marshal(policyContext.NewResource.Object)
 	if err != nil {
 		return false, nil, fmt.Errorf("err: %v\n", err)
@@ -51,7 +85,13 @@ func VerifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields 
 	}
 
 	// fields which needs to be ignored while comparing manifests.
-	// ignoreFields := []string{}
+	var obj unstructured.Unstructured
+	_ = yaml.Unmarshal(objManifest, &obj)
+	if vo != nil {
+		if ok, fields := vo.IgnoreFields.Match(obj); ok {
+			ignoreFields = append(ignoreFields, fields...)
+		}
+	}
 
 	var mnfMatched bool
 	var diff *mapnode.DiffResult
@@ -121,4 +161,84 @@ func matchManifest(inputManifestBytes, foundManifestBytes []byte, ignoreFields [
 		diff = nil
 	}
 	return matched, diff, nil
+}
+
+func (vo *VerifyResourceOption) AddDefaultConfig(defaultConfig *VerifyResourceOption) *VerifyResourceOption {
+	if vo == nil {
+		return nil
+	}
+	ignoreFields := []ObjectFieldBinding(vo.verifyOption.IgnoreFields)
+	ignoreFields = append(ignoreFields, []ObjectFieldBinding(defaultConfig.verifyOption.IgnoreFields)...)
+	vo.verifyOption.IgnoreFields = ignoreFields
+	return vo
+}
+
+func LoadDefaultConfig() *VerifyResourceOption {
+	var defaultConfig *VerifyResourceOption
+	err := yaml.Unmarshal(defaultConfigBytes, &defaultConfig)
+	if err != nil {
+		return nil
+	}
+	return defaultConfig
+}
+
+func AddDefaultConfig(vo *VerifyResourceOption) *VerifyResourceOption {
+	dvo := LoadDefaultConfig()
+	return vo.AddDefaultConfig(dvo)
+}
+
+func (l ObjectFieldBindingList) Match(obj unstructured.Unstructured) (bool, []string) {
+	if len(l) == 0 {
+		return false, nil
+	}
+	matched := false
+	matchedFields := []string{}
+	for _, f := range l {
+		if tmpMatched, tmpFields := f.Match(obj); tmpMatched {
+			matched = tmpMatched
+			matchedFields = append(matchedFields, tmpFields...)
+		}
+	}
+	return matched, matchedFields
+}
+
+func (l ObjectReferenceList) Match(obj unstructured.Unstructured) bool {
+	if len(l) == 0 {
+		return true
+	}
+	for _, r := range l {
+		if r.Match(obj) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r ObjectReference) Match(obj unstructured.Unstructured) bool {
+	return r.Equal(ObjectToReference(obj))
+}
+
+func (f ObjectFieldBinding) Match(obj unstructured.Unstructured) (bool, []string) {
+	if f.Objects.Match(obj) {
+		return true, f.Fields
+	}
+	return false, nil
+}
+
+func ObjectToReference(obj unstructured.Unstructured) ObjectReference {
+	return ObjectReference{
+		Group:     obj.GroupVersionKind().Group,
+		Version:   obj.GroupVersionKind().Version,
+		Kind:      obj.GroupVersionKind().Kind,
+		Name:      obj.GetName(),
+		Namespace: obj.GetNamespace(),
+	}
+}
+
+func (r ObjectReference) Equal(r2 ObjectReference) bool {
+	return k8smnfutil.MatchPattern(r.Group, r2.Group) &&
+		k8smnfutil.MatchPattern(r.Version, r2.Version) &&
+		k8smnfutil.MatchPattern(r.Kind, r2.Kind) &&
+		k8smnfutil.MatchPattern(r.Name, r2.Name) &&
+		k8smnfutil.MatchPattern(r.Namespace, r2.Namespace)
 }

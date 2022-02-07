@@ -1,0 +1,48 @@
+ignoreFields:
+  - fields:
+    - metadata.annotations.cosign.sigstore.dev/imageRef
+    - metadata.annotations.cosign.sigstore.dev/signature
+    - metadata.annotations.cosign.sigstore.dev/message
+    - metadata.annotations.cosign.sigstore.dev/certificate
+    - metadata.annotations.cosign.sigstore.dev/bundle
+    objects:
+    - kind: '*'
+  - fields:
+    - metadata.managedFields.*
+    - metadata.resourceVersion
+    - metadata.selfLink
+    - metadata.annotations.kubectl.kubernetes.io/last-applied-configuration
+    - metadata.annotations.namespace
+    - metadata.creationTimestamp
+    - metadata.generation
+    - metadata.uid
+    - metadata.finalizers
+    - metadata.labels.app.kubernetes.io/instance
+    - status
+    objects:
+    - kind: '*'
+  - fields:
+    - secrets.*.name
+    - imagePullSecrets.*.name
+    objects:
+    - kind: ServiceAccount
+  - fields:
+    - spec.ports.*.nodePort
+    - spec.clusterIP
+    - spec.clusterIPs.0
+    objects:
+    - kind: Service
+  - fields:
+    - metadata.annotations.deployment.kubernetes.io/revision
+    objects:
+    - kind: Deployment
+  - fields:
+    - metadata.annotations.deprecated.daemonset.template.generation
+    objects:
+    - kind: DaemonSet
+  # TODO: default config for OpenShift resources should be moved to an another config file
+  - fields:
+    - spec.host
+    objects:
+    - kind: Route
+      group: route.openshift.io
