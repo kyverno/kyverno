@@ -138,7 +138,7 @@ For more information visit https://kyverno.io/docs/kyverno-cli/#test
 // Command returns version command
 func Command() *cobra.Command {
 	var cmd *cobra.Command
-	var valuesFile, fileName, gitBranch string
+	var valuesFile, fileName, gitBranch, testCase string
 	cmd = &cobra.Command{
 		Use:     "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>",
 		Args:    cobra.ExactArgs(1),
@@ -155,7 +155,7 @@ func Command() *cobra.Command {
 				}
 			}()
 
-			_, err = testCommandExecute(dirPath, valuesFile, fileName, gitBranch)
+			_, err = testCommandExecute(dirPath, valuesFile, fileName, gitBranch, testCase)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
 				return err
@@ -166,6 +166,7 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "test filename")
 	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "test github repository branch")
+	cmd.Flags().StringVarP(&testCase, "test-case", "t", "", "run a specific test")
 	return cmd
 }
 
@@ -221,15 +222,55 @@ type resultCounts struct {
 	Fail int
 }
 
-func testCommandExecute(dirPath []string, valuesFile string, fileName string, gitBranch string) (rc *resultCounts, err error) {
+type testFilter struct {
+	policy   string
+	rule     string
+	resource string
+	enabled  bool
+}
+
+func testCommandExecute(dirPath []string, valuesFile string, fileName string, gitBranch string, testCase string) (rc *resultCounts, err error) {
 	var errors []error
 	fs := memfs.New()
 	rc = &resultCounts{}
 	var testYamlCount int
 	var testYamlNameCount int
+	var tf = &testFilter{
+		enabled: true,
+	}
 
 	if len(dirPath) == 0 {
 		return rc, sanitizederror.NewWithError(fmt.Sprintf("a directory is required"), err)
+	}
+
+	if len(testCase) != 0 {
+		parameters := map[string]string{"policy": "", "rule": "", "resource": ""}
+
+		for _, t := range strings.Split(testCase, ",") {
+			if !strings.Contains(t, "=") {
+				fmt.Printf("\n Invalid test-case argument. Selecting all test cases. \n")
+				tf.enabled = false
+				break
+			}
+
+			key := strings.TrimSpace(strings.Split(t, "=")[0])
+			value := strings.TrimSpace(strings.Split(t, "=")[1])
+
+			_, ok := parameters[key]
+			if !ok {
+				fmt.Printf("\n Invalid parameter. Parameter can only be policy, rule or resource. Selecting all test cases \n")
+				tf.enabled = false
+				break
+			}
+
+			parameters[key] = value
+		}
+
+		tf.policy = parameters["policy"]
+		tf.rule = parameters["rule"]
+		tf.resource = parameters["resource"]
+	} else {
+		tf.enabled = false
 	}
 
 	if strings.Contains(string(dirPath[0]), "https://") {
@@ -309,7 +350,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string, gi
 					continue
 				}
 
-				if err := applyPoliciesFromPath(fs, policyBytes, valuesFile, true, policyresoucePath, rc); err != nil {
+				if err := applyPoliciesFromPath(fs, policyBytes, valuesFile, true, policyresoucePath, rc, tf); err != nil {
 					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
 			}
@@ -326,7 +367,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string, gi
 		var testFiles int
 		var deprecatedFiles int
 		path := filepath.Clean(dirPath[0])
-		errors = getLocalDirTestFiles(fs, path, fileName, valuesFile, rc, &testFiles, &deprecatedFiles)
+		errors = getLocalDirTestFiles(fs, path, fileName, valuesFile, rc, &testFiles, &deprecatedFiles, tf)
 
 		if testFiles == 0 {
 			fmt.Printf("\n No test files found. Please provide test YAML files named kyverno-test.yaml \n")
@@ -353,7 +394,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string, gi
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts, testFiles *int, deprecatedFiles *int) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts, testFiles *int, deprecatedFiles *int, tf *testFilter) []error {
 	var errors []error
 
 	files, err := ioutil.ReadDir(path)
@@ -362,7 +403,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc, testFiles, deprecatedFiles)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc, testFiles, deprecatedFiles, tf)
 			continue
 		}
 		if strings.Contains(file.Name(), fileName) || strings.Contains(file.Name(), "test.yaml") {
@@ -381,7 +422,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 				errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
 				continue
 			}
-			if err := applyPoliciesFromPath(fs, valuesBytes, valuesFile, false, path, rc); err != nil {
+			if err := applyPoliciesFromPath(fs, valuesBytes, valuesFile, false, path, rc, tf); err != nil {
 				errors = append(errors, sanitizederror.NewWithError(fmt.Sprintf("failed to apply test command from file %s", file.Name()), err))
 				continue
 			}
@@ -617,7 +658,7 @@ func getFullPath(paths []string, policyResourcePath string, isGit bool) []string
 	return paths
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts) (err error) {
+func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts, tf *testFilter) (err error) {
 	openAPIController, err := openapi.NewOpenAPIController()
 	engineResponses := make([]*response.EngineResponse, 0)
 	var dClient *client.Client
@@ -632,6 +673,19 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	}
 
 	fmt.Printf("\nExecuting %s...", values.Name)
+
+	if tf.enabled {
+		fmt.Printf("\nApplying test filters...")
+		var filteredResults []TestResults
+		for _, res := range values.Results {
+
+			if (len(tf.policy) == 0 || tf.policy == res.Policy) && (len(tf.resource) == 0 || tf.resource == res.Resource) && (len(tf.rule) == 0 || tf.rule == res.Rule) {
+				filteredResults = append(filteredResults, res)
+			}
+		}
+
+		values.Results = filteredResults
+	}
 	valuesFile = values.Variables
 	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
