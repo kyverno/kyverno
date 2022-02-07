@@ -104,7 +104,7 @@ Policy (Namespaced)
     rule: <name>
     resource: <name>
     namespace: <name> (OPTIONAL)
-        kind: <name>
+    kind: <name>
     patchedResource: <path>
     result: <pass|fail|skip>
 
