@@ -59,7 +59,7 @@ func Command() *cobra.Command {
 			var input interface{}
 			var jsonParser *json.Decoder
 			if filename != "" {
-				f, err := ioutil.ReadFile(filename)
+				f, err := ioutil.ReadFile(filepath.Clean(filename))
 				if err != nil {
 					return fmt.Errorf("error opening input file: %w", err)
 				}
