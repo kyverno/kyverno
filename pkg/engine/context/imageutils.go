@@ -35,10 +35,13 @@ type ImageInfo struct {
 
 func (i *ImageInfo) String() string {
 	image := i.Registry + "/" + i.Path + ":" + i.Tag
-	if i.Digest != "" {
+	// image that needs only digest and not the tag
+	imageWithoutTag := i.Registry + "/" + i.Path
+	if i.Digest != "" && i.Tag == "" {
+		image = imageWithoutTag + "@" + i.Digest
+	} else if i.Digest != "" && i.Tag != "" {
 		image = image + "@" + i.Digest
 	}
-
 	return image
 }
 
@@ -186,8 +189,12 @@ func newImageInfo(image, jsonPointer string) (*ImageInfo, error) {
 		digest = digested.Digest().String()
 	}
 
+	if digest != "" && tag == "" {
+		tag = ""
+	}
+
 	// set default tag - the domain is set via addDefaultDomain before parsing
-	if tag == "" {
+	if digest == "" && tag == "" {
 		tag = "latest"
 	}
 

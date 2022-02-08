@@ -112,6 +112,14 @@ func Test_ImageInfo_String(t *testing.T) {
 		"latest",
 		"",
 		"localhost:4443/test/nginx:latest")
+	validateImageInfo(t,
+		"docker.io/test/centos@sha256:dead07b4d8ed7e29e98de0f4504d87e8880d4347859d839686a31da35a3b532f",
+		"centos",
+		"test/centos",
+		"docker.io",
+		"",
+		"sha256:dead07b4d8ed7e29e98de0f4504d87e8880d4347859d839686a31da35a3b532f",
+		"docker.io/test/centos@sha256:dead07b4d8ed7e29e98de0f4504d87e8880d4347859d839686a31da35a3b532f")
 }
 
 func validateImageInfo(t *testing.T, raw, name, path, registry, tag, digest, str string) {
