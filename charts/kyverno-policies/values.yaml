@@ -13,6 +13,20 @@ includeOtherPolicies: []
 # Supported values- `audit`, `enforce`
 # For more info- https://kyverno.io/docs/writing-policies/validate/
 validationFailureAction: audit
+# Define validationFailureActionOverrides for specific policies.
+# The overrides for 'all' will apply to all policies
+# Eg:
+# validationFailureActionOverrides:
+#   all:
+#     - action: audit
+#       namespaces:
+#         - ingress-nginx
+#   disallow-host-path:
+#     - action: audit
+#       namespaces:
+#         - fluent
+validationFailureActionOverrides:
+  all: []
 # Exclude resources from individual policies
 # Eg:
 # policyExclude:
