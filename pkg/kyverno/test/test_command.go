@@ -138,7 +138,7 @@ For more information visit https://kyverno.io/docs/kyverno-cli/#test
 // Command returns version command
 func Command() *cobra.Command {
 	var cmd *cobra.Command
-	var valuesFile, fileName, gitBranch, testCase string
+	var fileName, gitBranch, testCase string
 	cmd = &cobra.Command{
 		Use:     "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>",
 		Args:    cobra.ExactArgs(1),
@@ -155,7 +155,7 @@ func Command() *cobra.Command {
 				}
 			}()
 
-			_, err = testCommandExecute(dirPath, valuesFile, fileName, gitBranch, testCase)
+			_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
 				return err
@@ -229,7 +229,7 @@ type testFilter struct {
 	enabled  bool
 }
 
-func testCommandExecute(dirPath []string, valuesFile string, fileName string, gitBranch string, testCase string) (rc *resultCounts, err error) {
+func testCommandExecute(dirPath []string, fileName string, gitBranch string, testCase string) (rc *resultCounts, err error) {
 	var errors []error
 	fs := memfs.New()
 	rc = &resultCounts{}
@@ -350,7 +350,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string, gi
 					continue
 				}
 
-				if err := applyPoliciesFromPath(fs, policyBytes, valuesFile, true, policyresoucePath, rc, tf); err != nil {
+				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, tf); err != nil {
 					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
 			}
@@ -367,7 +367,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string, gi
 		var testFiles int
 		var deprecatedFiles int
 		path := filepath.Clean(dirPath[0])
-		errors = getLocalDirTestFiles(fs, path, fileName, valuesFile, rc, &testFiles, &deprecatedFiles, tf)
+		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, &deprecatedFiles, tf)
 
 		if testFiles == 0 {
 			fmt.Printf("\n No test files found. Please provide test YAML files named kyverno-test.yaml \n")
@@ -394,7 +394,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string, gi
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts, testFiles *int, deprecatedFiles *int, tf *testFilter) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, deprecatedFiles *int, tf *testFilter) []error {
 	var errors []error
 
 	files, err := ioutil.ReadDir(path)
@@ -403,7 +403,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc, testFiles, deprecatedFiles, tf)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, deprecatedFiles, tf)
 			continue
 		}
 		if strings.Contains(file.Name(), fileName) || strings.Contains(file.Name(), "test.yaml") {
@@ -422,7 +422,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 				errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
 				continue
 			}
-			if err := applyPoliciesFromPath(fs, valuesBytes, valuesFile, false, path, rc, tf); err != nil {
+			if err := applyPoliciesFromPath(fs, valuesBytes, false, path, rc, tf); err != nil {
 				errors = append(errors, sanitizederror.NewWithError(fmt.Sprintf("failed to apply test command from file %s", file.Name()), err))
 				continue
 			}
@@ -658,7 +658,7 @@ func getFullPath(paths []string, policyResourcePath string, isGit bool) []string
 	return paths
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts, tf *testFilter) (err error) {
+func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, tf *testFilter) (err error) {
 	openAPIController, err := openapi.NewOpenAPIController()
 	engineResponses := make([]*response.EngineResponse, 0)
 	var dClient *client.Client
@@ -686,7 +686,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 
 		values.Results = filteredResults
 	}
-	valuesFile = values.Variables
+	valuesFile := values.Variables
 	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
