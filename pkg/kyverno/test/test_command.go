@@ -104,7 +104,7 @@ Policy (Namespaced)
     rule: <name>
     resource: <name>
     namespace: <name> (OPTIONAL)
-        kind: <name>
+    kind: <name>
     patchedResource: <path>
     result: <pass|fail|skip>
 
@@ -584,7 +584,7 @@ func getAndComparePatchedResource(path string, enginePatchedResource unstructure
 	}
 	matched, err := generate.ValidateResourceWithPattern(log.Log, enginePatchedResource.UnstructuredContent(), patchedResources.UnstructuredContent())
 	if err != nil {
-		log.Log.Info("patched resource mismatch", "error", err.Error())
+		log.Log.V(3).Info("patched resource mismatch", "error", err.Error())
 		status = "fail"
 	}
 
