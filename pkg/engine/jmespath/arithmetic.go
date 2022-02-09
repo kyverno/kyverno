@@ -230,10 +230,11 @@ func (op1 Quantity) Divide(op2 interface{}) (interface{}, error) {
 		if v.ToDec().AsApproximateFloat64() == 0 {
 			return nil, fmt.Errorf(zeroDivisionError, divide)
 		}
+
 		var quo inf.Dec
-		scale := inf.Scale(math.Max(float64(op1.AsDec().Scale()), float64(v.AsDec().Scale())))
-		quo.QuoRound(op1.AsDec(), v.AsDec(), scale, inf.RoundDown)
+		quo.QuoExact(op1.AsDec(), v.AsDec())
 		return strconv.ParseFloat(quo.String(), 64)
+
 	case Scalar:
 		if v.float64 == 0 {
 			return nil, fmt.Errorf(zeroDivisionError, divide)
@@ -244,8 +245,7 @@ func (op1 Quantity) Divide(op2 interface{}) (interface{}, error) {
 		}
 
 		var quo inf.Dec
-		scale := inf.Scale(math.Max(float64(op1.AsDec().Scale()), float64(q.AsDec().Scale())))
-		quo.QuoRound(op1.AsDec(), q.AsDec(), scale, inf.RoundDown)
+		quo.QuoExact(op1.AsDec(), q.AsDec())
 		return resource.NewDecimalQuantity(quo, op1.Quantity.Format).String(), nil
 	}
 
@@ -298,9 +298,7 @@ func (op1 Scalar) Divide(op2 interface{}) (interface{}, error) {
 		}
 
 		var quo inf.Dec
-		scale := inf.Scale(math.Max(float64(q.AsDec().Scale()), float64(v.AsDec().Scale())))
-		quo.QuoRound(q.AsDec(), v.AsDec(), scale, inf.RoundDown)
-
+		quo.QuoExact(q.AsDec(), v.AsDec())
 		return resource.NewDecimalQuantity(quo, v.Format).String(), nil
 	case Duration:
 		var quo float64
