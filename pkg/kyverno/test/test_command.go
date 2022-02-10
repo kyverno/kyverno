@@ -15,7 +15,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/go-logr/logr"
 	"github.com/kataras/tablewriter"
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -105,7 +104,7 @@ Policy (Namespaced)
     rule: <name>
     resource: <name>
     namespace: <name> (OPTIONAL)
-        kind: <name>
+    kind: <name>
     patchedResource: <path>
     result: <pass|fail|skip>
 
@@ -391,11 +390,11 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 	return errors
 }
 
-func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResults, infos []policyreport.Info, policyResourcePath string, fs billy.Filesystem, isGit bool) (map[string]report.PolicyReportResult, []TestResults) {
+func buildPolicyResults(engineResponses []*response.EngineResponse, testResults []TestResults, infos []policyreport.Info, policyResourcePath string, fs billy.Filesystem, isGit bool) (map[string]report.PolicyReportResult, []TestResults) {
 	results := make(map[string]report.PolicyReportResult)
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
-	for _, resp := range resps {
+	for _, resp := range engineResponses {
 		policyName := resp.PolicyResponse.Policy.Name
 		resourceName := resp.PolicyResponse.Resource.Name
 		resourceKind := resp.PolicyResponse.Resource.Kind
@@ -417,7 +416,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 			Message: buildMessage(resp),
 		}
 
-		var patcheResourcePath []string
+		var patchedResourcePath []string
 		for i, test := range testResults {
 			var userDefinedPolicyNamespace string
 			var userDefinedPolicyName string
@@ -457,7 +456,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 					}
 				}
 
-				patcheResourcePath = append(patcheResourcePath, test.PatchedResource)
+				patchedResourcePath = append(patchedResourcePath, test.PatchedResource)
 				if _, ok := results[resultsKey]; !ok {
 					results[resultsKey] = result
 				}
@@ -472,13 +471,12 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 
 			var resultsKey []string
 			var resultKey string
-
 			var result report.PolicyReportResult
 			resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name, resourceNamespace, resourceKind, resourceName)
-			for _, resultK := range resultsKey {
-				if val, ok := results[resultK]; ok {
+			for _, key := range resultsKey {
+				if val, ok := results[key]; ok {
 					result = val
-					resultKey = resultK
+					resultKey = key
 				} else {
 					continue
 				}
@@ -491,7 +489,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 
 				} else {
 					var x string
-					for _, path := range patcheResourcePath {
+					for _, path := range patchedResourcePath {
 						result.Result = report.StatusFail
 						x = getAndComparePatchedResource(path, resp.PatchedResource, isGit, policyResourcePath, fs)
 						if x == "pass" {
@@ -538,12 +536,12 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	return results, testResults
 }
 
-func GetAllPossibleResultsKey(policyNs, policy, rule, resourceNsnamespace, kind, resource string) []string {
+func GetAllPossibleResultsKey(policyNamespace, policy, rule, resourceNamespace, kind, resource string) []string {
 	var resultsKey []string
 	resultKey1 := fmt.Sprintf("%s-%s-%s-%s", policy, rule, kind, resource)
-	resultKey2 := fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, resourceNsnamespace, kind, resource)
-	resultKey3 := fmt.Sprintf("%s-%s-%s-%s-%s", policyNs, policy, rule, kind, resource)
-	resultKey4 := fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNs, policy, rule, resourceNsnamespace, kind, resource)
+	resultKey2 := fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, resourceNamespace, kind, resource)
+	resultKey3 := fmt.Sprintf("%s-%s-%s-%s-%s", policyNamespace, policy, rule, kind, resource)
+	resultKey4 := fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNamespace, policy, rule, resourceNamespace, kind, resource)
 	resultsKey = append(resultsKey, resultKey1, resultKey2, resultKey3, resultKey4)
 	return resultsKey
 }
@@ -584,12 +582,12 @@ func getAndComparePatchedResource(path string, enginePatchedResource unstructure
 	if err != nil {
 		os.Exit(1)
 	}
-	var log logr.Logger
-	matched, err := generate.ValidateResourceWithPattern(log, enginePatchedResource.UnstructuredContent(), patchedResources.UnstructuredContent())
-
+	matched, err := generate.ValidateResourceWithPattern(log.Log, enginePatchedResource.UnstructuredContent(), patchedResources.UnstructuredContent())
 	if err != nil {
+		log.Log.V(3).Info("patched resource mismatch", "error", err.Error())
 		status = "fail"
 	}
+
 	if matched == "" {
 		status = "pass"
 	}

@@ -106,6 +106,12 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 				t.log.Error(err, "")
 			}
 
+			// update namespaceSelector every 30 seconds
+			if register.autoUpdateWebhooks {
+				logger.V(3).Info("updating webhook configurations for namespaceSelector with latest kyverno ConfigMap")
+				register.UpdateWebhookChan <- true
+			}
+
 			timeDiff := time.Since(t.Time())
 			lastRequestTimeFromAnn := lastRequestTimeFromAnnotation(register, t.log.WithName("lastRequestTimeFromAnnotation"))
 			if lastRequestTimeFromAnn == nil {

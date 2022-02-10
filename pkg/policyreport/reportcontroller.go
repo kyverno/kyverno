@@ -1,6 +1,7 @@
 package policyreport
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -382,7 +383,12 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstru
 		report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace))
 		if err != nil {
 			if apierrors.IsNotFound(err) && new != nil {
-				if _, err := g.dclient.CreateResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new, false); err != nil {
+				polr, err := convertToPolr(new)
+				if err != nil {
+					return nil, fmt.Errorf("failed to convert to policyReport: %v", err)
+				}
+
+				if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(new.GetNamespace()).Create(context.TODO(), polr, metav1.CreateOptions{}); err != nil {
 					return nil, fmt.Errorf("failed to create policyReport: %v", err)
 				}
 
@@ -398,7 +404,12 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstru
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				if new != nil {
-					if _, err := g.dclient.CreateResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new, false); err != nil {
+					cpolr, err := convertToCpolr(new)
+					if err != nil {
+						return nil, fmt.Errorf("failed to convert to ClusterPolicyReport: %v", err)
+					}
+
+					if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Create(context.TODO(), cpolr, metav1.CreateOptions{}); err != nil {
 						return nil, fmt.Errorf("failed to create ClusterPolicyReport: %v", err)
 					}
 
@@ -459,7 +470,7 @@ func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName str
 		cpolr.Summary = calculateSummary(newRes)
 		gv := report.SchemeGroupVersion
 		cpolr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "ClusterPolicyReport"})
-		if _, err := g.dclient.UpdateResource("", "ClusterPolicyReport", "", cpolr, false); err != nil {
+		if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("failed to update clusterPolicyReport %s %v", cpolr.Name, err)
 		}
 	}
@@ -473,6 +484,10 @@ func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) er
 	}
 
 	selector, err := metav1.LabelSelectorAsSelector(LabelSelector)
+	if err != nil {
+		g.log.Error(err, "failed to build labelSelector")
+	}
+
 	policyReports := []*report.PolicyReport{}
 	for _, ns := range namespaces.Items {
 		reports, err := g.reportLister.PolicyReports(ns.GetName()).List(selector)
@@ -498,7 +513,7 @@ func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) er
 		gv := report.SchemeGroupVersion
 		gvk := schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "PolicyReport"}
 		r.SetGroupVersionKind(gvk)
-		if _, err := g.dclient.UpdateResource("", "PolicyReport", r.GetNamespace(), r, false); err != nil {
+		if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(r.GetNamespace()).Update(context.TODO(), r, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("failed to update PolicyReport %s %v", r.GetName(), err)
 		}
 	}
@@ -647,7 +662,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 
 	if oldTyped, ok := old.(*report.ClusterPolicyReport); ok {
 		if oldTyped.GetDeletionTimestamp() != nil {
-			return g.dclient.DeleteResource(oldTyped.APIVersion, "ClusterPolicyReport", oldTyped.Namespace, oldTyped.Name, false)
+			return g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Delete(context.TODO(), oldTyped.Name, metav1.DeleteOptions{})
 		}
 
 		if oldUnstructured, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
@@ -657,7 +672,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		new.SetResourceVersion(oldTyped.GetResourceVersion())
 	} else if oldTyped, ok := old.(*report.PolicyReport); ok {
 		if oldTyped.GetDeletionTimestamp() != nil {
-			return g.dclient.DeleteResource(oldTyped.APIVersion, "PolicyReport", oldTyped.Namespace, oldTyped.Name, false)
+			return g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(oldTyped.Namespace).Delete(context.TODO(), oldTyped.Name, metav1.DeleteOptions{})
 		}
 
 		if oldUnstructured, err = runtime.DefaultUnstructuredConverter.ToUnstructured(oldTyped); err != nil {
@@ -680,8 +695,25 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		return nil
 	}
 
-	if _, err = g.dclient.UpdateResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new, false); err != nil {
-		return fmt.Errorf("failed to update policy report: %v", err)
+	if new.GetKind() == "PolicyReport" {
+		polr, err := convertToPolr(new)
+		if err != nil {
+			return fmt.Errorf("error converting to PolicyReport: %v", err)
+		}
+		if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(new.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
+			return fmt.Errorf("failed to update PolicyReport: %v", err)
+		}
+	}
+
+	if new.GetKind() == "ClusterPolicyReport" {
+		cpolr, err := convertToCpolr(new)
+		if err != nil {
+			return fmt.Errorf("error converting to ClusterPolicyReport: %v", err)
+		}
+		if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
+			return fmt.Errorf("failed to update ClusterPolicyReport: %v", err)
+		}
+
 	}
 
 	g.log.V(3).Info("successfully updated policy report", "kind", new.GetKind(), "namespace", new.GetNamespace(), "name", new.GetName())
@@ -692,7 +724,7 @@ func (g *ReportGenerator) cleanupReportRequests(requestsGeneral interface{}) {
 	defer g.log.V(5).Info("successfully cleaned up report requests")
 	if requests, ok := requestsGeneral.([]*changerequest.ReportChangeRequest); ok {
 		for _, request := range requests {
-			if err := g.dclient.DeleteResource(request.APIVersion, "ReportChangeRequest", config.KyvernoNamespace, request.Name, false); err != nil {
+			if err := g.pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace).Delete(context.TODO(), request.Name, metav1.DeleteOptions{}); err != nil {
 				if !apierrors.IsNotFound(err) {
 					g.log.Error(err, "failed to delete report request")
 				}
@@ -702,7 +734,7 @@ func (g *ReportGenerator) cleanupReportRequests(requestsGeneral interface{}) {
 
 	if requests, ok := requestsGeneral.([]*changerequest.ClusterReportChangeRequest); ok {
 		for _, request := range requests {
-			if err := g.dclient.DeleteResource(request.APIVersion, "ClusterReportChangeRequest", "", request.Name, false); err != nil {
+			if err := g.pclient.KyvernoV1alpha2().ClusterReportChangeRequests().Delete(context.TODO(), request.Name, metav1.DeleteOptions{}); err != nil {
 				if !apierrors.IsNotFound(err) {
 					g.log.Error(err, "failed to delete clusterReportChangeRequest")
 				}

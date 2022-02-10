@@ -1,4 +1,10 @@
 policies:
+  - name: cm-multiple-example
+    rules:
+      - name: example-configmap-lookup
+        values:
+          dictionary.data.env: ''
+          anotherdictionary.data.env: test
   - name: cm-variable-example
     rules:
       - name: example-configmap-lookup

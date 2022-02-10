@@ -49,12 +49,11 @@ podSecurityContext: {}
 priorityClassName: ""
 
 antiAffinity:
-  # This can be disabled in a 1 node cluster.
+  # using this option will schedule pods on different nodes if possible
   enable: true
 
-affinity:
-  podAntiAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
+podAntiAffinity:
+  preferredDuringSchedulingIgnoredDuringExecution:
     - weight: 1
       podAffinityTerm:
         labelSelector:
@@ -64,6 +63,10 @@ affinity:
             values:
             - kyverno
         topologyKey: kubernetes.io/hostname
+
+podAffinity: {}
+
+nodeAffinity: {}
 
 podDisruptionBudget:
   minAvailable: 1
@@ -157,7 +160,7 @@ config:
   - "[TokenReview,*,*]"
   - "[SubjectAccessReview,*,*]"
   - "[SelfSubjectAccessReview,*,*]"
-  - "[*,kyverno,*]"
+  - "[*,kyverno,kyverno*]"
   - "[Binding,*,*]"
   - "[ReplicaSet,*,*]"
   - "[ReportChangeRequest,*,*]"

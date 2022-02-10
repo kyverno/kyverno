@@ -56,7 +56,9 @@ func (nh NegationHandler) Handle(handler resourceElementHandler, resourceMap map
 	// if anchor is present in the resource then fail
 	if _, ok := resourceMap[anchorKey]; ok {
 		// no need to process elements in value as key cannot be present in resource
-		return currentPath, fmt.Errorf("%s/%s is not allowed", currentPath, anchorKey)
+		ac.AnchorError = NewNegationAnchorError(fmt.Sprintf("%s is not allowed", currentPath))
+		return currentPath, ac.AnchorError.Error()
+
 	}
 	// key is not defined in the resource
 	return "", nil

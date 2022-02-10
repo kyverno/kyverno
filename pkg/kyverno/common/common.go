@@ -470,11 +470,36 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	}
 
 	policyWithNamespaceSelector := false
+OuterLoop:
 	for _, p := range policy.Spec.Rules {
 		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
 			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
 			policyWithNamespaceSelector = true
 			break
+		}
+		for _, m := range p.MatchResources.Any {
+			if m.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break OuterLoop
+			}
+		}
+		for _, m := range p.MatchResources.All {
+			if m.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break OuterLoop
+			}
+		}
+		for _, e := range p.ExcludeResources.Any {
+			if e.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break OuterLoop
+			}
+		}
+		for _, e := range p.ExcludeResources.All {
+			if e.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break OuterLoop
+			}
 		}
 	}
 
@@ -725,6 +750,9 @@ func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *r
 	printCount := 0
 	for _, policyRule := range policy.Spec.Rules {
 		ruleFoundInEngineResponse := false
+		if !policyRule.HasValidate() {
+			continue
+		}
 
 		for i, valResponseRule := range validateResponse.PolicyResponse.Rules {
 			if policyRule.Name == valResponseRule.Name {

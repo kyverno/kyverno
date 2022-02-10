@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"gotest.tools/assert"
 )
 
@@ -266,7 +267,7 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		o, n := stripNonPolicyFields(tc.obj, tc.newRes, nil)
+		o, n := stripNonPolicyFields(tc.obj, tc.newRes, logr.Discard())
 		assert.Assert(t, reflect.DeepEqual(tc.expectedObj, o))
 		assert.Assert(t, reflect.DeepEqual(tc.expectedNewRes, n))
 	}

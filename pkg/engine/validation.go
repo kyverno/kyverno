@@ -72,6 +72,11 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 	resp.PolicyResponse.Resource.Kind = resp.PatchedResource.GetKind()
 	resp.PolicyResponse.Resource.APIVersion = resp.PatchedResource.GetAPIVersion()
 	resp.PolicyResponse.ValidationFailureAction = ctx.Policy.Spec.ValidationFailureAction
+
+	for _, v := range ctx.Policy.Spec.ValidationFailureActionOverrides {
+		resp.PolicyResponse.ValidationFailureActionOverrides = append(resp.PolicyResponse.ValidationFailureActionOverrides, response.ValidationFailureActionOverride{Action: v.Action, Namespaces: v.Namespaces})
+	}
+
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
 	resp.PolicyResponse.PolicyExecutionTimestamp = startTime.Unix()
 }
@@ -272,7 +277,7 @@ func (v *validator) validateElements(foreach *kyverno.ForEachValidation, element
 			v.log.Info("skip rule", "reason", r.Message)
 			continue
 		} else if r.Status != response.RuleStatusPass {
-			msg := fmt.Sprintf("validation failed in foreach rule for %v", r.Message)
+			msg := fmt.Sprintf("validation failure: %v", r.Message)
 			return ruleResponse(v.rule, utils.Validation, msg, r.Status), applyCount
 		}
 
