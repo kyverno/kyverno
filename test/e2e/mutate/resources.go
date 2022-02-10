@@ -168,7 +168,7 @@ spec:
 `)
 
 var ingressNetworkingV1beta1 = []byte(`
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   labels:
@@ -401,7 +401,7 @@ spec:
           kinds:
             - Pod
       mutate:
-        overlay:
+        patchStrategicMerge:
           spec:
             containers:
               # match images that are from our registry
@@ -453,7 +453,7 @@ spec:
           operator: Equals
           value: CREATE
       mutate:
-        overlay:
+        patchStrategicMerge:
           spec:
             containers:
               # match images that are from our registry
