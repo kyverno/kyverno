@@ -92,6 +92,7 @@ The following table lists the configurable parameters of the kyverno chart and t
 | `nameOverride` | override the name of the chart | `nil` |
 | `namespace` | namespace the chart deploy to | `nil` |
 | `networkPolicy.enabled` | when true, use a NetworkPolicy to grant access to the webhook. | `false` |
+| `networkPolicy.ingressFrom` | A list of valid from selectors. | `[]` |
 | `nodeAffinity` | node affinities. Empty by default. Can be added for nodeAffinities. | `nil` |
 | `nodeSelector` | node labels for pod assignment | `{}` |
 | `podAffinity` | pod affinities. Empty by default. Can be added for podAffinities. | `nil` |
