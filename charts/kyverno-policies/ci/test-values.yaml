@@ -1,6 +1,15 @@
 podSecurityStandard: restricted
 includeOtherPolicies:
 - require-non-root-groups
+validationFailureActionOverrides:
+  all:
+    - action: audit
+      namespaces:
+        - ingress-nginx
+  disallow-host-path:
+    - action: audit
+      namespaces:
+        - fluent
 policyExclude:
   disallow-host-path:
     any:

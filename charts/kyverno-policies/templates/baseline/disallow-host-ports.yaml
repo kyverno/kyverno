@@ -19,6 +19,9 @@ metadata:
       field is unset or set to `0`. 
 spec:
   validationFailureAction: {{ .Values.validationFailureAction }}
+  {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
+  validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
+  {{- end }}
   background: true
   rules:
     - name: host-ports-none
