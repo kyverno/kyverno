@@ -1,3 +1,4 @@
 Thank you for installing {{ .Chart.Name }} {{ .Chart.Version }} 😀
 
-Your release is named {{ .Release.Name }}, app version {{ .Chart.AppVersion }}
+Your release is named {{ .Release.Name }}, app version {{ default .Chart.AppVersion (default .Values.image.tag .Values.initImage.tag) }}
+

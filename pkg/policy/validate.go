@@ -1050,6 +1050,16 @@ func validateConditionValues(c kyverno.Condition) (string, error) {
 	if c.Key == nil || c.Value == nil || c.Operator == "" {
 		return "", fmt.Errorf("entered value of `key`, `value` or `operator` is missing or misspelled")
 	}
+	switch reflect.TypeOf(c.Key).Kind() {
+	case reflect.String:
+		value, err := validateValuesKeyRequest(c)
+		return value, err
+	default:
+		return "", nil
+	}
+}
+
+func validateValuesKeyRequest(c kyverno.Condition) (string, error) {
 	switch strings.ReplaceAll(c.Key.(string), " ", "") {
 	case "{{request.operation}}":
 		return validateConditionValuesKeyRequestOperation(c)
@@ -1157,9 +1167,12 @@ func validateRuleContext(rule kyverno.Rule) error {
 	}
 
 	ruleBytes, _ := json.Marshal(rule)
-	ruleString := strings.ReplaceAll(string(ruleBytes), " ", "")
 	for _, contextName := range contextNames {
-		if !strings.Contains(ruleString, fmt.Sprintf("{{"+contextName)) && !strings.Contains(ruleString, fmt.Sprintf("{{\\\""+contextName)) {
+		contextRegex, err := regexp.Compile(fmt.Sprintf(`{{.*\b%s\b.*}}`, contextName))
+		if err != nil {
+			return fmt.Errorf("unable to validate context variable `%s`, %w", contextName, err)
+		}
+		if !contextRegex.Match(ruleBytes) {
 			return fmt.Errorf("context variable `%s` is not used in the policy", contextName)
 		}
 	}

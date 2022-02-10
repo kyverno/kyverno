@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-multiple-key
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+  - name: test-multiple-key
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      deny:
+        conditions:
+          any:
+          - key: 
+              - "{{request.object.metadata.labels.app}}"
+            operator: NotIn
+            value: 
+            - "busybox"
+            - "busybox1"

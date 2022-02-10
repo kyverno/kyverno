@@ -3,20 +3,17 @@ package policyreport
 import (
 	"context"
 	"crypto/rand"
-	"encoding/json"
 	"math/big"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
-	report "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/patrickmn/go-cache"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // creator is an interface that buffers report change requests
@@ -280,38 +277,4 @@ func isDeleteRequest(request *unstructured.Unstructured) bool {
 	}
 
 	return false
-}
-
-func convertToRCR(request *unstructured.Unstructured) (*report.ReportChangeRequest, error) {
-	rcr := report.ReportChangeRequest{}
-	raw, err := request.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(raw, &rcr)
-	rcr.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   report.SchemeGroupVersion.Group,
-		Version: report.SchemeGroupVersion.Version,
-		Kind:    "ReportChangeRequest",
-	})
-
-	return &rcr, err
-}
-
-func convertToCRCR(request *unstructured.Unstructured) (*report.ClusterReportChangeRequest, error) {
-	rcr := report.ClusterReportChangeRequest{}
-	raw, err := request.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(raw, &rcr)
-	rcr.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   report.SchemeGroupVersion.Group,
-		Version: report.SchemeGroupVersion.Version,
-		Kind:    "ClusterReportChangeRequest",
-	})
-
-	return &rcr, err
 }

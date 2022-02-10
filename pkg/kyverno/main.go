@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/kyverno/kyverno/pkg/kyverno/apply"
+	"github.com/kyverno/kyverno/pkg/kyverno/jp"
 	"github.com/kyverno/kyverno/pkg/kyverno/test"
 	"github.com/kyverno/kyverno/pkg/kyverno/validate"
 	"github.com/kyverno/kyverno/pkg/kyverno/version"
@@ -28,6 +29,7 @@ func CLI() {
 		apply.Command(),
 		validate.Command(),
 		test.Command(),
+		jp.Command(),
 	}
 
 	cli.AddCommand(commands...)

@@ -57,7 +57,7 @@ func Test_validateUsingPolicyCRD(t *testing.T) {
 			}
 		  }
 		`),
-			errorDetail: "spec.rules.name in body should be at most 63 chars long",
+			errorDetail: "spec.rules[0].name in body should be at most 63 chars long",
 			detail:      "Test: char count for rule name",
 		},
 

@@ -50,6 +50,6 @@ spec:
       port: {{ .Values.metricsService.port }}
   {{- end }}
   {{- else }}
-  ingress: {}
+  ingress: []
   {{- end }}
 {{- end }}
