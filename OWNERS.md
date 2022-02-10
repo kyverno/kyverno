@@ -6,6 +6,7 @@ approvers:
 - vyankyGH
 - MarcelMue
 - treydock
+- prateekpandey14
 
 reviewers:
 - JimBugwadia
@@ -18,3 +19,4 @@ reviewers:
 - anushkamittal20
 - ojhaarjun1
 - samj1912
+- prateekpandey14
