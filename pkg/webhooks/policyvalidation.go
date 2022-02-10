@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyvalidate "github.com/kyverno/kyverno/pkg/policy"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

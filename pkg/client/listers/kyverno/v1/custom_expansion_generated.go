@@ -19,22 +19,22 @@ limitations under the License.
 package v1
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
 //ListResources is a wrapper to List and adds the resource kind information
 // as the lister is specific to a gvk we can harcode the values here
-func (pl *clusterPolicyLister) ListResources(selector labels.Selector) (ret []*kyvernov1.ClusterPolicy, err error) {
+func (pl *clusterPolicyLister) ListResources(selector labels.Selector) (ret []*v1.ClusterPolicy, err error) {
 	policies, err := pl.List(selector)
 	for index := range policies {
-		policies[index].SetGroupVersionKind(kyvernov1.SchemeGroupVersion.WithKind("ClusterPolicy"))
+		policies[index].SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("ClusterPolicy"))
 	}
 	return policies, err
 }
 
-func (s generateRequestNamespaceLister) GetGenerateRequestsForResource(kind, namespace, name string) ([]*kyvernov1.GenerateRequest, error) {
-	var list []*kyvernov1.GenerateRequest
+func (s generateRequestNamespaceLister) GetGenerateRequestsForResource(kind, namespace, name string) ([]*v1.GenerateRequest, error) {
+	var list []*v1.GenerateRequest
 	grs, err := s.List(labels.NewSelector())
 	if err != nil {
 		return nil, err
@@ -50,8 +50,8 @@ func (s generateRequestNamespaceLister) GetGenerateRequestsForResource(kind, nam
 	return list, err
 }
 
-func (s generateRequestNamespaceLister) GetGenerateRequestsForClusterPolicy(policy string) ([]*kyvernov1.GenerateRequest, error) {
-	var list []*kyvernov1.GenerateRequest
+func (s generateRequestNamespaceLister) GetGenerateRequestsForClusterPolicy(policy string) ([]*v1.GenerateRequest, error) {
+	var list []*v1.GenerateRequest
 	grs, err := s.List(labels.NewSelector())
 	if err != nil {
 		return nil, err

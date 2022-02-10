@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -23,8 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	pm "github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
-	utils "github.com/kyverno/kyverno/pkg/utils"
+	"github.com/kyverno/kyverno/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,12 +81,6 @@ type PolicyController struct {
 	// npListerSynced returns true if the namespace policy store has been synced at least once
 	npListerSynced cache.InformerSynced
 
-	// pvListerSynced returns true if the cluster policy violation store has been synced at least once
-	cpvListerSynced cache.InformerSynced
-
-	// pvListerSynced returns true if the policy violation store has been synced at least once
-	nspvListerSynced cache.InformerSynced
-
 	// nsListerSynced returns true if the namespace store has been synced at least once
 	nsListerSynced cache.InformerSynced
 
@@ -104,9 +97,6 @@ type PolicyController struct {
 	prGenerator policyreport.GeneratorInterface
 
 	policyReportEraser policyreport.PolicyReportEraser
-
-	// resCache - controls creation and fetching of resource informer cache
-	resCache resourcecache.ResourceCache
 
 	reconcilePeriod time.Duration
 
@@ -129,7 +119,6 @@ func NewPolicyController(
 	policyReportEraser policyreport.PolicyReportEraser,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
-	resCache resourcecache.ResourceCache,
 	reconcilePeriod time.Duration,
 	promConfig *metrics.PromConfig) (*PolicyController, error) {
 
@@ -153,7 +142,6 @@ func NewPolicyController(
 		configHandler:      configHandler,
 		prGenerator:        prGenerator,
 		policyReportEraser: policyReportEraser,
-		resCache:           resCache,
 		reconcilePeriod:    reconcilePeriod,
 		promConfig:         promConfig,
 		log:                log,
@@ -185,7 +173,7 @@ func (pc *PolicyController) canBackgroundProcess(p *kyverno.ClusterPolicy) bool 
 		return false
 	}
 
-	if err := ContainsVariablesOtherThanObject(*p); err != nil {
+	if err := ValidateVariables(p, true); err != nil {
 		logger.V(4).Info("policy cannot be processed in the background")
 		return false
 	}

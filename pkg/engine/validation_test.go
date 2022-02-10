@@ -2,11 +2,12 @@ package engine
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
@@ -1478,9 +1479,10 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
+
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusError)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
-		"variable substitution failed: Unknown key \"name1\" in path")
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSubstitutionFails(t *testing.T) {
@@ -1570,8 +1572,10 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSu
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
+
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusError)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed: Unknown key \"name1\" in path")
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
 }
 
 func Test_VariableSubstitution_NotOperatorWithStringVariable(t *testing.T) {
@@ -1720,8 +1724,10 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
+
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusError)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed: Unknown key \"name1\" in path")
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatternSatisfy(t *testing.T) {
@@ -1934,7 +1940,7 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 			// referred variable path not present
 			resourceRaw:      []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team"},"prune":true,"validation":"client"}}`),
 			expectedResults:  []response.RuleStatus{response.RuleStatusPass, response.RuleStatusError},
-			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "failed to substitute variables in deny conditions: Unknown key \"namespace\" in path"},
+			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "failed to substitute variables in deny conditions: failed to resolve request.object.spec.sourceRef.namespace at path /0/key: JMESPath query failed: Unknown key \"namespace\" in path"},
 		},
 		{
 			name:      "resource-with-violation",

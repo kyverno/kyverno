@@ -3,7 +3,7 @@ package apply
 import (
 	"reflect"
 
-	report "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

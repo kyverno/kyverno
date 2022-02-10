@@ -3,10 +3,10 @@ package operator
 import (
 	"fmt"
 	"strconv"
-	"time"
 
+	"github.com/blang/semver/v4"
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -30,16 +30,32 @@ type NumericOperatorHandler struct {
 // compareByCondition compares a float64 key with a float64 value on the basis of the provided operator
 func compareByCondition(key float64, value float64, op kyverno.ConditionOperator, log *logr.Logger) bool {
 	switch op {
-	case kyverno.GreaterThanOrEquals:
+	case kyverno.ConditionOperators["GreaterThanOrEquals"]:
 		return key >= value
-	case kyverno.GreaterThan:
+	case kyverno.ConditionOperators["GreaterThan"]:
 		return key > value
-	case kyverno.LessThanOrEquals:
+	case kyverno.ConditionOperators["LessThanOrEquals"]:
 		return key <= value
-	case kyverno.LessThan:
+	case kyverno.ConditionOperators["LessThan"]:
 		return key < value
 	default:
-		(*log).Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan], found %s", op))
+		(*log).Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
+		return false
+	}
+}
+
+func compareVersionByCondition(key semver.Version, value semver.Version, op kyverno.ConditionOperator, log *logr.Logger) bool {
+	switch op {
+	case kyverno.ConditionOperators["GreaterThanOrEquals"]:
+		return key.GTE(value)
+	case kyverno.ConditionOperators["GreaterThan"]:
+		return key.GT(value)
+	case kyverno.ConditionOperators["LessThanOrEquals"]:
+		return key.LTE(value)
+	case kyverno.ConditionOperators["LessThan"]:
+		return key.LT(value)
+	default:
+		(*log).Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
 		return false
 	}
 }
@@ -69,6 +85,10 @@ func (noh NumericOperatorHandler) validateValueWithIntPattern(key int64, value i
 	case float64:
 		return compareByCondition(float64(key), typedValue, noh.condition, &noh.log)
 	case string:
+		durationKey, durationValue, err := parseDuration(key, value)
+		if err == nil {
+			return compareByCondition(float64(durationKey.Seconds()), float64(durationValue.Seconds()), noh.condition, &noh.log)
+		}
 		// extract float64 and (if that fails) then, int64 from the string
 		float64val, err := strconv.ParseFloat(typedValue, 64)
 		if err == nil {
@@ -95,6 +115,10 @@ func (noh NumericOperatorHandler) validateValueWithFloatPattern(key float64, val
 	case float64:
 		return compareByCondition(key, typedValue, noh.condition, &noh.log)
 	case string:
+		durationKey, durationValue, err := parseDuration(key, value)
+		if err == nil {
+			return compareByCondition(float64(durationKey.Seconds()), float64(durationValue.Seconds()), noh.condition, &noh.log)
+		}
 		float64val, err := strconv.ParseFloat(typedValue, 64)
 		if err == nil {
 			return compareByCondition(key, float64val, noh.condition, &noh.log)
@@ -126,9 +150,24 @@ func (noh NumericOperatorHandler) validateValueWithResourcePattern(key resource.
 	}
 }
 
+func (noh NumericOperatorHandler) validateValueWithVersionPattern(key semver.Version, value interface{}) bool {
+	switch typedValue := value.(type) {
+	case string:
+		versionValue, err := semver.Parse(typedValue)
+		if err != nil {
+			noh.log.Error(fmt.Errorf("parse error: "), "Failed to parse value type doesn't match key type")
+			return false
+		}
+		return compareVersionByCondition(key, versionValue, noh.condition, &noh.log)
+	default:
+		noh.log.Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))
+		return false
+	}
+}
+
 func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, value interface{}) bool {
 	// We need to check duration first as it's the only type that can be compared to a different type
-	durationKey, durationValue, err := noh.parseDuration(key, value)
+	durationKey, durationValue, err := parseDuration(key, value)
 	if err == nil {
 		return compareByCondition(float64(durationKey.Seconds()), float64(durationValue.Seconds()), noh.condition, &noh.log)
 	}
@@ -147,70 +186,14 @@ func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, val
 	if err == nil {
 		return noh.validateValueWithResourcePattern(resourceKey, value)
 	}
+	// attempt to extract version from string
+	versionKey, err := semver.Parse(key)
+	if err == nil {
+		return noh.validateValueWithVersionPattern(versionKey, value)
+	}
 
 	noh.log.Error(err, "Failed to parse from the string key, value is not float, int nor resource quantity")
 	return false
-}
-
-func (noh NumericOperatorHandler) parseDuration(key, value interface{}) (*time.Duration, *time.Duration, error) {
-	var keyDuration *time.Duration
-	var valueDuration *time.Duration
-	var err error
-
-	// We need to first ensure at least one of the values is actually a duration string
-	switch typedKey := key.(type) {
-	case string:
-		duration, err := time.ParseDuration(typedKey)
-		if err == nil && key != "0" {
-			keyDuration = &duration
-		}
-	}
-	switch typedValue := value.(type) {
-	case string:
-		duration, err := time.ParseDuration(typedValue)
-		if err == nil && value != "0" {
-			valueDuration = &duration
-		}
-	}
-	if keyDuration == nil && valueDuration == nil {
-		return keyDuration, valueDuration, fmt.Errorf("neither value is a duration")
-	}
-
-	if keyDuration == nil {
-		var duration time.Duration
-
-		switch typedKey := key.(type) {
-		case int:
-			duration = time.Duration(typedKey) * time.Second
-		case int64:
-			duration = time.Duration(typedKey) * time.Second
-		case float64:
-			duration = time.Duration(typedKey) * time.Second
-		default:
-			return keyDuration, valueDuration, fmt.Errorf("no valid duration value")
-		}
-
-		keyDuration = &duration
-	}
-
-	if valueDuration == nil {
-		var duration time.Duration
-
-		switch typedValue := value.(type) {
-		case int:
-			duration = time.Duration(typedValue) * time.Second
-		case int64:
-			duration = time.Duration(typedValue) * time.Second
-		case float64:
-			duration = time.Duration(typedValue) * time.Second
-		default:
-			return keyDuration, valueDuration, fmt.Errorf("no valid duration value")
-		}
-
-		valueDuration = &duration
-	}
-
-	return keyDuration, valueDuration, err
 }
 
 // the following functions are unreachable because the key is strictly supposed to be numeric

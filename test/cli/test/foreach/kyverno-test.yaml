@@ -1,0 +1,42 @@
+name: test-foreach
+policies:
+  - policies.yaml
+resources:
+  - resources.yaml
+variables: variables.yaml
+results:
+  - policy: validate-empty-dir-mountpath
+    rule: check-mount-paths
+    resource: test-pod
+    kind: Pod
+    status: pass
+  - policy: validate-empty-dir-mountpath
+    rule: check-mount-paths
+    resource: test-pod2
+    kind: Pod
+    status: pass
+  - policy: validate-empty-dir-resources
+    rule: check-resources
+    resource: test-pod-bad-mount
+    kind: Pod
+    status: fail
+  - policy: validate-empty-dir-resources
+    rule: check-resources
+    resource: test-pod
+    kind: Pod
+    status: fail
+  - policy: validate-empty-dir-resources
+    rule: check-resources
+    resource: test-pod-with-resources
+    kind: Pod
+    status: pass
+  - policy: validate-empty-dir-resources
+    rule: check-resources
+    resource: test-pod-with-gke-vol
+    kind: Pod
+    status: skip
+  - policy: validate-empty-dir-resources
+    rule: check-resources
+    resource: test-pod-with-resources-multiple-ctnrs
+    kind: Pod
+    status: pass

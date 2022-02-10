@@ -3,7 +3,7 @@ package apply
 import (
 	"testing"
 
-	preport "github.com/kyverno/kyverno/pkg/api/policyreport/v1alpha2"
+	preport "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"gotest.tools/assert"
 )
 

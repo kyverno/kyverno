@@ -4,18 +4,17 @@ import (
 	"reflect"
 	"time"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -68,8 +67,7 @@ type Controller struct {
 	nsInformer informers.GenericInformer
 	log        logr.Logger
 
-	Config   config.Interface
-	resCache resourcecache.ResourceCache
+	Config config.Interface
 }
 
 //NewController returns an instance of the Generate-Request Controller
@@ -83,7 +81,6 @@ func NewController(
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
 	log logr.Logger,
 	dynamicConfig config.Interface,
-	resourceCache resourcecache.ResourceCache,
 ) (*Controller, error) {
 
 	c := Controller{
@@ -95,7 +92,6 @@ func NewController(
 		dynamicInformer: dynamicInformer,
 		log:             log,
 		Config:          dynamicConfig,
-		resCache:        resourceCache,
 	}
 
 	c.statusControl = StatusControl{client: kyvernoClient}

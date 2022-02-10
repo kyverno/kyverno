@@ -104,12 +104,14 @@ func (cd *ConfigData) FilterNamespaces(namespaces []string) []string {
 	return results
 }
 
+// GetWebhooks returns the webhook configs
 func (cd *ConfigData) GetWebhooks() []WebhookConfig {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.webhooks
 }
 
+// GetInitConfigMapName returns the init configmap name
 func (cd *ConfigData) GetInitConfigMapName() string {
 	return cd.cmName
 }
@@ -170,7 +172,7 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 	return &cd
 }
 
-//Run checks syncing
+// Run checks syncing
 func (cd *ConfigData) Run(stopCh <-chan struct{}) {
 	logger := cd.log
 	// wait for cache to populate first time
@@ -193,13 +195,14 @@ func (cd *ConfigData) updateCM(old, cur interface{}) {
 		return
 	}
 	// if data has not changed then dont load configmap
-	reconcilePolicyReport, updateWebook := cd.load(*cm)
+	reconcilePolicyReport, updateWebhook := cd.load(*cm)
+
 	if reconcilePolicyReport {
 		cd.log.Info("resource filters changed, sending reconcile signal to the policy controller")
 		cd.reconcilePolicyReport <- true
 	}
 
-	if updateWebook {
+	if updateWebhook {
 		cd.log.Info("webhook configurations changed, updating webhook configurations")
 		cd.updateWebhookConfigurations <- true
 	}
@@ -282,7 +285,13 @@ func (cd *ConfigData) load(cm v1.ConfigMap) (reconcilePolicyReport, updateWebhoo
 
 	webhooks, ok := cm.Data["webhooks"]
 	if !ok {
-		logger.V(4).Info("configuration: No webhook configurations defined in ConfigMap")
+		if len(cd.webhooks) > 0 {
+			cd.webhooks = nil
+			updateWebhook = true
+			logger.V(4).Info("configuration: Setting namespaceSelector to empty in the webhook configurations")
+		} else {
+			logger.V(4).Info("configuration: No webhook configurations defined in ConfigMap")
+		}
 	} else {
 		cfgs, err := parseWebhooks(webhooks)
 		if err != nil {

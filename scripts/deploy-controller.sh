@@ -33,8 +33,8 @@ if [ -z "${namespace}" ]; then # controller should be launched locally
 
   ${certsGenerator} "--service=${service_name}" "--serverIp=${serverIp}" || exit 2
 
-  kubectl delete -f definitions/install.yaml
-  kubectl create -f definitions/install.yaml || exit 3
+  kubectl delete -f config/install.yaml
+  kubectl create -f config/install.yaml || exit 3
 
   echo -e "\n### You can build and run kyverno project locally.\n### To check its work, run it with parameters -cert, -key and -kubeconfig parameters (see paths of -cert and -key in the log above)."
 

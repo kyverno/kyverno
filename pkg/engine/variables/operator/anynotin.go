@@ -9,7 +9,7 @@ import (
 
 //NewAnyNotInHandler returns handler to manage AnyNotIn operations
 func NewAnyNotInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
-	return NotInHandler{
+	return AnyNotInHandler{
 		ctx: ctx,
 		log: log,
 	}
@@ -26,10 +26,12 @@ func (anynin AnyNotInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
 		return anynin.validateValueWithStringPattern(typedKey, value)
+	case int, int32, int64, float32, float64:
+		return anynin.validateValueWithStringPattern(fmt.Sprint(typedKey), value)
 	case []interface{}:
 		var stringSlice []string
 		for _, v := range typedKey {
-			stringSlice = append(stringSlice, v.(string))
+			stringSlice = append(stringSlice, fmt.Sprint(v))
 		}
 		return anynin.validateValueWithStringSetPattern(stringSlice, value)
 	default:
@@ -39,7 +41,7 @@ func (anynin AnyNotInHandler) Evaluate(key, value interface{}) bool {
 }
 
 func (anynin AnyNotInHandler) validateValueWithStringPattern(key string, value interface{}) bool {
-	invalidType, keyExists := keyExistsInArray(key, value, anynin.log)
+	invalidType, keyExists := anyKeyExistsInArray(key, value, anynin.log)
 	if invalidType {
 		anynin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false

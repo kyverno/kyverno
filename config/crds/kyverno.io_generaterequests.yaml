@@ -1,0 +1,192 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.0
+  creationTimestamp: null
+  name: generaterequests.kyverno.io
+spec:
+  group: kyverno.io
+  names:
+    kind: GenerateRequest
+    listKind: GenerateRequestList
+    plural: generaterequests
+    shortNames:
+    - gr
+    singular: generaterequest
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.policy
+      name: Policy
+      type: string
+    - jsonPath: .spec.resource.kind
+      name: ResourceKind
+      type: string
+    - jsonPath: .spec.resource.name
+      name: ResourceName
+      type: string
+    - jsonPath: .spec.resource.namespace
+      name: ResourceNamespace
+      type: string
+    - jsonPath: .status.state
+      name: status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: GenerateRequest is a request to process generate rule.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec is the information to identify the generate request.
+            properties:
+              context:
+                description: Context ...
+                properties:
+                  admissionRequestInfo:
+                    description: AdmissionRequestInfoObject stores the admission request
+                      and operation details
+                    properties:
+                      admissionRequest:
+                        type: string
+                      operation:
+                        description: Operation is the type of resource operation being
+                          checked for admission control
+                        type: string
+                    type: object
+                  userInfo:
+                    description: RequestInfo contains permission info carried in an
+                      admission request.
+                    properties:
+                      clusterRoles:
+                        description: ClusterRoles is a list of possible clusterRoles
+                          send the request.
+                        items:
+                          type: string
+                        nullable: true
+                        type: array
+                      roles:
+                        description: Roles is a list of possible role send the request.
+                        items:
+                          type: string
+                        nullable: true
+                        type: array
+                      userInfo:
+                        description: UserInfo is the userInfo carried in the admission
+                          request.
+                        properties:
+                          extra:
+                            additionalProperties:
+                              description: ExtraValue masks the value so protobuf
+                                can generate
+                              items:
+                                type: string
+                              type: array
+                            description: Any additional information provided by the
+                              authenticator.
+                            type: object
+                          groups:
+                            description: The names of groups this user is a part of.
+                            items:
+                              type: string
+                            type: array
+                          uid:
+                            description: A unique value that identifies this user
+                              across time. If this user is deleted and another user
+                              by the same name is added, they will have different
+                              UIDs.
+                            type: string
+                          username:
+                            description: The name that uniquely identifies this user
+                              among all active users.
+                            type: string
+                        type: object
+                    type: object
+                type: object
+              policy:
+                description: Specifies the name of the policy.
+                type: string
+              resource:
+                description: ResourceSpec is the information to identify the generate
+                  request.
+                properties:
+                  apiVersion:
+                    description: APIVersion specifies resource apiVersion.
+                    type: string
+                  kind:
+                    description: Kind specifies resource kind.
+                    type: string
+                  name:
+                    description: Name specifies the resource name.
+                    type: string
+                  namespace:
+                    description: Namespace specifies resource namespace.
+                    type: string
+                type: object
+            required:
+            - context
+            - policy
+            - resource
+            type: object
+          status:
+            description: Status contains statistics related to generate request.
+            properties:
+              generatedResources:
+                description: This will track the resources that are generated by the
+                  generate Policy. Will be used during clean up resources.
+                items:
+                  description: ResourceSpec contains information to identify a resource.
+                  properties:
+                    apiVersion:
+                      description: APIVersion specifies resource apiVersion.
+                      type: string
+                    kind:
+                      description: Kind specifies resource kind.
+                      type: string
+                    name:
+                      description: Name specifies the resource name.
+                      type: string
+                    namespace:
+                      description: Namespace specifies resource namespace.
+                      type: string
+                  type: object
+                type: array
+              message:
+                description: Specifies request status message.
+                type: string
+              state:
+                description: State represents state of the generate request.
+                type: string
+            required:
+            - state
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

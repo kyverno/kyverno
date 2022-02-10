@@ -24,6 +24,7 @@ type MetricsConfigData struct {
 	log           logr.Logger
 }
 
+// MetricsConfig stores the config for metrics
 type MetricsConfig struct {
 	namespaces             namespacesConfig
 	metricsRefreshInterval time.Duration
@@ -44,10 +45,12 @@ func (mcd *MetricsConfigData) GetIncludeNamespaces() []string {
 	return mcd.metricsConfig.namespaces.IncludeNamespaces
 }
 
+// GetMetricsRefreshInterval returns the refresh interval for the metrics
 func (mcd *MetricsConfigData) GetMetricsRefreshInterval() time.Duration {
 	return mcd.metricsConfig.metricsRefreshInterval
 }
 
+// GetMetricsConfigMapName returns the configmap name for the metric
 func (mcd *MetricsConfigData) GetMetricsConfigMapName() string {
 	return mcd.cmName
 }

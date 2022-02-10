@@ -22,7 +22,7 @@ import (
 	"context"
 	time "time"
 
-	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha2"
+	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
 	v1alpha2 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"

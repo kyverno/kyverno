@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
@@ -64,6 +64,7 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 		resp.PatchedResource = resource
 	}
 
+	resp.Policy = &ctx.Policy
 	resp.PolicyResponse.Policy.Name = ctx.Policy.GetName()
 	resp.PolicyResponse.Policy.Namespace = ctx.Policy.GetNamespace()
 	resp.PolicyResponse.Resource.Name = resp.PatchedResource.GetName()
@@ -77,10 +78,6 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 
 func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineResponse {
 	resp := &response.EngineResponse{}
-	if ManagedPodResource(ctx.Policy, ctx.NewResource) {
-		log.V(5).Info("skip validation of pods managed by workload controllers", "policy", ctx.Policy.GetName())
-		return resp
-	}
 
 	ctx.JSONContext.Checkpoint()
 	defer ctx.JSONContext.Restore()
@@ -157,22 +154,22 @@ func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *vali
 	}
 }
 
-func newForeachValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule, foreachIndex int) *validator {
+func newForeachValidator(foreach *kyverno.ForEachValidation, rule *kyverno.Rule, ctx *PolicyContext, log logr.Logger) *validator {
 	ruleCopy := rule.DeepCopy()
-	foreach := ruleCopy.Validation.ForEachValidation
-	anyAllConditions, err := common.ToMap(foreach[foreachIndex].AnyAllConditions)
+	anyAllConditions, err := common.ToMap(foreach.AnyAllConditions)
 	if err != nil {
 		log.Error(err, "failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions")
 	}
+
 	return &validator{
 		log:              log,
 		ctx:              ctx,
 		rule:             ruleCopy,
-		contextEntries:   foreach[foreachIndex].Context,
+		contextEntries:   foreach.Context,
 		anyAllConditions: anyAllConditions,
-		pattern:          foreach[foreachIndex].Pattern,
-		anyPattern:       foreach[foreachIndex].AnyPattern,
-		deny:             foreach[foreachIndex].Deny,
+		pattern:          foreach.Pattern,
+		anyPattern:       foreach.AnyPattern,
+		deny:             foreach.Deny,
 	}
 }
 
@@ -184,7 +181,9 @@ func (v *validator) validate() *response.RuleResponse {
 	preconditionsPassed, err := checkPreconditions(v.log, v.ctx, v.anyAllConditions)
 	if err != nil {
 		return ruleError(v.rule, utils.Validation, "failed to evaluate preconditions", err)
-	} else if !preconditionsPassed {
+	}
+
+	if !preconditionsPassed {
 		return ruleResponse(v.rule, utils.Validation, "preconditions not met", response.RuleStatusSkip)
 	}
 
@@ -223,39 +222,24 @@ func (v *validator) validateForEach() *response.RuleResponse {
 		return nil
 	}
 
-	for foreachIndex, foreach := range foreachList {
+	for _, foreach := range foreachList {
 		elements, err := evaluateList(foreach.List, v.ctx.JSONContext)
 		if err != nil {
 			v.log.Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
 			continue
 		}
 
-		v.ctx.JSONContext.Checkpoint()
-		defer v.ctx.JSONContext.Restore()
-
-		for _, e := range elements {
-			v.ctx.JSONContext.Reset()
-
-			ctx := v.ctx.Copy()
-			if err := addElementToContext(ctx, e); err != nil {
-				v.log.Error(err, "failed to add element to context")
-				return ruleError(v.rule, utils.Validation, "failed to process foreach", err)
-			}
-
-			foreach := newForeachValidator(v.log, ctx, v.rule, foreachIndex)
-			r := foreach.validate()
-			if r == nil {
-				v.log.Info("skipping rule due to empty result")
-				continue
-			} else if r.Status == response.RuleStatusSkip {
-				v.log.Info("skipping rule as preconditions were not met")
-				continue
-			} else if r.Status != response.RuleStatusPass {
-				msg := fmt.Sprintf("validation failed in foreach rule for %v", r.Message)
-				return ruleResponse(v.rule, utils.Validation, msg, r.Status)
-			}
-			applyCount++
+		elementScope := true
+		if foreach.ElementScope != nil {
+			elementScope = *foreach.ElementScope
 		}
+
+		resp, count := v.validateElements(foreach, elements, elementScope)
+		if resp.Status != response.RuleStatusPass {
+			return resp
+		}
+
+		applyCount += count
 	}
 
 	if applyCount == 0 {
@@ -265,29 +249,65 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	return ruleResponse(v.rule, utils.Validation, "rule passed", response.RuleStatusPass)
 }
 
-func addElementToContext(ctx *PolicyContext, e interface{}) error {
+func (v *validator) validateElements(foreach *kyverno.ForEachValidation, elements []interface{}, elementScope bool) (*response.RuleResponse, int) {
+	v.ctx.JSONContext.Checkpoint()
+	defer v.ctx.JSONContext.Restore()
+	applyCount := 0
+
+	for i, e := range elements {
+		v.ctx.JSONContext.Reset()
+
+		ctx := v.ctx.Copy()
+		if err := addElementToContext(ctx, e, i, elementScope); err != nil {
+			v.log.Error(err, "failed to add element to context")
+			return ruleError(v.rule, utils.Validation, "failed to process foreach", err), applyCount
+		}
+
+		foreachValidator := newForeachValidator(foreach, v.rule, ctx, v.log)
+		r := foreachValidator.validate()
+		if r == nil {
+			v.log.Info("skip rule due to empty result")
+			continue
+		} else if r.Status == response.RuleStatusSkip {
+			v.log.Info("skip rule", "reason", r.Message)
+			continue
+		} else if r.Status != response.RuleStatusPass {
+			msg := fmt.Sprintf("validation failed in foreach rule for %v", r.Message)
+			return ruleResponse(v.rule, utils.Validation, msg, r.Status), applyCount
+		}
+
+		applyCount++
+	}
+
+	return ruleResponse(v.rule, utils.Validation, "", response.RuleStatusPass), applyCount
+}
+
+func addElementToContext(ctx *PolicyContext, e interface{}, elementIndex int, elementScope bool) error {
 	data, err := common.ToMap(e)
 	if err != nil {
 		return err
 	}
 
 	jsonData := map[string]interface{}{
-		"element": data,
+		"element":      data,
+		"elementIndex": elementIndex,
 	}
 
 	if err := ctx.JSONContext.AddJSONObject(jsonData); err != nil {
 		return errors.Wrapf(err, "failed to add element (%v) to JSON context", e)
 	}
 
-	u := unstructured.Unstructured{}
-	u.SetUnstructuredContent(data)
-	ctx.Element = u
+	if elementScope {
+		u := unstructured.Unstructured{}
+		u.SetUnstructuredContent(data)
+		ctx.Element = u
+	}
 
 	return nil
 }
 
 func (v *validator) loadContext() error {
-	if err := LoadContext(v.log, v.contextEntries, v.ctx.ResourceCache, v.ctx, v.rule.Name); err != nil {
+	if err := LoadContext(v.log, v.contextEntries, v.ctx, v.rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			v.log.V(3).Info("failed to load context", "reason", err.Error())
 		} else {
@@ -311,7 +331,7 @@ func (v *validator) validateDeny() *response.RuleResponse {
 		return ruleError(v.rule, utils.Validation, "failed to substitute variables in rule", err)
 	}
 
-	denyConditions, err := transformConditions(anyAllCond)
+	denyConditions, err := common.TransformConditions(anyAllCond)
 	if err != nil {
 		return ruleError(v.rule, utils.Validation, "invalid deny conditions", err)
 	}
@@ -344,8 +364,7 @@ func (v *validator) getDenyMessage(deny bool) string {
 
 func (v *validator) validateResourceWithRule() *response.RuleResponse {
 	if !isEmptyUnstructured(&v.ctx.Element) {
-		resp := v.validatePatterns(v.ctx.Element)
-		return resp
+		return v.validatePatterns(v.ctx.Element)
 	}
 
 	// if the OldResource is empty, the request is a CREATE
@@ -425,7 +444,8 @@ func isSameRuleResponse(r1 *response.RuleResponse, r2 *response.RuleResponse) bo
 func (v *validator) validatePatterns(resource unstructured.Unstructured) *response.RuleResponse {
 	if v.pattern != nil {
 		if err := validate.MatchPattern(v.log, resource.Object, v.pattern); err != nil {
-			if pe, ok := err.(*validate.PatternError); ok {
+			pe, ok := err.(*validate.PatternError)
+			if ok {
 				v.log.V(3).Info("validation error", "path", pe.Path, "error", err.Error())
 
 				if pe.Skip {
@@ -437,9 +457,9 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 				}
 
 				return ruleResponse(v.rule, utils.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusFail)
-			} else {
-				return ruleResponse(v.rule, utils.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusError)
 			}
+
+			return ruleResponse(v.rule, utils.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusError)
 		}
 
 		v.log.V(4).Info("successfully processed rule")

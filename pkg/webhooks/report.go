@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha2"
+	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 
 	"github.com/kyverno/kyverno/pkg/event"

@@ -19,7 +19,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/kyverno/kyverno/pkg/api/kyverno/v1alpha2"
+	v1alpha22 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -30,10 +30,10 @@ import (
 type ClusterReportChangeRequestLister interface {
 	// List lists all ClusterReportChangeRequests in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.ClusterReportChangeRequest, err error)
+	List(selector labels.Selector) (ret []*v1alpha22.ClusterReportChangeRequest, err error)
 	// Get retrieves the ClusterReportChangeRequest from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.ClusterReportChangeRequest, error)
+	Get(name string) (*v1alpha22.ClusterReportChangeRequest, error)
 	ClusterReportChangeRequestListerExpansion
 }
 
@@ -48,21 +48,21 @@ func NewClusterReportChangeRequestLister(indexer cache.Indexer) ClusterReportCha
 }
 
 // List lists all ClusterReportChangeRequests in the indexer.
-func (s *clusterReportChangeRequestLister) List(selector labels.Selector) (ret []*v1alpha2.ClusterReportChangeRequest, err error) {
+func (s *clusterReportChangeRequestLister) List(selector labels.Selector) (ret []*v1alpha22.ClusterReportChangeRequest, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.ClusterReportChangeRequest))
+		ret = append(ret, m.(*v1alpha22.ClusterReportChangeRequest))
 	})
 	return ret, err
 }
 
 // Get retrieves the ClusterReportChangeRequest from the index for a given name.
-func (s *clusterReportChangeRequestLister) Get(name string) (*v1alpha2.ClusterReportChangeRequest, error) {
+func (s *clusterReportChangeRequestLister) Get(name string) (*v1alpha22.ClusterReportChangeRequest, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(v1alpha2.Resource("clusterreportchangerequest"), name)
+		return nil, errors.NewNotFound(v1alpha22.Resource("clusterreportchangerequest"), name)
 	}
-	return obj.(*v1alpha2.ClusterReportChangeRequest), nil
+	return obj.(*v1alpha22.ClusterReportChangeRequest), nil
 }

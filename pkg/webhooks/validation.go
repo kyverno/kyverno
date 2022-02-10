@@ -4,10 +4,10 @@ import (
 	"reflect"
 	"time"
 
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/event"
 
 	"github.com/go-logr/logr"
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -110,8 +110,21 @@ func (v *validationHandler) handleValidation(
 		return false, getEnforceFailureErrorMsg(engineResponses)
 	}
 
+	// reports are generated for non-managed pods/jobs only
+	// no need to create rcr for managed resources
 	if request.Operation == v1beta1.Delete {
-		v.prGenerator.Add(buildDeletionPrInfo(policyContext.OldResource))
+		managed := true
+		for _, er := range engineResponses {
+			if er.Policy != nil && !engine.ManagedPodResource(*er.Policy, er.PatchedResource) {
+				managed = false
+				break
+			}
+		}
+
+		if !managed {
+			v.prGenerator.Add(buildDeletionPrInfo(policyContext.OldResource))
+		}
+
 		return true, ""
 	}
 

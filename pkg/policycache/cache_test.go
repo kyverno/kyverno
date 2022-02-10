@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	lv1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/labels"
@@ -255,7 +254,7 @@ func newPolicy(t *testing.T) *kyverno.ClusterPolicy {
 				}
 			  },
 			  "mutate": {
-				"overlay": {
+				"patchStrategicMerge": {
 				  "metadata": {
 					"annotations": {
 					  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
@@ -413,7 +412,7 @@ func newAnyPolicy(t *testing.T) *kyverno.ClusterPolicy {
 						]
 					},
 					"mutate": {
-						"overlay": {
+						"patchStrategicMerge": {
 							"metadata": {
 								"annotations": {
 									"+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
@@ -536,7 +535,7 @@ func newNsPolicy(t *testing.T) *kyverno.ClusterPolicy {
 				}
 			  },
 			  "mutate": {
-				"overlay": {
+				"patchStrategicMerge": {
 				  "metadata": {
 					"annotations": {
 					  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
