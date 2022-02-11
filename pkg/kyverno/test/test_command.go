@@ -16,6 +16,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/kataras/tablewriter"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -166,7 +167,7 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "test filename")
 	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "test github repository branch")
-	cmd.Flags().StringVarP(&testCase, "test-case", "t", "", "run a specific test")
+	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "", "run a specific test")
 	return cmd
 }
 
@@ -248,7 +249,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 
 		for _, t := range strings.Split(testCase, ",") {
 			if !strings.Contains(t, "=") {
-				fmt.Printf("\n Invalid test-case argument. Selecting all test cases. \n")
+				fmt.Printf("\n Invalid test-case-selector argument. Selecting all test cases. \n")
 				tf.enabled = false
 				break
 			}
@@ -672,20 +673,21 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		return sanitizederror.NewWithError("failed to decode yaml", err)
 	}
 
-	fmt.Printf("\nExecuting %s...", values.Name)
-
 	if tf.enabled {
-		fmt.Printf("\nApplying test filters...")
 		var filteredResults []TestResults
 		for _, res := range values.Results {
-
 			if (len(tf.policy) == 0 || tf.policy == res.Policy) && (len(tf.resource) == 0 || tf.resource == res.Resource) && (len(tf.rule) == 0 || tf.rule == res.Rule) {
 				filteredResults = append(filteredResults, res)
 			}
 		}
-
 		values.Results = filteredResults
 	}
+
+	if len(values.Results) == 0 {
+		return nil
+	}
+
+	fmt.Printf("\nExecuting %s...", values.Name)
 	valuesFile := values.Variables
 	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
@@ -710,6 +712,17 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		os.Exit(1)
 	}
 
+	var filteredPolicies = []*v1.ClusterPolicy{}
+	for _, p := range policies {
+		for _, res := range values.Results {
+			if p.Name == res.Policy {
+				filteredPolicies = append(filteredPolicies, p)
+				break
+			}
+		}
+	}
+	policies = filteredPolicies
+
 	mutatedPolicies, err := common.MutatePolices(policies)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
@@ -727,6 +740,17 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		os.Exit(1)
 	}
+
+	var filteredResources = []*unstructured.Unstructured{}
+	for _, r := range resources {
+		for _, res := range values.Results {
+			if r.GetName() == res.Resource {
+				filteredResources = append(filteredResources, r)
+				break
+			}
+		}
+	}
+	resources = filteredResources
 
 	msgPolicies := "1 policy"
 	if len(mutatedPolicies) > 1 {
