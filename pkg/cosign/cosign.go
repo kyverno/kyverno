@@ -7,8 +7,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"strings"
+
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 
 	"github.com/sigstore/cosign/cmd/cosign/cli/rekor"
 
@@ -151,7 +152,7 @@ func FetchAttestations(imageRef string, imageVerify *v1.ImageVerification, log l
 	var err error
 
 	cosignOpts := &cosign.CheckOpts{
-		ClaimVerifier:      cosign.IntotoSubjectClaimVerifier,
+		ClaimVerifier: cosign.IntotoSubjectClaimVerifier,
 	}
 
 	if imageVerify.Key != "" {
