@@ -169,6 +169,10 @@ func FetchAttestations(imageRef string, imageVerify *v1.ImageVerification, log l
 		}
 	}
 
+	if err != nil {
+		return nil, errors.Wrap(err, "loading credentials")
+	}
+
 	var opts []remote.Option
 	ro := options.RegistryOptions{}
 
