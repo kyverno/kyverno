@@ -3,6 +3,7 @@ package webhookconfig
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -233,6 +234,10 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface)
 				logger.Error(err, "failed to convert namespaceSelector to the map")
 				continue
 			}
+		}
+
+		if nsSelector == nil {
+			continue
 		}
 
 		if err := wrc.updateResourceMutatingWebhookConfiguration(nsSelector); err != nil {
@@ -739,6 +744,17 @@ func (wrc *Register) updateResourceValidatingWebhookConfiguration(nsSelector map
 		if !ok {
 			return errors.Wrapf(err, "type mismatched, expected map[string]interface{}, got %T", webhooksUntyped[i])
 		}
+
+		currentSelector, _, err := unstructured.NestedMap(webhook, "namespaceSelector")
+		if err != nil {
+			return errors.Wrapf(err, "unable to get validatingWebhookConfigurations.webhooks["+fmt.Sprint(i)+"].namespaceSelector")
+		}
+
+		if reflect.DeepEqual(nsSelector, currentSelector) {
+			wrc.log.V(3).Info("namespaceSelector unchanged, skip updating validatingWebhookConfigurations")
+			continue
+		}
+
 		if err = unstructured.SetNestedMap(webhook, nsSelector, "namespaceSelector"); err != nil {
 			return errors.Wrapf(err, "unable to set validatingWebhookConfigurations.webhooks["+fmt.Sprint(i)+"].namespaceSelector")
 		}
@@ -789,6 +805,17 @@ func (wrc *Register) updateResourceMutatingWebhookConfiguration(nsSelector map[s
 		if !ok {
 			return errors.Wrapf(err, "type mismatched, expected map[string]interface{}, got %T", webhooksUntyped[i])
 		}
+
+		currentSelector, _, err := unstructured.NestedMap(webhook, "namespaceSelector")
+		if err != nil {
+			return errors.Wrapf(err, "unable to get mutatingWebhookConfigurations.webhooks["+fmt.Sprint(i)+"].namespaceSelector")
+		}
+
+		if reflect.DeepEqual(nsSelector, currentSelector) {
+			wrc.log.V(3).Info("namespaceSelector unchanged, skip updating mutatingWebhookConfigurations")
+			continue
+		}
+
 		if err = unstructured.SetNestedMap(webhook, nsSelector, "namespaceSelector"); err != nil {
 			return errors.Wrapf(err, "unable to set mutatingWebhookConfigurations.webhooks["+fmt.Sprint(i)+"].namespaceSelector")
 		}
