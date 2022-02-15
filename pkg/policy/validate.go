@@ -873,9 +873,7 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 }
 
 func validateResources(rule kyverno.Rule) (string, error) {
-	// if len(rule.MatchResources.RequestTypes) > 0 {
-	// 	validateRequestTypes(rule.MatchResources)
-	// }
+
 	if path, err := validateMatchRequestTypes(rule.MatchResources); err != nil {
 		return fmt.Sprintf("resources.%s", path), err
 	}
