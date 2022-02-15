@@ -48,7 +48,7 @@ func filterAndSortPatches(originalPatches []jsonpatch.JsonPatchOperation) []json
 	start := 0
 	for _, idx := range index {
 		end := idx[0]
-		copy(result[start:end], patches[:end])
+		copy(result[start:end], patches[start:end])
 		reversedPatches := reverse(patches, idx)
 		copy(result[end:], reversedPatches)
 		start = idx[1] + 1

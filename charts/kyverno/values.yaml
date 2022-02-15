@@ -1,7 +1,7 @@
 nameOverride:
 fullnameOverride:
 namespace:
-
+mode: "standalone"
 # -- Additional labels
 customLabels: {}
 
@@ -35,7 +35,7 @@ testImage:
   # testImage.pullPolicy defaults to image.pullPolicy if omitted
   pullPolicy:
 
-replicaCount: 1
+replicaCount: 0
 
 podLabels: {}
 #   example.com/label: foo
@@ -160,7 +160,7 @@ config:
   - "[TokenReview,*,*]"
   - "[SubjectAccessReview,*,*]"
   - "[SelfSubjectAccessReview,*,*]"
-  - "[*,kyverno,*]"
+  - "[*,kyverno,kyverno*]"
   - "[Binding,*,*]"
   - "[ReplicaSet,*,*]"
   - "[ReportChangeRequest,*,*]"
@@ -262,10 +262,8 @@ installCRDs: true
 # policies in a default-deny setup.
 networkPolicy:
   enabled: false
-  namespaceExpressions: []
-  namespaceLabels: {}
-  podExpressions: []
-  podLabels: {}
+# A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies
+  ingressFrom: []
 
 webhooksCleanup:
   enable: false
