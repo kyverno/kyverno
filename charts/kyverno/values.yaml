@@ -1,7 +1,7 @@
 nameOverride:
 fullnameOverride:
 namespace:
-
+mode: "standalone"
 # -- Additional labels
 customLabels: {}
 
@@ -35,7 +35,7 @@ testImage:
   # testImage.pullPolicy defaults to image.pullPolicy if omitted
   pullPolicy:
 
-replicaCount: 1
+replicaCount: 0
 
 podLabels: {}
 #   example.com/label: foo
