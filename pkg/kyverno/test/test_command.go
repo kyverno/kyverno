@@ -104,7 +104,7 @@ Policy (Namespaced)
     rule: <name>
     resource: <name>
     namespace: <name> (OPTIONAL)
-        kind: <name>
+    kind: <name>
     patchedResource: <path>
     result: <pass|fail|skip>
 
@@ -512,13 +512,13 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 				}
 
 				var result report.PolicyReportResult
-				var resultsKey []string
+				var resultsKeys []string
 				var resultKey string
-				resultsKey = GetAllPossibleResultsKey("", info.PolicyName, rule.Name, infoResult.Resource.Namespace, infoResult.Resource.Kind, infoResult.Resource.Name)
-				for _, resultK := range resultsKey {
-					if val, ok := results[resultK]; ok {
+				resultsKeys = GetAllPossibleResultsKey("", info.PolicyName, rule.Name, infoResult.Resource.Namespace, infoResult.Resource.Kind, infoResult.Resource.Name)
+				for _, key := range resultsKeys {
+					if val, ok := results[key]; ok {
 						result = val
-						resultKey = resultK
+						resultKey = key
 					} else {
 						continue
 					}
@@ -779,6 +779,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 		if val, ok := resps[resultKey]; ok {
 			testRes = val
 		} else {
+			log.Log.V(2).Info("result not found", "key", resultKey)
 			res.Result = boldYellow.Sprintf("Not found")
 			rc.Fail++
 			table = append(table, res)
@@ -799,6 +800,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 				rc.Pass++
 			}
 		} else {
+			log.Log.V(2).Info("result mismatch", "expected", testRes.Result, "received", v.Result, "key", resultKey)
 			res.Result = boldRed.Sprintf("Fail")
 			rc.Fail++
 		}
