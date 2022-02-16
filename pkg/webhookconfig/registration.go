@@ -754,7 +754,7 @@ func (wrc *Register) updateResourceValidatingWebhookConfiguration(nsSelector map
 	}
 
 	if !webhookChanged {
-		wrc.log.V(3).Info("namespaceSelector unchanged, skip updating validatingWebhookConfigurations")
+		wrc.log.V(4).Info("namespaceSelector unchanged, skip updating validatingWebhookConfigurations")
 		return nil
 	}
 
@@ -765,6 +765,8 @@ func (wrc *Register) updateResourceValidatingWebhookConfiguration(nsSelector map
 	if _, err := wrc.client.UpdateResource(resourceValidating.GetAPIVersion(), resourceValidating.GetKind(), "", resourceValidating, false); err != nil {
 		return err
 	}
+
+	wrc.log.V(3).Info("successfully updated validatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
 
 	return nil
 }
@@ -820,7 +822,7 @@ func (wrc *Register) updateResourceMutatingWebhookConfiguration(nsSelector map[s
 	}
 
 	if !webhookChanged {
-		wrc.log.V(3).Info("namespaceSelector unchanged, skip updating mutatingWebhookConfigurations")
+		wrc.log.V(4).Info("namespaceSelector unchanged, skip updating mutatingWebhookConfigurations")
 		return nil
 	}
 
@@ -831,6 +833,8 @@ func (wrc *Register) updateResourceMutatingWebhookConfiguration(nsSelector map[s
 	if _, err := wrc.client.UpdateResource(resourceMutating.GetAPIVersion(), resourceMutating.GetKind(), "", resourceMutating, false); err != nil {
 		return err
 	}
+
+	wrc.log.V(3).Info("successfully updated mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
 
 	return nil
 }
