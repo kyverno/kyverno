@@ -236,10 +236,6 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface)
 			}
 		}
 
-		if nsSelector == nil {
-			continue
-		}
-
 		if err := wrc.updateResourceMutatingWebhookConfiguration(nsSelector); err != nil {
 			logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
 			go func() { wrc.UpdateWebhookChan <- true }()
@@ -800,6 +796,7 @@ func (wrc *Register) updateResourceMutatingWebhookConfiguration(nsSelector map[s
 		ok       bool
 	)
 
+	webhookChanged := false
 	for i, whu := range webhooksUntyped {
 		webhook, ok = whu.(map[string]interface{})
 		if !ok {
@@ -811,15 +808,19 @@ func (wrc *Register) updateResourceMutatingWebhookConfiguration(nsSelector map[s
 			return errors.Wrapf(err, "unable to get mutatingWebhookConfigurations.webhooks["+fmt.Sprint(i)+"].namespaceSelector")
 		}
 
-		if reflect.DeepEqual(nsSelector, currentSelector) {
-			wrc.log.V(3).Info("namespaceSelector unchanged, skip updating mutatingWebhookConfigurations")
-			continue
+		if !reflect.DeepEqual(nsSelector, currentSelector) {
+			webhookChanged = true
 		}
 
 		if err = unstructured.SetNestedMap(webhook, nsSelector, "namespaceSelector"); err != nil {
 			return errors.Wrapf(err, "unable to set mutatingWebhookConfigurations.webhooks["+fmt.Sprint(i)+"].namespaceSelector")
 		}
 		webhooks = append(webhooks, webhook)
+	}
+
+	if !webhookChanged {
+		wrc.log.V(3).Info("namespaceSelector unchanged, skip updating mutatingWebhookConfigurations")
+		return nil
 	}
 
 	if err = unstructured.SetNestedSlice(resourceMutating.UnstructuredContent(), webhooks, "webhooks"); err != nil {
