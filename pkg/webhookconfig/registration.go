@@ -735,6 +735,7 @@ func (wrc *Register) updateResourceValidatingWebhookConfiguration(nsSelector map
 		ok       bool
 	)
 
+	webhookChanged := false
 	for i, whu := range webhooksUntyped {
 		webhook, ok = whu.(map[string]interface{})
 		if !ok {
@@ -746,15 +747,19 @@ func (wrc *Register) updateResourceValidatingWebhookConfiguration(nsSelector map
 			return errors.Wrapf(err, "unable to get validatingWebhookConfigurations.webhooks["+fmt.Sprint(i)+"].namespaceSelector")
 		}
 
-		if reflect.DeepEqual(nsSelector, currentSelector) {
-			wrc.log.V(3).Info("namespaceSelector unchanged, skip updating validatingWebhookConfigurations")
-			continue
+		if !reflect.DeepEqual(nsSelector, currentSelector) {
+			webhookChanged = true
 		}
 
 		if err = unstructured.SetNestedMap(webhook, nsSelector, "namespaceSelector"); err != nil {
 			return errors.Wrapf(err, "unable to set validatingWebhookConfigurations.webhooks["+fmt.Sprint(i)+"].namespaceSelector")
 		}
 		webhooks = append(webhooks, webhook)
+	}
+
+	if !webhookChanged {
+		wrc.log.V(3).Info("namespaceSelector unchanged, skip updating validatingWebhookConfigurations")
+		return nil
 	}
 
 	if err = unstructured.SetNestedSlice(resourceValidating.UnstructuredContent(), webhooks, "webhooks"); err != nil {
