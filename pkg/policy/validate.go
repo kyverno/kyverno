@@ -106,6 +106,10 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		clusterResourcesMap := make(map[string]*struct{})
 		// Get all the cluster type kind supported by cluster
 
+		if len(policy.Spec.ValidationFailureActionOverrides) > 0 {
+			return fmt.Errorf("invalid policy: use of ValidationFailureActionOverrides in a Namespace Policy")
+		}
+
 		res, err := client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
 		if err != nil {
 			return err
@@ -1000,6 +1004,16 @@ func validateConditionValues(c kyverno.Condition) (string, error) {
 	if c.Key == nil || c.Value == nil || c.Operator == "" {
 		return "", fmt.Errorf("entered value of `key`, `value` or `operator` is missing or misspelled")
 	}
+	switch reflect.TypeOf(c.Key).Kind() {
+	case reflect.String:
+		value, err := validateValuesKeyRequest(c)
+		return value, err
+	default:
+		return "", nil
+	}
+}
+
+func validateValuesKeyRequest(c kyverno.Condition) (string, error) {
 	switch strings.ReplaceAll(c.Key.(string), " ", "") {
 	case "{{request.operation}}":
 		return validateConditionValuesKeyRequestOperation(c)
@@ -1107,9 +1121,12 @@ func validateRuleContext(rule kyverno.Rule) error {
 	}
 
 	ruleBytes, _ := json.Marshal(rule)
-	ruleString := strings.ReplaceAll(string(ruleBytes), " ", "")
 	for _, contextName := range contextNames {
-		if !strings.Contains(ruleString, fmt.Sprintf("{{"+contextName)) && !strings.Contains(ruleString, fmt.Sprintf("{{\\\""+contextName)) {
+		contextRegex, err := regexp.Compile(fmt.Sprintf(`{{.*\b%s\b.*}}`, contextName))
+		if err != nil {
+			return fmt.Errorf("unable to validate context variable `%s`, %w", contextName, err)
+		}
+		if !contextRegex.Match(ruleBytes) {
 			return fmt.Errorf("context variable `%s` is not used in the policy", contextName)
 		}
 	}
@@ -1431,9 +1448,10 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources [
 		// should not be mentioned
 		if rule.HasGenerate() {
 			generateResourceKind := rule.Generation.Kind
+			generateResourceAPIVersion := rule.Generation.APIVersion
 			for _, resList := range res {
 				for _, r := range resList.APIResources {
-					if r.Kind == generateResourceKind {
+					if r.Kind == generateResourceKind && (len(generateResourceAPIVersion) == 0 || r.Version == generateResourceAPIVersion) {
 						if r.Namespaced {
 							if rule.Generation.Namespace == "" {
 								return fmt.Errorf("path: spec.rules[%v]: please mention the namespace to generate a namespaced resource", rule.Name)

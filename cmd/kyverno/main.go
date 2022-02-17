@@ -204,7 +204,6 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
-		rCache,
 		log.Log.WithName("EventGenerator"))
 
 	// POLICY Report GENERATOR
@@ -238,6 +237,8 @@ func main() {
 		clientConfig,
 		client,
 		pclient,
+		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
+		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		rCache,
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Namespaces(),

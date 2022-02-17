@@ -87,6 +87,16 @@ var tests = []struct {
 		ExpectedPatternRaw: kyverno_2316_pattern,
 	},
 	{
+		TestDescription:    "checks that policy mutate env variables of an array with specific index numbers",
+		PolicyName:         "add-image-as-env-var",
+		PolicyRaw:          kyverno_mutate_json_patch,
+		ResourceName:       "foo",
+		ResourceNamespace:  "test-mutate-env-array",
+		ResourceGVR:        podGVR,
+		ResourceRaw:        podWithEnvVar,
+		ExpectedPatternRaw: podWithEnvVarPattern,
+	},
+	{
 		TestDescription:    "checks that preconditions are substituted correctly",
 		PolicyName:         "replace-docker-hub",
 		PolicyRaw:          kyverno_2971_policy,

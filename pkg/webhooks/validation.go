@@ -100,6 +100,7 @@ func (v *validationHandler) handleValidation(
 	//   create an event on the resource
 	events := generateEvents(engineResponses, blocked, (request.Operation == v1beta1.Update), logger)
 	v.eventGen.Add(events...)
+
 	if blocked {
 		logger.V(4).Info("resource blocked")
 		//registering the kyverno_admission_review_duration_seconds metric concurrently

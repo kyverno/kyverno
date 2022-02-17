@@ -113,7 +113,7 @@ func fetchImageDataMap(ref string) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
 	}
-	desc, err := remote.Get(parsedRef)
+	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultKeychain))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
 	}

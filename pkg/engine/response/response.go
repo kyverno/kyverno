@@ -32,6 +32,8 @@ type PolicyResponse struct {
 	Rules []RuleResponse `json:"rules"`
 	// ValidationFailureAction: audit (default) or enforce
 	ValidationFailureAction string
+
+	ValidationFailureActionOverrides []ValidationFailureActionOverride
 }
 
 //PolicySpec policy
@@ -172,4 +174,9 @@ func (er EngineResponse) getRules(status RuleStatus) []string {
 	}
 
 	return rules
+}
+
+type ValidationFailureActionOverride struct {
+	Action     string   `json:"action"`
+	Namespaces []string `json:"namespaces"`
 }

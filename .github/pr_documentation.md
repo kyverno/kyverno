@@ -142,4 +142,8 @@ See that the Deployment fails now that Kyverno can read from multi-line YAML str
 
 ## CLI Support
 
-A new feature which has been implemented for the webhook may often need to be available in the [Kyverno CLI](https://kyverno.io/docs/kyverno-cli/) simultaneously. Please ensure your tests and Proof Manifests include one for the `test` command allowing validation of the CLI functionality. If the provided functionality does not work in the CLI, a separate issue may need to be raised. 
+A new feature which has been implemented for the webhook may often need to be available in the [Kyverno CLI](https://kyverno.io/docs/kyverno-cli/) simultaneously. Please ensure your tests and Proof Manifests include one for the `test` command allowing validation of the CLI functionality. If the provided functionality does not work in the CLI, a separate issue may need to be raised.
+
+## Cherry Picking for Releases
+
+Kyverno releases are generated from release branches. When the release branch is created, if there's any change that needs to be back ported for patches we cherry-pick commits to include them in the release. To assist in the cherry-pick process, please check the box that this PR is targeting a specific release branch as reviewers wants to make sure current PR has the right milestone and cherry-pick PR targets to the same release branch.

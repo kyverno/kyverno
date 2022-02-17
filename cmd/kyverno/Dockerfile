@@ -7,7 +7,6 @@ LABEL maintainer="Kyverno"
 # LD_FLAGS is passed as argument from Makefile. It will be empty, if no argument passed
 ARG LD_FLAGS
 ARG TARGETPLATFORM
-ARG TAGS
 
 ADD . /kyverno
 WORKDIR /kyverno
@@ -17,7 +16,7 @@ RUN export GOOS=$(echo ${TARGETPLATFORM} | cut -d / -f1) && \
 
 RUN go env
 
-RUN CGO_ENABLED=0 go build -o /output/kyverno -tags "${TAGS}" -ldflags="${LD_FLAGS}" -v ./cmd/kyverno/
+RUN CGO_ENABLED=0 go build -o /output/kyverno -ldflags="${LD_FLAGS}" -v ./cmd/kyverno/
 
 # Packaging stage
 FROM scratch

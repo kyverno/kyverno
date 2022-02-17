@@ -5,24 +5,10 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
-
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
-
-func areEqualJSONs(t *testing.T, s1, s2 []byte) {
-	var o1 interface{}
-	var o2 interface{}
-
-	var err error
-	err = json.Unmarshal(s1, &o1)
-	assert.NilError(t, err)
-
-	err = json.Unmarshal(s2, &o2)
-	assert.NilError(t, err)
-	assert.DeepEqual(t, o1, o2)
-}
 
 func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 	testCases := []struct {
@@ -341,7 +327,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 				"spec": {
 				  "volumes": [
 					{
-					  "(hostPath)": {
+					  "<(hostPath)": {
 						"path": "*"
 					  }
 					}
@@ -400,7 +386,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 				"spec": {
 				  "volumes": [
 					{
-					  "(hostPath)": {
+					  "<(hostPath)": {
 						"path": "*"
 					  }
 					}
@@ -855,17 +841,23 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 	}
 
 	for i, test := range testCases {
-
-		t.Logf("Running test %d...", i+1)
+		t.Logf("Running test %d...", i)
 		preProcessedPolicy, err := preProcessStrategicMergePatch(log.Log, string(test.rawPolicy), string(test.rawResource))
 		assert.NilError(t, err)
 
 		output, err := preProcessedPolicy.MarshalJSON()
 		assert.NilError(t, err)
 
-		// has assertions inside
-		areEqualJSONs(t, test.expectedPatch, output)
+		assert.DeepEqual(t, toJSON(t, []byte(test.expectedPatch)), toJSON(t, output))
 	}
+}
+
+func toJSON(t *testing.T, b []byte) interface{} {
+	var i interface{}
+	var err error
+	err = json.Unmarshal(b, &i)
+	assert.NilError(t, err)
+	return i
 }
 
 func Test_FilterKeys_NoConditions(t *testing.T) {
@@ -1056,7 +1048,7 @@ func Test_DeleteConditions(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, len(containers), 2)
 
-	_, err = deleteAnchors(pattern)
+	_, err = deleteAnchors(pattern, false, false)
 	assert.NilError(t, err)
 
 	containers, err = pattern.Field("spec").Value.Field("containers").Value.Elements()
@@ -1150,7 +1142,20 @@ func Test_NonExistingKeyMustFailPreprocessing(t *testing.T) {
 
 	pattern := yaml.MustParse(string(rawPattern))
 	resource := yaml.MustParse(string(rawResource))
-
 	err := preProcessPattern(log.Log, pattern, resource)
 	assert.Error(t, err, "condition failed: could not found \"key1\" key in the resource")
+}
+
+func Test_NestedConditionals(t *testing.T) {
+	rawPattern := `{"spec":{"template":{"spec":{"volumes":[{"(emptyDir)":{"+(sizeLimit)":"20Mi"},"name":"*"}]}}}}`
+	rawResource := `{"spec":{"template":{"spec":{"volumes":[{"emptyDir":{},"name":"vol02"}]}}}}`
+	expectedPattern := `{"spec":{"template":{"spec":{"volumes":[{"emptyDir":{"sizeLimit":"20Mi"},"name":"vol02"}]}}}}`
+
+	pattern := yaml.MustParse(rawPattern)
+	resource := yaml.MustParse(rawResource)
+	err := preProcessPattern(log.Log, pattern, resource)
+	assert.NilError(t, err)
+	resultPattern, _ := pattern.String()
+
+	assert.DeepEqual(t, toJSON(t, []byte(expectedPattern)), toJSON(t, []byte(resultPattern)))
 }

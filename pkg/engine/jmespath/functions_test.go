@@ -805,6 +805,50 @@ func Test_Divide(t *testing.T) {
 			err:  true,
 		},
 		{
+			test: "divide('12s', '0s')",
+			err:  true,
+		},
+		{
+			test: "divide(`12`, '0s')",
+			err:  true,
+		},
+		{
+			test: "divide('12M', '0Mi')",
+			err:  true,
+		},
+		{
+			test: "divide('12K', `0`)",
+			err:  true,
+		},
+		{
+			test: "divide('12K', '0m')",
+			err:  true,
+		},
+		{
+			test: "divide('12Ki', '0G')",
+			err:  true,
+		},
+		{
+			test: "divide('12Mi', '0Gi')",
+			err:  true,
+		},
+		{
+			test: "divide('12Mi', `0`)",
+			err:  true,
+		},
+		{
+			test: "divide(`12`, '0Gi')",
+			err:  true,
+		},
+		{
+			test: "divide(`12`, '0K')",
+			err:  true,
+		},
+		{
+			test: "divide(`12`, `0`)",
+			err:  true,
+		},
+		{
 			test:           "divide(`25`, `2`)",
 			expectedResult: 12.5,
 			retFloat:       true,
@@ -815,7 +859,8 @@ func Test_Divide(t *testing.T) {
 		},
 		{
 			test:           "divide('25m0s', '2s')",
-			expectedResult: `12m30s`,
+			expectedResult: 750.0,
+			retFloat:       true,
 		},
 		{
 			test:           "divide(`360`, '-2s')",
@@ -827,7 +872,8 @@ func Test_Divide(t *testing.T) {
 		},
 		{
 			test:           "divide('26Gi', '13Ki')",
-			expectedResult: `2Mi`,
+			expectedResult: 2097152.0,
+			retFloat:       true,
 		},
 		{
 			test:           "divide('500m', `2`)",
@@ -886,6 +932,50 @@ func Test_Modulo(t *testing.T) {
 		},
 		{
 			test: "modulo('12s', `0`)",
+			err:  true,
+		},
+		{
+			test: "modulo('12s', '0s')",
+			err:  true,
+		},
+		{
+			test: "modulo(`12`, '0s')",
+			err:  true,
+		},
+		{
+			test: "modulo('12M', '0Mi')",
+			err:  true,
+		},
+		{
+			test: "modulo('12K', `0`)",
+			err:  true,
+		},
+		{
+			test: "modulo('12K', '0m')",
+			err:  true,
+		},
+		{
+			test: "modulo('12Ki', '0G')",
+			err:  true,
+		},
+		{
+			test: "modulo('12Mi', '0Gi')",
+			err:  true,
+		},
+		{
+			test: "modulo('12Mi', `0`)",
+			err:  true,
+		},
+		{
+			test: "modulo(`12`, '0Gi')",
+			err:  true,
+		},
+		{
+			test: "modulo(`12`, '0K')",
+			err:  true,
+		},
+		{
+			test: "modulo(`12`, `0`)",
 			err:  true,
 		},
 		{
