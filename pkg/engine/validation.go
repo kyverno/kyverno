@@ -111,15 +111,20 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	return resp
 }
 
-func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *response.RuleResponse {
+func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) (*response.RuleResponse, error) {
 	ctxCopy := ctx.Copy()
 	ctxCopy.NewResource = *ctxCopy.OldResource.DeepCopy()
 	ctxCopy.OldResource = unstructured.Unstructured{}
 
-	ctxCopy.JSONContext.ReplaceResourceAsObject(ctxCopy.NewResource.Object)
-	ctxCopy.JSONContext.ReplaceResourceAsOldObject(ctxCopy.OldResource.Object)
+	if err := ctxCopy.JSONContext.ReplaceResourceAsObject(ctxCopy.NewResource.Object); err != nil {
+		return nil, errors.Wrapf(err, "failed to replace object in the JSON context")
+	}
 
-	return processValidationRule(log, ctxCopy, rule)
+	if err := ctxCopy.JSONContext.ReplaceResourceAsOldObject(ctxCopy.OldResource.Object); err != nil {
+		return nil, errors.Wrapf(err, "failed to replace old object in the JSON context")
+	}
+
+	return processValidationRule(log, ctxCopy, rule), nil
 }
 
 func processValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *response.RuleResponse {
@@ -203,6 +208,10 @@ func (v *validator) validate() *response.RuleResponse {
 		return ruleResponse(v.rule, utils.Validation, "preconditions not met", response.RuleStatusSkip)
 	}
 
+	if v.deny != nil {
+		return v.validateDeny()
+	}
+
 	if v.pattern != nil || v.anyPattern != nil {
 		if err = v.substitutePatterns(); err != nil {
 			return ruleError(v.rule, utils.Validation, "variable substitution failed", err)
@@ -210,17 +219,17 @@ func (v *validator) validate() *response.RuleResponse {
 
 		ruleResponse := v.validateResourceWithRule()
 		if isUpdateRequest(v.ctx) {
-			priorResp := validateOldObject(v.log, v.ctx, v.rule)
+			priorResp, err := validateOldObject(v.log, v.ctx, v.rule)
+			if err != nil {
+				return ruleError(v.rule, utils.Validation, "failed to validate old object", err)
+			}
+
 			if isSameRuleResponse(ruleResponse, priorResp) {
 				v.log.V(3).Info("skipping modified resource as validation results have not changed")
 				return nil
 			}
 		}
 
-		return ruleResponse
-
-	} else if v.deny != nil {
-		ruleResponse := v.validateDeny()
 		return ruleResponse
 	}
 
