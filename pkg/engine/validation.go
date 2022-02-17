@@ -111,6 +111,17 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	return resp
 }
 
+func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *response.RuleResponse {
+	ctxCopy := ctx.Copy()
+	ctxCopy.NewResource = *ctxCopy.OldResource.DeepCopy()
+	ctxCopy.OldResource = unstructured.Unstructured{}
+
+	ctxCopy.JSONContext.AddResourceAsObject(ctxCopy.NewResource.Object)
+	ctxCopy.JSONContext.AddResourceAsOldObject(ctxCopy.OldResource.Object)
+
+	return processValidationRule(log, ctxCopy, rule)
+}
+
 func processValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *response.RuleResponse {
 	v := newValidator(log, ctx, rule)
 	if rule.Validation.ForEachValidation != nil {
@@ -198,6 +209,14 @@ func (v *validator) validate() *response.RuleResponse {
 		}
 
 		ruleResponse := v.validateResourceWithRule()
+		if isUpdateRequest(v.ctx) {
+			priorResp := validateOldObject(v.log, v.ctx, v.rule)
+			if isSameRuleResponse(ruleResponse, priorResp) {
+				v.log.V(3).Info("skipping modified resource as validation results have not changed")
+				return nil
+			}
+		}
+
 		return ruleResponse
 
 	} else if v.deny != nil {
@@ -372,27 +391,23 @@ func (v *validator) validateResourceWithRule() *response.RuleResponse {
 		return v.validatePatterns(v.ctx.Element)
 	}
 
-	// if the OldResource is empty, the request is a CREATE
-	if isEmptyUnstructured(&v.ctx.OldResource) {
-		resp := v.validatePatterns(v.ctx.NewResource)
-		return resp
-	}
-
-	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
-	if isEmptyUnstructured(&v.ctx.NewResource) {
+	if isDeleteRequest(v.ctx) {
 		v.log.V(3).Info("skipping validation on deleted resource")
 		return nil
 	}
 
-	// if the OldResource is not empty, and the NewResource is not empty, the request is a MODIFY
-	oldResp := v.validatePatterns(v.ctx.OldResource)
-	newResp := v.validatePatterns(v.ctx.NewResource)
-	if isSameRuleResponse(oldResp, newResp) {
-		v.log.V(3).Info("skipping modified resource as validation results have not changed")
-		return nil
-	}
+	resp := v.validatePatterns(v.ctx.NewResource)
+	return resp
+}
 
-	return newResp
+func isDeleteRequest(ctx *PolicyContext) bool {
+	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
+	return isEmptyUnstructured(&ctx.NewResource)
+}
+
+func isUpdateRequest(ctx *PolicyContext) bool {
+	// is the OldObject and NewObject are available, the request is an UPDATE
+	return !isEmptyUnstructured(&ctx.OldResource) && !isEmptyUnstructured(&ctx.NewResource)
 }
 
 func isEmptyUnstructured(u *unstructured.Unstructured) bool {
