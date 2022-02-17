@@ -526,7 +526,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 
 	kyvernoNamespace, err := g.nsLister.Get(config.KyvernoNamespace)
 	if err != nil {
-		g.log.Error(err, "failed to get Kyverno namespace, policy reports won't be garbage collected upon termination")
+		g.log.Error(err, "failed to get Kyverno namespace, policy reports will not be garbage collected upon termination")
 	}
 
 	if namespace == "" {
