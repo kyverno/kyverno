@@ -264,3 +264,7 @@ networkPolicy:
   enabled: false
 # A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies
   ingressFrom: []
+
+webhooksCleanup:
+  enable: false
+  image: "bitnami/kubectl:latest"
