@@ -188,7 +188,7 @@ func (ctx *Context) AddResourceAsOldObject(data interface{}) error {
 func (ctx *Context) addToRequest(data interface{}, tag string) error {
 	requestData := make(map[string]interface{})
 	requestData[tag] = data
-	request := map[string]interface{} {
+	request := map[string]interface{}{
 		"request": requestData,
 	}
 
