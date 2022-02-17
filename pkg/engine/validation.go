@@ -116,8 +116,8 @@ func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) 
 	ctxCopy.NewResource = *ctxCopy.OldResource.DeepCopy()
 	ctxCopy.OldResource = unstructured.Unstructured{}
 
-	ctxCopy.JSONContext.AddResourceAsObject(ctxCopy.NewResource.Object)
-	ctxCopy.JSONContext.AddResourceAsOldObject(ctxCopy.OldResource.Object)
+	ctxCopy.JSONContext.ReplaceResourceAsObject(ctxCopy.NewResource.Object)
+	ctxCopy.JSONContext.ReplaceResourceAsOldObject(ctxCopy.OldResource.Object)
 
 	return processValidationRule(log, ctxCopy, rule)
 }

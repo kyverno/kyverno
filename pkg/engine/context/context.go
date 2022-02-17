@@ -170,6 +170,10 @@ func (ctx *Context) AddResourceInOldObject(dataRaw []byte) error {
 }
 
 func (ctx *Context) AddResourceAsObject(data interface{}) error {
+	return ctx.addToRequest(data, "object")
+}
+
+func (ctx *Context) ReplaceResourceAsObject(data interface{}) error {
 	if err := ctx.addToRequest(nil, "object"); err != nil {
 		return err
 	}
@@ -177,7 +181,7 @@ func (ctx *Context) AddResourceAsObject(data interface{}) error {
 	return ctx.addToRequest(data, "object")
 }
 
-func (ctx *Context) AddResourceAsOldObject(data interface{}) error {
+func (ctx *Context) ReplaceResourceAsOldObject(data interface{}) error {
 	if err := ctx.addToRequest(nil, "oldObject"); err != nil {
 		return err
 	}
