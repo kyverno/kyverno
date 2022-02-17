@@ -1,26 +1,19 @@
-name: disallow_latest_tag
+name: resource-lists
 policies:
-  -  disallow_latest_tag.yaml
+  -  policy.yaml
 resources:
   -  resource.yaml
 results:
-  - policy: disallow-latest-tag
+  - policy: resource-lists
     rule: require-image-tag
-    resource_list: 
+    resources: 
     - myapp-pod1
     - myapp-pod2
+    kind: Pod
+    result: pass
+  - policy: resource-lists
+    rule: validate-image-tag
+    resources: 
     - myapp-pod3
-    kind: Pod
-    result: pass
-  - policy: disallow-latest-tag
-    rule: validate-image-tag
-    resource_list: 
-    - myapp-pod1
-    - myapp-pod2
-    kind: Pod
-    result: pass
-  - policy: disallow-latest-tag
-    rule: validate-image-tag
-    resource: myapp-pod3
     kind: Pod
     result: pass
