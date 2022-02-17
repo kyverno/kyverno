@@ -285,11 +285,12 @@ func validateNumberWithStr(log logr.Logger, value interface{}, pattern string, o
 	}
 
 	// 2. wildcard match
-	if !wildcard.Match(pattern, typedValue) {
+	if validateString(log, value, pattern, operator) {
+		return true
+	} else {
 		log.V(4).Info("value failed wildcard check", "type", fmt.Sprintf("%T", typedValue), "value", typedValue, "check", pattern)
 		return false
 	}
-	return true
 }
 
 func compareQuantity(value, pattern apiresource.Quantity, op operator.Operator) bool {
