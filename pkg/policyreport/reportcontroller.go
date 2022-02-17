@@ -566,7 +566,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 	return report, aggregatedRequests, nil
 }
 
-func mergeRequests(ns, kyverno *v1.Namespace, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
+func mergeRequests(ns, kyvernoNs *v1.Namespace, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
 	results := []*report.PolicyReportResult{}
 
 	if requests, ok := requestsGeneral.([]*changerequest.ClusterReportChangeRequest); ok {
@@ -592,7 +592,7 @@ func mergeRequests(ns, kyverno *v1.Namespace, requestsGeneral interface{}) (*uns
 		}
 
 		req := &unstructured.Unstructured{Object: obj}
-		setReport(req, nil, kyverno)
+		setReport(req, nil, kyvernoNs)
 		return req, aggregatedRequests, nil
 	}
 
@@ -619,7 +619,7 @@ func mergeRequests(ns, kyverno *v1.Namespace, requestsGeneral interface{}) (*uns
 		}
 
 		req := &unstructured.Unstructured{Object: obj}
-		setReport(req, ns, kyverno)
+		setReport(req, ns, kyvernoNs)
 
 		return req, aggregatedRequests, nil
 	}
@@ -627,11 +627,11 @@ func mergeRequests(ns, kyverno *v1.Namespace, requestsGeneral interface{}) (*uns
 	return nil, nil, nil
 }
 
-func setReport(reportUnstructured *unstructured.Unstructured, ns, kyverno *v1.Namespace) {
+func setReport(reportUnstructured *unstructured.Unstructured, ns, kyvernoNs *v1.Namespace) {
 	reportUnstructured.SetAPIVersion(report.SchemeGroupVersion.String())
 	reportUnstructured.SetLabels(LabelSelector.MatchLabels)
 
-	if kyverno != nil {
+	if kyvernoNs != nil {
 		controllerFlag := true
 		blockOwnerDeletionFlag := true
 
@@ -639,8 +639,8 @@ func setReport(reportUnstructured *unstructured.Unstructured, ns, kyverno *v1.Na
 			{
 				APIVersion:         "v1",
 				Kind:               "Namespace",
-				Name:               kyverno.GetName(),
-				UID:                kyverno.GetUID(),
+				Name:               kyvernoNs.GetName(),
+				UID:                kyvernoNs.GetUID(),
 				Controller:         &controllerFlag,
 				BlockOwnerDeletion: &blockOwnerDeletionFlag,
 			},
