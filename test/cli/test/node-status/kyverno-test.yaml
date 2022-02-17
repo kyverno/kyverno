@@ -1,0 +1,11 @@
+name: check-kernel
+policies:
+  - check_node_for_cve_2022_0185.yaml
+resources:
+  - resource.yaml
+results:
+- policy: check-kernel
+  rule: kernel-validate
+  resource: test-check-kernel-version
+  kind: Node
+  result: pass

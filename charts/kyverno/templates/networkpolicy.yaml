@@ -12,34 +12,11 @@ spec:
       app: kyverno
   policyTypes:
   - Ingress
-  {{- if or .Values.networkPolicy.namespaceExpressions .Values.networkPolicy.namespaceLabels .Values.networkPolicy.podExpressions .Values.networkPolicy.podLabels }}
+  {{- if .Values.networkPolicy.ingressFrom }}
   ingress:
   - from:
-    {{- if or .Values.networkPolicy.namespaceExpressions .Values.networkPolicy.namespaceLabels }}
-      - namespaceSelector:
-        {{- with .Values.networkPolicy.namespaceExpressions }}
-          matchExpressions:
-            {{- toYaml . | nindent 10 }}
-        {{- end }}
-        {{- with .Values.networkPolicy.namespaceLabels }}
-          matchLabels:
-            {{- range $key, $value := . }}
-            {{ $key | quote }}: {{ $value | quote }}
-            {{- end }}
-        {{- end }}
-    {{- end }}
-    {{- if or .Values.networkPolicy.podExpressions .Values.networkPolicy.podLabels }}
-        podSelector:
-          {{- with .Values.networkPolicy.podExpressions }}
-          matchExpressions:
-            {{- toYaml . | nindent 10 }}
-          {{- end }}
-          {{- with .Values.networkPolicy.podLabels }}
-          matchLabels:
-            {{- range $key, $value := . }}
-            {{ $key | quote }}: {{ $value | quote }}
-            {{- end }}
-          {{- end }}
+    {{- with .Values.networkPolicy.ingressFrom }}
+      {{- toYaml . | nindent 4 }}
     {{- end }}
     ports:
     - protocol: TCP
@@ -50,6 +27,7 @@ spec:
       port: {{ .Values.metricsService.port }}
   {{- end }}
   {{- else }}
-  ingress: []
+  ingress:
+    - {}
   {{- end }}
 {{- end }}
