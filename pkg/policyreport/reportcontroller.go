@@ -633,16 +633,14 @@ func setReport(reportUnstructured *unstructured.Unstructured, ns, kyvernoNs *v1.
 
 	if kyvernoNs != nil {
 		controllerFlag := true
-		blockOwnerDeletionFlag := true
 
 		reportUnstructured.SetOwnerReferences([]metav1.OwnerReference{
 			{
-				APIVersion:         "v1",
-				Kind:               "Namespace",
-				Name:               kyvernoNs.GetName(),
-				UID:                kyvernoNs.GetUID(),
-				Controller:         &controllerFlag,
-				BlockOwnerDeletion: &blockOwnerDeletionFlag,
+				APIVersion: "v1",
+				Kind:       "Namespace",
+				Name:       kyvernoNs.GetName(),
+				UID:        kyvernoNs.GetUID(),
+				Controller: &controllerFlag,
 			},
 		})
 	}
