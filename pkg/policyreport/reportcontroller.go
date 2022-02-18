@@ -524,6 +524,11 @@ func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) er
 func (g *ReportGenerator) aggregateReports(namespace string) (
 	report *unstructured.Unstructured, aggregatedRequests interface{}, err error) {
 
+	kyvernoNamespace, err := g.nsLister.Get(config.KyvernoNamespace)
+	if err != nil {
+		g.log.Error(err, "failed to get Kyverno namespace, policy reports will not be garbage collected upon termination")
+	}
+
 	if namespace == "" {
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion}))
 		requests, err := g.clusterReportChangeRequestLister.List(selector)
@@ -531,7 +536,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 			return nil, nil, fmt.Errorf("unable to list ClusterReportChangeRequests within: %v", err)
 		}
 
-		if report, aggregatedRequests, err = mergeRequests(nil, requests); err != nil {
+		if report, aggregatedRequests, err = mergeRequests(nil, kyvernoNamespace, requests); err != nil {
 			return nil, nil, fmt.Errorf("unable to merge ClusterReportChangeRequests results: %v", err)
 		}
 	} else {
@@ -553,7 +558,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 			return nil, nil, fmt.Errorf("unable to list reportChangeRequests within namespace %s: %v", ns, err)
 		}
 
-		if report, aggregatedRequests, err = mergeRequests(ns, requests); err != nil {
+		if report, aggregatedRequests, err = mergeRequests(ns, kyvernoNamespace, requests); err != nil {
 			return nil, nil, fmt.Errorf("unable to merge results: %v", err)
 		}
 	}
@@ -561,7 +566,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 	return report, aggregatedRequests, nil
 }
 
-func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
+func mergeRequests(ns, kyvernoNs *v1.Namespace, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
 	results := []*report.PolicyReportResult{}
 
 	if requests, ok := requestsGeneral.([]*changerequest.ClusterReportChangeRequest); ok {
@@ -587,7 +592,7 @@ func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured
 		}
 
 		req := &unstructured.Unstructured{Object: obj}
-		setReport(req, nil)
+		setReport(req, nil, kyvernoNs)
 		return req, aggregatedRequests, nil
 	}
 
@@ -614,7 +619,7 @@ func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured
 		}
 
 		req := &unstructured.Unstructured{Object: obj}
-		setReport(req, ns)
+		setReport(req, ns, kyvernoNs)
 
 		return req, aggregatedRequests, nil
 	}
@@ -622,9 +627,23 @@ func mergeRequests(ns *v1.Namespace, requestsGeneral interface{}) (*unstructured
 	return nil, nil, nil
 }
 
-func setReport(reportUnstructured *unstructured.Unstructured, ns *v1.Namespace) {
+func setReport(reportUnstructured *unstructured.Unstructured, ns, kyvernoNs *v1.Namespace) {
 	reportUnstructured.SetAPIVersion(report.SchemeGroupVersion.String())
 	reportUnstructured.SetLabels(LabelSelector.MatchLabels)
+
+	if kyvernoNs != nil {
+		controllerFlag := true
+
+		reportUnstructured.SetOwnerReferences([]metav1.OwnerReference{
+			{
+				APIVersion: "v1",
+				Kind:       "Namespace",
+				Name:       kyvernoNs.GetName(),
+				UID:        kyvernoNs.GetUID(),
+				Controller: &controllerFlag,
+			},
+		})
+	}
 
 	if ns == nil {
 		reportUnstructured.SetName(GeneratePolicyReportName(""))
@@ -635,20 +654,6 @@ func setReport(reportUnstructured *unstructured.Unstructured, ns *v1.Namespace) 
 	reportUnstructured.SetName(GeneratePolicyReportName(ns.GetName()))
 	reportUnstructured.SetNamespace(ns.GetName())
 	reportUnstructured.SetKind("PolicyReport")
-
-	controllerFlag := true
-	blockOwnerDeletionFlag := true
-
-	reportUnstructured.SetOwnerReferences([]metav1.OwnerReference{
-		{
-			APIVersion:         "v1",
-			Kind:               "Namespace",
-			Name:               ns.GetName(),
-			UID:                ns.GetUID(),
-			Controller:         &controllerFlag,
-			BlockOwnerDeletion: &blockOwnerDeletionFlag,
-		},
-	})
 }
 
 func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstructured, aggregatedRequests interface{}) (err error) {
