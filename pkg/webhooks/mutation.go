@@ -150,9 +150,11 @@ func (ws *WebhookServer) applyMutation(request *v1beta1.AdmissionRequest, policy
 		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy.Name, engineResponse.GetFailedRules())
 	}
 
-	err := ws.openAPIController.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to validate resource mutated by policy %s", policyContext.Policy.Name)
+	if engineResponse.PatchedResource.GetKind() != "*" {
+		err := ws.openAPIController.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to validate resource mutated by policy %s", policyContext.Policy.Name)
+		}
 	}
 
 	return engineResponse, policyPatches, nil
