@@ -110,8 +110,8 @@ docker-get-initContainer-digest:
 
 docker-build-initContainer-local:
 	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)/main.go
-	@docker build -f $(PWD)/$(INITC_PATH)/localDockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) $(PWD)/$(INITC_PATH)
-	@docker tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) $(REPO)/$(INITC_IMAGE):latest
+	@docker build -f $(PWD)/$(INITC_PATH)/localDockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) $(PWD)/$(INITC_PATH)
+	@docker tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) $(REPO)/$(INITC_IMAGE):latest
 
 docker-publish-initContainer-dev: docker-buildx-builder docker-push-initContainer-dev
 
@@ -219,7 +219,7 @@ docker-build-all-amd64: docker-buildx-builder docker-build-initContainer-amd64 d
 # Create e2e Infrastruture
 ##################################
 
-create-e2e-infrastruture:
+create-e2e-infrastruture: docker-build-initContainer-local docker-build-kyverno-local
 	chmod a+x $(PWD)/scripts/create-e2e-infrastruture.sh
 	$(PWD)/scripts/create-e2e-infrastruture.sh
 

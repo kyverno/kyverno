@@ -1,0 +1,63 @@
+name: cli
+on:
+  push:
+    branches:
+      - 'main'
+      - 'release*'
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '.github/config.yml'
+  pull_request:
+    branches:
+      - 'main'
+      - 'release*'
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '.github/config.yml'
+
+permissions: read-all
+
+jobs:
+  cli-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+
+      - name: Unshallow
+        run: git fetch --prune --unshallow
+
+      - name: Set up Go 
+        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
+        with:
+          go-version: 1.17
+
+      - name: Cache Go modules
+        uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # v1.2.0
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Test Policy
+        run: |
+          if [[ ${{ github.event_name }} == "push" ]]
+          then
+            GIT_BRANCH=${GITHUB_REF##*/}
+          elif [[ ${{ github.event_name }} == "pull_request" ]]
+          then
+            GIT_BRANCH=${{ github.event.pull_request.base.ref }}
+          fi
+          make cli
+          CLI_PATH=$PWD/cmd/cli/kubectl-kyverno/kyverno
+          $CLI_PATH test https://github.com/kyverno/policies/$GIT_BRANCH
+          $CLI_PATH test https://github.com/kyverno/policies --git-branch $GIT_BRANCH
+          $CLI_PATH test https://github.com/kyverno/policies/pod-security/restricted -b $GIT_BRANCH
+          $CLI_PATH test ./test/cli/test-mutate
+          $CLI_PATH test ./test/cli/test
+          $CLI_PATH test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
+          $CLI_PATH test ./test/cli/test-fail/missing-rule && exit 1 || exit 0
+          $CLI_PATH test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
