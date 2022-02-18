@@ -587,9 +587,15 @@ spec:
                             type: string
                           type: array
                         requestTypes:
+                          description: RequestTypes can contain values ["CREATE, "UPDATE",
+                            "CONNECT", "DELETE"], which are used to exclude a specific
+                            action.
                           items:
                             type: string
+                          maxItems: 3
+                          minItems: 1
                           type: array
+                          uniqueItems: true
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified. Specifying ResourceDescription
@@ -1266,9 +1272,15 @@ spec:
                             type: string
                           type: array
                         requestTypes:
+                          description: RequestTypes can contain values ["CREATE, "UPDATE",
+                            "CONNECT", "DELETE"], which are used to match a specific
+                            action.
                           items:
                             type: string
+                          maxItems: 3
+                          minItems: 1
                           type: array
+                          uniqueItems: true
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified. Requires at least
@@ -2135,9 +2147,9 @@ spec:
                 - enforce
                 type: string
               validationFailureActionOverrides:
-                description: ValidationFailureActionOverrides is a Cluster Policy attribute
-                  that specifies ValidationFailureAction namespace-wise. It overrides
-                  ValidationFailureAction for the specified namespaces.
+                description: ValidationFailureActionOverrides is a Cluster Policy
+                  attribute that specifies ValidationFailureAction namespace-wise.
+                  It overrides ValidationFailureAction for the specified namespaces.
                 items:
                   properties:
                     action:
