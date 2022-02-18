@@ -83,7 +83,6 @@ rules:
   - ""
   resources:
   - namespaces
-  - namespaces/finalizers
   - configmaps
   - secrets
   verbs:
