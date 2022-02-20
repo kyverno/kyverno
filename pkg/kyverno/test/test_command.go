@@ -138,10 +138,11 @@ For more information visit https://kyverno.io/docs/kyverno-cli/#test
 // Command returns version command
 func Command() *cobra.Command {
 	var cmd *cobra.Command
+	var testFile []byte
 	var valuesFile, fileName, gitBranch string
 	cmd = &cobra.Command{
-		Use:     "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>",
-		Args:    cobra.ExactArgs(1),
+		Use: "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>\n  kyverno test --manifest-mutate > kyverno-test.yaml\n  kyverno test --manifest-validate > kyverno-test.yaml\n  kyverno test --manifest-cluster-policy > kyverno-test.yaml",
+		// Args:    cobra.ExactArgs(1),
 		Short:   "run tests from directory",
 		Long:    longHelp,
 		Example: exampleHelp,
@@ -155,6 +156,69 @@ func Command() *cobra.Command {
 				}
 			}()
 
+			mStatus, _ := cmd.Flags().GetBool("manifest-mutate")
+			vStatus, _ := cmd.Flags().GetBool("manifest-validate")
+			cStatus, _ := cmd.Flags().GetBool("manifest-cluster-policy")
+			if mStatus {
+				testFile = []byte(`name: <test_name>
+policies:
+- <path/to/policy1.yaml>
+- <path/to/policy2.yaml>
+resources:
+- <path/to/resource1.yaml>
+- <path/to/resource2.yaml>
+variables: <variable_file> (OPTIONAL)
+results:
+- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
+  rule: <name>
+  resource: <name>
+  namespace: <name> (OPTIONAL)
+  kind: <name>
+  patchedResource: <path/to/patched/resource.yaml>
+  result: <pass|fail|skip>`)
+				fmt.Println(string(testFile))
+				return nil
+			}
+			if vStatus {
+				testFile = []byte(`name: <test_name>
+policies:
+- <path/to/policy1.yaml>
+- <path/to/policy2.yaml>
+resources:
+- <path/to/resource1.yaml>
+- <path/to/resource2.yaml>
+variables: <variable_file> (OPTIONAL)
+results:
+- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
+  rule: <name>
+  resource: <name>
+  namespace: <name> (OPTIONAL)
+  kind: <name>
+  result: <pass|fail|skip>`)
+				fmt.Println(string(testFile))
+				return nil
+			}
+			if cStatus {
+				testFile = []byte(`name: <test_name>
+policies:
+- <path/to/policy1.yaml>
+- <path/to/policy2.yaml>
+resources:
+- <path/to/resource1.yaml>
+- <path/to/resource2.yaml>
+variables: <variable_file> (OPTIONAL)
+results:
+- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
+  rule: <name>
+  resource: <name>
+  namespace: <name> (OPTIONAL)
+  kind: <name>
+  patchedResource: <path/to/patched/resource.yaml>
+  result: <pass|fail|skip>`)
+				fmt.Println(string(testFile))
+				return nil
+			}
+
 			_, err = testCommandExecute(dirPath, valuesFile, fileName, gitBranch)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
@@ -166,6 +230,10 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "test filename")
 	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "test github repository branch")
+
+	cmd.Flags().BoolP("manifest-mutate", "m", false, "printing out a template test manifest for mutate  policy")
+	cmd.Flags().BoolP("manifest-validate", "l", false, "printing out a template test manifest for validate policy")
+	cmd.Flags().BoolP("manifest-cluster-policy", "c", false, "printing out a template test manifest for cluster policy")
 	return cmd
 }
 
