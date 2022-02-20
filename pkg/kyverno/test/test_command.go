@@ -38,98 +38,95 @@ import (
 )
 
 var longHelp = `
-The test command provides a facility to test resources against policies by comparing expected results, declared ahead of time in a test.yaml file, to actual results reported by Kyverno. Users provide the path to the folder containing a test.yaml file where the location could be on a local filesystem or a remote git repository
+The test command provides a facility to test resources against policies by comparing expected results, declared ahead of time in a test manifest file, to actual results reported by Kyverno. Users provide the path to the folder containing a kyverno-test.yaml file where the location could be on a local filesystem or a remote git repository.
 `
 var exampleHelp = `
+# Test a git repository containing Kyverno test cases.
 kyverno test https://github.com/kyverno/policies/pod-security --git-branch main
-    <snip>
+<snip>
 
-    Executing require-non-root-groups...
-    applying 1 policy to 2 resources...
+Executing require-non-root-groups...
+applying 1 policy to 2 resources...
 
-    │───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
-    │ # │ POLICY                  │ RULE                     │ RESOURCE                         │ RESULT │
-    │───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
-    │ 1 │ require-non-root-groups │ check-runasgroup         │ default/Pod/fs-group0            │ Pass   │
-    │ 2 │ require-non-root-groups │ check-supplementalGroups │ default/Pod/fs-group0            │ Pass   │
-    │ 3 │ require-non-root-groups │ check-fsGroup            │ default/Pod/fs-group0            │ Pass   │
-    │ 4 │ require-non-root-groups │ check-supplementalGroups │ default/Pod/supplemental-groups0 │ Pass   │
-    │ 5 │ require-non-root-groups │ check-fsGroup            │ default/Pod/supplemental-groups0 │ Pass   │
-    │ 6 │ require-non-root-groups │ check-runasgroup         │ default/Pod/supplemental-groups0 │ Pass   │
-    │───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
-    <snip>
+│───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
+│ # │ POLICY                  │ RULE                     │ RESOURCE                         │ RESULT │
+│───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
+│ 1 │ require-non-root-groups │ check-runasgroup         │ default/Pod/fs-group0            │ Pass   │
+│ 2 │ require-non-root-groups │ check-supplementalGroups │ default/Pod/fs-group0            │ Pass   │
+│ 3 │ require-non-root-groups │ check-fsGroup            │ default/Pod/fs-group0            │ Pass   │
+│ 4 │ require-non-root-groups │ check-supplementalGroups │ default/Pod/supplemental-groups0 │ Pass   │
+│ 5 │ require-non-root-groups │ check-fsGroup            │ default/Pod/supplemental-groups0 │ Pass   │
+│ 6 │ require-non-root-groups │ check-runasgroup         │ default/Pod/supplemental-groups0 │ Pass   │
+│───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
+<snip>
+
+# Test a local folder containing test cases.
+kyverno test .
+
+Executing limit-containers-per-pod...
+applying 1 policy to 4 resources... 
+
+│───│──────────────────────────│──────────────────────────────────────│─────────────────────────────│────────│
+│ # │ POLICY                   │ RULE                                 │ RESOURCE                    │ RESULT │
+│───│──────────────────────────│──────────────────────────────────────│─────────────────────────────│────────│
+│ 1 │ limit-containers-per-pod │ limit-containers-per-pod-bare        │ default/Pod/myapp-pod-1     │ Pass   │
+│ 2 │ limit-containers-per-pod │ limit-containers-per-pod-bare        │ default/Pod/myapp-pod-2     │ Pass   │
+│ 3 │ limit-containers-per-pod │ limit-containers-per-pod-controllers │ default/Deployment/mydeploy │ Pass   │
+│ 4 │ limit-containers-per-pod │ limit-containers-per-pod-cronjob     │ default/CronJob/mycronjob   │ Pass   │
+│───│──────────────────────────│──────────────────────────────────────│─────────────────────────────│────────│
+
+Test Summary: 4 tests passed and 0 tests failed
 
 
-Test file structure:
+**TEST FILE STRUCTURE**:
 
-The test.yaml has four parts:
-    "policies"   --> List of policies which are applied.
-    "resources"  --> List of resources on which the policies are applied.
-    "variables"  --> Variable file path (optional).
-    "results"    --> List of results expected after applying the policies on the resources.
+The kyverno-test.yaml has four parts:
+	"policies"   --> List of policies which are applied.
+	"resources"  --> List of resources on which the policies are applied.
+	"variables"  --> Variable file path containing variables referenced in the policy (OPTIONAL).
+	"results"    --> List of results expected after applying the policies to the resources.
 
-Test file format:
+** TEST FILE FORMAT**:
 
-For validate policies
+name: <test_name>
+policies:
+- <path/to/policy1.yaml>
+- <path/to/policy2.yaml>
+resources:
+- <path/to/resource1.yaml>
+- <path/to/resource2.yaml>
+variables: <variable_file> (OPTIONAL)
+results:
+- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
+  rule: <name>
+  resource: <name>
+  namespace: <name> (OPTIONAL)
+  kind: <name>
+  patchedResource: <path/to/patched/resource.yaml> (For mutate policies/rules only)
+  result: <pass|fail|skip>
 
-- name: test-1
-  policies:
-  - <path>
-  - <path>
+**VARIABLES FILE FORMAT**:
+
+policies:
+- name: <policy_name>
+  rules:
+  - name: <rule_name>
+    # Global variable values
+    values:
+      foo: bar
   resources:
-  - <path>
-  - <path>
-  results:
-  - policy: <name>
-    rule: <name>
-    resource: <name>
-    namespace: <name> (OPTIONAL)
-    kind: <name>
-    result: <pass|fail|skip>
+  - name: <resource_name_1>
+    # Resource-specific variable values
+    values:
+      foo: baz
+  - name: <resource_name_2>
+    values:
+      foo: bin
 
+**RESULT DESCRIPTIONS**:
 
-For mutate policies
-
-Policy (Namespaced)
-
-- name: test-1
-  policies:
-  - <path>
-  - <path>
-  resources:
-  - <path>
-  - <path>
-  results:
-  - policy: <policy_namespace>/<policy_name>
-    rule: <name>
-    resource: <name>
-    namespace: <name> (OPTIONAL)
-    kind: <name>
-    patchedResource: <path>
-    result: <pass|fail|skip>
-
-ClusterPolicy (Cluster-wide)
-
-- name: test-1
-  policies:
-  - <path>
-  - <path>
-  resources:
-  - <path>
-  - <path>
-  results:
-  - policy: <name>
-    rule: <name>
-    resource: <name>
-    namespace: <name> (OPTIONAL)
-    kind: <name>
-    patchedResource: <path>
-    result: <pass|fail|skip>
-
-Result descriptions:
-
-pass  --> The patched resource generated by Kyverno equals the patched resource provided by the user.
-fail  --> The patched resource generated by Kyverno is not equal to the patched resource provided by the user.
+pass  --> The resource is either validated by the policy or, if a mutation, equals the state of the patched resource.
+fail  --> The resource fails validation or the patched resource generated by Kyverno is not equal to the input resource provided by the user.
 skip  --> The rule is not applied.
 
 For more information visit https://kyverno.io/docs/kyverno-cli/#test
