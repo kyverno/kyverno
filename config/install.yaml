@@ -12097,7 +12097,7 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-            - ALL
+            - all
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
@@ -12126,7 +12126,7 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-            - ALL
+            - all
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
