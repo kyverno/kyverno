@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-logr/logr"
@@ -15,8 +16,10 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/minio/pkg/wildcard"
 	"k8s.io/api/admission/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -147,6 +150,33 @@ func ConvertResource(raw []byte, group, version, kind, namespace string) (unstru
 	}
 
 	return *obj, nil
+}
+
+func NormalizeSecret(resource *unstructured.Unstructured) (unstructured.Unstructured, error) {
+	var secret corev1.Secret
+
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, &secret)
+	if err != nil {
+		return *resource, errors.Wrap(err, "object unable to convert to secret")
+	}
+	for k, v := range secret.Data {
+		if len(v) == 0 {
+			secret.Data[k] = []byte("")
+		}
+	}
+	updateSecret, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&secret)
+	if err != nil {
+		return *resource, errors.Wrap(err, "object unable to convert from secret")
+		//	return
+	}
+	if secret.Data != nil {
+		err = unstructured.SetNestedMap(resource.Object, updateSecret["data"].(map[string]interface{}), "data")
+		if err != nil {
+			return *resource, errors.Wrap(err, "failed to set secret.data")
+		}
+	}
+
+	return *resource, nil
 }
 
 // HigherThanKubernetesVersion compare Kubernetes client version to user given version
