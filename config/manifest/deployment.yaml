@@ -54,7 +54,7 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop:
-                - all
+                - ALL
           env:
             - name: METRICS_CONFIG
               value: kyverno-metrics
@@ -100,7 +100,7 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop:
-                - all
+                - ALL
           resources:
             requests:
               memory: 128Mi
