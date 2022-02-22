@@ -153,7 +153,6 @@ func ConvertResource(raw []byte, group, version, kind, namespace string) (unstru
 
 func NormalizeSecret(resource *unstructured.Unstructured) (unstructured.Unstructured, error) {
 	var secret corev1.Secret
-
 	data, err := json.Marshal(resource.Object)
 	if err != nil {
 		return *resource, err
@@ -167,7 +166,6 @@ func NormalizeSecret(resource *unstructured.Unstructured) (unstructured.Unstruct
 			secret.Data[k] = []byte("")
 		}
 	}
-
 	updateSecret := map[string]interface{}{}
 	raw, err := json.Marshal(&secret)
 	if err != nil {
@@ -181,7 +179,6 @@ func NormalizeSecret(resource *unstructured.Unstructured) (unstructured.Unstruct
 
 	if err != nil {
 		return *resource, errors.Wrap(err, "object unable to convert from secret")
-		//	return
 	}
 	if secret.Data != nil {
 		err = unstructured.SetNestedMap(resource.Object, updateSecret["data"].(map[string]interface{}), "data")
@@ -189,7 +186,6 @@ func NormalizeSecret(resource *unstructured.Unstructured) (unstructured.Unstruct
 			return *resource, errors.Wrap(err, "failed to set secret.data")
 		}
 	}
-
 	return *resource, nil
 }
 
