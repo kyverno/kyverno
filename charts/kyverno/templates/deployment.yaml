@@ -78,7 +78,7 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop:
-                - all
+                - ALL
           env:
           - name: METRICS_CONFIG
             value: {{ template "kyverno.metricsConfigMapName" . }}
@@ -108,7 +108,7 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop:
-                - all
+                - ALL
           ports:
           - containerPort: 9443
             name: https
