@@ -19,7 +19,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -155,7 +154,11 @@ func ConvertResource(raw []byte, group, version, kind, namespace string) (unstru
 func NormalizeSecret(resource *unstructured.Unstructured) (unstructured.Unstructured, error) {
 	var secret corev1.Secret
 
-	err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, &secret)
+	data, err := json.Marshal(resource.Object)
+	if err != nil {
+		return *resource, err
+	}
+	json.Unmarshal(data, &secret)
 	if err != nil {
 		return *resource, errors.Wrap(err, "object unable to convert to secret")
 	}
@@ -164,7 +167,18 @@ func NormalizeSecret(resource *unstructured.Unstructured) (unstructured.Unstruct
 			secret.Data[k] = []byte("")
 		}
 	}
-	updateSecret, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&secret)
+
+	updateSecret := map[string]interface{}{}
+	raw, err := json.Marshal(&secret)
+	if err != nil {
+		return *resource, nil
+	}
+
+	err = json.Unmarshal(raw, &updateSecret)
+	if err != nil {
+		return *resource, nil
+	}
+
 	if err != nil {
 		return *resource, errors.Wrap(err, "object unable to convert from secret")
 		//	return
