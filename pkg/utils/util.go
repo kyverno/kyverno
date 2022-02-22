@@ -158,7 +158,7 @@ func NormalizeSecret(resource *unstructured.Unstructured) (unstructured.Unstruct
 	if err != nil {
 		return *resource, err
 	}
-	json.Unmarshal(data, &secret)
+	err = json.Unmarshal(data, &secret)
 	if err != nil {
 		return *resource, errors.Wrap(err, "object unable to convert to secret")
 	}
