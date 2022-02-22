@@ -33,11 +33,10 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	policy := policyContext.Policy
 	patchedResource := policyContext.NewResource
 	ctx := policyContext.JSONContext
-	var name []string
+	var skippedRules []string
 
-	resCache := policyContext.ResourceCache
 	logger := log.Log.WithName("EngineMutate").WithValues("policy", policy.Name, "kind", patchedResource.GetKind(),
-		"namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
+		"namespace", patchedResource.GetNamespace(), "skippedRules", patchedResource.GetName())
 
 	logger.V(4).Info("start policy processing", "startTime", startTime)
 
@@ -62,7 +61,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 		if err = MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, policyContext.NamespaceLabels, policyContext.Policy.Namespace); err != nil {
 			logger.V(4).Info("rule not matched", "reason", err.Error())
-			name = append(name, rule.Name)
+			skippedRules = append(skippedRules, rule.Name)
 			continue
 		}
 
@@ -78,7 +77,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			logger.Error(err, "failed to query resource object")
 		}
 
-		if err := LoadContext(logger, rule.Context, resCache, policyContext, rule.Name); err != nil {
+		if err := LoadContext(logger, rule.Context, policyContext, rule.Name); err != nil {
 			if _, ok := err.(gojmespath.NotFoundError); ok {
 				logger.V(3).Info("failed to load context", "reason", err.Error())
 			} else {
@@ -106,10 +105,10 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	}
 
 	for _, r := range resp.PolicyResponse.Rules {
-		for _, n := range name {
+		for _, n := range skippedRules {
 			if r.Name == n {
 				r.Status = response.RuleStatusSkip
-				logger.V(4).Info("rule Status set as skip", "rule name", r.Name)
+				logger.V(4).Info("rule Status set as skip", "rule skippedRules", r.Name)
 			}
 		}
 	}
@@ -144,7 +143,7 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 	allPatches := make([][]byte, 0)
 
 	for _, foreach := range foreachList {
-		if err := LoadContext(logger, rule.Context, ctx.ResourceCache, ctx, rule.Name); err != nil {
+		if err := LoadContext(logger, rule.Context, ctx, rule.Name); err != nil {
 			logger.Error(err, "failed to load context")
 			return ruleError(rule, utils.Mutation, "failed to load context", err), resource
 		}
@@ -164,7 +163,7 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 			return ruleError(rule, utils.Mutation, msg, err), resource
 		}
 
-		mutateResp := mutateElements(rule.Name, foreach, ctx, elements, resource, logger)
+		mutateResp := mutateElements(rule.Name, foreach, ctx, elements, patchedResource, logger)
 		if mutateResp.Status == response.RuleStatusError {
 			logger.Error(err, "failed to mutate elements")
 			return buildRuleResponse(rule, mutateResp), resource
@@ -202,7 +201,7 @@ func mutateElements(name string, foreach *kyverno.ForEachMutation, ctx *PolicyCo
 			return mutateError(err, fmt.Sprintf("failed to add element to mutate.foreach[%d].context", i))
 		}
 
-		if err := LoadContext(logger, foreach.Context, ctx.ResourceCache, ctx, name); err != nil {
+		if err := LoadContext(logger, foreach.Context, ctx, name); err != nil {
 			return mutateError(err, fmt.Sprintf("failed to load to mutate.foreach[%d].context", i))
 		}
 

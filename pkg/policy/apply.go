@@ -14,14 +14,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // applyPolicy applies policy on a resource
 func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured,
-	logger logr.Logger, excludeGroupRole []string, resCache resourcecache.ResourceCache,
+	logger logr.Logger, excludeGroupRole []string,
 	client *client.Client, namespaceLabels map[string]string) (responses []*response.EngineResponse) {
 
 	startTime := time.Now()
@@ -54,7 +53,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		logger.Error(err, "unable to add image info to variables context")
 	}
 
-	engineResponseMutation, err = mutation(policy, resource, logger, resCache, ctx, namespaceLabels)
+	engineResponseMutation, err = mutation(policy, resource, logger, ctx, namespaceLabels)
 	if err != nil {
 		logger.Error(err, "failed to process mutation rule")
 	}
@@ -63,7 +62,6 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		Policy:           policy,
 		NewResource:      resource,
 		ExcludeGroupRole: excludeGroupRole,
-		ResourceCache:    resCache,
 		JSONContext:      ctx,
 		Client:           client,
 		NamespaceLabels:  namespaceLabels,
@@ -75,12 +73,11 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	return engineResponses
 }
 
-func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, log logr.Logger, resCache resourcecache.ResourceCache, jsonContext *context.Context, namespaceLabels map[string]string) (*response.EngineResponse, error) {
+func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, log logr.Logger, jsonContext *context.Context, namespaceLabels map[string]string) (*response.EngineResponse, error) {
 
 	policyContext := &engine.PolicyContext{
 		Policy:          policy,
 		NewResource:     resource,
-		ResourceCache:   resCache,
 		JSONContext:     jsonContext,
 		NamespaceLabels: namespaceLabels,
 	}

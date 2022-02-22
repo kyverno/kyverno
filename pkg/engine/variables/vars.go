@@ -18,9 +18,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 )
 
-var RegexVariables = regexp.MustCompile(`^\{\{[^{}]*\}\}|[^\\]\{\{[^{}]*\}\}`)
+var RegexVariables = regexp.MustCompile(`^\{\{(\{[^{}]*\}|[^{}])*\}\}|[^\\]\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
-var RegexEscpVariables = regexp.MustCompile(`\\\{\{[^{}]*\}\}`)
+var RegexEscpVariables = regexp.MustCompile(`\\\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
 // RegexReferences is the Regex for '$(...)' at the beginning of the string, and 'x$(...)' where 'x' is not '\'
 var RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
@@ -28,7 +28,7 @@ var RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
 // RegexEscpReferences is the Regex for '\$(...)'
 var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
 
-var regexVariableInit = regexp.MustCompile(`^\{\{[^{}]*\}\}`)
+var regexVariableInit = regexp.MustCompile(`^\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
 var regexElementIndex = regexp.MustCompile(`{{\s*elementIndex\s*}}`)
 
@@ -83,12 +83,19 @@ func SubstituteAll(log logr.Logger, ctx context.EvalInterface, document interfac
 }
 
 func SubstituteAllInPreconditions(log logr.Logger, ctx context.EvalInterface, document interface{}) (_ interface{}, err error) {
-	return substituteAll(log, ctx, document, newPreconditionsVariableResolver(log))
+	// We must convert all incoming conditions to JSON data i.e.
+	// string, []interface{}, map[string]interface{}
+	// we cannot use structs otherwise json traverse doesn't work
+	untypedDoc, err := DocumentToUntyped(document)
+	if err != nil {
+		return document, err
+	}
+	return substituteAll(log, ctx, untypedDoc, newPreconditionsVariableResolver(log))
 }
 
 func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
 	var rule interface{}
-	rule, err = RuleToUntyped(typedRule)
+	rule, err = DocumentToUntyped(typedRule)
 	if err != nil {
 		return typedRule, err
 	}
@@ -101,14 +108,14 @@ func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, typedRule k
 	return UntypedToRule(rule)
 }
 
-func RuleToUntyped(rule kyverno.Rule) (interface{}, error) {
-	jsonRule, err := json.Marshal(rule)
+func DocumentToUntyped(doc interface{}) (interface{}, error) {
+	jsonDoc, err := json.Marshal(doc)
 	if err != nil {
 		return nil, err
 	}
 
 	var untyped interface{}
-	err = json.Unmarshal(jsonRule, &untyped)
+	err = json.Unmarshal(jsonDoc, &untyped)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +192,7 @@ func substituteAll(log logr.Logger, ctx context.EvalInterface, document interfac
 func SubstituteAllForceMutate(log logr.Logger, ctx *context.Context, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
 	var rule interface{}
 
-	rule, err = RuleToUntyped(typedRule)
+	rule, err = DocumentToUntyped(typedRule)
 	if err != nil {
 		return kyverno.Rule{}, err
 	}

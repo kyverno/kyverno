@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/distribution/distribution/reference"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
@@ -104,6 +105,10 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		var Empty struct{}
 		clusterResourcesMap := make(map[string]*struct{})
 		// Get all the cluster type kind supported by cluster
+
+		if len(policy.Spec.ValidationFailureActionOverrides) > 0 {
+			return fmt.Errorf("invalid policy: use of ValidationFailureActionOverrides in a Namespace Policy")
+		}
 
 		res, err := client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
 		if err != nil {
@@ -479,7 +484,7 @@ func getAllowedVariables(background bool) *regexp.Regexp {
 
 func addContextVariables(entries []kyverno.ContextEntry, ctx *context.MockContext) {
 	for _, contextEntry := range entries {
-		if contextEntry.APICall != nil {
+		if contextEntry.APICall != nil || contextEntry.ImageRegistry != nil {
 			ctx.AddVariable(contextEntry.Name + "*")
 		}
 
@@ -999,6 +1004,16 @@ func validateConditionValues(c kyverno.Condition) (string, error) {
 	if c.Key == nil || c.Value == nil || c.Operator == "" {
 		return "", fmt.Errorf("entered value of `key`, `value` or `operator` is missing or misspelled")
 	}
+	switch reflect.TypeOf(c.Key).Kind() {
+	case reflect.String:
+		value, err := validateValuesKeyRequest(c)
+		return value, err
+	default:
+		return "", nil
+	}
+}
+
+func validateValuesKeyRequest(c kyverno.Condition) (string, error) {
 	switch strings.ReplaceAll(c.Key.(string), " ", "") {
 	case "{{request.operation}}":
 		return validateConditionValuesKeyRequestOperation(c)
@@ -1094,8 +1109,10 @@ func validateRuleContext(rule kyverno.Rule) error {
 			err = validateConfigMap(entry)
 		} else if entry.APICall != nil {
 			err = validateAPICall(entry)
+		} else if entry.ImageRegistry != nil {
+			err = validateImageRegistry(entry)
 		} else {
-			return fmt.Errorf("a configMap or apiCall is required for context entries")
+			return fmt.Errorf("a configMap or apiCall or imageRegistry is required for context entries")
 		}
 
 		if err != nil {
@@ -1104,9 +1121,12 @@ func validateRuleContext(rule kyverno.Rule) error {
 	}
 
 	ruleBytes, _ := json.Marshal(rule)
-	ruleString := strings.ReplaceAll(string(ruleBytes), " ", "")
 	for _, contextName := range contextNames {
-		if !strings.Contains(ruleString, fmt.Sprintf("{{"+contextName)) && !strings.Contains(ruleString, fmt.Sprintf("{{\\\""+contextName)) {
+		contextRegex, err := regexp.Compile(fmt.Sprintf(`{{.*\b%s\b.*}}`, contextName))
+		if err != nil {
+			return fmt.Errorf("unable to validate context variable `%s`, %w", contextName, err)
+		}
+		if !contextRegex.Match(ruleBytes) {
 			return fmt.Errorf("context variable `%s` is not used in the policy", contextName)
 		}
 	}
@@ -1121,6 +1141,10 @@ func validateConfigMap(entry kyverno.ContextEntry) error {
 
 	if entry.APICall != nil {
 		return fmt.Errorf("both configMap and apiCall are not allowed in a context entry")
+	}
+
+	if entry.ImageRegistry != nil {
+		return fmt.Errorf("both imageRegistry and configMap are not allowed in a context entry")
 	}
 
 	if entry.ConfigMap.Name == "" {
@@ -1143,6 +1167,10 @@ func validateAPICall(entry kyverno.ContextEntry) error {
 		return fmt.Errorf("both configMap and apiCall are not allowed in a context entry")
 	}
 
+	if entry.ImageRegistry != nil {
+		return fmt.Errorf("both imageRegistry and apiCall are not allowed in a context entry")
+	}
+
 	// Replace all variables to prevent validation failing on variable keys.
 	urlPath := variables.ReplaceAllVars(entry.APICall.URLPath, func(s string) string { return "kyvernoapicallvariable" })
 
@@ -1159,6 +1187,47 @@ func validateAPICall(entry kyverno.ContextEntry) error {
 	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.APICall.JMESPath != "" {
 		if _, err := jmespath.NewParser().Parse(entry.APICall.JMESPath); err != nil {
 			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.APICall.JMESPath, err)
+		}
+	}
+
+	return nil
+}
+
+func validateImageRegistry(entry kyverno.ContextEntry) error {
+	if entry.ImageRegistry == nil {
+		return fmt.Errorf("imageRegistry is empty")
+	}
+
+	if entry.ConfigMap != nil {
+		return fmt.Errorf("both configMap and imageRegistry are not allowed in a context entry")
+	}
+
+	if entry.APICall != nil {
+		return fmt.Errorf("both configMap and apiCall are not allowed in a context entry")
+	}
+
+	if entry.ImageRegistry.Reference == "" {
+		return fmt.Errorf("a ref is required for imageRegistry context entry")
+	}
+	// Replace all variables to prevent validation failing on variable keys.
+	ref := variables.ReplaceAllVars(entry.ImageRegistry.Reference, func(s string) string { return "kyvernoimageref" })
+
+	// it's no use validating a refernce that contains a variable
+	if !strings.Contains(ref, "kyvernoimageref") {
+		_, err := reference.Parse(ref)
+		if err != nil {
+			return errors.Wrapf(err, "bad image: %s", ref)
+		}
+	}
+
+	// If JMESPath contains variables, the validation will fail because it's not possible to infer which value
+	// will be inserted by the variable
+	// Skip validation if a variable is detected
+	jmesPath := variables.ReplaceAllVars(entry.ImageRegistry.JMESPath, func(s string) string { return "kyvernojmespathvariable" })
+
+	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.ImageRegistry.JMESPath != "" {
+		if _, err := jmespath.NewParser().Parse(entry.ImageRegistry.JMESPath); err != nil {
+			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.ImageRegistry.JMESPath, err)
 		}
 	}
 
@@ -1379,9 +1448,10 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources [
 		// should not be mentioned
 		if rule.HasGenerate() {
 			generateResourceKind := rule.Generation.Kind
+			generateResourceAPIVersion := rule.Generation.APIVersion
 			for _, resList := range res {
 				for _, r := range resList.APIResources {
-					if r.Kind == generateResourceKind {
+					if r.Kind == generateResourceKind && (len(generateResourceAPIVersion) == 0 || r.Version == generateResourceAPIVersion) {
 						if r.Namespaced {
 							if rule.Generation.Namespace == "" {
 								return fmt.Errorf("path: spec.rules[%v]: please mention the namespace to generate a namespaced resource", rule.Name)

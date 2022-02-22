@@ -55,7 +55,13 @@ type Spec struct {
 	// the admission review request (enforce), or allow (audit) the admission review request
 	// and report an error in a policy report. Optional. The default value is "audit".
 	// +optional
+	// +kubebuilder:validation:Enum=audit;enforce
 	ValidationFailureAction string `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
+
+	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+	// +optional
+	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
 
 	// Background controls if rules are applied to existing resources during a background scan.
 	// Optional. Default value is "true". The value must be set to "false" if the policy rule
@@ -168,6 +174,24 @@ type ContextEntry struct {
 	// APICall defines an HTTP request to the Kubernetes API server. The JSON
 	// data retrieved is stored in the context.
 	APICall *APICall `json:"apiCall,omitempty" yaml:"apiCall,omitempty"`
+
+	// ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
+	// details.
+	ImageRegistry *ImageRegistry `json:"imageRegistry,omitempty" yaml:"imageRegistry,omitempty"`
+}
+
+// ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
+// details.
+type ImageRegistry struct {
+	// Reference is image reference to a container image in the registry.
+	// Example: ghcr.io/kyverno/kyverno:latest
+	Reference string `json:"reference" yaml:"reference"`
+
+	// JMESPath is an optional JSON Match Expression that can be used to
+	// transform the ImageData struct returned as a result of processing
+	// the image reference.
+	// +optional
+	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
 }
 
 // ConfigMapReference refers to a ConfigMap
@@ -622,4 +646,10 @@ type ResourceSpec struct {
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 	// Name specifies the resource name.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+}
+
+type ValidationFailureActionOverride struct {
+	// +kubebuilder:validation:Enum=audit;enforce
+	Action     string   `json:"action,omitempty" yaml:"action,omitempty"`
+	Namespaces []string `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 }

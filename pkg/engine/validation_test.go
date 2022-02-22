@@ -3084,3 +3084,20 @@ func Test_delete_ignore_pattern(t *testing.T) {
 	engineResponseDelete := Validate(policyContextDelete)
 	assert.Equal(t, len(engineResponseDelete.PolicyResponse.Rules), 0)
 }
+
+func Test_block_bypass(t *testing.T) {
+	testcases := []testCase{
+		{
+			description:   "Blocks bypass of policy by manipulating pre-conditions",
+			policy:        []byte(`{"apiVersion":"kyverno.io/v1","kind":"Policy","metadata":{"name":"configmap-policy"},"spec":{"rules":[{"match":{"resources":{"kinds":["ConfigMap"]}},"name":"key-abc","preconditions":{"any":[{"key":"admin","operator":"Equals","value":"{{request.object.data.lock}}"}]},"validate":{"anyPattern":[{"data":{"key":"abc"}}],"message":"Configmap key must be \"abc\""}}]}}`),
+			request:       []byte(`{"uid":"7b0600b7-0258-4ecb-9666-c2839bd19612","kind":{"group":"","version":"v1","kind":"ConfigMap"},"resource":{"group":"","version":"v1","resource":"configmaps"},"subResource":"status","requestKind":{"group":"","version":"v1","kind":"configmaps"},"requestResource":{"group":"","version":"v1","resource":"configmaps"},"name":"test-configmap","namespace":"default","operation":"UPDATE","userInfo":{"username":"system:node:kind-control-plane","groups":["system:authenticated"]},"object":{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test-configmap"},"data":{"key":"xyz","lock":"admin"}},"oldObject":{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test-configmap"},"data":{"key":"xyz"}},"dryRun":false,"options":{"kind":"UpdateOptions","apiVersion":"meta.k8s.io/v1"}}`),
+			userInfo:      []byte(`{"roles":["kube-system:kubeadm:kubelet-config-1.17","kube-system:kubeadm:nodes-kubeadm-config"],"clusterRoles":["system:basic-user","system:certificates.k8s.io:certificatesigningrequests:selfnodeclient","system:public-info-viewer","system:discovery"],"userInfo":{"username":"kubernetes-admin","groups":["system:authenticated"]}}`),
+			requestDenied: true,
+		},
+	}
+
+	var err error
+	for _, testcase := range testcases {
+		executeTest(t, err, testcase)
+	}
+}

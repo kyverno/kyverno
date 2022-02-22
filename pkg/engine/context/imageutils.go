@@ -35,10 +35,10 @@ type ImageInfo struct {
 
 func (i *ImageInfo) String() string {
 	image := i.Registry + "/" + i.Path + ":" + i.Tag
+	// image that needs only digest and not the tag
 	if i.Digest != "" {
-		image = image + "@" + i.Digest
+		image = i.Registry + "/" + i.Path + "@" + i.Digest
 	}
-
 	return image
 }
 
@@ -48,11 +48,12 @@ type ContainerImage struct {
 }
 
 type Images struct {
-	InitContainers map[string]*ImageInfo `json:"initContainers,omitempty"`
-	Containers     map[string]*ImageInfo `json:"containers"`
+	InitContainers      map[string]*ImageInfo `json:"initContainers,omitempty"`
+	Containers          map[string]*ImageInfo `json:"containers"`
+	EphemeralContainers map[string]*ImageInfo `json:"ephemeralContainers"`
 }
 
-func newImages(initContainersImgs, containersImgs []*ContainerImage) *Images {
+func newImages(initContainersImgs, containersImgs, ephemeralContainersImgs []*ContainerImage) *Images {
 	initContainers := make(map[string]*ImageInfo)
 	for _, resource := range initContainersImgs {
 		initContainers[resource.Name] = resource.Image
@@ -63,23 +64,31 @@ func newImages(initContainersImgs, containersImgs []*ContainerImage) *Images {
 		containers[resource.Name] = resource.Image
 	}
 
+	ephemeralContainers := make(map[string]*ImageInfo)
+	for _, resource := range ephemeralContainersImgs {
+		ephemeralContainers[resource.Name] = resource.Image
+	}
+
 	return &Images{
-		InitContainers: initContainers,
-		Containers:     containers,
+		InitContainers:      initContainers,
+		Containers:          containers,
+		EphemeralContainers: ephemeralContainers,
 	}
 }
 
-func extractImageInfo(resource *unstructured.Unstructured, log logr.Logger) (initContainersImgs, containersImgs []*ContainerImage) {
+func extractImageInfo(resource *unstructured.Unstructured, log logr.Logger) (initContainersImgs, containersImgs, ephemeralContainersImgs []*ContainerImage) {
 	logger := log.WithName("extractImageInfo").WithValues("kind", resource.GetKind(), "ns", resource.GetNamespace(), "name", resource.GetName())
 
-	for _, tag := range []string{"initContainers", "containers"} {
+	for _, tag := range []string{"initContainers", "containers", "ephemeralContainers"} {
 		switch resource.GetKind() {
 		case "Pod":
 			if containers, ok, _ := unstructured.NestedSlice(resource.UnstructuredContent(), "spec", tag); ok {
 				if tag == "initContainers" {
 					initContainersImgs = extractImageInfos(containers, initContainersImgs, "/spec/initContainers", logger)
-				} else {
+				} else if tag == "containers" {
 					containersImgs = extractImageInfos(containers, containersImgs, "/spec/containers", logger)
+				} else {
+					ephemeralContainersImgs = extractImageInfos(containers, ephemeralContainersImgs, "/spec/ephemeralContainers", logger)
 				}
 			}
 
@@ -87,8 +96,10 @@ func extractImageInfo(resource *unstructured.Unstructured, log logr.Logger) (ini
 			if containers, ok, _ := unstructured.NestedSlice(resource.UnstructuredContent(), "spec", "jobTemplate", "spec", "template", "spec", tag); ok {
 				if tag == "initContainers" {
 					initContainersImgs = extractImageInfos(containers, initContainersImgs, "/spec/jobTemplate/spec/template/spec/initContainers", logger)
-				} else {
+				} else if tag == "containers" {
 					containersImgs = extractImageInfos(containers, containersImgs, "/spec/jobTemplate/spec/template/spec/containers", logger)
+				} else {
+					ephemeralContainersImgs = extractImageInfos(containers, ephemeralContainersImgs, "/spec/jobTemplate/spec/template/spec/ephemeralContainers", logger)
 				}
 			}
 
@@ -97,8 +108,10 @@ func extractImageInfo(resource *unstructured.Unstructured, log logr.Logger) (ini
 			if containers, ok, _ := unstructured.NestedSlice(resource.UnstructuredContent(), "spec", "template", "spec", tag); ok {
 				if tag == "initContainers" {
 					initContainersImgs = extractImageInfos(containers, initContainersImgs, "/spec/template/spec/initContainers", logger)
-				} else {
+				} else if tag == "containers" {
 					containersImgs = extractImageInfos(containers, containersImgs, "/spec/template/spec/containers", logger)
+				} else {
+					ephemeralContainersImgs = extractImageInfos(containers, ephemeralContainersImgs, "/spec/template/spec/ephemeralContainers", logger)
 				}
 			}
 		}
@@ -121,8 +134,13 @@ func convertToImageInfo(containers []interface{}, jsonPath string) (images []*Co
 	var index = 0
 	for _, ctr := range containers {
 		if container, ok := ctr.(map[string]interface{}); ok {
-			name := container["name"].(string)
-			image := container["image"].(string)
+			var name, image string
+
+			name = container["name"].(string)
+			if _, ok := container["image"]; ok {
+				image = container["image"].(string)
+			}
+
 			jp := strings.Join([]string{jsonPath, strconv.Itoa(index), "image"}, "/")
 			imageInfo, err := newImageInfo(image, jp)
 			if err != nil {
@@ -169,7 +187,7 @@ func newImageInfo(image, jsonPointer string) (*ImageInfo, error) {
 	}
 
 	// set default tag - the domain is set via addDefaultDomain before parsing
-	if tag == "" {
+	if digest == "" && tag == "" {
 		tag = "latest"
 	}
 
@@ -212,6 +230,10 @@ func MutateResourceWithImageInfo(raw []byte, ctx *Context) error {
 	}
 
 	for _, info := range images.InitContainers {
+		patches = append(patches, buildJSONPatch("replace", info.JSONPointer, info.String()))
+	}
+
+	for _, info := range images.EphemeralContainers {
 		patches = append(patches, buildJSONPatch("replace", info.JSONPointer, info.String()))
 	}
 

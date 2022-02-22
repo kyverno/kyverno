@@ -170,17 +170,33 @@ func (ctx *Context) AddResourceInOldObject(dataRaw []byte) error {
 }
 
 func (ctx *Context) AddResourceAsObject(data interface{}) error {
-	modifiedResource := struct {
-		Request interface{} `json:"request"`
-	}{
-		Request: struct {
-			Object interface{} `json:"object"`
-		}{
-			Object: data,
-		},
+	return ctx.addToRequest(data, "object")
+}
+
+func (ctx *Context) ReplaceResourceAsObject(data interface{}) error {
+	if err := ctx.addToRequest(nil, "object"); err != nil {
+		return err
 	}
 
-	objRaw, err := json.Marshal(modifiedResource)
+	return ctx.addToRequest(data, "object")
+}
+
+func (ctx *Context) ReplaceResourceAsOldObject(data interface{}) error {
+	if err := ctx.addToRequest(nil, "oldObject"); err != nil {
+		return err
+	}
+
+	return ctx.addToRequest(data, "oldObject")
+}
+
+func (ctx *Context) addToRequest(data interface{}, tag string) error {
+	requestData := make(map[string]interface{})
+	requestData[tag] = data
+	request := map[string]interface{}{
+		"request": requestData,
+	}
+
+	objRaw, err := json.Marshal(request)
 	if err != nil {
 		ctx.log.Error(err, "failed to marshal the resource")
 		return err
@@ -277,12 +293,12 @@ func (ctx *Context) AddNamespace(namespace string) error {
 }
 
 func (ctx *Context) AddImageInfo(resource *unstructured.Unstructured) error {
-	initContainersImgs, containersImgs := extractImageInfo(resource, ctx.log)
-	if len(initContainersImgs) == 0 && len(containersImgs) == 0 {
+	initContainersImgs, containersImgs, ephemeralContainersImgs := extractImageInfo(resource, ctx.log)
+	if len(initContainersImgs) == 0 && len(containersImgs) == 0 && len(ephemeralContainersImgs) == 0 {
 		return nil
 	}
 
-	images := newImages(initContainersImgs, containersImgs)
+	images := newImages(initContainersImgs, containersImgs, ephemeralContainersImgs)
 	if images == nil {
 		return nil
 	}

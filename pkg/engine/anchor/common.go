@@ -25,8 +25,9 @@ func IsGlobalAnchor(str string) bool {
 		return false
 	}
 
-	//TODO: trim spaces ?
-	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
+	leftMatch := strings.TrimSpace(str[:len(left)]) == left
+	rightMatch := strings.TrimSpace(str[len(str)-len(right):]) == right
+	return leftMatch && rightMatch
 }
 
 //ContainsCondition returns true, if str is either condition anchor or
@@ -46,8 +47,8 @@ func IsNegationAnchor(str string) bool {
 	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
 }
 
-// IsAddingAnchor checks for addition anchor
-func IsAddingAnchor(key string) bool {
+// IsAddIfNotPresentAnchor checks for addition anchor
+func IsAddIfNotPresentAnchor(key string) bool {
 	const left = "+("
 	const right = ")"
 
@@ -94,7 +95,7 @@ func RemoveAnchor(key string) (string, string) {
 		return key[1 : len(key)-1], key[0:1]
 	}
 
-	if IsExistenceAnchor(key) || IsAddingAnchor(key) || IsEqualityAnchor(key) || IsNegationAnchor(key) || IsGlobalAnchor(key) {
+	if IsExistenceAnchor(key) || IsAddIfNotPresentAnchor(key) || IsEqualityAnchor(key) || IsNegationAnchor(key) || IsGlobalAnchor(key) {
 		return key[2 : len(key)-1], key[0:2]
 	}
 

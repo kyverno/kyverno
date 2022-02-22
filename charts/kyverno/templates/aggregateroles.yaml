@@ -64,5 +64,26 @@ rules:
     - patch
     - update
     - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    app: kyverno
+  name: {{ template "kyverno.fullname" . }}:admin-generaterequest
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - generaterequests
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
 
 {{- end }}

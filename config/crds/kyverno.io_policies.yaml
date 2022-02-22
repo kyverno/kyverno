@@ -123,6 +123,22 @@ spec:
                             required:
                             - name
                             type: object
+                          imageRegistry:
+                            description: ImageRegistry defines requests to an OCI/Docker
+                              V2 registry to fetch image details.
+                            properties:
+                              jmesPath:
+                                description: JMESPath is an optional JSON Match Expression
+                                  that can be used to transform the ImageData struct
+                                  returned as a result of processing the image reference.
+                                type: string
+                              reference:
+                                description: 'Reference is image reference to a container
+                                  image in the registry. Example: ghcr.io/kyverno/kyverno:latest'
+                                type: string
+                            required:
+                            - reference
+                            type: object
                           name:
                             description: Name is the variable name.
                             type: string
@@ -1492,6 +1508,25 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests
+                                        to an OCI/Docker V2 registry to fetch image
+                                        details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the ImageData struct returned as a result
+                                            of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference
+                                            to a container image in the registry.
+                                            Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
+                                      type: object
                                     name:
                                       description: Name is the variable name.
                                       type: string
@@ -1723,6 +1758,25 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests
+                                        to an OCI/Docker V2 registry to fetch image
+                                        details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the ImageData struct returned as a result
+                                            of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference
+                                            to a container image in the registry.
+                                            Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
+                                      type: object
                                     name:
                                       description: Name is the variable name.
                                       type: string
@@ -1742,11 +1796,12 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               elementScope:
-                                description: Use the list element as the scope for
-                                  validation. Defaults to "true" if not specified.
-                                  When set to "false", "request.object" is used as
-                                  the validation scope within the foreach block to
-                                  allow referencing other elements in the subtree.
+                                description: ElementScope specifies whether to use
+                                  the current list element as the scope for validation.
+                                  Defaults to "true" if not specified. When set to
+                                  "false", "request.object" is used as the validation
+                                  scope within the foreach block to allow referencing
+                                  other elements in the subtree.
                                 type: boolean
                               list:
                                 description: List specifies a JMESPath expression
@@ -2067,7 +2122,27 @@ spec:
                   rule failure should disallow the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. The default value is "audit".
+                enum:
+                - audit
+                - enforce
                 type: string
+              validationFailureActionOverrides:
+                description: ValidationFailureActionOverrides is a Cluster Policy attribute
+                  that specifies ValidationFailureAction namespace-wise. It overrides
+                  ValidationFailureAction for the specified namespaces.
+                items:
+                  properties:
+                    action:
+                      enum:
+                      - audit
+                      - enforce
+                      type: string
+                    namespaces:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                type: array
               webhookTimeoutSeconds:
                 description: WebhookTimeoutSeconds specifies the maximum time in seconds
                   allowed to apply this policy. After the configured time expires,

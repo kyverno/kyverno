@@ -2,6 +2,7 @@ package jmespath
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"github.com/blang/semver/v4"
 	gojmespath "github.com/jmespath/go-jmespath"
 	"github.com/minio/pkg/wildcard"
+	"sigs.k8s.io/yaml"
 )
 
 var (
@@ -24,6 +26,7 @@ var (
 	JpArray       = gojmespath.JpArray
 	JpArrayString = gojmespath.JpArrayString
 	JpAny         = gojmespath.JpAny
+	JpBool        = gojmespath.JpType("bool")
 )
 
 type (
@@ -57,6 +60,8 @@ var (
 	pathCanonicalize       = "path_canonicalize"
 	truncate               = "truncate"
 	semverCompare          = "semver_compare"
+	parseJson              = "parse_json"
+	parseYAML              = "parse_yaml"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -66,201 +71,301 @@ const zeroDivisionError = errorPrefix + "Zero divisor passed"
 const undefinedQuoError = errorPrefix + "Undefined quotient"
 const nonIntModuloError = errorPrefix + "Non-integer argument(s) passed for modulo"
 
-func getFunctions() []*gojmespath.FunctionEntry {
-	return []*gojmespath.FunctionEntry{
+type FunctionEntry struct {
+	Entry      *gojmespath.FunctionEntry
+	Note       string
+	ReturnType []JpType
+}
+
+func (f *FunctionEntry) String() string {
+	args := []string{}
+	for _, a := range f.Entry.Arguments {
+		aTypes := []string{}
+		for _, t := range a.Types {
+			aTypes = append(aTypes, string(t))
+		}
+		args = append(args, strings.Join(aTypes, "|"))
+	}
+	returnArgs := []string{}
+	for _, ra := range f.ReturnType {
+		returnArgs = append(returnArgs, string(ra))
+	}
+	output := fmt.Sprintf("%s(%s) %s", f.Entry.Name, strings.Join(args, ", "), strings.Join(returnArgs, ","))
+	if f.Note != "" {
+		output += fmt.Sprintf(" (%s)", f.Note)
+	}
+	return output
+}
+
+func GetFunctions() []*FunctionEntry {
+	return []*FunctionEntry{
 		{
-			Name: compare,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString}},
+			Entry: &gojmespath.FunctionEntry{Name: compare,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpfCompare,
 			},
-			Handler: jpfCompare,
+			ReturnType: []JpType{JpBool},
 		},
 		{
-			Name: equalFold,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString}},
+			Entry: &gojmespath.FunctionEntry{Name: equalFold,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpfEqualFold,
 			},
-			Handler: jpfEqualFold,
+			ReturnType: []JpType{JpBool},
 		},
 		{
-			Name: replace,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpNumber}},
+			Entry: &gojmespath.FunctionEntry{Name: replace,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpNumber}},
+				},
+				Handler: jpfReplace,
 			},
-			Handler: jpfReplace,
+			ReturnType: []JpType{JpString},
 		},
 		{
-			Name: replaceAll,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString}},
+			Entry: &gojmespath.FunctionEntry{Name: replaceAll,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpfReplaceAll,
 			},
-			Handler: jpfReplaceAll,
+			ReturnType: []JpType{JpString},
 		},
 		{
-			Name: toUpper,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
+			Entry: &gojmespath.FunctionEntry{Name: toUpper,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpfToUpper,
 			},
-			Handler: jpfToUpper,
+			ReturnType: []JpType{JpString},
 		},
 		{
-			Name: toLower,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
+			Entry: &gojmespath.FunctionEntry{Name: toLower,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpfToLower,
 			},
-			Handler: jpfToLower,
+			ReturnType: []JpType{JpString},
 		},
 		{
-			Name: trim,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString}},
+			Entry: &gojmespath.FunctionEntry{Name: trim,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpfTrim,
 			},
-			Handler: jpfTrim,
+			ReturnType: []JpType{JpString},
 		},
 		{
-			Name: split,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString}},
+			Entry: &gojmespath.FunctionEntry{Name: split,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpfSplit,
 			},
-			Handler: jpfSplit,
+			ReturnType: []JpType{JpArrayString},
 		},
 		{
-			Name: regexReplaceAll,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString, JpNumber}},
-				{Types: []JpType{JpString, JpNumber}},
+			Entry: &gojmespath.FunctionEntry{Name: regexReplaceAll,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString, JpNumber}},
+					{Types: []JpType{JpString, JpNumber}},
+				},
+				Handler: jpRegexReplaceAll,
 			},
-			Handler: jpRegexReplaceAll,
+			ReturnType: []JpType{JpString},
+			Note:       "converts all parameters to string",
 		},
 		{
-			Name: regexReplaceAllLiteral,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString, JpNumber}},
-				{Types: []JpType{JpString, JpNumber}},
+			Entry: &gojmespath.FunctionEntry{Name: regexReplaceAllLiteral,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString, JpNumber}},
+					{Types: []JpType{JpString, JpNumber}},
+				},
+				Handler: jpRegexReplaceAllLiteral,
 			},
-			Handler: jpRegexReplaceAllLiteral,
+			ReturnType: []JpType{JpString},
+			Note:       "converts all parameters to string",
 		},
 		{
-			Name: regexMatch,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString, JpNumber}},
+			Entry: &gojmespath.FunctionEntry{Name: regexMatch,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString, JpNumber}},
+				},
+				Handler: jpRegexMatch,
 			},
-			Handler: jpRegexMatch,
 		},
 		{
-			Name: patternMatch,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString, JpNumber}},
+			Entry: &gojmespath.FunctionEntry{Name: patternMatch,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString, JpNumber}},
+				},
+				Handler: jpPatternMatch,
 			},
-			Handler: jpPatternMatch,
+			ReturnType: []JpType{JpBool},
+			Note:       "'*' matches zero or more alphanumeric characters, '?' matches a single alphanumeric character",
 		},
 		{
 			// Validates if label (param1) would match pod/host/etc labels (param2)
-			Name: labelMatch,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpObject}},
-				{Types: []JpType{JpObject}},
+			Entry: &gojmespath.FunctionEntry{Name: labelMatch,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpObject}},
+					{Types: []JpType{JpObject}},
+				},
+				Handler: jpLabelMatch,
 			},
-			Handler: jpLabelMatch,
+			ReturnType: []JpType{JpBool},
+			Note:       "object arguments must be enclosed in backticks; ex. `{{request.object.spec.template.metadata.labels}}`",
 		},
 		{
-			Name: add,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpAny}},
-				{Types: []JpType{JpAny}},
+			Entry: &gojmespath.FunctionEntry{Name: add,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpAny}},
+					{Types: []JpType{JpAny}},
+				},
+				Handler: jpAdd,
 			},
-			Handler: jpAdd,
+			ReturnType: []JpType{JpAny},
 		},
 		{
-			Name: subtract,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpAny}},
-				{Types: []JpType{JpAny}},
+			Entry: &gojmespath.FunctionEntry{Name: subtract,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpAny}},
+					{Types: []JpType{JpAny}},
+				},
+				Handler: jpSubtract,
 			},
-			Handler: jpSubtract,
+			ReturnType: []JpType{JpAny},
 		},
 		{
-			Name: multiply,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpAny}},
-				{Types: []JpType{JpAny}},
+			Entry: &gojmespath.FunctionEntry{Name: multiply,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpAny}},
+					{Types: []JpType{JpAny}},
+				},
+				Handler: jpMultiply,
 			},
-			Handler: jpMultiply,
+			ReturnType: []JpType{JpAny},
 		},
 		{
-			Name: divide,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpAny}},
-				{Types: []JpType{JpAny}},
+			Entry: &gojmespath.FunctionEntry{Name: divide,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpAny}},
+					{Types: []JpType{JpAny}},
+				},
+				Handler: jpDivide,
 			},
-			Handler: jpDivide,
+			ReturnType: []JpType{JpAny},
+			Note:       "divisor must be non zero",
 		},
 		{
-			Name: modulo,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpAny}},
-				{Types: []JpType{JpAny}},
+			Entry: &gojmespath.FunctionEntry{Name: modulo,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpAny}},
+					{Types: []JpType{JpAny}},
+				},
+				Handler: jpModulo,
 			},
-			Handler: jpModulo,
+			ReturnType: []JpType{JpAny},
+			Note:       "divisor must be non-zero, arguments must be integers",
 		},
 		{
-			Name: base64Decode,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
+			Entry: &gojmespath.FunctionEntry{Name: base64Decode,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpBase64Decode,
 			},
-			Handler: jpBase64Decode,
+			ReturnType: []JpType{JpString},
 		},
 		{
-			Name: base64Encode,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
+			Entry: &gojmespath.FunctionEntry{Name: base64Encode,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpBase64Encode,
 			},
-			Handler: jpBase64Encode,
+			ReturnType: []JpType{JpString},
 		},
 		{
-			Name: timeSince,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString}},
+			Entry: &gojmespath.FunctionEntry{Name: timeSince,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeSince,
 			},
-			Handler: jpTimeSince,
+			ReturnType: []JpType{JpString},
 		},
 		{
-			Name: pathCanonicalize,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
+			Entry: &gojmespath.FunctionEntry{Name: pathCanonicalize,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpPathCanonicalize,
 			},
-			Handler: jpPathCanonicalize,
+			ReturnType: []JpType{JpString},
 		},
 		{
-			Name: truncate,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpNumber}},
+			Entry: &gojmespath.FunctionEntry{Name: truncate,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpNumber}},
+				},
+				Handler: jpTruncate,
 			},
-			Handler: jpTruncate,
+			ReturnType: []JpType{JpString},
+			Note:       "length argument must be enclosed in backticks; ex. \"{{request.object.metadata.name | truncate(@, `9`)}}\"",
 		},
 		{
-			Name: semverCompare,
-			Arguments: []ArgSpec{
-				{Types: []JpType{JpString}},
-				{Types: []JpType{JpString}},
+			Entry: &gojmespath.FunctionEntry{Name: semverCompare,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpSemverCompare,
 			},
-			Handler: jpSemverCompare,
+			ReturnType: []JpType{JpBool},
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{Name: parseJson,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpParseJson,
+			},
+			ReturnType: []JpType{JpAny},
+			Note:       "decodes a valid JSON encoded string to the appropriate type. Opposite of `to_string` function",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{Name: parseYAML,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpParseYAML,
+			},
+			ReturnType: []JpType{JpAny},
+			Note:       "decodes a valid YAML encoded string to the appropriate type provided it can be represented as JSON",
 		},
 	}
 
@@ -665,6 +770,30 @@ func jpSemverCompare(arguments []interface{}) (interface{}, error) {
 	return false, nil
 }
 
+func jpParseJson(arguments []interface{}) (interface{}, error) {
+	input, err := validateArg(parseJson, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	var output interface{}
+	err = json.Unmarshal([]byte(input.String()), &output)
+	return output, err
+}
+
+func jpParseYAML(arguments []interface{}) (interface{}, error) {
+	input, err := validateArg(parseYAML, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	jsonData, err := yaml.YAMLToJSON([]byte(input.String()))
+	if err != nil {
+		return nil, err
+	}
+	var output interface{}
+	err = json.Unmarshal(jsonData, &output)
+	return output, err
+}
+
 // InterfaceToString casts an interface to a string type
 func ifaceToString(iface interface{}) (string, error) {
 	switch i := iface.(type) {
@@ -686,7 +815,7 @@ func ifaceToString(iface interface{}) (string, error) {
 func validateArg(f string, arguments []interface{}, index int, expectedType reflect.Kind) (reflect.Value, error) {
 	arg := reflect.ValueOf(arguments[index])
 	if arg.Type().Kind() != expectedType {
-		return reflect.Value{}, fmt.Errorf(invalidArgumentTypeError, equalFold, index+1, expectedType.String())
+		return reflect.Value{}, fmt.Errorf(invalidArgumentTypeError, f, index+1, expectedType.String())
 	}
 
 	return arg, nil
