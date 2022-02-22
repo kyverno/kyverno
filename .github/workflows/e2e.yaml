@@ -50,47 +50,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Test Policy
+      - name :  Create dev images, kind cluster and setup kustomize
         run: |
-          if [[ ${{ github.event_name }} == "push" ]]
-          then
-            GIT_BRANCH=${GITHUB_REF##*/}
-          elif [[ ${{ github.event_name }} == "pull_request" ]]
-          then
-            GIT_BRANCH=${{ github.event.pull_request.base.ref }}
-          fi
-
-          CLI_PATH=cmd/cli/kubectl-kyverno
-
-          go run $PWD/$CLI_PATH/main.go test https://github.com/kyverno/policies/$GIT_BRANCH
-          go run $PWD/$CLI_PATH/main.go test https://github.com/kyverno/policies --git-branch $GIT_BRANCH
-          go run $PWD/$CLI_PATH/main.go test https://github.com/kyverno/policies/pod-security/restricted -b $GIT_BRANCH
-          go run $PWD/$CLI_PATH/main.go test ./test/cli/test-mutate
-          go run $PWD/$CLI_PATH/main.go test ./test/cli/test
-          go run $PWD/$CLI_PATH/main.go test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
-          go run $PWD/$CLI_PATH/main.go test ./test/cli/test-fail/missing-rule && exit 1 || exit 0
-          go run $PWD/$CLI_PATH/main.go test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
-      
-      - name: gofmt check
-        run: |
-         if [ "$(gofmt -s -l . | wc -l)" -ne 0 ] 
-         then
-          echo "The following files were found to be not go formatted:"
-          gofmt -s -l .
-          echo "Please run 'make fmt' to go format the above files."
-          exit 1
-         fi
-
-      - name: golangci-lint
-        uses: reviewdog/action-golangci-lint@02bcf8c1a9febe8620f1ca523b18dd64f82296db # v1.25.0
-
-      - name: docker images build (AMD64)
-        run: |
-          make docker-build-all-amd64
-
-      - name :  Create Kind Cluster and setup kustomize
-        run: |
-          make create-e2e-infrastruture
+          make -j4 create-e2e-infrastruture
 
       - name: e2e testing
         run: |
@@ -111,10 +73,8 @@ jobs:
 
       - name: Update chart values
         run: |
-          sed -i -e "s|nameOverride:.*|nameOverride: kyverno|g" charts/kyverno/values.yaml
-          sed -i -e "s|fullnameOverride:.*|fullnameOverride: kyverno|g" charts/kyverno/values.yaml
-          sed -i -e "s|namespace:.*|namespace: kyverno|g" charts/kyverno/values.yaml
-          sed -i -e "s|tag:  # replaced in e2e tests|tag: $(git describe --match "v[0-9]*")|" charts/kyverno/values.yaml
+          make helm-test-values
+          cat charts/kyverno/values.yaml
 
       - name: Run chart-testing (install)
         run: |
@@ -124,7 +84,7 @@ jobs:
       - name: Run chart-testing (policies)
         run: |
           helm install kyverno charts/kyverno -n kyverno
-          helm install kyverno-policies charts/kyverno-policies -n kyverno
+          ct install --target-branch=main --namespace=kyverno --charts charts/kyverno-policies
 
       - name: Debug failure
         if: failure()

@@ -39,7 +39,7 @@ jobs:
           version: v3.4.1
 
       - name: Run chart-releaser
-        uses: stefanprodan/helm-gh-pages@v1.4.1
+        uses: stefanprodan/helm-gh-pages@b43a8719cc63fdb3aa943cc57359ab19118eab3f #v1.5.0
         with:
           token: "${{ secrets.GITHUB_TOKEN }}"
           linting: off
