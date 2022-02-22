@@ -594,7 +594,7 @@ func Test_Validate_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = Validate(policy, nil, true, openAPIController)
+	_, err = Validate(policy, nil, true, openAPIController)
 	assert.NilError(t, err)
 }
 
@@ -741,7 +741,7 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	assert.NilError(t, err)
 
 	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, true, openAPIController)
+	_, err = Validate(policy, nil, true, openAPIController)
 	assert.Assert(t, err != nil)
 }
 
@@ -1281,7 +1281,7 @@ func Test_Validate_Kind(t *testing.T) {
 	assert.NilError(t, err)
 
 	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, true, openAPIController)
+	_, err = Validate(policy, nil, true, openAPIController)
 	assert.Assert(t, err != nil)
 }
 
@@ -1330,7 +1330,7 @@ func Test_Validate_Any_Kind(t *testing.T) {
 	assert.NilError(t, err)
 
 	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, true, openAPIController)
+	_, err = Validate(policy, nil, true, openAPIController)
 	assert.Assert(t, err != nil)
 }
 
@@ -1457,7 +1457,7 @@ func Test_Wildcards_Kind(t *testing.T) {
 	assert.NilError(t, err)
 
 	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, true, openAPIController)
+	_, err = Validate(policy, nil, true, openAPIController)
 	assert.Assert(t, err != nil)
 }
 
@@ -1507,7 +1507,7 @@ func Test_Namespced_Policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, true, openAPIController)
+	_, err = Validate(policy, nil, true, openAPIController)
 	assert.Assert(t, err != nil)
 }
 
@@ -1555,7 +1555,7 @@ func Test_patchesJson6902_Policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, true, openAPIController)
+	_, err = Validate(policy, nil, false, openAPIController)
 	assert.NilError(t, err)
 }
 
