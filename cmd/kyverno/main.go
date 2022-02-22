@@ -18,10 +18,10 @@ import (
 	"k8s.io/klog/v2/klogr"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 
-	backwardcompatibility "github.com/kyverno/kyverno/pkg/backward_compatibility"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/common"
+	backwardcompatibility "github.com/kyverno/kyverno/pkg/compatibility"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
@@ -33,6 +33,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/signal"
 	ktls "github.com/kyverno/kyverno/pkg/tls"
@@ -63,6 +64,9 @@ var (
 	policyControllerResyncPeriod time.Duration
 	imagePullSecrets             string
 	imageSignatureRepository     string
+	clientRateLimitQPS           float64
+	clientRateLimitBurst         int
+	webhookRegistrationTimeout   time.Duration
 	setupLog                     = log.Log.WithName("setup")
 )
 
@@ -95,7 +99,10 @@ func main() {
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 	flag.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
+	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the master from Kyverno. Uses the client default if zero.")
+	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 
+	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -106,7 +113,7 @@ func main() {
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
-	clientConfig, err := config.CreateClientConfig(kubeconfig, log.Log)
+	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst, log.Log)
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
@@ -159,6 +166,7 @@ func main() {
 	}
 
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
+	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace))
 	kubedynamicInformer := client.NewDynamicSharedInformerFactory(resyncPeriod)
 
 	rCache, err := resourcecache.NewResourceCache(client, kubedynamicInformer, log.Log.WithName("resourcecache"))
@@ -171,7 +179,7 @@ func main() {
 	secrets := strings.Split(imagePullSecrets, ",")
 	if imagePullSecrets != "" && len(secrets) > 0 {
 		setupLog.Info("initializing registry credentials", "secrets", secrets)
-		if err := cosign.Initialize(kubeClient, config.KyvernoNamespace, "", secrets); err != nil {
+		if err := registryclient.Initialize(kubeClient, config.KyvernoNamespace, "", secrets); err != nil {
 			setupLog.Error(err, "failed to initialize image pull secrets")
 			os.Exit(1)
 		}
@@ -195,7 +203,6 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
-		rCache,
 		log.Log.WithName("EventGenerator"))
 
 	// POLICY Report GENERATOR
@@ -209,7 +216,6 @@ func main() {
 	)
 
 	prgen, err := policyreport.NewReportGenerator(
-		kubeClient,
 		pclient,
 		client,
 		pInformer.Wgpolicyk8s().V1alpha2().ClusterPolicyReports(),
@@ -230,7 +236,11 @@ func main() {
 		clientConfig,
 		client,
 		pclient,
+		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
+		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		rCache,
+		kubeKyvernoInformer.Apps().V1().Deployments(),
+		kubeInformer.Core().V1().Namespaces(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
 		serverIP,
@@ -252,7 +262,7 @@ func main() {
 	// if the configMap is update, the configuration will be updated :D
 	configData := config.NewConfigData(
 		kubeClient,
-		kubeInformer.Core().V1().ConfigMaps(),
+		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 		filterK8sResources,
 		excludeGroupRole,
 		excludeUsername,
@@ -305,7 +315,6 @@ func main() {
 		prgen,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
-		rCache,
 		policyControllerResyncPeriod,
 		promConfig,
 	)
@@ -330,7 +339,6 @@ func main() {
 		kubedynamicInformer,
 		log.Log.WithName("GenerateController"),
 		configData,
-		rCache,
 	)
 	if err != nil {
 		setupLog.Error(err, "Failed to create generate controller")
@@ -352,14 +360,13 @@ func main() {
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("ValidateAuditHandler"),
 		configData,
-		rCache,
 		client,
 		promConfig,
 	)
 
 	certRenewer := ktls.NewCertRenewer(client, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
 	certManager, err := webhookconfig.NewCertManager(
-		kubeInformer.Core().V1().Secrets(),
+		kubeKyvernoInformer.Core().V1().Secrets(),
 		kubeClient,
 		certRenewer,
 		log.Log.WithName("CertManager"),
@@ -371,9 +378,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	registerWrapperRetry := common.RetryFunc(time.Second, 30*time.Second, webhookCfg.Register, setupLog)
+	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, setupLog)
 	registerWebhookConfigurations := func() {
 		certManager.InitTLSPemPair()
+		webhookCfg.Start()
 
 		// validate the ConfigMap format
 		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace, configData.GetInitConfigMapName()); err != nil {
@@ -381,7 +389,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if !autoUpdateWebhooks {
+		if autoUpdateWebhooks {
 			go webhookCfg.UpdateWebhookConfigurations(configData)
 		}
 		if registrationErr := registerWrapperRetry(); registrationErr != nil {
@@ -448,7 +456,6 @@ func main() {
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
-		rCache,
 		grc,
 		promConfig,
 	)
@@ -507,6 +514,7 @@ func main() {
 
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
+	kubeKyvernoInformer.Start(stopCh)
 	kubedynamicInformer.Start(stopCh)
 
 	// verifies if the admission control is enabled and active

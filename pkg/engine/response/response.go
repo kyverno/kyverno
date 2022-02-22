@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -11,6 +12,10 @@ import (
 type EngineResponse struct {
 	// Resource patched with the engine action changes
 	PatchedResource unstructured.Unstructured
+
+	// Original policy
+	Policy *kyverno.ClusterPolicy
+
 	// Policy Response
 	PolicyResponse PolicyResponse
 }
@@ -27,6 +32,8 @@ type PolicyResponse struct {
 	Rules []RuleResponse `json:"rules"`
 	// ValidationFailureAction: audit (default) or enforce
 	ValidationFailureAction string
+
+	ValidationFailureActionOverrides []ValidationFailureActionOverride
 }
 
 //PolicySpec policy
@@ -167,4 +174,9 @@ func (er EngineResponse) getRules(status RuleStatus) []string {
 	}
 
 	return rules
+}
+
+type ValidationFailureActionOverride struct {
+	Action     string   `json:"action"`
+	Namespaces []string `json:"namespaces"`
 }

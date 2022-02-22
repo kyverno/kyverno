@@ -5,7 +5,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -20,7 +19,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -139,6 +137,22 @@ spec:
                                 type: string
                             required:
                             - name
+                            type: object
+                          imageRegistry:
+                            description: ImageRegistry defines requests to an OCI/Docker
+                              V2 registry to fetch image details.
+                            properties:
+                              jmesPath:
+                                description: JMESPath is an optional JSON Match Expression
+                                  that can be used to transform the ImageData struct
+                                  returned as a result of processing the image reference.
+                                type: string
+                              reference:
+                                description: 'Reference is image reference to a container
+                                  image in the registry. Example: ghcr.io/kyverno/kyverno:latest'
+                                type: string
+                            required:
+                            - reference
                             type: object
                           name:
                             description: Name is the variable name.
@@ -1509,6 +1523,25 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests
+                                        to an OCI/Docker V2 registry to fetch image
+                                        details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the ImageData struct returned as a result
+                                            of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference
+                                            to a container image in the registry.
+                                            Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
+                                      type: object
                                     name:
                                       description: Name is the variable name.
                                       type: string
@@ -1524,6 +1557,11 @@ spec:
                                   patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
                                   and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                                 x-kubernetes-preserve-unknown-fields: true
+                              patchesJson6902:
+                                description: PatchesJSON6902 is a list of RFC 6902
+                                  JSON Patch declarations used to modify resources.
+                                  See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                type: string
                               preconditions:
                                 description: 'AnyAllConditions are used to determine
                                   if a policy rule should be applied by evaluating
@@ -1546,10 +1584,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -1592,10 +1633,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -1626,36 +1670,10 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        overlay:
-                          description: Overlay specifies an overlay pattern to modify
-                            resources. DEPRECATED. Use PatchStrategicMerge instead.
-                            Scheduled for removal in release 1.5+.
-                          x-kubernetes-preserve-unknown-fields: true
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch
                             used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
                             and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
-                          x-kubernetes-preserve-unknown-fields: true
-                        patches:
-                          description: Patches specifies a RFC 6902 JSON Patch to
-                            modify resources. DEPRECATED. Use PatchesJSON6902 instead.
-                            Scheduled for removal in release 1.5+.
-                          items:
-                            description: 'Patch is a RFC 6902 JSON Patch. See: https://tools.ietf.org/html/rfc6902'
-                            properties:
-                              op:
-                                description: Operation specifies operations supported
-                                  by JSON Patch. i.e:- add, replace and delete.
-                                type: string
-                              path:
-                                description: Path specifies path of the resource.
-                                type: string
-                              value:
-                                description: Value specifies the value to be applied.
-                                x-kubernetes-preserve-unknown-fields: true
-                            type: object
-                          nullable: true
-                          type: array
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: PatchesJSON6902 is a list of RFC 6902 JSON
@@ -1755,6 +1773,25 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests
+                                        to an OCI/Docker V2 registry to fetch image
+                                        details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the ImageData struct returned as a result
+                                            of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference
+                                            to a container image in the registry.
+                                            Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
+                                      type: object
                                     name:
                                       description: Name is the variable name.
                                       type: string
@@ -1773,6 +1810,14 @@ spec:
                                       See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
+                              elementScope:
+                                description: ElementScope specifies whether to use
+                                  the current list element as the scope for validation.
+                                  Defaults to "true" if not specified. When set to
+                                  "false", "request.object" is used as the validation
+                                  scope within the foreach block to allow referencing
+                                  other elements in the subtree.
+                                type: boolean
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -1804,10 +1849,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -1850,10 +1898,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -1902,6 +1953,14 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            description: Annotations are used for image verification.
+                              Every specified key-value pair must exist and match
+                              in the verified payload. The payload may contain other
+                              key-value pairs.
+                            type: object
                           attestations:
                             description: Attestations are optional checks for signed
                               in-toto Statements used to verify the image. See https://github.com/in-toto/attestation.
@@ -1944,10 +2003,14 @@ spec:
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
                                             operator:
-                                              description: Operator is the operation
-                                                to perform. Valid operators are Equals,
-                                                NotEquals, In, AnyIn, AllIn and NotIn,
-                                                AnyNotIn, AllNotIn.
+                                              description: 'Operator is the conditional
+                                                operation to perform. Valid operators
+                                                are: Equals, NotEquals, In, AnyIn,
+                                                AllIn, NotIn, AnyNotIn, AllNotIn,
+                                                GreaterThanOrEquals, GreaterThan,
+                                                LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
+                                                DurationGreaterThan, DurationLessThanOrEquals,
+                                                DurationLessThan'
                                               enum:
                                               - Equals
                                               - NotEquals
@@ -1991,10 +2054,14 @@ spec:
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
                                             operator:
-                                              description: Operator is the operation
-                                                to perform. Valid operators are Equals,
-                                                NotEquals, In, AnyIn, AllIn and NotIn,
-                                                AnyNotIn, AllNotIn.
+                                              description: 'Operator is the conditional
+                                                operation to perform. Valid operators
+                                                are: Equals, NotEquals, In, AnyIn,
+                                                AllIn, NotIn, AnyNotIn, AllNotIn,
+                                                GreaterThanOrEquals, GreaterThan,
+                                                LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
+                                                DurationGreaterThan, DurationLessThanOrEquals,
+                                                DurationLessThan'
                                               enum:
                                               - Equals
                                               - NotEquals
@@ -2034,6 +2101,10 @@ spec:
                               registry address, repository, image, and tag. Wildcards
                               (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
                             type: string
+                          issuer:
+                            description: Issuer is the certificate issuer used for
+                              keyless signing.
+                            type: string
                           key:
                             description: Key is the PEM encoded public key that the
                               image or attestation is signed with.
@@ -2066,7 +2137,27 @@ spec:
                   rule failure should disallow the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. The default value is "audit".
+                enum:
+                - audit
+                - enforce
                 type: string
+              validationFailureActionOverrides:
+                description: ValidationFailureActionOverrides is a Cluster Policy
+                  attribute that specifies ValidationFailureAction namespace-wise.
+                  It overrides ValidationFailureAction for the specified namespaces.
+                items:
+                  properties:
+                    action:
+                      enum:
+                      - audit
+                      - enforce
+                      type: string
+                    namespaces:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                type: array
               webhookTimeoutSeconds:
                 description: WebhookTimeoutSeconds specifies the maximum time in seconds
                   allowed to apply this policy. After the configured time expires,
@@ -2109,7 +2200,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -2213,8 +2303,8 @@ spec:
                             type: string
                           operator:
                             description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, AnyIn, AllIn,
-                              NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the
@@ -2384,8 +2474,7 @@ spec:
                       type: string
                     operator:
                       description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn,
-                        AllNotIn Exists and DoesNotExist.
+                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator
@@ -2526,8 +2615,8 @@ spec:
                             type: string
                           operator:
                             description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, AnyIn, AllIn,
-                              NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the
@@ -2722,8 +2811,7 @@ spec:
                       type: string
                     operator:
                       description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn,
-                        AllNotIn Exists and DoesNotExist.
+                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator
@@ -2792,7 +2880,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -3473,7 +3560,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -3671,7 +3757,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -3791,6 +3876,22 @@ spec:
                                 type: string
                             required:
                             - name
+                            type: object
+                          imageRegistry:
+                            description: ImageRegistry defines requests to an OCI/Docker
+                              V2 registry to fetch image details.
+                            properties:
+                              jmesPath:
+                                description: JMESPath is an optional JSON Match Expression
+                                  that can be used to transform the ImageData struct
+                                  returned as a result of processing the image reference.
+                                type: string
+                              reference:
+                                description: 'Reference is image reference to a container
+                                  image in the registry. Example: ghcr.io/kyverno/kyverno:latest'
+                                type: string
+                            required:
+                            - reference
                             type: object
                           name:
                             description: Name is the variable name.
@@ -5161,6 +5262,25 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests
+                                        to an OCI/Docker V2 registry to fetch image
+                                        details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the ImageData struct returned as a result
+                                            of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference
+                                            to a container image in the registry.
+                                            Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
+                                      type: object
                                     name:
                                       description: Name is the variable name.
                                       type: string
@@ -5176,6 +5296,11 @@ spec:
                                   patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
                                   and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                                 x-kubernetes-preserve-unknown-fields: true
+                              patchesJson6902:
+                                description: PatchesJSON6902 is a list of RFC 6902
+                                  JSON Patch declarations used to modify resources.
+                                  See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                type: string
                               preconditions:
                                 description: 'AnyAllConditions are used to determine
                                   if a policy rule should be applied by evaluating
@@ -5198,10 +5323,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -5244,10 +5372,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -5278,36 +5409,10 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        overlay:
-                          description: Overlay specifies an overlay pattern to modify
-                            resources. DEPRECATED. Use PatchStrategicMerge instead.
-                            Scheduled for removal in release 1.5+.
-                          x-kubernetes-preserve-unknown-fields: true
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch
                             used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
                             and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
-                          x-kubernetes-preserve-unknown-fields: true
-                        patches:
-                          description: Patches specifies a RFC 6902 JSON Patch to
-                            modify resources. DEPRECATED. Use PatchesJSON6902 instead.
-                            Scheduled for removal in release 1.5+.
-                          items:
-                            description: 'Patch is a RFC 6902 JSON Patch. See: https://tools.ietf.org/html/rfc6902'
-                            properties:
-                              op:
-                                description: Operation specifies operations supported
-                                  by JSON Patch. i.e:- add, replace and delete.
-                                type: string
-                              path:
-                                description: Path specifies path of the resource.
-                                type: string
-                              value:
-                                description: Value specifies the value to be applied.
-                                x-kubernetes-preserve-unknown-fields: true
-                            type: object
-                          nullable: true
-                          type: array
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: PatchesJSON6902 is a list of RFC 6902 JSON
@@ -5407,6 +5512,25 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    imageRegistry:
+                                      description: ImageRegistry defines requests
+                                        to an OCI/Docker V2 registry to fetch image
+                                        details.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the ImageData struct returned as a result
+                                            of processing the image reference.
+                                          type: string
+                                        reference:
+                                          description: 'Reference is image reference
+                                            to a container image in the registry.
+                                            Example: ghcr.io/kyverno/kyverno:latest'
+                                          type: string
+                                      required:
+                                      - reference
+                                      type: object
                                     name:
                                       description: Name is the variable name.
                                       type: string
@@ -5425,6 +5549,14 @@ spec:
                                       See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
+                              elementScope:
+                                description: ElementScope specifies whether to use
+                                  the current list element as the scope for validation.
+                                  Defaults to "true" if not specified. When set to
+                                  "false", "request.object" is used as the validation
+                                  scope within the foreach block to allow referencing
+                                  other elements in the subtree.
+                                type: boolean
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -5456,10 +5588,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -5502,10 +5637,13 @@ spec:
                                             JMESPath) for conditional rule evaluation.
                                           x-kubernetes-preserve-unknown-fields: true
                                         operator:
-                                          description: Operator is the operation to
-                                            perform. Valid operators are Equals, NotEquals,
-                                            In, AnyIn, AllIn and NotIn, AnyNotIn,
-                                            AllNotIn.
+                                          description: 'Operator is the conditional
+                                            operation to perform. Valid operators
+                                            are: Equals, NotEquals, In, AnyIn, AllIn,
+                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan,
+                                            DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan'
                                           enum:
                                           - Equals
                                           - NotEquals
@@ -5554,6 +5692,14 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
+                          annotations:
+                            additionalProperties:
+                              type: string
+                            description: Annotations are used for image verification.
+                              Every specified key-value pair must exist and match
+                              in the verified payload. The payload may contain other
+                              key-value pairs.
+                            type: object
                           attestations:
                             description: Attestations are optional checks for signed
                               in-toto Statements used to verify the image. See https://github.com/in-toto/attestation.
@@ -5596,10 +5742,14 @@ spec:
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
                                             operator:
-                                              description: Operator is the operation
-                                                to perform. Valid operators are Equals,
-                                                NotEquals, In, AnyIn, AllIn and NotIn,
-                                                AnyNotIn, AllNotIn.
+                                              description: 'Operator is the conditional
+                                                operation to perform. Valid operators
+                                                are: Equals, NotEquals, In, AnyIn,
+                                                AllIn, NotIn, AnyNotIn, AllNotIn,
+                                                GreaterThanOrEquals, GreaterThan,
+                                                LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
+                                                DurationGreaterThan, DurationLessThanOrEquals,
+                                                DurationLessThan'
                                               enum:
                                               - Equals
                                               - NotEquals
@@ -5643,10 +5793,14 @@ spec:
                                                 evaluation.
                                               x-kubernetes-preserve-unknown-fields: true
                                             operator:
-                                              description: Operator is the operation
-                                                to perform. Valid operators are Equals,
-                                                NotEquals, In, AnyIn, AllIn and NotIn,
-                                                AnyNotIn, AllNotIn.
+                                              description: 'Operator is the conditional
+                                                operation to perform. Valid operators
+                                                are: Equals, NotEquals, In, AnyIn,
+                                                AllIn, NotIn, AnyNotIn, AllNotIn,
+                                                GreaterThanOrEquals, GreaterThan,
+                                                LessThanOrEquals, LessThan, DurationGreaterThanOrEquals,
+                                                DurationGreaterThan, DurationLessThanOrEquals,
+                                                DurationLessThan'
                                               enum:
                                               - Equals
                                               - NotEquals
@@ -5686,6 +5840,10 @@ spec:
                               registry address, repository, image, and tag. Wildcards
                               (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
                             type: string
+                          issuer:
+                            description: Issuer is the certificate issuer used for
+                              keyless signing.
+                            type: string
                           key:
                             description: Key is the PEM encoded public key that the
                               image or attestation is signed with.
@@ -5718,7 +5876,27 @@ spec:
                   rule failure should disallow the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. The default value is "audit".
+                enum:
+                - audit
+                - enforce
                 type: string
+              validationFailureActionOverrides:
+                description: ValidationFailureActionOverrides is a Cluster Policy
+                  attribute that specifies ValidationFailureAction namespace-wise.
+                  It overrides ValidationFailureAction for the specified namespaces.
+                items:
+                  properties:
+                    action:
+                      enum:
+                      - audit
+                      - enforce
+                      type: string
+                    namespaces:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                type: array
               webhookTimeoutSeconds:
                 description: WebhookTimeoutSeconds specifies the maximum time in seconds
                   allowed to apply this policy. After the configured time expires,
@@ -5762,7 +5940,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -5865,8 +6042,8 @@ spec:
                             type: string
                           operator:
                             description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, AnyIn, AllIn,
-                              NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the
@@ -6036,8 +6213,7 @@ spec:
                       type: string
                     operator:
                       description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn,
-                        AllNotIn Exists and DoesNotExist.
+                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator
@@ -6177,8 +6353,8 @@ spec:
                             type: string
                           operator:
                             description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, AnyIn, AllIn,
-                              NotIn, AnyNotIn, AllNotIn Exists and DoesNotExist.
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
                             type: string
                           values:
                             description: values is an array of string values. If the
@@ -6373,8 +6549,7 @@ spec:
                       type: string
                     operator:
                       description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, AnyIn, AllIn, NotIn, AnyNotIn,
-                        AllNotIn Exists and DoesNotExist.
+                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
                       type: string
                     values:
                       description: values is an array of string values. If the operator
@@ -6443,7 +6618,6 @@ metadata:
   labels:
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7122,12 +7296,45 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: kyverno-service-account
   namespace: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  name: kyverno:leaderelection
+  namespace: kyverno
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -7136,7 +7343,32 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kyverno:admin-generaterequest
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - generaterequests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7149,7 +7381,13 @@ rules:
   - policies
   - clusterpolicies
   verbs:
-  - '*'
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -7158,7 +7396,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7166,12 +7403,18 @@ metadata:
   name: kyverno:admin-policyreport
 rules:
 - apiGroups:
-  - wgpolicyk8s.io/v1alpha2
+  - wgpolicyk8s.io
   resources:
   - policyreports
   - clusterpolicyreports
   verbs:
-  - '*'
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -7180,7 +7423,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7193,7 +7435,13 @@ rules:
   - reportchangerequests
   - clusterreportchangerequests
   verbs:
-  - '*'
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -7202,23 +7450,95 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-  name: kyverno:customresources
+  name: kyverno:events
 rules:
 - apiGroups:
   - '*'
+  resources:
+  - events
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  name: kyverno:generate
+rules:
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  - ingressclasses
+  - networkpolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  - configmaps
+  - secrets
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - quota
+  resources:
+  - resourcequotas
+  - limitranges
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  name: kyverno:policies
+rules:
+- apiGroups:
+  - kyverno.io
   resources:
   - policies
   - policies/status
   - clusterpolicies
   - clusterpolicies/status
-  - policyreports
-  - policyreports/status
-  - clusterpolicyreports
-  - clusterpolicyreports/status
   - generaterequests
   - generaterequests/status
   - reportchangerequests
@@ -7235,93 +7555,21 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - apiextensions.k8s.io
+  - wgpolicyk8s.io
   resources:
-  - customresourcedefinitions
-  verbs:
-  - delete
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  name: kyverno:generatecontroller
-rules:
-- apiGroups:
-  - '*'
-  resources:
-  - namespaces
-  - networkpolicies
-  - secrets
-  - configmaps
-  - resourcequotas
-  - limitranges
+  - policyreports
+  - policyreports/status
+  - clusterpolicyreports
+  - clusterpolicyreports/status
   verbs:
   - create
-  - update
   - delete
+  - get
   - list
-  - get
-- apiGroups:
-  - '*'
-  resources:
-  - namespaces
-  verbs:
-  - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  name: kyverno:leaderelection
-rules:
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - create
-  - delete
-  - get
   - patch
   - update
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  name: kyverno:policycontroller
-rules:
-- apiGroups:
-  - '*'
-  resources:
-  - '*'
-  verbs:
-  - get
-  - list
-  - update
   - watch
+  - deletecollection
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -7330,21 +7578,18 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: kyverno:userinfo
 rules:
 - apiGroups:
-  - '*'
+  - rbac.authorization.k8s.io
   resources:
   - roles
   - clusterroles
   - rolebindings
   - clusterrolebindings
-  - configmaps
-  - namespaces
   verbs:
   - watch
   - list
@@ -7356,20 +7601,37 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  name: kyverno:view
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: kyverno:webhook
 rules:
 - apiGroups:
-  - '*'
+  - admissionregistration.k8s.io
   resources:
-  - events
   - mutatingwebhookconfigurations
   - validatingwebhookconfigurations
-  - certificatesigningrequests
-  - certificatesigningrequests/approval
   verbs:
   - create
   - delete
@@ -7378,86 +7640,22 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - certificates.k8s.io
-  resourceNames:
-  - kubernetes.io/legacy-unknown
-  resources:
-  - certificatesigningrequests
-  - certificatesigningrequests/approval
-  - certificatesigningrequests/status
-  verbs:
-  - create
-  - delete
-  - get
-  - update
-  - watch
-- apiGroups:
-  - certificates.k8s.io
-  resourceNames:
-  - kubernetes.io/legacy-unknown
-  resources:
-  - signers
-  verbs:
-  - approve
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   labels:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  name: kyverno:customresources
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:customresources
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
-  namespace: kyverno
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  name: kyverno:generatecontroller
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:generatecontroller
-subjects:
-- kind: ServiceAccount
-  name: kyverno-service-account
-  namespace: kyverno
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: kyverno:leaderelection
+  namespace: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: Role
   name: kyverno:leaderelection
 subjects:
 - kind: ServiceAccount
@@ -7471,15 +7669,14 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-  name: kyverno:policycontroller
+  name: kyverno:events
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kyverno:policycontroller
+  name: kyverno:events
 subjects:
 - kind: ServiceAccount
   name: kyverno-service-account
@@ -7492,7 +7689,46 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  name: kyverno:generate
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:generate
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  name: kyverno:policies
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:policies
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7513,7 +7749,26 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  name: kyverno:view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:view
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7531,14 +7786,13 @@ apiVersion: v1
 data:
   excludeGroupRole: system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler
   generateSuccessEvents: "false"
-  resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]'
+  resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][*,kyverno,kyverno*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]'
 kind: ConfigMap
 metadata:
   labels:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7555,7 +7809,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7569,7 +7822,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7591,7 +7843,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7613,7 +7864,6 @@ metadata:
     app: kyverno
     app.kubernetes.io/component: kyverno
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -7636,7 +7886,6 @@ spec:
         app: kyverno
         app.kubernetes.io/component: kyverno
         app.kubernetes.io/instance: kyverno
-        app.kubernetes.io/managed-by: Kustomize
         app.kubernetes.io/name: kyverno
         app.kubernetes.io/part-of: kyverno
         app.kubernetes.io/version: latest
@@ -7655,11 +7904,11 @@ spec:
             weight: 1
       containers:
       - args:
-        - --filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]
+        - --filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,kyverno*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]
         - -v=2
         env:
         - name: INIT_CONFIG
-          value: init-config
+          value: kyverno
         - name: METRICS_CONFIG
           value: kyverno-metrics
         - name: KYVERNO_NAMESPACE
@@ -7700,15 +7949,15 @@ spec:
           timeoutSeconds: 5
         resources:
           limits:
-            memory: 256Mi
+            memory: 384Mi
           requests:
             cpu: 100m
-            memory: 50Mi
+            memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-            - all
+            - ALL
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
@@ -7734,30 +7983,10 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-            - all
+            - ALL
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kyverno-service-account
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/managed-by: Kustomize
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  name: kyverno
-  namespace: kyverno
-spec:
-  minAvailable: 0
-  selector:
-    matchLabels:
-      app: kyverno
-      app.kubernetes.io/name: kyverno

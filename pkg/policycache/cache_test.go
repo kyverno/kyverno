@@ -254,7 +254,7 @@ func newPolicy(t *testing.T) *kyverno.ClusterPolicy {
 				}
 			  },
 			  "mutate": {
-				"overlay": {
+				"patchStrategicMerge": {
 				  "metadata": {
 					"annotations": {
 					  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
@@ -412,7 +412,7 @@ func newAnyPolicy(t *testing.T) *kyverno.ClusterPolicy {
 						]
 					},
 					"mutate": {
-						"overlay": {
+						"patchStrategicMerge": {
 							"metadata": {
 								"annotations": {
 									"+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
@@ -535,7 +535,7 @@ func newNsPolicy(t *testing.T) *kyverno.ClusterPolicy {
 				}
 			  },
 			  "mutate": {
-				"overlay": {
+				"patchStrategicMerge": {
 				  "metadata": {
 					"annotations": {
 					  "+(cluster-autoscaler.kubernetes.io/safe-to-evict)": true
@@ -816,6 +816,114 @@ func newNsMutatePolicy(t *testing.T) *kyverno.ClusterPolicy {
 	return convertPolicyToClusterPolicy(policy)
 }
 
+func newValidateAuditPolicy(t *testing.T) *kyverno.ClusterPolicy {
+	rawPolicy := []byte(`{
+		"metadata": {
+		  "name": "check-label-app-audit"
+		},
+		"spec": {
+		  "background": false,
+		  "rules": [
+			{
+				"match": {
+                    "resources": {
+                        "kinds": [
+                            "Pod"
+                        ]
+                    }
+                },
+                "name": "check-label-app",
+                "validate": {
+                    "message": "The label 'app' is required.",
+                    "pattern": {
+                        "metadata": {
+                            "labels": {
+                                "app": "?*"
+                            }
+                        }
+                    }
+                }
+			}
+		  ],
+		  "validationFailureAction": "audit",
+		  "validationFailureActionOverrides": [
+				{
+					"action": "enforce",
+					"namespaces": [
+						"default"
+					]
+				},
+				{
+					"action": "audit",
+					"namespaces": [
+						"test"
+					]
+				}
+			]
+		}
+	  }`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	return policy
+}
+
+func newValidateEnforcePolicy(t *testing.T) *kyverno.ClusterPolicy {
+	rawPolicy := []byte(`{
+		"metadata": {
+		  "name": "check-label-app-enforce"
+		},
+		"spec": {
+		  "background": false,
+		  "rules": [
+			{
+				"match": {
+                    "resources": {
+                        "kinds": [
+                            "Pod"
+                        ]
+                    }
+                },
+                "name": "check-label-app",
+                "validate": {
+                    "message": "The label 'app' is required.",
+                    "pattern": {
+                        "metadata": {
+                            "labels": {
+                                "app": "?*"
+                            }
+                        }
+                    }
+                }
+			}
+		  ],
+		  "validationFailureAction": "enforce",
+		  "validationFailureActionOverrides": [
+				{
+					"action": "enforce",
+					"namespaces": [
+						"default"
+					]
+				},
+				{
+					"action": "audit",
+					"namespaces": [
+						"test"
+					]
+				}
+			]
+		}
+	  }`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	return policy
+}
+
 func Test_Ns_All(t *testing.T) {
 	pCache := newPolicyCache(log.Log, dummyLister{}, dummyNsLister{})
 	policy := newNsPolicy(t)
@@ -1044,4 +1152,35 @@ func Test_NsMutate_Policy(t *testing.T) {
 		t.Errorf("expected 1 namespace mutate policy, found %v", len(nsMutate))
 	}
 
+}
+
+func Test_Validate_Enforce_Policy(t *testing.T) {
+	pCache := newPolicyCache(log.Log, dummyLister{}, dummyNsLister{})
+	policy1 := newValidateAuditPolicy(t)
+	policy2 := newValidateEnforcePolicy(t)
+	pCache.Add(policy1)
+	pCache.Add(policy2)
+
+	validateEnforce := pCache.get(ValidateEnforce, "Pod", "")
+	if len(validateEnforce) != 2 {
+		t.Errorf("adding: expected 2 validate enforce policy, found %v", len(validateEnforce))
+	}
+
+	validateAudit := pCache.get(ValidateAudit, "Pod", "")
+	if len(validateAudit) != 0 {
+		t.Errorf("adding: expected 0 validate audit policy, found %v", len(validateAudit))
+	}
+
+	pCache.Remove(policy1)
+	pCache.Remove(policy2)
+
+	validateEnforce = pCache.get(ValidateEnforce, "Pod", "")
+	if len(validateEnforce) != 0 {
+		t.Errorf("removing: expected 0 validate enforce policy, found %v", len(validateEnforce))
+	}
+
+	validateAudit = pCache.get(ValidateAudit, "Pod", "")
+	if len(validateAudit) != 0 {
+		t.Errorf("removing: expected 0 validate audit policy, found %v", len(validateAudit))
+	}
 }

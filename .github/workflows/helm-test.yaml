@@ -3,26 +3,29 @@ on:
   pull_request:
     branches:
       - 'main'
+      - 'release*'
     paths:
       - 'charts/kyverno/**'
       - '.github/workflows/helm-test.yaml'
+
+permissions: read-all
 
 jobs:
   helm-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
 
       - name: Unshallow
         run: git fetch --prune --unshallow
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@f38219332975fe8f9c04cca981d674bf22aea1d3 # v2.3.1
         with:
           python-version: 3.7
 
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@v2.0.1
+        uses: helm/chart-testing-action@b0d4458c71155b54fcf33e11dd465dc923550009 # v2.0.1
 
       - name: Run chart-testing (lint)
         run: ct lint --target-branch=main --check-version-increment=false

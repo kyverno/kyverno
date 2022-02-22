@@ -289,6 +289,36 @@ func Test_subVars_withRegexMatch(t *testing.T) {
 	assert.Equal(t, string(out), expected.String())
 }
 
+func Test_subVars_withMerge(t *testing.T) {
+	patternMap := []byte(`{"map": "{{ merge(` + "`{\\\"a\\\": 1}`, `{\\\"b\\\": 1}`" + `)}}"}`)
+
+	resourceRaw := []byte(`{}`)
+
+	expectedRaw := []byte(`{"map": {"a":1,"b":1}}`)
+
+	var err error
+
+	expected := new(bytes.Buffer)
+	err = json.Compact(expected, expectedRaw)
+	assert.NilError(t, err)
+
+	var pattern, resource interface{}
+	err = json.Unmarshal(patternMap, &pattern)
+	assert.NilError(t, err)
+	err = json.Unmarshal(resourceRaw, &resource)
+	assert.NilError(t, err)
+	// context
+	ctx := context.NewContext()
+	err = ctx.AddResource(resourceRaw)
+	assert.NilError(t, err)
+
+	output, err := SubstituteAll(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+	out, err := json.Marshal(output)
+	assert.NilError(t, err)
+	assert.Equal(t, string(out), expected.String())
+}
+
 func Test_subVars_withRegexReplaceAll(t *testing.T) {
 	patternMap := []byte(`{
 		"mutate": {
@@ -1156,4 +1186,10 @@ func Test_getJMESPath(t *testing.T) {
 	assert.Equal(t, "spec.containers[0]", getJMESPath("/validate/pattern/spec/containers/0"))
 	assert.Equal(t, "spec.containers[0].volumes[1]", getJMESPath("/validate/pattern/spec/containers/0/volumes/1"))
 	assert.Equal(t, "[0]", getJMESPath("/mutate/overlay/0"))
+}
+
+func Test_getJMESPathForForeach(t *testing.T) {
+	assert.Equal(t, "spec.containers[0]", getJMESPath("/validate/foreach/0/pattern/spec/containers/0"))
+	assert.Equal(t, "spec.containers[0].volumes[1]", getJMESPath("/validate/foreach/0/pattern/spec/containers/0/volumes/1"))
+	assert.Equal(t, "[0]", getJMESPath("/mutate/foreach/0/overlay/0"))
 }

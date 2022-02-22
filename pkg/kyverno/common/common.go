@@ -25,12 +25,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	ut "github.com/kyverno/kyverno/pkg/engine/utils"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/utils"
-	ut "github.com/kyverno/kyverno/pkg/utils"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -301,7 +301,7 @@ func RemoveDuplicateAndObjectVariables(matches [][]string) string {
 		for _, v := range m {
 			foundVariable := strings.Contains(variableStr, v)
 			if !foundVariable {
-				if !strings.Contains(v, "request.object") && !strings.Contains(v, "element") {
+				if !strings.Contains(v, "request.object") && !strings.Contains(v, "element") && v == "elementIndex" {
 					variableStr = variableStr + " " + v
 				}
 			}
@@ -372,6 +372,18 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		for _, p := range values.Policies {
 			resourceMap := make(map[string]Resource)
 			for _, r := range p.Resources {
+				if val, ok := r.Values["request.operation"]; ok {
+					if val == "" {
+						r.Values["request.operation"] = "CREATE"
+						log.Log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
+					}
+				} else {
+					if r.Values == nil {
+						r.Values = make(map[string]string)
+					}
+					r.Values["request.operation"] = "CREATE"
+					log.Log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
+				}
 				for variableInFile := range r.Values {
 					if strings.Contains(variableInFile, "request.object") {
 						if !strings.Contains(reqObjVars, variableInFile) {
@@ -458,11 +470,36 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	}
 
 	policyWithNamespaceSelector := false
+OuterLoop:
 	for _, p := range policy.Spec.Rules {
 		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
 			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
 			policyWithNamespaceSelector = true
 			break
+		}
+		for _, m := range p.MatchResources.Any {
+			if m.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break OuterLoop
+			}
+		}
+		for _, m := range p.MatchResources.All {
+			if m.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break OuterLoop
+			}
+		}
+		for _, e := range p.ExcludeResources.Any {
+			if e.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break OuterLoop
+			}
+		}
+		for _, e := range p.ExcludeResources.All {
+			if e.ResourceDescription.NamespaceSelector != nil {
+				policyWithNamespaceSelector = true
+				break OuterLoop
+			}
 		}
 	}
 
@@ -477,16 +514,21 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	log.Log.V(3).Info("applying policy on resource", "policy", policy.Name, "resource", resPath)
 
-	ctx := context.NewContext()
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
 		log.Log.Error(err, "failed to marshal resource")
 	}
 
+	updated_resource, err := ut.ConvertToUnstructured(resourceRaw)
+	if err != nil {
+		log.Log.Error(err, "unable to convert raw resource to unstructured")
+	}
+	ctx := context.NewContext()
+
 	if operationIsDelete {
 		err = ctx.AddResourceInOldObject(resourceRaw)
 	} else {
-		err = ctx.AddResource(resourceRaw)
+		err = ctx.AddResourceAsObject(updated_resource.Object)
 	}
 
 	if err != nil {
@@ -507,7 +549,10 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 		}
 	}
 
-	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *resource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
+	if err := context.MutateResourceWithImageInfo(resourceRaw, ctx); err != nil {
+		log.Log.Error(err, "failed to add image variables to context")
+	}
+	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *updated_resource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
 	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}
@@ -624,7 +669,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 				fmt.Printf("failed to convert to JSON: %v", err)
 				continue
 			}
-			policiesFromFile, errFromFile := ut.GetPolicy(policyBytes)
+			policiesFromFile, errFromFile := utils.GetPolicy(policyBytes)
 			if errFromFile != nil {
 				err := fmt.Errorf("failed to process : %v", errFromFile.Error())
 				errors = append(errors, err)
@@ -641,7 +686,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 					policyStr = policyStr + scanner.Text() + "\n"
 				}
 				yamlBytes := []byte(policyStr)
-				policies, err = ut.GetPolicy(yamlBytes)
+				policies, err = utils.GetPolicy(yamlBytes)
 				if err != nil {
 					return nil, sanitizederror.NewWithError("failed to extract the resources", err)
 				}
@@ -705,6 +750,9 @@ func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *r
 	printCount := 0
 	for _, policyRule := range policy.Spec.Rules {
 		ruleFoundInEngineResponse := false
+		if !policyRule.HasValidate() {
+			continue
+		}
 
 		for i, valResponseRule := range validateResponse.PolicyResponse.Rules {
 			if policyRule.Name == valResponseRule.Name {

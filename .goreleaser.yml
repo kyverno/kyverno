@@ -16,6 +16,7 @@ builds:
     - windows
   goarch:
     - amd64
+    - arm64
 archives:
 - id: kyverno-cli-archive
   name_template: |-

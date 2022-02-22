@@ -29,7 +29,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -122,9 +121,6 @@ type WebhookServer struct {
 
 	openAPIController *openapi.Controller
 
-	// resCache - controls creation and fetching of resource informer cache
-	resCache resourcecache.ResourceCache
-
 	grController *generate.Controller
 
 	promConfig *metrics.PromConfig
@@ -154,7 +150,6 @@ func NewWebhookServer(
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
-	resCache resourcecache.ResourceCache,
 	grc *generate.Controller,
 	promConfig *metrics.PromConfig,
 ) (*WebhookServer, error) {
@@ -200,7 +195,6 @@ func NewWebhookServer(
 		auditHandler:      auditHandler,
 		log:               log,
 		openAPIController: openAPIController,
-		resCache:          resCache,
 		promConfig:        promConfig,
 	}
 
@@ -211,7 +205,7 @@ func NewWebhookServer(
 	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.handlerFunc(ws.policyValidation, true))
 	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.handlerFunc(ws.verifyHandler, false))
 
-	// Handle Liveness responds to a Kubernetes Liveness probe
+	// Patch Liveness responds to a Kubernetes Liveness probe
 	// Fail this request if Kubernetes should restart this instance
 	mux.HandlerFunc("GET", config.LivenessServicePath, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
@@ -222,7 +216,7 @@ func NewWebhookServer(
 		}
 	})
 
-	// Handle Readiness responds to a Kubernetes Readiness probe
+	// Patch Readiness responds to a Kubernetes Readiness probe
 	// Fail this request if this instance can't accept traffic, but Kubernetes shouldn't restart it
 	mux.HandlerFunc("GET", config.ReadinessServicePath, func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
@@ -293,6 +287,18 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	logger := ws.log.WithName("MutateWebhook").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 
 	if excludeKyvernoResources(request.Kind.Kind) {
+		return successResponse(nil)
+	}
+
+	if request.Operation == v1beta1.Delete {
+		resource, err := utils.ConvertResource(request.OldObject.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+
+		if err == nil {
+			ws.prGenerator.Add(buildDeletionPrInfo(resource))
+		} else {
+			logger.Info(fmt.Sprintf("Converting oldObject failed: %v", err))
+		}
+
 		return successResponse(nil)
 	}
 
@@ -368,12 +374,18 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
 	}
 
+	if request.Kind.Kind == "Secret" && request.Operation == v1beta1.Update {
+		resource, err = utils.NormalizeSecret(&resource)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to convert secret to unstructured format")
+		}
+	}
+
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
 		AdmissionInfo:       userRequestInfo,
 		ExcludeGroupRole:    ws.configHandler.GetExcludeGroupRole(),
 		ExcludeResourceFunc: ws.configHandler.ToFilter,
-		ResourceCache:       ws.resCache,
 		JSONContext:         ctx,
 		Client:              ws.client,
 	}
@@ -475,6 +487,7 @@ func registerAdmissionRequestsMetricGenerate(logger logr.Logger, promConfig metr
 
 func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
 	logger := ws.log.WithName("ValidateWebhook").WithValues("uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
+
 	if request.Operation == v1beta1.Delete {
 		ws.handleDelete(request)
 	}
@@ -538,7 +551,6 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		AdmissionInfo:       userRequestInfo,
 		ExcludeGroupRole:    ws.configHandler.GetExcludeGroupRole(),
 		ExcludeResourceFunc: ws.configHandler.ToFilter,
-		ResourceCache:       ws.resCache,
 		JSONContext:         ctx,
 		Client:              ws.client,
 	}

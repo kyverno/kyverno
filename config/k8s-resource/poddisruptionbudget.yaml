@@ -4,7 +4,6 @@ metadata:
   name: kyverno
   labels:
     app: kyverno
-  namespace: kyverno
 spec:  
   minAvailable: 0
   selector:

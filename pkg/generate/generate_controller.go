@@ -17,7 +17,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -77,8 +76,7 @@ type Controller struct {
 	nsInformer informers.GenericInformer
 	log        logr.Logger
 
-	Config   config.Interface
-	resCache resourcecache.ResourceCache
+	Config config.Interface
 }
 
 //NewController returns an instance of the Generate-Request Controller
@@ -92,7 +90,6 @@ func NewController(
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
 	log logr.Logger,
 	dynamicConfig config.Interface,
-	resourceCache resourcecache.ResourceCache,
 ) (*Controller, error) {
 
 	c := Controller{
@@ -105,7 +102,6 @@ func NewController(
 		dynamicInformer: dynamicInformer,
 		log:             log,
 		Config:          dynamicConfig,
-		resCache:        resourceCache,
 	}
 
 	c.statusControl = StatusControl{client: kyvernoClient}

@@ -12,30 +12,22 @@ spec:
       app: kyverno
   policyTypes:
   - Ingress
+  {{- if .Values.networkPolicy.ingressFrom }}
   ingress:
   - from:
-      {{- with .Values.networkPolicy }}
-      - namespaceSelector:
-          matchExpressions:
-            {{- toYaml .namespaceExpressions | nindent 10 }}
-          matchLabels:
-            {{- range $key, $value := .namespaceLabels }}
-            {{ $key | quote }}: {{ $value | quote }}
-            {{- end }}
-        podSelector:
-          matchExpressions:
-            {{- toYaml .podExpressions | nindent 10 }}
-          matchLabels:
-            {{- range $key, $value := .podLabels }}
-            {{ $key | quote }}: {{ $value | quote }}
-            {{- end }}
-      {{- end }}
+    {{- with .Values.networkPolicy.ingressFrom }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
     ports:
     - protocol: TCP
       port: 9443 # webhook access
   # Allow prometheus scrapes for metrics
   {{- if .Values.metricsService.create }}
-  - ports:
-      - port: {{ .Values.metricsService.port }}
+    - protocol: TCP
+      port: {{ .Values.metricsService.port }}
+  {{- end }}
+  {{- else }}
+  ingress:
+    - {}
   {{- end }}
 {{- end }}

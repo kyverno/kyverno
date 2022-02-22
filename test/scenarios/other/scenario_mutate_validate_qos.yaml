@@ -18,7 +18,7 @@ expected:
         - name: add-memory-limit
           type: Mutation
           status: pass
-          message: successfully processed strategic merge patch
+          message: mutated Deployment/qos-demo
   validation:
     policyresponse:
       policy:

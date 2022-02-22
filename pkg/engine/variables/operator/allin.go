@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/operator"
 	"github.com/minio/pkg/wildcard"
 )
 
@@ -28,6 +29,8 @@ func (allin AllInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
 		return allin.validateValueWithStringPattern(typedKey, value)
+	case int, int32, int64, float32, float64:
+		return allin.validateValueWithStringPattern(fmt.Sprint(typedKey), value)
 	case []interface{}:
 		var stringSlice []string
 		for _, v := range typedKey {
@@ -41,13 +44,56 @@ func (allin AllInHandler) Evaluate(key, value interface{}) bool {
 }
 
 func (allin AllInHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
-	invalidType, keyExists := keyExistsInArray(key, value, allin.log)
+	invalidType, keyExists := allKeyExistsInArray(key, value, allin.log)
 	if invalidType {
 		allin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
 	return keyExists
+}
+
+func allKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
+	switch valuesAvailable := value.(type) {
+
+	case []interface{}:
+		for _, val := range valuesAvailable {
+			if wildcard.Match(key, fmt.Sprint(val)) {
+				return false, true
+			}
+		}
+
+	case string:
+		if wildcard.Match(valuesAvailable, key) {
+			return false, true
+		}
+
+		operatorVariable := operator.GetOperatorFromStringPattern(fmt.Sprintf("%v", value))
+		if operatorVariable == operator.InRange {
+			return false, handleRange(key, value, log)
+		}
+
+		var arr []string
+		if json.Valid([]byte(valuesAvailable)) {
+			if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
+				log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
+				return true, false
+			}
+		} else {
+			arr = append(arr, valuesAvailable)
+		}
+
+		for _, val := range arr {
+			if key == val {
+				return false, true
+			}
+		}
+
+	default:
+		return true, false
+	}
+
+	return false, false
 }
 
 func (allin AllInHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
@@ -80,13 +126,44 @@ func allSetExistsInArray(key []string, value interface{}, log logr.Logger, allNo
 	case string:
 
 		if len(key) == 1 && key[0] == valuesAvailable {
+			if allNotIn {
+				return false, false
+			}
 			return false, true
 		}
 
+		operatorVariable := operator.GetOperatorFromStringPattern(fmt.Sprintf("%v", value))
+		if operatorVariable == operator.InRange {
+			if allNotIn {
+				isAllNotInBool := true
+				for _, k := range key {
+					if handleRange(k, valuesAvailable, log) {
+						isAllNotInBool = false
+					}
+				}
+				return false, isAllNotInBool
+			} else {
+				isAllInCount := 0
+				for _, k := range key {
+					if handleRange(k, value, log) {
+						isAllInCount++
+					}
+				}
+				if isAllInCount == len(key) {
+					return false, true
+				}
+				return false, false
+			}
+		}
+
 		var arr []string
-		if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
-			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
-			return true, false
+		if json.Valid([]byte(valuesAvailable)) {
+			if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
+				log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
+				return true, false
+			}
+		} else {
+			arr = append(arr, valuesAvailable)
 		}
 		if allNotIn {
 			return false, isAllNotIn(key, arr)
@@ -104,7 +181,7 @@ func isAllIn(key []string, value []string) bool {
 	found := 0
 	for _, valKey := range key {
 		for _, valValue := range value {
-			if wildcard.Match(valKey, valValue) {
+			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
 				found++
 				break
 			}
@@ -115,14 +192,17 @@ func isAllIn(key []string, value []string) bool {
 
 // isAllNotIn checks if all the values in S1 are not in S2
 func isAllNotIn(key []string, value []string) bool {
+	found := 0
 	for _, valKey := range key {
 		for _, valValue := range value {
-			if wildcard.Match(valKey, valValue) {
-				return false
+			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
+				found++
+				break
 			}
 		}
 	}
-	return true
+	return found != len(key)
+
 }
 
 func (allin AllInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {

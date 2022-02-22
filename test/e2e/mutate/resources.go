@@ -190,29 +190,6 @@ spec:
     - kuard
 `)
 
-var ingressExtensionV1beta1 = []byte(`
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  labels:
-    app: kuard
-  name: kuard-extensions
-  namespace: test-ingress
-spec:
-  rules:
-  - host: kuard
-    http:
-      paths:
-      - backend:
-          serviceName: kuard
-          servicePort: 8080
-        path: /
-        pathType: ImplementationSpecific
-  tls:
-  - hosts:
-    - kuard
-`)
-
 var setRunAsNonRootTrue = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -309,6 +286,169 @@ spec:
       runAsNonRoot: true
 `)
 
+var kyverno_mutate_json_patch = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-image-as-env-var
+  # env array needs to exist (least one env var is present)
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: None
+    policies.kyverno.io/title: Add Image as Environment Variable
+    policies.kyverno.io/category: Other
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/minversion: 1.4.3
+    policies.kyverno.io/subject: Pod, Deployment
+    policies.kyverno.io/description: >-
+      The Kubernetes downward API only has the ability to express so many
+      options as environment variables. The image consumed in a Pod is commonly
+      needed to make the application aware of some logic it must take. This policy
+      takes the value of the 'image' field and adds it as an environment variable
+      to bare Pods and Deployments having no more than two containers. The 'env' array must already exist for the policy
+      to operate correctly. This policy may be easily extended to support other higher-level
+      Pod controllers as well as more containers by following the established rules.      
+spec:
+  background: false
+  schemaValidation: false
+  rules:
+  # One Pod
+  - name: pod-containers-1-inject-image
+    match:
+      resources:
+        kinds:
+        - Pod
+    preconditions:
+      all:
+      - key: "{{request.object.spec.containers[] | length(@)}}"
+        operator: GreaterThanOrEquals
+        value: 1
+    mutate:
+      patchesJson6902: |-
+        - op: add
+          path: "/spec/containers/0/env/-"
+          value: {"name":"K8S_IMAGE","value":"{{request.object.spec.containers[0].image}}"}        
+  # Two or more Pods
+  - name: pod-containers-2-inject-image
+    match:
+      resources:
+        kinds:
+        - Pod
+    preconditions:
+      all:
+      - key: "{{request.object.spec.containers[] | length(@)}}"
+        operator: GreaterThanOrEquals
+        value: 2
+    mutate:
+      patchesJson6902: |-
+        - op: add
+          path: "/spec/containers/1/env/-"
+          value: {"name":"K8S_IMAGE","value":"{{request.object.spec.containers[1].image}}"}        
+  # Deployment with one Pod
+  - name: deploy-containers-1-inject-image
+    match:
+      resources:
+        kinds:
+        - Deployment
+    preconditions:
+      all:
+      - key: "{{request.object.spec.template.spec.containers[] | length(@)}}"
+        operator: GreaterThanOrEquals
+        value: 1
+    mutate:
+      patchesJson6902: |-
+        - op: add
+          path: "/spec/template/spec/containers/0/env/-"
+          value: {"name":"K8S_IMAGE","value":"{{request.object.spec.template.spec.containers[0].image}}"}        
+  # Deployment with two or more Pods
+  - name: deploy-containers-2-inject-image
+    match:
+      resources:
+        kinds:
+        - Deployment
+    preconditions:
+      all:
+      - key: "{{request.object.spec.template.spec.containers[] | length(@)}}"
+        operator: GreaterThanOrEquals
+        value: 2
+    mutate:
+      patchesJson6902: |-
+        - op: add
+          path: "/spec/template/spec/containers/1/env/-"
+          value: {"name":"K8S_IMAGE","value":"{{request.object.spec.template.spec.containers[1].image}}"}
+`)
+
+var podWithEnvVar = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: foo
+  namespace: test-mutate-env-array
+spec:
+  containers:
+  - command:
+    - sleep infinity
+    env:
+    - name: K8S_IMAGE
+      value: docker.io/busybox:1.11
+    image: busybox:1.11
+    name: busybox
+    securityContext:
+      capabilities:
+        drop:
+        - SETUID
+  initContainers:
+  - command:
+    - sleep infinity
+    image: nginx:1.14
+    name: nginx
+    securityContext:
+      capabilities:
+        drop:
+        - SETUID
+`)
+
+var podWithEnvVarPattern = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: foo
+  namespace: test-mutate-env-array
+spec:
+  containers:
+  - command:
+    - sleep infinity
+    env:
+    - name: K8S_IMAGE
+      value: docker.io/busybox:1.11
+    image: busybox:1.11
+    name: busybox
+    securityContext:
+      capabilities:
+        drop:
+        - SETUID
+  - command:
+    - sleep infinity
+    env:
+    - name: K8S_IMAGE
+      value: linkerd:1.21
+    image: linkerd:1.21
+    name: linkerd
+    securityContext:
+      capabilities:
+        drop:
+        - NET_RAW
+        - SOME_THING
+  initContainers:
+  - command:
+    - sleep infinity
+    image: nginx:1.14
+    name: nginx
+    securityContext:
+      capabilities:
+        drop:
+        - SETUID
+`)
+
 var kyverno_2316_policy = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -351,11 +491,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      appa: busybox
+      app: busybox
   template:
     metadata:
       labels:
-        appa: busybox
+        app: busybox
         # foo: blaaah
     spec:
       containers:
@@ -385,4 +525,57 @@ var kyverno_2316_pattern = []byte(`
 metadata:
   annotations:
     fluentbit.io/exclude-busybox: "true"
+`)
+
+var kyverno_2971_policy = []byte(`
+apiVersion : kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: replace-docker-hub
+spec:
+  rules:
+  - name: replace-docker-hub
+    match:
+      resources:
+        kinds:
+        - Pod
+    preconditions:
+      all:
+      - key: "{{request.operation}}"
+        operator: In
+        value:
+        - CREATE
+        - UPDATE
+    mutate:
+      foreach:
+      - list: "request.object.spec.containers"
+        preconditions:
+          all:
+            - key: '{{images.containers."{{element.name}}".registry}}'
+              operator: Equals
+              value: 'docker.io'
+        patchStrategicMerge:
+          spec:
+            containers:
+            - name: "{{ element.name }}"           
+              image: 'my-private-registry/{{images.containers."{{element.name}}".path}}:{{images.containers."{{element.name}}".tag}}'
+`)
+
+var kyverno_2971_resource = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  namespace: test-mutate
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.14.2
+`)
+
+var kyverno_2971_pattern = []byte(`
+spec:
+  containers:
+  - name: "nginx"           
+    image: 'my-private-registry/nginx:1.14.2'
 `)

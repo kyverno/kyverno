@@ -15,7 +15,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/go-logr/logr"
 	"github.com/kataras/tablewriter"
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -39,94 +38,95 @@ import (
 )
 
 var longHelp = `
-The test command provides a facility to test resources against policies by comparing expected results, declared ahead of time in a test.yaml file, to actual results reported by Kyverno. Users provide the path to the folder containing a test.yaml file where the location could be on a local filesystem or a remote git repository
+The test command provides a facility to test resources against policies by comparing expected results, declared ahead of time in a test manifest file, to actual results reported by Kyverno. Users provide the path to the folder containing a kyverno-test.yaml file where the location could be on a local filesystem or a remote git repository.
 `
 var exampleHelp = `
-kyverno test https://github.com/kyverno/policies/main
-    <snip>
+# Test a git repository containing Kyverno test cases.
+kyverno test https://github.com/kyverno/policies/pod-security --git-branch main
+<snip>
 
-    Executing disallow-cri-sock-mount...
-    applying 1 policy to 1 resource...
-    │───│────────────────────────────────│────────────────────────────────│────────────────────────────│────────│
-    │ # │ POLICY                         │ RULE                           │ RESOURCE                   │ RESULT │
-    │───│────────────────────────────────│────────────────────────────────│────────────────────────────│────────│
-    │ 1 │ disallow-container-sock-mounts │ validate-docker-sock-mount     │ pod-with-docker-sock-mount │ Pass   │
-    │ 2 │ disallow-container-sock-mounts │ validate-containerd-sock-mount │ pod-with-docker-sock-mount │ Pass   │
-    │ 3 │ disallow-container-sock-mounts │ validate-crio-sock-mount       │ pod-with-docker-sock-mount │ Pass   │
-    │───│────────────────────────────────│────────────────────────────────│────────────────────────────│────────│
-    <snip>
+Executing require-non-root-groups...
+applying 1 policy to 2 resources...
+
+│───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
+│ # │ POLICY                  │ RULE                     │ RESOURCE                         │ RESULT │
+│───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
+│ 1 │ require-non-root-groups │ check-runasgroup         │ default/Pod/fs-group0            │ Pass   │
+│ 2 │ require-non-root-groups │ check-supplementalGroups │ default/Pod/fs-group0            │ Pass   │
+│ 3 │ require-non-root-groups │ check-fsGroup            │ default/Pod/fs-group0            │ Pass   │
+│ 4 │ require-non-root-groups │ check-supplementalGroups │ default/Pod/supplemental-groups0 │ Pass   │
+│ 5 │ require-non-root-groups │ check-fsGroup            │ default/Pod/supplemental-groups0 │ Pass   │
+│ 6 │ require-non-root-groups │ check-runasgroup         │ default/Pod/supplemental-groups0 │ Pass   │
+│───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
+<snip>
+
+# Test a local folder containing test cases.
+kyverno test .
+
+Executing limit-containers-per-pod...
+applying 1 policy to 4 resources... 
+
+│───│──────────────────────────│──────────────────────────────────────│─────────────────────────────│────────│
+│ # │ POLICY                   │ RULE                                 │ RESOURCE                    │ RESULT │
+│───│──────────────────────────│──────────────────────────────────────│─────────────────────────────│────────│
+│ 1 │ limit-containers-per-pod │ limit-containers-per-pod-bare        │ default/Pod/myapp-pod-1     │ Pass   │
+│ 2 │ limit-containers-per-pod │ limit-containers-per-pod-bare        │ default/Pod/myapp-pod-2     │ Pass   │
+│ 3 │ limit-containers-per-pod │ limit-containers-per-pod-controllers │ default/Deployment/mydeploy │ Pass   │
+│ 4 │ limit-containers-per-pod │ limit-containers-per-pod-cronjob     │ default/CronJob/mycronjob   │ Pass   │
+│───│──────────────────────────│──────────────────────────────────────│─────────────────────────────│────────│
+
+Test Summary: 4 tests passed and 0 tests failed
 
 
-Test file structure:
+**TEST FILE STRUCTURE**:
 
-The test.yaml has four parts:
-    "policies"   --> List of policies which are applied.
-    "resources"  --> List of resources on which the policies are applied.
-    "variables"  --> Variable file path (optional).
-    "results"    --> List of results expected after applying the policies on the resources.
+The kyverno-test.yaml has four parts:
+	"policies"   --> List of policies which are applied.
+	"resources"  --> List of resources on which the policies are applied.
+	"variables"  --> Variable file path containing variables referenced in the policy (OPTIONAL).
+	"results"    --> List of results expected after applying the policies to the resources.
 
-Test file format:
+** TEST FILE FORMAT**:
 
-For validate policies
+name: <test_name>
+policies:
+- <path/to/policy1.yaml>
+- <path/to/policy2.yaml>
+resources:
+- <path/to/resource1.yaml>
+- <path/to/resource2.yaml>
+variables: <variable_file> (OPTIONAL)
+results:
+- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
+  rule: <name>
+  resource: <name>
+  namespace: <name> (OPTIONAL)
+  kind: <name>
+  patchedResource: <path/to/patched/resource.yaml> (For mutate policies/rules only)
+  result: <pass|fail|skip>
 
-- name: test-1
-  policies:
-  - <path>
-  - <path>
+**VARIABLES FILE FORMAT**:
+
+policies:
+- name: <policy_name>
+  rules:
+  - name: <rule_name>
+    # Global variable values
+    values:
+      foo: bar
   resources:
-  - <path>
-  - <path>
-  results:
-  - policy: <name>
-    rule: <name>
-    resource: <name>
-    namespace: <name> (OPTIONAL)
-    kind: <name>
-    result: <pass|fail|skip>
+  - name: <resource_name_1>
+    # Resource-specific variable values
+    values:
+      foo: baz
+  - name: <resource_name_2>
+    values:
+      foo: bin
 
+**RESULT DESCRIPTIONS**:
 
-For mutate policies
-
-Policy (Namespaced)
-
-- name: test-1
-  policies:
-  - <path>
-  - <path>
-  resources:
-  - <path>
-  - <path>
-  results:
-  - policy: <policy_namespace>/<policy_name>
-    rule: <name>
-    resource: <name>
-    namespace: <name> (OPTIONAL)
-        kind: <name>
-    patchedResource: <path>
-    result: <pass|fail|skip>
-
-ClusterPolicy (Cluster-wide)
-
-- name: test-1
-  policies:
-  - <path>
-  - <path>
-  resources:
-  - <path>
-  - <path>
-  results:
-  - policy: <name>
-    rule: <name>
-    resource: <name>
-    namespace: <name> (OPTIONAL)
-    kind: <name>
-    patchedResource: <path>
-    result: <pass|fail|skip>
-
-Result descriptions:
-
-pass  --> The patched resource generated by Kyverno equals the patched resource provided by the user.
-fail  --> The patched resource generated by Kyverno is not equal to the patched resource provided by the user.
+pass  --> The resource is either validated by the policy or, if a mutation, equals the state of the patched resource.
+fail  --> The resource fails validation or the patched resource generated by Kyverno is not equal to the input resource provided by the user.
 skip  --> The rule is not applied.
 
 For more information visit https://kyverno.io/docs/kyverno-cli/#test
@@ -135,10 +135,11 @@ For more information visit https://kyverno.io/docs/kyverno-cli/#test
 // Command returns version command
 func Command() *cobra.Command {
 	var cmd *cobra.Command
-	var valuesFile, fileName string
+	var testFile []byte
+	var valuesFile, fileName, gitBranch string
 	cmd = &cobra.Command{
-		Use:     "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository>",
-		Args:    cobra.ExactArgs(1),
+		Use: "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>\n  kyverno test --manifest-mutate > kyverno-test.yaml\n  kyverno test --manifest-validate > kyverno-test.yaml",
+		// Args:    cobra.ExactArgs(1),
 		Short:   "run tests from directory",
 		Long:    longHelp,
 		Example: exampleHelp,
@@ -152,7 +153,49 @@ func Command() *cobra.Command {
 				}
 			}()
 
-			_, err = testCommandExecute(dirPath, valuesFile, fileName)
+			mStatus, _ := cmd.Flags().GetBool("manifest-mutate")
+			vStatus, _ := cmd.Flags().GetBool("manifest-validate")
+			if mStatus {
+				testFile = []byte(`name: <test_name>
+policies:
+- <path/to/policy1.yaml>
+- <path/to/policy2.yaml>
+resources:
+- <path/to/resource1.yaml>
+- <path/to/resource2.yaml>
+variables: <variable_file> (OPTIONAL)
+results:
+- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
+  rule: <name>
+  resource: <name>
+  namespace: <name> (OPTIONAL)
+  kind: <name>
+  patchedResource: <path/to/patched/resource.yaml>
+  result: <pass|fail|skip>`)
+				fmt.Println(string(testFile))
+				return nil
+			}
+			if vStatus {
+				testFile = []byte(`name: <test_name>
+policies:
+- <path/to/policy1.yaml>
+- <path/to/policy2.yaml>
+resources:
+- <path/to/resource1.yaml>
+- <path/to/resource2.yaml>
+variables: <variable_file> (OPTIONAL)
+results:
+- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
+  rule: <name>
+  resource: <name>
+  namespace: <name> (OPTIONAL)
+  kind: <name>
+  result: <pass|fail|skip>`)
+				fmt.Println(string(testFile))
+				return nil
+			}
+
+			_, err = testCommandExecute(dirPath, valuesFile, fileName, gitBranch)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
 				return err
@@ -161,7 +204,11 @@ func Command() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&fileName, "file-name", "f", "test.yaml", "test filename")
+	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "test filename")
+	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "test github repository branch")
+
+	cmd.Flags().BoolP("manifest-mutate", "", false, "prints out a template test manifest for a mutate policy")
+	cmd.Flags().BoolP("manifest-validate", "", false, "prints out a template test manifest for a validate policy")
 	return cmd
 }
 
@@ -217,11 +264,12 @@ type resultCounts struct {
 	Fail int
 }
 
-func testCommandExecute(dirPath []string, valuesFile string, fileName string) (rc *resultCounts, err error) {
+func testCommandExecute(dirPath []string, valuesFile string, fileName string, gitBranch string) (rc *resultCounts, err error) {
 	var errors []error
 	fs := memfs.New()
 	rc = &resultCounts{}
 	var testYamlCount int
+	var testYamlNameCount int
 
 	if len(dirPath) == 0 {
 		return rc, sanitizederror.NewWithError(fmt.Sprintf("a directory is required"), err)
@@ -235,26 +283,45 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 
 		pathElems := strings.Split(gitURL.Path[1:], "/")
 		if len(pathElems) <= 1 {
-			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch", gitURL.Path)
+			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitURL.Path)
 			fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
 			os.Exit(1)
 		}
 
 		gitURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 		repoURL := gitURL.String()
-		branch := strings.ReplaceAll(dirPath[0], repoURL+"/", "")
-		if branch == "" {
-			branch = "main"
+
+		var gitPathToYamls string
+		if gitBranch == "" {
+			gitPathToYamls = "/"
+
+			if string(dirPath[0][len(dirPath[0])-1]) == "/" {
+				gitBranch = strings.ReplaceAll(dirPath[0], repoURL+"/", "")
+			} else {
+				gitBranch = strings.ReplaceAll(dirPath[0], repoURL, "")
+			}
+
+			if gitBranch == "" {
+				gitBranch = "main"
+			} else if string(gitBranch[0]) == "/" {
+				gitBranch = gitBranch[1:]
+			}
+		} else {
+			if string(dirPath[0][len(dirPath[0])-1]) == "/" {
+				gitPathToYamls = strings.ReplaceAll(dirPath[0], repoURL+"/", "/")
+			} else {
+				gitPathToYamls = strings.ReplaceAll(dirPath[0], repoURL, "/")
+			}
 		}
 
-		_, cloneErr := clone(repoURL, fs, branch)
+		_, cloneErr := clone(repoURL, fs, gitBranch)
 		if cloneErr != nil {
 			fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
 			log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
 			os.Exit(1)
 		}
 
-		policyYamls, err := listYAMLs(fs, "/")
+		policyYamls, err := listYAMLs(fs, gitPathToYamls)
 		if err != nil {
 			return rc, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
 		}
@@ -267,8 +334,11 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 				continue
 			}
 
-			if strings.Contains(file.Name(), fileName) {
+			if strings.Contains(file.Name(), fileName) || strings.Contains(file.Name(), "test.yaml") {
 				testYamlCount++
+				if strings.Contains(file.Name(), "test.yaml") {
+					testYamlNameCount++
+				}
 				policyresoucePath := strings.Trim(yamlFilePath, fileName)
 				bytes, err := ioutil.ReadAll(file)
 				if err != nil {
@@ -291,10 +361,22 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 		if testYamlCount == 0 {
 			fmt.Printf("\n No test yamls available \n")
 		}
+		if testYamlNameCount > 0 {
+			fmt.Printf("\n Note : test.yaml file name is deprecated in 1.6.0 release. Please provide test yaml file as kyverno-test.yaml \n")
+		}
 
 	} else {
+		var testFiles int
+		var deprecatedFiles int
 		path := filepath.Clean(dirPath[0])
-		errors = getLocalDirTestFiles(fs, path, fileName, valuesFile, rc)
+		errors = getLocalDirTestFiles(fs, path, fileName, valuesFile, rc, &testFiles, &deprecatedFiles)
+
+		if testFiles == 0 {
+			fmt.Printf("\n No test files found. Please provide test YAML files named kyverno-test.yaml \n")
+		}
+		if deprecatedFiles > 0 {
+			fmt.Printf("\n Note: The test.yaml file name is deprecated in 1.6.0 release. Please use kyverno-test.yaml instead. \n")
+		}
 	}
 
 	if len(errors) > 0 && log.Log.V(1).Enabled() {
@@ -308,22 +390,29 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string) (r
 		os.Exit(1)
 	}
 
+	fmt.Printf("\nTest Summary: %d tests passed and %d tests failed\n", rc.Pass+rc.Skip, rc.Fail)
+
 	os.Exit(0)
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts, testFiles *int, deprecatedFiles *int) []error {
 	var errors []error
+
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
 		return []error{fmt.Errorf("failed to read %v: %v", path, err.Error())}
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc, testFiles, deprecatedFiles)
 			continue
 		}
-		if strings.Contains(file.Name(), fileName) {
+		if strings.Contains(file.Name(), fileName) || strings.Contains(file.Name(), "test.yaml") {
+			*testFiles++
+			if strings.Compare(file.Name(), "test.yaml") == 0 {
+				*deprecatedFiles++
+			}
 			// We accept the risk of including files here as we read the test dir only.
 			yamlFile, err := ioutil.ReadFile(filepath.Join(path, file.Name())) // #nosec G304
 			if err != nil {
@@ -344,11 +433,11 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 	return errors
 }
 
-func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResults, infos []policyreport.Info, policyResourcePath string, fs billy.Filesystem, isGit bool) (map[string]report.PolicyReportResult, []TestResults) {
+func buildPolicyResults(engineResponses []*response.EngineResponse, testResults []TestResults, infos []policyreport.Info, policyResourcePath string, fs billy.Filesystem, isGit bool) (map[string]report.PolicyReportResult, []TestResults) {
 	results := make(map[string]report.PolicyReportResult)
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
-	for _, resp := range resps {
+	for _, resp := range engineResponses {
 		policyName := resp.PolicyResponse.Policy.Name
 		resourceName := resp.PolicyResponse.Resource.Name
 		resourceKind := resp.PolicyResponse.Resource.Kind
@@ -370,7 +459,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 			Message: buildMessage(resp),
 		}
 
-		var patcheResourcePath []string
+		var patchedResourcePath []string
 		for i, test := range testResults {
 			var userDefinedPolicyNamespace string
 			var userDefinedPolicyName string
@@ -410,7 +499,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 					}
 				}
 
-				patcheResourcePath = append(patcheResourcePath, test.PatchedResource)
+				patchedResourcePath = append(patchedResourcePath, test.PatchedResource)
 				if _, ok := results[resultsKey]; !ok {
 					results[resultsKey] = result
 				}
@@ -425,13 +514,12 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 
 			var resultsKey []string
 			var resultKey string
-
 			var result report.PolicyReportResult
 			resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name, resourceNamespace, resourceKind, resourceName)
-			for _, resultK := range resultsKey {
-				if val, ok := results[resultK]; ok {
+			for _, key := range resultsKey {
+				if val, ok := results[key]; ok {
 					result = val
-					resultKey = resultK
+					resultKey = key
 				} else {
 					continue
 				}
@@ -444,7 +532,7 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 
 				} else {
 					var x string
-					for _, path := range patcheResourcePath {
+					for _, path := range patchedResourcePath {
 						result.Result = report.StatusFail
 						x = getAndComparePatchedResource(path, resp.PatchedResource, isGit, policyResourcePath, fs)
 						if x == "pass" {
@@ -467,13 +555,13 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 				}
 
 				var result report.PolicyReportResult
-				var resultsKey []string
+				var resultsKeys []string
 				var resultKey string
-				resultsKey = GetAllPossibleResultsKey("", info.PolicyName, rule.Name, infoResult.Resource.Namespace, infoResult.Resource.Kind, infoResult.Resource.Name)
-				for _, resultK := range resultsKey {
-					if val, ok := results[resultK]; ok {
+				resultsKeys = GetAllPossibleResultsKey("", info.PolicyName, rule.Name, infoResult.Resource.Namespace, infoResult.Resource.Kind, infoResult.Resource.Name)
+				for _, key := range resultsKeys {
+					if val, ok := results[key]; ok {
 						result = val
-						resultKey = resultK
+						resultKey = key
 					} else {
 						continue
 					}
@@ -491,12 +579,12 @@ func buildPolicyResults(resps []*response.EngineResponse, testResults []TestResu
 	return results, testResults
 }
 
-func GetAllPossibleResultsKey(policyNs, policy, rule, resourceNsnamespace, kind, resource string) []string {
+func GetAllPossibleResultsKey(policyNamespace, policy, rule, resourceNamespace, kind, resource string) []string {
 	var resultsKey []string
 	resultKey1 := fmt.Sprintf("%s-%s-%s-%s", policy, rule, kind, resource)
-	resultKey2 := fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, resourceNsnamespace, kind, resource)
-	resultKey3 := fmt.Sprintf("%s-%s-%s-%s-%s", policyNs, policy, rule, kind, resource)
-	resultKey4 := fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNs, policy, rule, resourceNsnamespace, kind, resource)
+	resultKey2 := fmt.Sprintf("%s-%s-%s-%s-%s", policy, rule, resourceNamespace, kind, resource)
+	resultKey3 := fmt.Sprintf("%s-%s-%s-%s-%s", policyNamespace, policy, rule, kind, resource)
+	resultKey4 := fmt.Sprintf("%s-%s-%s-%s-%s-%s", policyNamespace, policy, rule, resourceNamespace, kind, resource)
 	resultsKey = append(resultsKey, resultKey1, resultKey2, resultKey3, resultKey4)
 	return resultsKey
 }
@@ -537,12 +625,12 @@ func getAndComparePatchedResource(path string, enginePatchedResource unstructure
 	if err != nil {
 		os.Exit(1)
 	}
-	var log logr.Logger
-	matched, err := generate.ValidateResourceWithPattern(log, enginePatchedResource.UnstructuredContent(), patchedResources.UnstructuredContent())
-
+	matched, err := generate.ValidateResourceWithPattern(log.Log, enginePatchedResource.UnstructuredContent(), patchedResources.UnstructuredContent())
 	if err != nil {
+		log.Log.V(3).Info("patched resource mismatch", "error", err.Error())
 		status = "fail"
 	}
+
 	if matched == "" {
 		status = "pass"
 	}
@@ -734,6 +822,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 		if val, ok := resps[resultKey]; ok {
 			testRes = val
 		} else {
+			log.Log.V(2).Info("result not found", "key", resultKey)
 			res.Result = boldYellow.Sprintf("Not found")
 			rc.Fail++
 			table = append(table, res)
@@ -754,6 +843,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 				rc.Pass++
 			}
 		} else {
+			log.Log.V(2).Info("result mismatch", "expected", testRes.Result, "received", v.Result, "key", resultKey)
 			res.Result = boldRed.Sprintf("Fail")
 			rc.Fail++
 		}

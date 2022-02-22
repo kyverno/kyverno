@@ -17,4 +17,4 @@ expected:
         - name: disable-servicelink-and-token
           type: Mutation
           status: pass
-          message: successfully processed strategic merge patch
+          message: mutated Deployment/nginx-deployment in namespace test-foo-aaaaaaaaa-bbbbbbbb

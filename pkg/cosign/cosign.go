@@ -9,15 +9,20 @@ import (
 	"fmt"
 	"strings"
 
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+
+	"github.com/sigstore/cosign/cmd/cosign/cli/rekor"
+
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/pkg/oci/remote"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/minio/pkg/wildcard"
 	"github.com/pkg/errors"
 	"github.com/sigstore/cosign/cmd/cosign/cli/options"
 	"github.com/sigstore/cosign/pkg/cosign"
@@ -25,40 +30,21 @@ import (
 	"github.com/sigstore/cosign/pkg/oci"
 	sigs "github.com/sigstore/cosign/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature"
-	"github.com/sigstore/sigstore/pkg/signature/dsse"
-	"k8s.io/client-go/kubernetes"
+	"github.com/sigstore/sigstore/pkg/signature/payload"
 )
 
-var (
-	// ImageSignatureRepository is an alternate signature repository
-	ImageSignatureRepository string
-)
-
-// Initialize loads the image pull secrets and initializes the default auth method for container registry API calls
-func Initialize(client kubernetes.Interface, namespace, serviceAccount string, imagePullSecrets []string) error {
-	var kc authn.Keychain
-	kcOpts := &k8schain.Options{
-		Namespace:          namespace,
-		ServiceAccountName: serviceAccount,
-		ImagePullSecrets:   imagePullSecrets,
-	}
-
-	kc, err := k8schain.New(context.Background(), client, *kcOpts)
-	if err != nil {
-		return errors.Wrap(err, "failed to initialize registry keychain")
-	}
-
-	authn.DefaultKeychain = kc
-	return nil
-}
+// ImageSignatureRepository is an alternate signature repository
+var ImageSignatureRepository string
 
 type Options struct {
-	ImageRef   string
-	Key        string
-	Roots      []byte
-	Subject    string
-	Repository string
-	Log        logr.Logger
+	ImageRef    string
+	Key         string
+	Roots       []byte
+	Subject     string
+	Issuer      string
+	Annotations map[string]string
+	Repository  string
+	Log         logr.Logger
 }
 
 // VerifySignature verifies that the image has the expected key
@@ -71,10 +57,11 @@ func VerifySignature(opts Options) (digest string, err error) {
 	if err != nil {
 		return "", errors.Wrap(err, "constructing client options")
 	}
-
+	remoteOpts = append(remoteOpts, remote.WithRemoteOptions(gcrremote.WithAuthFromKeychain(registryclient.DefaultKeychain)))
 	cosignOpts := &cosign.CheckOpts{
 		Annotations:        map[string]interface{}{},
 		RegistryClientOpts: remoteOpts,
+		ClaimVerifier:      cosign.SimpleClaimVerifier,
 	}
 
 	if opts.Key != "" {
@@ -84,8 +71,11 @@ func VerifySignature(opts Options) (digest string, err error) {
 			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRef(ctx, opts.Key)
 		}
 	} else {
-		cosignOpts.CertEmail = opts.Subject
-		cosignOpts.RootCerts, err = getX509CertPool(opts.Roots)
+		cosignOpts.CertEmail = ""
+		cosignOpts.RootCerts, err = getFulcioRoots(opts.Roots)
+		if err == nil {
+			cosignOpts.RekorClient, err = rekor.NewClient("https://rekor.sigstore.dev")
+		}
 	}
 
 	if err != nil {
@@ -106,7 +96,7 @@ func VerifySignature(opts Options) (digest string, err error) {
 		return "", errors.Wrap(err, "failed to parse image")
 	}
 
-	verified, _, err := client.Verify(ctx, ref, cosign.SignaturesAccessor, cosignOpts)
+	signatures, bundleVerified, err := client.VerifyImageSignatures(ctx, ref, cosignOpts)
 	if err != nil {
 		msg := err.Error()
 		log.Info("image verification failed", "error", msg)
@@ -119,7 +109,22 @@ func VerifySignature(opts Options) (digest string, err error) {
 		return "", err
 	}
 
-	digest, err = extractDigest(opts.ImageRef, verified, log)
+	log.V(3).Info("verified image", "count", len(signatures), "bundleVerified", bundleVerified)
+	pld, err := extractPayload(signatures)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get pld")
+	}
+
+	if err := matchSubjectAndIssuer(signatures, opts.Subject, opts.Issuer); err != nil {
+		return "", err
+	}
+
+	err = checkAnnotations(pld, opts.Annotations)
+	if err != nil {
+		return "", errors.Wrap(err, "annotation mismatch")
+	}
+
+	digest, err = extractDigest(opts.ImageRef, pld, log)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get digest")
 	}
@@ -127,8 +132,8 @@ func VerifySignature(opts Options) (digest string, err error) {
 	return digest, nil
 }
 
-func getX509CertPool(roots []byte) (*x509.CertPool, error) {
-	if roots == nil {
+func getFulcioRoots(roots []byte) (*x509.CertPool, error) {
+	if len(roots) == 0 {
 		return fulcio.GetRoots(), nil
 	}
 
@@ -142,21 +147,30 @@ func getX509CertPool(roots []byte) (*x509.CertPool, error) {
 
 // FetchAttestations retrieves signed attestations and decodes them into in-toto statements
 // https://github.com/in-toto/attestation/blob/main/spec/README.md#statement
-func FetchAttestations(imageRef string, key string, repository string, log logr.Logger) ([]map[string]interface{}, error) {
+func FetchAttestations(imageRef string, imageVerify *v1.ImageVerification, log logr.Logger) ([]map[string]interface{}, error) {
 	ctx := context.Background()
-	var pubKey signature.Verifier
 	var err error
 
-	if strings.HasPrefix(key, "-----BEGIN PUBLIC KEY-----") {
-		pubKey, err = decodePEM([]byte(key))
-		if err != nil {
-			return nil, errors.Wrap(err, "decode pem")
+	cosignOpts := &cosign.CheckOpts{
+		ClaimVerifier: cosign.IntotoSubjectClaimVerifier,
+	}
+
+	if imageVerify.Key != "" {
+		if strings.HasPrefix(imageVerify.Key, "-----BEGIN PUBLIC KEY-----") {
+			cosignOpts.SigVerifier, err = decodePEM([]byte(imageVerify.Key))
+		} else {
+			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRef(ctx, imageVerify.Key)
 		}
 	} else {
-		pubKey, err = sigs.PublicKeyFromKeyRef(ctx, key)
-		if err != nil {
-			return nil, errors.Wrap(err, "loading public key")
+		cosignOpts.CertEmail = ""
+		cosignOpts.RootCerts, err = getFulcioRoots([]byte(imageVerify.Roots))
+		if err == nil {
+			cosignOpts.RekorClient, err = rekor.NewClient("https://rekor.sigstore.dev")
 		}
+	}
+
+	if err != nil {
+		return nil, errors.Wrap(err, "loading credentials")
 	}
 
 	var opts []remote.Option
@@ -166,19 +180,13 @@ func FetchAttestations(imageRef string, key string, repository string, log logr.
 	if err != nil {
 		return nil, errors.Wrap(err, "constructing client options")
 	}
-
-	if repository != "" {
-		signatureRepo, err := name.NewRepository(repository)
+	opts = append(opts, remote.WithRemoteOptions(gcrremote.WithAuthFromKeychain(registryclient.DefaultKeychain)))
+	if imageVerify.Repository != "" {
+		signatureRepo, err := name.NewRepository(imageVerify.Repository)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse signature repository %s", repository)
+			return nil, errors.Wrapf(err, "failed to parse signature repository %s", imageVerify.Repository)
 		}
 		opts = append(opts, remote.WithTargetRepository(signatureRepo))
-	}
-
-	cosignOpts := &cosign.CheckOpts{
-		ClaimVerifier:      cosign.IntotoSubjectClaimVerifier,
-		SigVerifier:        dsse.WrapVerifier(pubKey),
-		RegistryClientOpts: opts,
 	}
 
 	ref, err := name.ParseReference(imageRef)
@@ -186,7 +194,7 @@ func FetchAttestations(imageRef string, key string, repository string, log logr.
 		return nil, errors.Wrap(err, "failed to parse image")
 	}
 
-	verified, _, err := client.Verify(context.Background(), ref, cosign.AttestationsAccessor, cosignOpts)
+	signatures, bundleVerified, err := client.VerifyImageAttestations(context.Background(), ref, cosignOpts)
 	if err != nil {
 		msg := err.Error()
 		log.Info("failed to fetch attestations", "error", msg)
@@ -197,7 +205,8 @@ func FetchAttestations(imageRef string, key string, repository string, log logr.
 		return nil, err
 	}
 
-	inTotoStatements, err := decodeStatements(verified)
+	log.V(3).Info("verified images", "count", len(signatures), "bundleVerified", bundleVerified)
+	inTotoStatements, err := decodeStatements(signatures)
 	if err != nil {
 		return nil, err
 	}
@@ -212,20 +221,26 @@ func decodeStatements(sigs []oci.Signature) ([]map[string]interface{}, error) {
 
 	decodedStatements := make([]map[string]interface{}, len(sigs))
 	for i, sig := range sigs {
-		payload, err := sig.Payload()
+		pld, err := sig.Payload()
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get payload")
-		}
-		data := make(map[string]interface{})
-		if err := json.Unmarshal(payload, &data); err != nil {
-			return nil, errors.Wrapf(err, "failed to unmarshal JSON payload: %v", sig)
-		}
-		decodedStatement, err := decodeStatement(data["payload"].(string))
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to decode statement %s", string(payload))
+			return nil, errors.Wrap(err, "failed to decode payload")
 		}
 
-		decodedStatements[i] = decodedStatement
+		data := make(map[string]interface{})
+		if err := json.Unmarshal(pld, &data); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal JSON payload: %v", sig)
+		}
+
+		if dataPayload, ok := data["payload"]; !ok {
+			return nil, fmt.Errorf("missing payload in %v", data)
+		} else {
+			decodedStatement, err := decodeStatement(dataPayload.(string))
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to decode statement %s", string(pld))
+			}
+
+			decodedStatements[i] = decodedStatement
+		}
 	}
 
 	return decodedStatements, nil
@@ -303,80 +318,72 @@ func decodePEM(raw []byte) (signature.Verifier, error) {
 	return signature.LoadECDSAVerifier(ed, crypto.SHA256)
 }
 
-func extractDigest(imgRef string, verified []oci.Signature, log logr.Logger) (string, error) {
-	var jsonMap map[string]interface{}
-	for _, vp := range verified {
-		payload, err := vp.Payload()
+func extractPayload(verified []oci.Signature) ([]payload.SimpleContainerImage, error) {
+	var sigPayloads []payload.SimpleContainerImage
+	for _, sig := range verified {
+		pld, err := sig.Payload()
 		if err != nil {
-			return "", errors.Wrap(err, "failed to get payload")
+			return nil, errors.Wrap(err, "failed to get payload")
 		}
 
-		// TODO - change to using payload.SimpleContainerImage after the next Tekton release
-		if err := json.Unmarshal(payload, &jsonMap); err != nil {
-			return "", err
+		sci := payload.SimpleContainerImage{}
+		if err := json.Unmarshal(pld, &sci); err != nil {
+			return nil, errors.Wrap(err, "error decoding the payload")
 		}
 
-		log.V(3).Info("image verification response", "image", imgRef, "payload", jsonMap)
+		sigPayloads = append(sigPayloads, sci)
+	}
+	return sigPayloads, nil
+}
 
-		// The expected payload is in one of these JSON formats:
-		// {
-		//   "critical": {
-		// 	   "identity": {
-		// 	     "docker-reference": "registry-v2.nirmata.io/pause"
-		// 	    },
-		//   	"image": {
-		// 	     "docker-manifest-digest": "sha256:4a1c4b21597c1b4415bdbecb28a3296c6b5e23ca4f9feeb599860a1dac6a0108"
-		// 	    },
-		// 	    "type": "cosign container image signature"
-		//    },
-		//    "optional": null
-		// }
-		//
-		// {
-		//   "Critical": {
-		//     "Identity": {
-		//       "docker-reference": "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/nop"
-		//     },
-		//     "Image": {
-		//       "Docker-manifest-digest": "sha256:6a037d5ba27d9c6be32a9038bfe676fb67d2e4145b4f53e9c61fb3e69f06e816"
-		//     },
-		//     "Type": "Tekton container signature"
-		//   },
-		//   "Optional": {}
-		// }
-		//
-		critical := getMapValue(jsonMap, "critical", "Critical")
-		if critical != nil {
-			image := getMapValue(critical, "image", "Image")
-			if image != nil {
-				digest := getStringValue(image, "docker-manifest-digest", "Docker-manifest-digest")
-				return digest, nil
-			}
+func extractDigest(imgRef string, payload []payload.SimpleContainerImage, log logr.Logger) (string, error) {
+	for _, p := range payload {
+		if digest := p.Critical.Image.DockerManifestDigest; digest != "" {
+			return digest, nil
 		} else {
-			log.Info("failed to extract image digest from verification response", "image", imgRef, "payload", jsonMap)
+			log.Info("failed to extract image digest from verification response", "image", imgRef, "payload", p)
 			return "", fmt.Errorf("unknown image response for " + imgRef)
 		}
 	}
-
 	return "", fmt.Errorf("digest not found for " + imgRef)
 }
 
-func getMapValue(m map[string]interface{}, keys ...string) map[string]interface{} {
-	for _, k := range keys {
-		if m[k] != nil {
-			return m[k].(map[string]interface{})
+func matchSubjectAndIssuer(signatures []oci.Signature, subject, issuer string) error {
+	if subject == "" && issuer == "" {
+		return nil
+	}
+	var s string
+	for _, sig := range signatures {
+		cert, err := sig.Cert()
+		if err != nil {
+			return errors.Wrap(err, "failed to read certificate")
+		}
+
+		if cert == nil {
+			return errors.Wrap(err, "certificate not found")
+		}
+
+		s = sigs.CertSubject(cert)
+		i := sigs.CertIssuerExtension(cert)
+		if subject == "" || wildcard.Match(subject, s) {
+			if issuer == "" || (issuer == i) {
+				return nil
+			} else {
+				return fmt.Errorf("issuer mismatch: expected %s, got %s", i, issuer)
+			}
 		}
 	}
 
-	return nil
+	return fmt.Errorf("subject mismatch: expected %s, got %s", s, subject)
 }
 
-func getStringValue(m map[string]interface{}, keys ...string) string {
-	for _, k := range keys {
-		if m[k] != nil {
-			return m[k].(string)
+func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]string) error {
+	for _, p := range payload {
+		for key, val := range annotations {
+			if val != p.Optional[key] {
+				return fmt.Errorf("annotation value for %s does not match", key)
+			}
 		}
 	}
-
-	return ""
+	return nil
 }

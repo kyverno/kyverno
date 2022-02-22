@@ -195,17 +195,6 @@ func (in *Mutation) DeepCopyInto(out *Mutation) {
 	}
 
 	*out = *in
-	if in.Overlay != nil {
-		out.Overlay = *jsonDeepCopy(in.Overlay)
-	}
-
-	if in.Patches != nil {
-		out.Patches = make([]Patch, len(in.Patches))
-		for i, v := range in.Patches {
-			v.DeepCopyInto(&out.Patches[i])
-		}
-	}
-
 	if out.PatchStrategicMerge != nil {
 		out.PatchStrategicMerge = *jsonDeepCopy(in.PatchStrategicMerge)
 	}
@@ -225,16 +214,6 @@ func (in *Mutation) DeepCopyInto(out *Mutation) {
 // actually perform a deep copy.
 // Also see: https://github.com/kyverno/kyverno/pull/2000
 
-func (pp *Patch) DeepCopyInto(out *Patch) {
-	if out == nil {
-		return
-	}
-
-	*out = *pp
-	if pp.Value != nil {
-		out.Value = *jsonDeepCopy(pp.Value)
-	}
-}
 func (in *Validation) DeepCopyInto(out *Validation) {
 	if out == nil {
 		return
@@ -366,33 +345,6 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 		// never should get here
 		return
 	}
-	// *out = *in
-	// if in.Context != nil {
-	// 	in, out := &in.Context, &out.Context
-	// 	*out = make([]ContextEntry, len(*in))
-	// 	for i := range *in {
-	// 		(*in)[i].DeepCopyInto(&(*out)[i])
-	// 	}
-	// }
-	// in.MatchResources.DeepCopyInto(&out.MatchResources)
-	// in.ExcludeResources.DeepCopyInto(&out.ExcludeResources)
-	// if in.AnyAllConditions != nil {
-	// 	out.AnyAllConditions = in.AnyAllConditions
-	// }
-	// in.Mutation.DeepCopyInto(&out.Mutation)
-	// in.Validation.DeepCopyInto(&out.Validation)
-	// in.Generation.DeepCopyInto(&out.Generation)
-	// if in.VerifyImages != nil {
-	// 	in, out := &in.VerifyImages, &out.VerifyImages
-	// 	*out = make([]*ImageVerification, len(*in))
-	// 	for i := range *in {
-	// 		if (*in)[i] != nil {
-	// 			in, out := &(*in)[i], &(*out)[i]
-	// 			*out = new(ImageVerification)
-	// 			**out = **in
-	// 		}
-	// 	}
-	// }
 }
 
 // ToKey generates the key string used for adding label to polivy violation

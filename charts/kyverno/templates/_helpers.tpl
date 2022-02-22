@@ -98,9 +98,19 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- fail "Cannot set both .Values.podDisruptionBudget.minAvailable and .Values.podDisruptionBudget.maxUnavailable" -}}
 {{- end }}
 {{- if not .Values.podDisruptionBudget.maxUnavailable }}
-minAvailable: {{ default 0 .Values.podDisruptionBudget.minAvailable }}
+minAvailable: {{ default 1 .Values.podDisruptionBudget.minAvailable }}
 {{- end }}
 {{- if .Values.podDisruptionBudget.maxUnavailable }}
 maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+{{- end }}
+{{- end }}
+
+{{- define "kyverno.replicaCount" -}}
+{{- if not (empty .Values.replicaCount) }}
+replicas: {{ .Values.replicaCount }}
+{{- else if eq .Values.mode "standalone" }}
+replicas: 1
+{{- else if eq .Values.mode "ha" }}
+replicas: 3
 {{- end }}
 {{- end }}

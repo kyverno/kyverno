@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-service-1
+  labels:
+    protected: "true"
+spec: 
+  containers:
+  - name: nginx
+    image: nginx
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-service-2
+  labels:
+    protected: "label-test"
+spec: 
+  containers:
+  - name: nginx
+    image: nginx
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-service-3
+  labels:
+    protected: "label-fail"
+spec: 
+  containers:
+  - name: nginx
+    image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-service-4
+  labels:
+    protected: "test-label"
+spec: 
+  containers:
+  - name: nginx
+    image: nginx
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-service-5
+  labels:
+    protected: "fail-label"
+spec: 
+  containers:
+  - name: nginx
+    image: nginx
