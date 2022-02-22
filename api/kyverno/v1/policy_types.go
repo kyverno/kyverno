@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -473,7 +474,7 @@ type Validation struct {
 
 	// Fields which will be ignored while comparing manifests.
 	// +optional
-	IgnoreFields []string `json:"ignoreFields,omitempty" yaml:"ignoreFields,omitempty"`
+	IgnoreFields k8smanifest.ObjectFieldBindingList `json:"ignoreFields,omitempty" yaml:"ignoreFields,omitempty"`
 
 	// ForEach applies policy rule changes to nested elements.
 	// +optional

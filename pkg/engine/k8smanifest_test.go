@@ -3,6 +3,7 @@ package engine
 import (
 	"testing"
 
+	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	mapnode "github.com/sigstore/k8s-manifest-sigstore/pkg/util/mapnode"
 	"gotest.tools/assert"
 )
@@ -11,21 +12,17 @@ var test_policy = `{}`
 
 var signed_resource = `{
 	"apiVersion": "v1",
-	"kind": "Pod",
+	"kind": "Secret",
 	"metadata": {
   		"annotations": {
-    		"cosign.sigstore.dev/message": "H4sIAAAAAAAA/wD5AAb/H4sIAAAAAAAA/+zQwUrEMBAG4J7zFPMC3c7EbSt5Ck/eh3aoYTeTkmQLq/ju0mUVT4p7EbHf5SfJkJC/KWFuhhjmJDl7nerCqZ6eiTrbdT3RfZMkx1MaZHfmcKxugYjYt+2a1Lf4OS+sbSvaU0+2R3tnK7S076gCvOm1HzrlwqlCVA6sX8x9d379y0f+ETz7R0nZR3WwkDl4HR08xNEEKTxyYWcAWDUWLj5qdvDyagCUgzgokks9x9HkWYZ1cIha2KukvK5q8IEncTA9DWnnY3Pp8GgRqTmcF0ka3UIG4P2+66b57VI2m83mH3gLAAD//wTXx/kACAAAAQAA//+pDnnm+QAAAA==",
-    		"cosign.sigstore.dev/signature": "MEUCIBOoHsOltuGTwefyXro4lWhI7IAxysMvP/AIcDM9Ge6kAiEAt9Z/kNp8VYP8iAh6LiMvsM+Q3ju9pdG5KNW9YZakTmE="
+    		"cosign.sigstore.dev/message": "H4sIAAAAAAAA/wD/AAD/H4sIAAAAAAAA/+zSTU7DMBAF4KxzirlAmrHTYMlrboDEftpYxSoeW54JqCDujmgr1BWIbhAo3+YtbD/LP72m0m9zKjWIRN51SrXbvQzD2jmDxrpewrYGXR0oPTbXQUR04/iRxo14mUd2fdOYtcXBWTcOY4PWGOsawCv3+5FZlGqDyJSIv5j33fj5LJ/5R1CJ96FKzOzhybT7yJOHu+OTtykoTaTkWwBizkoaM4uH17cWgCkFD6ff0W1I4rajWR9a0Rp5d3teV0jkOdfJg2LpzsUAs4R6KqApRW71UIKH/bwJlYMGWcXcX3T+9i0tFovF//MeAAD//1D95RUACAAAAQAA//+x8WKU/wAAAA==",
+    		"cosign.sigstore.dev/signature": "MEYCIQDucAI+AguMuKbrKvHf9oQK2Kl36qndbuOGg895Wt9E5gIhANzHdauuP0FMfhm0rzOFCECdBFvh32Luc5FXvBXBJ2i3"
 		},
-		"name": "test-pod"
+		"name": "secret"
 	},
-	"spec": {
-		"containers": [
-			{
-			  "name": "kyverno",
-			  "image": "ghcr.io/kyverno/kyverno"
-			}
-		]
+	"stringData": {
+		"password": "naman",
+		"username": "admin"
 	}
 }`
 
@@ -37,10 +34,10 @@ EpLCSBfCcCyTotqkFCsGjhAFiSblvmX8vn51dbnZ7cdtiahat/eehymyJg==
 func Test_VerifyManifest(t *testing.T) {
 	policyContext := buildContext(t, test_policy, signed_resource)
 	var diffVar *mapnode.DiffResult
-	ignoreFields := []string{"spec.containers.0.image"}
+	ignoreFields := k8smanifest.ObjectFieldBindingList{}
 
 	verified, diff, err := VerifyManifest(policyContext, ecdsaPub, ignoreFields)
 	assert.NilError(t, err)
-	assert.Equal(t, verified, true)
+	assert.Equal(t, verified, false)
 	assert.Equal(t, diff, diffVar)
 }

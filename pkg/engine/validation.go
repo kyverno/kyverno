@@ -10,6 +10,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/pkg/errors"
+	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 
 	"github.com/go-logr/logr"
@@ -160,7 +161,7 @@ type validator struct {
 	anyPattern       apiextensions.JSON
 	deny             *kyverno.Deny
 	key              string
-	ignoreFields     []string
+	ignoreFields     k8smanifest.ObjectFieldBindingList
 }
 
 func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *validator {
@@ -236,16 +237,8 @@ func (v *validator) validate() *response.RuleResponse {
 
 		return ruleResponse
 	} else if v.key != "" {
-		verified, diff, err := VerifyManifest(v.ctx, v.key, v.ignoreFields)
-		if err != nil {
-			return ruleError(v.rule, utils.Validation, "manifest verification failed", err)
-		}
-		if !verified {
-			v.log.Info("invalid request ", "verified: ", verified, "diff: ", diff)
-			return ruleResponse(v.rule, utils.Validation, "manifest mismatch: diff: "+diff.String(), response.RuleStatusFail)
-		} else {
-			return ruleResponse(v.rule, utils.Validation, "manifest match successfull", response.RuleStatusPass)
-		}
+		ruleResponse := v.validateKey()
+		return ruleResponse
 	}
 
 	v.log.Info("invalid validation rule: either patterns or deny conditions are expected")
@@ -390,6 +383,24 @@ func (v *validator) validateDeny() *response.RuleResponse {
 	}
 
 	return ruleResponse(v.rule, utils.Validation, v.getDenyMessage(deny), response.RuleStatusPass)
+}
+
+func (v *validator) validateKey() *response.RuleResponse {
+	operation, err := v.ctx.JSONContext.Query("request.operation")
+	// there is no need to check image signatures during a delete request.
+	if err == nil && operation != "DELETE" {
+		verified, diff, err := VerifyManifest(v.ctx, v.key, v.ignoreFields)
+		if err != nil {
+			return ruleError(v.rule, utils.Validation, "manifest verification failed", err)
+		}
+		if !verified {
+			v.log.Info("invalid request ", "verified: ", verified, "diff: ", diff)
+			return ruleResponse(v.rule, utils.Validation, "manifest mismatch: diff: "+diff.String(), response.RuleStatusFail)
+		} else {
+			return ruleResponse(v.rule, utils.Validation, "manifest match successfull", response.RuleStatusPass)
+		}
+	}
+	return ruleResponse(v.rule, utils.Validation, "manifest match not required for delete request", response.RuleStatusSkip)
 }
 
 func (v *validator) getDenyMessage(deny bool) string {

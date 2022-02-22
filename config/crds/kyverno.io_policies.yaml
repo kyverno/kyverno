@@ -1924,7 +1924,27 @@ spec:
                           description: Fields which will be ignored while comparing
                             manifests.
                           items:
-                            type: string
+                            properties:
+                              fields:
+                                items:
+                                  type: string
+                                type: array
+                              objects:
+                                items:
+                                  properties:
+                                    group:
+                                      type: string
+                                    kind:
+                                      type: string
+                                    name:
+                                      type: string
+                                    namespace:
+                                      type: string
+                                    version:
+                                      type: string
+                                  type: object
+                                type: array
+                            type: object
                           type: array
                         key:
                           description: Key is the PEM encoded public key that the

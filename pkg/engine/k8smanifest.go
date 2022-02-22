@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	k8smnfutil "github.com/sigstore/k8s-manifest-sigstore/pkg/util"
 	mapnode "github.com/sigstore/k8s-manifest-sigstore/pkg/util/mapnode"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
@@ -21,40 +22,41 @@ import (
 
 const DefaultAnnotationKeyDomain = "cosign.sigstore.dev/"
 
-type VerifyResourceOption struct {
-	verifyOption `json:""`
-}
+// type VerifyResourceOption struct {
+// 	verifyOption `json:""`
+// }
 
-// common options for verify functions
-// this verifyOption should not be used directly by those functions
-type verifyOption struct {
-	IgnoreFields ObjectFieldBindingList `json:"ignoreFields,omitempty"`
-}
+// // common options for verify functions
+// // this verifyOption should not be used directly by those functions
+// type verifyOption struct {
+// 	IgnoreFields ObjectFieldBindingList `json:"ignoreFields,omitempty"`
+// }
 
-type ObjectReferenceList []ObjectReference
+// type ObjectReferenceList []ObjectReference
 
-type ObjectReference struct {
-	Group     string `json:"group,omitempty"`
-	Version   string `json:"version,omitempty"`
-	Kind      string `json:"kind,omitempty"`
-	Name      string `json:"name,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
-}
+// type ObjectReference struct {
+// 	Group     string `json:"group,omitempty"`
+// 	Version   string `json:"version,omitempty"`
+// 	Kind      string `json:"kind,omitempty"`
+// 	Name      string `json:"name,omitempty"`
+// 	Namespace string `json:"namespace,omitempty"`
+// }
 
-type ObjectFieldBinding struct {
-	Fields  []string            `json:"fields,omitempty"`
-	Objects ObjectReferenceList `json:"objects,omitempty"`
-}
+// type ObjectFieldBinding struct {
+// 	Fields  []string            `json:"fields,omitempty"`
+// 	Objects ObjectReferenceList `json:"objects,omitempty"`
+// }
 
-type ObjectFieldBindingList []ObjectFieldBinding
+// type ObjectFieldBindingList []ObjectFieldBinding
 
 // This is common ignore fields for changes by k8s system
 //go:embed resources/default-config.yaml
 var defaultConfigBytes []byte
 
-func VerifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields []string) (bool, *mapnode.DiffResult, error) {
-	vo := &VerifyResourceOption{}
-	vo = AddDefaultConfig(vo)
+func VerifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields k8smanifest.ObjectFieldBindingList) (bool, *mapnode.DiffResult, error) {
+	vo := &k8smanifest.VerifyResourceOption{}
+	vo = k8smanifest.AddDefaultConfig(vo)
+
 	objManifest, err := yaml.Marshal(policyContext.NewResource.Object)
 	if err != nil {
 		return false, nil, fmt.Errorf("err: %v\n", err)
@@ -70,9 +72,15 @@ func VerifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields 
 	message := k8smnfutil.GzipDecompress(gzipMsg)
 	byteStream := bytes.NewBuffer(message)
 	uncompressedStream, err := gzip.NewReader(byteStream)
+	if err != nil {
+		return false, nil, fmt.Errorf("unzip err: %v\n", err)
+	}
 	defer uncompressedStream.Close()
 
-	byteSlice, _ := ioutil.ReadAll(uncompressedStream)
+	byteSlice, err := ioutil.ReadAll(uncompressedStream)
+	if err != nil {
+		return false, nil, fmt.Errorf("read err :%v", err)
+	}
 	i := strings.Index(string(byteSlice), "api")
 	byteSlice = byteSlice[i:]
 	var foundManifest []byte
@@ -83,20 +91,27 @@ func VerifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields 
 			break
 		}
 	}
-
-	// fields which needs to be ignored while comparing manifests.
 	var obj unstructured.Unstructured
 	_ = yaml.Unmarshal(objManifest, &obj)
+
+	// add signature/message/others annotations to ignore fields
+	if vo != nil {
+		vo.SetAnnotationIgnoreFields()
+	}
+	// appending user supplied fields which needs to be ignored while comparing manifests.
+	vo.IgnoreFields = append(vo.IgnoreFields, ignoreFields...)
+	// get ignore fields configuration for this resource if found
+	ignore := []string{}
 	if vo != nil {
 		if ok, fields := vo.IgnoreFields.Match(obj); ok {
-			ignoreFields = append(ignoreFields, fields...)
+			ignore = append(ignore, fields...)
 		}
 	}
 
 	var mnfMatched bool
 	var diff *mapnode.DiffResult
 	var diffsForAllCandidates []*mapnode.DiffResult
-	cndMatched, tmpDiff, err := matchManifest(objManifest, foundManifest, ignoreFields)
+	cndMatched, tmpDiff, err := matchManifest(objManifest, foundManifest, ignore)
 	if err != nil {
 		return false, nil, fmt.Errorf("error occurred during matching manifest: %v", err)
 	}
@@ -163,82 +178,82 @@ func matchManifest(inputManifestBytes, foundManifestBytes []byte, ignoreFields [
 	return matched, diff, nil
 }
 
-func (vo *VerifyResourceOption) AddDefaultConfig(defaultConfig *VerifyResourceOption) *VerifyResourceOption {
-	if vo == nil {
-		return nil
-	}
-	ignoreFields := []ObjectFieldBinding(vo.verifyOption.IgnoreFields)
-	ignoreFields = append(ignoreFields, []ObjectFieldBinding(defaultConfig.verifyOption.IgnoreFields)...)
-	vo.verifyOption.IgnoreFields = ignoreFields
-	return vo
-}
+// func (l ObjectFieldBindingList) Match(obj unstructured.Unstructured) (bool, []string) {
+// 	if len(l) == 0 {
+// 		return false, nil
+// 	}
+// 	matched := false
+// 	matchedFields := []string{}
+// 	for _, f := range l {
+// 		if tmpMatched, tmpFields := f.Match(obj); tmpMatched {
+// 			matched = tmpMatched
+// 			matchedFields = append(matchedFields, tmpFields...)
+// 		}
+// 	}
+// 	return matched, matchedFields
+// }
 
-func LoadDefaultConfig() *VerifyResourceOption {
-	var defaultConfig *VerifyResourceOption
-	err := yaml.Unmarshal(defaultConfigBytes, &defaultConfig)
-	if err != nil {
-		return nil
-	}
-	return defaultConfig
-}
+// func (l ObjectReferenceList) Match(obj unstructured.Unstructured) bool {
+// 	if len(l) == 0 {
+// 		return true
+// 	}
+// 	for _, r := range l {
+// 		if r.Match(obj) {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
-func AddDefaultConfig(vo *VerifyResourceOption) *VerifyResourceOption {
-	dvo := LoadDefaultConfig()
-	return vo.AddDefaultConfig(dvo)
-}
+// func (r ObjectReference) Match(obj unstructured.Unstructured) bool {
+// 	return r.Equal(ObjectToReference(obj))
+// }
 
-func (l ObjectFieldBindingList) Match(obj unstructured.Unstructured) (bool, []string) {
-	if len(l) == 0 {
-		return false, nil
-	}
-	matched := false
-	matchedFields := []string{}
-	for _, f := range l {
-		if tmpMatched, tmpFields := f.Match(obj); tmpMatched {
-			matched = tmpMatched
-			matchedFields = append(matchedFields, tmpFields...)
-		}
-	}
-	return matched, matchedFields
-}
+// func (f ObjectFieldBinding) Match(obj unstructured.Unstructured) (bool, []string) {
+// 	if f.Objects.Match(obj) {
+// 		return true, f.Fields
+// 	}
+// 	return false, nil
+// }
 
-func (l ObjectReferenceList) Match(obj unstructured.Unstructured) bool {
-	if len(l) == 0 {
-		return true
-	}
-	for _, r := range l {
-		if r.Match(obj) {
-			return true
-		}
-	}
-	return false
-}
+// func ObjectToReference(obj unstructured.Unstructured) ObjectReference {
+// 	return ObjectReference{
+// 		Group:     obj.GroupVersionKind().Group,
+// 		Version:   obj.GroupVersionKind().Version,
+// 		Kind:      obj.GroupVersionKind().Kind,
+// 		Name:      obj.GetName(),
+// 		Namespace: obj.GetNamespace(),
+// 	}
+// }
 
-func (r ObjectReference) Match(obj unstructured.Unstructured) bool {
-	return r.Equal(ObjectToReference(obj))
-}
+// func (r ObjectReference) Equal(r2 ObjectReference) bool {
+// 	return k8smnfutil.MatchPattern(r.Group, r2.Group) &&
+// 		k8smnfutil.MatchPattern(r.Version, r2.Version) &&
+// 		k8smnfutil.MatchPattern(r.Kind, r2.Kind) &&
+// 		k8smnfutil.MatchPattern(r.Name, r2.Name) &&
+// 		k8smnfutil.MatchPattern(r.Namespace, r2.Namespace)
+// }
 
-func (f ObjectFieldBinding) Match(obj unstructured.Unstructured) (bool, []string) {
-	if f.Objects.Match(obj) {
-		return true, f.Fields
-	}
-	return false, nil
-}
+// func AddConfig(vo, defaultConfig *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {
+// 	if vo == nil {
+// 		return nil
+// 	}
+// 	ignoreFields := []k8smanifest.ObjectFieldBinding(vo.verifyOption.IgnoreFields)
+// 	ignoreFields = append(ignoreFields, []k8smanifest.ObjectFieldBinding(defaultConfig.verifyOption.IgnoreFields)...)
+// 	vo.verifyOption.IgnoreFields = ignoreFields
+// 	return vo
+// }
 
-func ObjectToReference(obj unstructured.Unstructured) ObjectReference {
-	return ObjectReference{
-		Group:     obj.GroupVersionKind().Group,
-		Version:   obj.GroupVersionKind().Version,
-		Kind:      obj.GroupVersionKind().Kind,
-		Name:      obj.GetName(),
-		Namespace: obj.GetNamespace(),
-	}
-}
+// func LoadDefaultConfig() *k8smanifest.VerifyResourceOption {
+// 	var defaultConfig *k8smanifest.VerifyResourceOption
+// 	err := yaml.Unmarshal(defaultConfigBytes, &defaultConfig)
+// 	if err != nil {
+// 		return nil
+// 	}
+// 	return defaultConfig
+// }
 
-func (r ObjectReference) Equal(r2 ObjectReference) bool {
-	return k8smnfutil.MatchPattern(r.Group, r2.Group) &&
-		k8smnfutil.MatchPattern(r.Version, r2.Version) &&
-		k8smnfutil.MatchPattern(r.Kind, r2.Kind) &&
-		k8smnfutil.MatchPattern(r.Name, r2.Name) &&
-		k8smnfutil.MatchPattern(r.Namespace, r2.Namespace)
-}
+// func AddDefaultConfig(vo *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {
+// 	dvo := LoadDefaultConfig()
+// 	return AddConfig(vo, dvo)
+// }
