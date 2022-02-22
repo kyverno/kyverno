@@ -1454,9 +1454,14 @@ spec:
                       description: Mutation is used to modify matching resources.
                       properties:
                         foreach:
-                          description: foreach declaration can contain multiple sub-entries to apply policy rule changes on sub-elements of the resource.
+                          description: ForEach applies mutation rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
                           items:
-                            description: ForEachMutation applies policy rule(mutate) changes to multiple sub-elements declared, foreach declaration must include list attribute to select a sub-element, there can be multiple list attribute as per required sub-elements.
+                            description: ForEach applies mutation rules to a list
+                              of sub-elements by creating a context for each entry
+                              in the list and looping over it to apply the specified
+                              logic.
                             properties:
                               context:
                                 description: Context defines variables and data sources
@@ -1697,9 +1702,14 @@ spec:
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
                         foreach:
-                          description: foreach declaration can contain multiple sub-entries to apply policy rule changes on sub-elements of the resource.
+                          description: ForEach applies validate rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
                           items:
-                            description: ForEachValidation applies policy rule(validate) changes to multiple sub-elements declared, foreach declaration must include list attribute to select a sub-element, there can be multiple list attribute as per required sub-elements.
+                            description: ForEach applies validate rules to a list
+                              of sub-elements by creating a context for each entry
+                              in the list and looping over it to apply the specified
+                              logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation

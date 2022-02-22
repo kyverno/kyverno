@@ -1459,11 +1459,14 @@ spec:
                       description: Mutation is used to modify matching resources.
                       properties:
                         foreach:
-                          description: ForEachMutation applies policy rule changes
-                            to nested elements.
+                          description: ForEach applies mutation rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
                           items:
-                            description: ForEachMutation applies policy rule changes
-                              to nested elements.
+                            description: ForEach applies mutation rules to a list
+                              of sub-elements by creating a context for each entry
+                              in the list and looping over it to apply the specified
+                              logic.
                             properties:
                               context:
                                 description: Context defines variables and data sources
@@ -1704,11 +1707,14 @@ spec:
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
                         foreach:
-                          description: ForEach applies policy rule changes to nested
-                            elements.
+                          description: ForEach applies validate rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
                           items:
-                            description: ForEachValidation applies policy rule checks
-                              to nested elements.
+                            description: ForEach applies validate rules to a list
+                              of sub-elements by creating a context for each entry
+                              in the list and looping over it to apply the specified
+                              logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -5174,11 +5180,14 @@ spec:
                       description: Mutation is used to modify matching resources.
                       properties:
                         foreach:
-                          description: ForEachMutation applies policy rule changes
-                            to nested elements.
+                          description: ForEach applies mutation rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
                           items:
-                            description: ForEachMutation applies policy rule changes
-                              to nested elements.
+                            description: ForEach applies mutation rules to a list
+                              of sub-elements by creating a context for each entry
+                              in the list and looping over it to apply the specified
+                              logic.
                             properties:
                               context:
                                 description: Context defines variables and data sources
@@ -5419,11 +5428,14 @@ spec:
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
                         foreach:
-                          description: ForEach applies policy rule changes to nested
-                            elements.
+                          description: ForEach applies validate rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
                           items:
-                            description: ForEachValidation applies policy rule checks
-                              to nested elements.
+                            description: ForEach applies validate rules to a list
+                              of sub-elements by creating a context for each entry
+                              in the list and looping over it to apply the specified
+                              logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
