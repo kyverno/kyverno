@@ -403,7 +403,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: nginx
-  namespace: test-mutate
+  namespace: test-mutate-img
 spec:
   containers:
   - name: nginx
