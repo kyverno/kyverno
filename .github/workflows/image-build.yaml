@@ -127,13 +127,12 @@ jobs:
           make docker-build-kyverno
 
       - name: Trivy Scan Image
-        uses: aquasecurity/trivy-action@8f4c7160b470bafe4299efdc1c8a1fb495f8325a # v0.2.1
+        uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
-          format: 'table'
-          exit-code: '1'
           ignore-unfixed: true
-          vuln-type: 'os,library'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
 
   build-kyverno-cli:
