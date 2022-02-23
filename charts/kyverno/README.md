@@ -129,6 +129,7 @@ The following table lists the configurable parameters of the kyverno chart and t
 | `tolerations` | list of node taints to tolerate | `[]` |
 | `topologySpreadConstraints` | node/pod topology spread constrains | `[]` |  |
 
+
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
 ```console

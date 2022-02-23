@@ -160,7 +160,7 @@ config:
   - "[TokenReview,*,*]"
   - "[SubjectAccessReview,*,*]"
   - "[SelfSubjectAccessReview,*,*]"
-  - "[*,kyverno,*]"
+  - "[*,kyverno,kyverno*]"
   - "[Binding,*,*]"
   - "[ReplicaSet,*,*]"
   - "[ReportChangeRequest,*,*]"
