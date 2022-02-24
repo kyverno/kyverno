@@ -28,6 +28,7 @@ LD_FLAGS="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKA
 LD_FLAGS_DEV="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION_DEV) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 K8S_VERSION ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
 export K8S_VERSION
+TEST_GIT_BRANCH ?= main
 ##################################
 # KYVERNO
 ##################################
@@ -252,6 +253,21 @@ test: test-clean test-unit test-e2e
 test-clean:
 	@echo "	cleaning test cache"
 	go clean -testcache ./...
+
+.PHONY: test-cli
+test-cli: test-cli-policies test-cli-local test-cli-local-mutate
+
+.PHONY: test-cli-policies
+test-cli-policies: cli
+	cmd/cli/kubectl-kyverno/kyverno test https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)
+
+.PHONY: test-cli-local
+test-cli-local: cli
+	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test
+
+.PHONY: test-cli-local-mutate
+test-cli-local-mutate: cli
+	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test
 
 
 # go get downloads and installs the binary
