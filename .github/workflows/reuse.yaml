@@ -78,13 +78,12 @@ jobs:
 
       - name: Run Trivy vulnerability scanner in repo mode
         if: ${{inputs.tag == 'release'}}
-        uses: aquasecurity/trivy-action@8f4c7160b470bafe4299efdc1c8a1fb495f8325a # v0.2.1
-        with: 
+        uses: aquasecurity/trivy-action@master
+        with:
           scan-type: 'fs'
-          format: 'table'
-          exit-code: '1'
           ignore-unfixed: true
-          vuln-type: 'os,library'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
 
       - name: Set Version
@@ -106,7 +105,18 @@ jobs:
           name: ${{inputs.image_name}}-bom-cdx
           path: ${{inputs.image_name}}-v*-bom.cdx.json
 
+      - name: Extract branch name
+        if: ${{inputs.tag == 'image'}}
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
+
       - name : Docker images publish
+        if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
+        run: make ${{inputs.publish_command}}-dev
+
+      - name : Docker release-images publish
+        if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'release*')}}
         run: make ${{inputs.publish_command}}
 
       - name: get digest

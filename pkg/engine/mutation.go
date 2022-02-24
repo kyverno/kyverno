@@ -33,10 +33,10 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	policy := policyContext.Policy
 	patchedResource := policyContext.NewResource
 	ctx := policyContext.JSONContext
-	var name []string
+	var skippedRules []string
 
 	logger := log.Log.WithName("EngineMutate").WithValues("policy", policy.Name, "kind", patchedResource.GetKind(),
-		"namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
+		"namespace", patchedResource.GetNamespace(), "skippedRules", patchedResource.GetName())
 
 	logger.V(4).Info("start policy processing", "startTime", startTime)
 
@@ -61,7 +61,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 		if err = MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, policyContext.NamespaceLabels, policyContext.Policy.Namespace); err != nil {
 			logger.V(4).Info("rule not matched", "reason", err.Error())
-			name = append(name, rule.Name)
+			skippedRules = append(skippedRules, rule.Name)
 			continue
 		}
 
@@ -105,10 +105,10 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	}
 
 	for _, r := range resp.PolicyResponse.Rules {
-		for _, n := range name {
+		for _, n := range skippedRules {
 			if r.Name == n {
 				r.Status = response.RuleStatusSkip
-				logger.V(4).Info("rule Status set as skip", "rule name", r.Name)
+				logger.V(4).Info("rule Status set as skip", "rule skippedRules", r.Name)
 			}
 		}
 	}
@@ -163,7 +163,7 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 			return ruleError(rule, utils.Mutation, msg, err), resource
 		}
 
-		mutateResp := mutateElements(rule.Name, foreach, ctx, elements, resource, logger)
+		mutateResp := mutateElements(rule.Name, foreach, ctx, elements, patchedResource, logger)
 		if mutateResp.Status == response.RuleStatusError {
 			logger.Error(err, "failed to mutate elements")
 			return buildRuleResponse(rule, mutateResp), resource

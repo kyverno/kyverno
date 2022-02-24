@@ -256,26 +256,25 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		for _, value := range match.Any {
 			err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
 			if err != nil {
-				return fmt.Errorf("the kind defined in the any match resource is invalid")
+				return errors.Wrapf(err, "the kind defined in the any match resource is invalid")
 			}
 		}
 		for _, value := range match.All {
 			err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
 			if err != nil {
-				return fmt.Errorf("the kind defined in the all match resource is invalid")
+				return errors.Wrapf(err, "the kind defined in the all match resource is invalid")
 			}
 		}
 		for _, value := range exclude.Any {
 			err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
-
 			if err != nil {
-				return fmt.Errorf("the kind defined in the any exclude resource is invalid")
+				return errors.Wrapf(err, "the kind defined in the any exclude resource is invalid")
 			}
 		}
 		for _, value := range exclude.All {
 			err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
 			if err != nil {
-				return fmt.Errorf("the kind defined in the all exclude resource is invalid")
+				return errors.Wrapf(err, "the kind defined in the all exclude resource is invalid")
 			}
 		}
 		if !utils.ContainsString(rule.MatchResources.Kinds, "*") {
@@ -1004,6 +1003,16 @@ func validateConditionValues(c kyverno.Condition) (string, error) {
 	if c.Key == nil || c.Value == nil || c.Operator == "" {
 		return "", fmt.Errorf("entered value of `key`, `value` or `operator` is missing or misspelled")
 	}
+	switch reflect.TypeOf(c.Key).Kind() {
+	case reflect.String:
+		value, err := validateValuesKeyRequest(c)
+		return value, err
+	default:
+		return "", nil
+	}
+}
+
+func validateValuesKeyRequest(c kyverno.Condition) (string, error) {
 	switch strings.ReplaceAll(c.Key.(string), " ", "") {
 	case "{{request.operation}}":
 		return validateConditionValuesKeyRequestOperation(c)
@@ -1111,9 +1120,12 @@ func validateRuleContext(rule kyverno.Rule) error {
 	}
 
 	ruleBytes, _ := json.Marshal(rule)
-	ruleString := strings.ReplaceAll(string(ruleBytes), " ", "")
 	for _, contextName := range contextNames {
-		if !strings.Contains(ruleString, fmt.Sprintf("{{"+contextName)) && !strings.Contains(ruleString, fmt.Sprintf("{{\\\""+contextName)) {
+		contextRegex, err := regexp.Compile(fmt.Sprintf(`{{.*\b%s\b.*}}`, contextName))
+		if err != nil {
+			return fmt.Errorf("unable to validate context variable `%s`, %w", contextName, err)
+		}
+		if !contextRegex.Match(ruleBytes) {
 			return fmt.Errorf("context variable `%s` is not used in the policy", contextName)
 		}
 	}
@@ -1470,11 +1482,20 @@ func jsonPatchOnPod(rule kyverno.Rule) bool {
 	return false
 }
 
+// validateKinds verifies if an API resource that matches 'kind' is valid kind
+// and found in the cache, returns error if not found
 func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.ClusterPolicy) error {
 	for _, kind := range kinds {
-		_, k := comn.GetKindFromGVK(kind)
+		gv, k := comn.GetKindFromGVK(kind)
 		if k == p.Kind {
 			return fmt.Errorf("kind and match resource kind should not be the same")
+		}
+
+		if !mock {
+			_, _, err := client.DiscoveryClient.FindResource(gv, k)
+			if err != nil {
+				return fmt.Errorf("unable to convert GVK to GVR, %s, err: %s", kinds, err)
+			}
 		}
 	}
 	return nil
