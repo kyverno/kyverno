@@ -23,7 +23,7 @@ spec:
   {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
   validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
   {{- end }}
-  background: true
+  background: {{ .Values.background }}
   rules:
     - name: host-namespaces
       match:
