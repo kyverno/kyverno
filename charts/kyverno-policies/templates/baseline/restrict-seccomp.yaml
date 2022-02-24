@@ -18,7 +18,7 @@ metadata:
       requiring Kubernetes v1.19 or later, ensures that seccomp is unset or 
       set to `RuntimeDefault` or `Localhost`.
 spec:
-  background: true
+  background: {{ .Values.background }}
   validationFailureAction: {{ .Values.validationFailureAction }}
   {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
   validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
