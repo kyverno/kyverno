@@ -1,56 +1,59 @@
-# Supported- baseline/restricted/privileged/custom
-# For more info- https://kyverno.io/policies/pod-security
+# -- Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`).
+# For more info https://kyverno.io/policies/pod-security.
 podSecurityStandard: baseline
-# Supported- low/medium/high
+
+# -- Pod Security Standard (`low`, `medium`, `high`).
 podSecuritySeverity: medium
-# Policies to include when podSecurityStandard is custom
+
+# -- Policies to include when `podSecurityStandard` is `custom`.
 podSecurityPolicies: []
-# Additional policies to include from "other"
-# Example:
-#   includeOtherPolicies:
-#   - require-non-root-groups
+
+# -- Additional policies to include from `other`.
 includeOtherPolicies: []
-# Supported values- `audit`, `enforce`
-# For more info- https://kyverno.io/docs/writing-policies/validate/
+# - require-non-root-groups
+
+# -- Validation failure action (`audit`, `enforce`).
+# For more info https://kyverno.io/docs/writing-policies/validate.
 validationFailureAction: audit
-# Define validationFailureActionOverrides for specific policies.
-# The overrides for 'all' will apply to all policies
-# Eg:
-# validationFailureActionOverrides:
-#   all:
-#     - action: audit
-#       namespaces:
-#         - ingress-nginx
-#   disallow-host-path:
-#     - action: audit
-#       namespaces:
-#         - fluent
+
+# -- Define validationFailureActionOverrides for specific policies.
+# The overrides for `all` will apply to all policies.
 validationFailureActionOverrides:
   all: []
-# Exclude resources from individual policies
-# Eg:
-# policyExclude:
-#   disallow-host-path:
-#     any:
-#     - resources:
-#         kinds:
-#         - Pod
-#         namespaces:
-#         - fluent
-#
-# Policies with multiple rules can have individual rules excluded:
-# policyExclude:
-#   adding-capabilities-strict:
-#     any:
-#     - resources:
-#         kinds:
-#         - Pod
-#         namespaces:
-#         - kube-system
-policyExclude: {}
+  # all:
+  #   - action: audit
+  #     namespaces:
+  #       - ingress-nginx
+  # disallow-host-path:
+  #   - action: audit
+  #     namespaces:
+  #       - fluent
 
+# -- Exclude resources from individual policies.
+# Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map.
+policyExclude: {}
+  # # Exclude resources from individual policies
+  # disallow-host-path:
+  #   any:
+  #   - resources:
+  #       kinds:
+  #       - Pod
+  #       namespaces:
+  #       - fluent
+  # # Policies with multiple rules can have individual rules excluded
+  # adding-capabilities-strict:
+  #   any:
+  #   - resources:
+  #       kinds:
+  #       - Pod
+  #       namespaces:
+  #       - kube-system
+
+# -- Name override.
 nameOverride:
-# -- Additional labels
+
+# -- Additional labels.
 customLabels: {}
-# Policies background mode
+
+# -- Policies background mode
 background: true
