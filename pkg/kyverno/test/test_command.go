@@ -155,6 +155,47 @@ func Command() *cobra.Command {
 				}
 			}()
 
+			mStatus, _ := cmd.Flags().GetBool("manifest-mutate")
+			vStatus, _ := cmd.Flags().GetBool("manifest-validate")
+			if mStatus {
+				testFile := []byte(`name: <test_name>
+policies:
+- <path/to/policy1.yaml>
+- <path/to/policy2.yaml>
+resources:
+- <path/to/resource1.yaml>
+- <path/to/resource2.yaml>
+variables: <variable_file> (OPTIONAL)
+results:
+- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
+  rule: <name>
+  resource: <name>
+  namespace: <name> (OPTIONAL)
+  kind: <name>
+  patchedResource: <path/to/patched/resource.yaml>
+  result: <pass|fail|skip>`)
+				fmt.Println(string(testFile))
+				return nil
+			}
+			if vStatus {
+				testFile := []byte(`name: <test_name>
+policies:
+- <path/to/policy1.yaml>
+- <path/to/policy2.yaml>
+resources:
+- <path/to/resource1.yaml>
+- <path/to/resource2.yaml>
+variables: <variable_file> (OPTIONAL)
+results:
+- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
+  rule: <name>
+  resource: <name>
+  namespace: <name> (OPTIONAL)
+  kind: <name>
+  result: <pass|fail|skip>`)
+				fmt.Println(string(testFile))
+				return nil
+			}
 			_, err = testCommandExecute(dirPath, valuesFile, fileName, gitBranch)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
@@ -231,7 +272,10 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string, gi
 	if len(dirPath) == 0 {
 		return rc, sanitizederror.NewWithError(fmt.Sprintf("a directory is required"), err)
 	}
-
+	openAPIController, err := openapi.NewOpenAPIController()
+	if err != nil {
+		return rc, fmt.Errorf("unable to create open api controller, %w", err)
+	}
 	if strings.Contains(string(dirPath[0]), "https://") {
 		gitURL, err := url.Parse(dirPath[0])
 		if err != nil {
@@ -309,7 +353,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string, gi
 					continue
 				}
 
-				if err := applyPoliciesFromPath(fs, policyBytes, valuesFile, true, policyresoucePath, rc); err != nil {
+				if err := applyPoliciesFromPath(fs, policyBytes, valuesFile, true, policyresoucePath, rc, openAPIController); err != nil {
 					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
 			}
@@ -326,7 +370,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string, gi
 		var testFiles int
 		var deprecatedFiles int
 		path := filepath.Clean(dirPath[0])
-		errors = getLocalDirTestFiles(fs, path, fileName, valuesFile, rc, &testFiles, &deprecatedFiles)
+		errors = getLocalDirTestFiles(fs, path, fileName, valuesFile, rc, &testFiles, &deprecatedFiles, openAPIController)
 
 		if testFiles == 0 {
 			fmt.Printf("\n No test files found. Please provide test YAML files named kyverno-test.yaml \n")
@@ -353,7 +397,7 @@ func testCommandExecute(dirPath []string, valuesFile string, fileName string, gi
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts, testFiles *int, deprecatedFiles *int) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string, rc *resultCounts, testFiles *int, deprecatedFiles *int, openAPIController *openapi.Controller) []error {
 	var errors []error
 
 	files, err := ioutil.ReadDir(path)
@@ -362,7 +406,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc, testFiles, deprecatedFiles)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, valuesFile, rc, testFiles, deprecatedFiles, openAPIController)
 			continue
 		}
 		if strings.Contains(file.Name(), fileName) || strings.Contains(file.Name(), "test.yaml") {
@@ -381,7 +425,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName, valuesFile string
 				errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
 				continue
 			}
-			if err := applyPoliciesFromPath(fs, valuesBytes, valuesFile, false, path, rc); err != nil {
+			if err := applyPoliciesFromPath(fs, valuesBytes, valuesFile, false, path, rc, openAPIController); err != nil {
 				errors = append(errors, sanitizederror.NewWithError(fmt.Sprintf("failed to apply test command from file %s", file.Name()), err))
 				continue
 			}
@@ -617,8 +661,8 @@ func getFullPath(paths []string, policyResourcePath string, isGit bool) []string
 	return paths
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts) (err error) {
-	openAPIController, err := openapi.NewOpenAPIController()
+func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile string, isGit bool, policyResourcePath string, rc *resultCounts, openAPIController *openapi.Controller) (err error) {
+
 	engineResponses := make([]*response.EngineResponse, 0)
 	var dClient *client.Client
 	values := &Test{}
