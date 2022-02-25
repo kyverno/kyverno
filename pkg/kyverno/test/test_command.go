@@ -155,9 +155,9 @@ func Command() *cobra.Command {
 
 			mStatus, _ := cmd.Flags().GetBool("manifest-mutate")
 			vStatus, _ := cmd.Flags().GetBool("manifest-validate")
-      
+
 			if mStatus {
-        testFile = []byte(`name: <test_name>
+				testFile = []byte(`name: <test_name>
 policies:
 - <path/to/policy1.yaml>
 - <path/to/policy2.yaml>
@@ -176,7 +176,7 @@ results:
 				fmt.Println(string(testFile))
 				return nil
 			}
-      
+
 			if vStatus {
 				testFile = []byte(`name: <test_name>
 policies:
