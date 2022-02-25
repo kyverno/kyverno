@@ -355,3 +355,11 @@ fmt: goimports
 vet:
 	go vet ./...
 
+##################################
+# HELM
+##################################
+
+.PHONY: gen-helm-docs
+gen-helm-docs: ## Generate Helm docs
+	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.6.0 -s file
+
