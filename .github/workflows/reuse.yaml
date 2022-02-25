@@ -115,6 +115,7 @@ jobs:
         id: extract_branch
 
       - name: Check branch
+        if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch != 'main'}}
         id: check-branch
         run: |
           if [[ ${{ steps.extract_branch.outputs.branch }} =~ ^release-[0-9]+\.[0-9]$ ]]; then
