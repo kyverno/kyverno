@@ -2,6 +2,29 @@ apiVersion: v1
 entries:
   kyverno:
   - apiVersion: v1
+    appVersion: v1.6.1-rc2
+    created: "2022-02-25T10:43:53.72723286Z"
+    description: Kubernetes Native Policy Management
+    digest: f8370d8a8f3c5c95ffa90b734e8069cfcc491b1cdb4ea9d92d58f1f271d3fce7
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-v2.3.1-rc2.tgz
+    version: v2.3.1-rc2
+  - apiVersion: v1
     appVersion: v1.6.1-rc1
     created: "2022-02-23T03:36:08.856247228Z"
     description: Kubernetes Native Policy Management
@@ -1904,6 +1927,29 @@ entries:
     version: v2.0.2
   kyverno-policies:
   - apiVersion: v1
+    appVersion: v1.6.1-rc2
+    created: "2022-02-25T10:43:53.725095533Z"
+    description: Kubernetes Pod Security Standards implemented as Kyverno policies
+    digest: 5d3ac9535959e1d618cc0c0a7e8a041bc0e35fc0b9d74a048752d274df9e560f
+    home: https://kyverno.io/policies/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno-policies
+    sources:
+    - https://github.com/kyverno/policies
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-policies-v2.3.1-rc2.tgz
+    version: v2.3.1-rc2
+  - apiVersion: v1
     appVersion: v1.6.1-rc1
     created: "2022-02-23T03:36:08.853739609Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
@@ -2524,4 +2570,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-02-23T03:36:08.852173797Z"
+generated: "2022-02-25T10:43:53.722976206Z"
