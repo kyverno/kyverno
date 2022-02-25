@@ -114,12 +114,20 @@ jobs:
         run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
         id: extract_branch
 
+      - name: Check branch
+        if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch != 'main'}}
+        id: check-branch
+        run: |
+          if [[ ${{ steps.extract_branch.outputs.branch }} =~ ^release-[0-9]+\.[0-9]$ ]]; then
+              echo ::set-output name=match::true
+          fi
+
       - name : Docker images publish
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
         run: make ${{inputs.publish_command}}-dev
 
       - name : Docker release-images publish
-        if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'release*')}}
+        if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
         run: make ${{inputs.publish_command}}
 
       - name: get digest
