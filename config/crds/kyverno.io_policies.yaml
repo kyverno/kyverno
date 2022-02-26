@@ -595,7 +595,6 @@ spec:
                           maxItems: 3
                           minItems: 1
                           type: array
-                          uniqueItems: true
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified. Specifying ResourceDescription
@@ -1280,7 +1279,6 @@ spec:
                           maxItems: 3
                           minItems: 1
                           type: array
-                          uniqueItems: true
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified. Requires at least

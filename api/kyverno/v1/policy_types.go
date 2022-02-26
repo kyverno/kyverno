@@ -294,7 +294,6 @@ type MatchResources struct {
 	// RequestTypes can contain values ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are used to match a specific action.
 	// +kubebuilder:validation:MaxItems=3
 	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:UniqueItems=true
 	// +kubebuilder:validation:Optional
 	RequestTypes []string `json:"requestTypes,omitempty" yaml:"requestTypes,omitempty"`
 	// Any allows specifying resources which will be ORed
@@ -325,7 +324,6 @@ type ExcludeResources struct {
 	// RequestTypes can contain values ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are used to exclude a specific action.
 	// +kubebuilder:validation:MaxItems=3
 	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:UniqueItems=true
 	// +kubebuilder:validation:Optional
 	RequestTypes []string `json:"requestTypes,omitempty" yaml:"requestTypes,omitempty"`
 	// Any allows specifying resources which will be ORed
