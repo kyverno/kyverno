@@ -1,0 +1,13 @@
+name: helm-check-docs
+
+on: push
+
+jobs:
+  check-helm-docs:
+    name: Check Helm docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Check docs are up to date
+        run: make check-helm-docs

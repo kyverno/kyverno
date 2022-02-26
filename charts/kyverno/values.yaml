@@ -1,57 +1,87 @@
+# -- Override the name of the chart
 nameOverride:
+
+# -- Override the expanded name of the chart
 fullnameOverride:
+
+# -- Namespace the chart deploys to
 namespace:
-mode: "standalone"
+
+# -- Mode for Kyverno installation
+mode: standalone
+
 # -- Additional labels
 customLabels: {}
 
 rbac:
+  # -- Create ClusterRoles, ClusterRoleBindings, and ServiceAccount
   create: true
   serviceAccount:
+    # -- Create a ServiceAccount
     create: true
+    # -- The ServiceAccount name
     name:
+    # -- Annotations for the ServiceAccount
     annotations: {}
-    #   example.com/annotation: value
+      # example.com/annotation: value
 
 image:
+  # -- Image repository
   repository: ghcr.io/kyverno/kyverno
+  # -- Image tag
   # Defaults to appVersion in Chart.yaml if omitted
   tag:  # replaced in e2e tests
+  # -- Image pull policy
   pullPolicy: IfNotPresent
+  # -- Image pull secrets
   pullSecrets: []
   # - secretName
+
 initImage:
+  # -- Image repository
   repository: ghcr.io/kyverno/kyvernopre
+  # -- Image tag
   # If initImage.tag is missing, defaults to image.tag
   tag:  # replaced in e2e tests
+  # -- Image pull policy
   # If initImage.pullPolicy is missing, defaults to image.pullPolicy
   pullPolicy:
-  # No pull secrets just for initImage; just add to image.pullSecrets
+
 testImage:
-  # testImage.repository defaults to "busybox" if omitted
+  # -- Image repository
+  # Defaults to `busybox` if omitted
   repository:
-  # testImage.tag defaults to "latest" if omitted
+  # -- Image tag
+  # Defaults to `latest` if omitted
   tag:
-  # testImage.pullPolicy defaults to image.pullPolicy if omitted
+  # -- Image pull policy
+  # Defaults to image.pullPolicy if omitted
   pullPolicy:
 
+# -- Desired number of pods
 replicaCount: 0
 
+# -- Additional labels to add to each pod
 podLabels: {}
-#   example.com/label: foo
+  # example.com/label: foo
 
+# -- Additional annotations to add to each pod
 podAnnotations: {}
-#   example.com/annotation: foo
+  # example.com/annotation: foo
 
+# -- Security context for the pod
 podSecurityContext: {}
 
-# Optional priority class to be used for kyverno pods
-priorityClassName: ""
+# -- Optional priority class to be used for kyverno pods
+priorityClassName: ''
 
 antiAffinity:
-  # using this option will schedule pods on different nodes if possible
+  # -- Pod antiAffinities toggle.
+  # Enabled by default but can be disabled if you want to schedule pods to the same node.
   enable: true
 
+# -- Pod anti affinity constraints.
+# @default -- See [values.yaml](values.yaml)
 podAntiAffinity:
   preferredDuringSchedulingIgnoredDuringExecution:
     - weight: 1
@@ -64,57 +94,69 @@ podAntiAffinity:
             - kyverno
         topologyKey: kubernetes.io/hostname
 
+# -- Pod affinity constraints.
 podAffinity: {}
 
+# -- Node affinity constraints.
 nodeAffinity: {}
 
 podDisruptionBudget:
+  # -- Configures the minimum available pods for kyverno disruptions.
+  # Cannot be used if `maxUnavailable` is set.
   minAvailable: 1
-  # maxUnavailable: 1
+  # -- Configures the maximum unavailable pods for kyverno disruptions.
+  # Cannot be used if `minAvailable` is set.
+  maxUnavailable:
 
-  # minAvailable and maxUnavailable can either be set to an integer (e.g. 1)
-  # or a percentage value (e.g. 25%)
-
+# -- Node labels for pod assignment
 nodeSelector: {}
+
+# -- List of node taints to tolerate
 tolerations: []
 
-# change hostNetwork to true when you want the kyverno's pod to share its host's network namespace
-# useful for situations like when you end up dealing with a custom CNI over Amazon EKS
-# update the 'dnsPolicy' accordingly as well to suit the host network mode
+# -- Change `hostNetwork` to `true` when you want the kyverno's pod to share its host's network namespace.
+# Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
+# Update the `dnsPolicy` accordingly as well to suit the host network mode.
 hostNetwork: false
 
-# dnsPolicy determines the manner in which DNS resolution happens in the cluster
-# in case of hostNetwork: true, usually, the dnsPolicy is suitable to be "ClusterFirstWithHostNet"
-# for further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
-dnsPolicy: "ClusterFirst"
+# -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.
+# In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
+# For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
+dnsPolicy: ClusterFirst
 
-# env variables for initContainers
+# -- Env variables for initContainers.
 envVarsInit: {}
 
-# env variables for containers
+# -- Env variables for containers.
 envVars: {}
 
+# -- Extra arguments to give to the binary.
 extraArgs: []
 # - --webhookTimeout=4
 
 resources:
+  # -- Pod resource limits
   limits:
     memory: 384Mi
+  # -- Pod resource requests
   requests:
     cpu: 100m
     memory: 128Mi
 
 initResources:
+  # -- Pod resource limits
   limits:
     cpu: 100m
     memory: 256Mi
+  # -- Pod resource requests
   requests:
     cpu: 10m
     memory: 64Mi
 
-## Liveness Probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
-## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-##
+# -- Liveness probe.
+# The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
+# ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+# @default -- See [values.yaml](values.yaml)
 livenessProbe:
   httpGet:
     path: /health/liveness
@@ -126,9 +168,10 @@ livenessProbe:
   failureThreshold: 2
   successThreshold: 1
 
-## Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
-## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-##
+# -- Readiness Probe.
+# The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
+# ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+# @default -- See [values.yaml](values.yaml)
 readinessProbe:
   httpGet:
     path: /health/readiness
@@ -147,37 +190,40 @@ generatecontrollerExtraResources:
 # - ResourceB
 
 config:
-  # resource types to be skipped by kyverno policy engine
-  # Make sure to surround each entry in quotes so that it doesn't get parsed
-  # as a nested YAML list. These are joined together without spaces in the configmap
+  # -- Resource types to be skipped by the Kyverno policy engine.
+  # Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list.
+  # These are joined together without spaces in the config map.
+  # @default -- See [values.yaml](values.yaml)
   resourceFilters:
-  - "[Event,*,*]"
-  - "[*,kube-system,*]"
-  - "[*,kube-public,*]"
-  - "[*,kube-node-lease,*]"
-  - "[Node,*,*]"
-  - "[APIService,*,*]"
-  - "[TokenReview,*,*]"
-  - "[SubjectAccessReview,*,*]"
-  - "[SelfSubjectAccessReview,*,*]"
-  - "[*,kyverno,kyverno*]"
-  - "[Binding,*,*]"
-  - "[ReplicaSet,*,*]"
-  - "[ReportChangeRequest,*,*]"
-  - "[ClusterReportChangeRequest,*,*]"
-  # Or give the name of an existing config map (ignores default/provided resourceFilters)
+  - '[Event,*,*]'
+  - '[*,kube-system,*]'
+  - '[*,kube-public,*]'
+  - '[*,kube-node-lease,*]'
+  - '[Node,*,*]'
+  - '[APIService,*,*]'
+  - '[TokenReview,*,*]'
+  - '[SubjectAccessReview,*,*]'
+  - '[SelfSubjectAccessReview,*,*]'
+  - '[*,kyverno,kyverno*]'
+  - '[Binding,*,*]'
+  - '[ReplicaSet,*,*]'
+  - '[ReportChangeRequest,*,*]'
+  - '[ClusterReportChangeRequest,*,*]'
+  # -- Name of an existing config map (ignores default/provided resourceFilters)
   existingConfig: ''
+  # -- Exclude group role
   excludeGroupRole:
-#  - ""
+  # - ''
+  # -- Exclude username
   excludeUsername:
-#  - ""
-  # Webhookconfigurations, this block defines the namespaceSelector in the webhookconfigurations.
-  # Note that it takes a list of namespaceSelector in the JSON format, and only the first element
-  # will be forwarded to the webhookconfigurations.
-  webhooks:
-  # webhooks: [{"namespaceSelector":{"matchExpressions":[{"key":"environment","operator":"In","values":["prod"]}]}}]
-  generateSuccessEvents: 'false'
-  # existingConfig: kyverno
+  # - ''
+  # -- Defines the `namespaceSelector` in the webhook configurations.
+  # Note that it takes a list of `namespaceSelector` in the JSON format, and only the first element
+  # will be forwarded to the webhook configurations.
+  webhooks:     # [{"namespaceSelector":{"matchExpressions":[{"key":"environment","operator":"In","values":["prod"]}]}}]
+  # -- Generate success events.
+  generateSuccessEvents: false
+  # -- Metrics config.
   metricsConfig:
     namespaces: {
       "include": [],
@@ -192,8 +238,9 @@ config:
   # Or provide an existing metrics config-map by uncommenting the below line
   # existingMetricsConfig: sample-metrics-configmap. Refer to the ./templates/metricsconfigmap.yaml for the structure of metrics configmap.
 
-## Deployment update strategy
-## Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+# -- Deployment update strategy.
+# Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+# @default -- See [values.yaml](values.yaml)
 updateStrategy:
   rollingUpdate:
     maxSurge: 1
@@ -201,46 +248,51 @@ updateStrategy:
   type: RollingUpdate
 
 service:
+  # -- Service port.
   port: 443
+  # -- Service type.
   type: ClusterIP
-  # Only used if service.type is NodePort
+  # -- Service node port.
+  # Only used if `service.type` is `NodePort`.
   nodePort:
+  # -- Service annotations.
   annotations: {}
 
+# -- Topology spread constraints.
 topologySpreadConstraints: []
 
 metricsService:
+  # -- Create service.
   create: true
-  type: ClusterIP
-  ## Kyverno's metrics server will be exposed at this port
+  # -- Service port.
+  # Kyverno's metrics server will be exposed at this port.
   port: 8000
-  ## The Node's port which will allow access Kyverno's metrics at the host level. Only used if service.type is NodePort.
+  # -- Service type.
+  type: ClusterIP
+  # -- Service node port.
+  # Only used if `metricsService.type` is `NodePort`.
   nodePort:
-  ## Provide any additional annotations which may be required. This can be used to
-  ## set the LoadBalancer service type to internal only.
-  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#internal-load-balancer
-  ##
+  # -- Service annotations.
   annotations: {}
 
-# Service Monitor to collect Prometheus Metrics
 serviceMonitor:
+  # -- Create a `ServiceMonitor` to collect Prometheus metrics.
   enabled: false
-  # Additional labels
+  # -- Additional labels
   additionalLabels:
     # key: value
-  # Override namespace (default is same than kyverno)
+  # -- Override namespace (default is the same as kyverno)
   namespace:
-
-  # Interval to scrape metrics
+  # --  Interval to scrape metrics
   interval: 30s
-  # Timeout if metrics can't be retrieved in given time interval
+  # -- Timeout if metrics can't be retrieved in given time interval
   scrapeTimeout: 25s
-  # Is TLS required for endpoint
+  # -- Is TLS required for endpoint
   secure: false
-  # TLS Configuration for endpoint
+  # -- TLS Configuration for endpoint
   tlsConfig: {}
 
-# Kyverno requires a certificate key pair and corresponding certificate authority
+# -- Kyverno requires a certificate key pair and corresponding certificate authority
 # to properly register its webhooks. This can be done in one of 3 ways:
 # 1) Use kube-controller-manager to generate a CA-signed certificate (preferred)
 # 2) Provide your own CA and cert.
@@ -252,19 +304,19 @@ serviceMonitor:
 # If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false
 createSelfSignedCert: false
 
-# Whether to have Helm install the Kyverno CRDs
-# If the CRDs are not installed by Helm, they must be added
-# before policies can be created
+# -- Whether to have Helm install the Kyverno CRDs.
+# If the CRDs are not installed by Helm, they must be added before policies can be created.
 installCRDs: true
 
-# When true, use a NetworkPolicy to allow ingress to the webhook
-# This is useful on clusters using Calico and/or native k8s network
-# policies in a default-deny setup.
 networkPolicy:
+  # -- When true, use a NetworkPolicy to allow ingress to the webhook
+  # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
   enabled: false
-# A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies
+  # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
   ingressFrom: []
 
 webhooksCleanup:
+  # -- Create a helm pre-delete hook to cleanup webhooks.
   enable: false
-  image: "bitnami/kubectl:latest"
+  # -- `kubectl` image to run commands for deleting webhooks.
+  image: bitnami/kubectl:latest
