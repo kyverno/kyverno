@@ -48,7 +48,7 @@ func (ws *WebhookServer) policyValidation(request *v1beta1.AdmissionRequest) *v1
 			},
 		}
 	}
-	if len(response.Warnings) != 0 {
+	if response != nil && len(response.Warnings) != 0 {
 		return response
 	}
 	return &v1beta1.AdmissionResponse{
