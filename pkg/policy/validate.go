@@ -148,6 +148,15 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 				Warnings: []string{"pods managed by workload controllers cannot be mutated using policies, use the auto-gen feature or write policies that match pod controllers"},
 			}, nil
 		}
+
+		if policy.HasAutoGenAnnotation() {
+			log.Log.V(1).Info("pod controllers excluded by autogen annotation requires additional work of adding preconditions to exclude the controller as part of the policy")
+			return &v1beta1.AdmissionResponse{
+				Allowed:  true,
+				Warnings: []string{"pod controllers excluded by autogen annotation requires additional work of adding preconditions to exclude the controller as part of the policy"},
+			}, nil
+		}
+
 		// validate resource description
 		if path, err := validateResources(rule); err != nil {
 			return nil, fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
