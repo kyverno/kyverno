@@ -71,14 +71,9 @@ spec:
           {{- with .Values.initResources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          securityContext:
-            runAsNonRoot: true
-            privileged: false
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop:
-                - ALL
+          {{- if .Values.securityContext }}
+          securityContext: {{ include "kyverno.securityContext" . | nindent 12 }}
+          {{- end }}
           env:
           - name: METRICS_CONFIG
             value: {{ template "kyverno.metricsConfigMapName" . }}
@@ -101,14 +96,9 @@ spec:
           {{- with .Values.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          securityContext:
-            runAsNonRoot: true
-            privileged: false
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop:
-                - ALL
+          {{- if .Values.securityContext }}
+          securityContext: {{ include "kyverno.securityContext" . | nindent 12 }}
+          {{- end }}
           ports:
           - containerPort: 9443
             name: https
