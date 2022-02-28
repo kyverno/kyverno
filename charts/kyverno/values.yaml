@@ -72,6 +72,18 @@ podAnnotations: {}
 # -- Security context for the pod
 podSecurityContext: {}
 
+# -- Security context for the containers
+securityContext:
+  runAsNonRoot: true
+  privileged: false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
 # -- Optional priority class to be used for kyverno pods
 priorityClassName: ''
 
