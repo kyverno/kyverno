@@ -26,18 +26,18 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 	var updateMsgs []string
 
 	// default 'ValidationFailureAction'
-	if patch, updateMsg := defaultvalidationFailureAction(policy, log); patch != nil {
+	if patch, updateMsg := defaultvalidationFailureAction(&policy.Spec, log); patch != nil {
 		patches = append(patches, patch)
 		updateMsgs = append(updateMsgs, updateMsg)
 	}
 
 	// default 'Background'
-	if patch, updateMsg := defaultBackgroundFlag(policy, log); patch != nil {
+	if patch, updateMsg := defaultBackgroundFlag(&policy.Spec, log); patch != nil {
 		patches = append(patches, patch)
 		updateMsgs = append(updateMsgs, updateMsg)
 	}
 
-	if patch, updateMsg := defaultFailurePolicy(policy, log); patch != nil {
+	if patch, updateMsg := defaultFailurePolicy(&policy.Spec, log); patch != nil {
 		patches = append(patches, patch)
 		updateMsgs = append(updateMsgs, updateMsg)
 	}
@@ -156,10 +156,10 @@ func buildReplaceJsonPatch(path string, kindList []string) ([]byte, error) {
 	return json.Marshal(jsonPatch)
 }
 
-func defaultBackgroundFlag(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, string) {
+func defaultBackgroundFlag(spec *kyverno.Spec, log logr.Logger) ([]byte, string) {
 	// set 'Background' flag to 'true' if not specified
 	defaultVal := true
-	if policy.Spec.Background == nil {
+	if spec.Background == nil {
 		log.V(4).Info("setting default value", "spec.background", true)
 		jsonPatch := struct {
 			Path  string `json:"path"`
@@ -184,10 +184,10 @@ func defaultBackgroundFlag(policy *kyverno.ClusterPolicy, log logr.Logger) ([]by
 	return nil, ""
 }
 
-func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, string) {
+func defaultvalidationFailureAction(spec *kyverno.Spec, log logr.Logger) ([]byte, string) {
 	// set ValidationFailureAction to "audit" if not specified
 	Audit := common.Audit
-	if policy.Spec.ValidationFailureAction == "" {
+	if spec.ValidationFailureAction == "" {
 		log.V(4).Info("setting default value", "spec.validationFailureAction", Audit)
 
 		jsonPatch := struct {
@@ -213,10 +213,11 @@ func defaultvalidationFailureAction(policy *kyverno.ClusterPolicy, log logr.Logg
 
 	return nil, ""
 }
-func defaultFailurePolicy(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, string) {
+
+func defaultFailurePolicy(spec *kyverno.Spec, log logr.Logger) ([]byte, string) {
 	// set failurePolicy to Fail if not present
 	failurePolicy := string(kyverno.Fail)
-	if policy.Spec.FailurePolicy == nil {
+	if spec.FailurePolicy == nil {
 		log.V(4).Info("setting default value", "spec.failurePolicy", failurePolicy)
 		jsonPatch := struct {
 			Path  string `json:"path"`
@@ -252,7 +253,7 @@ func defaultFailurePolicy(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byt
 
 // GeneratePodControllerRule returns two patches: rulePatches and annotation patch(if necessary)
 func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
-	applyAutoGen, desiredControllers := CanAutoGen(&policy, log)
+	applyAutoGen, desiredControllers := CanAutoGen(&policy.Spec, log)
 
 	if !applyAutoGen {
 		desiredControllers = "none"
@@ -284,7 +285,7 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 
 	log.V(3).Info("auto generating rule for pod controllers", "controllers", actualControllers)
 
-	p, err := generateRulePatches(policy, actualControllers, log)
+	p, err := generateRulePatches(&policy.Spec, actualControllers, log)
 	patches = append(patches, p...)
 	errs = append(errs, err...)
 	return
@@ -298,9 +299,9 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 //          - Pod and PodControllers are not defined
 //          - mutate.Patches/mutate.PatchesJSON6902/validate.deny/generate rule is defined
 // - otherwise it returns all pod controllers
-func CanAutoGen(policy *kyverno.ClusterPolicy, log logr.Logger) (applyAutoGen bool, controllers string) {
+func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, controllers string) {
 	var needAutogen bool
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range spec.Rules {
 		match := rule.MatchResources
 		exclude := rule.ExcludeResources
 
@@ -436,16 +437,16 @@ func updateGenRuleByte(pbyte []byte, kind string, genRule kyvernoRule) (obj []by
 }
 
 // generateRulePatches generates rule for podControllers based on scenario A and C
-func generateRulePatches(policy kyverno.ClusterPolicy, controllers string, log logr.Logger) (rulePatches [][]byte, errs []error) {
-	insertIdx := len(policy.Spec.Rules)
+func generateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger) (rulePatches [][]byte, errs []error) {
+	insertIdx := len(spec.Rules)
 
-	ruleMap := createRuleMap(policy.Spec.Rules)
+	ruleMap := createRuleMap(spec.Rules)
 	var ruleIndex = make(map[string]int)
-	for index, rule := range policy.Spec.Rules {
+	for index, rule := range spec.Rules {
 		ruleIndex[rule.Name] = index
 	}
 
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range spec.Rules {
 		patchPostion := insertIdx
 		convertToPatches := func(genRule kyvernoRule, patchPostion int) []byte {
 			operation := "add"

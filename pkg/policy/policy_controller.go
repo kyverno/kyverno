@@ -563,7 +563,7 @@ func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 func missingAutoGenRules(policy *kyverno.ClusterPolicy, log logr.Logger) bool {
 	var podRuleName []string
 	ruleCount := 1
-	if canApplyAutoGen, _ := pm.CanAutoGen(policy, log); canApplyAutoGen {
+	if canApplyAutoGen, _ := pm.CanAutoGen(&policy.Spec, log); canApplyAutoGen {
 		for _, rule := range policy.Spec.Rules {
 			podRuleName = append(podRuleName, rule.Name)
 		}
