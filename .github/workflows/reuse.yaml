@@ -92,7 +92,7 @@ jobs:
       - name: Set Version
         if: ${{ inputs.tag == 'release'}}
         run: |
-          echo "KYVERNO_VERSION=$(git tag --list --sort=-version:refname "v[0-9]*" | head -n 1)" >> $GITHUB_ENV
+          echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*" --tags $(git rev-list --tags --max-count=1))" >> $GITHUB_ENV
 
       - name: Generate SBOM JSON
         if: ${{inputs.tag == 'release'}}
@@ -100,7 +100,7 @@ jobs:
         with:
           version: v1
           args: app -licenses -json -output ${{inputs.image_name}}-${{ env.KYVERNO_VERSION }}-bom.cdx.json -main ${{inputs.main}}
-          
+
       - name: Upload SBOM JSON
         if: ${{inputs.tag == 'release'}}
         uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.1
