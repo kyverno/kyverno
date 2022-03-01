@@ -130,12 +130,32 @@ jobs:
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
         run: make ${{inputs.publish_command}}
 
-      - name: get digest
+      - name: get image digest
+        if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
+        id: get-step-image
+        run: |
+          echo "::set-output name=digest::$(make ${{inputs.digest_command}}-dev)"
+
+      - name: get release-image digest
+        if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
         id: get-step
         run: |
           echo "::set-output name=digest::$(make ${{inputs.digest_command}})"
 
       - name: Sign image
+        if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+          COSIGN_REPOSITORY: "ghcr.io/kyverno/signatures"
+        run: |          
+          cosign sign \
+          -a "repo=${{ github.repository }}" \
+          -a "workflow=${{ github.workflow }}" \
+          -a "ref=${{ github.sha }}" \
+          ghcr.io/kyverno/${{inputs.image_name}}@sha256:${{ steps.get-step-image.outputs.digest }}
+
+      - name: Sign release-image
+        if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
         env:
           COSIGN_EXPERIMENTAL: "true"
           COSIGN_REPOSITORY: "ghcr.io/kyverno/signatures"
