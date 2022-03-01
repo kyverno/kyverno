@@ -61,12 +61,12 @@ func createRuleMap(rules []kyverno.Rule) map[string]kyvernoRule {
 	return ruleMap
 }
 
-func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.Logger) kyvernoRule {
+func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.Logger) *kyvernoRule {
 	logger := log.WithName("generateRuleForControllers")
 
 	if strings.HasPrefix(rule.Name, "autogen-") || controllers == "" {
 		logger.V(5).Info("skip generateRuleForControllers")
-		return kyvernoRule{}
+		return nil
 	}
 
 	logger.V(3).Info("processing rule", "rulename", rule.Name)
@@ -79,7 +79,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 
 	if !utils.ContainsPod(matchResourceDescriptionsKinds, "Pod") ||
 		(len(excludeResourceDescriptionsKinds) != 0 && !utils.ContainsPod(excludeResourceDescriptionsKinds, "Pod")) {
-		return kyvernoRule{}
+		return nil
 	}
 
 	// Support backwards compatibility
@@ -170,7 +170,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		}
 
 		controllerRule.Mutation = newMutation.DeepCopy()
-		return *controllerRule
+		return controllerRule
 	}
 
 	if len(rule.Mutation.ForEachMutation) > 0 && rule.Mutation.ForEachMutation != nil {
@@ -190,7 +190,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		controllerRule.Mutation = &kyverno.Mutation{
 			ForEachMutation: newForeachMutation,
 		}
-		return *controllerRule
+		return controllerRule
 	}
 
 	if rule.Validation.Pattern != nil {
@@ -203,7 +203,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 			},
 		}
 		controllerRule.Validation = newValidate.DeepCopy()
-		return *controllerRule
+		return controllerRule
 	}
 
 	if rule.Validation.Deny != nil {
@@ -212,7 +212,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 			Deny:    rule.Validation.Deny,
 		}
 		controllerRule.Validation = deny.DeepCopy()
-		return *controllerRule
+		return controllerRule
 	}
 
 	if rule.Validation.AnyPattern != nil {
@@ -227,7 +227,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 			Message:    variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "anyPattern"),
 			AnyPattern: patterns,
 		}
-		return *controllerRule
+		return controllerRule
 	}
 
 	if len(rule.Validation.ForEachValidation) > 0 && rule.Validation.ForEachValidation != nil {
@@ -239,7 +239,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 			Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
 			ForEachValidation: newForeachValidate,
 		}
-		return *controllerRule
+		return controllerRule
 	}
 
 	if rule.VerifyImages != nil {
@@ -249,28 +249,28 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		}
 
 		controllerRule.VerifyImages = newVerifyImages
-		return *controllerRule
+		return controllerRule
 	}
 
-	return kyvernoRule{}
+	return nil
 }
 
-func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger) kyvernoRule {
+func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger) *kyvernoRule {
 	logger := log.WithName("handleCronJob")
 
 	hasCronJob := strings.Contains(controllers, engine.PodControllerCronJob) || strings.Contains(controllers, "all")
 	if !hasCronJob {
-		return kyvernoRule{}
+		return nil
 	}
 
 	logger.V(3).Info("generating rule for cronJob")
 	jobRule := generateRuleForControllers(rule, "Job", logger)
 
 	if reflect.DeepEqual(jobRule, kyvernoRule{}) {
-		return kyvernoRule{}
+		return nil
 	}
 
-	cronJobRule := &jobRule
+	cronJobRule := jobRule
 
 	name := fmt.Sprintf("autogen-cronjob-%s", rule.Name)
 	if len(name) > 63 {
@@ -309,7 +309,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 			},
 		}
 		cronJobRule.Mutation = newMutation.DeepCopy()
-		return *cronJobRule
+		return cronJobRule
 	}
 
 	if (jobRule.Validation != nil) && (jobRule.Validation.Pattern != nil) {
@@ -322,7 +322,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 			},
 		}
 		cronJobRule.Validation = newValidate.DeepCopy()
-		return *cronJobRule
+		return cronJobRule
 	}
 
 	if (jobRule.Validation != nil) && (jobRule.Validation.Deny != nil) {
@@ -331,7 +331,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 			Deny:    jobRule.Validation.Deny,
 		}
 		cronJobRule.Validation = newValidate.DeepCopy()
-		return *cronJobRule
+		return cronJobRule
 	}
 
 	if (jobRule.Validation != nil) && (jobRule.Validation.AnyPattern != nil) {
@@ -355,7 +355,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 			Message:    variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "anyPattern"),
 			AnyPattern: patterns,
 		}
-		return *cronJobRule
+		return cronJobRule
 	}
 
 	if (jobRule.Validation != nil) && len(jobRule.Validation.ForEachValidation) > 0 && jobRule.Validation.ForEachValidation != nil {
@@ -367,7 +367,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 			Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
 			ForEachValidation: newForeachValidate,
 		}
-		return *cronJobRule
+		return cronJobRule
 	}
 
 	if (jobRule.Mutation != nil) && len(jobRule.Mutation.ForEachMutation) > 0 && jobRule.Mutation.ForEachMutation != nil {
@@ -389,7 +389,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		cronJobRule.Mutation = &kyverno.Mutation{
 			ForEachMutation: newForeachMutation,
 		}
-		return *cronJobRule
+		return cronJobRule
 	}
 
 	if jobRule.VerifyImages != nil {
@@ -398,8 +398,8 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 			newVerifyImages[i] = vi.DeepCopy()
 		}
 		cronJobRule.VerifyImages = newVerifyImages
-		return *cronJobRule
+		return cronJobRule
 	}
 
-	return kyvernoRule{}
+	return nil
 }
