@@ -130,7 +130,14 @@ jobs:
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
         run: make ${{inputs.publish_command}}
 
-      - name: get digest
+      - name: get image digest
+        if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
+        id: get-step
+        run: |
+          echo "::set-output name=digest::$(make ${{inputs.digest_command}}-dev)"
+
+      - name: get release-image digest
+        if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
         id: get-step
         run: |
           echo "::set-output name=digest::$(make ${{inputs.digest_command}})"
