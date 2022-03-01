@@ -11,12 +11,14 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
@@ -478,7 +480,35 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 		return nil, errors.Wrap(err, "unable to list current policies")
 	}
 
-	for _, p := range policies {
+	for _, orig := range policies {
+		p := orig.DeepCopy()
+		// TODO: strip autogen rules ?
+
+		applyAutoGen, desiredControllers := autogen.CanAutoGen(&p.Spec, m.log)
+
+		if !applyAutoGen {
+			desiredControllers = "none"
+		}
+
+		ann := p.GetAnnotations()
+		actualControllers, ok := ann[engine.PodControllersAnnotation]
+
+		if !ok || !applyAutoGen {
+			actualControllers = desiredControllers
+		} else {
+			if !applyAutoGen {
+				actualControllers = desiredControllers
+			}
+		}
+
+		// scenario B
+		if actualControllers != "none" {
+			genRules := autogen.GenerateRules(&p.Spec, actualControllers, m.log)
+			if genRules != nil {
+				p.Spec.Rules = append(p.Spec.Rules, genRules...)
+			}
+		}
+
 		if p.HasValidate() || p.HasGenerate() {
 			if p.Spec.FailurePolicy != nil && *p.Spec.FailurePolicy == kyverno.Ignore {
 				m.mergeWebhook(validateIgnore, p, true)

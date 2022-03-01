@@ -632,6 +632,9 @@ type CloneFrom struct {
 type PolicyStatus struct {
 	// Ready indicates if the policy is ready to serve the admission request
 	Ready bool `json:"ready" yaml:"ready"`
+	// ActualRules is a list of Rule instances combining rules defined in the Spec
+	// and automatically generated rules.
+	ActualRules []Rule `json:"actualRules,omitempty" yaml:"actualRules,omitempty"`
 }
 
 // ResourceSpec contains information to identify a resource.

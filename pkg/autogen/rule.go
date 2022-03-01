@@ -266,7 +266,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 	logger.V(3).Info("generating rule for cronJob")
 	jobRule := generateRuleForControllers(rule, "Job", logger)
 
-	if reflect.DeepEqual(jobRule, kyvernoRule{}) {
+	if jobRule == nil {
 		return nil
 	}
 

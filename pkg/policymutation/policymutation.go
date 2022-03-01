@@ -269,22 +269,7 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 		} else {
 			patches = append(patches, annPatch)
 		}
-	} else {
-		if !applyAutoGen {
-			actualControllers = desiredControllers
-		}
 	}
-
-	// scenario B
-	if actualControllers == "none" {
-		return patches, nil
-	}
-
-	log.V(3).Info("auto generating rule for pod controllers", "controllers", actualControllers)
-
-	p, err := autogen.GenerateRulePatches(&policy.Spec, actualControllers, log)
-	patches = append(patches, p...)
-	errs = append(errs, err...)
 	return
 }
 

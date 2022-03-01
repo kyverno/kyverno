@@ -221,7 +221,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		}
 	}
 
-	mutatedPolicies, err := common.MutatePolices(policies)
+	mutatedPolicies, err := common.MutatePolicesNew(policies)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to mutate policy", err)

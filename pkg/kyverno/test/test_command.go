@@ -701,7 +701,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 		os.Exit(1)
 	}
 
-	mutatedPolicies, err := common.MutatePolices(policies)
+	mutatedPolicies, err := common.MutatePolicesNew(policies)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to mutate policy", err)

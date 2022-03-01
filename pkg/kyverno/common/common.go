@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
@@ -438,7 +439,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 }
 
 // MutatePolices - function to apply mutation on policies
-func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
+func MutatePolices_(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 	newPolicies := make([]*v1.ClusterPolicy, 0)
 	logger := log.Log.WithName("apply")
 
@@ -451,6 +452,35 @@ func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 			return nil, err
 		}
 		newPolicies = append(newPolicies, p)
+	}
+	return newPolicies, nil
+}
+
+func MutatePolicesNew(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
+	newPolicies := make([]*v1.ClusterPolicy, 0)
+	logger := log.Log.WithName("apply")
+
+	for _, policy := range policies {
+		applyAutoGen, desiredControllers := autogen.CanAutoGen(&policy.Spec, logger)
+		if !applyAutoGen {
+			desiredControllers = "none"
+		}
+		ann := policy.GetAnnotations()
+		actualControllers, ok := ann[engine.PodControllersAnnotation]
+		if !ok || !applyAutoGen {
+			actualControllers = desiredControllers
+		} else {
+			if !applyAutoGen {
+				actualControllers = desiredControllers
+			}
+		}
+		if actualControllers != "none" {
+			genRules := autogen.GenerateRules(&policy.Spec, actualControllers, logger)
+			if genRules != nil {
+				policy.Spec.Rules = append(policy.Spec.Rules, genRules...)
+			}
+		}
+		newPolicies = append(newPolicies, policy)
 	}
 	return newPolicies, nil
 }
