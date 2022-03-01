@@ -47,7 +47,7 @@ func Test_Any(t *testing.T) {
 		},
 	}
 
-	rulePatches, errs := generateRulePatches(*policy, engine.PodControllers, log.Log)
+	rulePatches, errs := generateRulePatches(&policy.Spec, engine.PodControllers, log.Log)
 	fmt.Println("utils.JoinPatches(patches)erterter", string(utils.JoinPatches(rulePatches)))
 	if len(errs) != 0 {
 		t.Log(errs)
@@ -85,7 +85,7 @@ func Test_All(t *testing.T) {
 		},
 	}
 
-	rulePatches, errs := generateRulePatches(*policy, engine.PodControllers, log.Log)
+	rulePatches, errs := generateRulePatches(&policy.Spec, engine.PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -117,7 +117,7 @@ func Test_Exclude(t *testing.T) {
 	policy := policies[0]
 	policy.Spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
 
-	rulePatches, errs := generateRulePatches(*policy, engine.PodControllers, log.Log)
+	rulePatches, errs := generateRulePatches(&policy.Spec, engine.PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -153,7 +153,7 @@ func Test_CronJobOnly(t *testing.T) {
 		engine.PodControllersAnnotation: controllers,
 	})
 
-	rulePatches, errs := generateRulePatches(*policy, controllers, log.Log)
+	rulePatches, errs := generateRulePatches(&policy.Spec, controllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -181,7 +181,7 @@ func Test_ForEachPod(t *testing.T) {
 	policy := policies[0]
 	policy.Spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
 
-	rulePatches, errs := generateRulePatches(*policy, engine.PodControllers, log.Log)
+	rulePatches, errs := generateRulePatches(&policy.Spec, engine.PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -223,7 +223,7 @@ func Test_CronJob_hasExclude(t *testing.T) {
 	rule.ExcludeResources.Namespaces = []string{"test"}
 	policy.Spec.Rules[0] = *rule
 
-	rulePatches, errs := generateRulePatches(*policy, controllers, log.Log)
+	rulePatches, errs := generateRulePatches(&policy.Spec, controllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -254,7 +254,7 @@ func Test_CronJobAndDeployment(t *testing.T) {
 		engine.PodControllersAnnotation: controllers,
 	})
 
-	rulePatches, errs := generateRulePatches(*policy, controllers, log.Log)
+	rulePatches, errs := generateRulePatches(&policy.Spec, controllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -351,7 +351,7 @@ func Test_getControllers(t *testing.T) {
 		err := json.Unmarshal(test.policy, &policy)
 		assert.NilError(t, err)
 
-		applyAutoGen, controllers := CanAutoGen(&policy, log.Log)
+		applyAutoGen, controllers := CanAutoGen(&policy.Spec, log.Log)
 		if !applyAutoGen {
 			controllers = "none"
 		}
@@ -374,7 +374,7 @@ func Test_UpdateVariablePath(t *testing.T) {
 
 	policy := policies[0]
 
-	rulePatches, errs := generateRulePatches(*policy, engine.PodControllers, log.Log)
+	rulePatches, errs := generateRulePatches(&policy.Spec, engine.PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -489,7 +489,7 @@ func Test_Deny(t *testing.T) {
 		},
 	}
 
-	rulePatches, errs := generateRulePatches(*policy, engine.PodControllers, log.Log)
+	rulePatches, errs := generateRulePatches(&policy.Spec, engine.PodControllers, log.Log)
 	fmt.Println("utils.JoinPatches(patches)erterter", string(utils.JoinPatches(rulePatches)))
 	if len(errs) != 0 {
 		t.Log(errs)
