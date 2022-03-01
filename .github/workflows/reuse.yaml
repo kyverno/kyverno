@@ -92,7 +92,7 @@ jobs:
       - name: Set Version
         if: ${{ inputs.tag == 'release'}}
         run: |
-          echo "KYVERNO_VERSION=$(git tag --list --sort=-version:refname "v[0-9]*" | head -n 1)" >> $GITHUB_ENV
+          echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*" --tags $(git rev-list --tags --max-count=1))" >> $GITHUB_ENV
 
       - name: Generate SBOM JSON
         if: ${{inputs.tag == 'release'}}
