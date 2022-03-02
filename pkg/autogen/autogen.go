@@ -3,7 +3,6 @@ package autogen
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -160,9 +159,9 @@ func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger
 
 		// handle all other controllers other than CronJob
 		genRule := generateRuleForControllers(rule, stripCronJob(controllers), log)
-		if !reflect.DeepEqual(genRule, kyvernoRule{}) {
-			pbytes := convertToPatches(genRule, patchPostion)
-			pbytes = updateGenRuleByte(pbytes, "Pod", genRule)
+		if genRule != nil {
+			pbytes := convertToPatches(*genRule, patchPostion)
+			pbytes = updateGenRuleByte(pbytes, "Pod", *genRule)
 			if pbytes != nil {
 				rulePatches = append(rulePatches, pbytes)
 			}
@@ -172,9 +171,9 @@ func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger
 
 		// handle CronJob, it appends an additional rule
 		genRule = generateCronJobRule(rule, controllers, log)
-		if !reflect.DeepEqual(genRule, kyvernoRule{}) {
-			pbytes := convertToPatches(genRule, patchPostion)
-			pbytes = updateGenRuleByte(pbytes, "Cronjob", genRule)
+		if genRule != nil {
+			pbytes := convertToPatches(*genRule, patchPostion)
+			pbytes = updateGenRuleByte(pbytes, "Cronjob", *genRule)
 			if pbytes != nil {
 				rulePatches = append(rulePatches, pbytes)
 			}
