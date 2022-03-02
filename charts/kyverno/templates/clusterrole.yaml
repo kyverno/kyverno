@@ -120,7 +120,7 @@ rules:
       - patch
       - delete
   - apiGroups:
-      - "quota"
+      - ""
     resources:
       - resourcequotas
       - limitranges
