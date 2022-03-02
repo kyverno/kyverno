@@ -369,11 +369,6 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 	}
 
 	ready := true
-	// TODO: not sure it should be there or in the policy controller
-	var autogenControllers []string
-	if policy != nil {
-		autogenControllers = policy.Status.AutogenControllers
-	}
 	// build webhook only if auto-update is enabled, otherwise directly update status to ready
 	if m.autoUpdateWebhooks {
 		webhooks, err := m.buildWebhooks(namespace)
@@ -390,11 +385,9 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 		if policy == nil {
 			return nil
 		}
-
-		autogenControllers = autogen.GetControllers(policy.ObjectMeta, &policy.Spec, m.log)
 	}
 
-	if err := m.updateStatus(policy, ready, autogenControllers); err != nil {
+	if err := m.updateStatus(policy, ready); err != nil {
 		return errors.Wrapf(err, "failed to update policy status %s/%s", namespace, name)
 	}
 
@@ -685,10 +678,13 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 	return nil
 }
 
-func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy, status bool, autogenControllers []string) error {
+func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy, status bool) error {
 	policyCopy := policy.DeepCopy()
+	requested, supported, effective := autogen.GetControllers(policy.ObjectMeta, &policy.Spec, m.log)
 	policyCopy.Status.Ready = status
-	policyCopy.Status.AutogenControllers = autogenControllers
+	policyCopy.Status.Autogen.Requested = requested
+	policyCopy.Status.Autogen.Supported = supported
+	policyCopy.Status.Autogen.Effective = effective
 	if policy.GetNamespace() == "" {
 		_, err := m.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), policyCopy, v1.UpdateOptions{})
 		return err

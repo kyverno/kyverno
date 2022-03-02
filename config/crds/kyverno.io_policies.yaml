@@ -2156,17 +2156,31 @@ spec:
             description: Status contains policy runtime information. Deprecated. Policy
               metrics are available via the metrics endpoint
             properties:
-              autogenControllers:
-                description: AutogenControllers indicates the autogen controllers
-                  applied to the policy rules
-                items:
-                  type: string
-                type: array
+              autogen:
+                description: Autogen contains autogen status information
+                properties:
+                  effective:
+                    description: Effective indicates the autogen effective controllers
+                    items:
+                      type: string
+                    type: array
+                  requested:
+                    description: Requested indicates the autogen requested controllers
+                    items:
+                      type: string
+                    type: array
+                  supported:
+                    description: Supported indicates the autogen supported controllers
+                    items:
+                      type: string
+                    type: array
+                type: object
               ready:
                 description: Ready indicates if the policy is ready to serve the admission
                   request
                 type: boolean
             required:
+            - autogen
             - ready
             type: object
         required:

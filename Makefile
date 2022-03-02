@@ -337,9 +337,6 @@ endif
 deepcopy-autogen: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..."
 
-.PHONY: codegen
-codegen: kyverno-crd report-crd deepcopy-autogen
-
 goimports:
 ifeq (, $(shell which goimports))
 	@{ \

@@ -3,7 +3,6 @@ package autogen
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -127,15 +126,15 @@ func GetRequestedControllers(meta metav1.ObjectMeta) []string {
 }
 
 // GetControllers computes the autogen controllers that should be applied to a policy.
-// It evaluates the supported and requested controllers and returns the intersection of both.
-func GetControllers(meta metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger) []string {
+// It returns the requested, supported and effective controllers (intersection of requested and supported ones).
+func GetControllers(meta metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger) ([]string, []string, []string) {
 	// compute supported and requested controllers
 	supported := GetSupportedControllers(spec, log)
 	requested := GetRequestedControllers(meta)
 
 	// no specific request, we can return supported controllers without further filtering
 	if requested == nil {
-		return supported
+		return requested, supported, supported
 	}
 
 	// filter supported controllers, keeping only those that have been requested
@@ -145,7 +144,7 @@ func GetControllers(meta metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger)
 			applicable = append(applicable, controller)
 		}
 	}
-	return applicable
+	return requested, supported, applicable
 }
 
 // podControllersKey annotation could be:
@@ -209,9 +208,9 @@ func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger
 
 		// handle all other controllers other than CronJob
 		genRule := generateRuleForControllers(rule, stripCronJob(controllers), log)
-		if !reflect.DeepEqual(genRule, kyvernoRule{}) {
-			pbytes := convertToPatches(genRule, patchPostion)
-			pbytes = updateGenRuleByte(pbytes, "Pod", genRule)
+		if genRule != nil {
+			pbytes := convertToPatches(*genRule, patchPostion)
+			pbytes = updateGenRuleByte(pbytes, "Pod", *genRule)
 			if pbytes != nil {
 				rulePatches = append(rulePatches, pbytes)
 			}
@@ -221,9 +220,9 @@ func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger
 
 		// handle CronJob, it appends an additional rule
 		genRule = generateCronJobRule(rule, controllers, log)
-		if !reflect.DeepEqual(genRule, kyvernoRule{}) {
-			pbytes := convertToPatches(genRule, patchPostion)
-			pbytes = updateGenRuleByte(pbytes, "Cronjob", genRule)
+		if genRule != nil {
+			pbytes := convertToPatches(*genRule, patchPostion)
+			pbytes = updateGenRuleByte(pbytes, "Cronjob", *genRule)
 			if pbytes != nil {
 				rulePatches = append(rulePatches, pbytes)
 			}
