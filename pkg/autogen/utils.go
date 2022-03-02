@@ -72,3 +72,12 @@ func cronJobAnyAllAutogenRule(v kyverno.ResourceFilters) kyverno.ResourceFilters
 	}
 	return anyKind
 }
+
+func arrayContains(array []string, item string) bool {
+	for _, candidate := range array {
+		if candidate == item {
+			return true
+		}
+	}
+	return false
+}

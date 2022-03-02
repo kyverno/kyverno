@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CanAutoGen checks whether the rule(s) (in policy) can be applied to Pod controllers
@@ -97,6 +99,53 @@ func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, control
 	}
 
 	return true, engine.PodControllers
+}
+
+// GetSupportedControllers returns the supported autogen controllers for a given spec.
+func GetSupportedControllers(spec *kyverno.Spec, log logr.Logger) []string {
+	apply, controllers := CanAutoGen(spec, log)
+	if !apply || controllers == "none" {
+		return nil
+	}
+	return strings.Split(controllers, ",")
+}
+
+// GetRequestedControllers returns the requested autogen controllers based on object annotations.
+func GetRequestedControllers(meta metav1.ObjectMeta) []string {
+	annotations := meta.GetAnnotations()
+	if annotations == nil {
+		return nil
+	}
+	controllers, ok := annotations[engine.PodControllersAnnotation]
+	if !ok || controllers == "" {
+		return nil
+	}
+	if controllers == "none" {
+		return []string{}
+	}
+	return strings.Split(controllers, ",")
+}
+
+// GetControllers computes the autogen controllers that should be applied to a policy.
+// It evaluates the supported and requested controllers and returns the intersection of both.
+func GetControllers(meta metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger) []string {
+	// compute supported and requested controllers
+	supported := GetSupportedControllers(spec, log)
+	requested := GetRequestedControllers(meta)
+
+	// no specific request, we can return supported controllers without further filtering
+	if requested == nil {
+		return supported
+	}
+
+	// filter supported controllers, keeping only those that have been requested
+	var applicable []string
+	for _, controller := range supported {
+		if arrayContains(requested, controller) {
+			applicable = append(applicable, controller)
+		}
+	}
+	return applicable
 }
 
 // podControllersKey annotation could be:

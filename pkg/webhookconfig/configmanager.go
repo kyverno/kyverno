@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -368,6 +369,11 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 	}
 
 	ready := true
+	// TODO: not sure it should be there or in the policy controller
+	var autogenControllers []string
+	if policy != nil {
+		autogenControllers = policy.Status.AutogenControllers
+	}
 	// build webhook only if auto-update is enabled, otherwise directly update status to ready
 	if m.autoUpdateWebhooks {
 		webhooks, err := m.buildWebhooks(namespace)
@@ -384,9 +390,11 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 		if policy == nil {
 			return nil
 		}
+
+		autogenControllers = autogen.GetControllers(policy.ObjectMeta, &policy.Spec, m.log)
 	}
 
-	if err := m.updateStatus(policy, ready); err != nil {
+	if err := m.updateStatus(policy, ready, autogenControllers); err != nil {
 		return errors.Wrapf(err, "failed to update policy status %s/%s", namespace, name)
 	}
 
@@ -677,9 +685,10 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 	return nil
 }
 
-func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy, status bool) error {
+func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy, status bool, autogenControllers []string) error {
 	policyCopy := policy.DeepCopy()
 	policyCopy.Status.Ready = status
+	policyCopy.Status.AutogenControllers = autogenControllers
 	if policy.GetNamespace() == "" {
 		_, err := m.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), policyCopy, v1.UpdateOptions{})
 		return err

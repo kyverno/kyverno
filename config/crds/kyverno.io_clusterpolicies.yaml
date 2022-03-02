@@ -2126,9 +2126,9 @@ spec:
                 - enforce
                 type: string
               validationFailureActionOverrides:
-                description: ValidationFailureActionOverrides is a Cluster Policy attribute
-                  that specifies ValidationFailureAction namespace-wise. It overrides
-                  ValidationFailureAction for the specified namespaces.
+                description: ValidationFailureActionOverrides is a Cluster Policy
+                  attribute that specifies ValidationFailureAction namespace-wise.
+                  It overrides ValidationFailureAction for the specified namespaces.
                 items:
                   properties:
                     action:
@@ -2154,6 +2154,12 @@ spec:
           status:
             description: Status contains policy runtime data.
             properties:
+              autogenControllers:
+                description: AutogenControllers indicates the autogen controllers
+                  applied to the policy rules
+                items:
+                  type: string
+                type: array
               ready:
                 description: Ready indicates if the policy is ready to serve the admission
                   request
