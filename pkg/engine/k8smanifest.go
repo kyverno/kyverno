@@ -56,6 +56,8 @@ var defaultConfigBytes []byte
 func VerifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields k8smanifest.ObjectFieldBindingList) (bool, *mapnode.DiffResult, error) {
 	vo := &k8smanifest.VerifyResourceOption{}
 	vo = k8smanifest.AddDefaultConfig(vo)
+	vo = addDefaultConfig(vo)
+	fmt.Println(vo.IgnoreFields)
 
 	objManifest, err := yaml.Marshal(policyContext.NewResource.Object)
 	if err != nil {
@@ -234,26 +236,26 @@ func matchManifest(inputManifestBytes, foundManifestBytes []byte, ignoreFields [
 // 		k8smnfutil.MatchPattern(r.Namespace, r2.Namespace)
 // }
 
-// func AddConfig(vo, defaultConfig *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {
-// 	if vo == nil {
-// 		return nil
-// 	}
-// 	ignoreFields := []k8smanifest.ObjectFieldBinding(vo.verifyOption.IgnoreFields)
-// 	ignoreFields = append(ignoreFields, []k8smanifest.ObjectFieldBinding(defaultConfig.verifyOption.IgnoreFields)...)
-// 	vo.verifyOption.IgnoreFields = ignoreFields
-// 	return vo
-// }
+func addConfig(vo, defaultConfig *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {
+	if vo == nil {
+		return nil
+	}
+	ignoreFields := []k8smanifest.ObjectFieldBinding(vo.IgnoreFields)
+	ignoreFields = append(ignoreFields, []k8smanifest.ObjectFieldBinding(defaultConfig.IgnoreFields)...)
+	vo.IgnoreFields = ignoreFields
+	return vo
+}
 
-// func LoadDefaultConfig() *k8smanifest.VerifyResourceOption {
-// 	var defaultConfig *k8smanifest.VerifyResourceOption
-// 	err := yaml.Unmarshal(defaultConfigBytes, &defaultConfig)
-// 	if err != nil {
-// 		return nil
-// 	}
-// 	return defaultConfig
-// }
+func loadDefaultConfig() *k8smanifest.VerifyResourceOption {
+	var defaultConfig *k8smanifest.VerifyResourceOption
+	err := yaml.Unmarshal(defaultConfigBytes, &defaultConfig)
+	if err != nil {
+		return nil
+	}
+	return defaultConfig
+}
 
-// func AddDefaultConfig(vo *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {
-// 	dvo := LoadDefaultConfig()
-// 	return AddConfig(vo, dvo)
-// }
+func addDefaultConfig(vo *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {
+	dvo := loadDefaultConfig()
+	return addConfig(vo, dvo)
+}
