@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/kataras/tablewriter"
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
@@ -705,6 +707,15 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to mutate policy", err)
+		}
+	}
+
+	for _, p := range policies {
+		patch, _ := common.MutatePolicy(p, log.Log)
+		nonPatch, _ := autogen.MutatePolicy(p, log.Log)
+
+		if !reflect.DeepEqual(patch.Spec.Rules, nonPatch.Spec.Rules) {
+			return sanitizederror.New("patch and non patch based rules mutations are not identical")
 		}
 	}
 
