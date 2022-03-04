@@ -742,6 +742,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 
 		matches := common.HasVariables(policy)
 		variable := common.RemoveDuplicateAndObjectVariables(matches)
+		possible_variables := matches
 
 		if len(variable) > 0 {
 			if len(variables) == 0 {
@@ -749,6 +750,18 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, valuesFile s
 				if valuesFile == "" || valuesMap[policy.Name] == nil {
 					fmt.Printf("test skipped for policy  %v  (as required variables are not provided by the users) \n \n", policy.Name)
 				}
+			}
+		}
+
+		// check request.operation variable present in the policy
+		for _, vars := range possible_variables {
+			vari := strings.Join(vars, " ")
+			if strings.Contains(vari, "request.operation") {
+				globalValMap = make(map[string]string)
+				// set globally, request.operation to CREATE
+				globalValMap["request.operation"] = "CREATE"
+				log.Log.V(3).Info("variable request.operation found in policy, by default globally set to CREATE.")
+				break
 			}
 		}
 
