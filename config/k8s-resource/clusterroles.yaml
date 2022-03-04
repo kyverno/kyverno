@@ -85,6 +85,8 @@ rules:
   - namespaces
   - configmaps
   - secrets
+  - resourcequotas
+  - limitranges
   verbs:
   - create
   - update
@@ -95,16 +97,6 @@ rules:
   resources:
   - rolebindings
   - roles
-  verbs:
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - "quota"
-  resources:
-  - resourcequotas
-  - limitranges
   verbs:
   - create
   - update
