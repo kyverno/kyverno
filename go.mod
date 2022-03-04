@@ -59,7 +59,6 @@ require (
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220119192733-fe33c00cee21
 	github.com/evanphx/json-patch v4.12.0+incompatible
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20220125170349-50dfc2733d10
-	github.com/gorilla/mux v1.8.0
 	gopkg.in/inf.v0 v0.9.1
 )
 
