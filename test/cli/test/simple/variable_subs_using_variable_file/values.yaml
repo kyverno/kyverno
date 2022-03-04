@@ -18,5 +18,4 @@ policies:
       request.operation: ""
   # No operation provided
   - name: test-validate-image-tag-ignore
-  - name: test-validate-image-tag-fail
-  - name: test-validate-image-tag-pass
+  # No resource name even being provided, test-validate-image-tag-fail and test-validate-image-tag-pass
