@@ -22,42 +22,17 @@ import (
 
 const DefaultAnnotationKeyDomain = "cosign.sigstore.dev/"
 
-// type VerifyResourceOption struct {
-// 	verifyOption `json:""`
-// }
-
-// // common options for verify functions
-// // this verifyOption should not be used directly by those functions
-// type verifyOption struct {
-// 	IgnoreFields ObjectFieldBindingList `json:"ignoreFields,omitempty"`
-// }
-
-// type ObjectReferenceList []ObjectReference
-
-// type ObjectReference struct {
-// 	Group     string `json:"group,omitempty"`
-// 	Version   string `json:"version,omitempty"`
-// 	Kind      string `json:"kind,omitempty"`
-// 	Name      string `json:"name,omitempty"`
-// 	Namespace string `json:"namespace,omitempty"`
-// }
-
-// type ObjectFieldBinding struct {
-// 	Fields  []string            `json:"fields,omitempty"`
-// 	Objects ObjectReferenceList `json:"objects,omitempty"`
-// }
-
-// type ObjectFieldBindingList []ObjectFieldBinding
-
 // This is common ignore fields for changes by k8s system
 //go:embed resources/default-config.yaml
 var defaultConfigBytes []byte
 
 func VerifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields k8smanifest.ObjectFieldBindingList) (bool, *mapnode.DiffResult, error) {
 	vo := &k8smanifest.VerifyResourceOption{}
+	// adding default ignoreFields from github.com/sigstore/k8s-manifest-sigstore/blob/main/pkg/k8smanifest/resources/default-config.yaml
 	vo = k8smanifest.AddDefaultConfig(vo)
+	// kubectl mutates the manifet request before it reaches to kyverno.
+	// adding default ignoreFields from ../resources/default-config.yaml
 	vo = addDefaultConfig(vo)
-	fmt.Println(vo.IgnoreFields)
 
 	objManifest, err := yaml.Marshal(policyContext.NewResource.Object)
 	if err != nil {
@@ -79,11 +54,12 @@ func VerifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields 
 	}
 	defer uncompressedStream.Close()
 
+	// reading a tar ball, in-memory.
 	byteSlice, err := ioutil.ReadAll(uncompressedStream)
 	if err != nil {
 		return false, nil, fmt.Errorf("read err :%v", err)
 	}
-	i := strings.Index(string(byteSlice), "api")
+	i := strings.Index(string(byteSlice), "apiVersion")
 	byteSlice = byteSlice[i:]
 	var foundManifest []byte
 	for _, ch := range byteSlice {
@@ -93,16 +69,12 @@ func VerifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields 
 			break
 		}
 	}
+
 	var obj unstructured.Unstructured
 	_ = yaml.Unmarshal(objManifest, &obj)
-
-	// add signature/message/others annotations to ignore fields
-	if vo != nil {
-		vo.SetAnnotationIgnoreFields()
-	}
-	// appending user supplied fields which needs to be ignored while comparing manifests.
+	// appending user supplied ignoreFields.
 	vo.IgnoreFields = append(vo.IgnoreFields, ignoreFields...)
-	// get ignore fields configuration for this resource if found
+	// get ignore fields configuration for this resource if found.
 	ignore := []string{}
 	if vo != nil {
 		if ok, fields := vo.IgnoreFields.Match(obj); ok {
@@ -179,62 +151,6 @@ func matchManifest(inputManifestBytes, foundManifestBytes []byte, ignoreFields [
 	}
 	return matched, diff, nil
 }
-
-// func (l ObjectFieldBindingList) Match(obj unstructured.Unstructured) (bool, []string) {
-// 	if len(l) == 0 {
-// 		return false, nil
-// 	}
-// 	matched := false
-// 	matchedFields := []string{}
-// 	for _, f := range l {
-// 		if tmpMatched, tmpFields := f.Match(obj); tmpMatched {
-// 			matched = tmpMatched
-// 			matchedFields = append(matchedFields, tmpFields...)
-// 		}
-// 	}
-// 	return matched, matchedFields
-// }
-
-// func (l ObjectReferenceList) Match(obj unstructured.Unstructured) bool {
-// 	if len(l) == 0 {
-// 		return true
-// 	}
-// 	for _, r := range l {
-// 		if r.Match(obj) {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
-
-// func (r ObjectReference) Match(obj unstructured.Unstructured) bool {
-// 	return r.Equal(ObjectToReference(obj))
-// }
-
-// func (f ObjectFieldBinding) Match(obj unstructured.Unstructured) (bool, []string) {
-// 	if f.Objects.Match(obj) {
-// 		return true, f.Fields
-// 	}
-// 	return false, nil
-// }
-
-// func ObjectToReference(obj unstructured.Unstructured) ObjectReference {
-// 	return ObjectReference{
-// 		Group:     obj.GroupVersionKind().Group,
-// 		Version:   obj.GroupVersionKind().Version,
-// 		Kind:      obj.GroupVersionKind().Kind,
-// 		Name:      obj.GetName(),
-// 		Namespace: obj.GetNamespace(),
-// 	}
-// }
-
-// func (r ObjectReference) Equal(r2 ObjectReference) bool {
-// 	return k8smnfutil.MatchPattern(r.Group, r2.Group) &&
-// 		k8smnfutil.MatchPattern(r.Version, r2.Version) &&
-// 		k8smnfutil.MatchPattern(r.Kind, r2.Kind) &&
-// 		k8smnfutil.MatchPattern(r.Name, r2.Name) &&
-// 		k8smnfutil.MatchPattern(r.Namespace, r2.Namespace)
-// }
 
 func addConfig(vo, defaultConfig *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {
 	if vo == nil {

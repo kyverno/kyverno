@@ -1,22 +1,39 @@
 ignoreFields:
   - fields:
     - metadata.namespace
-    objects:
-    - kind: '*'
-  - fields:
     - spec.containers.*.imagePullPolicy
     - spec.containers.*.terminationMessagePath
     - spec.containers.*.terminationMessagePolicy
-    - spec.containers.*.volumeMounts.*
-    - spec.volumes.*.projected.*
-    - spec.tolerations.*
     - spec.dnsPolicy
+    - spec.restartPolicy
+    - spec.schedulerName
     - spec.terminationGracePeriodSeconds
+    objects:
+    - kind: '*'
+  - fields:
+    - spec.volumes.*.name
+    - spec.volumes.*.projected.*
+    - spec.volumes.*.configMap.defaultMode
+    - spec.containers.*.volumeMounts.*
+    - spec.tolerations.*
     - spec.enableServiceLinks
     - spec.preemptionPolicy
     - spec.priority
-    - spec.restartPolicy
-    - spec.schedulerName
     - spec.serviceAccount
     objects:
     - kind: Pod
+  - fields:
+    - spec.progressDeadlineSeconds
+    - spec.revisionHistoryLimit
+    - spec.strategy.*
+    - spec.template.metadata.creationTimestamp
+    - spec.containers.*.ports.*.protocol
+    - spec.containers.*.resources
+    - spec.securityContext
+    objects:
+    - kind: Deployment
+  - fields:
+    - spec.conversion.strategy
+    - spec.names.listKind
+    objects:
+    - kind: CustomResourceDefinition

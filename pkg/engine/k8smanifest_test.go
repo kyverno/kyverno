@@ -12,18 +12,21 @@ var test_policy = `{}`
 
 var signed_resource = `{
 	"apiVersion": "v1",
-	"kind": "Secret",
+	"kind": "Pod",
 	"metadata": {
   		"annotations": {
-    		"cosign.sigstore.dev/message": "H4sIAAAAAAAA/wD/AAD/H4sIAAAAAAAA/+zSTU7DMBAF4KxzirlAmrHTYMlrboDEftpYxSoeW54JqCDujmgr1BWIbhAo3+YtbD/LP72m0m9zKjWIRN51SrXbvQzD2jmDxrpewrYGXR0oPTbXQUR04/iRxo14mUd2fdOYtcXBWTcOY4PWGOsawCv3+5FZlGqDyJSIv5j33fj5LJ/5R1CJ96FKzOzhybT7yJOHu+OTtykoTaTkWwBizkoaM4uH17cWgCkFD6ff0W1I4rajWR9a0Rp5d3teV0jkOdfJg2LpzsUAs4R6KqApRW71UIKH/bwJlYMGWcXcX3T+9i0tFovF//MeAAD//1D95RUACAAAAQAA//+x8WKU/wAAAA==",
-    		"cosign.sigstore.dev/signature": "MEYCIQDucAI+AguMuKbrKvHf9oQK2Kl36qndbuOGg895Wt9E5gIhANzHdauuP0FMfhm0rzOFCECdBFvh32Luc5FXvBXBJ2i3"
+    		"cosign.sigstore.dev/message": "H4sIAAAAAAAA/wDiAB3/H4sIAAAAAAAA/+zPTUrGMBAG4KxzirlA20l/vtCcwpX7oQ0laCYhGcUfvLtUVHSj8m1E7LN5CXmTYTqJuVtSzMXXGnhrhEqzPQwzop3Gee67nNb2nuK1Ohvi/tm0p7ETfswXxlplxh6tHU4nOyjscZwGBXj+yJ+7qUJFITJF4i96392/7vKefwTlcOlLDYkd3Bp9FXh1cJFWHb3QSkJOAxBzEpKQuDp4fNIATNE74C3wna7ZL3trSSwU2Je6nxoIkba3kjOtGdteA3x++9vrHw6Hw7/1HAAA//830Kk7AAgAAAEAAP//Byxp7uIAAAA=",
+    		"cosign.sigstore.dev/signature": "MEUCIA2LILw5kUfcig/l3bFk8JnW3xWCk3AKSMaiWl6Q2DBqAiEAzOAkJjpLk5w86PD+vy/Wr+hRm6R8/dE37YuDzqIbT9c="
 		},
-		"name": "secret-basic-auth"
+		"name": "nginx"
 	},
-	"type": "kubernetes.io/basic-auth",
-	"stringData": {
-		"password": "t0p-Secret",
-		"username": "admin"
+	"spec": {
+		"containers": [
+			{
+				"image": "nginx:1.14.2",
+				"name": "nginx"
+			}
+		]
 	}
 }`
 
@@ -39,6 +42,6 @@ func Test_VerifyManifest(t *testing.T) {
 
 	verified, diff, err := VerifyManifest(policyContext, ecdsaPub, ignoreFields)
 	assert.NilError(t, err)
-	assert.Equal(t, verified, false)
+	assert.Equal(t, verified, true)
 	assert.Equal(t, diff, diffVar)
 }
