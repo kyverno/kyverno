@@ -39,98 +39,95 @@ import (
 )
 
 var longHelp = `
-The test command provides a facility to test resources against policies by comparing expected results, declared ahead of time in a test.yaml file, to actual results reported by Kyverno. Users provide the path to the folder containing a test.yaml file where the location could be on a local filesystem or a remote git repository
+The test command provides a facility to test resources against policies by comparing expected results, declared ahead of time in a test manifest file, to actual results reported by Kyverno. Users provide the path to the folder containing a kyverno-test.yaml file where the location could be on a local filesystem or a remote git repository.
 `
 var exampleHelp = `
+# Test a git repository containing Kyverno test cases.
 kyverno test https://github.com/kyverno/policies/pod-security --git-branch main
-    <snip>
+<snip>
 
-    Executing require-non-root-groups...
-    applying 1 policy to 2 resources...
+Executing require-non-root-groups...
+applying 1 policy to 2 resources...
 
-    │───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
-    │ # │ POLICY                  │ RULE                     │ RESOURCE                         │ RESULT │
-    │───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
-    │ 1 │ require-non-root-groups │ check-runasgroup         │ default/Pod/fs-group0            │ Pass   │
-    │ 2 │ require-non-root-groups │ check-supplementalGroups │ default/Pod/fs-group0            │ Pass   │
-    │ 3 │ require-non-root-groups │ check-fsGroup            │ default/Pod/fs-group0            │ Pass   │
-    │ 4 │ require-non-root-groups │ check-supplementalGroups │ default/Pod/supplemental-groups0 │ Pass   │
-    │ 5 │ require-non-root-groups │ check-fsGroup            │ default/Pod/supplemental-groups0 │ Pass   │
-    │ 6 │ require-non-root-groups │ check-runasgroup         │ default/Pod/supplemental-groups0 │ Pass   │
-    │───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
-    <snip>
+│───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
+│ # │ POLICY                  │ RULE                     │ RESOURCE                         │ RESULT │
+│───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
+│ 1 │ require-non-root-groups │ check-runasgroup         │ default/Pod/fs-group0            │ Pass   │
+│ 2 │ require-non-root-groups │ check-supplementalGroups │ default/Pod/fs-group0            │ Pass   │
+│ 3 │ require-non-root-groups │ check-fsGroup            │ default/Pod/fs-group0            │ Pass   │
+│ 4 │ require-non-root-groups │ check-supplementalGroups │ default/Pod/supplemental-groups0 │ Pass   │
+│ 5 │ require-non-root-groups │ check-fsGroup            │ default/Pod/supplemental-groups0 │ Pass   │
+│ 6 │ require-non-root-groups │ check-runasgroup         │ default/Pod/supplemental-groups0 │ Pass   │
+│───│─────────────────────────│──────────────────────────│──────────────────────────────────│────────│
+<snip>
+
+# Test a local folder containing test cases.
+kyverno test .
+
+Executing limit-containers-per-pod...
+applying 1 policy to 4 resources... 
+
+│───│──────────────────────────│──────────────────────────────────────│─────────────────────────────│────────│
+│ # │ POLICY                   │ RULE                                 │ RESOURCE                    │ RESULT │
+│───│──────────────────────────│──────────────────────────────────────│─────────────────────────────│────────│
+│ 1 │ limit-containers-per-pod │ limit-containers-per-pod-bare        │ default/Pod/myapp-pod-1     │ Pass   │
+│ 2 │ limit-containers-per-pod │ limit-containers-per-pod-bare        │ default/Pod/myapp-pod-2     │ Pass   │
+│ 3 │ limit-containers-per-pod │ limit-containers-per-pod-controllers │ default/Deployment/mydeploy │ Pass   │
+│ 4 │ limit-containers-per-pod │ limit-containers-per-pod-cronjob     │ default/CronJob/mycronjob   │ Pass   │
+│───│──────────────────────────│──────────────────────────────────────│─────────────────────────────│────────│
+
+Test Summary: 4 tests passed and 0 tests failed
 
 
-Test file structure:
+**TEST FILE STRUCTURE**:
 
-The test.yaml has four parts:
-    "policies"   --> List of policies which are applied.
-    "resources"  --> List of resources on which the policies are applied.
-    "variables"  --> Variable file path (optional).
-    "results"    --> List of results expected after applying the policies on the resources.
+The kyverno-test.yaml has four parts:
+	"policies"   --> List of policies which are applied.
+	"resources"  --> List of resources on which the policies are applied.
+	"variables"  --> Variable file path containing variables referenced in the policy (OPTIONAL).
+	"results"    --> List of results expected after applying the policies to the resources.
 
-Test file format:
+** TEST FILE FORMAT**:
 
-For validate policies
+name: <test_name>
+policies:
+- <path/to/policy1.yaml>
+- <path/to/policy2.yaml>
+resources:
+- <path/to/resource1.yaml>
+- <path/to/resource2.yaml>
+variables: <variable_file> (OPTIONAL)
+results:
+- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
+  rule: <name>
+  resource: <name>
+  namespace: <name> (OPTIONAL)
+  kind: <name>
+  patchedResource: <path/to/patched/resource.yaml> (For mutate policies/rules only)
+  result: <pass|fail|skip>
 
-- name: test-1
-  policies:
-  - <path>
-  - <path>
+**VARIABLES FILE FORMAT**:
+
+policies:
+- name: <policy_name>
+  rules:
+  - name: <rule_name>
+    # Global variable values
+    values:
+      foo: bar
   resources:
-  - <path>
-  - <path>
-  results:
-  - policy: <name>
-    rule: <name>
-    resource: <name>
-    namespace: <name> (OPTIONAL)
-    kind: <name>
-    result: <pass|fail|skip>
+  - name: <resource_name_1>
+    # Resource-specific variable values
+    values:
+      foo: baz
+  - name: <resource_name_2>
+    values:
+      foo: bin
 
+**RESULT DESCRIPTIONS**:
 
-For mutate policies
-
-Policy (Namespaced)
-
-- name: test-1
-  policies:
-  - <path>
-  - <path>
-  resources:
-  - <path>
-  - <path>
-  results:
-  - policy: <policy_namespace>/<policy_name>
-    rule: <name>
-    resource: <name>
-    namespace: <name> (OPTIONAL)
-    kind: <name>
-    patchedResource: <path>
-    result: <pass|fail|skip>
-
-ClusterPolicy (Cluster-wide)
-
-- name: test-1
-  policies:
-  - <path>
-  - <path>
-  resources:
-  - <path>
-  - <path>
-  results:
-  - policy: <name>
-    rule: <name>
-    resource: <name>
-    namespace: <name> (OPTIONAL)
-    kind: <name>
-    patchedResource: <path>
-    result: <pass|fail|skip>
-
-Result descriptions:
-
-pass  --> The patched resource generated by Kyverno equals the patched resource provided by the user.
-fail  --> The patched resource generated by Kyverno is not equal to the patched resource provided by the user.
+pass  --> The resource is either validated by the policy or, if a mutation, equals the state of the patched resource.
+fail  --> The resource fails validation or the patched resource generated by Kyverno is not equal to the input resource provided by the user.
 skip  --> The rule is not applied.
 
 For more information visit https://kyverno.io/docs/kyverno-cli/#test
@@ -139,10 +136,12 @@ For more information visit https://kyverno.io/docs/kyverno-cli/#test
 // Command returns version command
 func Command() *cobra.Command {
 	var cmd *cobra.Command
-	var fileName, gitBranch, testCase string
+	var testCase string
+	var testFile []byte
+	var fileName, gitBranch string
 	cmd = &cobra.Command{
-		Use:     "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>",
-		Args:    cobra.ExactArgs(1),
+		Use: "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>\n  kyverno test --manifest-mutate > kyverno-test.yaml\n  kyverno test --manifest-validate > kyverno-test.yaml",
+		// Args:    cobra.ExactArgs(1),
 		Short:   "run tests from directory",
 		Long:    longHelp,
 		Example: exampleHelp,
@@ -156,6 +155,47 @@ func Command() *cobra.Command {
 				}
 			}()
 
+			mStatus, _ := cmd.Flags().GetBool("manifest-mutate")
+			vStatus, _ := cmd.Flags().GetBool("manifest-validate")
+			if mStatus {
+				testFile = []byte(`name: <test_name>
+policies:
+- <path/to/policy1.yaml>
+- <path/to/policy2.yaml>
+resources:
+- <path/to/resource1.yaml>
+- <path/to/resource2.yaml>
+variables: <variable_file> (OPTIONAL)
+results:
+- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
+  rule: <name>
+  resource: <name>
+  namespace: <name> (OPTIONAL)
+  kind: <name>
+  patchedResource: <path/to/patched/resource.yaml>
+  result: <pass|fail|skip>`)
+				fmt.Println(string(testFile))
+				return nil
+			}
+			if vStatus {
+				testFile = []byte(`name: <test_name>
+policies:
+- <path/to/policy1.yaml>
+- <path/to/policy2.yaml>
+resources:
+- <path/to/resource1.yaml>
+- <path/to/resource2.yaml>
+variables: <variable_file> (OPTIONAL)
+results:
+- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
+  rule: <name>
+  resource: <name>
+  namespace: <name> (OPTIONAL)
+  kind: <name>
+  result: <pass|fail|skip>`)
+				fmt.Println(string(testFile))
+				return nil
+			}
 			_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
@@ -168,6 +208,8 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "test filename")
 	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "test github repository branch")
 	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "", "run a specific test")
+	cmd.Flags().BoolP("manifest-mutate", "", false, "prints out a template test manifest for a mutate policy")
+	cmd.Flags().BoolP("manifest-validate", "", false, "prints out a template test manifest for a validate policy")
 	return cmd
 }
 
@@ -274,6 +316,10 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		tf.enabled = false
 	}
 
+	openAPIController, err := openapi.NewOpenAPIController()
+	if err != nil {
+		return rc, fmt.Errorf("unable to create open api controller, %w", err)
+	}
 	if strings.Contains(string(dirPath[0]), "https://") {
 		gitURL, err := url.Parse(dirPath[0])
 		if err != nil {
@@ -351,7 +397,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 					continue
 				}
 
-				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, tf); err != nil {
+				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, openAPIController, tf); err != nil {
 					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
 			}
@@ -368,7 +414,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		var testFiles int
 		var deprecatedFiles int
 		path := filepath.Clean(dirPath[0])
-		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, &deprecatedFiles, tf)
+		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, &deprecatedFiles, openAPIController, tf)
 
 		if testFiles == 0 {
 			fmt.Printf("\n No test files found. Please provide test YAML files named kyverno-test.yaml \n")
@@ -395,7 +441,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, deprecatedFiles *int, tf *testFilter) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, deprecatedFiles *int, openAPIController *openapi.Controller, tf *testFilter) []error {
 	var errors []error
 
 	files, err := ioutil.ReadDir(path)
@@ -404,7 +450,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, deprecatedFiles, tf)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, deprecatedFiles, openAPIController, tf)
 			continue
 		}
 		if strings.Contains(file.Name(), fileName) || strings.Contains(file.Name(), "test.yaml") {
@@ -423,7 +469,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 				errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
 				continue
 			}
-			if err := applyPoliciesFromPath(fs, valuesBytes, false, path, rc, tf); err != nil {
+			if err := applyPoliciesFromPath(fs, valuesBytes, false, path, rc, openAPIController, tf); err != nil {
 				errors = append(errors, sanitizederror.NewWithError(fmt.Sprintf("failed to apply test command from file %s", file.Name()), err))
 				continue
 			}
@@ -659,8 +705,8 @@ func getFullPath(paths []string, policyResourcePath string, isGit bool) []string
 	return paths
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, tf *testFilter) (err error) {
-	openAPIController, err := openapi.NewOpenAPIController()
+func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openAPIController *openapi.Controller, tf *testFilter) (err error) {
+
 	engineResponses := make([]*response.EngineResponse, 0)
 	var dClient *client.Client
 	values := &Test{}
@@ -723,7 +769,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 	policies = filteredPolicies
 
-	mutatedPolicies, err := common.MutatePolices(policies)
+	mutatedPolicies, err := common.MutatePolicies(policies)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to mutate policy", err)
