@@ -242,7 +242,7 @@ func Test_PolicyDeserilize(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	overlayPatches := policy.Spec.Rules[0].Mutation.PatchStrategicMerge
+	overlayPatches := policy.Spec.Rules[0].Mutation.GetPatchStrategicMerge()
 	patchString, err := json.Marshal(overlayPatches)
 	assert.NilError(t, err)
 
