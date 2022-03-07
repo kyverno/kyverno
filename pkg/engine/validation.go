@@ -168,9 +168,9 @@ func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *vali
 		rule:             ruleCopy,
 		ctx:              ctx,
 		contextEntries:   ruleCopy.Context,
-		anyAllConditions: ruleCopy.AnyAllConditions,
-		pattern:          ruleCopy.Validation.Pattern,
-		anyPattern:       ruleCopy.Validation.AnyPattern,
+		anyAllConditions: ruleCopy.GetAnyAllConditions(),
+		pattern:          ruleCopy.Validation.GetPattern(),
+		anyPattern:       ruleCopy.Validation.GetAnyPattern(),
 		deny:             ruleCopy.Validation.Deny,
 	}
 }
@@ -188,8 +188,8 @@ func newForeachValidator(foreach *kyverno.ForEachValidation, rule *kyverno.Rule,
 		rule:             ruleCopy,
 		contextEntries:   foreach.Context,
 		anyAllConditions: anyAllConditions,
-		pattern:          foreach.Pattern,
-		anyPattern:       foreach.AnyPattern,
+		pattern:          foreach.GetPattern(),
+		anyPattern:       foreach.GetAnyPattern(),
 		deny:             foreach.Deny,
 	}
 }
@@ -354,7 +354,7 @@ func (v *validator) loadContext() error {
 }
 
 func (v *validator) validateDeny() *response.RuleResponse {
-	anyAllCond := v.deny.AnyAllConditions
+	anyAllCond := v.deny.GetAnyAllConditions()
 	anyAllCond, err := variables.SubstituteAll(v.log, v.ctx.JSONContext, anyAllCond)
 	if err != nil {
 		return ruleError(v.rule, utils.Validation, "failed to substitute variables in deny conditions", err)
