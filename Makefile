@@ -223,7 +223,7 @@ test-clean:
 	go clean -testcache ./...
 
 .PHONY: test-cli
-test-cli: test-cli-policies test-cli-local test-cli-local-mutate
+test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-test-case-selector-flag
 
 .PHONY: test-cli-policies
 test-cli-policies: cli
@@ -237,6 +237,9 @@ test-cli-local: cli
 test-cli-local-mutate: cli
 	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test
 
+.PHONY: test-cli-test-case-selector-flag
+test-cli-test-case-selector-flag: cli
+	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
 
 # go get downloads and installs the binary
 # we temporarily add the GO_ACC to the path
