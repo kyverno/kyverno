@@ -3,7 +3,7 @@
 ##################################
 # DEFAULTS
 ##################################
-GIT_VERSION := $(shell git describe --match "v[0-9]*")
+GIT_VERSION := $(shell git describe --match "v[0-9]*" --tags $(git rev-list --tags --max-count=1))
 GIT_VERSION_DEV := $(shell git describe --match "[0-9].[0-9]-dev*")
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
@@ -87,9 +87,9 @@ docker-publish-initContainer-dev: docker-buildx-builder docker-push-initContaine
 docker-push-initContainer-dev: docker-buildx-builder
 	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
-	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(INITC_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(INITC_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 
-docker-get-initContainer-dev-digest:
+docker-get-initContainer-digest-dev:
 	@docker buildx imagetools inspect --raw $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 ##################################
 # KYVERNO CONTAINER
@@ -130,9 +130,9 @@ docker-publish-kyverno-dev: docker-buildx-builder docker-push-kyverno-dev
 docker-push-kyverno-dev: docker-buildx-builder
 	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
-	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(KYVERNO_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(KYVERNO_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 
-docker-get-kyverno-dev-digest:
+docker-get-kyverno-digest-dev:
 	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 ##################################
 
@@ -173,9 +173,9 @@ docker-publish-cli-dev: docker-buildx-builder docker-push-cli-dev
 docker-push-cli-dev: docker-buildx-builder
 	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG_DEV) . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
-	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(KYVERNO_CLI_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(KYVERNO_CLI_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 
-docker-get-cli-dev-digest:
+docker-get-cli-digest-dev:
 	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 
 ##################################
@@ -365,4 +365,8 @@ gen-helm-docs: ## Generate Helm docs
 
 .PHONY: check-helm-docs
 check-helm-docs: gen-helm-docs ## Check Helm docs
-	@git diff --quiet charts/**/README.md
+	git add --all
+	git diff charts/**/README.md
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm-docs".'
+	@echo 'To correct this, locally run "make gen-helm-docs", commit the changes, and re-run tests.'
+	git diff --quiet --exit-code charts/**/README.md
