@@ -3,6 +3,7 @@
 ##################################
 # DEFAULTS
 ##################################
+
 GIT_VERSION := $(shell git describe --match "v[0-9]*" --tags $(git rev-list --tags --max-count=1))
 GIT_VERSION_DEV := $(shell git describe --match "[0-9].[0-9]-dev*")
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
@@ -29,6 +30,7 @@ LD_FLAGS_DEV="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION_DEV) -X
 K8S_VERSION ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
 export K8S_VERSION
 TEST_GIT_BRANCH ?= main
+
 ##################################
 # KYVERNO
 ##################################
@@ -50,6 +52,7 @@ PWD := $(CURDIR)
 ##################################
 # INIT CONTAINER
 ##################################
+
 INITC_PATH := cmd/initContainer
 INITC_IMAGE := kyvernopre
 initContainer: fmt vet
@@ -91,9 +94,11 @@ docker-push-initContainer-dev: docker-buildx-builder
 
 docker-get-initContainer-digest-dev:
 	@docker buildx imagetools inspect --raw $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
+
 ##################################
 # KYVERNO CONTAINER
 ##################################
+
 .PHONY: docker-build-kyverno docker-push-kyverno
 KYVERNO_PATH := cmd/kyverno
 KYVERNO_IMAGE := kyverno
@@ -134,8 +139,8 @@ docker-push-kyverno-dev: docker-buildx-builder
 
 docker-get-kyverno-digest-dev:
 	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
-##################################
 
+##################################
 # Generate Docs for types.go
 ##################################
 
@@ -192,9 +197,6 @@ docker-build-all-amd64: docker-buildx-builder docker-build-initContainer-amd64 d
 create-e2e-infrastruture: docker-build-initContainer-local docker-build-kyverno-local
 	chmod a+x $(PWD)/scripts/create-e2e-infrastruture.sh
 	$(PWD)/scripts/create-e2e-infrastruture.sh
-
-
-##################################
 
 ##################################
 # Testing & Code-Coverage
@@ -299,13 +301,20 @@ release-notes:
 	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)" ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
 	true
 
+##################################
+# CODEGEN
+##################################
+
+.PHONY: kyverno-crd
 kyverno-crd: controller-gen
 	$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
 
+.PHONY: report-crd
 report-crd: controller-gen
 	$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
 
 # install the right version of controller-gen
+.PHONY: install-controller-gen
 install-controller-gen:
 	@{ \
 	set -e ;\
@@ -318,6 +327,7 @@ install-controller-gen:
 	CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
 
 # setup controller-gen with the right version, if necessary
+.PHONY: controller-gen
 controller-gen:
 ifeq (, $(shell which controller-gen))
 	@{ \
@@ -337,9 +347,22 @@ CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
 # Bootstrap auto-generable code associated with deepcopy
+.PHONY: deepcopy-autogen
 deepcopy-autogen: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..."
 
+.PHONY: codegen
+codegen: kyverno-crd report-crd deepcopy-autogen
+
+.PHONY: verify-codegen
+verify-codegen: codegen
+	git add --all
+	git diff api
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen".'
+	@echo 'To correct this, locally run "make codegen", commit the changes, and re-run tests.'
+	git diff --quiet --exit-code api
+
+.PHONY: goimports
 goimports:
 ifeq (, $(shell which goimports))
 	@{ \
@@ -352,9 +375,11 @@ GO_IMPORTS=$(shell which goimports)
 endif
 
 # Run go fmt against code
+.PHONY: fmt
 fmt: goimports
 	go fmt ./... && $(GO_IMPORTS) -w ./
 
+.PHONY: vet
 vet:
 	go vet ./...
 
@@ -365,4 +390,3 @@ vet:
 .PHONY: gen-helm-docs
 gen-helm-docs: ## Generate Helm docs
 	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.6.0 -s file
-
