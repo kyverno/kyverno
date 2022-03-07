@@ -43,7 +43,7 @@ func Mutate(rule *kyverno.Rule, ctx *context.Context, resource unstructured.Unst
 	}
 
 	m := updatedRule.Mutation
-	patcher := NewPatcher(updatedRule.Name, m.PatchStrategicMerge, m.PatchesJSON6902, resource, ctx, logger)
+	patcher := NewPatcher(updatedRule.Name, m.GetPatchStrategicMerge(), m.PatchesJSON6902, resource, ctx, logger)
 	if patcher == nil {
 		return newResponse(response.RuleStatusError, resource, nil, "empty mutate rule")
 	}
@@ -70,7 +70,7 @@ func ForEach(name string, foreach *kyverno.ForEachMutation, ctx *context.Context
 		return newErrorResponse("variable substitution failed", err)
 	}
 
-	patcher := NewPatcher(name, fe.PatchStrategicMerge, fe.PatchesJSON6902, resource, ctx, logger)
+	patcher := NewPatcher(name, fe.GetPatchStrategicMerge(), fe.PatchesJSON6902, resource, ctx, logger)
 	if patcher == nil {
 		return newResponse(response.RuleStatusError, unstructured.Unstructured{}, nil, "no patches found")
 	}
