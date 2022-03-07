@@ -14,7 +14,7 @@ func Evaluate(log logr.Logger, ctx context.EvalInterface, condition kyverno.Cond
 	if handle == nil {
 		return false
 	}
-	return handle.Evaluate(condition.Key, condition.Value)
+	return handle.Evaluate(condition.GetKey(), condition.GetValue())
 }
 
 //EvaluateConditions evaluates all the conditions present in a slice, in a backwards compatible way
