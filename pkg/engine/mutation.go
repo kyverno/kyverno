@@ -118,7 +118,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 }
 
 func mutateResource(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
-	preconditionsPassed, err := checkPreconditions(logger, ctx, rule.AnyAllConditions)
+	preconditionsPassed, err := checkPreconditions(logger, ctx, rule.GetAnyAllConditions())
 	if err != nil {
 		return ruleError(rule, utils.Mutation, "failed to evaluate preconditions", err), resource
 	}
@@ -148,7 +148,7 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 			return ruleError(rule, utils.Mutation, "failed to load context", err), resource
 		}
 
-		preconditionsPassed, err := checkPreconditions(logger, ctx, rule.AnyAllConditions)
+		preconditionsPassed, err := checkPreconditions(logger, ctx, rule.GetAnyAllConditions())
 		if err != nil {
 			return ruleError(rule, utils.Mutation, "failed to evaluate preconditions", err), resource
 		}

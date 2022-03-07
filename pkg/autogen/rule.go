@@ -11,7 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // the kyvernoRule holds the temporary kyverno rule struct
@@ -122,15 +122,15 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		controllerRule.Context = &rule.DeepCopy().Context
 	}
 
-	kyvernoAnyAllConditions, _ := utils.ApiextensionsJsonToKyvernoConditions(rule.AnyAllConditions)
+	kyvernoAnyAllConditions, _ := utils.ApiextensionsJsonToKyvernoConditions(rule.GetAnyAllConditions())
 	switch typedAnyAllConditions := kyvernoAnyAllConditions.(type) {
 	case kyverno.AnyAllConditions:
 		if !reflect.DeepEqual(typedAnyAllConditions, kyverno.AnyAllConditions{}) {
-			controllerRule.AnyAllConditions = &rule.DeepCopy().AnyAllConditions
+			controllerRule.AnyAllConditions = rule.DeepCopy().RawAnyAllConditions
 		}
 	case []kyverno.Condition:
 		if len(typedAnyAllConditions) > 0 {
-			controllerRule.AnyAllConditions = &rule.DeepCopy().AnyAllConditions
+			controllerRule.AnyAllConditions = rule.DeepCopy().RawAnyAllConditions
 		}
 	}
 
@@ -161,15 +161,15 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		}
 	}
 
-	if rule.Mutation.PatchStrategicMerge != nil {
-		newMutation := &kyverno.Mutation{
-			PatchStrategicMerge: map[string]interface{}{
+	if target := rule.Mutation.GetPatchStrategicMerge(); target != nil {
+		newMutation := &kyverno.Mutation{}
+		newMutation.SetPatchStrategicMerge(
+			map[string]interface{}{
 				"spec": map[string]interface{}{
-					"template": rule.Mutation.PatchStrategicMerge,
+					"template": target,
 				},
 			},
-		}
-
+		)
 		controllerRule.Mutation = newMutation.DeepCopy()
 		return controllerRule
 	}
@@ -177,16 +177,19 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	if len(rule.Mutation.ForEachMutation) > 0 && rule.Mutation.ForEachMutation != nil {
 		var newForeachMutation []*kyverno.ForEachMutation
 		for _, foreach := range rule.Mutation.ForEachMutation {
-			newForeachMutation = append(newForeachMutation, &kyverno.ForEachMutation{
+			temp := &kyverno.ForEachMutation{
 				List:             foreach.List,
 				Context:          foreach.Context,
 				AnyAllConditions: foreach.AnyAllConditions,
-				PatchStrategicMerge: map[string]interface{}{
+			}
+			temp.SetPatchStrategicMerge(
+				map[string]interface{}{
 					"spec": map[string]interface{}{
-						"template": foreach.PatchStrategicMerge,
+						"template": foreach.GetPatchStrategicMerge(),
 					},
 				},
-			})
+			)
+			newForeachMutation = append(newForeachMutation, temp)
 		}
 		controllerRule.Mutation = &kyverno.Mutation{
 			ForEachMutation: newForeachMutation,
@@ -194,15 +197,17 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		return controllerRule
 	}
 
-	if rule.Validation.Pattern != nil {
+	if target := rule.Validation.GetPattern(); target != nil {
 		newValidate := &kyverno.Validation{
 			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
-			Pattern: map[string]interface{}{
+		}
+		newValidate.SetPattern(
+			map[string]interface{}{
 				"spec": map[string]interface{}{
-					"template": rule.Validation.Pattern,
+					"template": target,
 				},
 			},
-		}
+		)
 		controllerRule.Validation = newValidate.DeepCopy()
 		return controllerRule
 	}
@@ -216,18 +221,16 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		return controllerRule
 	}
 
-	if rule.Validation.AnyPattern != nil {
-
+	if rule.Validation.GetAnyPattern() != nil {
 		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 		if err != nil {
 			logger.Error(err, "failed to deserialize anyPattern, expect type array")
 		}
-
 		patterns := validateAnyPattern(anyPatterns)
 		controllerRule.Validation = &kyverno.Validation{
-			Message:    variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "anyPattern"),
-			AnyPattern: patterns,
+			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "anyPattern"),
 		}
+		controllerRule.Validation.SetAnyPattern(patterns)
 		return controllerRule
 	}
 
@@ -301,91 +304,96 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		}
 	}
 
-	if (jobRule.Mutation != nil) && (jobRule.Mutation.PatchStrategicMerge != nil) {
-		newMutation := &kyverno.Mutation{
-			PatchStrategicMerge: map[string]interface{}{
-				"spec": map[string]interface{}{
-					"jobTemplate": jobRule.Mutation.PatchStrategicMerge,
+	if jobRule.Mutation != nil {
+		if target := jobRule.Mutation.GetPatchStrategicMerge(); target != nil {
+			newMutation := &kyverno.Mutation{}
+			newMutation.SetPatchStrategicMerge(
+				map[string]interface{}{
+					"spec": map[string]interface{}{
+						"jobTemplate": target,
+					},
 				},
-			},
+			)
+			cronJobRule.Mutation = newMutation.DeepCopy()
+			return cronJobRule
 		}
-		cronJobRule.Mutation = newMutation.DeepCopy()
-		return cronJobRule
 	}
 
-	if (jobRule.Validation != nil) && (jobRule.Validation.Pattern != nil) {
-		newValidate := &kyverno.Validation{
-			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "pattern"),
-			Pattern: map[string]interface{}{
-				"spec": map[string]interface{}{
-					"jobTemplate": jobRule.Validation.Pattern,
-				},
-			},
-		}
-		cronJobRule.Validation = newValidate.DeepCopy()
-		return cronJobRule
-	}
-
-	if (jobRule.Validation != nil) && (jobRule.Validation.Deny != nil) {
-		newValidate := &kyverno.Validation{
-			Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "pattern"),
-			Deny:    jobRule.Validation.Deny,
-		}
-		cronJobRule.Validation = newValidate.DeepCopy()
-		return cronJobRule
-	}
-
-	if (jobRule.Validation != nil) && (jobRule.Validation.AnyPattern != nil) {
-		var patterns []interface{}
-		anyPatterns, err := jobRule.Validation.DeserializeAnyPattern()
-		if err != nil {
-			logger.Error(err, "failed to deserialize anyPattern, expect type array")
-		}
-
-		for _, pattern := range anyPatterns {
-			newPattern := map[string]interface{}{
-				"spec": map[string]interface{}{
-					"jobTemplate": pattern,
-				},
+	if jobRule.Validation != nil {
+		if target := jobRule.Validation.GetPattern(); target != nil {
+			newValidate := &kyverno.Validation{
+				Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "pattern"),
 			}
-
-			patterns = append(patterns, newPattern)
+			newValidate.SetPattern(
+				map[string]interface{}{
+					"spec": map[string]interface{}{
+						"jobTemplate": target,
+					},
+				},
+			)
+			cronJobRule.Validation = newValidate.DeepCopy()
+			return cronJobRule
 		}
 
-		cronJobRule.Validation = &kyverno.Validation{
-			Message:    variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "anyPattern"),
-			AnyPattern: patterns,
+		if jobRule.Validation.Deny != nil {
+			newValidate := &kyverno.Validation{
+				Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "pattern"),
+				Deny:    jobRule.Validation.Deny,
+			}
+			cronJobRule.Validation = newValidate.DeepCopy()
+			return cronJobRule
 		}
-		return cronJobRule
+
+		if target := jobRule.Validation.GetAnyPattern(); target != nil {
+			var patterns []interface{}
+			anyPatterns, err := jobRule.Validation.DeserializeAnyPattern()
+			if err != nil {
+				logger.Error(err, "failed to deserialize anyPattern, expect type array")
+			}
+			for _, pattern := range anyPatterns {
+				newPattern := map[string]interface{}{
+					"spec": map[string]interface{}{
+						"jobTemplate": pattern,
+					},
+				}
+				patterns = append(patterns, newPattern)
+			}
+			cronJobRule.Validation = &kyverno.Validation{
+				Message: variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/jobTemplate/spec/template", "anyPattern"),
+			}
+			cronJobRule.Validation.SetAnyPattern(patterns)
+			return cronJobRule
+		}
+
+		if len(jobRule.Validation.ForEachValidation) > 0 && jobRule.Validation.ForEachValidation != nil {
+			newForeachValidate := make([]*kyverno.ForEachValidation, len(jobRule.Validation.ForEachValidation))
+			for i, foreach := range rule.Validation.ForEachValidation {
+				newForeachValidate[i] = foreach
+			}
+			cronJobRule.Validation = &kyverno.Validation{
+				Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
+				ForEachValidation: newForeachValidate,
+			}
+			return cronJobRule
+		}
 	}
 
-	if (jobRule.Validation != nil) && len(jobRule.Validation.ForEachValidation) > 0 && jobRule.Validation.ForEachValidation != nil {
-		newForeachValidate := make([]*kyverno.ForEachValidation, len(jobRule.Validation.ForEachValidation))
-		for i, foreach := range rule.Validation.ForEachValidation {
-			newForeachValidate[i] = foreach
-		}
-		cronJobRule.Validation = &kyverno.Validation{
-			Message:           variables.FindAndShiftReferences(log, rule.Validation.Message, "spec/template", "pattern"),
-			ForEachValidation: newForeachValidate,
-		}
-		return cronJobRule
-	}
-
-	if (jobRule.Mutation != nil) && len(jobRule.Mutation.ForEachMutation) > 0 && jobRule.Mutation.ForEachMutation != nil {
-
+	if jobRule.Mutation != nil && len(jobRule.Mutation.ForEachMutation) > 0 && jobRule.Mutation.ForEachMutation != nil {
 		var newForeachMutation []*kyverno.ForEachMutation
-
 		for _, foreach := range jobRule.Mutation.ForEachMutation {
-			newForeachMutation = append(newForeachMutation, &kyverno.ForEachMutation{
+			temp := &kyverno.ForEachMutation{
 				List:             foreach.List,
 				Context:          foreach.Context,
 				AnyAllConditions: foreach.AnyAllConditions,
-				PatchStrategicMerge: map[string]interface{}{
+			}
+			temp.SetPatchStrategicMerge(
+				map[string]interface{}{
 					"spec": map[string]interface{}{
-						"jobTemplate": foreach.PatchStrategicMerge,
+						"jobTemplate": foreach.GetPatchStrategicMerge(),
 					},
 				},
-			})
+			)
+			newForeachMutation = append(newForeachMutation, temp)
 		}
 		cronJobRule.Mutation = &kyverno.Mutation{
 			ForEachMutation: newForeachMutation,
