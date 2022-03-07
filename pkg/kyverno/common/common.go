@@ -415,7 +415,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		fmt.Printf(("\nNOTICE: request.object.* variables are automatically parsed from the supplied resource. Ignoring value of variables `%v`.\n"), reqObjVars)
 	}
 
-	storePolices := make([]store.Policy, 0)
+	storePolicies := make([]store.Policy, 0)
 	for policyName, ruleMap := range valuesMapRule {
 		storeRules := make([]store.Rule, 0)
 		for _, rule := range ruleMap {
@@ -424,21 +424,21 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 				Values: rule.Values,
 			})
 		}
-		storePolices = append(storePolices, store.Policy{
+		storePolicies = append(storePolicies, store.Policy{
 			Name:  policyName,
 			Rules: storeRules,
 		})
 	}
 
 	store.SetContext(store.Context{
-		Policies: storePolices,
+		Policies: storePolicies,
 	})
 
 	return variables, globalValMap, valuesMapResource, namespaceSelectorMap, nil
 }
 
-// MutatePolices - function to apply mutation on policies
-func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
+// MutatePolicies - function to apply mutation on policies
+func MutatePolicies(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 	newPolicies := make([]*v1.ClusterPolicy, 0)
 	logger := log.Log.WithName("apply")
 
@@ -507,7 +507,7 @@ OuterLoop:
 		resourceNamespace := resource.GetNamespace()
 		namespaceLabels = namespaceSelectorMap[resource.GetNamespace()]
 		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-			return engineResponses, policyreport.Info{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
+			return engineResponses, policyreport.Info{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
 		}
 	}
 
@@ -854,7 +854,7 @@ func processGenerateEngineResponse(policy *v1.ClusterPolicy, generateResponse *r
 }
 
 func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string]string) map[string]string {
-	storePolices := make([]store.Policy, 0)
+	storePolicies := make([]store.Policy, 0)
 	for _, policy := range mutatedPolicies {
 		storeRules := make([]store.Rule, 0)
 		for _, rule := range policy.Spec.Rules {
@@ -874,14 +874,14 @@ func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string
 				})
 			}
 		}
-		storePolices = append(storePolices, store.Policy{
+		storePolicies = append(storePolicies, store.Policy{
 			Name:  policy.Name,
 			Rules: storeRules,
 		})
 	}
 
 	store.SetContext(store.Context{
-		Policies: storePolices,
+		Policies: storePolicies,
 	})
 
 	return variables

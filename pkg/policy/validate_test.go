@@ -1642,6 +1642,6 @@ func Test_patchesJson6902_Policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, false, openAPIController)
+	err = Validate(policy, nil, true, openAPIController)
 	assert.NilError(t, err)
 }

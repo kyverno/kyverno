@@ -1,4 +1,8 @@
-# Kyverno Policies
+# kyverno-policies
+
+Kubernetes Pod Security Standards implemented as Kyverno policies
+
+![Version: v2.3.0](https://img.shields.io/badge/Version-v2.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.6.0](https://img.shields.io/badge/AppVersion-v1.6.0-informational?style=flat-square)
 
 ## About
 
@@ -33,7 +37,7 @@ An additional policy "require-non-root-groups" is included in an `other` group a
 
 For the latest version of these PSS policies, always refer to the kyverno/policies repo at https://github.com/kyverno/policies/tree/main/pod-security.
 
-## TL;DR Instructions
+## Installing the Chart
 
 These PSS policies presently have a minimum requirement of Kyverno 1.6.0.
 
@@ -55,31 +59,34 @@ $ helm delete -n kyverno kyverno-policies
 
 The command removes all the Kubernetes components associated with the chart and deletes the release.
 
-## Configuration
+## Values
 
-The following table lists the configurable parameters of the kyverno chart and their default values.
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| podSecurityStandard | string | `"baseline"` | Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`). For more info https://kyverno.io/policies/pod-security. |
+| podSecuritySeverity | string | `"medium"` | Pod Security Standard (`low`, `medium`, `high`). |
+| podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
+| includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
+| validationFailureAction | string | `"audit"` | Validation failure action (`audit`, `enforce`). For more info https://kyverno.io/docs/writing-policies/validate. |
+| validationFailureActionOverrides | object | `{"all":[]}` | Define validationFailureActionOverrides for specific policies. The overrides for `all` will apply to all policies. |
+| policyExclude | object | `{}` | Exclude resources from individual policies. Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map. |
+| nameOverride | string | `nil` | Name override. |
+| customLabels | object | `{}` | Additional labels. |
+| background | bool | `true` | Policies background mode |
 
-| Parameter                          | Description                                                                                                                                                                                                                                              | Default                                                                                                                                                                                                                                                                  |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `includeOtherPolicies`              | Additional policies to include from `other` directory                                                              | `[]`                                                                                                                                                                                                                                                               |
-| `podSecurityStandard`              | set desired pod security level `privileged`, `baseline`, `restricted`, `custom`. Set to `restricted` for maximum security for your cluster. See: https://kyverno.io/policies/pod-security/                                                               | `baseline`                                                                                                                                                                                                                                                               |
-| `podSecuritySeverity`              | set desired pod security severity `low`, `medium`, `high`. Used severity level in PolicyReportResults for the selected pod security policies.                                                                                                            | `medium`                                                                                                                                                                                                                                                                 |
-| `podSecurityPolicies`              | Policies to include when `podSecurityStandard` is set to `custom`                                                                                                                                                                                        | `[]`                                                                                                                                                                                                                                                                     |
-| `policyExclude`              | Exclude resources from individual policies                                                                                                                                                                                        | `{}`                                                                                                                                                                                                                                                                     |
-| `validationFailureAction`          | set to get response in failed validation check. Supported values are `audit` and `enforce`. See: https://kyverno.io/docs/writing-policies/validate/                                                                                                      | `audit`                                                                                                                                                                                                                                                                  |
-| `validationFailureActionOverrides`          | Set validate failure action overrides to either all policies or select policies. See: https://kyverno.io/docs/writing-policies/validate/                                                                                                      | `{}`                                                                                                                                                                                                                                                                  |
+## Source Code
 
-Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
+* <https://github.com/kyverno/policies>
 
-```console
-$ helm install --namespace kyverno kyverno-policies ./charts/kyverno-policies \
-  --set=podSecurityStandard=restricted,validationFailureAction=enforce
-```
+## Requirements
 
-Alternatively, a YAML file that specifies the values for the above parameters can be provided while installing the chart. For example,
+Kubernetes: `>=1.16.0-0`
 
-```console
-$ helm install --namespace kyverno kyverno-policies ./charts/kyverno-policies -f values.yaml
-```
+## Maintainers
 
-> **Tip**: You can use the default [values.yaml](values.yaml)
+| Name | Email | Url |
+| ---- | ------ | --- |
+| Nirmata |  | https://kyverno.io/ |
+
+----------------------------------------------
+Autogenerated from chart metadata using [helm-docs v1.6.0](https://github.com/norwoodj/helm-docs/releases/v1.6.0)
