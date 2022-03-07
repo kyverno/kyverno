@@ -64,6 +64,9 @@ jobs:
         run: |
           make unused-package-check
 
+      - name: Verify generated code is up to date
+        run: make verify-codegen
+
   tests:
     runs-on: ubuntu-latest
     needs: pre-checks
