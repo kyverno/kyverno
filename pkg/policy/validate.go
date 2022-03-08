@@ -143,7 +143,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 
 		if jsonPatchOnPod(rule) {
-			log.Log.V(1).Info("pods managed by workload controllers cannot be mutated using policies, use the auto-gen feature or write policies that match pod controllers")
+			log.Log.V(1).Info("Pods managed by workload controllers cannot be mutated using policies. Use the autogen feature or write policies that match Pod controllers.")
 			return &v1beta1.AdmissionResponse{
 				Allowed:  true,
 				Warnings: []string{"Pods managed by workload controllers cannot be mutated using policies. Use the autogen feature or write policies that match Pod controllers."},
