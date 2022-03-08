@@ -387,3 +387,11 @@ vet:
 .PHONY: gen-helm-docs
 gen-helm-docs: ## Generate Helm docs
 	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.6.0 -s file
+
+.PHONY: check-helm-docs
+check-helm-docs: gen-helm-docs ## Check Helm docs
+	git add --all
+	git diff charts/**/README.md
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm-docs".'
+	@echo 'To correct this, locally run "make gen-helm-docs", commit the changes, and re-run tests.'
+	git diff --quiet --exit-code charts/**/README.md
