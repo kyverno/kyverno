@@ -679,7 +679,7 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 
 func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy, status bool) error {
 	policyCopy := policy.DeepCopy()
-	policyCopy.Status.Ready = status
+	policyCopy.Status.SetReady(status)
 	if policy.GetNamespace() == "" {
 		_, err := m.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), policyCopy, v1.UpdateOptions{})
 		return err
