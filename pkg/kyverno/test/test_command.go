@@ -78,6 +78,21 @@ applying 1 policy to 4 resources...
 
 Test Summary: 4 tests passed and 0 tests failed
 
+# Test some specific test cases out of many test cases in a local folder.
+kyverno test . --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
+
+Executing test-simple...
+applying 1 policy to 1 resource... 
+
+│───│─────────────────────│───────────────────│─────────────────────────────────────────│────────│
+│ # │ POLICY              │ RULE              │ RESOURCE                                │ RESULT │
+│───│─────────────────────│───────────────────│─────────────────────────────────────────│────────│
+│ 1 │ disallow-latest-tag │ require-image-tag │ default/Pod/test-require-image-tag-pass │ Pass   │
+│───│─────────────────────│───────────────────│─────────────────────────────────────────│────────│
+
+Test Summary: 1 tests passed and 0 tests failed
+
+
 
 **TEST FILE STRUCTURE**:
 
@@ -207,7 +222,7 @@ results:
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "test filename")
 	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "test github repository branch")
-	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "", "run a specific test")
+	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "", `run some specific test cases by passing a string argument in double quotes to this flag like - "policy=<policy_name>, rule=<rule_name>, resource=<resource_name". The argument could be any combination of policy, rule and resource.`)
 	cmd.Flags().BoolP("manifest-mutate", "", false, "prints out a template test manifest for a mutate policy")
 	cmd.Flags().BoolP("manifest-validate", "", false, "prints out a template test manifest for a validate policy")
 	return cmd
@@ -766,6 +781,20 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 				break
 			}
 		}
+	}
+
+	for _, p := range filteredPolicies {
+		var filteredRules = []v1.Rule{}
+
+		for _, rule := range p.Spec.Rules {
+			for _, res := range values.Results {
+				if rule.Name == res.Rule {
+					filteredRules = append(filteredRules, rule)
+					break
+				}
+			}
+		}
+		p.Spec.Rules = filteredRules
 	}
 	policies = filteredPolicies
 
