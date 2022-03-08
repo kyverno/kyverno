@@ -388,28 +388,21 @@ vet:
 gen-helm-docs: ## Generate Helm docs
 	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.6.0 -s file
 
-.PHONY: gen-helm-crds
-gen-helm-crds: codegen
-	{ \
-		echo "{{- if .Values.installCRDs }}"; \
-		cat ./config/crds/kyverno.io_clusterpolicies.yaml \
-			./config/crds/kyverno.io_clusterreportchangerequests.yaml \
-			./config/crds/kyverno.io_generaterequests.yaml \
-			./config/crds/kyverno.io_policies.yaml \
-			./config/crds/kyverno.io_reportchangerequests.yaml \
-			./config/crds/wgpolicyk8s.io_clusterpolicyreports.yaml \
-			./config/crds/wgpolicyk8s.io_policyreports.yaml; \
-		echo "{{- end }}"; \
-	} \
-	> charts/kyverno/templates/crds.yaml
-
 .PHONY: gen-helm
-gen-helm: gen-helm-docs gen-helm-crds
+gen-helm: gen-helm-docs kustomize-crd ## Generate Helm charts stuff
 
 .PHONY: verify-helm
-verify-helm: gen-helm
+verify-helm: gen-helm ## Check Helm charts are up to date
 	git add --all
 	git diff charts
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm".'
 	@echo 'To correct this, locally run "make gen-helm", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code charts
+
+.PHONY: check-helm-docs
+check-helm-docs: gen-helm-docs ## Check Helm docs
+	git add --all
+	git diff charts/**/README.md
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm-docs".'
+	@echo 'To correct this, locally run "make gen-helm-docs", commit the changes, and re-run tests.'
+	git diff --quiet --exit-code charts/**/README.md
