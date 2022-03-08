@@ -444,7 +444,7 @@ type Mutation struct {
 	// +optional
 	PatchesJSON6902 string `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
 
-	// ForEachMutation applies policy rule changes to nested elements.
+	// ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
 	ForEachMutation []*ForEachMutation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
@@ -457,7 +457,7 @@ func (base *Mutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 	base.RawPatchStrategicMerge = ToJSON(in)
 }
 
-// ForEachMutation applies policy rule changes to nested elements.
+// ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachMutation struct {
 	// List specifies a JMESPath expression that results in one or more elements
 	// to which the validation logic is applied.
@@ -501,7 +501,7 @@ type Validation struct {
 	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
-	// ForEach applies policy rule changes to nested elements.
+	// ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
 	ForEachValidation []*ForEachValidation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 
@@ -552,7 +552,7 @@ func (base *Deny) SetAnyAllConditions(in apiextensions.JSON) {
 	base.RawAnyAllConditions = ToJSON(in)
 }
 
-// ForEachValidation applies policy rule checks to nested elements.
+// ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachValidation struct {
 
 	// List specifies a JMESPath expression that results in one or more elements
