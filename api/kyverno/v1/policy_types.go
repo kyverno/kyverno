@@ -44,7 +44,7 @@ type Spec struct {
 
 	// Rules is a list of Rule instances. A Policy contains multiple rules and
 	// each rule can validate, mutate, or generate resources.
-	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
+	RawRules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
 
 	// FailurePolicy defines how unrecognized errors from the admission endpoint are handled.
 	// Rules within the same policy share the same failure behavior.
@@ -79,6 +79,14 @@ type Spec struct {
 	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
 	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
 	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
+}
+
+func (base *Spec) GetRules() []Rule {
+	return base.RawRules
+}
+
+func (base *Spec) SetRules(rules []Rule) {
+	base.RawRules = rules
 }
 
 // Rule defines a validation, mutation, or generation control for matching resources.

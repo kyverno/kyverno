@@ -121,7 +121,7 @@ func Test_Any(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.Spec.Rules[0].MatchResources.Any = kyverno.ResourceFilters{
+	policy.Spec.GetRules()[0].MatchResources.Any = kyverno.ResourceFilters{
 		{
 			ResourceDescription: kyverno.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -159,7 +159,7 @@ func Test_All(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.Spec.Rules[0].MatchResources.All = kyverno.ResourceFilters{
+	policy.Spec.GetRules()[0].MatchResources.All = kyverno.ResourceFilters{
 		{
 			ResourceDescription: kyverno.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -197,7 +197,7 @@ func Test_Exclude(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.Spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
+	policy.Spec.GetRules()[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
 
 	rulePatches, errs := GenerateRulePatches(&policy.Spec, engine.PodControllers, log.Log)
 	if len(errs) != 0 {
@@ -261,7 +261,7 @@ func Test_ForEachPod(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.Spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
+	policy.Spec.GetRules()[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
 
 	rulePatches, errs := GenerateRulePatches(&policy.Spec, engine.PodControllers, log.Log)
 	if len(errs) != 0 {
@@ -300,10 +300,10 @@ func Test_CronJob_hasExclude(t *testing.T) {
 		engine.PodControllersAnnotation: controllers,
 	})
 
-	rule := policy.Spec.Rules[0].DeepCopy()
+	rule := policy.Spec.GetRules()[0].DeepCopy()
 	rule.ExcludeResources.Kinds = []string{"Pod"}
 	rule.ExcludeResources.Namespaces = []string{"test"}
-	policy.Spec.Rules[0] = *rule
+	policy.Spec.GetRules()[0] = *rule
 
 	rulePatches, errs := GenerateRulePatches(&policy.Spec, controllers, log.Log)
 	if len(errs) != 0 {
@@ -390,7 +390,7 @@ func Test_Deny(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.Spec.Rules[0].MatchResources.Any = kyverno.ResourceFilters{
+	policy.Spec.GetRules()[0].MatchResources.Any = kyverno.ResourceFilters{
 		{
 			ResourceDescription: kyverno.ResourceDescription{
 				Kinds: []string{"Pod"},
