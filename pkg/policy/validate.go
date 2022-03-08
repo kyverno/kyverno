@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/distribution/distribution/reference"
@@ -145,15 +146,15 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			log.Log.V(1).Info("pods managed by workload controllers cannot be mutated using policies, use the auto-gen feature or write policies that match pod controllers")
 			return &v1beta1.AdmissionResponse{
 				Allowed:  true,
-				Warnings: []string{"pods managed by workload controllers cannot be mutated using policies, use the auto-gen feature or write policies that match pod controllers"},
+				Warnings: []string{"Pods managed by workload controllers cannot be mutated using policies. Use the autogen feature or write policies that match Pod controllers."},
 			}, nil
 		}
 
-		if policy.HasAutoGenAnnotation() {
-			log.Log.V(1).Info("pod controllers excluded by autogen annotation requires additional work of adding preconditions to exclude the controller as part of the policy")
+		if podControllerAutoGenExclusion(policy) {
+			log.Log.V(1).Info("Pod controllers excluded from autogen require adding of preconditions to also exclude the desired controller(s).")
 			return &v1beta1.AdmissionResponse{
 				Allowed:  true,
-				Warnings: []string{"pod controllers excluded by autogen annotation requires additional work of adding preconditions to exclude the controller as part of the policy"},
+				Warnings: []string{"Pod controllers excluded from autogen require adding of preconditions to also exclude the desired controller(s)."},
 			}, nil
 		}
 
@@ -1505,6 +1506,19 @@ func jsonPatchOnPod(rule kyverno.Rule) bool {
 	}
 
 	if utils.ContainsString(rule.MatchResources.Kinds, "Pod") && rule.Mutation.PatchesJSON6902 != "" {
+		return true
+	}
+
+	return false
+}
+
+func podControllerAutoGenExclusion(policy *kyverno.ClusterPolicy) bool {
+	annotations := policy.GetAnnotations()
+	val, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
+	reorderVal := strings.Split(strings.ToLower(val), ",")
+	sort.Slice(reorderVal, func(i, j int) bool { return reorderVal[i] < reorderVal[j] })
+
+	if ok && strings.ToLower(val) == "none" || reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) == false {
 		return true
 	}
 
