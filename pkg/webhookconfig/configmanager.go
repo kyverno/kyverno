@@ -680,11 +680,11 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 
 func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy, status bool) error {
 	policyCopy := policy.DeepCopy()
-	requested, supported, effective := autogen.GetControllers(policy.ObjectMeta, &policy.Spec, m.log)
+	requested, supported, activated := autogen.GetControllers(policy.ObjectMeta, &policy.Spec, m.log)
 	policyCopy.Status.Ready = status
 	policyCopy.Status.Autogen.Requested = requested
 	policyCopy.Status.Autogen.Supported = supported
-	policyCopy.Status.Autogen.Effective = effective
+	policyCopy.Status.Autogen.Activated = activated
 	if policy.GetNamespace() == "" {
 		_, err := m.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), policyCopy, v1.UpdateOptions{})
 		return err

@@ -138,13 +138,13 @@ func GetControllers(meta metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger)
 	}
 
 	// filter supported controllers, keeping only those that have been requested
-	var applicable []string
+	var activated []string
 	for _, controller := range supported {
 		if arrayContains(requested, controller) {
-			applicable = append(applicable, controller)
+			activated = append(activated, controller)
 		}
 	}
-	return requested, supported, applicable
+	return requested, supported, activated
 }
 
 // podControllersKey annotation could be:
