@@ -150,14 +150,6 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			}, nil
 		}
 
-		if podControllerAutoGenExclusion(policy) {
-			log.Log.V(1).Info("Pod controllers excluded from autogen require adding of preconditions to also exclude the desired controller(s).")
-			return &v1beta1.AdmissionResponse{
-				Allowed:  true,
-				Warnings: []string{"Pod controllers excluded from autogen require adding of preconditions to also exclude the desired controller(s)."},
-			}, nil
-		}
-
 		// validate resource description
 		if path, err := validateResources(rule); err != nil {
 			return nil, fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
@@ -253,6 +245,14 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 						}
 					}
 				}
+			}
+
+			if podControllerAutoGenExclusion(policy) {
+				log.Log.V(1).Info("Pod controllers excluded from autogen require adding of preconditions to also exclude the desired controller(s).")
+				return &v1beta1.AdmissionResponse{
+					Allowed:  true,
+					Warnings: []string{"Pod controllers excluded from autogen require adding of preconditions to also exclude the desired controller(s)."},
+				}, nil
 			}
 
 			if rule.HasMutate() {
