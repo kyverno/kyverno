@@ -42,7 +42,7 @@ func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
 
 // HasMutateOrValidateOrGenerate checks for rule types
 func (p *ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
-	for _, rule := range p.Spec.Rules {
+	for _, rule := range p.Spec.GetRules() {
 		if rule.HasMutate() || rule.HasValidate() || rule.HasGenerate() {
 			return true
 		}
@@ -52,7 +52,7 @@ func (p *ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
 
 // HasMutate checks for mutate rule types
 func (p *ClusterPolicy) HasMutate() bool {
-	for _, rule := range p.Spec.Rules {
+	for _, rule := range p.Spec.GetRules() {
 		if rule.HasMutate() {
 			return true
 		}
@@ -63,7 +63,7 @@ func (p *ClusterPolicy) HasMutate() bool {
 
 // HasValidate checks for validate rule types
 func (p *ClusterPolicy) HasValidate() bool {
-	for _, rule := range p.Spec.Rules {
+	for _, rule := range p.Spec.GetRules() {
 		if rule.HasValidate() {
 			return true
 		}
@@ -74,7 +74,7 @@ func (p *ClusterPolicy) HasValidate() bool {
 
 // HasGenerate checks for generate rule types
 func (p *ClusterPolicy) HasGenerate() bool {
-	for _, rule := range p.Spec.Rules {
+	for _, rule := range p.Spec.GetRules() {
 		if rule.HasGenerate() {
 			return true
 		}
@@ -85,7 +85,7 @@ func (p *ClusterPolicy) HasGenerate() bool {
 
 // HasVerifyImages checks for image verification rule types
 func (p *ClusterPolicy) HasVerifyImages() bool {
-	for _, rule := range p.Spec.Rules {
+	for _, rule := range p.Spec.GetRules() {
 		if rule.HasVerifyImages() {
 			return true
 		}
