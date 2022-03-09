@@ -51,6 +51,14 @@ type Spec struct {
 	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
 }
 
+func (s *Spec) GetRules() []Rule {
+	return s.Rules
+}
+
+func (s *Spec) SetRules(rules []Rule) {
+	s.Rules = rules
+}
+
 // HasMutateOrValidateOrGenerate checks for rule types
 func (s *Spec) HasMutateOrValidateOrGenerate() bool {
 	for _, rule := range s.Rules {

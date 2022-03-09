@@ -32,7 +32,7 @@ type ClusterPolicy struct {
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
 func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
 	annotations := p.GetAnnotations()
-	val, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
+	val, ok := annotations[PodControllersAnnotation]
 	if ok && strings.ToLower(val) != "none" {
 		return true
 	}
