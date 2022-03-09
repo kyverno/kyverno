@@ -1,6 +1,9 @@
 package v1
 
 import (
+	"encoding/json"
+	"reflect"
+
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -139,12 +142,57 @@ type Rule struct {
 	VerifyImages []*ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
 
-func (base *Rule) GetAnyAllConditions() apiextensions.JSON {
-	return FromJSON(base.RawAnyAllConditions)
+// HasMutate checks for mutate rule
+func (r *Rule) HasMutate() bool {
+	return !reflect.DeepEqual(r.Mutation, Mutation{})
 }
 
-func (base *Rule) SetAnyAllConditions(in apiextensions.JSON) {
-	base.RawAnyAllConditions = ToJSON(in)
+// HasVerifyImages checks for verifyImages rule
+func (r *Rule) HasVerifyImages() bool {
+	return r.VerifyImages != nil && !reflect.DeepEqual(r.VerifyImages, ImageVerification{})
+}
+
+// HasValidate checks for validate rule
+func (r *Rule) HasValidate() bool {
+	return !reflect.DeepEqual(r.Validation, Validation{})
+}
+
+// HasGenerate checks for generate rule
+func (r *Rule) HasGenerate() bool {
+	return !reflect.DeepEqual(r.Generation, Generation{})
+}
+
+// MatchKinds returns a slice of all kinds to match
+func (r *Rule) MatchKinds() []string {
+	matchKinds := r.MatchResources.ResourceDescription.Kinds
+	for _, value := range r.MatchResources.All {
+		matchKinds = append(matchKinds, value.ResourceDescription.Kinds...)
+	}
+	for _, value := range r.MatchResources.Any {
+		matchKinds = append(matchKinds, value.ResourceDescription.Kinds...)
+	}
+
+	return matchKinds
+}
+
+// ExcludeKinds returns a slice of all kinds to exclude
+func (r *Rule) ExcludeKinds() []string {
+	excludeKinds := r.ExcludeResources.ResourceDescription.Kinds
+	for _, value := range r.ExcludeResources.All {
+		excludeKinds = append(excludeKinds, value.ResourceDescription.Kinds...)
+	}
+	for _, value := range r.ExcludeResources.Any {
+		excludeKinds = append(excludeKinds, value.ResourceDescription.Kinds...)
+	}
+	return excludeKinds
+}
+
+func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
+	return FromJSON(r.RawAnyAllConditions)
+}
+
+func (r *Rule) SetAnyAllConditions(in apiextensions.JSON) {
+	r.RawAnyAllConditions = ToJSON(in)
 }
 
 // FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
@@ -257,20 +305,20 @@ type Condition struct {
 	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
 }
 
-func (base *Condition) GetKey() apiextensions.JSON {
-	return FromJSON(base.RawKey)
+func (c *Condition) GetKey() apiextensions.JSON {
+	return FromJSON(c.RawKey)
 }
 
-func (base *Condition) SetKey(in apiextensions.JSON) {
-	base.RawKey = ToJSON(in)
+func (c *Condition) SetKey(in apiextensions.JSON) {
+	c.RawKey = ToJSON(in)
 }
 
-func (base *Condition) GetValue() apiextensions.JSON {
-	return FromJSON(base.RawValue)
+func (c *Condition) GetValue() apiextensions.JSON {
+	return FromJSON(c.RawValue)
 }
 
-func (base *Condition) SetValue(in apiextensions.JSON) {
-	base.RawValue = ToJSON(in)
+func (c *Condition) SetValue(in apiextensions.JSON) {
+	c.RawValue = ToJSON(in)
 }
 
 // ConditionOperator is the operation performed on condition key and value.
@@ -457,12 +505,12 @@ type Mutation struct {
 	ForEachMutation []*ForEachMutation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
-func (base *Mutation) GetPatchStrategicMerge() apiextensions.JSON {
-	return FromJSON(base.RawPatchStrategicMerge)
+func (m *Mutation) GetPatchStrategicMerge() apiextensions.JSON {
+	return FromJSON(m.RawPatchStrategicMerge)
 }
 
-func (base *Mutation) SetPatchStrategicMerge(in apiextensions.JSON) {
-	base.RawPatchStrategicMerge = ToJSON(in)
+func (m *Mutation) SetPatchStrategicMerge(in apiextensions.JSON) {
+	m.RawPatchStrategicMerge = ToJSON(in)
 }
 
 // ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
@@ -494,17 +542,16 @@ type ForEachMutation struct {
 	PatchesJSON6902 string `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
 }
 
-func (base *ForEachMutation) GetPatchStrategicMerge() apiextensions.JSON {
-	return FromJSON(base.RawPatchStrategicMerge)
+func (m *ForEachMutation) GetPatchStrategicMerge() apiextensions.JSON {
+	return FromJSON(m.RawPatchStrategicMerge)
 }
 
-func (base *ForEachMutation) SetPatchStrategicMerge(in apiextensions.JSON) {
-	base.RawPatchStrategicMerge = ToJSON(in)
+func (m *ForEachMutation) SetPatchStrategicMerge(in apiextensions.JSON) {
+	m.RawPatchStrategicMerge = ToJSON(in)
 }
 
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
-
 	// Message specifies a custom message to be displayed on failure.
 	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
@@ -527,20 +574,43 @@ type Validation struct {
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
 }
 
-func (base *Validation) GetPattern() apiextensions.JSON {
-	return FromJSON(base.RawPattern)
+// DeserializeAnyPattern deserialize apiextensions.JSON to []interface{}
+func (in *Validation) DeserializeAnyPattern() ([]interface{}, error) {
+	anyPattern := in.GetAnyPattern()
+	if anyPattern == nil {
+		return nil, nil
+	}
+	res, nil := deserializePattern(anyPattern)
+	return res, nil
 }
 
-func (base *Validation) SetPattern(in apiextensions.JSON) {
-	base.RawPattern = ToJSON(in)
+func deserializePattern(pattern apiextensions.JSON) ([]interface{}, error) {
+	anyPattern, err := json.Marshal(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []interface{}
+	if err := json.Unmarshal(anyPattern, &res); err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
-func (base *Validation) GetAnyPattern() apiextensions.JSON {
-	return FromJSON(base.RawAnyPattern)
+func (v *Validation) GetPattern() apiextensions.JSON {
+	return FromJSON(v.RawPattern)
 }
 
-func (base *Validation) SetAnyPattern(in apiextensions.JSON) {
-	base.RawAnyPattern = ToJSON(in)
+func (v *Validation) SetPattern(in apiextensions.JSON) {
+	v.RawPattern = ToJSON(in)
+}
+
+func (v *Validation) GetAnyPattern() apiextensions.JSON {
+	return FromJSON(v.RawAnyPattern)
+}
+
+func (v *Validation) SetAnyPattern(in apiextensions.JSON) {
+	v.RawAnyPattern = ToJSON(in)
 }
 
 // Deny specifies a list of conditions used to pass or fail a validation rule.
@@ -552,12 +622,12 @@ type Deny struct {
 	RawAnyAllConditions *apiextv1.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
-func (base *Deny) GetAnyAllConditions() apiextensions.JSON {
-	return FromJSON(base.RawAnyAllConditions)
+func (d *Deny) GetAnyAllConditions() apiextensions.JSON {
+	return FromJSON(d.RawAnyAllConditions)
 }
 
-func (base *Deny) SetAnyAllConditions(in apiextensions.JSON) {
-	base.RawAnyAllConditions = ToJSON(in)
+func (d *Deny) SetAnyAllConditions(in apiextensions.JSON) {
+	d.RawAnyAllConditions = ToJSON(in)
 }
 
 // ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
@@ -598,20 +668,20 @@ type ForEachValidation struct {
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
 }
 
-func (base *ForEachValidation) GetPattern() apiextensions.JSON {
-	return FromJSON(base.RawPattern)
+func (v *ForEachValidation) GetPattern() apiextensions.JSON {
+	return FromJSON(v.RawPattern)
 }
 
-func (base *ForEachValidation) SetPattern(in apiextensions.JSON) {
-	base.RawPattern = ToJSON(in)
+func (v *ForEachValidation) SetPattern(in apiextensions.JSON) {
+	v.RawPattern = ToJSON(in)
 }
 
-func (base *ForEachValidation) GetAnyPattern() apiextensions.JSON {
-	return FromJSON(base.RawAnyPattern)
+func (v *ForEachValidation) GetAnyPattern() apiextensions.JSON {
+	return FromJSON(v.RawAnyPattern)
 }
 
-func (base *ForEachValidation) SetAnyPattern(in apiextensions.JSON) {
-	base.RawAnyPattern = ToJSON(in)
+func (v *ForEachValidation) SetAnyPattern(in apiextensions.JSON) {
+	v.RawAnyPattern = ToJSON(in)
 }
 
 // ImageVerification validates that images that match the specified pattern
@@ -689,12 +759,12 @@ type Generation struct {
 	Clone CloneFrom `json:"clone,omitempty" yaml:"clone,omitempty"`
 }
 
-func (base *Generation) GetData() apiextensions.JSON {
-	return FromJSON(base.RawData)
+func (g *Generation) GetData() apiextensions.JSON {
+	return FromJSON(g.RawData)
 }
 
-func (base *Generation) SetData(in apiextensions.JSON) {
-	base.RawData = ToJSON(in)
+func (g *Generation) SetData(in apiextensions.JSON) {
+	g.RawData = ToJSON(in)
 }
 
 // CloneFrom provides the location of the source resource used to generate target resources.
