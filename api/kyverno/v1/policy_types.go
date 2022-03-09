@@ -44,7 +44,7 @@ type Spec struct {
 
 	// Rules is a list of Rule instances. A Policy contains multiple rules and
 	// each rule can validate, mutate, or generate resources.
-	RawRules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
+	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
 
 	// FailurePolicy defines how unrecognized errors from the admission endpoint are handled.
 	// Rules within the same policy share the same failure behavior.
@@ -82,11 +82,11 @@ type Spec struct {
 }
 
 func (base *Spec) GetRules() []Rule {
-	return base.RawRules
+	return base.Rules
 }
 
 func (base *Spec) SetRules(rules []Rule) {
-	base.RawRules = rules
+	base.Rules = rules
 }
 
 // Rule defines a validation, mutation, or generation control for matching resources.
