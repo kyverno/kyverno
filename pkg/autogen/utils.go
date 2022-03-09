@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/utils"
 )
 
@@ -17,7 +16,7 @@ func isKindOtherthanPod(kinds []string) bool {
 
 func hasAutogenKinds(kind []string) bool {
 	for _, v := range kind {
-		if v == "Pod" || strings.Contains(engine.PodControllers, v) {
+		if v == "Pod" || strings.Contains(PodControllers, v) {
 			return true
 		}
 	}
@@ -52,7 +51,7 @@ func stripCronJob(controllers string) string {
 	var newControllers []string
 	controllerArr := strings.Split(controllers, ",")
 	for _, c := range controllerArr {
-		if c == engine.PodControllerCronJob {
+		if c == PodControllerCronJob {
 			continue
 		}
 		newControllers = append(newControllers, c)
@@ -67,7 +66,7 @@ func cronJobAnyAllAutogenRule(v kyverno.ResourceFilters) kyverno.ResourceFilters
 	anyKind := v.DeepCopy()
 	for i, value := range v {
 		if utils.ContainsPod(value.Kinds, "Job") {
-			anyKind[i].Kinds = []string{engine.PodControllerCronJob}
+			anyKind[i].Kinds = []string{PodControllerCronJob}
 		}
 	}
 	return anyKind
