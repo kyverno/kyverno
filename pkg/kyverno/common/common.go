@@ -566,8 +566,8 @@ OuterLoop:
 
 	if resource.GetKind() == "Pod" && len(resource.GetOwnerReferences()) > 0 {
 		if policy.HasAutoGenAnnotation() {
-			if _, ok := policy.GetAnnotations()[engine.PodControllersAnnotation]; ok {
-				delete(policy.Annotations, engine.PodControllersAnnotation)
+			if _, ok := policy.GetAnnotations()[v1.PodControllersAnnotation]; ok {
+				delete(policy.Annotations, v1.PodControllersAnnotation)
 			}
 		}
 	}

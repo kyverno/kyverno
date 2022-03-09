@@ -10,7 +10,6 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/common"
-	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/utils"
 )
 
@@ -257,7 +256,7 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 	}
 
 	ann := policy.GetAnnotations()
-	actualControllers, ok := ann[engine.PodControllersAnnotation]
+	actualControllers, ok := ann[kyverno.PodControllersAnnotation]
 
 	// - scenario A
 	// - predefined controllers are invalid, overwrite the value
@@ -293,7 +292,7 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 func defaultPodControllerAnnotation(ann map[string]string, controllers string) ([]byte, error) {
 	if ann == nil {
 		ann = make(map[string]string)
-		ann[engine.PodControllersAnnotation] = controllers
+		ann[kyverno.PodControllersAnnotation] = controllers
 		jsonPatch := struct {
 			Path  string      `json:"path"`
 			Op    string      `json:"op"`

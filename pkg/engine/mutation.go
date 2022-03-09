@@ -17,15 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const (
-	// PodControllerCronJob represent CronJob string
-	PodControllerCronJob = "CronJob"
-	//PodControllers stores the list of Pod-controllers in csv string
-	PodControllers = "DaemonSet,Deployment,Job,StatefulSet,CronJob"
-	//PodControllersAnnotation defines the annotation key for Pod-Controllers
-	PodControllersAnnotation = "pod-policies.kyverno.io/autogen-controllers"
-)
-
 // Mutate performs mutation. Overlay first and then mutation patches
 func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}

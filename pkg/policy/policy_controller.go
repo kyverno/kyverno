@@ -571,7 +571,7 @@ func missingAutoGenRules(policy *kyverno.ClusterPolicy, log logr.Logger) bool {
 
 	if len(podRuleName) > 0 {
 		annotations := policy.GetAnnotations()
-		val, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
+		val, ok := annotations[kyverno.PodControllersAnnotation]
 		if !ok {
 			return true
 		}
