@@ -6,7 +6,28 @@ import (
 	"strings"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+func FromJSON(in *apiextv1.JSON) apiextensions.JSON {
+	var out apiextensions.JSON
+	if err := apiextv1.Convert_v1_JSON_To_apiextensions_JSON(in, &out, nil); err != nil {
+		log.Log.Error(err, "failed to convert JSON to interface")
+	}
+	return out
+}
+
+func ToJSON(in apiextensions.JSON) *apiextv1.JSON {
+	if in == nil {
+		return nil
+	}
+	var out apiextv1.JSON
+	if err := apiextv1.Convert_apiextensions_JSON_To_v1_JSON(&in, &out, nil); err != nil {
+		log.Log.Error(err, "failed to convert interface to JSON")
+	}
+	return &out
+}
 
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
 func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
@@ -129,10 +150,11 @@ func (r Rule) ExcludeKinds() []string {
 
 // DeserializeAnyPattern deserialize apiextensions.JSON to []interface{}
 func (in *Validation) DeserializeAnyPattern() ([]interface{}, error) {
-	if in.AnyPattern == nil {
+	anyPattern := in.GetAnyPattern()
+	if anyPattern == nil {
 		return nil, nil
 	}
-	res, nil := deserializePattern(in.AnyPattern)
+	res, nil := deserializePattern(anyPattern)
 	return res, nil
 }
 
@@ -147,236 +169,6 @@ func deserializePattern(pattern apiextensions.JSON) ([]interface{}, error) {
 		return nil, err
 	}
 	return res, nil
-}
-
-func jsonDeepCopy(in apiextensions.JSON) *apiextensions.JSON {
-	if in == nil {
-		return nil
-	}
-
-	out := new(apiextensions.JSON)
-	switch in := in.(type) {
-	case bool, int64, float64, string:
-		*out = in
-	case []interface{}:
-		out_tmp := make([]interface{}, len(in))
-
-		for i, v := range in {
-			if v != nil {
-				out_tmp[i] = *jsonDeepCopy(v)
-			} else {
-				out_tmp[i] = nil
-			}
-		}
-
-		*out = out_tmp
-	case map[string]interface{}:
-		out_tmp := make(map[string]interface{})
-
-		for k, v := range in {
-			if v != nil {
-				out_tmp[k] = *jsonDeepCopy(v)
-			} else {
-				out_tmp[k] = nil
-			}
-		}
-
-		*out = out_tmp
-	}
-
-	return out
-}
-
-// DeepCopyInto is declared because k8s:deepcopy-gen is
-// not able to generate this method for interface{} member
-func (in *Mutation) DeepCopyInto(out *Mutation) {
-	if out == nil {
-		return
-	}
-
-	*out = *in
-	if out.PatchStrategicMerge != nil {
-		out.PatchStrategicMerge = *jsonDeepCopy(in.PatchStrategicMerge)
-	}
-
-	if in.ForEachMutation != nil {
-		out.ForEachMutation = make([]*ForEachMutation, len(in.ForEachMutation))
-		for i, v := range in.ForEachMutation {
-			out.ForEachMutation[i] = v.DeepCopy()
-		}
-	}
-}
-
-// TODO - the DeepCopyInto methods are added here to work-around
-// codegen issues with handling DeepCopy of the apiextensions.JSON
-// type. We need to update to apiextensions/v1.JSON which works
-// with DeepCopy and remove these methods, or re-write them to
-// actually perform a deep copy.
-// Also see: https://github.com/kyverno/kyverno/pull/2000
-
-func (in *Validation) DeepCopyInto(out *Validation) {
-	if out == nil {
-		return
-	}
-
-	*out = *in
-	if in.ForEachValidation != nil {
-		out.ForEachValidation = make([]*ForEachValidation, len(in.ForEachValidation))
-		for i, v := range in.ForEachValidation {
-			out.ForEachValidation[i] = v.DeepCopy()
-		}
-	}
-
-	if in.Pattern != nil {
-		out.Pattern = *jsonDeepCopy(in.Pattern)
-	}
-
-	if in.AnyPattern != nil {
-		out.AnyPattern = *jsonDeepCopy(in.AnyPattern)
-	}
-
-	if in.Deny != nil {
-		out.Deny = in.Deny.DeepCopy()
-	}
-}
-func (in *ForEachValidation) DeepCopyInto(out *ForEachValidation) {
-	if out == nil {
-		return
-	}
-
-	*out = *in
-	if in.Context != nil {
-		in, out := &in.Context, &out.Context
-		*out = make([]ContextEntry, len(*in))
-
-		for i, v := range *in {
-			(*out)[i] = *v.DeepCopy()
-		}
-	}
-
-	if in.AnyAllConditions != nil {
-		out.AnyAllConditions = in.AnyAllConditions.DeepCopy()
-	}
-
-	if in.Pattern != nil {
-		out.Pattern = *jsonDeepCopy(in.Pattern)
-	}
-
-	if in.AnyPattern != nil {
-		out.AnyPattern = *jsonDeepCopy(in.AnyPattern)
-	}
-
-	if in.Deny != nil {
-		out.Deny = in.Deny.DeepCopy()
-	}
-}
-
-func (in *ForEachMutation) DeepCopyInto(out *ForEachMutation) {
-	if out == nil {
-		return
-	}
-
-	*out = *in
-	if in.Context != nil {
-		in, out := &in.Context, &out.Context
-		*out = make([]ContextEntry, len(*in))
-
-		for i, v := range *in {
-			(*out)[i] = *v.DeepCopy()
-		}
-	}
-
-	if in.AnyAllConditions != nil {
-		out.AnyAllConditions = in.AnyAllConditions.DeepCopy()
-	}
-
-	if in.PatchStrategicMerge != nil {
-		out.PatchStrategicMerge = *jsonDeepCopy(in.PatchStrategicMerge)
-	}
-}
-func (gen *Generation) DeepCopyInto(out *Generation) {
-	if out == nil {
-		return
-	}
-
-	*out = *gen
-	out.ResourceSpec = *gen.ResourceSpec.DeepCopy()
-
-	if out.Data != nil {
-		out.Data = *jsonDeepCopy(gen.Data)
-	}
-}
-func (cond *Condition) DeepCopyInto(out *Condition) {
-	if out == nil {
-		return
-	}
-
-	*out = *cond
-	if cond.Key != nil {
-		out.Key = *jsonDeepCopy(cond.Key)
-	}
-
-	if cond.Value != nil {
-		out.Value = *jsonDeepCopy(cond.Value)
-	}
-}
-func (in *Deny) DeepCopyInto(out *Deny) {
-	if out == nil {
-		return
-	}
-
-	*out = *in
-	if in.AnyAllConditions != nil {
-		out.AnyAllConditions = *jsonDeepCopy(in.AnyAllConditions)
-	}
-}
-func (in *Rule) DeepCopyInto(out *Rule) {
-	//deepcopy.Copy(in, out)
-	//*out = *in
-
-	temp, err := json.Marshal(in)
-	if err != nil {
-		// never should get here
-		return
-	}
-
-	err = json.Unmarshal(temp, out)
-	if err != nil {
-		// never should get here
-		return
-	}
-	// *out = *in
-	// if in.Context != nil {
-	// 	in, out := &in.Context, &out.Context
-	// 	*out = make([]ContextEntry, len(*in))
-	// 	for i := range *in {
-	// 		(*in)[i].DeepCopyInto(&(*out)[i])
-	// 	}
-	// }
-	// in.MatchResources.DeepCopyInto(&out.MatchResources)
-	// in.ExcludeResources.DeepCopyInto(&out.ExcludeResources)
-	// if in.AnyAllConditions != nil {
-	// 	out.AnyAllConditions = in.AnyAllConditions
-	// }
-	// in.Mutation.DeepCopyInto(&out.Mutation)
-	// in.Validation.DeepCopyInto(&out.Validation)
-	// in.Generation.DeepCopyInto(&out.Generation)
-	// if in.VerifyImages != nil {
-	// 	in, out := &in.VerifyImages, &out.VerifyImages
-	// 	*out = make([]*ImageVerification, len(*in))
-	// 	for i := range *in {
-	// 		if (*in)[i] != nil {
-	// 			in, out := &(*in)[i], &(*out)[i]
-	// 			*out = new(ImageVerification)
-	// 			**out = **in
-	// 		}
-	// 	}
-	// }
-}
-
-// ToKey generates the key string used for adding label to polivy violation
-func (rs ResourceSpec) ToKey() string {
-	return rs.Kind + "." + rs.Name
 }
 
 // ViolatedRule stores the information regarding the rule.

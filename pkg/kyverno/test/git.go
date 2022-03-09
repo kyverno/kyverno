@@ -17,6 +17,7 @@ func clone(path string, fs billy.Filesystem, branch string) (*git.Repository, er
 		ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branch)),
 		Progress:      os.Stdout,
 		SingleBranch:  true,
+		Depth:         1,
 	})
 }
 

@@ -3,6 +3,7 @@ package v1
 import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -110,9 +111,8 @@ type Rule struct {
 	// of conditions (without `any` or `all` statements is supported for backwards compatibility but
 	// will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
-	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
-	AnyAllConditions apiextensions.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
 	// Mutation is used to modify matching resources.
 	// +optional
@@ -129,6 +129,14 @@ type Rule struct {
 	// VerifyImages is used to verify image signatures and mutate them to add a digest
 	// +optional
 	VerifyImages []*ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+}
+
+func (base *Rule) GetAnyAllConditions() apiextensions.JSON {
+	return FromJSON(base.RawAnyAllConditions)
+}
+
+func (base *Rule) SetAnyAllConditions(in apiextensions.JSON) {
+	base.RawAnyAllConditions = ToJSON(in)
 }
 
 // FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
@@ -227,8 +235,7 @@ type APICall struct {
 // Condition defines variable-based conditional criteria for rule execution.
 type Condition struct {
 	// Key is the context entry (using JMESPath) for conditional rule evaluation.
-	// +kubebuilder:validation:XPreserveUnknownFields
-	Key apiextensions.JSON `json:"key,omitempty" yaml:"key,omitempty"`
+	RawKey *apiextv1.JSON `json:"key,omitempty" yaml:"key,omitempty"`
 
 	// Operator is the conditional operation to perform. Valid operators are:
 	// Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
@@ -238,9 +245,24 @@ type Condition struct {
 
 	// Value is the conditional value, or set of values. The values can be fixed set
 	// or can be variables declared using using JMESPath.
-	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
-	Value apiextensions.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+}
+
+func (base *Condition) GetKey() apiextensions.JSON {
+	return FromJSON(base.RawKey)
+}
+
+func (base *Condition) SetKey(in apiextensions.JSON) {
+	base.RawKey = ToJSON(in)
+}
+
+func (base *Condition) GetValue() apiextensions.JSON {
+	return FromJSON(base.RawValue)
+}
+
+func (base *Condition) SetValue(in apiextensions.JSON) {
+	base.RawValue = ToJSON(in)
 }
 
 // ConditionOperator is the operation performed on condition key and value.
@@ -411,27 +433,32 @@ type ResourceDescription struct {
 
 // Mutation defines how resource are modified.
 type Mutation struct {
-
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
 	// and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
-	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
-	PatchStrategicMerge apiextensions.JSON `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
+	RawPatchStrategicMerge *apiextv1.JSON `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
 
 	// PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
 	// See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
 	// +optional
 	PatchesJSON6902 string `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
 
-	// ForEachMutation applies policy rule changes to nested elements.
+	// ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
 	ForEachMutation []*ForEachMutation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
-// ForEachMutation applies policy rule changes to nested elements.
-type ForEachMutation struct {
+func (base *Mutation) GetPatchStrategicMerge() apiextensions.JSON {
+	return FromJSON(base.RawPatchStrategicMerge)
+}
 
+func (base *Mutation) SetPatchStrategicMerge(in apiextensions.JSON) {
+	base.RawPatchStrategicMerge = ToJSON(in)
+}
+
+// ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+type ForEachMutation struct {
 	// List specifies a JMESPath expression that results in one or more elements
 	// to which the validation logic is applied.
 	List string `json:"list,omitempty" yaml:"list,omitempty"`
@@ -450,14 +477,21 @@ type ForEachMutation struct {
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
 	// and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
-	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
-	PatchStrategicMerge apiextensions.JSON `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
+	RawPatchStrategicMerge *apiextv1.JSON `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
 
 	// PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
 	// See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
 	// +optional
 	PatchesJSON6902 string `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
+}
+
+func (base *ForEachMutation) GetPatchStrategicMerge() apiextensions.JSON {
+	return FromJSON(base.RawPatchStrategicMerge)
+}
+
+func (base *ForEachMutation) SetPatchStrategicMerge(in apiextensions.JSON) {
+	base.RawPatchStrategicMerge = ToJSON(in)
 }
 
 // Validation defines checks to be performed on matching resources.
@@ -467,24 +501,38 @@ type Validation struct {
 	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
-	// ForEach applies policy rule changes to nested elements.
+	// ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
 	ForEachValidation []*ForEachValidation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 
 	// Pattern specifies an overlay-style pattern used to check resources.
-	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
-	Pattern apiextensions.JSON `json:"pattern,omitempty" yaml:"pattern,omitempty"`
+	RawPattern *apiextv1.JSON `json:"pattern,omitempty" yaml:"pattern,omitempty"`
 
 	// AnyPattern specifies list of validation patterns. At least one of the patterns
 	// must be satisfied for the validation rule to succeed.
-	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
-	AnyPattern apiextensions.JSON `json:"anyPattern,omitempty" yaml:"anyPattern,omitempty"`
+	RawAnyPattern *apiextv1.JSON `json:"anyPattern,omitempty" yaml:"anyPattern,omitempty"`
 
 	// Deny defines conditions used to pass or fail a validation rule.
 	// +optional
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
+}
+
+func (base *Validation) GetPattern() apiextensions.JSON {
+	return FromJSON(base.RawPattern)
+}
+
+func (base *Validation) SetPattern(in apiextensions.JSON) {
+	base.RawPattern = ToJSON(in)
+}
+
+func (base *Validation) GetAnyPattern() apiextensions.JSON {
+	return FromJSON(base.RawAnyPattern)
+}
+
+func (base *Validation) SetAnyPattern(in apiextensions.JSON) {
+	base.RawAnyPattern = ToJSON(in)
 }
 
 // Deny specifies a list of conditions used to pass or fail a validation rule.
@@ -493,11 +541,18 @@ type Deny struct {
 	// of conditions (without `any` or `all` statements) is also supported for backwards compatibility
 	// but will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
-	// +kubebuilder:validation:XPreserveUnknownFields
-	AnyAllConditions apiextensions.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+	RawAnyAllConditions *apiextv1.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
-// ForEachValidation applies policy rule checks to nested elements.
+func (base *Deny) GetAnyAllConditions() apiextensions.JSON {
+	return FromJSON(base.RawAnyAllConditions)
+}
+
+func (base *Deny) SetAnyAllConditions(in apiextensions.JSON) {
+	base.RawAnyAllConditions = ToJSON(in)
+}
+
+// ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachValidation struct {
 
 	// List specifies a JMESPath expression that results in one or more elements
@@ -522,19 +577,33 @@ type ForEachValidation struct {
 	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
 	// Pattern specifies an overlay-style pattern used to check resources.
-	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
-	Pattern apiextensions.JSON `json:"pattern,omitempty" yaml:"pattern,omitempty"`
+	RawPattern *apiextv1.JSON `json:"pattern,omitempty" yaml:"pattern,omitempty"`
 
 	// AnyPattern specifies list of validation patterns. At least one of the patterns
 	// must be satisfied for the validation rule to succeed.
-	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
-	AnyPattern apiextensions.JSON `json:"anyPattern,omitempty" yaml:"anyPattern,omitempty"`
+	RawAnyPattern *apiextv1.JSON `json:"anyPattern,omitempty" yaml:"anyPattern,omitempty"`
 
 	// Deny defines conditions used to pass or fail a validation rule.
 	// +optional
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
+}
+
+func (base *ForEachValidation) GetPattern() apiextensions.JSON {
+	return FromJSON(base.RawPattern)
+}
+
+func (base *ForEachValidation) SetPattern(in apiextensions.JSON) {
+	base.RawPattern = ToJSON(in)
+}
+
+func (base *ForEachValidation) GetAnyPattern() apiextensions.JSON {
+	return FromJSON(base.RawAnyPattern)
+}
+
+func (base *ForEachValidation) SetAnyPattern(in apiextensions.JSON) {
+	base.RawAnyPattern = ToJSON(in)
 }
 
 // ImageVerification validates that images that match the specified pattern
@@ -589,7 +658,6 @@ type Attestation struct {
 
 // Generation defines how new resources should be created and managed.
 type Generation struct {
-
 	// ResourceSpec contains information to select the resource.
 	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 
@@ -603,15 +671,22 @@ type Generation struct {
 	// Data provides the resource declaration used to populate each generated resource.
 	// At most one of Data or Clone must be specified. If neither are provided, the generated
 	// resource will be created with default data only.
-	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
-	Data apiextensions.JSON `json:"data,omitempty" yaml:"data,omitempty"`
+	RawData *apiextv1.JSON `json:"data,omitempty" yaml:"data,omitempty"`
 
 	// Clone specifies the source resource used to populate each generated resource.
 	// At most one of Data or Clone can be specified. If neither are provided, the generated
 	// resource will be created with default data only.
 	// +optional
 	Clone CloneFrom `json:"clone,omitempty" yaml:"clone,omitempty"`
+}
+
+func (base *Generation) GetData() apiextensions.JSON {
+	return FromJSON(base.RawData)
+}
+
+func (base *Generation) SetData(in apiextensions.JSON) {
+	base.RawData = ToJSON(in)
 }
 
 // CloneFrom provides the location of the source resource used to generate target resources.

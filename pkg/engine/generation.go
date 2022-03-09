@@ -103,14 +103,15 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	}
 
 	ruleCopy := rule.DeepCopy()
-	ruleCopy.AnyAllConditions, err = variables.SubstituteAllInPreconditions(logger, ctx, ruleCopy.AnyAllConditions)
-	if err != nil {
+	if after, err := variables.SubstituteAllInPreconditions(logger, ctx, ruleCopy.GetAnyAllConditions()); err != nil {
 		logger.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", ruleCopy.Name)
 		return nil
+	} else {
+		ruleCopy.SetAnyAllConditions(after)
 	}
 
 	// operate on the copy of the conditions, as we perform variable substitution
-	copyConditions, err := common.TransformConditions(ruleCopy.AnyAllConditions)
+	copyConditions, err := common.TransformConditions(ruleCopy.GetAnyAllConditions())
 	if err != nil {
 		logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
 		return nil
