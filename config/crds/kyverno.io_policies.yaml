@@ -2186,7 +2186,6 @@ spec:
                   request
                 type: boolean
             required:
-            - autogen
             - ready
             type: object
         required:

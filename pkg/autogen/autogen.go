@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -140,7 +141,7 @@ func GetControllers(meta metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger)
 	// filter supported controllers, keeping only those that have been requested
 	var activated []string
 	for _, controller := range supported {
-		if arrayContains(requested, controller) {
+		if utils.ContainsString(requested, controller) {
 			activated = append(activated, controller)
 		}
 	}

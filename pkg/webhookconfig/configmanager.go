@@ -685,11 +685,13 @@ func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy, statu
 	policyCopy.Status.Autogen.Requested = requested
 	policyCopy.Status.Autogen.Supported = supported
 	policyCopy.Status.Autogen.Activated = activated
+	if reflect.DeepEqual(policyCopy.Status, policy.Status) {
+		return nil
+	}
 	if policy.GetNamespace() == "" {
 		_, err := m.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), policyCopy, v1.UpdateOptions{})
 		return err
 	}
-
 	_, err := m.kyvernoClient.KyvernoV1().Policies(policyCopy.GetNamespace()).UpdateStatus(context.TODO(), (*kyverno.Policy)(policyCopy), v1.UpdateOptions{})
 	return err
 }

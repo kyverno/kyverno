@@ -708,6 +708,7 @@ type PolicyStatus struct {
 	// Ready indicates if the policy is ready to serve the admission request
 	Ready bool `json:"ready" yaml:"ready"`
 	// Autogen contains autogen status information
+	// +optional
 	Autogen AutogenStatus `json:"autogen" yaml:"autogen"`
 }
 
