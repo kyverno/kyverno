@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -262,7 +261,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger) *kyvernoRule {
 	logger := log.WithName("handleCronJob")
 
-	hasCronJob := strings.Contains(controllers, engine.PodControllerCronJob) || strings.Contains(controllers, "all")
+	hasCronJob := strings.Contains(controllers, PodControllerCronJob) || strings.Contains(controllers, "all")
 	if !hasCronJob {
 		return nil
 	}
@@ -289,7 +288,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		rule := cronJobAnyAllAutogenRule(cronJobRule.MatchResources.All)
 		cronJobRule.MatchResources.All = rule
 	} else {
-		cronJobRule.MatchResources.Kinds = []string{engine.PodControllerCronJob}
+		cronJobRule.MatchResources.Kinds = []string{PodControllerCronJob}
 	}
 
 	if (jobRule.ExcludeResources) != nil && len(jobRule.ExcludeResources.Any) > 0 {
@@ -300,7 +299,7 @@ func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger)
 		cronJobRule.ExcludeResources.All = rule
 	} else {
 		if (jobRule.ExcludeResources) != nil && (len(jobRule.ExcludeResources.Kinds) > 0) {
-			cronJobRule.ExcludeResources.Kinds = []string{engine.PodControllerCronJob}
+			cronJobRule.ExcludeResources.Kinds = []string{PodControllerCronJob}
 		}
 	}
 
