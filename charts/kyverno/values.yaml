@@ -204,7 +204,7 @@ generatecontrollerExtraResources:
 config:
   # -- Resource types to be skipped by the Kyverno policy engine.
   # Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list.
-  # These are joined together without spaces in the config map.
+  # These are joined together without spaces, run through `tpl`, and the result is set in the config map.
   # @default -- See [values.yaml](values.yaml)
   resourceFilters:
   - '[Event,*,*]'
@@ -216,7 +216,7 @@ config:
   - '[TokenReview,*,*]'
   - '[SubjectAccessReview,*,*]'
   - '[SelfSubjectAccessReview,*,*]'
-  - '[*,kyverno,kyverno*]'
+  - '[*,{{ include "kyverno.namespace" . }},kyverno*]'
   - '[Binding,*,*]'
   - '[ReplicaSet,*,*]'
   - '[ReportChangeRequest,*,*]'
