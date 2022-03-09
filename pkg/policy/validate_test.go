@@ -1603,8 +1603,241 @@ func Test_deny_exec(t *testing.T) {
 	assert.NilError(t, err)
 
 	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, true, openAPIController)
+	_, err = Validate(policy, nil, true, openAPIController)
 	assert.NilError(t, err)
+}
+
+func Test_PodControllerAutoGenExclusion_All_Controllers_Policy(t *testing.T) {
+	rawPolicy := []byte(`
+{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+	  "name": "add-all-pod-controller-annotations",
+	  "annotations": {
+		"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Job,CronJob,Deployment,StatefulSet"
+	  }
+	},
+	"spec": {
+	  "validationFailureAction": "enforce",
+	  "background": false,
+	  "rules": [
+		{
+		  "name": "validate-livenessProbe-readinessProbe",
+		  "match": {
+			"resources": {
+			  "kinds": [
+				"Pod"
+			  ]
+			}
+		  },
+		  "validate": {
+			"message": "Liveness and readiness probes are required.",
+			"pattern": {
+			  "spec": {
+				"containers": [
+				  {
+					"livenessProbe": {
+					  "periodSeconds": ">0"
+					},
+					"readinessProbe": {
+					  "periodSeconds": ">0"
+					}
+				  }
+				]
+			  }
+			}
+		  }
+		}
+	  ]
+	}
+  }
+`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openAPIController, _ := openapi.NewOpenAPIController()
+	res, err := Validate(policy, nil, true, openAPIController)
+	assert.NilError(t, err)
+	assert.Assert(t, res == nil)
+}
+
+func Test_PodControllerAutoGenExclusion_Not_All_Controllers_Policy(t *testing.T) {
+	rawPolicy := []byte(`
+{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+	  "name": "add-not-all-pod-controller-annotations",
+	  "annotations": {
+		"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Job,CronJob,Deployment"
+	  }
+	},
+	"spec": {
+	  "validationFailureAction": "enforce",
+	  "background": false,
+	  "rules": [
+		{
+		  "name": "validate-livenessProbe-readinessProbe",
+		  "match": {
+			"resources": {
+			  "kinds": [
+				"Pod"
+			  ]
+			}
+		  },
+		  "validate": {
+			"message": "Liveness and readiness probes are required.",
+			"pattern": {
+			  "spec": {
+				"containers": [
+				  {
+					"livenessProbe": {
+					  "periodSeconds": ">0"
+					},
+					"readinessProbe": {
+					  "periodSeconds": ">0"
+					}
+				  }
+				]
+			  }
+			}
+		  }
+		}
+	  ]
+	}
+  }
+`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openAPIController, _ := openapi.NewOpenAPIController()
+	res, err := Validate(policy, nil, true, openAPIController)
+	if res != nil {
+		assert.Assert(t, res.Warnings != nil)
+	}
+	assert.NilError(t, err)
+}
+
+func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
+	rawPolicy := []byte(`
+{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+	  "name": "add-none-pod-controller-annotations",
+	  "annotations": {
+		"pod-policies.kyverno.io/autogen-controllers": "none"
+	  }
+	},
+	"spec": {
+	  "validationFailureAction": "enforce",
+	  "background": false,
+	  "rules": [
+		{
+		  "name": "validate-livenessProbe-readinessProbe",
+		  "match": {
+			"resources": {
+			  "kinds": [
+				"Pod"
+			  ]
+			}
+		  },
+		  "validate": {
+			"message": "Liveness and readiness probes are required.",
+			"pattern": {
+			  "spec": {
+				"containers": [
+				  {
+					"livenessProbe": {
+					  "periodSeconds": ">0"
+					},
+					"readinessProbe": {
+					  "periodSeconds": ">0"
+					}
+				  }
+				]
+			  }
+			}
+		  }
+		}
+	  ]
+	}
+  }
+`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openAPIController, _ := openapi.NewOpenAPIController()
+	res, err := Validate(policy, nil, true, openAPIController)
+	if res != nil {
+		assert.Assert(t, res.Warnings != nil)
+	}
+	assert.NilError(t, err)
+}
+
+func Test_PodControllerAutoGenExclusion_Multiple_Kinds_Policy(t *testing.T) {
+	rawPolicy := []byte(`
+{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+	  "name": "add-none-pod-controller-annotations",
+	  "annotations": {
+		"pod-policies.kyverno.io/autogen-controllers": "none"
+	  }
+	},
+	"spec": {
+	  "validationFailureAction": "enforce",
+	  "background": false,
+	  "rules": [
+		{
+		  "name": "validate-livenessProbe-readinessProbe",
+		  "match": {
+			"resources": {
+			  "kinds": [
+				"Pod",
+				"Ingress"
+			  ]
+			}
+		  },
+		  "validate": {
+			"message": "Liveness and readiness probes are required.",
+			"pattern": {
+			  "spec": {
+				"containers": [
+				  {
+					"livenessProbe": {
+					  "periodSeconds": ">0"
+					},
+					"readinessProbe": {
+					  "periodSeconds": ">0"
+					}
+				  }
+				]
+			  }
+			}
+		  }
+		}
+	  ]
+	}
+  }
+`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openAPIController, _ := openapi.NewOpenAPIController()
+	res, err := Validate(policy, nil, true, openAPIController)
+	assert.NilError(t, err)
+	assert.Assert(t, res == nil)
 }
 
 func Test_existing_resource_policy(t *testing.T) {
