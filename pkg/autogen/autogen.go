@@ -8,7 +8,13 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine"
+)
+
+const (
+	// PodControllerCronJob represent CronJob string
+	PodControllerCronJob = "CronJob"
+	//PodControllers stores the list of Pod-controllers in csv string
+	PodControllers = "DaemonSet,Deployment,Job,StatefulSet,CronJob"
 )
 
 // CanAutoGen checks whether the rule(s) (in policy) can be applied to Pod controllers
@@ -95,7 +101,7 @@ func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, control
 		return false, ""
 	}
 
-	return true, engine.PodControllers
+	return true, PodControllers
 }
 
 // podControllersKey annotation could be:
