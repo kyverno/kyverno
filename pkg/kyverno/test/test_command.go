@@ -893,8 +893,8 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 				table = append(table, *res)
 
 			}
-		}
-		if v.Resource != "" {
+		} else if v.Resource != "" {
+			fmt.Printf("\n Note : The resource field is deprecated in 1.7.0 release. Please provide resources as an array in the resources field \n")
 			countDeprecatedResource++
 			res.Resource = boldFgCyan.Sprintf(namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
 			var ruleNameInResultKey string
