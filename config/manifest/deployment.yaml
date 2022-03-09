@@ -21,6 +21,9 @@ spec:
         # do not remove
         app.kubernetes.io/name: kyverno
     spec:
+      volumes:
+        - name: sigstore
+          emptyDir: {}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -127,6 +130,10 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 4
             successThreshold: 1
+          # Failing to provide a writable $HOME can cause TUF client initialization to panic
+          volumeMounts:
+          - mountPath: /.sigstore
+            name: sigstore
   strategy:
     type: RollingUpdate
     rollingUpdate:

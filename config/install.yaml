@@ -7965,6 +7965,9 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
+        volumeMounts:
+        - mountPath: /.sigstore
+          name: sigstore
       initContainers:
       - env:
         - name: METRICS_CONFIG
@@ -7994,3 +7997,6 @@ spec:
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kyverno-service-account
+      volumes:
+      - emptyDir: {}
+        name: sigstore
