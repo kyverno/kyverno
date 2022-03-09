@@ -234,7 +234,7 @@ func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.Adm
 		return
 	}
 
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range policy.Spec.GetRules() {
 		if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
 			updatedRule, err := getGeneratedByResource(newRes, resLabels, ws.client, rule, logger)
 			if err != nil {

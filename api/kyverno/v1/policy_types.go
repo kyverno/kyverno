@@ -84,6 +84,14 @@ type Spec struct {
 	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
 }
 
+func (base *Spec) GetRules() []Rule {
+	return base.Rules
+}
+
+func (base *Spec) SetRules(rules []Rule) {
+	base.Rules = rules
+}
+
 // Rule defines a validation, mutation, or generation control for matching resources.
 // Each rules contains a match declaration to select resources, and an optional exclude
 // declaration to specify which resources to exclude.
