@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/utils"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -27,7 +30,8 @@ const (
 // - otherwise it returns all pod controllers
 func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, controllers string) {
 	var needAutogen bool
-	for _, rule := range spec.Rules {
+	rules := spec.GetRules()
+	for _, rule := range rules {
 		match := rule.MatchResources
 		exclude := rule.ExcludeResources
 
@@ -104,6 +108,53 @@ func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, control
 	return true, PodControllers
 }
 
+// GetSupportedControllers returns the supported autogen controllers for a given spec.
+func GetSupportedControllers(spec *kyverno.Spec, log logr.Logger) []string {
+	apply, controllers := CanAutoGen(spec, log)
+	if !apply || controllers == "none" {
+		return nil
+	}
+	return strings.Split(controllers, ",")
+}
+
+// GetRequestedControllers returns the requested autogen controllers based on object annotations.
+func GetRequestedControllers(meta metav1.ObjectMeta) []string {
+	annotations := meta.GetAnnotations()
+	if annotations == nil {
+		return nil
+	}
+	controllers, ok := annotations[kyverno.PodControllersAnnotation]
+	if !ok || controllers == "" {
+		return nil
+	}
+	if controllers == "none" {
+		return []string{}
+	}
+	return strings.Split(controllers, ",")
+}
+
+// GetControllers computes the autogen controllers that should be applied to a policy.
+// It returns the requested, supported and effective controllers (intersection of requested and supported ones).
+func GetControllers(meta metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger) ([]string, []string, []string) {
+	// compute supported and requested controllers
+	supported := GetSupportedControllers(spec, log)
+	requested := GetRequestedControllers(meta)
+
+	// no specific request, we can return supported controllers without further filtering
+	if requested == nil {
+		return requested, supported, supported
+	}
+
+	// filter supported controllers, keeping only those that have been requested
+	var activated []string
+	for _, controller := range supported {
+		if utils.ContainsString(requested, controller) {
+			activated = append(activated, controller)
+		}
+	}
+	return requested, supported, activated
+}
+
 // podControllersKey annotation could be:
 // scenario A: not exist, set default to "all", which generates on all pod controllers
 //               - if name / selector exist in resource description -> skip
@@ -115,15 +166,16 @@ func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, control
 
 // GenerateRulePatches generates rule for podControllers based on scenario A and C
 func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger) (rulePatches [][]byte, errs []error) {
-	insertIdx := len(spec.Rules)
+	rules := spec.GetRules()
+	insertIdx := len(rules)
 
-	ruleMap := createRuleMap(spec.Rules)
+	ruleMap := createRuleMap(rules)
 	var ruleIndex = make(map[string]int)
-	for index, rule := range spec.Rules {
+	for index, rule := range rules {
 		ruleIndex[rule.Name] = index
 	}
 
-	for _, rule := range spec.Rules {
+	for _, rule := range rules {
 		patchPostion := insertIdx
 		convertToPatches := func(genRule kyvernoRule, patchPostion int) []byte {
 			operation := "add"

@@ -2176,6 +2176,25 @@ spec:
           status:
             description: Status contains policy runtime data.
             properties:
+              autogen:
+                description: Autogen contains autogen status information
+                properties:
+                  activated:
+                    description: Activated indicates the autogen activated controllers
+                    items:
+                      type: string
+                    type: array
+                  requested:
+                    description: Requested indicates the autogen requested controllers
+                    items:
+                      type: string
+                    type: array
+                  supported:
+                    description: Supported indicates the autogen supported controllers
+                    items:
+                      type: string
+                    type: array
+                type: object
               ready:
                 description: Ready indicates if the policy is ready to serve the admission
                   request
@@ -5922,6 +5941,25 @@ spec:
             description: Status contains policy runtime information. Deprecated. Policy
               metrics are available via the metrics endpoint
             properties:
+              autogen:
+                description: Autogen contains autogen status information
+                properties:
+                  activated:
+                    description: Activated indicates the autogen activated controllers
+                    items:
+                      type: string
+                    type: array
+                  requested:
+                    description: Requested indicates the autogen requested controllers
+                    items:
+                      type: string
+                    type: array
+                  supported:
+                    description: Supported indicates the autogen supported controllers
+                    items:
+                      type: string
+                    type: array
+                type: object
               ready:
                 description: Ready indicates if the policy is ready to serve the admission
                   request
@@ -7921,6 +7959,8 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
+        - name: TUF_ROOT
+          value: /.sigstore
         image: ghcr.io/kyverno/kyverno:latest
         imagePullPolicy: IfNotPresent
         livenessProbe:
@@ -7965,6 +8005,9 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
+        volumeMounts:
+        - mountPath: /.sigstore
+          name: sigstore
       initContainers:
       - env:
         - name: METRICS_CONFIG
@@ -7994,3 +8037,6 @@ spec:
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kyverno-service-account
+      volumes:
+      - emptyDir: {}
+        name: sigstore
