@@ -7883,6 +7883,8 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
+        - name: TUF_ROOT
+          value: /.sigstore
         image: ghcr.io/kyverno/kyverno:v1.6.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
