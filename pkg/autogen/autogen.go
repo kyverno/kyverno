@@ -9,9 +9,15 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	// PodControllerCronJob represent CronJob string
+	PodControllerCronJob = "CronJob"
+	//PodControllers stores the list of Pod-controllers in csv string
+	PodControllers = "DaemonSet,Deployment,Job,StatefulSet,CronJob"
 )
 
 // CanAutoGen checks whether the rule(s) (in policy) can be applied to Pod controllers
@@ -24,7 +30,8 @@ import (
 // - otherwise it returns all pod controllers
 func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, controllers string) {
 	var needAutogen bool
-	for _, rule := range spec.Rules {
+	rules := spec.GetRules()
+	for _, rule := range rules {
 		match := rule.MatchResources
 		exclude := rule.ExcludeResources
 
@@ -98,7 +105,7 @@ func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, control
 		return false, ""
 	}
 
-	return true, engine.PodControllers
+	return true, PodControllers
 }
 
 // GetSupportedControllers returns the supported autogen controllers for a given spec.
@@ -116,7 +123,7 @@ func GetRequestedControllers(meta metav1.ObjectMeta) []string {
 	if annotations == nil {
 		return nil
 	}
-	controllers, ok := annotations[engine.PodControllersAnnotation]
+	controllers, ok := annotations[kyverno.PodControllersAnnotation]
 	if !ok || controllers == "" {
 		return nil
 	}
@@ -159,15 +166,16 @@ func GetControllers(meta metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger)
 
 // GenerateRulePatches generates rule for podControllers based on scenario A and C
 func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger) (rulePatches [][]byte, errs []error) {
-	insertIdx := len(spec.Rules)
+	rules := spec.GetRules()
+	insertIdx := len(rules)
 
-	ruleMap := createRuleMap(spec.Rules)
+	ruleMap := createRuleMap(rules)
 	var ruleIndex = make(map[string]int)
-	for index, rule := range spec.Rules {
+	for index, rule := range rules {
 		ruleIndex[rule.Name] = index
 	}
 
-	for _, rule := range spec.Rules {
+	for _, rule := range rules {
 		patchPostion := insertIdx
 		convertToPatches := func(genRule kyvernoRule, patchPostion int) []byte {
 			operation := "add"

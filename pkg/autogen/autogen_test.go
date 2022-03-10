@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,7 +45,7 @@ func Test_CanAutoGen(t *testing.T) {
 		{
 			name:                "rule-with-deny",
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"testpolicy","deny":{"conditions":[{"key":"{{request.object.metadata.labels.foo}}","operator":"Equals","value":"bar"}]}}}]}}`),
-			expectedControllers: engine.PodControllers,
+			expectedControllers: PodControllers,
 		},
 		{
 			name:                "rule-with-match-mixed-kinds-pod-podcontrollers",
@@ -61,12 +60,12 @@ func Test_CanAutoGen(t *testing.T) {
 		{
 			name:                "rule-with-match-kinds-pod-only",
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"testpolicy","pattern":{"metadata":{"labels":{"foo":"bar"}}}}}]}}`),
-			expectedControllers: engine.PodControllers,
+			expectedControllers: PodControllers,
 		},
 		{
 			name:                "rule-with-exclude-kinds-pod-only",
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"kinds":["Pod"],"namespaces":["test"]}},"validate":{"message":"testpolicy","pattern":{"metadata":{"labels":{"foo":"bar"}}}}}]}}`),
-			expectedControllers: engine.PodControllers,
+			expectedControllers: PodControllers,
 		},
 		{
 			name:                "rule-with-mutate-patches",
@@ -137,7 +136,7 @@ func Test_GetSupportedControllers(t *testing.T) {
 		{
 			name:                "rule-with-deny",
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"testpolicy","deny":{"conditions":[{"key":"{{request.object.metadata.labels.foo}}","operator":"Equals","value":"bar"}]}}}]}}`),
-			expectedControllers: engine.PodControllers,
+			expectedControllers: PodControllers,
 		},
 
 		{
@@ -153,12 +152,12 @@ func Test_GetSupportedControllers(t *testing.T) {
 		{
 			name:                "rule-with-match-kinds-pod-only",
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"testpolicy","pattern":{"metadata":{"labels":{"foo":"bar"}}}}}]}}`),
-			expectedControllers: engine.PodControllers,
+			expectedControllers: PodControllers,
 		},
 		{
 			name:                "rule-with-exclude-kinds-pod-only",
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"kinds":["Pod"],"namespaces":["test"]}},"validate":{"message":"testpolicy","pattern":{"metadata":{"labels":{"foo":"bar"}}}}}]}}`),
-			expectedControllers: engine.PodControllers,
+			expectedControllers: PodControllers,
 		},
 		{
 			name:                "rule-with-mutate-patches",
@@ -261,7 +260,7 @@ func Test_Any(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.Spec.Rules[0].MatchResources.Any = kyverno.ResourceFilters{
+	policy.Spec.GetRules()[0].MatchResources.Any = kyverno.ResourceFilters{
 		{
 			ResourceDescription: kyverno.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -269,7 +268,7 @@ func Test_Any(t *testing.T) {
 		},
 	}
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, engine.PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
 	fmt.Println("utils.JoinPatches(patches)erterter", string(utils.JoinPatches(rulePatches)))
 	if len(errs) != 0 {
 		t.Log(errs)
@@ -299,7 +298,7 @@ func Test_All(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.Spec.Rules[0].MatchResources.All = kyverno.ResourceFilters{
+	policy.Spec.GetRules()[0].MatchResources.All = kyverno.ResourceFilters{
 		{
 			ResourceDescription: kyverno.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -307,7 +306,7 @@ func Test_All(t *testing.T) {
 		},
 	}
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, engine.PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -337,9 +336,9 @@ func Test_Exclude(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.Spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
+	policy.Spec.GetRules()[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, engine.PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -357,7 +356,7 @@ func Test_Exclude(t *testing.T) {
 
 func Test_CronJobOnly(t *testing.T) {
 
-	controllers := engine.PodControllerCronJob
+	controllers := PodControllerCronJob
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
@@ -372,7 +371,7 @@ func Test_CronJobOnly(t *testing.T) {
 
 	policy := policies[0]
 	policy.SetAnnotations(map[string]string{
-		engine.PodControllersAnnotation: controllers,
+		kyverno.PodControllersAnnotation: controllers,
 	})
 
 	rulePatches, errs := GenerateRulePatches(&policy.Spec, controllers, log.Log)
@@ -401,9 +400,9 @@ func Test_ForEachPod(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.Spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
+	policy.Spec.GetRules()[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, engine.PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -421,7 +420,7 @@ func Test_ForEachPod(t *testing.T) {
 
 func Test_CronJob_hasExclude(t *testing.T) {
 
-	controllers := engine.PodControllerCronJob
+	controllers := PodControllerCronJob
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
@@ -437,13 +436,13 @@ func Test_CronJob_hasExclude(t *testing.T) {
 
 	policy := policies[0]
 	policy.SetAnnotations(map[string]string{
-		engine.PodControllersAnnotation: controllers,
+		kyverno.PodControllersAnnotation: controllers,
 	})
 
-	rule := policy.Spec.Rules[0].DeepCopy()
+	rule := policy.Spec.GetRules()[0].DeepCopy()
 	rule.ExcludeResources.Kinds = []string{"Pod"}
 	rule.ExcludeResources.Namespaces = []string{"test"}
-	policy.Spec.Rules[0] = *rule
+	policy.Spec.GetRules()[0] = *rule
 
 	rulePatches, errs := GenerateRulePatches(&policy.Spec, controllers, log.Log)
 	if len(errs) != 0 {
@@ -458,7 +457,7 @@ func Test_CronJob_hasExclude(t *testing.T) {
 }
 
 func Test_CronJobAndDeployment(t *testing.T) {
-	controllers := strings.Join([]string{engine.PodControllerCronJob, "Deployment"}, ",")
+	controllers := strings.Join([]string{PodControllerCronJob, "Deployment"}, ",")
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
@@ -473,7 +472,7 @@ func Test_CronJobAndDeployment(t *testing.T) {
 
 	policy := policies[0]
 	policy.SetAnnotations(map[string]string{
-		engine.PodControllersAnnotation: controllers,
+		kyverno.PodControllersAnnotation: controllers,
 	})
 
 	rulePatches, errs := GenerateRulePatches(&policy.Spec, controllers, log.Log)
@@ -504,7 +503,7 @@ func Test_UpdateVariablePath(t *testing.T) {
 
 	policy := policies[0]
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, engine.PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -530,7 +529,7 @@ func Test_Deny(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.Spec.Rules[0].MatchResources.Any = kyverno.ResourceFilters{
+	policy.Spec.GetRules()[0].MatchResources.Any = kyverno.ResourceFilters{
 		{
 			ResourceDescription: kyverno.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -538,7 +537,7 @@ func Test_Deny(t *testing.T) {
 		},
 	}
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, engine.PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
 	fmt.Println("utils.JoinPatches(patches)erterter", string(utils.JoinPatches(rulePatches)))
 	if len(errs) != 0 {
 		t.Log(errs)
