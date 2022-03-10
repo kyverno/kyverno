@@ -7883,6 +7883,8 @@ spec:
               fieldPath: metadata.namespace
         - name: KYVERNO_SVC
           value: kyverno-svc
+        - name: TUF_ROOT
+          value: /.sigstore
         image: ghcr.io/kyverno/kyverno:v1.6.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
@@ -7927,6 +7929,9 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
+        volumeMounts:
+        - mountPath: /.sigstore
+          name: sigstore
       initContainers:
       - env:
         - name: METRICS_CONFIG
@@ -7956,3 +7961,6 @@ spec:
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kyverno-service-account
+      volumes:
+      - emptyDir: {}
+        name: sigstore
