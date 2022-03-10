@@ -1,7 +1,6 @@
 approvers:
 - JimBugwadia
 - realshuting
-- NoSkillGirl
 - chipzoller
 - vyankyGH
 - MarcelMue
@@ -11,7 +10,6 @@ approvers:
 reviewers:
 - JimBugwadia
 - realshuting
-- NoSkillGirl
 - chipzoller
 - vyankyGH
 - MarcelMue
@@ -20,3 +18,4 @@ reviewers:
 - ojhaarjun1
 - samj1912
 - prateekpandey14
+- eddycharly
