@@ -48,8 +48,9 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 		}
 	}
 
-	for i := range policyContext.Policy.Spec.Rules {
-		rule := &policyContext.Policy.Spec.Rules[i]
+	rules := policyContext.Policy.Spec.GetRules()
+	for i := range rules {
+		rule := &rules[i]
 		if len(rule.VerifyImages) == 0 {
 			continue
 		}
