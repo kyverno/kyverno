@@ -1,10 +1,13 @@
 package v1
 
 import (
+	"fmt"
+
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // PolicyList is a list of Policy instances.
@@ -129,6 +132,14 @@ type Rule struct {
 	// VerifyImages is used to verify image signatures and mutate them to add a digest
 	// +optional
 	VerifyImages []*ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+}
+
+func (r *Rule) Validate(path *field.Path) field.ErrorList {
+	var errs field.ErrorList
+	errs = append(errs, r.MatchResources.Validate(path.Child("match"))...)
+	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"))...)
+	// TODO: other members
+	return errs
 }
 
 func (base *Rule) GetAnyAllConditions() apiextensions.JSON {
@@ -335,6 +346,13 @@ type MatchResources struct {
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
+func (m *MatchResources) Validate(path *field.Path) field.ErrorList {
+	var errs field.ErrorList
+	errs = append(errs, m.UserInfo.Validate(path)...)
+	// TODO: other members
+	return errs
+}
+
 // ExcludeResources specifies resource and admission review request data for
 // which a policy rule is not applicable.
 type ExcludeResources struct {
@@ -357,6 +375,13 @@ type ExcludeResources struct {
 	// Please specify under "any" or "all" instead.
 	// +optional
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
+}
+
+func (e *ExcludeResources) Validate(path *field.Path) field.ErrorList {
+	var errs field.ErrorList
+	errs = append(errs, e.UserInfo.Validate(path)...)
+	// TODO: other members
+	return errs
 }
 
 // ResourceFilters is a slice of ResourceFilter
@@ -385,6 +410,27 @@ type UserInfo struct {
 	// Subjects is the list of subject names like users, user groups, and service accounts.
 	// +optional
 	Subjects []rbacv1.Subject `json:"subjects,omitempty" yaml:"subjects,omitempty"`
+}
+
+func (u *UserInfo) ValidateSubjects(path *field.Path) field.ErrorList {
+	var errs field.ErrorList
+	for index, subject := range u.Subjects {
+		entry := path.Index(index)
+		if subject.Kind == "" {
+			errs = append(errs, field.Required(entry.Child("kind"), ""))
+		}
+		if subject.Name == "" {
+			errs = append(errs, field.Required(entry.Child("name"), ""))
+		}
+		if subject.Kind == rbacv1.ServiceAccountKind && subject.Namespace == "" {
+			errs = append(errs, field.Required(entry.Child("namespace"), fmt.Sprintf("namespace is required when Kind is %s", rbacv1.ServiceAccountKind)))
+		}
+	}
+	return errs
+}
+
+func (u *UserInfo) Validate(path *field.Path) field.ErrorList {
+	return u.ValidateSubjects(path.Child("subjects"))
 }
 
 // ResourceDescription contains criteria used to match resources.
