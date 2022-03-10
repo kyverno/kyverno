@@ -128,8 +128,8 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			clusterResources = append(clusterResources, k)
 		}
 	}
-
-	for i, rule := range policy.Spec.Rules {
+	rules := policy.Spec.GetRules()
+	for i, rule := range rules {
 		//check for forward slash
 		if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
 			return fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
@@ -173,7 +173,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		// - Mutate
 		// - Validate
 		// - Generate
-		if err := validateActions(i, &policy.Spec.Rules[i], client, mock); err != nil {
+		if err := validateActions(i, &rules[i], client, mock); err != nil {
 			return err
 		}
 
@@ -373,7 +373,7 @@ func ValidateVariables(p *kyverno.ClusterPolicy, backgroundMode bool) error {
 
 // hasInvalidVariables - checks for unexpected variables in the policy
 func hasInvalidVariables(policy *kyverno.ClusterPolicy, background bool) error {
-	for _, r := range policy.Spec.Rules {
+	for _, r := range policy.Spec.GetRules() {
 		ruleCopy := r.DeepCopy()
 
 		if err := ruleForbiddenSectionsHaveVariables(ruleCopy); err != nil {
@@ -1074,7 +1074,7 @@ func validateConditionValuesKeyRequestOperation(c kyverno.Condition) (string, er
 func validateUniqueRuleName(p kyverno.ClusterPolicy) (string, error) {
 	var ruleNames []string
 
-	for i, rule := range p.Spec.Rules {
+	for i, rule := range p.Spec.GetRules() {
 		if utils.ContainsString(ruleNames, rule.Name) {
 			return fmt.Sprintf("rule[%d]", i), fmt.Errorf(`duplicate rule name: '%s'`, rule.Name)
 		}

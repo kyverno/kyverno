@@ -8,7 +8,13 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine"
+)
+
+const (
+	// PodControllerCronJob represent CronJob string
+	PodControllerCronJob = "CronJob"
+	//PodControllers stores the list of Pod-controllers in csv string
+	PodControllers = "DaemonSet,Deployment,Job,StatefulSet,CronJob"
 )
 
 // CanAutoGen checks whether the rule(s) (in policy) can be applied to Pod controllers
@@ -21,7 +27,8 @@ import (
 // - otherwise it returns all pod controllers
 func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, controllers string) {
 	var needAutogen bool
-	for _, rule := range spec.Rules {
+	rules := spec.GetRules()
+	for _, rule := range rules {
 		match := rule.MatchResources
 		exclude := rule.ExcludeResources
 
@@ -95,7 +102,7 @@ func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, control
 		return false, ""
 	}
 
-	return true, engine.PodControllers
+	return true, PodControllers
 }
 
 // podControllersKey annotation could be:
@@ -109,15 +116,16 @@ func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, control
 
 // GenerateRulePatches generates rule for podControllers based on scenario A and C
 func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger) (rulePatches [][]byte, errs []error) {
-	insertIdx := len(spec.Rules)
+	rules := spec.GetRules()
+	insertIdx := len(rules)
 
-	ruleMap := createRuleMap(spec.Rules)
+	ruleMap := createRuleMap(rules)
 	var ruleIndex = make(map[string]int)
-	for index, rule := range spec.Rules {
+	for index, rule := range rules {
 		ruleIndex[rule.Name] = index
 	}
 
-	for _, rule := range spec.Rules {
+	for _, rule := range rules {
 		patchPostion := insertIdx
 		convertToPatches := func(genRule kyvernoRule, patchPostion int) []byte {
 			operation := "add"

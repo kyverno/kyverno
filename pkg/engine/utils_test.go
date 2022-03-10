@@ -897,7 +897,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		}
 		resource, _ := utils.ConvertToUnstructured(tc.Resource)
 
-		for _, rule := range policy.Spec.Rules {
+		for _, rule := range policy.Spec.GetRules() {
 			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, []string{}, nil, "")
 			if err != nil {
 				if !tc.areErrorsExpected {

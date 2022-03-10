@@ -19,7 +19,7 @@ func ForceMutate(ctx *context.Context, policy kyverno.ClusterPolicy, resource un
 		"namespace", resource.GetNamespace(), "name", resource.GetName())
 
 	patchedResource := resource
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range policy.Spec.GetRules() {
 		if !rule.HasMutate() {
 			continue
 		}
