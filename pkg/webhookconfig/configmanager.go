@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -679,12 +680,18 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 
 func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy, status bool) error {
 	policyCopy := policy.DeepCopy()
+	requested, supported, activated := autogen.GetControllers(policy.ObjectMeta, &policy.Spec, m.log)
 	policyCopy.Status.Ready = status
+	policyCopy.Status.Autogen.Requested = requested
+	policyCopy.Status.Autogen.Supported = supported
+	policyCopy.Status.Autogen.Activated = activated
+	if reflect.DeepEqual(policyCopy.Status, policy.Status) {
+		return nil
+	}
 	if policy.GetNamespace() == "" {
 		_, err := m.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), policyCopy, v1.UpdateOptions{})
 		return err
 	}
-
 	_, err := m.kyvernoClient.KyvernoV1().Policies(policyCopy.GetNamespace()).UpdateStatus(context.TODO(), (*kyverno.Policy)(policyCopy), v1.UpdateOptions{})
 	return err
 }

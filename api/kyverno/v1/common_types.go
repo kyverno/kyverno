@@ -814,6 +814,21 @@ type CloneFrom struct {
 type PolicyStatus struct {
 	// Ready indicates if the policy is ready to serve the admission request
 	Ready bool `json:"ready" yaml:"ready"`
+	// Autogen contains autogen status information
+	// +optional
+	Autogen AutogenStatus `json:"autogen" yaml:"autogen"`
+}
+
+// AutogenStatus contains autogen status information.
+// It indicates requested, supported and effective autogen controllers used when
+// automatically generating rules.
+type AutogenStatus struct {
+	// Requested indicates the autogen requested controllers
+	Requested []string `json:"requested,omitempty" yaml:"requested,omitempty"`
+	// Supported indicates the autogen supported controllers
+	Supported []string `json:"supported,omitempty" yaml:"supported,omitempty"`
+	// Activated indicates the autogen activated controllers
+	Activated []string `json:"activated,omitempty" yaml:"activated,omitempty"`
 }
 
 // ResourceSpec contains information to identify a resource.
