@@ -1558,3 +1558,51 @@ func Test_patchesJson6902_Policy(t *testing.T) {
 	err = Validate(policy, nil, true, openAPIController)
 	assert.NilError(t, err)
 }
+
+func Test_deny_exec(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "deny-exec-to-pod"
+		},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "schemaValidation": false,
+		  "rules": [
+			{
+			  "name": "deny-pod-exec",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"PodExecOptions"
+				  ]
+				}
+			  },
+			  "preconditions": {
+				"all": [
+				  {
+					"key": "{{ request.operation }}",
+					"operator": "Equals",
+					"value": "CONNECT"
+				  }
+				]
+			  },
+			  "validate": {
+				"message": "Containers can't be exec'd into in production.",
+				"deny": {}
+			  }
+			}
+		  ]
+		}
+	  }`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openAPIController, _ := openapi.NewOpenAPIController()
+	err = Validate(policy, nil, true, openAPIController)
+	assert.NilError(t, err)
+}
