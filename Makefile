@@ -144,9 +144,25 @@ docker-get-kyverno-digest-dev:
 # Generate Docs for types.go
 ##################################
 
-generate-api-docs:
-	go run gen-crd-api-reference-docs -api-dir ./api -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
+.PHONY: gen-crd-api-reference-docs
+gen-crd-api-reference-docs: ## Install gen-crd-api-reference-docs
+	go install github.com/ahmetb/gen-crd-api-reference-docs@latest
 
+.PHONY: gen-crd-api-reference-docs
+generate-api-docs: gen-crd-api-reference-docs ## Generate api reference docs
+	rm -rf docs/crd
+	mkdir docs/crd
+	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1alpha1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha1/index.html
+	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
+	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
+
+.PHONY: verify-api-docs
+verify-api-docs: generate-api-docs ## Check api reference docs are up to date
+	git add --all
+	git diff docs
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make generate-api-docs".'
+	@echo 'To correct this, locally run "make generate-api-docs", commit the changes, and re-run tests.'
+	git diff --quiet --exit-code docs
 
 ##################################
 # CLI
@@ -390,6 +406,17 @@ vet:
 .PHONY: gen-helm-docs
 gen-helm-docs: ## Generate Helm docs
 	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.6.0 -s file
+
+.PHONY: gen-helm
+gen-helm: gen-helm-docs kustomize-crd ## Generate Helm charts stuff
+
+.PHONY: verify-helm
+verify-helm: gen-helm ## Check Helm charts are up to date
+	git add --all
+	git diff charts
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm".'
+	@echo 'To correct this, locally run "make gen-helm", commit the changes, and re-run tests.'
+	git diff --quiet --exit-code charts
 
 .PHONY: check-helm-docs
 check-helm-docs: gen-helm-docs ## Check Helm docs
