@@ -75,6 +75,11 @@ func (p *Policy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
 }
 
+// IsReady indicates if the policy is ready to serve the admission request
+func (p *Policy) IsReady() bool {
+	return p.Status.IsReady()
+}
+
 // PolicyList is a list of Policy instances.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PolicyList struct {

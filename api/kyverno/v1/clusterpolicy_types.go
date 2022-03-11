@@ -74,6 +74,11 @@ func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
 }
 
+// IsReady indicates if the policy is ready to serve the admission request
+func (p *ClusterPolicy) IsReady() bool {
+	return p.Status.IsReady()
+}
+
 // ClusterPolicyList is a list of ClusterPolicy instances.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ClusterPolicyList struct {

@@ -2252,7 +2252,7 @@ spec:
                 type: array
               ready:
                 description: Ready indicates if the policy is ready to serve the admission
-                  request
+                  request. Deprecated in favor of Conditions
                 type: boolean
             required:
             - ready
