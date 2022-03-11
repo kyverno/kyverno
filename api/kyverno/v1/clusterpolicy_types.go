@@ -32,11 +32,10 @@ type ClusterPolicy struct {
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
 func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
 	annotations := p.GetAnnotations()
-	val, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
+	val, ok := annotations[PodControllersAnnotation]
 	if ok && strings.ToLower(val) != "none" {
 		return true
 	}
-
 	return false
 }
 
@@ -52,55 +51,27 @@ func (p *ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
 
 // HasMutate checks for mutate rule types
 func (p *ClusterPolicy) HasMutate() bool {
-	for _, rule := range p.Spec.Rules {
-		if rule.HasMutate() {
-			return true
-		}
-	}
-
-	return false
+	return p.Spec.HasMutate()
 }
 
 // HasValidate checks for validate rule types
 func (p *ClusterPolicy) HasValidate() bool {
-	for _, rule := range p.Spec.Rules {
-		if rule.HasValidate() {
-			return true
-		}
-	}
-
-	return false
+	return p.Spec.HasValidate()
 }
 
 // HasGenerate checks for generate rule types
 func (p *ClusterPolicy) HasGenerate() bool {
-	for _, rule := range p.Spec.Rules {
-		if rule.HasGenerate() {
-			return true
-		}
-	}
-
-	return false
+	return p.Spec.HasGenerate()
 }
 
 // HasVerifyImages checks for image verification rule types
 func (p *ClusterPolicy) HasVerifyImages() bool {
-	for _, rule := range p.Spec.Rules {
-		if rule.HasVerifyImages() {
-			return true
-		}
-	}
-
-	return false
+	return p.Spec.HasVerifyImages()
 }
 
 // BackgroundProcessingEnabled checks if background is set to true
 func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
-	if p.Spec.Background == nil {
-		return true
-	}
-
-	return *p.Spec.Background
+	return p.Spec.BackgroundProcessingEnabled()
 }
 
 // ClusterPolicyList is a list of ClusterPolicy instances.

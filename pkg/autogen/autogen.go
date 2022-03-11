@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/utils"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -103,6 +106,53 @@ func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, control
 	}
 
 	return true, PodControllers
+}
+
+// GetSupportedControllers returns the supported autogen controllers for a given spec.
+func GetSupportedControllers(spec *kyverno.Spec, log logr.Logger) []string {
+	apply, controllers := CanAutoGen(spec, log)
+	if !apply || controllers == "none" {
+		return nil
+	}
+	return strings.Split(controllers, ",")
+}
+
+// GetRequestedControllers returns the requested autogen controllers based on object annotations.
+func GetRequestedControllers(meta metav1.ObjectMeta) []string {
+	annotations := meta.GetAnnotations()
+	if annotations == nil {
+		return nil
+	}
+	controllers, ok := annotations[kyverno.PodControllersAnnotation]
+	if !ok || controllers == "" {
+		return nil
+	}
+	if controllers == "none" {
+		return []string{}
+	}
+	return strings.Split(controllers, ",")
+}
+
+// GetControllers computes the autogen controllers that should be applied to a policy.
+// It returns the requested, supported and effective controllers (intersection of requested and supported ones).
+func GetControllers(meta metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger) ([]string, []string, []string) {
+	// compute supported and requested controllers
+	supported := GetSupportedControllers(spec, log)
+	requested := GetRequestedControllers(meta)
+
+	// no specific request, we can return supported controllers without further filtering
+	if requested == nil {
+		return requested, supported, supported
+	}
+
+	// filter supported controllers, keeping only those that have been requested
+	var activated []string
+	for _, controller := range supported {
+		if utils.ContainsString(requested, controller) {
+			activated = append(activated, controller)
+		}
+	}
+	return requested, supported, activated
 }
 
 // podControllersKey annotation could be:
