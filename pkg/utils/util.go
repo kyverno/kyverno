@@ -46,6 +46,7 @@ func ContainsKind(list []string, element string) bool {
 	return false
 }
 
+// note:  check to skip list of resources which don't have group.
 func SkipSubResources(kind string) bool {
 	s := []string{"PodExecOptions", "PodAttachOptions", "PodProxyOptions", "ServiceProxyOptions", "NodeProxyOptions"}
 	return ContainsKind(s, kind)
