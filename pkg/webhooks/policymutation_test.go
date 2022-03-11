@@ -44,10 +44,7 @@ func TestGeneratePodControllerRule_NilAnnotation(t *testing.T) {
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		  "name": "add-safe-to-evict",
-		  "annotations": {
-			"pod-policies.kyverno.io/autogen-controllers": "none"
-		  }
+		  "name": "add-safe-to-evict"
 		}
 	  }`)
 	compareJSONAsMap(t, p, expectedPolicy)
@@ -69,7 +66,7 @@ func TestGeneratePodControllerRule_PredefinedAnnotation(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
 	patches, errs := policymutation.GeneratePodControllerRule(policy, log.Log)
 	assert.Assert(t, len(errs) == 0)
-	assert.Assert(t, len(patches) == 1)
+	assert.Assert(t, len(patches) == 0)
 }
 
 func TestGeneratePodControllerRule_DisableFeature(t *testing.T) {
@@ -315,7 +312,6 @@ func TestGeneratePodControllerRule_ExistOtherAnnotation(t *testing.T) {
 		"metadata": {
 		  "name": "add-safe-to-evict",
 		  "annotations": {
-			"pod-policies.kyverno.io/autogen-controllers": "none",
 			"test": "annotation"
 		  }
 		}
@@ -524,9 +520,6 @@ func TestGeneratePodControllerRule_ValidatePattern(t *testing.T) {
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		  "annotations": {
-			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet,CronJob"
-		  },
 		  "name": "add-safe-to-evict"
 		},
 		"spec": {

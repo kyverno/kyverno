@@ -262,12 +262,6 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 	// - predefined controllers are invalid, overwrite the value
 	if !ok || !applyAutoGen {
 		actualControllers = desiredControllers
-		annPatch, err := defaultPodControllerAnnotation(ann, actualControllers)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to generate pod controller annotation for policy '%s': %v", policy.Name, err))
-		} else {
-			patches = append(patches, annPatch)
-		}
 	} else {
 		if !applyAutoGen {
 			actualControllers = desiredControllers
@@ -285,44 +279,4 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 	patches = append(patches, p...)
 	errs = append(errs, err...)
 	return
-}
-
-// defaultPodControllerAnnotation inserts an annotation
-// "pod-policies.kyverno.io/autogen-controllers=<controllers>" to policy
-func defaultPodControllerAnnotation(ann map[string]string, controllers string) ([]byte, error) {
-	if ann == nil {
-		ann = make(map[string]string)
-		ann[kyverno.PodControllersAnnotation] = controllers
-		jsonPatch := struct {
-			Path  string      `json:"path"`
-			Op    string      `json:"op"`
-			Value interface{} `json:"value"`
-		}{
-			"/metadata/annotations",
-			"add",
-			ann,
-		}
-
-		patchByte, err := json.Marshal(jsonPatch)
-		if err != nil {
-			return nil, err
-		}
-		return patchByte, nil
-	}
-
-	jsonPatch := struct {
-		Path  string      `json:"path"`
-		Op    string      `json:"op"`
-		Value interface{} `json:"value"`
-	}{
-		"/metadata/annotations/pod-policies.kyverno.io~1autogen-controllers",
-		"add",
-		controllers,
-	}
-
-	patchByte, err := json.Marshal(jsonPatch)
-	if err != nil {
-		return nil, err
-	}
-	return patchByte, nil
 }
