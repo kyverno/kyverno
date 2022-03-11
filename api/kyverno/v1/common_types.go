@@ -817,6 +817,9 @@ type PolicyStatus struct {
 	// Autogen contains autogen status information
 	// +optional
 	Autogen AutogenStatus `json:"autogen" yaml:"autogen"`
+	// Rules is a list of Rule instances. It contains original rules defined in the spec
+	// auto generated rules added for pod controllers
+	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
 }
 
 // AutogenStatus contains autogen status information.

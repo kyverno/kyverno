@@ -283,8 +283,12 @@ helm-test-values:
 godownloader:
 	godownloader .goreleaser.yml --repo kyverno/kyverno -o ./scripts/install-cli.sh  --source="raw"
 
-# kustomize-crd will create install.yaml
-kustomize-crd:
+.PHONY: kustomize
+kustomize: ## Install kustomize
+	go get sigs.k8s.io/kustomize/kustomize/v4
+
+.PHONY: kustomize-crd
+kustomize-crd: kustomize ## Create install.yaml
 	# Create CRD for helm deployment Helm
 	kustomize build ./config/release | kustomize cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
@@ -352,7 +356,7 @@ deepcopy-autogen: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..."
 
 .PHONY: codegen
-codegen: kyverno-crd report-crd deepcopy-autogen
+codegen: kyverno-crd report-crd deepcopy-autogen gen-helm
 
 .PHONY: verify-codegen
 verify-codegen: codegen
