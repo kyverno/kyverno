@@ -36,7 +36,7 @@ func contains(list []string, element string, fn func(string, string) bool) bool 
 	return false
 }
 
-func ContainsPod(list []string, element string) bool {
+func ContainsKind(list []string, element string) bool {
 	for _, e := range list {
 		_, k := common.GetKindFromGVK(e)
 		if k == element {
@@ -44,6 +44,11 @@ func ContainsPod(list []string, element string) bool {
 		}
 	}
 	return false
+}
+
+func SkipSubResources(kind string) bool {
+	s := []string{"PodExecOptions", "PodAttachOptions", "PodProxyOptions", "ServiceProxyOptions", "NodeProxyOptions"}
+	return ContainsKind(s, kind)
 }
 
 // ContainsNamepace check if namespace satisfies any list of pattern(regex)

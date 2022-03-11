@@ -77,8 +77,8 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	matchResourceDescriptionsKinds := rule.MatchKinds()
 	excludeResourceDescriptionsKinds := rule.ExcludeKinds()
 
-	if !utils.ContainsPod(matchResourceDescriptionsKinds, "Pod") ||
-		(len(excludeResourceDescriptionsKinds) != 0 && !utils.ContainsPod(excludeResourceDescriptionsKinds, "Pod")) {
+	if !utils.ContainsKind(matchResourceDescriptionsKinds, "Pod") ||
+		(len(excludeResourceDescriptionsKinds) != 0 && !utils.ContainsKind(excludeResourceDescriptionsKinds, "Pod")) {
 		return nil
 	}
 
