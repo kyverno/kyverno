@@ -265,11 +265,24 @@ test-unit: $(GO_ACC)
 	@echo "	running unit tests"
 	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
 
-code-cov-report: $(CODE_COVERAGE_FILE_TXT)
-# transform to html format
+code-cov-report:
+# code coverage report uploaded to codecov
 	@echo "	generating code coverage report"
-	go tool cover -html=coverage.txt
-	if [ -a $(CODE_COVERAGE_FILE_HTML) ]; then open $(CODE_COVERAGE_FILE_HTML); fi;
+
+	GO111MODULE=on go test -v -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
+	go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
+
+	curl https://keybase.io/codecovsecurity/pgp_keys.asc | gpg --no-default-keyring --keyring trustedkeys.gpg --import
+	curl -Os https://uploader.codecov.io/latest/linux/codecov
+	curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM
+	curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM.sig
+
+	gpgv codecov.SHA256SUM.sig codecov.SHA256SUM
+	shasum -a 256 -c codecov.SHA256SUM
+
+	chmod +x codecov
+	./codecov
 
 # Test E2E
 test-e2e:
