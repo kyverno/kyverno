@@ -78,7 +78,7 @@ func TestValidateMap(t *testing.T) {
 								"tcpSocket":{
 									"port":8080
 								},
-								"initialDelaySeconds":15,
+								"initialDelaySeconds":30,
 								"periodSeconds":11
 							},
 							"resources":{

@@ -174,7 +174,7 @@ livenessProbe:
     path: /health/liveness
     port: 9443
     scheme: HTTPS
-  initialDelaySeconds: 15
+  initialDelaySeconds: 30
   periodSeconds: 30
   timeoutSeconds: 5
   failureThreshold: 2
