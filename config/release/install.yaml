@@ -7917,7 +7917,7 @@ spec:
             path: /health/liveness
             port: 9443
             scheme: HTTPS
-          initialDelaySeconds: 15
+          initialDelaySeconds: 30
           periodSeconds: 30
           successThreshold: 1
           timeoutSeconds: 5
