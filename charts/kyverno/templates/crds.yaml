@@ -901,9 +901,9 @@ spec:
                       description: Mutation is used to modify matching resources.
                       properties:
                         foreach:
-                          description: ForEachMutation applies policy rule changes to nested elements.
+                          description: ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
                           items:
-                            description: ForEachMutation applies policy rule changes to nested elements.
+                            description: ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
                             properties:
                               context:
                                 description: Context defines variables and data sources that can be used during rule execution.
@@ -1061,9 +1061,9 @@ spec:
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
                         foreach:
-                          description: ForEach applies policy rule changes to nested elements.
+                          description: ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
                           items:
-                            description: ForEachValidation applies policy rule checks to nested elements.
+                            description: ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation patterns. At least one of the patterns must be satisfied for the validation rule to succeed.
@@ -1330,7 +1330,25 @@ spec:
                 type: boolean
               validationFailureAction:
                 description: ValidationFailureAction controls if a validation policy rule failure should disallow the admission review request (enforce), or allow (audit) the admission review request and report an error in a policy report. Optional. The default value is "audit".
+                enum:
+                - audit
+                - enforce
                 type: string
+              validationFailureActionOverrides:
+                description: ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                items:
+                  properties:
+                    action:
+                      enum:
+                      - audit
+                      - enforce
+                      type: string
+                    namespaces:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                type: array
               webhookTimeoutSeconds:
                 description: WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy. After the configured time expires, the admission request may fail, or may simply ignore the policy results, based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
                 format: int32
@@ -1339,6 +1357,25 @@ spec:
           status:
             description: Status contains policy runtime data.
             properties:
+              autogen:
+                description: Autogen contains autogen status information
+                properties:
+                  activated:
+                    description: Activated indicates the autogen activated controllers
+                    items:
+                      type: string
+                    type: array
+                  requested:
+                    description: Requested indicates the autogen requested controllers
+                    items:
+                      type: string
+                    type: array
+                  supported:
+                    description: Supported indicates the autogen supported controllers
+                    items:
+                      type: string
+                    type: array
+                type: object
               ready:
                 description: Ready indicates if the policy is ready to serve the admission request
                 type: boolean
@@ -3429,9 +3466,9 @@ spec:
                       description: Mutation is used to modify matching resources.
                       properties:
                         foreach:
-                          description: ForEachMutation applies policy rule changes to nested elements.
+                          description: ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
                           items:
-                            description: ForEachMutation applies policy rule changes to nested elements.
+                            description: ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
                             properties:
                               context:
                                 description: Context defines variables and data sources that can be used during rule execution.
@@ -3589,9 +3626,9 @@ spec:
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
                         foreach:
-                          description: ForEach applies policy rule changes to nested elements.
+                          description: ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
                           items:
-                            description: ForEachValidation applies policy rule checks to nested elements.
+                            description: ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation patterns. At least one of the patterns must be satisfied for the validation rule to succeed.
@@ -3858,7 +3895,25 @@ spec:
                 type: boolean
               validationFailureAction:
                 description: ValidationFailureAction controls if a validation policy rule failure should disallow the admission review request (enforce), or allow (audit) the admission review request and report an error in a policy report. Optional. The default value is "audit".
+                enum:
+                - audit
+                - enforce
                 type: string
+              validationFailureActionOverrides:
+                description: ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                items:
+                  properties:
+                    action:
+                      enum:
+                      - audit
+                      - enforce
+                      type: string
+                    namespaces:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                type: array
               webhookTimeoutSeconds:
                 description: WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy. After the configured time expires, the admission request may fail, or may simply ignore the policy results, based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
                 format: int32
@@ -3867,6 +3922,25 @@ spec:
           status:
             description: Status contains policy runtime information. Deprecated. Policy metrics are available via the metrics endpoint
             properties:
+              autogen:
+                description: Autogen contains autogen status information
+                properties:
+                  activated:
+                    description: Activated indicates the autogen activated controllers
+                    items:
+                      type: string
+                    type: array
+                  requested:
+                    description: Requested indicates the autogen requested controllers
+                    items:
+                      type: string
+                    type: array
+                  supported:
+                    description: Supported indicates the autogen supported controllers
+                    items:
+                      type: string
+                    type: array
+                type: object
               ready:
                 description: Ready indicates if the policy is ready to serve the admission request
                 type: boolean

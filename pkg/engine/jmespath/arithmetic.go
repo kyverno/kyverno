@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"strconv"
 	"time"
 
 	"gopkg.in/inf.v0"
@@ -226,11 +227,17 @@ func (op1 Scalar) Multiply(op2 interface{}) (interface{}, error) {
 func (op1 Quantity) Divide(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Quantity:
+		if v.ToDec().AsApproximateFloat64() == 0 {
+			return nil, fmt.Errorf(zeroDivisionError, divide)
+		}
 		var quo inf.Dec
 		scale := inf.Scale(math.Max(float64(op1.AsDec().Scale()), float64(v.AsDec().Scale())))
 		quo.QuoRound(op1.AsDec(), v.AsDec(), scale, inf.RoundDown)
-		return resource.NewDecimalQuantity(quo, v.Quantity.Format).String(), nil
+		return strconv.ParseFloat(quo.String(), 64)
 	case Scalar:
+		if v.float64 == 0 {
+			return nil, fmt.Errorf(zeroDivisionError, divide)
+		}
 		q, err := resource.ParseQuantity(fmt.Sprintf("%v", v.float64))
 		if err != nil {
 			return nil, err
@@ -255,20 +262,22 @@ func (op1 Duration) Divide(op2 interface{}) (interface{}, error) {
 		}
 
 		quo = op1.Seconds() / v.Seconds()
+		return quo, nil
 	case Scalar:
 		if v.float64 == 0 {
 			return nil, fmt.Errorf(undefinedQuoError, divide)
 		}
 
 		quo = op1.Seconds() / v.float64
+		res, err := time.ParseDuration(fmt.Sprintf("%.9fs", quo))
+		if err != nil {
+			return nil, err
+		}
+
+		return res.String(), nil
 	}
 
-	res, err := time.ParseDuration(fmt.Sprintf("%.9fs", quo))
-	if err != nil {
-		return nil, err
-	}
-
-	return res.String(), nil
+	return nil, nil
 }
 
 func (op1 Scalar) Divide(op2 interface{}) (interface{}, error) {
@@ -280,6 +289,9 @@ func (op1 Scalar) Divide(op2 interface{}) (interface{}, error) {
 
 		return op1.float64 / v.float64, nil
 	case Quantity:
+		if v.ToDec().AsApproximateFloat64() == 0 {
+			return nil, fmt.Errorf(zeroDivisionError, divide)
+		}
 		q, err := resource.ParseQuantity(fmt.Sprintf("%v", op1.float64))
 		if err != nil {
 			return nil, err
@@ -315,7 +327,13 @@ func (op1 Quantity) Modulo(op2 interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	x, err := resource.ParseQuantity(quo.(string))
+	var x resource.Quantity
+	switch y := quo.(type) {
+	case float64:
+		x, err = resource.ParseQuantity(fmt.Sprintf("%.9f", y))
+	case string:
+		x, err = resource.ParseQuantity(y)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +357,13 @@ func (op1 Duration) Modulo(op2 interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	x, err := time.ParseDuration(quo.(string))
+	var x time.Duration
+	switch y := quo.(type) {
+	case float64:
+		x, err = time.ParseDuration(fmt.Sprintf("%.9fs", y))
+	case string:
+		x, err = time.ParseDuration(y)
+	}
 	if err != nil {
 		return nil, err
 	}

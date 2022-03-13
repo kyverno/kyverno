@@ -104,3 +104,21 @@ minAvailable: {{ default 1 .Values.podDisruptionBudget.minAvailable }}
 maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
 {{- end }}
 {{- end }}
+
+{{- define "kyverno.replicaCount" -}}
+{{- if not (empty .Values.replicaCount) }}
+replicas: {{ .Values.replicaCount }}
+{{- else if eq .Values.mode "standalone" }}
+replicas: 1
+{{- else if eq .Values.mode "ha" }}
+replicas: 3
+{{- end }}
+{{- end }}
+
+{{- define "kyverno.securityContext" -}}
+{{- if semverCompare "<1.19" .Capabilities.KubeVersion.Version }}
+{{ toYaml (omit .Values.securityContext "seccompProfile") }}
+{{- else }}
+{{ toYaml .Values.securityContext }}
+{{- end }}
+{{- end }}

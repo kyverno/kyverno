@@ -31,7 +31,7 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	var resourceTypes []string
 
 	for _, policy := range policies {
-		for _, rule := range policy.Spec.Rules {
+		for _, rule := range policy.Spec.GetRules() {
 			resourceTypesInRule := getKindsFromPolicy(rule)
 			for resourceKind := range resourceTypesInRule {
 				resourceTypesMap[resourceKind] = true
@@ -120,7 +120,7 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []*v1.ClusterPolicy, res
 	var resourceTypesMap = make(map[string]bool)
 	var resourceTypes []string
 	for _, policy := range policies {
-		for _, rule := range policy.Spec.Rules {
+		for _, rule := range policy.Spec.GetRules() {
 			for _, kind := range rule.MatchResources.Kinds {
 				resourceTypesMap[kind] = true
 			}

@@ -151,6 +151,10 @@ func validateValueWithNilPattern(log logr.Logger, value interface{}) bool {
 
 // Handler for pattern values during validation process
 func validateValueWithStringPatterns(log logr.Logger, value interface{}, pattern string) bool {
+	if value == pattern {
+		return true
+	}
+
 	conditions := strings.Split(pattern, "|")
 	for _, condition := range conditions {
 		condition = strings.Trim(condition, " ")
@@ -281,11 +285,12 @@ func validateNumberWithStr(log logr.Logger, value interface{}, pattern string, o
 	}
 
 	// 2. wildcard match
-	if !wildcard.Match(pattern, typedValue) {
+	if validateString(log, value, pattern, operator) {
+		return true
+	} else {
 		log.V(4).Info("value failed wildcard check", "type", fmt.Sprintf("%T", typedValue), "value", typedValue, "check", pattern)
 		return false
 	}
-	return true
 }
 
 func compareQuantity(value, pattern apiresource.Quantity, op operator.Operator) bool {

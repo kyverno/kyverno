@@ -37,7 +37,8 @@ func (m *Mutate) validateForEach() (string, error) {
 	}
 
 	for i, fe := range m.mutation.ForEachMutation {
-		if (fe.PatchesJSON6902 == "" && fe.PatchStrategicMerge == nil) || (fe.PatchesJSON6902 != "" && fe.PatchStrategicMerge != nil) {
+		psm := fe.GetPatchStrategicMerge()
+		if (fe.PatchesJSON6902 == "" && psm == nil) || (fe.PatchesJSON6902 != "" && psm != nil) {
 			return fmt.Sprintf("foreach[%d]", i), fmt.Errorf("only one of `patchStrategicMerge` or `patchesJson6902` is allowed")
 		}
 	}
@@ -50,7 +51,7 @@ func (m *Mutate) hasForEach() bool {
 }
 
 func (m *Mutate) hasPatchStrategicMerge() bool {
-	return m.mutation.PatchStrategicMerge != nil
+	return m.mutation.GetPatchStrategicMerge() != nil
 }
 
 func (m *Mutate) hasPatchesJSON6902() bool {

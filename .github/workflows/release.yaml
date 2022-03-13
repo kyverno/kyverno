@@ -4,10 +4,12 @@ on:
     tags:
       - 'v*'
 
-permissions: read-all
-
 jobs:
   release-init-kyverno:
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     uses: kyverno/kyverno/.github/workflows/reuse.yaml@main
     with:
       publish_command: docker-publish-initContainer
@@ -20,6 +22,10 @@ jobs:
       registry_password: ${{ secrets.CR_PAT }}
 
   release-kyverno:
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     uses: kyverno/kyverno/.github/workflows/reuse.yaml@main
     with:
       publish_command: docker-publish-kyverno
@@ -32,6 +38,10 @@ jobs:
       registry_password: ${{ secrets.CR_PAT }}
 
   release-kyverno-cli:
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     uses: kyverno/kyverno/.github/workflows/reuse.yaml@main
     with:
       publish_command: docker-publish-cli
@@ -62,7 +72,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
         with:
-          go-version: 1.16
+          go-version: 1.17
 
       - name: Cache Go modules
         uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # v1.2.0

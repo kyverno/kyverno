@@ -374,6 +374,13 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
 	}
 
+	if request.Kind.Kind == "Secret" && request.Operation == v1beta1.Update {
+		resource, err = utils.NormalizeSecret(&resource)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to convert secret to unstructured format")
+		}
+	}
+
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
 		AdmissionInfo:       userRequestInfo,
