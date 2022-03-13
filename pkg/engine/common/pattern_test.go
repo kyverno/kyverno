@@ -385,3 +385,11 @@ func TestGetOperatorFromStringPattern_OneChar(t *testing.T) {
 func TestGetOperatorFromStringPattern_EmptyString(t *testing.T) {
 	assert.Equal(t, operator.GetOperatorFromStringPattern(""), operator.Equal)
 }
+
+func TestValidateKernelVersion_NotEquals(t *testing.T) {
+	assert.Assert(t, validateValueWithStringPattern(log.Log, "5.16.5-arch1-1", "!5.10.84-1"))
+	assert.Assert(t, !validateValueWithStringPattern(log.Log, "5.10.84-1", "!5.10.84-1"))
+	assert.Assert(t, validateValueWithStringPatterns(log.Log, "5.16.5-arch1-1", "!5.10.84-1 & !5.15.2-1"))
+	assert.Assert(t, !validateValueWithStringPatterns(log.Log, "5.10.84-1", "!5.10.84-1 & !5.15.2-1"))
+	assert.Assert(t, !validateValueWithStringPatterns(log.Log, "5.15.2-1", "!5.10.84-1 & !5.15.2-1"))
+}

@@ -85,7 +85,7 @@ func Test_Validate_RuleType_EmptyRule(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range policy.Spec.GetRules() {
 		err := validateRuleType(rule)
 		assert.Assert(t, err != nil)
 	}
@@ -160,7 +160,7 @@ func Test_Validate_RuleType_MultipleRule(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range policy.Spec.GetRules() {
 		err := validateRuleType(rule)
 		assert.Assert(t, err != nil)
 	}
@@ -215,7 +215,7 @@ func Test_Validate_RuleType_SingleRule(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range policy.Spec.GetRules() {
 		err := validateRuleType(rule)
 		assert.NilError(t, err)
 	}
@@ -1555,6 +1555,54 @@ func Test_patchesJson6902_Policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, false, openAPIController)
+	err = Validate(policy, nil, true, openAPIController)
+	assert.NilError(t, err)
+}
+
+func Test_deny_exec(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "deny-exec-to-pod"
+		},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "schemaValidation": false,
+		  "rules": [
+			{
+			  "name": "deny-pod-exec",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"PodExecOptions"
+				  ]
+				}
+			  },
+			  "preconditions": {
+				"all": [
+				  {
+					"key": "{{ request.operation }}",
+					"operator": "Equals",
+					"value": "CONNECT"
+				  }
+				]
+			  },
+			  "validate": {
+				"message": "Containers can't be exec'd into in production.",
+				"deny": {}
+			  }
+			}
+		  ]
+		}
+	  }`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openAPIController, _ := openapi.NewOpenAPIController()
+	err = Validate(policy, nil, true, openAPIController)
 	assert.NilError(t, err)
 }

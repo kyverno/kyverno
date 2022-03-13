@@ -60,15 +60,6 @@ func Test_extractImageInfo(t *testing.T) {
 
 func Test_ImageInfo_String(t *testing.T) {
 	validateImageInfo(t,
-		"registry.test.io/test/myapp:v1.2-21.g5523e95@sha256:31aaf12480bd08c54e7990c6b0e43d775a7a84603d2921a6de4abbc317b2fd10",
-		"myapp",
-		"test/myapp",
-		"registry.test.io",
-		"v1.2-21.g5523e95",
-		"sha256:31aaf12480bd08c54e7990c6b0e43d775a7a84603d2921a6de4abbc317b2fd10",
-		"registry.test.io/test/myapp:v1.2-21.g5523e95@sha256:31aaf12480bd08c54e7990c6b0e43d775a7a84603d2921a6de4abbc317b2fd10")
-
-	validateImageInfo(t,
 		"nginx",
 		"nginx",
 		"nginx",
@@ -112,6 +103,14 @@ func Test_ImageInfo_String(t *testing.T) {
 		"latest",
 		"",
 		"localhost:4443/test/nginx:latest")
+	validateImageInfo(t,
+		"docker.io/test/centos@sha256:dead07b4d8ed7e29e98de0f4504d87e8880d4347859d839686a31da35a3b532f",
+		"centos",
+		"test/centos",
+		"docker.io",
+		"",
+		"sha256:dead07b4d8ed7e29e98de0f4504d87e8880d4347859d839686a31da35a3b532f",
+		"docker.io/test/centos@sha256:dead07b4d8ed7e29e98de0f4504d87e8880d4347859d839686a31da35a3b532f")
 }
 
 func validateImageInfo(t *testing.T, raw, name, path, registry, tag, digest, str string) {

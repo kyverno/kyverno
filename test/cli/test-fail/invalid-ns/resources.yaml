@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kyverno-system-tst
+  labels:
+    name: kyverno-system-tst
+    schiff.telekom.de/owner: schiff
+    platform.das-schiff.telekom.de/owner: das-schiff

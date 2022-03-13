@@ -73,7 +73,7 @@ func (pc PromConfig) AddPolicy(policy interface{}) error {
 		policyName := inputPolicy.ObjectMeta.Name
 		ready := inputPolicy.Status.Ready
 		// registering the metrics on a per-rule basis
-		for _, rule := range inputPolicy.Spec.Rules {
+		for _, rule := range inputPolicy.Spec.GetRules() {
 			ruleName := rule.Name
 			ruleType := metrics.ParseRuleType(rule)
 
@@ -93,7 +93,7 @@ func (pc PromConfig) AddPolicy(policy interface{}) error {
 		policyName := inputPolicy.ObjectMeta.Name
 		ready := inputPolicy.Status.Ready
 		// registering the metrics on a per-rule basis
-		for _, rule := range inputPolicy.Spec.Rules {
+		for _, rule := range inputPolicy.Spec.GetRules() {
 			ruleName := rule.Name
 			ruleType := metrics.ParseRuleType(rule)
 
@@ -110,7 +110,7 @@ func (pc PromConfig) AddPolicy(policy interface{}) error {
 func (pc PromConfig) RemovePolicy(policy interface{}) error {
 	switch inputPolicy := policy.(type) {
 	case *kyverno.ClusterPolicy:
-		for _, rule := range inputPolicy.Spec.Rules {
+		for _, rule := range inputPolicy.Spec.GetRules() {
 			policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.ValidationFailureAction)
 			if err != nil {
 				return err
@@ -129,7 +129,7 @@ func (pc PromConfig) RemovePolicy(policy interface{}) error {
 		}
 		return nil
 	case *kyverno.Policy:
-		for _, rule := range inputPolicy.Spec.Rules {
+		for _, rule := range inputPolicy.Spec.GetRules() {
 			policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.ValidationFailureAction)
 			if err != nil {
 				return err

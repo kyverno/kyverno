@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - 'main'
+      - 'release*'
 
 permissions:
   contents: read
@@ -13,8 +14,8 @@ jobs:
   push-init-kyverno:
     uses: kyverno/kyverno/.github/workflows/reuse.yaml@main
     with:
-      publish_command: docker-publish-initContainer-dev
-      digest_command: docker-get-initContainer-dev-digest
+      publish_command: docker-publish-initContainer
+      digest_command: docker-get-initContainer-digest
       image_name: kyvernopre
       tag: image
     secrets:
@@ -24,8 +25,8 @@ jobs:
   push-kyverno:
     uses: kyverno/kyverno/.github/workflows/reuse.yaml@main
     with:
-      publish_command: docker-publish-kyverno-dev
-      digest_command: docker-get-kyverno-dev-digest
+      publish_command: docker-publish-kyverno
+      digest_command: docker-get-kyverno-digest
       image_name: kyverno
       tag: image
     secrets:
@@ -35,8 +36,8 @@ jobs:
   push-kyverno-cli:
     uses: kyverno/kyverno/.github/workflows/reuse.yaml@main
     with:
-      publish_command: docker-publish-cli-dev
-      digest_command: docker-get-cli-dev-digest
+      publish_command: docker-publish-cli
+      digest_command: docker-get-cli-digest
       image_name: kyverno-cli
       tag: image
     secrets:
