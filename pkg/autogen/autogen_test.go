@@ -12,10 +12,11 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"gotest.tools/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func Test_getControllers(t *testing.T) {
+func Test_CanAutoGen(t *testing.T) {
 	testCases := []struct {
 		name                string
 		policy              []byte
@@ -103,6 +104,145 @@ func Test_getControllers(t *testing.T) {
 			controllers = "none"
 		}
 		assert.Equal(t, test.expectedControllers, controllers, fmt.Sprintf("test %s failed", test.name))
+	}
+}
+
+func Test_GetSupportedControllers(t *testing.T) {
+	testCases := []struct {
+		name                string
+		policy              []byte
+		expectedControllers string
+	}{
+		{
+			name:                "rule-with-match-name",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"test","match":{"resources":{"kinds":["Namespace"],"name":"*"}}}]}}`),
+			expectedControllers: "none",
+		},
+		{
+			name:                "rule-with-match-selector",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test-getcontrollers"},"spec":{"background":false,"rules":[{"name":"test-getcontrollers","match":{"resources":{"kinds":["Pod"],"selector":{"matchLabels":{"foo":"bar"}}}}}]}}`),
+			expectedControllers: "none",
+		},
+		{
+			name:                "rule-with-exclude-name",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test-getcontrollers"},"spec":{"background":false,"rules":[{"name":"test-getcontrollers","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"name":"test"}}}]}}`),
+			expectedControllers: "none",
+		},
+		{
+			name:                "rule-with-exclude-selector",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test-getcontrollers"},"spec":{"background":false,"rules":[{"name":"test-getcontrollers","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"selector":{"matchLabels":{"foo":"bar"}}}}}]}}`),
+			expectedControllers: "none",
+		},
+		{
+			name:                "rule-with-deny",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"testpolicy","deny":{"conditions":[{"key":"{{request.object.metadata.labels.foo}}","operator":"Equals","value":"bar"}]}}}]}}`),
+			expectedControllers: PodControllers,
+		},
+
+		{
+			name:                "rule-with-match-mixed-kinds-pod-podcontrollers",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"set-service-labels-env"},"spec":{"background":false,"rules":[{"name":"set-service-label","match":{"resources":{"kinds":["Pod","Deployment"]}},"preconditions":{"any":[{"key":"{{request.operation}}","operator":"Equals","value":"CREATE"}]},"mutate":{"patchStrategicMerge":{"metadata":{"labels":{"+(service)":"{{request.object.spec.template.metadata.labels.app}}"}}}}}]}}`),
+			expectedControllers: "none",
+		},
+		{
+			name:                "rule-with-exclude-mixed-kinds-pod-podcontrollers",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"set-service-labels-env"},"spec":{"background":false,"rules":[{"name":"set-service-label","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"kinds":["Pod","Deployment"]}},"mutate":{"patchStrategicMerge":{"metadata":{"labels":{"+(service)":"{{request.object.spec.template.metadata.labels.app}}"}}}}}]}}`),
+			expectedControllers: "none",
+		},
+		{
+			name:                "rule-with-match-kinds-pod-only",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"testpolicy","pattern":{"metadata":{"labels":{"foo":"bar"}}}}}]}}`),
+			expectedControllers: PodControllers,
+		},
+		{
+			name:                "rule-with-exclude-kinds-pod-only",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"kinds":["Pod"],"namespaces":["test"]}},"validate":{"message":"testpolicy","pattern":{"metadata":{"labels":{"foo":"bar"}}}}}]}}`),
+			expectedControllers: PodControllers,
+		},
+		{
+			name:                "rule-with-mutate-patches",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"test","match":{"resources":{"kinds":["Pod"]}},"mutate":{"patchesJson6902":"-op:add\npath:/spec/containers/0/env/-1\nvalue:{\"name\":\"SERVICE\",\"value\":{{request.object.spec.template.metadata.labels.app}}}"}}]}}`),
+			expectedControllers: "none",
+		},
+		{
+			name:                "rule-with-generate",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"add-networkpolicy"},"spec":{"rules":[{"name":"default-deny-ingress","match":{"resources":{"kinds":["Namespace"],"name":"*"}},"exclude":{"resources":{"namespaces":["kube-system","default","kube-public","kyverno"]}},"generate":{"kind":"NetworkPolicy","name":"default-deny-ingress","namespace":"{{request.object.metadata.name}}","synchronize":true,"data":{"spec":{"podSelector":{},"policyTypes":["Ingress"]}}}}]}}`),
+			expectedControllers: "none",
+		},
+		{
+			name:                "rule-with-predefined-invalid-controllers",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"set-service-labels-env"},"annotations":null,"pod-policies.kyverno.io/autogen-controllers":"DaemonSet,Deployment,StatefulSet","spec":{"background":false,"rules":[{"name":"set-service-label","match":{"resources":{"kinds":["Pod","Deployment"]}},"mutate":{"patchStrategicMerge":{"metadata":{"labels":{"+(service)":"{{request.object.spec.template.metadata.labels.app}}"}}}}}]}}`),
+			expectedControllers: "none",
+		},
+		{
+			name:                "rule-with-predefined-valid-controllers",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"set-service-labels-env"},"annotations":null,"pod-policies.kyverno.io/autogen-controllers":"none","spec":{"background":false,"rules":[{"name":"set-service-label","match":{"resources":{"kinds":["Pod","Deployment"]}},"mutate":{"patchStrategicMerge":{"metadata":{"labels":{"+(service)":"{{request.object.spec.template.metadata.labels.app}}"}}}}}]}}`),
+			expectedControllers: "none",
+		},
+		{
+			name:                "rule-with-only-predefined-valid-controllers",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"set-service-labels-env"},"annotations":null,"pod-policies.kyverno.io/autogen-controllers":"none","spec":{"background":false,"rules":[{"name":"set-service-label","match":{"resources":{"kinds":["Namespace"]}},"mutate":{"patchStrategicMerge":{"metadata":{"labels":{"+(service)":"{{request.object.spec.template.metadata.labels.app}}"}}}}}]}}`),
+			expectedControllers: "none",
+		},
+	}
+
+	for _, test := range testCases {
+		var policy kyverno.ClusterPolicy
+		err := json.Unmarshal(test.policy, &policy)
+		assert.NilError(t, err)
+
+		controllers := GetSupportedControllers(&policy.Spec, log.Log)
+
+		var expectedControllers []string
+		if test.expectedControllers != "none" {
+			expectedControllers = strings.Split(test.expectedControllers, ",")
+		}
+
+		assert.DeepEqual(t, expectedControllers, controllers)
+	}
+}
+
+func Test_GetRequestedControllers(t *testing.T) {
+	testCases := []struct {
+		name                string
+		meta                metav1.ObjectMeta
+		expectedControllers []string
+	}{
+		{
+			name:                "annotations-nil",
+			meta:                metav1.ObjectMeta{},
+			expectedControllers: nil,
+		},
+		{
+			name:                "annotation-not-set",
+			meta:                metav1.ObjectMeta{Annotations: map[string]string{}},
+			expectedControllers: nil,
+		},
+		{
+			name:                "annotation-empty",
+			meta:                metav1.ObjectMeta{Annotations: map[string]string{"pod-policies.kyverno.io/autogen-controllers": ""}},
+			expectedControllers: nil,
+		},
+		{
+			name:                "annotation-none",
+			meta:                metav1.ObjectMeta{Annotations: map[string]string{"pod-policies.kyverno.io/autogen-controllers": "none"}},
+			expectedControllers: []string{},
+		},
+		{
+			name:                "annotation-job",
+			meta:                metav1.ObjectMeta{Annotations: map[string]string{"pod-policies.kyverno.io/autogen-controllers": "Job"}},
+			expectedControllers: []string{"Job"},
+		},
+		{
+			name:                "annotation-job-deployment",
+			meta:                metav1.ObjectMeta{Annotations: map[string]string{"pod-policies.kyverno.io/autogen-controllers": "Job,Deployment"}},
+			expectedControllers: []string{"Job", "Deployment"},
+		},
+	}
+
+	for _, test := range testCases {
+		controllers := GetRequestedControllers(test.meta)
+		assert.DeepEqual(t, test.expectedControllers, controllers)
 	}
 }
 
