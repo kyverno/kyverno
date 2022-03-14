@@ -12,6 +12,7 @@ policies:
   # operation is not provided by user
   - name: test-require-image-tag-pass
     values:
+      request.operation: CREATE
   # operation is empty
   - name: test-require-image-tag-fail
     values:
