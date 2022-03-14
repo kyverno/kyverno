@@ -280,27 +280,35 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		match := rule.MatchResources
 		exclude := rule.ExcludeResources
 		for _, value := range match.Any {
-			err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
-			if err != nil {
-				return nil, errors.Wrapf(err, "the kind defined in the any match resource is invalid")
+			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
+				err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
+				if err != nil {
+					return nil, errors.Wrapf(err, "the kind defined in the any match resource is invalid")
+				}
 			}
 		}
 		for _, value := range match.All {
-			err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
-			if err != nil {
-				return nil, errors.Wrapf(err, "the kind defined in the all match resource is invalid")
+			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
+				err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
+				if err != nil {
+					return nil errors.Wrapf(err, "the kind defined in the all match resource is invalid")
+				}
 			}
 		}
 		for _, value := range exclude.Any {
-			err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
-			if err != nil {
-				return nil, errors.Wrapf(err, "the kind defined in the any exclude resource is invalid")
+			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
+				err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
+				if err != nil {
+					return nil, errors.Wrapf(err, "the kind defined in the any exclude resource is invalid")
+				}
 			}
 		}
 		for _, value := range exclude.All {
-			err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
-			if err != nil {
-				return nil, errors.Wrapf(err, "the kind defined in the all exclude resource is invalid")
+			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
+				err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
+				if err != nil {
+					return nil, errors.Wrapf(err, "the kind defined in the all exclude resource is invalid")
+				}
 			}
 		}
 		if !utils.ContainsString(rule.MatchResources.Kinds, "*") {
