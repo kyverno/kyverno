@@ -144,9 +144,25 @@ docker-get-kyverno-digest-dev:
 # Generate Docs for types.go
 ##################################
 
-generate-api-docs:
-	go run gen-crd-api-reference-docs -api-dir ./api -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
+.PHONY: gen-crd-api-reference-docs
+gen-crd-api-reference-docs: ## Install gen-crd-api-reference-docs
+	go install github.com/ahmetb/gen-crd-api-reference-docs@latest
 
+.PHONY: gen-crd-api-reference-docs
+generate-api-docs: gen-crd-api-reference-docs ## Generate api reference docs
+	rm -rf docs/crd
+	mkdir docs/crd
+	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1alpha1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha1/index.html
+	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
+	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
+
+.PHONY: verify-api-docs
+verify-api-docs: generate-api-docs ## Check api reference docs are up to date
+	git add --all
+	git diff docs
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make generate-api-docs".'
+	@echo 'To correct this, locally run "make generate-api-docs", commit the changes, and re-run tests.'
+	git diff --quiet --exit-code docs
 
 ##################################
 # CLI
@@ -249,11 +265,13 @@ test-unit: $(GO_ACC)
 	@echo "	running unit tests"
 	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
 
-code-cov-report: $(CODE_COVERAGE_FILE_TXT)
-# transform to html format
+code-cov-report:
+# generate code coverage report
 	@echo "	generating code coverage report"
-	go tool cover -html=coverage.txt
-	if [ -a $(CODE_COVERAGE_FILE_HTML) ]; then open $(CODE_COVERAGE_FILE_HTML); fi;
+
+	GO111MODULE=on go test -v -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
+	go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
 
 # Test E2E
 test-e2e:
