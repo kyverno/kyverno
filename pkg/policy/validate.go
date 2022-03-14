@@ -291,7 +291,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
 				if err != nil {
-					return nil errors.Wrapf(err, "the kind defined in the all match resource is invalid")
+					return nil, errors.Wrapf(err, "the kind defined in the all match resource is invalid")
 				}
 			}
 		}
