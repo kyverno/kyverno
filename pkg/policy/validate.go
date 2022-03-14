@@ -247,14 +247,6 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 				}
 			}
 
-			if podControllerAutoGenExclusion(policy) {
-				log.Log.V(1).Info("Pod controllers excluded from autogen require adding of preconditions to also exclude the desired controller(s).")
-				return &v1beta1.AdmissionResponse{
-					Allowed:  true,
-					Warnings: []string{"Pod controllers excluded from autogen require adding of preconditions to also exclude the desired controller(s)."},
-				}, nil
-			}
-
 			if rule.HasMutate() {
 				if !ruleOnlyDealsWithResourceMetaData(rule) {
 					return nil, fmt.Errorf("policy can only deal with the metadata field of the resource if" +
@@ -272,6 +264,16 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			if len(errs) != 0 {
 				return nil, errs.ToAggregate()
 			}
+		}
+
+		var podOnlyMap = make(map[string]bool) //Validate that Kind is only Pod
+		podOnlyMap["Pod"] = true
+		if reflect.DeepEqual(common.GetKindsFromRule(rule), podOnlyMap) && podControllerAutoGenExclusion(policy) {
+			log.Log.V(1).Info("Pod controllers excluded from autogen require adding of preconditions to also exclude the desired controller(s).")
+			return &v1beta1.AdmissionResponse{
+				Allowed:  true,
+				Warnings: []string{"Pod controllers excluded from autogen require adding of preconditions to also exclude the desired controller(s)."},
+			}, nil
 		}
 
 		//Validate Kind with match resource kinds
@@ -1521,7 +1523,6 @@ func podControllerAutoGenExclusion(policy *kyverno.ClusterPolicy) bool {
 	if ok && strings.ToLower(val) == "none" || reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) == false {
 		return true
 	}
-
 	return false
 }
 

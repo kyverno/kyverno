@@ -1607,6 +1607,51 @@ func Test_deny_exec(t *testing.T) {
 	assert.NilError(t, err)
 }
 
+func Test_existing_resource_policy(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "np-test-1"
+		},
+		"spec": {
+		  "validationFailureAction": "audit",
+		  "rules": [
+			{
+			  "name": "no-LoadBalancer",
+			  "match": {
+				"any": [
+				  {
+					"resources": {
+					  "kinds": [
+						"networking.k8s.io/v1/NetworkPolicy"
+					  ]
+					}
+				  }
+				]
+			  },
+			  "validate": {
+				"message": "np-test",
+				"pattern": {
+				  "metadata": {
+					"name": "?*"
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openAPIController, _ := openapi.NewOpenAPIController()
+	_, err = Validate(policy, nil, true, openAPIController)
+	assert.NilError(t, err)
+}
+
 func Test_PodControllerAutoGenExclusion_All_Controllers_Policy(t *testing.T) {
 	rawPolicy := []byte(`
 {
@@ -1779,108 +1824,5 @@ func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
 	if res != nil {
 		assert.Assert(t, res.Warnings != nil)
 	}
-	assert.NilError(t, err)
-}
-
-func Test_PodControllerAutoGenExclusion_Multiple_Kinds_Policy(t *testing.T) {
-	rawPolicy := []byte(`
-{
-	"apiVersion": "kyverno.io/v1",
-	"kind": "ClusterPolicy",
-	"metadata": {
-	  "name": "add-none-pod-controller-annotations",
-	  "annotations": {
-		"pod-policies.kyverno.io/autogen-controllers": "none"
-	  }
-	},
-	"spec": {
-	  "validationFailureAction": "enforce",
-	  "background": false,
-	  "rules": [
-		{
-		  "name": "validate-livenessProbe-readinessProbe",
-		  "match": {
-			"resources": {
-			  "kinds": [
-				"Pod",
-				"Ingress"
-			  ]
-			}
-		  },
-		  "validate": {
-			"message": "Liveness and readiness probes are required.",
-			"pattern": {
-			  "spec": {
-				"containers": [
-				  {
-					"livenessProbe": {
-					  "periodSeconds": ">0"
-					},
-					"readinessProbe": {
-					  "periodSeconds": ">0"
-					}
-				  }
-				]
-			  }
-			}
-		  }
-		}
-	  ]
-	}
-  }
-`)
-
-	var policy *kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
-
-	openAPIController, _ := openapi.NewOpenAPIController()
-	res, err := Validate(policy, nil, true, openAPIController)
-	assert.NilError(t, err)
-	assert.Assert(t, res == nil)
-}
-
-func Test_existing_resource_policy(t *testing.T) {
-	var err error
-	rawPolicy := []byte(`{
-		"apiVersion": "kyverno.io/v1",
-		"kind": "ClusterPolicy",
-		"metadata": {
-		  "name": "np-test-1"
-		},
-		"spec": {
-		  "validationFailureAction": "audit",
-		  "rules": [
-			{
-			  "name": "no-LoadBalancer",
-			  "match": {
-				"any": [
-				  {
-					"resources": {
-					  "kinds": [
-						"networking.k8s.io/v1/NetworkPolicy"
-					  ]
-					}
-				  }
-				]
-			  },
-			  "validate": {
-				"message": "np-test",
-				"pattern": {
-				  "metadata": {
-					"name": "?*"
-				  }
-				}
-			  }
-			}
-		  ]
-		}
-	  }`)
-	var policy *kyverno.ClusterPolicy
-	err = json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
-
-	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, true, openAPIController)
 	assert.NilError(t, err)
 }
