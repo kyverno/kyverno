@@ -265,11 +265,13 @@ test-unit: $(GO_ACC)
 	@echo "	running unit tests"
 	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
 
-code-cov-report: $(CODE_COVERAGE_FILE_TXT)
-# transform to html format
+code-cov-report:
+# generate code coverage report
 	@echo "	generating code coverage report"
-	go tool cover -html=coverage.txt
-	if [ -a $(CODE_COVERAGE_FILE_HTML) ]; then open $(CODE_COVERAGE_FILE_HTML); fi;
+
+	GO111MODULE=on go test -v -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
+	go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
 
 # Test E2E
 test-e2e:
