@@ -31,13 +31,13 @@ func (v *Validate) Validate() (string, error) {
 		return "", err
 	}
 
-	if v.rule.Pattern != nil {
-		if path, err := common.ValidatePattern(v.rule.Pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor, commonAnchors.IsGlobalAnchor}); err != nil {
+	if target := v.rule.GetPattern(); target != nil {
+		if path, err := common.ValidatePattern(target, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor, commonAnchors.IsGlobalAnchor}); err != nil {
 			return fmt.Sprintf("pattern.%s", path), err
 		}
 	}
 
-	if v.rule.AnyPattern != nil {
+	if target := v.rule.GetAnyPattern(); target != nil {
 		anyPattern, err := v.rule.DeserializeAnyPattern()
 		if err != nil {
 			return "anyPattern", fmt.Errorf("failed to deserialize anyPattern, expect array: %v", err)
@@ -79,11 +79,11 @@ func validationElemCount(v *kyverno.Validation) int {
 	}
 
 	count := 0
-	if v.Pattern != nil {
+	if v.GetPattern() != nil {
 		count++
 	}
 
-	if v.AnyPattern != nil {
+	if v.GetAnyPattern() != nil {
 		count++
 	}
 
@@ -125,11 +125,11 @@ func foreachElemCount(foreach *kyverno.ForEachValidation) int {
 	}
 
 	count := 0
-	if foreach.Pattern != nil {
+	if foreach.GetPattern() != nil {
 		count++
 	}
 
-	if foreach.AnyPattern != nil {
+	if foreach.GetAnyPattern() != nil {
 		count++
 	}
 

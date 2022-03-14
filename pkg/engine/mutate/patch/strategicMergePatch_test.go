@@ -164,9 +164,7 @@ func TestMergePatch(t *testing.T) {
 		t.Logf("Running test %d...", i+1)
 		out, err := strategicMergePatch(log.Log, string(test.rawResource), string(test.rawPolicy))
 		assert.NilError(t, err)
-
-		// has assertions inside
-		areEqualJSONs(t, test.expected, out)
+		assert.DeepEqual(t, toJSON(t, test.expected), toJSON(t, out))
 	}
 }
 
@@ -244,7 +242,7 @@ func Test_PolicyDeserilize(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	overlayPatches := policy.Spec.Rules[0].Mutation.PatchStrategicMerge
+	overlayPatches := policy.Spec.GetRules()[0].Mutation.GetPatchStrategicMerge()
 	patchString, err := json.Marshal(overlayPatches)
 	assert.NilError(t, err)
 

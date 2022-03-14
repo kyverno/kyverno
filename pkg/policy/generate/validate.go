@@ -37,7 +37,7 @@ func NewGenerateFactory(client *dclient.Client, rule kyverno.Generation, log log
 //Validate validates the 'generate' rule
 func (g *Generate) Validate() (string, error) {
 	rule := g.rule
-	if rule.Data != nil && rule.Clone != (kyverno.CloneFrom{}) {
+	if rule.GetData() != nil && rule.Clone != (kyverno.CloneFrom{}) {
 		return "", fmt.Errorf("only one of data or clone can be specified")
 	}
 
@@ -56,10 +56,10 @@ func (g *Generate) Validate() (string, error) {
 			return fmt.Sprintf("clone.%s", path), err
 		}
 	}
-	if rule.Data != nil {
+	if target := rule.GetData(); target != nil {
 		//TODO: is this required ?? as anchors can only be on pattern and not resource
 		// we can add this check by not sure if its needed here
-		if path, err := common.ValidatePattern(rule.Data, "/", []commonAnchors.IsAnchor{}); err != nil {
+		if path, err := common.ValidatePattern(target, "/", []commonAnchors.IsAnchor{}); err != nil {
 			return fmt.Sprintf("data.%s", path), fmt.Errorf("anchors not supported on generate resources: %v", err)
 		}
 	}

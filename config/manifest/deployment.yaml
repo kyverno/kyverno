@@ -21,6 +21,9 @@ spec:
         # do not remove
         app.kubernetes.io/name: kyverno
     spec:
+      volumes:
+        - name: sigstore
+          emptyDir: {}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -54,7 +57,7 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop:
-                - all
+                - ALL
           env:
             - name: METRICS_CONFIG
               value: kyverno-metrics
@@ -67,7 +70,7 @@ spec:
           image: ghcr.io/kyverno/kyverno:latest
           imagePullPolicy: IfNotPresent
           args:
-          - "--filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]"
+          - "--filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,kyverno*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]"
           # customize webhook timeout
           #- "--webhookTimeout=4"
           # enable profiling
@@ -93,6 +96,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: KYVERNO_SVC
               value: kyverno-svc
+            - name: TUF_ROOT
+              value: /.sigstore
           securityContext:
             runAsNonRoot: true
             privileged: false
@@ -100,7 +105,7 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop:
-                - all
+                - ALL
           resources:
             requests:
               memory: 128Mi
@@ -127,6 +132,10 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 4
             successThreshold: 1
+          # Failing to provide a writable $TUF_ROOT can cause TUF client initialization to panic
+          volumeMounts:
+          - mountPath: /.sigstore
+            name: sigstore
   strategy:
     type: RollingUpdate
     rollingUpdate:

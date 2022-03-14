@@ -1459,11 +1459,14 @@ spec:
                       description: Mutation is used to modify matching resources.
                       properties:
                         foreach:
-                          description: ForEachMutation applies policy rule changes
-                            to nested elements.
+                          description: ForEach applies mutation rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
                           items:
-                            description: ForEachMutation applies policy rule changes
-                              to nested elements.
+                            description: ForEach applies mutation rules to a list
+                              of sub-elements by creating a context for each entry
+                              in the list and looping over it to apply the specified
+                              logic.
                             properties:
                               context:
                                 description: Context defines variables and data sources
@@ -1704,11 +1707,14 @@ spec:
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
                         foreach:
-                          description: ForEach applies policy rule changes to nested
-                            elements.
+                          description: ForEach applies validate rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
                           items:
-                            description: ForEachValidation applies policy rule checks
-                              to nested elements.
+                            description: ForEach applies validate rules to a list
+                              of sub-elements by creating a context for each entry
+                              in the list and looping over it to apply the specified
+                              logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -2126,7 +2132,27 @@ spec:
                   rule failure should disallow the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. The default value is "audit".
+                enum:
+                - audit
+                - enforce
                 type: string
+              validationFailureActionOverrides:
+                description: ValidationFailureActionOverrides is a Cluster Policy
+                  attribute that specifies ValidationFailureAction namespace-wise.
+                  It overrides ValidationFailureAction for the specified namespaces.
+                items:
+                  properties:
+                    action:
+                      enum:
+                      - audit
+                      - enforce
+                      type: string
+                    namespaces:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                type: array
               webhookTimeoutSeconds:
                 description: WebhookTimeoutSeconds specifies the maximum time in seconds
                   allowed to apply this policy. After the configured time expires,
@@ -2139,6 +2165,25 @@ spec:
           status:
             description: Status contains policy runtime data.
             properties:
+              autogen:
+                description: Autogen contains autogen status information
+                properties:
+                  activated:
+                    description: Activated indicates the autogen activated controllers
+                    items:
+                      type: string
+                    type: array
+                  requested:
+                    description: Requested indicates the autogen requested controllers
+                    items:
+                      type: string
+                    type: array
+                  supported:
+                    description: Supported indicates the autogen supported controllers
+                    items:
+                      type: string
+                    type: array
+                type: object
               ready:
                 description: Ready indicates if the policy is ready to serve the admission
                   request
@@ -5154,11 +5199,14 @@ spec:
                       description: Mutation is used to modify matching resources.
                       properties:
                         foreach:
-                          description: ForEachMutation applies policy rule changes
-                            to nested elements.
+                          description: ForEach applies mutation rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
                           items:
-                            description: ForEachMutation applies policy rule changes
-                              to nested elements.
+                            description: ForEach applies mutation rules to a list
+                              of sub-elements by creating a context for each entry
+                              in the list and looping over it to apply the specified
+                              logic.
                             properties:
                               context:
                                 description: Context defines variables and data sources
@@ -5399,11 +5447,14 @@ spec:
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
                         foreach:
-                          description: ForEach applies policy rule changes to nested
-                            elements.
+                          description: ForEach applies validate rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
                           items:
-                            description: ForEachValidation applies policy rule checks
-                              to nested elements.
+                            description: ForEach applies validate rules to a list
+                              of sub-elements by creating a context for each entry
+                              in the list and looping over it to apply the specified
+                              logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -5821,7 +5872,27 @@ spec:
                   rule failure should disallow the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. The default value is "audit".
+                enum:
+                - audit
+                - enforce
                 type: string
+              validationFailureActionOverrides:
+                description: ValidationFailureActionOverrides is a Cluster Policy
+                  attribute that specifies ValidationFailureAction namespace-wise.
+                  It overrides ValidationFailureAction for the specified namespaces.
+                items:
+                  properties:
+                    action:
+                      enum:
+                      - audit
+                      - enforce
+                      type: string
+                    namespaces:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                type: array
               webhookTimeoutSeconds:
                 description: WebhookTimeoutSeconds specifies the maximum time in seconds
                   allowed to apply this policy. After the configured time expires,
@@ -5835,6 +5906,25 @@ spec:
             description: Status contains policy runtime information. Deprecated. Policy
               metrics are available via the metrics endpoint
             properties:
+              autogen:
+                description: Autogen contains autogen status information
+                properties:
+                  activated:
+                    description: Activated indicates the autogen activated controllers
+                    items:
+                      type: string
+                    type: array
+                  requested:
+                    description: Requested indicates the autogen requested controllers
+                    items:
+                      type: string
+                    type: array
+                  supported:
+                    description: Supported indicates the autogen supported controllers
+                    items:
+                      type: string
+                    type: array
+                type: object
               ready:
                 description: Ready indicates if the policy is ready to serve the admission
                   request
@@ -7245,6 +7335,27 @@ metadata:
   labels:
     app: kyverno
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kyverno:admin-generaterequest
+rules:
+- apiGroups:
+  - kyverno.io
+  resources:
+  - generaterequests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: kyverno
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policies
 rules:
 - apiGroups:
@@ -7346,6 +7457,8 @@ rules:
   - namespaces
   - configmaps
   - secrets
+  - resourcequotas
+  - limitranges
   verbs:
   - create
   - update
@@ -7356,16 +7469,6 @@ rules:
   resources:
   - rolebindings
   - roles
-  verbs:
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - quota
-  resources:
-  - resourcequotas
-  - limitranges
   verbs:
   - create
   - update
@@ -7583,7 +7686,7 @@ apiVersion: v1
 data:
   excludeGroupRole: system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler
   generateSuccessEvents: "false"
-  resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][*,kyverno,*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]'
+  resourceFilters: '[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][*,kyverno,kyverno*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]'
 kind: ConfigMap
 metadata:
   labels:

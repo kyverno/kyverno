@@ -104,7 +104,14 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	m.Lock()
 	defer m.Unlock()
 
-	enforcePolicy := policy.Spec.ValidationFailureAction == "enforce"
+	enforcePolicy := policy.Spec.ValidationFailureAction == common.Enforce
+	for _, k := range policy.Spec.ValidationFailureActionOverrides {
+		if k.Action == common.Enforce {
+			enforcePolicy = true
+			break
+		}
+	}
+
 	mutateMap := m.nameCacheMap[Mutate]
 	validateEnforceMap := m.nameCacheMap[ValidateEnforce]
 	validateAuditMap := m.nameCacheMap[ValidateAudit]
@@ -117,7 +124,7 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 		pName = pSpace + "/" + pName
 	}
 
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range policy.Spec.GetRules() {
 
 		if len(rule.MatchResources.Any) > 0 {
 			for _, rmr := range rule.MatchResources.Any {
@@ -223,8 +230,7 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 		pName = pSpace + "/" + pName
 	}
 
-	for _, rule := range policy.Spec.Rules {
-
+	for _, rule := range policy.Spec.GetRules() {
 		if len(rule.MatchResources.Any) > 0 {
 			for _, rmr := range rule.MatchResources.Any {
 				removeCacheHelper(rmr, m, pName)

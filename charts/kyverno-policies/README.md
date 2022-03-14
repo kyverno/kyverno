@@ -1,6 +1,45 @@
-# Kyverno Policies
+# kyverno-policies
 
-## TL;DR
+Kubernetes Pod Security Standards implemented as Kyverno policies
+
+![Version: v2.3.0](https://img.shields.io/badge/Version-v2.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.6.0](https://img.shields.io/badge/AppVersion-v1.6.0-informational?style=flat-square)
+
+## About
+
+This chart contains Kyverno's implementation of the Kubernetes Pod Security Standards (PSS) as documented at https://kubernetes.io/docs/concepts/security/pod-security-standards/ and are a Helm packaged version of those found at https://github.com/kyverno/policies/tree/main/pod-security. The goal of the PSS controls is to provide a good starting point for general Kubernetes cluster operational security. These controls are broken down into two categories, Baseline and Restricted. Baseline policies implement the most basic of Pod security controls while Restricted implements more strict controls. Restricted is cumulative and encompasses those listed in Baseline.
+
+The following policies are included in each profile.
+
+**Baseline**
+
+* disallow-capabilities
+* disallow-host-namespaces
+* disallow-host-path
+* disallow-host-ports
+* disallow-host-process
+* disallow-privileged-containers
+* disallow-proc-mount
+* disallow-selinux
+* restrict-apparmor-profiles
+* restrict-seccomp
+* restrict-sysctls
+
+**Restricted**
+
+* disallow-capabilities-strict
+* disallow-privilege-escalation
+* require-run-as-non-root-user
+* require-run-as-nonroot
+* restrict-seccomp-strict
+* restrict-volume-types
+
+An additional policy "require-non-root-groups" is included in an `other` group as this was previously included in the official PSS controls but since removed.
+
+For the latest version of these PSS policies, always refer to the kyverno/policies repo at https://github.com/kyverno/policies/tree/main/pod-security.
+
+## Installing the Chart
+
+These PSS policies presently have a minimum requirement of Kyverno 1.6.0.
 
 ```console
 ## Add the Kyverno Helm repository
@@ -20,28 +59,34 @@ $ helm delete -n kyverno kyverno-policies
 
 The command removes all the Kubernetes components associated with the chart and deletes the release.
 
-## Configuration
+## Values
 
-The following table lists the configurable parameters of the kyverno chart and their default values.
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| podSecurityStandard | string | `"baseline"` | Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`). For more info https://kyverno.io/policies/pod-security. |
+| podSecuritySeverity | string | `"medium"` | Pod Security Standard (`low`, `medium`, `high`). |
+| podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
+| includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
+| validationFailureAction | string | `"audit"` | Validation failure action (`audit`, `enforce`). For more info https://kyverno.io/docs/writing-policies/validate. |
+| validationFailureActionOverrides | object | `{"all":[]}` | Define validationFailureActionOverrides for specific policies. The overrides for `all` will apply to all policies. |
+| policyExclude | object | `{}` | Exclude resources from individual policies. Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map. |
+| nameOverride | string | `nil` | Name override. |
+| customLabels | object | `{}` | Additional labels. |
+| background | bool | `true` | Policies background mode |
 
-| Parameter                          | Description                                                                                                                                                                                                                                              | Default                                                                                                                                                                                                                                                                  |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `podSecurityStandard`              | set desired pod security level `privileged`, `baseline`, `restricted`, `custom`. Set to `restricted` for maximum security for your cluster. See: https://kyverno.io/policies/pod-security/                                                               | `baseline`                                                                                                                                                                                                                                                               |
-| `podSecuritySeverity`              | set desired pod security severity `low`, `medium`, `high`. Used severity level in PolicyReportResults for the selected pod security policies.                                                                                                            | `medium`                                                                                                                                                                                                                                                                 |
-| `podSecurityPolicies`              | Policies to include when `podSecurityStandard` is set to `custom`                                                                                                                                                                                        | `[]`                                                                                                                                                                                                                                                                     |
-| `validationFailureAction`          | set to get response in failed validation check. Supported values are `audit` and `enforce`. See: https://kyverno.io/docs/writing-policies/validate/                                                                                                      | `audit`                                                                                                                                                                                                                                                                  |
+## Source Code
 
-Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
+* <https://github.com/kyverno/policies>
 
-```console
-$ helm install --namespace kyverno kyverno-policies ./charts/kyverno-policies \
-  --set=podSecurityStandard=restricted,validationFailureAction=enforce
-```
+## Requirements
 
-Alternatively, a YAML file that specifies the values for the above parameters can be provided while installing the chart. For example,
+Kubernetes: `>=1.16.0-0`
 
-```console
-$ helm install --namespace kyverno kyverno-policies ./charts/kyverno-policies -f values.yaml
-```
+## Maintainers
 
-> **Tip**: You can use the default [values.yaml](values.yaml)
+| Name | Email | Url |
+| ---- | ------ | --- |
+| Nirmata |  | https://kyverno.io/ |
+
+----------------------------------------------
+Autogenerated from chart metadata using [helm-docs v1.6.0](https://github.com/norwoodj/helm-docs/releases/v1.6.0)

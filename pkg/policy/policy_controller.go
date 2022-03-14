@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -21,7 +22,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	pm "github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/utils"
 	v1 "k8s.io/api/core/v1"
@@ -269,7 +269,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	// we process policies that are not set of background processing
 	// as we need to clean up GRs when a policy is deleted
 	// skip generate policies with clone
-	rules := p.Spec.Rules
+	rules := p.Spec.GetRules()
 
 	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, pc.client, p.GetName(), logger)
 
@@ -375,11 +375,11 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 
 func (pc *PolicyController) enqueueRCRDeletedRule(old, cur *kyverno.ClusterPolicy) {
 	curRule := make(map[string]bool)
-	for _, rule := range cur.Spec.Rules {
+	for _, rule := range cur.Spec.GetRules() {
 		curRule[rule.Name] = true
 	}
 
-	for _, rule := range old.Spec.Rules {
+	for _, rule := range old.Spec.GetRules() {
 		if !curRule[rule.Name] {
 			pc.prGenerator.Add(policyreport.Info{
 				PolicyName: cur.GetName(),
@@ -563,15 +563,15 @@ func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 func missingAutoGenRules(policy *kyverno.ClusterPolicy, log logr.Logger) bool {
 	var podRuleName []string
 	ruleCount := 1
-	if canApplyAutoGen, _ := pm.CanAutoGen(policy, log); canApplyAutoGen {
-		for _, rule := range policy.Spec.Rules {
+	if canApplyAutoGen, _ := autogen.CanAutoGen(&policy.Spec, log); canApplyAutoGen {
+		for _, rule := range policy.Spec.GetRules() {
 			podRuleName = append(podRuleName, rule.Name)
 		}
 	}
 
 	if len(podRuleName) > 0 {
 		annotations := policy.GetAnnotations()
-		val, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
+		val, ok := annotations[kyverno.PodControllersAnnotation]
 		if !ok {
 			return true
 		}
@@ -591,7 +591,7 @@ func missingAutoGenRules(policy *kyverno.ClusterPolicy, log logr.Logger) bool {
 			}
 		}
 
-		if len(policy.Spec.Rules) != (ruleCount * len(podRuleName)) {
+		if len(policy.Spec.GetRules()) != (ruleCount * len(podRuleName)) {
 			return true
 		}
 	}
