@@ -735,6 +735,22 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 				}
 			}
 		} else if (len(resourcePaths) > 0 && resourcePaths[0] != "-") || len(resourcePaths) < 0 || cluster {
+
+			fileDesc, err := os.Stat(resourcePaths[0])
+			if err != nil {
+				return nil, err
+			}
+			if fileDesc.IsDir() {
+				files, err := ioutil.ReadDir(resourcePaths[0])
+				if err != nil {
+					return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", resourcePaths[0]), err)
+				}
+
+				for _, file := range files {
+					resourcePaths = append(resourcePaths, filepath.Join(resourcePaths[0], file.Name()))
+				}
+			}
+
 			resources, err = GetResources(policies, resourcePaths, dClient, cluster, namespace, policyReport)
 			if err != nil {
 				return resources, err
