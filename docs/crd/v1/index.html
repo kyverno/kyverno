@@ -1847,6 +1847,20 @@ AutogenStatus
 <p>Autogen contains autogen status information</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>rules</code></br>
+<em>
+<a href="#kyverno.io/v1.Rule">
+[]Rule
+</a>
+</em>
+</td>
+<td>
+<p>Rules is a list of Rule instances. It contains original rules defined in the spec
+auto generated rules added for pod controllers</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -2156,6 +2170,7 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.PolicyStatus">PolicyStatus</a>, 
 <a href="#kyverno.io/v1.Spec">Spec</a>)
 </p>
 <p>
