@@ -45,9 +45,25 @@ func Test_Apply(t *testing.T) {
 				},
 			},
 		},
+		{
+			PolicyPaths:   []string{"../../../test/cli/apply/policies"},
+			ResourcePaths: []string{"../../../test/cli/apply/resource"},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  1,
+						Fail:  1,
+						Skip:  4,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
 	}
 
 	compareSummary := func(expected preport.PolicyReportSummary, actual map[string]interface{}) {
+
 		assert.Assert(t, actual[preport.StatusPass].(int64) == int64(expected.Pass))
 		assert.Assert(t, actual[preport.StatusFail].(int64) == int64(expected.Fail))
 		assert.Assert(t, actual[preport.StatusSkip].(int64) == int64(expected.Skip))

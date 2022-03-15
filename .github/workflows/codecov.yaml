@@ -1,0 +1,35 @@
+name: Codecov
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'release*'
+  pull_request:
+    branches:
+      - 'main'
+      - 'release*'
+
+permissions: read-all
+
+jobs:
+  codecov:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+      - uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
+        with:
+          go-version: '1.17'
+      -
+        name: Generate Code Coverage Report
+        run: make code-cov-report
+      -
+        name: Upload Report to Codecov
+        uses: codecov/codecov-action@f32b3a3741e1053eb607407145bc9619351dc93b # v2.1.0
+        with:
+          file: ./coverage.out
+          fail_ci_if_error: true
+          verbose: true
