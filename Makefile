@@ -303,7 +303,7 @@ godownloader:
 
 .PHONY: kustomize
 kustomize: ## Install kustomize
-	go get sigs.k8s.io/kustomize/kustomize/v4
+	go install sigs.k8s.io/kustomize/kustomize/v4@latest
 
 .PHONY: kustomize-crd
 kustomize-crd: kustomize ## Create install.yaml
@@ -343,7 +343,7 @@ install-controller-gen:
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_REQ_VERSION) ;\
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_REQ_VERSION) ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 	CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
@@ -390,7 +390,7 @@ ifeq (, $(shell which goimports))
 	@{ \
 	echo "goimports not found!";\
 	echo "installing goimports...";\
-	go get golang.org/x/tools/cmd/goimports;\
+	go install golang.org/x/tools/cmd/goimports@latest;\
 	}
 else
 GO_IMPORTS=$(shell which goimports)
