@@ -124,6 +124,8 @@ type WebhookServer struct {
 	grController *generate.Controller
 
 	promConfig *metrics.PromConfig
+
+	autogenInternals bool
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -152,6 +154,7 @@ func NewWebhookServer(
 	openAPIController *openapi.Controller,
 	grc *generate.Controller,
 	promConfig *metrics.PromConfig,
+	autogenInternals bool,
 ) (*WebhookServer, error) {
 
 	if tlsPair == nil {
@@ -196,6 +199,7 @@ func NewWebhookServer(
 		log:               log,
 		openAPIController: openAPIController,
 		promConfig:        promConfig,
+		autogenInternals:  autogenInternals,
 	}
 
 	mux := httprouter.New()

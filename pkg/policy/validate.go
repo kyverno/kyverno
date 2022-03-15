@@ -25,6 +25,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -77,8 +78,10 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 
 // Validate checks the policy and rules declarations for required configurations
 func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) error {
+	var errs field.ErrorList
 	namespaced := false
 	background := policy.Spec.Background == nil || *policy.Spec.Background
+	specPath := field.NewPath("spec")
 
 	clusterResources := make([]string, 0)
 	err := ValidateVariables(policy, background)
@@ -129,7 +132,9 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 	}
 	rules := policy.Spec.GetRules()
+	rulesPath := specPath.Child("rules")
 	for i, rule := range rules {
+		rulePath := rulesPath.Index(i)
 		//check for forward slash
 		if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
 			return fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
@@ -243,11 +248,14 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			}
 
 			if rule.HasVerifyImages() {
-				for _, i := range rule.VerifyImages {
-					if err := validateVerifyImagesRule(i); err != nil {
-						return errors.Wrapf(err, "failed to validate policy %s rule %s", policy.Name, rule.Name)
-					}
+				verifyImagePath := rulePath.Child("verifyImages")
+				for index, i := range rule.VerifyImages {
+					errs = append(errs, i.Validate(verifyImagePath.Index(index))...)
 				}
+			}
+
+			if len(errs) != 0 {
+				return errs.ToAggregate()
 			}
 		}
 
@@ -1514,16 +1522,4 @@ func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.
 		}
 	}
 	return nil
-}
-
-func validateVerifyImagesRule(i *kyverno.ImageVerification) error {
-	hasKey := i.Key != ""
-	hasRoots := i.Roots != ""
-	hasSubject := i.Subject != ""
-
-	if (hasKey && !hasRoots && !hasSubject) || (hasRoots && hasSubject) {
-		return nil
-	}
-
-	return fmt.Errorf("either a public key, or root certificates and an email, are required")
 }

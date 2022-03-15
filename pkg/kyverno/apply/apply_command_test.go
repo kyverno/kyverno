@@ -45,9 +45,25 @@ func Test_Apply(t *testing.T) {
 				},
 			},
 		},
+		{
+			PolicyPaths:   []string{"../../../test/cli/apply/policies"},
+			ResourcePaths: []string{"../../../test/cli/apply/resource"},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  1,
+						Fail:  1,
+						Skip:  4,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
 	}
 
 	compareSummary := func(expected preport.PolicyReportSummary, actual map[string]interface{}) {
+
 		assert.Assert(t, actual[preport.StatusPass].(int64) == int64(expected.Pass))
 		assert.Assert(t, actual[preport.StatusFail].(int64) == int64(expected.Fail))
 		assert.Assert(t, actual[preport.StatusSkip].(int64) == int64(expected.Skip))
@@ -56,7 +72,7 @@ func Test_Apply(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		_, _, _, info, _ := applyCommandHelper(tc.ResourcePaths, false, true, "", "", "", "", tc.PolicyPaths, false)
+		_, _, _, info, _ := applyCommandHelper(tc.ResourcePaths, false, true, "", "", "", "", tc.PolicyPaths, false, false)
 		resps := buildPolicyReports(info)
 		for i, resp := range resps {
 			compareSummary(tc.expectedPolicyReports[i].Summary, resp.UnstructuredContent()["summary"].(map[string]interface{}))

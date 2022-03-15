@@ -34,7 +34,7 @@ func TestGeneratePodControllerRule_NilAnnotation(t *testing.T) {
 
 	var policy kyverno.ClusterPolicy
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
-	patches, errs := policymutation.GeneratePodControllerRule(policy, log.Log)
+	patches, errs := policymutation.GeneratePodControllerRule(policy, true, log.Log)
 	assert.Assert(t, len(errs) == 0)
 
 	p, err := utils.ApplyPatches(policyRaw, patches)
@@ -44,7 +44,10 @@ func TestGeneratePodControllerRule_NilAnnotation(t *testing.T) {
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		  "name": "add-safe-to-evict"
+		  "name": "add-safe-to-evict",
+		  "annotations": {
+			"pod-policies.kyverno.io/autogen-controllers": "none"
+		  }
 		}
 	  }`)
 	compareJSONAsMap(t, p, expectedPolicy)
@@ -64,9 +67,9 @@ func TestGeneratePodControllerRule_PredefinedAnnotation(t *testing.T) {
 
 	var policy kyverno.ClusterPolicy
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
-	patches, errs := policymutation.GeneratePodControllerRule(policy, log.Log)
+	patches, errs := policymutation.GeneratePodControllerRule(policy, true, log.Log)
 	assert.Assert(t, len(errs) == 0)
-	assert.Assert(t, len(patches) == 0)
+	assert.Assert(t, len(patches) == 1)
 }
 
 func TestGeneratePodControllerRule_DisableFeature(t *testing.T) {
@@ -115,7 +118,7 @@ func TestGeneratePodControllerRule_DisableFeature(t *testing.T) {
 
 	var policy kyverno.ClusterPolicy
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
-	patches, errs := policymutation.GeneratePodControllerRule(policy, log.Log)
+	patches, errs := policymutation.GeneratePodControllerRule(policy, true, log.Log)
 	assert.Assert(t, len(errs) == 0)
 	assert.Assert(t, len(patches) == 0)
 }
@@ -166,7 +169,7 @@ func TestGeneratePodControllerRule_Mutate(t *testing.T) {
 
 	var policy kyverno.ClusterPolicy
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
-	patches, errs := policymutation.GeneratePodControllerRule(policy, log.Log)
+	patches, errs := policymutation.GeneratePodControllerRule(policy, true, log.Log)
 	assert.Assert(t, len(errs) == 0)
 
 	p, err := utils.ApplyPatches(policyRaw, patches)
@@ -300,7 +303,7 @@ func TestGeneratePodControllerRule_ExistOtherAnnotation(t *testing.T) {
 
 	var policy kyverno.ClusterPolicy
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
-	patches, errs := policymutation.GeneratePodControllerRule(policy, log.Log)
+	patches, errs := policymutation.GeneratePodControllerRule(policy, true, log.Log)
 	assert.Assert(t, len(errs) == 0)
 
 	p, err := utils.ApplyPatches(policyRaw, patches)
@@ -312,6 +315,7 @@ func TestGeneratePodControllerRule_ExistOtherAnnotation(t *testing.T) {
 		"metadata": {
 		  "name": "add-safe-to-evict",
 		  "annotations": {
+			"pod-policies.kyverno.io/autogen-controllers": "none",
 			"test": "annotation"
 		  }
 		}
@@ -371,7 +375,7 @@ func TestGeneratePodControllerRule_ValidateAnyPattern(t *testing.T) {
 
 	var policy kyverno.ClusterPolicy
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
-	patches, errs := policymutation.GeneratePodControllerRule(policy, log.Log)
+	patches, errs := policymutation.GeneratePodControllerRule(policy, true, log.Log)
 	assert.Assert(t, len(errs) == 0)
 
 	p, err := utils.ApplyPatches(policyRaw, patches)
@@ -510,7 +514,7 @@ func TestGeneratePodControllerRule_ValidatePattern(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	// var policy, generatePolicy unstructured.Unstructured
 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
-	patches, errs := policymutation.GeneratePodControllerRule(policy, log.Log)
+	patches, errs := policymutation.GeneratePodControllerRule(policy, true, log.Log)
 	assert.Assert(t, len(errs) == 0)
 
 	p, err := utils.ApplyPatches(policyRaw, patches)
@@ -520,6 +524,9 @@ func TestGeneratePodControllerRule_ValidatePattern(t *testing.T) {
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
+		  "annotations": {
+			"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Deployment,Job,StatefulSet,CronJob"
+		  },
 		  "name": "add-safe-to-evict"
 		},
 		"spec": {
