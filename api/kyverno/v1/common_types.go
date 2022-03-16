@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"reflect"
 
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -455,21 +454,6 @@ type ResourceFilter struct {
 
 	// ResourceDescription contains information about the resource being created or modified.
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
-}
-
-// UserInfo contains information about the user performing the operation.
-type UserInfo struct {
-	// Roles is the list of namespaced role names for the user.
-	// +optional
-	Roles []string `json:"roles,omitempty" yaml:"roles,omitempty"`
-
-	// ClusterRoles is the list of cluster-wide role names for the user.
-	// +optional
-	ClusterRoles []string `json:"clusterRoles,omitempty" yaml:"clusterRoles,omitempty"`
-
-	// Subjects is the list of subject names like users, user groups, and service accounts.
-	// +optional
-	Subjects []rbacv1.Subject `json:"subjects,omitempty" yaml:"subjects,omitempty"`
 }
 
 // ResourceDescription contains criteria used to match resources.
