@@ -434,3 +434,11 @@ verify-helm: gen-helm ## Check Helm charts are up to date
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm".'
 	@echo 'To correct this, locally run "make gen-helm", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code charts
+
+##################################
+# HELP
+##################################
+
+.PHONY: help
+help: ## Shows the available commands
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
