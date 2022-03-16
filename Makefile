@@ -435,3 +435,11 @@ check-helm-docs: gen-helm-docs ## Check Helm docs
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm-docs".'
 	@echo 'To correct this, locally run "make gen-helm-docs", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code charts/**/README.md
+
+##################################
+# HELP
+##################################
+
+.PHONY: help
+help: ## Shows the available commands
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
