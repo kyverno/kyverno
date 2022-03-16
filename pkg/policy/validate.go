@@ -133,7 +133,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			clusterResources = append(clusterResources, k)
 		}
 	}
-	rules := policy.Spec.GetRules()
+	rules := policy.GetRules()
 	rulesPath := specPath.Child("rules")
 	for i, rule := range rules {
 		rulePath := rulesPath.Index(i)
@@ -398,7 +398,7 @@ func ValidateVariables(p *kyverno.ClusterPolicy, backgroundMode bool) error {
 
 // hasInvalidVariables - checks for unexpected variables in the policy
 func hasInvalidVariables(policy *kyverno.ClusterPolicy, background bool) error {
-	for _, r := range policy.Spec.GetRules() {
+	for _, r := range policy.GetRules() {
 		ruleCopy := r.DeepCopy()
 
 		if err := ruleForbiddenSectionsHaveVariables(ruleCopy); err != nil {
@@ -1099,7 +1099,7 @@ func validateConditionValuesKeyRequestOperation(c kyverno.Condition) (string, er
 func validateUniqueRuleName(p kyverno.ClusterPolicy) (string, error) {
 	var ruleNames []string
 
-	for i, rule := range p.Spec.GetRules() {
+	for i, rule := range p.GetRules() {
 		if utils.ContainsString(ruleNames, rule.Name) {
 			return fmt.Sprintf("rule[%d]", i), fmt.Errorf(`duplicate rule name: '%s'`, rule.Name)
 		}

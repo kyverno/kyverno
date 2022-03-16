@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/toggle"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-git/go-billy/v5"
@@ -438,12 +439,12 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 }
 
 // MutatePolicies - function to apply mutation on policies
-func MutatePolicies(policies []*v1.ClusterPolicy, autogenInternals bool) ([]*v1.ClusterPolicy, error) {
+func MutatePolicies(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 	newPolicies := make([]*v1.ClusterPolicy, 0)
 	logger := log.Log.WithName("apply")
 
 	for _, policy := range policies {
-		p, err := MutatePolicy(policy, autogenInternals, logger)
+		p, err := MutatePolicy(policy, toggle.AutogenInternals, logger)
 		if err != nil {
 			if !sanitizederror.IsErrorSanitized(err) {
 				return nil, sanitizederror.NewWithError("failed to mutate policy.", err)
@@ -471,7 +472,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 
 	policyWithNamespaceSelector := false
 OuterLoop:
-	for _, p := range policy.Spec.GetRules() {
+	for _, p := range policy.GetRules() {
 		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
 			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
 			policyWithNamespaceSelector = true
@@ -573,7 +574,7 @@ OuterLoop:
 	}
 
 	var policyHasValidate bool
-	for _, rule := range policy.Spec.GetRules() {
+	for _, rule := range policy.GetRules() {
 		if rule.HasValidate() {
 			policyHasValidate = true
 		}
@@ -591,7 +592,7 @@ OuterLoop:
 	}
 
 	var policyHasGenerate bool
-	for _, rule := range policy.Spec.GetRules() {
+	for _, rule := range policy.GetRules() {
 		if rule.HasGenerate() {
 			policyHasGenerate = true
 		}
@@ -768,7 +769,7 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) policyreport.Info {
 	var violatedRules []v1.ViolatedRule
 	printCount := 0
-	for _, policyRule := range policy.Spec.GetRules() {
+	for _, policyRule := range policy.GetRules() {
 		ruleFoundInEngineResponse := false
 		if !policyRule.HasValidate() {
 			continue
@@ -849,7 +850,7 @@ func buildPVInfo(er *response.EngineResponse, violatedRules []v1.ViolatedRule) p
 
 func processGenerateEngineResponse(policy *v1.ClusterPolicy, generateResponse *response.EngineResponse, resPath string, rc *ResultCounts) {
 	printCount := 0
-	for _, policyRule := range policy.Spec.GetRules() {
+	for _, policyRule := range policy.GetRules() {
 		ruleFoundInEngineResponse := false
 		for i, genResponseRule := range generateResponse.PolicyResponse.Rules {
 			if policyRule.Name == genResponseRule.Name {
@@ -877,7 +878,7 @@ func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string
 	storePolicies := make([]store.Policy, 0)
 	for _, policy := range mutatedPolicies {
 		storeRules := make([]store.Rule, 0)
-		for _, rule := range policy.Spec.GetRules() {
+		for _, rule := range policy.GetRules() {
 			contextVal := make(map[string]string)
 			if len(rule.Context) != 0 {
 				for _, contextVar := range rule.Context {
@@ -909,7 +910,7 @@ func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string
 
 func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *response.EngineResponse, resPath string, rc *ResultCounts, mutateLogPath string, stdin bool, mutateLogPathIsDir bool, resourceName string, printPatchResource bool) error {
 	var policyHasMutate bool
-	for _, rule := range policy.Spec.GetRules() {
+	for _, rule := range policy.GetRules() {
 		if rule.HasMutate() {
 			policyHasMutate = true
 		}
@@ -920,7 +921,7 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 
 	printCount := 0
 	printMutatedRes := false
-	for _, policyRule := range policy.Spec.GetRules() {
+	for _, policyRule := range policy.GetRules() {
 		ruleFoundInEngineResponse := false
 		for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.Name {
@@ -1019,7 +1020,7 @@ func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValM
 
 func GetKindsFromPolicy(policy *v1.ClusterPolicy) map[string]struct{} {
 	var kindOnwhichPolicyIsApplied = make(map[string]struct{})
-	for _, rule := range policy.Spec.GetRules() {
+	for _, rule := range policy.GetRules() {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
 			kindOnwhichPolicyIsApplied[kind] = struct{}{}
 		}
