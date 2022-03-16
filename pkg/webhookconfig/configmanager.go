@@ -579,6 +579,10 @@ func (m *webhookConfigManager) getWebhook(webhookKind, webhookName string) (reso
 	return resourceWebhook, nil
 }
 
+func webhookRulesEqual(apiRules []interface{}, internalRules []interface{}) (bool, error) {
+	return reflect.DeepEqual(apiRules, internalRules), nil
+}
+
 func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName string, webhooksMap map[string]interface{}) error {
 	logger := m.log.WithName("compareAndUpdateWebhook").WithValues("kind", webhookKind, "name", webhookName)
 	resourceWebhook, err := m.getWebhook(webhookKind, webhookName)
@@ -621,7 +625,13 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 			continue
 		}
 
-		if !reflect.DeepEqual(rules, []interface{}{w.rule}) {
+		rulesEqual, err := webhookRulesEqual(rules, []interface{}{w.rule})
+		if err != nil {
+			logger.Error(err, "failed to compare webhook rules")
+			continue
+		}
+
+		if !rulesEqual {
 			changed = true
 
 			tmpRules, ok := newWebooks[i].(map[string]interface{})["rules"].([]interface{})
