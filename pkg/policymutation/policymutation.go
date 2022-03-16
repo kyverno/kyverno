@@ -17,7 +17,7 @@ import (
 // - ValidationFailureAction
 // - Background
 // - auto-gen annotation and rules
-func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, addAutogenAnnotation bool, log logr.Logger) ([]byte, []string) {
+func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, autogenInternals bool, log logr.Logger) ([]byte, []string) {
 	var patches [][]byte
 	var updateMsgs []string
 
@@ -38,7 +38,7 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, addAutogenAnn
 		updateMsgs = append(updateMsgs, updateMsg)
 	}
 
-	patch, errs := GeneratePodControllerRule(*policy, addAutogenAnnotation, log)
+	patch, errs := GeneratePodControllerRule(*policy, autogenInternals, log)
 	if len(errs) > 0 {
 		var errMsgs []string
 		for _, err := range errs {
@@ -248,7 +248,7 @@ func defaultFailurePolicy(spec *kyverno.Spec, log logr.Logger) ([]byte, string) 
 //             make sure all fields are applicable to pod controllers
 
 // GeneratePodControllerRule returns two patches: rulePatches and annotation patch(if necessary)
-func GeneratePodControllerRule(policy kyverno.ClusterPolicy, addAutogenAnnotation bool, log logr.Logger) (patches [][]byte, errs []error) {
+func GeneratePodControllerRule(policy kyverno.ClusterPolicy, autogenInternals bool, log logr.Logger) (patches [][]byte, errs []error) {
 	applyAutoGen, desiredControllers := autogen.CanAutoGen(&policy.Spec, log)
 
 	if !applyAutoGen {
@@ -262,7 +262,7 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, addAutogenAnnotatio
 	// - predefined controllers are invalid, overwrite the value
 	if !ok || !applyAutoGen {
 		actualControllers = desiredControllers
-		if addAutogenAnnotation {
+		if !autogenInternals {
 			annPatch, err := defaultPodControllerAnnotation(ann, actualControllers)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("failed to generate pod controller annotation for policy '%s': %v", policy.Name, err))

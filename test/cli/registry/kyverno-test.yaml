@@ -1,0 +1,17 @@
+name: test-variables
+policies:
+  - image-example.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: images
+    rule: only-allow-trusted-images
+    resource: test-pod-with-non-root-user-image
+    kind: Pod
+    status: pass
+  - policy: images
+    rule: only-allow-trusted-images
+    resource: test-pod-with-trusted-registry
+    kind: Pod
+    status: pass
+
