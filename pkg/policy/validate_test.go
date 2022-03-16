@@ -13,47 +13,6 @@ import (
 	"gotest.tools/assert"
 )
 
-func Test_Validate_UniqueRuleName(t *testing.T) {
-	rawPolicy := []byte(`
-	{
-		"spec": {
-		   "validationFailureAction": "audit",
-		   "rules": [
-			  {
-				 "name": "deny-privileged-disallowpriviligedescalation",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Pod"
-					   ]
-					}
-				 },
-				 "validate": {}
-			  },
-			  {
-				 "name": "deny-privileged-disallowpriviligedescalation",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Pod"
-					   ]
-					}
-				 },
-				 "validate": {}
-			  }
-		   ]
-		}
-	 }
-	`)
-
-	var policy *kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
-
-	_, err = validateUniqueRuleName(*policy)
-	assert.Assert(t, err != nil)
-}
-
 func Test_Validate_ResourceDescription_Empty(t *testing.T) {
 	var err error
 	rawResourcedescirption := []byte(`{}`)

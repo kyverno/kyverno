@@ -18,7 +18,6 @@ func Test_Validate_RuleType_EmptyRule(t *testing.T) {
 	assert.Equal(t, errs[0].Field, "dummy")
 	assert.Equal(t, errs[0].Type, field.ErrorTypeInvalid)
 	assert.Equal(t, errs[0].Detail, "No operation defined in the rule 'validate-user-privilege'.(supported operations: mutate,validate,generate,verifyImages)")
-
 }
 
 func Test_Validate_RuleType_MultipleRule(t *testing.T) {
