@@ -531,7 +531,7 @@ func (wrc *Register) constructVerifyMutatingWebhookConfig(caData []byte) *admreg
 				true,
 				wrc.timeoutSeconds,
 				admregapi.Rule{
-					Resources:   []string{"deployments/*"},
+					Resources:   []string{"deployments"},
 					APIGroups:   []string{"apps"},
 					APIVersions: []string{"v1"},
 				},
@@ -558,7 +558,7 @@ func (wrc *Register) constructDebugVerifyMutatingWebhookConfig(caData []byte) *a
 				true,
 				wrc.timeoutSeconds,
 				admregapi.Rule{
-					Resources:   []string{"deployments/*"},
+					Resources:   []string{"deployments"},
 					APIGroups:   []string{"apps"},
 					APIVersions: []string{"v1"},
 				},
