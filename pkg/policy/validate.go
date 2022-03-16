@@ -151,7 +151,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 
 		// validate resource description
-		if path, err := validateResources(rule); err != nil {
+		if path, err := validateResources(rulePath, rule); err != nil {
 			return nil, fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
 		}
 
@@ -905,10 +905,13 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 	return true
 }
 
-func validateResources(rule kyverno.Rule) (string, error) {
+func validateResources(path *field.Path, rule kyverno.Rule) (string, error) {
 	// validate userInfo in match and exclude
-	if path, err := validateUserInfo(rule); err != nil {
-		return fmt.Sprintf("resources.%s", path), err
+	if errs := rule.MatchResources.UserInfo.Validate(path.Child("match")); len(errs) != 0 {
+		return "match", errs.ToAggregate()
+	}
+	if errs := rule.ExcludeResources.UserInfo.Validate(path.Child("exclude")); len(errs) != 0 {
+		return "exclude", errs.ToAggregate()
 	}
 
 	if (len(rule.MatchResources.Any) > 0 || len(rule.MatchResources.All) > 0) && !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) {
@@ -1289,26 +1292,6 @@ func validateMatchedResourceDescription(rd kyverno.ResourceDescription) (string,
 
 	if err := validateResourceDescription(rd); err != nil {
 		return "match", err
-	}
-
-	return "", nil
-}
-
-func validateUserInfo(rule kyverno.Rule) (string, error) {
-	if err := validateRoles(rule.MatchResources.Roles); err != nil {
-		return "match.roles", err
-	}
-
-	if err := validateSubjects(rule.MatchResources.Subjects); err != nil {
-		return "match.subjects", err
-	}
-
-	if err := validateRoles(rule.ExcludeResources.Roles); err != nil {
-		return "exclude.roles", err
-	}
-
-	if err := validateSubjects(rule.ExcludeResources.Subjects); err != nil {
-		return "exclude.subjects", err
 	}
 
 	return "", nil
