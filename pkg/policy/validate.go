@@ -91,16 +91,11 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		return nil, err
 	}
 
-	// policy name is stored in the label of the report change request
-	if len(policy.Name) > 63 {
-		return nil, fmt.Errorf("invalid policy name %s: must be no more than 63 characters", policy.Name)
-	}
-
-	if errs := policy.Spec.Validate(specPath); len(errs) != 0 {
+	if errs := policy.Validate(); len(errs) != 0 {
 		return nil, errs.ToAggregate()
 	}
 
-	if policy.ObjectMeta.Namespace != "" {
+	if policy.GetNamespace() != "" {
 		namespaced = true
 	}
 
@@ -153,12 +148,6 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		// validate resource description
 		if path, err := validateResources(rulePath, rule); err != nil {
 			return nil, fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
-		}
-
-		// validate rule types
-		// only one type of rule is allowed per rule
-		if errs := rule.ValidateRuleType(rulePath); len(errs) != 0 {
-			return nil, errs.ToAggregate()
 		}
 
 		err := validateElementInForEach(rule)
