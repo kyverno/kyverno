@@ -158,8 +158,7 @@ generate-api-docs: gen-crd-api-reference-docs ## Generate api reference docs
 
 .PHONY: verify-api-docs
 verify-api-docs: generate-api-docs ## Check api reference docs are up to date
-	git add --all
-	git diff docs
+	git --no-pager diff docs
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make generate-api-docs".'
 	@echo 'To correct this, locally run "make generate-api-docs", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code docs
@@ -253,11 +252,15 @@ test-cli-local: cli
 
 .PHONY: test-cli-local-mutate
 test-cli-local-mutate: cli
-	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test
+	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test-mutate
 
 .PHONY: test-cli-test-case-selector-flag
 test-cli-test-case-selector-flag: cli
 	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
+
+.PHONY: test-cli-registry
+test-cli-registry: cli
+	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/registry
 
 # go get downloads and installs the binary
 # we temporarily add the GO_ACC to the path
@@ -303,7 +306,7 @@ godownloader:
 
 .PHONY: kustomize
 kustomize: ## Install kustomize
-	go get sigs.k8s.io/kustomize/kustomize/v4
+	go install sigs.k8s.io/kustomize/kustomize/v4@latest
 
 .PHONY: kustomize-crd
 kustomize-crd: kustomize ## Create install.yaml
@@ -343,7 +346,7 @@ install-controller-gen:
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_REQ_VERSION) ;\
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_REQ_VERSION) ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 	CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
@@ -374,15 +377,24 @@ deepcopy-autogen: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..."
 
 .PHONY: codegen
-codegen: kyverno-crd report-crd deepcopy-autogen gen-helm
+codegen: kyverno-crd report-crd deepcopy-autogen generate-api-docs gen-helm ## Update all generated code and docs
 
-.PHONY: verify-codegen
-verify-codegen: codegen
-	git add --all
-	git diff api
+.PHONY: verify-api
+verify-api: kyverno-crd report-crd deepcopy-autogen ## Check api is up to date
+	git --no-pager diff api
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen".'
 	@echo 'To correct this, locally run "make codegen", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code api
+
+.PHONY: verify-config
+verify-config: kyverno-crd report-crd ## Check config is up to date
+	git --no-pager diff config
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen".'
+	@echo 'To correct this, locally run "make codegen", commit the changes, and re-run tests.'
+	git diff --quiet --exit-code config
+
+.PHONY: verify-codegen
+verify-codegen: verify-api verify-config verify-api-docs verify-helm ## Verify all generated code and docs are up to date
 
 .PHONY: goimports
 goimports:
@@ -390,7 +402,7 @@ ifeq (, $(shell which goimports))
 	@{ \
 	echo "goimports not found!";\
 	echo "installing goimports...";\
-	go get golang.org/x/tools/cmd/goimports;\
+	go install golang.org/x/tools/cmd/goimports@latest;\
 	}
 else
 GO_IMPORTS=$(shell which goimports)
@@ -418,16 +430,7 @@ gen-helm: gen-helm-docs kustomize-crd ## Generate Helm charts stuff
 
 .PHONY: verify-helm
 verify-helm: gen-helm ## Check Helm charts are up to date
-	git add --all
-	git diff charts
+	git --no-pager diff charts
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm".'
 	@echo 'To correct this, locally run "make gen-helm", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code charts
-
-.PHONY: check-helm-docs
-check-helm-docs: gen-helm-docs ## Check Helm docs
-	git add --all
-	git diff charts/**/README.md
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm-docs".'
-	@echo 'To correct this, locally run "make gen-helm-docs", commit the changes, and re-run tests.'
-	git diff --quiet --exit-code charts/**/README.md
