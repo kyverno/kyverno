@@ -24,7 +24,6 @@ import (
 	"github.com/minio/pkg/wildcard"
 	"github.com/pkg/errors"
 	v1beta1 "k8s.io/api/admission/v1beta1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -1259,37 +1258,6 @@ func validateMatchedResourceDescription(rd kyverno.ResourceDescription) (string,
 	}
 
 	return "", nil
-}
-
-// a role must in format namespace:name
-func validateRoles(roles []string) error {
-	if len(roles) == 0 {
-		return nil
-	}
-
-	for _, r := range roles {
-		role := strings.Split(r, ":")
-		if len(role) != 2 {
-			return fmt.Errorf("invalid role %s, expect namespace:name", r)
-		}
-	}
-	return nil
-}
-
-// a namespace should be set in kind ServiceAccount of a subject
-func validateSubjects(subjects []rbacv1.Subject) error {
-	if len(subjects) == 0 {
-		return nil
-	}
-
-	for _, subject := range subjects {
-		if subject.Kind == "ServiceAccount" {
-			if subject.Namespace == "" {
-				return fmt.Errorf("service account %s in subject expects a namespace", subject.Name)
-			}
-		}
-	}
-	return nil
 }
 
 func validateExcludeResourceDescription(rd kyverno.ResourceDescription) (string, error) {
