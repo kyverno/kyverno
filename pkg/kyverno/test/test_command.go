@@ -154,6 +154,7 @@ func Command() *cobra.Command {
 	var testCase string
 	var testFile []byte
 	var fileName, gitBranch string
+	var registryAccess bool
 	cmd = &cobra.Command{
 		Use: "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>\n  kyverno test --manifest-mutate > kyverno-test.yaml\n  kyverno test --manifest-validate > kyverno-test.yaml",
 		// Args:    cobra.ExactArgs(1),
@@ -211,6 +212,7 @@ results:
 				fmt.Println(string(testFile))
 				return nil
 			}
+			store.SetRegistryAccess(registryAccess)
 			_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
@@ -225,6 +227,7 @@ results:
 	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "", `run some specific test cases by passing a string argument in double quotes to this flag like - "policy=<policy_name>, rule=<rule_name>, resource=<resource_name". The argument could be any combination of policy, rule and resource.`)
 	cmd.Flags().BoolP("manifest-mutate", "", false, "prints out a template test manifest for a mutate policy")
 	cmd.Flags().BoolP("manifest-validate", "", false, "prints out a template test manifest for a validate policy")
+	cmd.Flags().BoolVarP(&registryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	return cmd
 }
 
@@ -842,7 +845,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 
 	for _, policy := range mutatedPolicies {
-		err := policy2.Validate(policy, nil, true, openAPIController)
+		_, err := policy2.Validate(policy, nil, true, openAPIController)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", policy.Name)
 			continue

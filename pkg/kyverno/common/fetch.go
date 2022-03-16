@@ -32,7 +32,7 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 
 	for _, policy := range policies {
 		for _, rule := range policy.Spec.GetRules() {
-			resourceTypesInRule := getKindsFromPolicy(rule)
+			resourceTypesInRule := GetKindsFromRule(rule)
 			for resourceKind := range resourceTypesInRule {
 				resourceTypesMap[resourceKind] = true
 			}
@@ -286,8 +286,8 @@ func GetPatchedResource(patchResourceBytes []byte) (patchedResource unstructured
 	return patchedResource, nil
 }
 
-// getKindsFromPolicy will return the kinds from policy match block
-func getKindsFromPolicy(rule v1.Rule) map[string]bool {
+// GetKindsFromRule will return the kinds from policy match block
+func GetKindsFromRule(rule v1.Rule) map[string]bool {
 	var resourceTypesMap = make(map[string]bool)
 	for _, kind := range rule.MatchResources.Kinds {
 		if strings.Contains(kind, "/") {
