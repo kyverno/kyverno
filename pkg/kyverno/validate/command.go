@@ -164,7 +164,7 @@ func validatePolicies(policies []*v1.ClusterPolicy, autogenInternals bool, v1crd
 		}
 
 		if errorList == nil {
-			err = policy2.Validate(policy, nil, true, openAPIController)
+			_, err = policy2.Validate(policy, nil, true, openAPIController)
 		}
 
 		fmt.Println("----------------------------------------------------------------------")
