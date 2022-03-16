@@ -13,6 +13,7 @@ import (
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -27,7 +28,6 @@ import (
 func Command() *cobra.Command {
 	var outputType string
 	var crdPaths []string
-	var autogenInternals bool
 	cmd := &cobra.Command{
 		Use:     "validate",
 		Short:   "Validates kyverno policies",
@@ -79,7 +79,7 @@ func Command() *cobra.Command {
 				}
 			}
 
-			err = validatePolicies(policies, autogenInternals, v1crd, openAPIController, outputType)
+			err = validatePolicies(policies, v1crd, openAPIController, outputType)
 			if err != nil {
 				return sanitizederror.NewWithError("failed to validate policies", err)
 			}
@@ -88,7 +88,7 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&outputType, "output", "o", "", "Prints the mutated policy in yaml or json format")
 	cmd.Flags().StringArrayVarP(&crdPaths, "crd", "c", []string{}, "Path to CRD files")
-	cmd.Flags().BoolVarP(&autogenInternals, "autogenInternals", "", false, "Use autogen internals")
+	cmd.Flags().BoolVarP(&toggle.AutogenInternals, "autogenInternals", "", toggle.DefaultAutogenInternals, "Use autogen internals")
 	return cmd
 }
 
@@ -155,7 +155,7 @@ func validatePolicyAccordingToPolicyCRD(policy *v1.ClusterPolicy, v1crd apiexten
 	return
 }
 
-func validatePolicies(policies []*v1.ClusterPolicy, autogenInternals bool, v1crd apiextensions.CustomResourceDefinitionSpec, openAPIController *openapi.Controller, outputType string) error {
+func validatePolicies(policies []*v1.ClusterPolicy, v1crd apiextensions.CustomResourceDefinitionSpec, openAPIController *openapi.Controller, outputType string) error {
 	invalidPolicyFound := false
 	for _, policy := range policies {
 		err, errorList := validatePolicyAccordingToPolicyCRD(policy, v1crd)
@@ -180,7 +180,7 @@ func validatePolicies(policies []*v1.ClusterPolicy, autogenInternals bool, v1crd
 			fmt.Printf("Policy %s is valid.\n\n", policy.Name)
 			if outputType != "" {
 				logger := log.Log.WithName("validate")
-				p, err := common.MutatePolicy(policy, autogenInternals, logger)
+				p, err := common.MutatePolicy(policy, logger)
 				if err != nil {
 					if !sanitizederror.IsErrorSanitized(err) {
 						return sanitizederror.NewWithError("failed to mutate policy.", err)

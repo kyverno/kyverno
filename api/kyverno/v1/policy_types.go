@@ -3,6 +3,7 @@ package v1
 import (
 	"strings"
 
+	"github.com/kyverno/kyverno/pkg/toggle"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -73,6 +74,14 @@ func (p *Policy) HasVerifyImages() bool {
 // BackgroundProcessingEnabled checks if background is set to true
 func (p *Policy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
+}
+
+// GetRules returns the policy rules
+func (p *Policy) GetRules() []Rule {
+	if toggle.AutogenInternals && p.Status.Rules != nil && len(p.Status.Rules) != 0 {
+		return p.Status.Rules
+	}
+	return p.Spec.Rules
 }
 
 // PolicyList is a list of Policy instances.

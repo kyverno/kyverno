@@ -85,7 +85,7 @@ func Test_Validate_RuleType_EmptyRule(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	for _, rule := range policy.Spec.GetRules() {
+	for _, rule := range policy.GetRules() {
 		err := validateRuleType(rule)
 		assert.Assert(t, err != nil)
 	}
@@ -160,7 +160,7 @@ func Test_Validate_RuleType_MultipleRule(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	for _, rule := range policy.Spec.GetRules() {
+	for _, rule := range policy.GetRules() {
 		err := validateRuleType(rule)
 		assert.Assert(t, err != nil)
 	}
@@ -215,7 +215,7 @@ func Test_Validate_RuleType_SingleRule(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	for _, rule := range policy.Spec.GetRules() {
+	for _, rule := range policy.GetRules() {
 		err := validateRuleType(rule)
 		assert.NilError(t, err)
 	}

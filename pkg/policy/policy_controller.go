@@ -103,8 +103,6 @@ type PolicyController struct {
 	log logr.Logger
 
 	promConfig *metrics.PromConfig
-
-	autogenInternals bool
 }
 
 // NewPolicyController create a new PolicyController
@@ -123,7 +121,6 @@ func NewPolicyController(
 	log logr.Logger,
 	reconcilePeriod time.Duration,
 	promConfig *metrics.PromConfig,
-	autogenInternals bool,
 ) (*PolicyController, error) {
 
 	// Event broad caster
@@ -149,7 +146,6 @@ func NewPolicyController(
 		reconcilePeriod:    reconcilePeriod,
 		promConfig:         promConfig,
 		log:                log,
-		autogenInternals:   autogenInternals,
 	}
 
 	pc.pLister = pInformer.Lister()
@@ -198,7 +194,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	go pc.registerPolicyChangesMetricAddPolicy(logger, p)
 
 	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
-		pol, _ := common.MutatePolicy(p, pc.autogenInternals, logger)
+		pol, _ := common.MutatePolicy(p, logger)
 		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
 		if err != nil {
@@ -225,7 +221,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	go pc.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP)
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
-		pol, _ := common.MutatePolicy(curP, pc.autogenInternals, logger)
+		pol, _ := common.MutatePolicy(curP, logger)
 		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
 		if err != nil {
@@ -274,7 +270,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	// we process policies that are not set of background processing
 	// as we need to clean up GRs when a policy is deleted
 	// skip generate policies with clone
-	rules := p.Spec.GetRules()
+	rules := p.GetRules()
 
 	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, pc.client, p.GetName(), logger)
 
@@ -297,7 +293,7 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 
 	pol := ConvertPolicyToClusterPolicy(p)
 	if pol.Spec.Background == nil || pol.Spec.ValidationFailureAction == "" || missingAutoGenRules(pol, logger) {
-		nsPol, _ := common.MutatePolicy(pol, pc.autogenInternals, logger)
+		nsPol, _ := common.MutatePolicy(pol, logger)
 		nsPol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", p.Namespace, nsPol, false)
 		if err != nil {
@@ -324,7 +320,7 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	ncurP := ConvertPolicyToClusterPolicy(curP)
 
 	if ncurP.Spec.Background == nil || ncurP.Spec.ValidationFailureAction == "" || missingAutoGenRules(ncurP, logger) {
-		nsPol, _ := common.MutatePolicy(ncurP, pc.autogenInternals, logger)
+		nsPol, _ := common.MutatePolicy(ncurP, logger)
 		nsPol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", ncurP.GetNamespace(), nsPol, false)
 		if err != nil {
@@ -380,11 +376,11 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 
 func (pc *PolicyController) enqueueRCRDeletedRule(old, cur *kyverno.ClusterPolicy) {
 	curRule := make(map[string]bool)
-	for _, rule := range cur.Spec.GetRules() {
+	for _, rule := range cur.GetRules() {
 		curRule[rule.Name] = true
 	}
 
-	for _, rule := range old.Spec.GetRules() {
+	for _, rule := range old.GetRules() {
 		if !curRule[rule.Name] {
 			pc.prGenerator.Add(policyreport.Info{
 				PolicyName: cur.GetName(),
@@ -569,7 +565,7 @@ func missingAutoGenRules(policy *kyverno.ClusterPolicy, log logr.Logger) bool {
 	var podRuleName []string
 	ruleCount := 1
 	if canApplyAutoGen, _ := autogen.CanAutoGen(&policy.Spec, log); canApplyAutoGen {
-		for _, rule := range policy.Spec.GetRules() {
+		for _, rule := range policy.GetRules() {
 			podRuleName = append(podRuleName, rule.Name)
 		}
 	}
@@ -596,7 +592,7 @@ func missingAutoGenRules(policy *kyverno.ClusterPolicy, log logr.Logger) bool {
 			}
 		}
 
-		if len(policy.Spec.GetRules()) != (ruleCount * len(podRuleName)) {
+		if len(policy.GetRules()) != (ruleCount * len(podRuleName)) {
 			return true
 		}
 	}
