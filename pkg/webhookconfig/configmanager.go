@@ -685,6 +685,7 @@ func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy, statu
 	policyCopy.Status.Autogen.Requested = requested
 	policyCopy.Status.Autogen.Supported = supported
 	policyCopy.Status.Autogen.Activated = activated
+	policyCopy.Status.Rules = policy.Spec.Rules
 	if reflect.DeepEqual(policyCopy.Status, policy.Status) {
 		return nil
 	}

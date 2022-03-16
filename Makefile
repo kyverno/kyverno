@@ -158,8 +158,7 @@ generate-api-docs: gen-crd-api-reference-docs ## Generate api reference docs
 
 .PHONY: verify-api-docs
 verify-api-docs: generate-api-docs ## Check api reference docs are up to date
-	git add --all
-	git diff docs
+	git --no-pager diff docs
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make generate-api-docs".'
 	@echo 'To correct this, locally run "make generate-api-docs", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code docs
@@ -253,11 +252,15 @@ test-cli-local: cli
 
 .PHONY: test-cli-local-mutate
 test-cli-local-mutate: cli
-	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test
+	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test-mutate
 
 .PHONY: test-cli-test-case-selector-flag
 test-cli-test-case-selector-flag: cli
 	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
+
+.PHONY: test-cli-registry
+test-cli-registry: cli
+	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/registry
 
 # go get downloads and installs the binary
 # we temporarily add the GO_ACC to the path
@@ -265,11 +268,13 @@ test-unit: $(GO_ACC)
 	@echo "	running unit tests"
 	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
 
-code-cov-report: $(CODE_COVERAGE_FILE_TXT)
-# transform to html format
+code-cov-report:
+# generate code coverage report
 	@echo "	generating code coverage report"
-	go tool cover -html=coverage.txt
-	if [ -a $(CODE_COVERAGE_FILE_HTML) ]; then open $(CODE_COVERAGE_FILE_HTML); fi;
+
+	GO111MODULE=on go test -v -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
+	go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
 
 # Test E2E
 test-e2e:
@@ -299,8 +304,12 @@ helm-test-values:
 godownloader:
 	godownloader .goreleaser.yml --repo kyverno/kyverno -o ./scripts/install-cli.sh  --source="raw"
 
-# kustomize-crd will create install.yaml
-kustomize-crd:
+.PHONY: kustomize
+kustomize: ## Install kustomize
+	go install sigs.k8s.io/kustomize/kustomize/v4@latest
+
+.PHONY: kustomize-crd
+kustomize-crd: kustomize ## Create install.yaml
 	# Create CRD for helm deployment Helm
 	kustomize build ./config/release | kustomize cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
@@ -337,7 +346,7 @@ install-controller-gen:
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_REQ_VERSION) ;\
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_REQ_VERSION) ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 	CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
@@ -368,15 +377,24 @@ deepcopy-autogen: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..."
 
 .PHONY: codegen
-codegen: kyverno-crd report-crd deepcopy-autogen
+codegen: kyverno-crd report-crd deepcopy-autogen generate-api-docs gen-helm ## Update all generated code and docs
 
-.PHONY: verify-codegen
-verify-codegen: codegen
-	git add --all
-	git diff api
+.PHONY: verify-api
+verify-api: kyverno-crd report-crd deepcopy-autogen ## Check api is up to date
+	git --no-pager diff api
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen".'
 	@echo 'To correct this, locally run "make codegen", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code api
+
+.PHONY: verify-config
+verify-config: kyverno-crd report-crd ## Check config is up to date
+	git --no-pager diff config
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen".'
+	@echo 'To correct this, locally run "make codegen", commit the changes, and re-run tests.'
+	git diff --quiet --exit-code config
+
+.PHONY: verify-codegen
+verify-codegen: verify-api verify-config verify-api-docs verify-helm ## Verify all generated code and docs are up to date
 
 .PHONY: goimports
 goimports:
@@ -384,7 +402,7 @@ ifeq (, $(shell which goimports))
 	@{ \
 	echo "goimports not found!";\
 	echo "installing goimports...";\
-	go get golang.org/x/tools/cmd/goimports;\
+	go install golang.org/x/tools/cmd/goimports@latest;\
 	}
 else
 GO_IMPORTS=$(shell which goimports)
@@ -412,16 +430,15 @@ gen-helm: gen-helm-docs kustomize-crd ## Generate Helm charts stuff
 
 .PHONY: verify-helm
 verify-helm: gen-helm ## Check Helm charts are up to date
-	git add --all
-	git diff charts
+	git --no-pager diff charts
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm".'
 	@echo 'To correct this, locally run "make gen-helm", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code charts
 
-.PHONY: check-helm-docs
-check-helm-docs: gen-helm-docs ## Check Helm docs
-	git add --all
-	git diff charts/**/README.md
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm-docs".'
-	@echo 'To correct this, locally run "make gen-helm-docs", commit the changes, and re-run tests.'
-	git diff --quiet --exit-code charts/**/README.md
+##################################
+# HELP
+##################################
+
+.PHONY: help
+help: ## Shows the available commands
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
