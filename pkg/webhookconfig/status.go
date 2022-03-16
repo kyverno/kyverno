@@ -17,7 +17,6 @@ var deployName string = config.KyvernoDeploymentName
 var deployNamespace string = config.KyvernoNamespace
 
 const (
-	annCounter         string = "kyverno.io/generationCounter"
 	annWebhookStatus   string = "kyverno.io/webhookActive"
 	annLastRequestTime string = "kyverno.io/last-request-time"
 )

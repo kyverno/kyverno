@@ -82,7 +82,7 @@ func (t *Monitor) SetTime(tm time.Time) {
 func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen event.Interface, stopCh <-chan struct{}) {
 	logger := t.log.WithName("webhookMonitor")
 
-	logger.V(4).Info("starting webhook monitor", "interval", idleCheckInterval.String())
+	logger.V(3).Info("starting webhook monitor", "interval", idleCheckInterval.String())
 	status := newStatusControl(t.deployClient, eventGen, logger.WithName("WebhookStatusControl"))
 
 	ticker := time.NewTicker(tickerInterval)
@@ -113,10 +113,12 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			}
 
 			// update namespaceSelector every 30 seconds
-			if register.autoUpdateWebhooks {
-				logger.V(4).Info("updating webhook configurations for namespaceSelector with latest kyverno ConfigMap")
-				register.UpdateWebhookChan <- true
-			}
+			go func() {
+				if register.autoUpdateWebhooks {
+					logger.V(4).Info("updating webhook configurations for namespaceSelector with latest kyverno ConfigMap")
+					register.UpdateWebhookChan <- true
+				}
+			}()
 
 			timeDiff := time.Since(t.Time())
 			lastRequestTimeFromAnn := lastRequestTimeFromAnnotation(register, t.log.WithName("lastRequestTimeFromAnnotation"))
@@ -142,6 +144,8 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 						logger.Error(err, "Failed to register webhooks")
 					}
 				}
+
+				continue
 
 			case timeDiff > 2*idleCheckInterval:
 				if skipWebhookCheck(register, logger.WithName("skipWebhookCheck")) {
