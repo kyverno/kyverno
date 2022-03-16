@@ -157,9 +157,8 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 
 		// validate rule types
 		// only one type of rule is allowed per rule
-		if err := validateRuleType(rule); err != nil {
-			// as there are more than 1 operation in rule, not need to evaluate it further
-			return nil, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
+		if errs := rule.ValidateRuleType(rulePath); len(errs) != 0 {
+			return nil, errs.ToAggregate()
 		}
 
 		err := validateElementInForEach(rule)
@@ -1109,28 +1108,6 @@ func validateUniqueRuleName(p kyverno.ClusterPolicy) (string, error) {
 		ruleNames = append(ruleNames, rule.Name)
 	}
 	return "", nil
-}
-
-// validateRuleType checks only one type of rule is defined per rule
-func validateRuleType(r kyverno.Rule) error {
-	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate(), r.HasVerifyImages()}
-
-	operationCount := func() int {
-		count := 0
-		for _, v := range ruleTypes {
-			if v {
-				count++
-			}
-		}
-		return count
-	}()
-
-	if operationCount == 0 {
-		return fmt.Errorf("no operation defined in the rule '%s'.(supported operations: mutate,validate,generate,verifyImages)", r.Name)
-	} else if operationCount != 1 {
-		return fmt.Errorf("multiple operations defined in the rule '%s', only one operation (mutate,validate,generate,verifyImages) is allowed per rule", r.Name)
-	}
-	return nil
 }
 
 func validateRuleContext(rule kyverno.Rule) error {
