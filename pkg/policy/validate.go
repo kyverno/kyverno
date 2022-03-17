@@ -95,8 +95,8 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		return nil, fmt.Errorf("invalid policy name %s: must be no more than 63 characters", policy.Name)
 	}
 
-	if path, err := validateUniqueRuleName(*policy); err != nil {
-		return nil, fmt.Errorf("path: spec.%s: %v", path, err)
+	if errs := policy.Spec.Validate(specPath); len(errs) != 0 {
+		return nil, errs.ToAggregate()
 	}
 
 	if policy.ObjectMeta.Namespace != "" {
@@ -1092,19 +1092,6 @@ func validateConditionValuesKeyRequestOperation(c kyverno.Condition) (string, er
 		}
 	default:
 		return "value", fmt.Errorf("'value' field found to be of the type %v. The provided value/values are expected to be either in the form of a string or list", reflect.TypeOf(v).Kind())
-	}
-	return "", nil
-}
-
-// validateUniqueRuleName checks if the rule names are unique across a policy
-func validateUniqueRuleName(p kyverno.ClusterPolicy) (string, error) {
-	var ruleNames []string
-
-	for i, rule := range p.Spec.GetRules() {
-		if utils.ContainsString(ruleNames, rule.Name) {
-			return fmt.Sprintf("rule[%d]", i), fmt.Errorf(`duplicate rule name: '%s'`, rule.Name)
-		}
-		ruleNames = append(ruleNames, rule.Name)
 	}
 	return "", nil
 }
