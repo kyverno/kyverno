@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -10,7 +11,6 @@ import (
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	patchTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/version"
@@ -186,11 +186,19 @@ func (c *Client) UpdateStatusResource(apiVersion string, kind string, namespace 
 }
 
 func convertToUnstructured(obj interface{}) *unstructured.Unstructured {
-	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&obj)
+	unstrObj := map[string]interface{}{}
+
+	raw, err := json.Marshal(obj)
 	if err != nil {
 		return nil
 	}
-	return &unstructured.Unstructured{Object: unstructuredObj}
+
+	err = json.Unmarshal(raw, &unstrObj)
+	if err != nil {
+		return nil
+	}
+
+	return &unstructured.Unstructured{Object: unstrObj}
 }
 
 //IDiscovery provides interface to mange Kind and GVR mapping
