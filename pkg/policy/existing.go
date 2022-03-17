@@ -23,7 +23,7 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 	// Parse through all the resources drops the cache after configured rebuild time
 	pc.rm.Drop()
 
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range policy.Spec.GetRules() {
 		if !rule.HasValidate() && !rule.HasVerifyImages() {
 			continue
 		}
@@ -205,7 +205,8 @@ func (pc *PolicyController) processExistingKinds(kind []string, policy *kyverno.
 		logger = logger.WithValues("rule", rule.Name, "kind", k)
 		_, err := pc.rm.GetScope(k)
 		if err != nil {
-			resourceSchema, _, err := pc.client.DiscoveryClient.FindResource("", k)
+			gv, k := common.GetKindFromGVK(k)
+			resourceSchema, _, err := pc.client.DiscoveryClient.FindResource(gv, k)
 			if err != nil {
 				logger.Error(err, "failed to find resource", "kind", k)
 				continue

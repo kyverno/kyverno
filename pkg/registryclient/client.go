@@ -4,7 +4,6 @@ import (
 	"context"
 
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
-	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login/api"
 	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	"github.com/google/go-containerregistry/pkg/authn"
 	kauth "github.com/google/go-containerregistry/pkg/authn/kubernetes"
@@ -20,7 +19,7 @@ var (
 	kyvernoNamespace      string
 	kyvernoServiceAccount string
 
-	amazonKeychain  authn.Keychain = authn.NewKeychainFromHelper(ecr.ECRHelper{ClientFactory: api.DefaultClientFactory{}})
+	amazonKeychain  authn.Keychain = authn.NewKeychainFromHelper(ecr.NewECRHelper())
 	azureKeychain   authn.Keychain = authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper())
 	defaultKeychain authn.Keychain = authn.NewMultiKeychain(
 		authn.DefaultKeychain,
@@ -30,6 +29,11 @@ var (
 	)
 	DefaultKeychain authn.Keychain = defaultKeychain
 )
+
+// InitializeLocal loads the docker credentials and initializes the default auth method for container registry API calls
+func InitializeLocal() {
+	DefaultKeychain = authn.DefaultKeychain
+}
 
 // Initialize loads the image pull secrets and initializes the default auth method for container registry API calls
 func Initialize(client kubernetes.Interface, namespace, serviceAccount string, imagePullSecrets []string) error {

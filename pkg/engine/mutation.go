@@ -17,15 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const (
-	// PodControllerCronJob represent CronJob string
-	PodControllerCronJob = "CronJob"
-	//PodControllers stores the list of Pod-controllers in csv string
-	PodControllers = "DaemonSet,Deployment,Job,StatefulSet,CronJob"
-	//PodControllersAnnotation defines the annotation key for Pod-Controllers
-	PodControllersAnnotation = "pod-policies.kyverno.io/autogen-controllers"
-)
-
 // Mutate performs mutation. Overlay first and then mutation patches
 func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
@@ -48,7 +39,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 	var err error
 
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range policy.Spec.GetRules() {
 		if !rule.HasMutate() {
 			continue
 		}
@@ -118,7 +109,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 }
 
 func mutateResource(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
-	preconditionsPassed, err := checkPreconditions(logger, ctx, rule.AnyAllConditions)
+	preconditionsPassed, err := checkPreconditions(logger, ctx, rule.GetAnyAllConditions())
 	if err != nil {
 		return ruleError(rule, utils.Mutation, "failed to evaluate preconditions", err), resource
 	}
@@ -148,7 +139,7 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 			return ruleError(rule, utils.Mutation, "failed to load context", err), resource
 		}
 
-		preconditionsPassed, err := checkPreconditions(logger, ctx, rule.AnyAllConditions)
+		preconditionsPassed, err := checkPreconditions(logger, ctx, rule.GetAnyAllConditions())
 		if err != nil {
 			return ruleError(rule, utils.Mutation, "failed to evaluate preconditions", err), resource
 		}

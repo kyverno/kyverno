@@ -264,8 +264,6 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 		admissionReview.Response = handler(request)
 		writeResponse(rw, admissionReview)
 		logger.V(4).Info("admission review request processed", "time", time.Since(startTime).String())
-
-		return
 	}
 }
 
@@ -372,6 +370,13 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 
 	if err := ctx.AddImageInfo(&resource); err != nil {
 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
+	}
+
+	if request.Kind.Kind == "Secret" && request.Operation == v1beta1.Update {
+		resource, err = utils.NormalizeSecret(&resource)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to convert secret to unstructured format")
+		}
 	}
 
 	policyContext := &engine.PolicyContext{

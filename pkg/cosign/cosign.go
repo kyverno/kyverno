@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strings"
 
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+
 	"github.com/sigstore/cosign/cmd/cosign/cli/rekor"
 
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
@@ -27,6 +29,7 @@ import (
 	"github.com/sigstore/cosign/pkg/cosign/attestation"
 	"github.com/sigstore/cosign/pkg/oci"
 	sigs "github.com/sigstore/cosign/pkg/signature"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
 )
@@ -145,21 +148,30 @@ func getFulcioRoots(roots []byte) (*x509.CertPool, error) {
 
 // FetchAttestations retrieves signed attestations and decodes them into in-toto statements
 // https://github.com/in-toto/attestation/blob/main/spec/README.md#statement
-func FetchAttestations(imageRef string, key string, repository string, log logr.Logger) ([]map[string]interface{}, error) {
+func FetchAttestations(imageRef string, imageVerify *v1.ImageVerification, log logr.Logger) ([]map[string]interface{}, error) {
 	ctx := context.Background()
-	var pubKey signature.Verifier
 	var err error
 
-	if strings.HasPrefix(key, "-----BEGIN PUBLIC KEY-----") {
-		pubKey, err = decodePEM([]byte(key))
-		if err != nil {
-			return nil, errors.Wrap(err, "decode pem")
+	cosignOpts := &cosign.CheckOpts{
+		ClaimVerifier: cosign.IntotoSubjectClaimVerifier,
+	}
+
+	if imageVerify.Key != "" {
+		if strings.HasPrefix(imageVerify.Key, "-----BEGIN PUBLIC KEY-----") {
+			cosignOpts.SigVerifier, err = decodePEM([]byte(imageVerify.Key))
+		} else {
+			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRef(ctx, imageVerify.Key)
 		}
 	} else {
-		pubKey, err = sigs.PublicKeyFromKeyRef(ctx, key)
-		if err != nil {
-			return nil, errors.Wrap(err, "loading public key")
+		cosignOpts.CertEmail = ""
+		cosignOpts.RootCerts, err = getFulcioRoots([]byte(imageVerify.Roots))
+		if err == nil {
+			cosignOpts.RekorClient, err = rekor.NewClient("https://rekor.sigstore.dev")
 		}
+	}
+
+	if err != nil {
+		return nil, errors.Wrap(err, "loading credentials")
 	}
 
 	var opts []remote.Option
@@ -170,18 +182,12 @@ func FetchAttestations(imageRef string, key string, repository string, log logr.
 		return nil, errors.Wrap(err, "constructing client options")
 	}
 	opts = append(opts, remote.WithRemoteOptions(gcrremote.WithAuthFromKeychain(registryclient.DefaultKeychain)))
-	if repository != "" {
-		signatureRepo, err := name.NewRepository(repository)
+	if imageVerify.Repository != "" {
+		signatureRepo, err := name.NewRepository(imageVerify.Repository)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse signature repository %s", repository)
+			return nil, errors.Wrapf(err, "failed to parse signature repository %s", imageVerify.Repository)
 		}
 		opts = append(opts, remote.WithTargetRepository(signatureRepo))
-	}
-
-	cosignOpts := &cosign.CheckOpts{
-		ClaimVerifier:      cosign.IntotoSubjectClaimVerifier,
-		SigVerifier:        pubKey,
-		RegistryClientOpts: opts,
 	}
 
 	ref, err := name.ParseReference(imageRef)
@@ -305,12 +311,12 @@ func stringToJSONMap(i interface{}) (map[string]interface{}, error) {
 
 func decodePEM(raw []byte) (signature.Verifier, error) {
 	// PEM encoded file.
-	ed, err := cosign.PemToECDSAKey(raw)
+	pubKey, err := cryptoutils.UnmarshalPEMToPublicKey(raw)
 	if err != nil {
-		return nil, errors.Wrap(err, "pem to ecdsa")
+		return nil, errors.Wrap(err, "pem to public key")
 	}
 
-	return signature.LoadECDSAVerifier(ed, crypto.SHA256)
+	return signature.LoadVerifier(pubKey, crypto.SHA256)
 }
 
 func extractPayload(verified []oci.Signature) ([]payload.SimpleContainerImage, error) {

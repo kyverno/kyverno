@@ -87,8 +87,9 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	ctx.JSONContext.Checkpoint()
 	defer ctx.JSONContext.Restore()
 
-	for i := range ctx.Policy.Spec.Rules {
-		rule := &ctx.Policy.Spec.Rules[i]
+	rules := ctx.Policy.Spec.GetRules()
+	for i := range rules {
+		rule := &rules[i]
 		if !rule.HasValidate() {
 			continue
 		}
@@ -109,6 +110,22 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	}
 
 	return resp
+}
+
+func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) (*response.RuleResponse, error) {
+	ctxCopy := ctx.Copy()
+	ctxCopy.NewResource = *ctxCopy.OldResource.DeepCopy()
+	ctxCopy.OldResource = unstructured.Unstructured{}
+
+	if err := ctxCopy.JSONContext.ReplaceResourceAsObject(ctxCopy.NewResource.Object); err != nil {
+		return nil, errors.Wrapf(err, "failed to replace object in the JSON context")
+	}
+
+	if err := ctxCopy.JSONContext.ReplaceResourceAsOldObject(ctxCopy.OldResource.Object); err != nil {
+		return nil, errors.Wrapf(err, "failed to replace old object in the JSON context")
+	}
+
+	return processValidationRule(log, ctxCopy, rule), nil
 }
 
 func processValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *response.RuleResponse {
@@ -152,9 +169,9 @@ func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *vali
 		rule:             ruleCopy,
 		ctx:              ctx,
 		contextEntries:   ruleCopy.Context,
-		anyAllConditions: ruleCopy.AnyAllConditions,
-		pattern:          ruleCopy.Validation.Pattern,
-		anyPattern:       ruleCopy.Validation.AnyPattern,
+		anyAllConditions: ruleCopy.GetAnyAllConditions(),
+		pattern:          ruleCopy.Validation.GetPattern(),
+		anyPattern:       ruleCopy.Validation.GetAnyPattern(),
 		deny:             ruleCopy.Validation.Deny,
 	}
 }
@@ -172,8 +189,8 @@ func newForeachValidator(foreach *kyverno.ForEachValidation, rule *kyverno.Rule,
 		rule:             ruleCopy,
 		contextEntries:   foreach.Context,
 		anyAllConditions: anyAllConditions,
-		pattern:          foreach.Pattern,
-		anyPattern:       foreach.AnyPattern,
+		pattern:          foreach.GetPattern(),
+		anyPattern:       foreach.GetAnyPattern(),
 		deny:             foreach.Deny,
 	}
 }
@@ -192,16 +209,28 @@ func (v *validator) validate() *response.RuleResponse {
 		return ruleResponse(v.rule, utils.Validation, "preconditions not met", response.RuleStatusSkip)
 	}
 
+	if v.deny != nil {
+		return v.validateDeny()
+	}
+
 	if v.pattern != nil || v.anyPattern != nil {
 		if err = v.substitutePatterns(); err != nil {
 			return ruleError(v.rule, utils.Validation, "variable substitution failed", err)
 		}
 
 		ruleResponse := v.validateResourceWithRule()
-		return ruleResponse
+		if isUpdateRequest(v.ctx) {
+			priorResp, err := validateOldObject(v.log, v.ctx, v.rule)
+			if err != nil {
+				return ruleError(v.rule, utils.Validation, "failed to validate old object", err)
+			}
 
-	} else if v.deny != nil {
-		ruleResponse := v.validateDeny()
+			if isSameRuleResponse(ruleResponse, priorResp) {
+				v.log.V(3).Info("skipping modified resource as validation results have not changed")
+				return nil
+			}
+		}
+
 		return ruleResponse
 	}
 
@@ -326,7 +355,7 @@ func (v *validator) loadContext() error {
 }
 
 func (v *validator) validateDeny() *response.RuleResponse {
-	anyAllCond := v.deny.AnyAllConditions
+	anyAllCond := v.deny.GetAnyAllConditions()
 	anyAllCond, err := variables.SubstituteAll(v.log, v.ctx.JSONContext, anyAllCond)
 	if err != nil {
 		return ruleError(v.rule, utils.Validation, "failed to substitute variables in deny conditions", err)
@@ -372,27 +401,23 @@ func (v *validator) validateResourceWithRule() *response.RuleResponse {
 		return v.validatePatterns(v.ctx.Element)
 	}
 
-	// if the OldResource is empty, the request is a CREATE
-	if isEmptyUnstructured(&v.ctx.OldResource) {
-		resp := v.validatePatterns(v.ctx.NewResource)
-		return resp
-	}
-
-	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
-	if isEmptyUnstructured(&v.ctx.NewResource) {
+	if isDeleteRequest(v.ctx) {
 		v.log.V(3).Info("skipping validation on deleted resource")
 		return nil
 	}
 
-	// if the OldResource is not empty, and the NewResource is not empty, the request is a MODIFY
-	oldResp := v.validatePatterns(v.ctx.OldResource)
-	newResp := v.validatePatterns(v.ctx.NewResource)
-	if isSameRuleResponse(oldResp, newResp) {
-		v.log.V(3).Info("skipping modified resource as validation results have not changed")
-		return nil
-	}
+	resp := v.validatePatterns(v.ctx.NewResource)
+	return resp
+}
 
-	return newResp
+func isDeleteRequest(ctx *PolicyContext) bool {
+	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
+	return isEmptyUnstructured(&ctx.NewResource)
+}
+
+func isUpdateRequest(ctx *PolicyContext) bool {
+	// is the OldObject and NewObject are available, the request is an UPDATE
+	return !isEmptyUnstructured(&ctx.OldResource) && !isEmptyUnstructured(&ctx.NewResource)
 }
 
 func isEmptyUnstructured(u *unstructured.Unstructured) bool {

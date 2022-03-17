@@ -256,7 +256,7 @@ func Test_Mutate_Ingress(t *testing.T) {
 	e2eClient, err := e2e.NewE2EClient()
 	Expect(err).To(BeNil())
 
-	nspace := ingressTests.testNamesapce
+	nspace := ingressTests.testNamespace
 	By("Cleaning Cluster Policies")
 	e2eClient.CleanClusterPolicies(policyGVR)
 
@@ -285,8 +285,10 @@ func Test_Mutate_Ingress(t *testing.T) {
 	Expect(err).NotTo(HaveOccurred())
 
 	for _, test := range ingressTests.tests {
+		if test.skip {
+			continue
+		}
 		By(fmt.Sprintf("\n\nStart testing %s", test.testName))
-
 		gvr := e2e.GetGVR(test.group, test.version, test.rsc)
 		By(fmt.Sprintf("Creating Ingress %v in %s", gvr, nspace))
 		_, err = e2eClient.CreateNamespacedResourceYaml(gvr, nspace, test.resource)

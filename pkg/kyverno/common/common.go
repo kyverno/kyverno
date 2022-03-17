@@ -415,7 +415,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		fmt.Printf(("\nNOTICE: request.object.* variables are automatically parsed from the supplied resource. Ignoring value of variables `%v`.\n"), reqObjVars)
 	}
 
-	storePolices := make([]store.Policy, 0)
+	storePolicies := make([]store.Policy, 0)
 	for policyName, ruleMap := range valuesMapRule {
 		storeRules := make([]store.Rule, 0)
 		for _, rule := range ruleMap {
@@ -424,21 +424,21 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 				Values: rule.Values,
 			})
 		}
-		storePolices = append(storePolices, store.Policy{
+		storePolicies = append(storePolicies, store.Policy{
 			Name:  policyName,
 			Rules: storeRules,
 		})
 	}
 
 	store.SetContext(store.Context{
-		Policies: storePolices,
+		Policies: storePolicies,
 	})
 
 	return variables, globalValMap, valuesMapResource, namespaceSelectorMap, nil
 }
 
-// MutatePolices - function to apply mutation on policies
-func MutatePolices(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
+// MutatePolicies - function to apply mutation on policies
+func MutatePolicies(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 	newPolicies := make([]*v1.ClusterPolicy, 0)
 	logger := log.Log.WithName("apply")
 
@@ -471,7 +471,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 
 	policyWithNamespaceSelector := false
 OuterLoop:
-	for _, p := range policy.Spec.Rules {
+	for _, p := range policy.Spec.GetRules() {
 		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
 			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
 			policyWithNamespaceSelector = true
@@ -507,7 +507,7 @@ OuterLoop:
 		resourceNamespace := resource.GetNamespace()
 		namespaceLabels = namespaceSelectorMap[resource.GetNamespace()]
 		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-			return engineResponses, policyreport.Info{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namesapce labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
+			return engineResponses, policyreport.Info{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
 		}
 	}
 
@@ -566,14 +566,14 @@ OuterLoop:
 
 	if resource.GetKind() == "Pod" && len(resource.GetOwnerReferences()) > 0 {
 		if policy.HasAutoGenAnnotation() {
-			if _, ok := policy.GetAnnotations()[engine.PodControllersAnnotation]; ok {
-				delete(policy.Annotations, engine.PodControllersAnnotation)
+			if _, ok := policy.GetAnnotations()[v1.PodControllersAnnotation]; ok {
+				delete(policy.Annotations, v1.PodControllersAnnotation)
 			}
 		}
 	}
 
 	var policyHasValidate bool
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range policy.Spec.GetRules() {
 		if rule.HasValidate() {
 			policyHasValidate = true
 		}
@@ -591,7 +591,7 @@ OuterLoop:
 	}
 
 	var policyHasGenerate bool
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range policy.Spec.GetRules() {
 		if rule.HasGenerate() {
 			policyHasGenerate = true
 		}
@@ -735,6 +735,26 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 				}
 			}
 		} else if (len(resourcePaths) > 0 && resourcePaths[0] != "-") || len(resourcePaths) < 0 || cluster {
+
+			fileDesc, err := os.Stat(resourcePaths[0])
+			if err != nil {
+				return nil, err
+			}
+			if fileDesc.IsDir() {
+
+				files, err := ioutil.ReadDir(resourcePaths[0])
+				if err != nil {
+					return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", resourcePaths[0]), err)
+				}
+				listOfFiles := make([]string, 0)
+				for _, file := range files {
+					ext := filepath.Ext(file.Name())
+					if ext == ".yaml" || ext == ".yml" {
+						listOfFiles = append(listOfFiles, filepath.Join(resourcePaths[0], file.Name()))
+					}
+				}
+				resourcePaths = listOfFiles
+			}
 			resources, err = GetResources(policies, resourcePaths, dClient, cluster, namespace, policyReport)
 			if err != nil {
 				return resources, err
@@ -748,8 +768,11 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) policyreport.Info {
 	var violatedRules []v1.ViolatedRule
 	printCount := 0
-	for _, policyRule := range policy.Spec.Rules {
+	for _, policyRule := range policy.Spec.GetRules() {
 		ruleFoundInEngineResponse := false
+		if !policyRule.HasValidate() {
+			continue
+		}
 
 		for i, valResponseRule := range validateResponse.PolicyResponse.Rules {
 			if policyRule.Name == valResponseRule.Name {
@@ -826,7 +849,7 @@ func buildPVInfo(er *response.EngineResponse, violatedRules []v1.ViolatedRule) p
 
 func processGenerateEngineResponse(policy *v1.ClusterPolicy, generateResponse *response.EngineResponse, resPath string, rc *ResultCounts) {
 	printCount := 0
-	for _, policyRule := range policy.Spec.Rules {
+	for _, policyRule := range policy.Spec.GetRules() {
 		ruleFoundInEngineResponse := false
 		for i, genResponseRule := range generateResponse.PolicyResponse.Rules {
 			if policyRule.Name == genResponseRule.Name {
@@ -851,10 +874,10 @@ func processGenerateEngineResponse(policy *v1.ClusterPolicy, generateResponse *r
 }
 
 func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string]string) map[string]string {
-	storePolices := make([]store.Policy, 0)
+	storePolicies := make([]store.Policy, 0)
 	for _, policy := range mutatedPolicies {
 		storeRules := make([]store.Rule, 0)
-		for _, rule := range policy.Spec.Rules {
+		for _, rule := range policy.Spec.GetRules() {
 			contextVal := make(map[string]string)
 			if len(rule.Context) != 0 {
 				for _, contextVar := range rule.Context {
@@ -871,14 +894,14 @@ func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string
 				})
 			}
 		}
-		storePolices = append(storePolices, store.Policy{
+		storePolicies = append(storePolicies, store.Policy{
 			Name:  policy.Name,
 			Rules: storeRules,
 		})
 	}
 
 	store.SetContext(store.Context{
-		Policies: storePolices,
+		Policies: storePolicies,
 	})
 
 	return variables
@@ -886,7 +909,7 @@ func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string
 
 func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *response.EngineResponse, resPath string, rc *ResultCounts, mutateLogPath string, stdin bool, mutateLogPathIsDir bool, resourceName string, printPatchResource bool) error {
 	var policyHasMutate bool
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range policy.Spec.GetRules() {
 		if rule.HasMutate() {
 			policyHasMutate = true
 		}
@@ -897,7 +920,7 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 
 	printCount := 0
 	printMutatedRes := false
-	for _, policyRule := range policy.Spec.Rules {
+	for _, policyRule := range policy.Spec.GetRules() {
 		ruleFoundInEngineResponse := false
 		for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.Name {
@@ -996,7 +1019,7 @@ func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValM
 
 func GetKindsFromPolicy(policy *v1.ClusterPolicy) map[string]struct{} {
 	var kindOnwhichPolicyIsApplied = make(map[string]struct{})
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range policy.Spec.GetRules() {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
 			kindOnwhichPolicyIsApplied[kind] = struct{}{}
 		}
