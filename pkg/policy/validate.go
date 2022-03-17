@@ -24,7 +24,6 @@ import (
 	"github.com/minio/pkg/wildcard"
 	"github.com/pkg/errors"
 	v1beta1 "k8s.io/api/admission/v1beta1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -96,8 +95,8 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		return nil, fmt.Errorf("invalid policy name %s: must be no more than 63 characters", policy.Name)
 	}
 
-	if path, err := validateUniqueRuleName(*policy); err != nil {
-		return nil, fmt.Errorf("path: spec.%s: %v", path, err)
+	if errs := policy.Spec.Validate(specPath); len(errs) != 0 {
+		return nil, errs.ToAggregate()
 	}
 
 	if policy.ObjectMeta.Namespace != "" {
@@ -151,15 +150,14 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 
 		// validate resource description
-		if path, err := validateResources(rule); err != nil {
+		if path, err := validateResources(rulePath, rule); err != nil {
 			return nil, fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
 		}
 
 		// validate rule types
 		// only one type of rule is allowed per rule
-		if err := validateRuleType(rule); err != nil {
-			// as there are more than 1 operation in rule, not need to evaluate it further
-			return nil, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
+		if errs := rule.ValidateRuleType(rulePath); len(errs) != 0 {
+			return nil, errs.ToAggregate()
 		}
 
 		err := validateElementInForEach(rule)
@@ -905,10 +903,13 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 	return true
 }
 
-func validateResources(rule kyverno.Rule) (string, error) {
+func validateResources(path *field.Path, rule kyverno.Rule) (string, error) {
 	// validate userInfo in match and exclude
-	if path, err := validateUserInfo(rule); err != nil {
-		return fmt.Sprintf("resources.%s", path), err
+	if errs := rule.MatchResources.UserInfo.Validate(path.Child("match")); len(errs) != 0 {
+		return "match", errs.ToAggregate()
+	}
+	if errs := rule.ExcludeResources.UserInfo.Validate(path.Child("exclude")); len(errs) != 0 {
+		return "exclude", errs.ToAggregate()
 	}
 
 	if (len(rule.MatchResources.Any) > 0 || len(rule.MatchResources.All) > 0) && !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) {
@@ -1095,41 +1096,6 @@ func validateConditionValuesKeyRequestOperation(c kyverno.Condition) (string, er
 	return "", nil
 }
 
-// validateUniqueRuleName checks if the rule names are unique across a policy
-func validateUniqueRuleName(p kyverno.ClusterPolicy) (string, error) {
-	var ruleNames []string
-
-	for i, rule := range p.Spec.GetRules() {
-		if utils.ContainsString(ruleNames, rule.Name) {
-			return fmt.Sprintf("rule[%d]", i), fmt.Errorf(`duplicate rule name: '%s'`, rule.Name)
-		}
-		ruleNames = append(ruleNames, rule.Name)
-	}
-	return "", nil
-}
-
-// validateRuleType checks only one type of rule is defined per rule
-func validateRuleType(r kyverno.Rule) error {
-	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate(), r.HasVerifyImages()}
-
-	operationCount := func() int {
-		count := 0
-		for _, v := range ruleTypes {
-			if v {
-				count++
-			}
-		}
-		return count
-	}()
-
-	if operationCount == 0 {
-		return fmt.Errorf("no operation defined in the rule '%s'.(supported operations: mutate,validate,generate,verifyImages)", r.Name)
-	} else if operationCount != 1 {
-		return fmt.Errorf("multiple operations defined in the rule '%s', only one operation (mutate,validate,generate,verifyImages) is allowed per rule", r.Name)
-	}
-	return nil
-}
-
 func validateRuleContext(rule kyverno.Rule) error {
 	if rule.Context == nil || len(rule.Context) == 0 {
 		return nil
@@ -1292,57 +1258,6 @@ func validateMatchedResourceDescription(rd kyverno.ResourceDescription) (string,
 	}
 
 	return "", nil
-}
-
-func validateUserInfo(rule kyverno.Rule) (string, error) {
-	if err := validateRoles(rule.MatchResources.Roles); err != nil {
-		return "match.roles", err
-	}
-
-	if err := validateSubjects(rule.MatchResources.Subjects); err != nil {
-		return "match.subjects", err
-	}
-
-	if err := validateRoles(rule.ExcludeResources.Roles); err != nil {
-		return "exclude.roles", err
-	}
-
-	if err := validateSubjects(rule.ExcludeResources.Subjects); err != nil {
-		return "exclude.subjects", err
-	}
-
-	return "", nil
-}
-
-// a role must in format namespace:name
-func validateRoles(roles []string) error {
-	if len(roles) == 0 {
-		return nil
-	}
-
-	for _, r := range roles {
-		role := strings.Split(r, ":")
-		if len(role) != 2 {
-			return fmt.Errorf("invalid role %s, expect namespace:name", r)
-		}
-	}
-	return nil
-}
-
-// a namespace should be set in kind ServiceAccount of a subject
-func validateSubjects(subjects []rbacv1.Subject) error {
-	if len(subjects) == 0 {
-		return nil
-	}
-
-	for _, subject := range subjects {
-		if subject.Kind == "ServiceAccount" {
-			if subject.Namespace == "" {
-				return fmt.Errorf("service account %s in subject expects a namespace", subject.Name)
-			}
-		}
-	}
-	return nil
 }
 
 func validateExcludeResourceDescription(rd kyverno.ResourceDescription) (string, error) {
