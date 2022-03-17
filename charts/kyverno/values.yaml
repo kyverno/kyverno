@@ -233,6 +233,11 @@ config:
   # Note that it takes a list of `namespaceSelector` in the JSON format, and only the first element
   # will be forwarded to the webhook configurations.
   webhooks:     # [{"namespaceSelector":{"matchExpressions":[{"key":"environment","operator":"In","values":["prod"]}]}}]
+    - objectSelector:
+        matchExpressions:
+        - key: webhooks.kyverno.io/exclude
+          operator: NotIn
+          values: ['true']
   # -- Generate success events.
   generateSuccessEvents: false
   # -- Metrics config.

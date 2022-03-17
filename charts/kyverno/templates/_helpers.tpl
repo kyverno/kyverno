@@ -37,6 +37,7 @@ app.kubernetes.io/name: {{ template "kyverno.name" . }}
 app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
 app.kubernetes.io/version: "{{ .Chart.Version }}"
 helm.sh/chart: {{ template "kyverno.chart" . }}
+webhooks.kyverno.io/exclude: 'true'
 {{- if .Values.customLabels }}
 {{ toYaml .Values.customLabels }}
 {{- end }}
