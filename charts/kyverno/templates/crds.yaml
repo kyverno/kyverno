@@ -1215,6 +1215,11 @@ spec:
                       items:
                         description: ImageVerification validates that images that match the specified pattern are signed with the supplied public key. Once the image is verified it is mutated to include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string
@@ -2530,6 +2535,11 @@ spec:
                       items:
                         description: ImageVerification validates that images that match the specified pattern are signed with the supplied public key. Once the image is verified it is mutated to include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string
@@ -5041,6 +5051,11 @@ spec:
                       items:
                         description: ImageVerification validates that images that match the specified pattern are signed with the supplied public key. Once the image is verified it is mutated to include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string
@@ -6356,6 +6371,11 @@ spec:
                       items:
                         description: ImageVerification validates that images that match the specified pattern are signed with the supplied public key. Once the image is verified it is mutated to include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string
