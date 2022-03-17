@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -22,6 +23,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -1959,6 +1961,12 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions
+                              used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string
@@ -4073,6 +4081,12 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions
+                              used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string
@@ -4276,6 +4290,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -4956,6 +4971,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: clusterreportchangerequests.kyverno.io
 spec:
   group: kyverno.io
@@ -5636,6 +5652,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: generaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -5833,6 +5850,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -7771,6 +7789,12 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions
+                              used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string
@@ -9886,6 +9910,12 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions
+                              used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string
@@ -10089,6 +10119,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -10767,6 +10798,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: reportchangerequests.kyverno.io
 spec:
   group: kyverno.io
@@ -11445,6 +11477,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno-service-account
   namespace: kyverno
 ---
@@ -11458,6 +11491,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:leaderelection
   namespace: kyverno
 rules:
@@ -11493,6 +11527,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:admin-generaterequest
 rules:
 - apiGroups:
@@ -11519,6 +11554,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:admin-policies
 rules:
 - apiGroups:
@@ -11546,6 +11582,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:admin-policyreport
 rules:
 - apiGroups:
@@ -11573,6 +11610,7 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:admin-reportchangerequest
 rules:
 - apiGroups:
@@ -11599,6 +11637,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:events
 rules:
 - apiGroups:
@@ -11621,6 +11660,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:generate
 rules:
 - apiGroups:
@@ -11668,6 +11708,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:policies
 rules:
 - apiGroups:
@@ -11719,6 +11760,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:userinfo
 rules:
 - apiGroups:
@@ -11742,6 +11784,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:view
 rules:
 - apiGroups:
@@ -11763,6 +11806,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:webhook
 rules:
 - apiGroups:
@@ -11789,6 +11833,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:leaderelection
   namespace: kyverno
 roleRef:
@@ -11810,6 +11855,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:events
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -11830,6 +11876,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:generate
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -11850,6 +11897,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:policies
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -11870,6 +11918,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:userinfo
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -11890,6 +11939,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:view
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -11910,6 +11960,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno:webhook
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -11934,6 +11985,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno
   namespace: kyverno
 ---
@@ -11950,6 +12002,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno-metrics
   namespace: kyverno
 ---
@@ -11963,6 +12016,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno-svc
   namespace: kyverno
 spec:
@@ -11984,6 +12038,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno-svc-metrics
   namespace: kyverno
 spec:
@@ -12005,6 +12060,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: kyverno
   namespace: kyverno
 spec:
@@ -12027,6 +12083,7 @@ spec:
         app.kubernetes.io/name: kyverno
         app.kubernetes.io/part-of: kyverno
         app.kubernetes.io/version: latest
+        webhooks.kyverno.io/exclude: ""
     spec:
       affinity:
         podAntiAffinity:

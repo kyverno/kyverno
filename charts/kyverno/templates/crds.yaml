@@ -13,6 +13,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -1215,6 +1216,11 @@ spec:
                       items:
                         description: ImageVerification validates that images that match the specified pattern are signed with the supplied public key. Once the image is verified it is mutated to include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string
@@ -2530,6 +2536,11 @@ spec:
                       items:
                         description: ImageVerification validates that images that match the specified pattern are signed with the supplied public key. Once the image is verified it is mutated to include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string
@@ -2671,6 +2682,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -3164,6 +3176,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: clusterreportchangerequests.kyverno.io
 spec:
   group: kyverno.io
@@ -3657,6 +3670,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: generaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -3839,6 +3853,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -5041,6 +5056,11 @@ spec:
                       items:
                         description: ImageVerification validates that images that match the specified pattern are signed with the supplied public key. Once the image is verified it is mutated to include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string
@@ -6356,6 +6376,11 @@ spec:
                       items:
                         description: ImageVerification validates that images that match the specified pattern are signed with the supplied public key. Once the image is verified it is mutated to include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string
@@ -6497,6 +6522,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -6990,6 +7016,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+    webhooks.kyverno.io/exclude: ""
   name: reportchangerequests.kyverno.io
 spec:
   group: kyverno.io

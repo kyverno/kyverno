@@ -1948,6 +1948,12 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions
+                              used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string
@@ -4062,6 +4068,12 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions
+                              used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string
@@ -7736,6 +7748,12 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions
+                              used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string
@@ -9851,6 +9869,12 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
+                          additionalExtensions:
+                            additionalProperties:
+                              type: string
+                            description: AdditionalExtensions are certificate-extensions
+                              used for keyless signing.
+                            type: object
                           annotations:
                             additionalProperties:
                               type: string

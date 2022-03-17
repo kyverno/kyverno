@@ -264,8 +264,6 @@ func (ws *WebhookServer) handlerFunc(handler func(request *v1beta1.AdmissionRequ
 		admissionReview.Response = handler(request)
 		writeResponse(rw, admissionReview)
 		logger.V(4).Info("admission review request processed", "time", time.Since(startTime).String())
-
-		return
 	}
 }
 
