@@ -38,14 +38,15 @@ import (
 var ImageSignatureRepository string
 
 type Options struct {
-	ImageRef    string
-	Key         string
-	Roots       []byte
-	Subject     string
-	Issuer      string
-	Annotations map[string]string
-	Repository  string
-	Log         logr.Logger
+	ImageRef             string
+	Key                  string
+	Roots                []byte
+	Subject              string
+	Issuer               string
+	AdditionalExtensions map[string]string
+	Annotations          map[string]string
+	Repository           string
+	Log                  logr.Logger
 }
 
 // VerifySignature verifies that the image has the expected key
@@ -118,6 +119,10 @@ func VerifySignature(opts Options) (digest string, err error) {
 
 	if err := matchSubjectAndIssuer(signatures, opts.Subject, opts.Issuer); err != nil {
 		return "", err
+	}
+
+	if err := matchExtensions(signatures, opts.AdditionalExtensions, log); err != nil {
+		return "", errors.Wrap(err, "extensions mismatch")
 	}
 
 	err = checkAnnotations(pld, opts.Annotations)
@@ -376,6 +381,48 @@ func matchSubjectAndIssuer(signatures []oci.Signature, subject, issuer string) e
 	}
 
 	return fmt.Errorf("subject mismatch: expected %s, got %s", s, subject)
+}
+
+func matchExtensions(signatures []oci.Signature, requiredExtensions map[string]string, log logr.Logger) error {
+	if len(requiredExtensions) == 0 {
+		return nil
+	}
+
+	for _, sig := range signatures {
+		cert, err := sig.Cert()
+		if err != nil {
+			return errors.Wrap(err, "failed to read certificate")
+		}
+
+		if cert == nil {
+			return errors.Wrap(err, "certificate not found")
+		}
+
+		// This will return a map which consists of readable extension-names as keys
+		// or the raw extensionIDs as fallback and its values.
+		certExtensions := sigs.CertExtensions(cert)
+		for requiredKey, requiredValue := range requiredExtensions {
+			certValue, ok := certExtensions[requiredKey]
+			if !ok {
+				// "requiredKey" seems to be an extensionID, try to resolve its human readable name
+				readableName, ok := sigs.CertExtensionMap[requiredKey]
+				if !ok {
+					return fmt.Errorf("key %s not present", requiredKey)
+				}
+
+				certValue, ok = certExtensions[readableName]
+				if !ok {
+					return fmt.Errorf("key %s (%s) not present", requiredKey, readableName)
+				}
+			}
+
+			if requiredValue != "" && !wildcard.Match(requiredValue, certValue) {
+				return fmt.Errorf("extension mismatch: expected %s for key %s, got %s", requiredValue, requiredKey, certValue)
+			}
+		}
+	}
+
+	return nil
 }
 
 func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]string) error {
