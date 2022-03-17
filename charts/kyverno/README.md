@@ -143,6 +143,34 @@ If `createSelfSignedCert` is `true`, Helm will take care of the steps of creatin
 
 If `createSelfSignedCert` is `false`, Kyverno will generate a self-signed CA and a certificate, or you can provide your own TLS CA and signed-key pair and create the secret yourself as described in the [documentation](https://kyverno.io/docs/installation/#customize-the-installation-of-kyverno).
 
+## Default resource filters
+
+[Kyverno resource filters](https://kyverno.io/docs/installation/#resource-filters) are a used to exclude resources from the Kyverno engine rules processing.
+
+This chart comes with default resource filters that apply exclusions on a couple of namespaces and resource kinds:
+- all resources in `kube-system`, `kube-public` and `kube-node-lease` namespaces
+- all resources in all namespaces for the following resource kinds:
+  - `Event`
+  - `Node`
+  - `APIService`
+  - `TokenReview`
+  - `SubjectAccessReview`
+  - `SelfSubjectAccessReview`
+  - `Binding`
+  - `ReplicaSet`
+  - `ReportChangeRequest`
+  - `ClusterReportChangeRequest`
+- all resources created by this chart itself
+
+Those default exclusions are there to prevent disruptions as much as possible.
+Under the hood, Kyverno installs an admission controller for critical cluster resources.
+A cluster can become unresponsive if Kyverno is not up and running, ultimately preventing pods to be scheduled in the cluster.
+
+You can however override the default resource filters by setting the `config.resourceFilters` stanza.
+It contains an array of string templates that are passed through the `tpl` Helm function and joined together to produce the final `resourceFilters` written in the Kyverno config map.
+
+Please consult the [values.yaml](./values.yaml) file before overriding `config.resourceFilters` and use the apropriate templates to build your desired exclusions list.
+
 ## Source Code
 
 * <https://github.com/kyverno/kyverno>
