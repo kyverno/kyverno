@@ -269,10 +269,8 @@ test-unit: $(GO_ACC)
 	@echo "	running unit tests"
 	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
 
-code-cov-report:
-# generate code coverage report
+code-cov-report: ## Generate code coverage report
 	@echo "	generating code coverage report"
-
 	GO111MODULE=on go test -v -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
 	go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
@@ -332,16 +330,15 @@ release-notes:
 ##################################
 
 .PHONY: kyverno-crd
-kyverno-crd: controller-gen
+kyverno-crd: controller-gen ## Generate Kyverno CRDs
 	$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
 
 .PHONY: report-crd
-report-crd: controller-gen
+report-crd: controller-gen ## Generate policy reports CRDs
 	$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
 
-# install the right version of controller-gen
 .PHONY: install-controller-gen
-install-controller-gen:
+install-controller-gen: ## Install controller-gen
 	@{ \
 	set -e ;\
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
@@ -352,9 +349,8 @@ install-controller-gen:
 	}
 	CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
 
-# setup controller-gen with the right version, if necessary
 .PHONY: controller-gen
-controller-gen:
+controller-gen: ## Setup controller-gen
 ifeq (, $(shell which controller-gen))
 	@{ \
 	echo "controller-gen not found!";\
@@ -435,3 +431,29 @@ check-helm-docs: gen-helm-docs ## Check Helm docs
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm-docs".'
 	@echo 'To correct this, locally run "make gen-helm-docs", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code charts/**/README.md
+
+##################################
+# KIND
+##################################
+
+.PHONY: kind-create-cluster
+kind-create-cluster:
+	kind create cluster --image kindest/node:v1.23.3
+
+.PHONY: kind-load-images
+kind-load-images: kind-create-cluster docker-build-initContainer-local docker-build-kyverno-local
+	kind load docker-image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
+	kind load docker-image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+
+.PHONY: kind-deploy-kyverno
+kind-deploy-kyverno: # kind-load-images
+	helm upgrade --install kyverno --namespace kyverno --create-namespace ./charts/kyverno \
+		--set image.repository=$(REPO)/$(KYVERNO_IMAGE) \
+		--set image.tag=$(IMAGE_TAG_DEV) \
+		--set initImage.repository=$(REPO)/$(INITC_IMAGE) \
+		--set initImage.tag=$(IMAGE_TAG_DEV)
+	kubectl rollout restart deployment -n kyverno
+
+.PHONY: kind-deploy-policies
+kind-deploy-policies: # kind-load-images
+	helm install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies

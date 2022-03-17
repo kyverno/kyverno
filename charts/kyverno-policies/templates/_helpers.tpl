@@ -68,11 +68,4 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 
 {{/* Fail if deployed Kyverno does not match */}}
 {{- define "kyverno-policies.supportedKyvernoCheck" -}}
-{{- $supportedKyverno := index . "ver" -}}
-{{- $top := index . "top" }}
-{{- if (include "kyverno-policies.kyvernoVersion" $top) -}}
-  {{- if not ( semverCompare $supportedKyverno (include "kyverno-policies.kyvernoVersion" $top) ) -}}
-    {{- fail (printf "Kyverno version is too low, expected %s" $supportedKyverno) -}}
-  {{- end -}}
-{{- end -}}
 {{- end -}}
