@@ -133,9 +133,19 @@ func (s *Spec) ValidateRuleNames(path *field.Path) field.ErrorList {
 	return errs
 }
 
+// ValidateRules implements programmatic validation of Rules
+func (s *Spec) ValidateRules(path *field.Path) field.ErrorList {
+	var errs field.ErrorList
+	errs = append(errs, s.ValidateRuleNames(path)...)
+	for i, rule := range s.Rules {
+		errs = append(errs, rule.Validate(path.Index(i))...)
+	}
+	return errs
+}
+
 // Validate implements programmatic validation
 func (s *Spec) Validate(path *field.Path) field.ErrorList {
 	var errs field.ErrorList
-	errs = append(errs, s.ValidateRuleNames(path.Child("rules"))...)
+	errs = append(errs, s.ValidateRules(path.Child("rules"))...)
 	return errs
 }

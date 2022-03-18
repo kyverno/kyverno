@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // ClusterPolicy declares validation, mutation, and generation behaviors for matching resources.
@@ -77,6 +78,14 @@ func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 // IsReady indicates if the policy is ready to serve the admission request
 func (p *ClusterPolicy) IsReady() bool {
 	return p.Status.IsReady()
+}
+
+// Validate implements programmatic validation
+func (p *ClusterPolicy) Validate() field.ErrorList {
+	var errs field.ErrorList
+	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
+	return errs
 }
 
 // ClusterPolicyList is a list of ClusterPolicy instances.
