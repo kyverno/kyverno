@@ -63,7 +63,6 @@ var (
 	profile                      bool
 	disableMetricsExport         bool
 	autoUpdateWebhooks           bool
-	autogenInternals             bool
 	policyControllerResyncPeriod time.Duration
 	imagePullSecrets             string
 	imageSignatureRepository     string
@@ -478,7 +477,6 @@ func main() {
 		openAPIController,
 		grc,
 		promConfig,
-		autogenInternals,
 	)
 
 	if err != nil {

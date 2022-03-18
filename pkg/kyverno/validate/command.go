@@ -28,7 +28,6 @@ import (
 func Command() *cobra.Command {
 	var outputType string
 	var crdPaths []string
-	var autogenInternals bool
 	cmd := &cobra.Command{
 		Use:     "validate",
 		Short:   "Validates kyverno policies",
@@ -80,7 +79,7 @@ func Command() *cobra.Command {
 				}
 			}
 
-			err = validatePolicies(policies, autogenInternals, v1crd, openAPIController, outputType)
+			err = validatePolicies(policies, v1crd, openAPIController, outputType)
 			if err != nil {
 				return sanitizederror.NewWithError("failed to validate policies", err)
 			}
@@ -156,7 +155,7 @@ func validatePolicyAccordingToPolicyCRD(policy *v1.ClusterPolicy, v1crd apiexten
 	return
 }
 
-func validatePolicies(policies []*v1.ClusterPolicy, autogenInternals bool, v1crd apiextensions.CustomResourceDefinitionSpec, openAPIController *openapi.Controller, outputType string) error {
+func validatePolicies(policies []*v1.ClusterPolicy, v1crd apiextensions.CustomResourceDefinitionSpec, openAPIController *openapi.Controller, outputType string) error {
 	invalidPolicyFound := false
 	for _, policy := range policies {
 		err, errorList := validatePolicyAccordingToPolicyCRD(policy, v1crd)
