@@ -859,27 +859,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 				}
 			}
 		}
-
-		// check request.operation variable present in the policy
-		for _, vars := range matches {
-			vari := strings.Join(vars, " ")
-			if strings.Contains(vari, "request.operation") {
-				if globalValMap["request.operation"] == "" {
-					if globalValMap == nil {
-						globalValMap = make(map[string]string)
-						// set globally, request.operation to CREATE
-						globalValMap["request.operation"] = "CREATE"
-						log.Log.V(3).Info("variable request.operation found in policy, by default globally set to CREATE.")
-						break
-					} else {
-						// set globally, request.operation to CREATE
-						globalValMap["request.operation"] = "CREATE"
-						log.Log.V(3).Info("variable request.operation found in policy, by default globally set to CREATE.")
-						break
-					}
-				}
-			}
-		}
+		globalValMap = common.Set_default_value_request_operation_to_create(matches, globalValMap)
 
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
 
