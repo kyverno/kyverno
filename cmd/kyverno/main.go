@@ -253,7 +253,7 @@ func main() {
 		stopCh,
 		log.Log)
 
-	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, log.Log.WithName("WebhookMonitor"))
+	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, log.Log)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize webhookMonitor")
 		os.Exit(1)
