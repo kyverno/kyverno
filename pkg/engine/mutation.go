@@ -39,7 +39,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 	var err error
 
-	for _, rule := range policy.Spec.GetRules() {
+	for _, rule := range policy.GetRules() {
 		if !rule.HasMutate() {
 			continue
 		}

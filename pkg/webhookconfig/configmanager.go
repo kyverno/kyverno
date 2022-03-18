@@ -700,7 +700,7 @@ func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy, statu
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
 func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.ClusterPolicy, updateValidate bool) {
 	matchedGVK := make([]string, 0)
-	for _, rule := range policy.Spec.GetRules() {
+	for _, rule := range policy.GetRules() {
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
 			matchedGVK = append(matchedGVK, rule.MatchKinds()...)
@@ -811,7 +811,7 @@ func webhookKey(webhookKind, failurePolicy string) string {
 
 func hasWildcard(policy interface{}) bool {
 	if p, ok := policy.(*kyverno.ClusterPolicy); ok {
-		for _, rule := range p.Spec.GetRules() {
+		for _, rule := range p.GetRules() {
 			if kinds := rule.MatchKinds(); utils.ContainsString(kinds, "*") {
 				return true
 			}
@@ -819,7 +819,7 @@ func hasWildcard(policy interface{}) bool {
 	}
 
 	if p, ok := policy.(*kyverno.Policy); ok {
-		for _, rule := range p.Spec.GetRules() {
+		for _, rule := range p.GetRules() {
 			if kinds := rule.MatchKinds(); utils.ContainsString(kinds, "*") {
 				return true
 			}
