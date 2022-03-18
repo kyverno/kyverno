@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -103,8 +104,6 @@ type PolicyController struct {
 	log logr.Logger
 
 	promConfig *metrics.PromConfig
-
-	autogenInternals bool
 }
 
 // NewPolicyController create a new PolicyController
@@ -123,7 +122,6 @@ func NewPolicyController(
 	log logr.Logger,
 	reconcilePeriod time.Duration,
 	promConfig *metrics.PromConfig,
-	autogenInternals bool,
 ) (*PolicyController, error) {
 
 	// Event broad caster
@@ -149,7 +147,6 @@ func NewPolicyController(
 		reconcilePeriod:    reconcilePeriod,
 		promConfig:         promConfig,
 		log:                log,
-		autogenInternals:   autogenInternals,
 	}
 
 	pc.pLister = pInformer.Lister()
@@ -198,7 +195,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	go pc.registerPolicyChangesMetricAddPolicy(logger, p)
 
 	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
-		pol, _ := common.MutatePolicy(p, pc.autogenInternals, logger)
+		pol, _ := common.MutatePolicy(p, toggle.AutogenInternals, logger)
 		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
 		if err != nil {
@@ -225,7 +222,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	go pc.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP)
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
-		pol, _ := common.MutatePolicy(curP, pc.autogenInternals, logger)
+		pol, _ := common.MutatePolicy(curP, toggle.AutogenInternals, logger)
 		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
 		if err != nil {
@@ -297,7 +294,7 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 
 	pol := ConvertPolicyToClusterPolicy(p)
 	if pol.Spec.Background == nil || pol.Spec.ValidationFailureAction == "" || missingAutoGenRules(pol, logger) {
-		nsPol, _ := common.MutatePolicy(pol, pc.autogenInternals, logger)
+		nsPol, _ := common.MutatePolicy(pol, toggle.AutogenInternals, logger)
 		nsPol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", p.Namespace, nsPol, false)
 		if err != nil {
@@ -324,7 +321,7 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	ncurP := ConvertPolicyToClusterPolicy(curP)
 
 	if ncurP.Spec.Background == nil || ncurP.Spec.ValidationFailureAction == "" || missingAutoGenRules(ncurP, logger) {
-		nsPol, _ := common.MutatePolicy(ncurP, pc.autogenInternals, logger)
+		nsPol, _ := common.MutatePolicy(ncurP, toggle.AutogenInternals, logger)
 		nsPol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", ncurP.GetNamespace(), nsPol, false)
 		if err != nil {

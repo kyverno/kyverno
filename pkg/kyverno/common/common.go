@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/toggle"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-git/go-billy/v5"
@@ -438,12 +439,12 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 }
 
 // MutatePolicies - function to apply mutation on policies
-func MutatePolicies(policies []*v1.ClusterPolicy, autogenInternals bool) ([]*v1.ClusterPolicy, error) {
+func MutatePolicies(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 	newPolicies := make([]*v1.ClusterPolicy, 0)
 	logger := log.Log.WithName("apply")
 
 	for _, policy := range policies {
-		p, err := MutatePolicy(policy, autogenInternals, logger)
+		p, err := MutatePolicy(policy, toggle.AutogenInternals, logger)
 		if err != nil {
 			if !sanitizederror.IsErrorSanitized(err) {
 				return nil, sanitizederror.NewWithError("failed to mutate policy.", err)
