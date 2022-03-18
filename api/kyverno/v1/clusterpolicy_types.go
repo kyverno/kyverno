@@ -76,10 +76,10 @@ func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 }
 
 // Validate implements programmatic validation
-func (p *ClusterPolicy) Validate() field.ErrorList {
+func (p *ClusterPolicy) Validate(namespaced bool) field.ErrorList {
 	var errs field.ErrorList
 	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
-	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), namespaced)...)
 	return errs
 }
 
