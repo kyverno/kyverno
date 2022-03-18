@@ -195,6 +195,10 @@ func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imag
 		opts.Subject = imageVerify.Subject
 	}
 
+	if imageVerify.AdditionalExtensions != nil {
+		opts.AdditionalExtensions = imageVerify.AdditionalExtensions
+	}
+
 	if imageVerify.Annotations != nil {
 		opts.Annotations = imageVerify.Annotations
 	}

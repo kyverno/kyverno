@@ -236,14 +236,23 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface)
 			}
 		}
 
+		retry := false
+
 		if err := wrc.updateResourceMutatingWebhookConfiguration(nsSelector); err != nil {
 			logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
-			go func() { wrc.UpdateWebhookChan <- true }()
+			retry = true
 		}
 
 		if err := wrc.updateResourceValidatingWebhookConfiguration(nsSelector); err != nil {
 			logger.Error(err, "unable to update validatingWebhookConfigurations", "name", getResourceValidatingWebhookConfigName(wrc.serverIP))
-			go func() { wrc.UpdateWebhookChan <- true }()
+			retry = true
+		}
+
+		if retry {
+			go func() {
+				time.Sleep(1 * time.Second)
+				wrc.UpdateWebhookChan <- true
+			}()
 		}
 	}
 }
@@ -531,7 +540,7 @@ func (wrc *Register) constructVerifyMutatingWebhookConfig(caData []byte) *admreg
 				true,
 				wrc.timeoutSeconds,
 				admregapi.Rule{
-					Resources:   []string{"deployments/*"},
+					Resources:   []string{"deployments"},
 					APIGroups:   []string{"apps"},
 					APIVersions: []string{"v1"},
 				},
@@ -558,7 +567,7 @@ func (wrc *Register) constructDebugVerifyMutatingWebhookConfig(caData []byte) *a
 				true,
 				wrc.timeoutSeconds,
 				admregapi.Rule{
-					Resources:   []string{"deployments/*"},
+					Resources:   []string{"deployments"},
 					APIGroups:   []string{"apps"},
 					APIVersions: []string{"v1"},
 				},

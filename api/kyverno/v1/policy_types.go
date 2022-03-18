@@ -5,6 +5,7 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/toggle"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // Policy declares validation, mutation, and generation behaviors for matching resources.
@@ -82,6 +83,14 @@ func (p *Policy) GetRules() []Rule {
 		return p.Status.Rules
 	}
 	return p.Spec.Rules
+}
+
+// Validate implements programmatic validation
+func (p *Policy) Validate() field.ErrorList {
+	var errs field.ErrorList
+	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
+	return errs
 }
 
 // PolicyList is a list of Policy instances.
