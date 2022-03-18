@@ -90,16 +90,11 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		return nil, err
 	}
 
-	// policy name is stored in the label of the report change request
-	if len(policy.Name) > 63 {
-		return nil, fmt.Errorf("invalid policy name %s: must be no more than 63 characters", policy.Name)
-	}
-
-	if errs := policy.Spec.Validate(specPath); len(errs) != 0 {
+	if errs := policy.Validate(); len(errs) != 0 {
 		return nil, errs.ToAggregate()
 	}
 
-	if policy.ObjectMeta.Namespace != "" {
+	if policy.GetNamespace() != "" {
 		namespaced = true
 	}
 
@@ -132,7 +127,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			clusterResources = append(clusterResources, k)
 		}
 	}
-	rules := policy.Spec.GetRules()
+	rules := policy.GetRules()
 	rulesPath := specPath.Child("rules")
 	for i, rule := range rules {
 		rulePath := rulesPath.Index(i)
@@ -152,12 +147,6 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		// validate resource description
 		if path, err := validateResources(rulePath, rule); err != nil {
 			return nil, fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
-		}
-
-		// validate rule types
-		// only one type of rule is allowed per rule
-		if errs := rule.ValidateRuleType(rulePath); len(errs) != 0 {
-			return nil, errs.ToAggregate()
 		}
 
 		err := validateElementInForEach(rule)
@@ -396,7 +385,7 @@ func ValidateVariables(p *kyverno.ClusterPolicy, backgroundMode bool) error {
 
 // hasInvalidVariables - checks for unexpected variables in the policy
 func hasInvalidVariables(policy *kyverno.ClusterPolicy, background bool) error {
-	for _, r := range policy.Spec.GetRules() {
+	for _, r := range policy.GetRules() {
 		ruleCopy := r.DeepCopy()
 
 		if err := ruleForbiddenSectionsHaveVariables(ruleCopy); err != nil {

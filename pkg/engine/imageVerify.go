@@ -48,7 +48,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 		}
 	}
 
-	rules := policyContext.Policy.Spec.GetRules()
+	rules := policyContext.Policy.GetRules()
 	for i := range rules {
 		rule := &rules[i]
 		if len(rule.VerifyImages) == 0 {
@@ -193,6 +193,10 @@ func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imag
 
 	if imageVerify.Subject != "" {
 		opts.Subject = imageVerify.Subject
+	}
+
+	if imageVerify.AdditionalExtensions != nil {
+		opts.AdditionalExtensions = imageVerify.AdditionalExtensions
 	}
 
 	if imageVerify.Annotations != nil {
