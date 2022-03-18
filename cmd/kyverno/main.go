@@ -62,6 +62,7 @@ var (
 	profile                      bool
 	disableMetricsExport         bool
 	autoUpdateWebhooks           bool
+	autogenInternals             bool
 	policyControllerResyncPeriod time.Duration
 	imagePullSecrets             string
 	imageSignatureRepository     string
@@ -102,6 +103,7 @@ func main() {
 	flag.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the master from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
+	flag.BoolVar(&autogenInternals, "autogenInternals", false, "Enables autogen internal policies. When this is 'true' policy rules should not be mutated.")
 
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	if err := flag.Set("v", "2"); err != nil {
@@ -318,6 +320,7 @@ func main() {
 		log.Log.WithName("PolicyController"),
 		policyControllerResyncPeriod,
 		promConfig,
+		autogenInternals,
 	)
 
 	if err != nil {
@@ -475,6 +478,7 @@ func main() {
 		openAPIController,
 		grc,
 		promConfig,
+		autogenInternals,
 	)
 
 	if err != nil {

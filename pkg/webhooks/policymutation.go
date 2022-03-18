@@ -42,7 +42,7 @@ func (ws *WebhookServer) policyMutation(request *v1beta1.AdmissionRequest) *v1be
 	defer logger.V(3).Info("finished policy change mutation", "time", time.Since(startTime).String())
 
 	// Generate JSON Patches for defaults
-	patches, updateMsgs := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
+	patches, updateMsgs := policymutation.GenerateJSONPatchesForDefaults(policy, ws.autogenInternals, logger)
 	if len(patches) != 0 {
 		patchType := v1beta1.PatchTypeJSONPatch
 		return &v1beta1.AdmissionResponse{
