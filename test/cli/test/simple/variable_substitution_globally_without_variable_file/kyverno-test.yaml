@@ -15,3 +15,14 @@ results:
     resource: goodpod01
     kind: Pod
     result: pass
+  
+  - policy: check-pod-request-operation-values
+    rule: request_operation_equals_update
+    resource: badpod01
+    kind: Pod
+    result: pass
+  - policy: check-pod-request-operation-values
+    rule: request_operation_equals_update
+    resource: goodpod01
+    kind: Pod
+    result: pass

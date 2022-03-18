@@ -38,3 +38,30 @@ spec:
         spec:
           =(securityContext):
             =(supplementalGroups): 100-200 | 500-600
+
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-pod-request-operation-values
+  annotations:
+    policies.kyverno.io/title: Check whether pod is updating, creating, deleting, etc
+    policies.kyverno.io/description: >-
+      This policy is only for testing purpose. It validates all pods having values request.operation other than UPDATE.
+spec:
+  validationFailureAction: audit
+  background: false
+  rules:
+    - name: request_operation_equals_update
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "Pod with request.operation equals to UPDATE will be denied."
+        deny:
+          conditions:
+            all:
+            - key: "{{ request.operation }}"
+              operator: In
+              value: "UPDATE"

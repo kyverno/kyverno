@@ -81,3 +81,8 @@ results:
     resource: test-validate-image-tag-pass
     kind: Pod
     status: fail
+  - policy: restrict-pod-counts
+    rule: restrict-pod-count
+    resource: test-lifetime-fail
+    kind: Pod
+    status: skip
