@@ -138,7 +138,7 @@ func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured,
 // ValidatePolicyMutation ...
 func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	var kindToRules = make(map[string][]v1.Rule)
-	for _, rule := range policy.Spec.GetRules() {
+	for _, rule := range policy.GetRules() {
 		if rule.HasMutate() {
 			for _, kind := range rule.MatchResources.Kinds {
 				kindToRules[kind] = append(kindToRules[common.GetFormatedKind(kind)], rule)

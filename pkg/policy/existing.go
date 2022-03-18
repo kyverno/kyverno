@@ -23,7 +23,7 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 	// Parse through all the resources drops the cache after configured rebuild time
 	pc.rm.Drop()
 
-	for _, rule := range policy.Spec.GetRules() {
+	for _, rule := range policy.GetRules() {
 		if !rule.HasValidate() && !rule.HasVerifyImages() {
 			continue
 		}

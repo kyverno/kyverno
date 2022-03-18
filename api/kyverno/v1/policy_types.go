@@ -31,6 +31,11 @@ type Policy struct {
 	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
+// GetRules returns the policy rules
+func (p *Policy) GetRules() []Rule {
+	return p.Spec.GetRules()
+}
+
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
 func (p *Policy) HasAutoGenAnnotation() bool {
 	annotations := p.GetAnnotations()
