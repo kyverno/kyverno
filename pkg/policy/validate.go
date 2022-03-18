@@ -79,36 +79,28 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 
 // Validate checks the policy and rules declarations for required configurations
 func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) (*v1beta1.AdmissionResponse, error) {
-	var errs field.ErrorList
-	namespaced := false
+	namespaced := policy.GetNamespace() != ""
 	background := policy.Spec.Background == nil || *policy.Spec.Background
+
+	var errs field.ErrorList
 	specPath := field.NewPath("spec")
 
-	clusterResources := make([]string, 0)
+	if errs := policy.Validate(namespaced); len(errs) != 0 {
+		return nil, errs.ToAggregate()
+	}
+
 	err := ValidateVariables(policy, background)
 	if err != nil {
 		return nil, err
 	}
 
-	if errs := policy.Validate(); len(errs) != 0 {
-		return nil, errs.ToAggregate()
-	}
-
-	if policy.GetNamespace() != "" {
-		namespaced = true
-	}
-
 	var res []*metav1.APIResourceList
-
+	clusterResources := make([]string, 0)
 	if !mock && namespaced {
 		var Empty struct{}
 		clusterResourcesMap := make(map[string]*struct{})
+
 		// Get all the cluster type kind supported by cluster
-
-		if len(policy.Spec.ValidationFailureActionOverrides) > 0 {
-			return nil, fmt.Errorf("invalid policy: use of ValidationFailureActionOverrides in a Namespace Policy")
-		}
-
 		res, err := client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
 		if err != nil {
 			return nil, err

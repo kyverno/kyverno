@@ -76,11 +76,13 @@ func (p *Policy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
 }
 
-// Validate implements programmatic validation
-func (p *Policy) Validate() field.ErrorList {
+// Validate implements programmatic validation.
+// namespaced means that the policy is bound to a namespace and therefore
+// should not filter/generate cluster wide resources.
+func (p *Policy) Validate(namespaced bool) field.ErrorList {
 	var errs field.ErrorList
 	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
-	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), namespaced)...)
 	return errs
 }
 
