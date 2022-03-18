@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -77,10 +78,10 @@ func (p *Policy) BackgroundProcessingEnabled() bool {
 }
 
 // Validate implements programmatic validation
-func (p *Policy) Validate(namespaced bool) field.ErrorList {
+func (p *Policy) Validate(namespaced bool, clusterResources sets.String) field.ErrorList {
 	var errs field.ErrorList
 	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
-	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), namespaced)...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), namespaced, clusterResources)...)
 	return errs
 }
 
