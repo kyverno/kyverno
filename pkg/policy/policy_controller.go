@@ -104,6 +104,8 @@ type PolicyController struct {
 	log logr.Logger
 
 	promConfig *metrics.PromConfig
+
+	autogenInternals bool
 }
 
 // NewPolicyController create a new PolicyController
@@ -147,6 +149,7 @@ func NewPolicyController(
 		reconcilePeriod:    reconcilePeriod,
 		promConfig:         promConfig,
 		log:                log,
+		autogenInternals:   autogenInternals,
 	}
 
 	pc.pLister = pInformer.Lister()

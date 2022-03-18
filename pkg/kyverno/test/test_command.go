@@ -397,9 +397,9 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 				continue
 			}
 
-			if strings.Contains(file.Name(), fileName) || strings.Contains(file.Name(), "test.yaml") {
+			if file.Name() == fileName || file.Name() == "test.yaml" {
 				testYamlCount++
-				if strings.Contains(file.Name(), "test.yaml") {
+				if file.Name() == "test.yaml" {
 					testYamlNameCount++
 				}
 				policyresoucePath := strings.Trim(yamlFilePath, fileName)
@@ -471,7 +471,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, deprecatedFiles, openAPIController, tf)
 			continue
 		}
-		if strings.Contains(file.Name(), fileName) || strings.Contains(file.Name(), "test.yaml") {
+		if file.Name() == fileName || file.Name() == "test.yaml" {
 			*testFiles++
 			if strings.Compare(file.Name(), "test.yaml") == 0 {
 				*deprecatedFiles++
@@ -801,7 +801,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 	policies = filteredPolicies
 
-	mutatedPolicies, err := common.MutatePolicies(policies)
+	mutatedPolicies, err := common.MutatePolicies(policies, false)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to mutate policy", err)

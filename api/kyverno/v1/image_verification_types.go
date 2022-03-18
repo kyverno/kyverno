@@ -23,6 +23,9 @@ type ImageVerification struct {
 	// Issuer is the certificate issuer used for keyless signing.
 	Issuer string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
 
+	// AdditionalExtensions are certificate-extensions used for keyless signing.
+	AdditionalExtensions map[string]string `json:"additionalExtensions,omitempty" yaml:"additionalExtensions,omitempty"`
+
 	// Annotations are used for image verification.
 	// Every specified key-value pair must exist and match in the verified payload.
 	// The payload may contain other key-value pairs.

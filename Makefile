@@ -158,8 +158,7 @@ generate-api-docs: gen-crd-api-reference-docs ## Generate api reference docs
 
 .PHONY: verify-api-docs
 verify-api-docs: generate-api-docs ## Check api reference docs are up to date
-	git add --all
-	git diff docs
+	git --no-pager diff docs
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make generate-api-docs".'
 	@echo 'To correct this, locally run "make generate-api-docs", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code docs
@@ -374,15 +373,24 @@ deepcopy-autogen: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..."
 
 .PHONY: codegen
-codegen: kyverno-crd report-crd deepcopy-autogen gen-helm
+codegen: kyverno-crd report-crd deepcopy-autogen generate-api-docs gen-helm ## Update all generated code and docs
 
-.PHONY: verify-codegen
-verify-codegen: codegen
-	git add --all
-	git diff api
+.PHONY: verify-api
+verify-api: kyverno-crd report-crd deepcopy-autogen ## Check api is up to date
+	git --no-pager diff api
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen".'
 	@echo 'To correct this, locally run "make codegen", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code api
+
+.PHONY: verify-config
+verify-config: kyverno-crd report-crd ## Check config is up to date
+	git --no-pager diff config
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen".'
+	@echo 'To correct this, locally run "make codegen", commit the changes, and re-run tests.'
+	git diff --quiet --exit-code config
+
+.PHONY: verify-codegen
+verify-codegen: verify-api verify-config verify-api-docs verify-helm ## Verify all generated code and docs are up to date
 
 .PHONY: goimports
 goimports:
@@ -418,42 +426,15 @@ gen-helm: gen-helm-docs kustomize-crd ## Generate Helm charts stuff
 
 .PHONY: verify-helm
 verify-helm: gen-helm ## Check Helm charts are up to date
-	git add --all
-	git diff charts
+	git --no-pager diff charts
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm".'
 	@echo 'To correct this, locally run "make gen-helm", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code charts
 
-.PHONY: check-helm-docs
-check-helm-docs: gen-helm-docs ## Check Helm docs
-	git add --all
-	git diff charts/**/README.md
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm-docs".'
-	@echo 'To correct this, locally run "make gen-helm-docs", commit the changes, and re-run tests.'
-	git diff --quiet --exit-code charts/**/README.md
-
 ##################################
-# KIND
+# HELP
 ##################################
 
-.PHONY: kind-create-cluster
-kind-create-cluster:
-	kind create cluster --image kindest/node:v1.23.3
-
-.PHONY: kind-load-images
-kind-load-images: kind-create-cluster docker-build-initContainer-local docker-build-kyverno-local
-	kind load docker-image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
-	kind load docker-image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
-
-.PHONY: kind-deploy-kyverno
-kind-deploy-kyverno: # kind-load-images
-	helm upgrade --install kyverno --namespace kyverno --create-namespace ./charts/kyverno \
-		--set image.repository=$(REPO)/$(KYVERNO_IMAGE) \
-		--set image.tag=$(IMAGE_TAG_DEV) \
-		--set initImage.repository=$(REPO)/$(INITC_IMAGE) \
-		--set initImage.tag=$(IMAGE_TAG_DEV)
-	kubectl rollout restart deployment -n kyverno
-
-.PHONY: kind-deploy-policies
-kind-deploy-policies: # kind-load-images
-	helm install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
+.PHONY: help
+help: ## Shows the available commands
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'

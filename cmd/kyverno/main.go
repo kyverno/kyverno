@@ -63,6 +63,7 @@ var (
 	profile                      bool
 	disableMetricsExport         bool
 	autoUpdateWebhooks           bool
+	autogenInternals             bool
 	policyControllerResyncPeriod time.Duration
 	imagePullSecrets             string
 	imageSignatureRepository     string
@@ -253,7 +254,7 @@ func main() {
 		stopCh,
 		log.Log)
 
-	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, log.Log.WithName("WebhookMonitor"))
+	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, log.Log)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize webhookMonitor")
 		os.Exit(1)
@@ -477,6 +478,7 @@ func main() {
 		openAPIController,
 		grc,
 		promConfig,
+		autogenInternals,
 	)
 
 	if err != nil {
