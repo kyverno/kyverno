@@ -112,7 +112,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		return nil, errs.ToAggregate()
 	}
 
-	rules := policy.Spec.GetRules()
+	rules := policy.GetRules()
 	rulesPath := specPath.Child("rules")
 	for i, rule := range rules {
 		rulePath := rulesPath.Index(i)
@@ -370,7 +370,7 @@ func ValidateVariables(p *kyverno.ClusterPolicy, backgroundMode bool) error {
 
 // hasInvalidVariables - checks for unexpected variables in the policy
 func hasInvalidVariables(policy *kyverno.ClusterPolicy, background bool) error {
-	for _, r := range policy.Spec.GetRules() {
+	for _, r := range policy.GetRules() {
 		ruleCopy := r.DeepCopy()
 
 		if err := ruleForbiddenSectionsHaveVariables(ruleCopy); err != nil {

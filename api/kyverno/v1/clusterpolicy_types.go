@@ -31,6 +31,11 @@ type ClusterPolicy struct {
 	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
+// GetRules returns the policy rules
+func (p *ClusterPolicy) GetRules() []Rule {
+	return p.Spec.GetRules()
+}
+
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
 func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
 	annotations := p.GetAnnotations()
@@ -74,6 +79,11 @@ func (p *ClusterPolicy) HasVerifyImages() bool {
 // BackgroundProcessingEnabled checks if background is set to true
 func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
+}
+
+// IsReady indicates if the policy is ready to serve the admission request
+func (p *ClusterPolicy) IsReady() bool {
+	return p.Status.IsReady()
 }
 
 // Validate implements programmatic validation

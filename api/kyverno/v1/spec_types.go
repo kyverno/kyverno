@@ -48,6 +48,7 @@ type Spec struct {
 	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
 }
 
+// GetRules returns the spec rules
 func (s *Spec) GetRules() []Rule {
 	return s.Rules
 }
