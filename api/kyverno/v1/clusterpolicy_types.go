@@ -80,6 +80,11 @@ func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
 }
 
+// IsReady indicates if the policy is ready to serve the admission request
+func (p *ClusterPolicy) IsReady() bool {
+	return p.Status.IsReady()
+}
+
 // Validate implements programmatic validation
 func (p *ClusterPolicy) Validate() field.ErrorList {
 	var errs field.ErrorList
