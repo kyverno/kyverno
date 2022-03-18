@@ -31,7 +31,7 @@ func JoinPatches(patches [][]byte) []byte {
 // TODO This needs to be removed. A simpler way to encode and decode Policy is needed.
 func MarshalPolicy(policy v1.ClusterPolicy) []byte {
 	var rules []interface{}
-	policyRules := policy.Spec.GetRules()
+	policyRules := policy.GetRules()
 	rulesRaw, _ := json.Marshal(policyRules)
 	_ = json.Unmarshal(rulesRaw, &rules)
 	for i, r := range rules {

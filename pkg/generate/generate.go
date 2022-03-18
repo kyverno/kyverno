@@ -259,7 +259,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 	// To manage existing resources, we compare the creation time for the default resource to be generated and policy creation time
 
 	ruleNameToProcessingTime := make(map[string]time.Duration)
-	for _, rule := range policy.Spec.GetRules() {
+	for _, rule := range policy.GetRules() {
 		var err error
 		if !rule.HasGenerate() {
 			continue
