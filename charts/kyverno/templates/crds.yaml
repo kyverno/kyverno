@@ -63,6 +63,8 @@ spec:
                 enum:
                 - Ignore
                 - Fail
+                - ignore
+                - fail
                 type: string
               rules:
                 description: Rules is a list of Rule instances. A Policy contains multiple rules and each rule can validate, mutate, or generate resources.
@@ -3943,6 +3945,8 @@ spec:
                 enum:
                 - Ignore
                 - Fail
+                - ignore
+                - fail
                 type: string
               rules:
                 description: Rules is a list of Rule instances. A Policy contains multiple rules and each rule can validate, mutate, or generate resources.

@@ -10,7 +10,7 @@ import (
 )
 
 // FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
-// +kubebuilder:validation:Enum=Ignore;Fail
+// +kubebuilder:validation:Enum=Ignore;Fail;ignore;fail
 type FailurePolicyType string
 
 const (
