@@ -13,6 +13,7 @@ import (
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -87,6 +88,7 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&outputType, "output", "o", "", "Prints the mutated policy in yaml or json format")
 	cmd.Flags().StringArrayVarP(&crdPaths, "crd", "c", []string{}, "Path to CRD files")
+	cmd.Flags().BoolVarP(&toggle.AutogenInternals, "autogenInternals", "", toggle.DefaultAutogenInternals, "Use autogen internals")
 	return cmd
 }
 
@@ -162,7 +164,7 @@ func validatePolicies(policies []*v1.ClusterPolicy, v1crd apiextensions.CustomRe
 		}
 
 		if errorList == nil {
-			err = policy2.Validate(policy, nil, true, openAPIController)
+			_, err = policy2.Validate(policy, nil, true, openAPIController)
 		}
 
 		fmt.Println("----------------------------------------------------------------------")
@@ -178,7 +180,7 @@ func validatePolicies(policies []*v1.ClusterPolicy, v1crd apiextensions.CustomRe
 			fmt.Printf("Policy %s is valid.\n\n", policy.Name)
 			if outputType != "" {
 				logger := log.Log.WithName("validate")
-				p, err := common.MutatePolicy(policy, logger)
+				p, err := common.MutatePolicy(policy, toggle.AutogenInternals, logger)
 				if err != nil {
 					if !sanitizederror.IsErrorSanitized(err) {
 						return sanitizederror.NewWithError("failed to mutate policy.", err)

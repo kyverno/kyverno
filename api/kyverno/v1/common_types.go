@@ -2,227 +2,12 @@ package v1
 
 import (
 	"encoding/json"
-	"reflect"
 
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// Spec contains a list of Rule instances and other policy controls.
-type Spec struct {
-	// Rules is a list of Rule instances. A Policy contains multiple rules and
-	// each rule can validate, mutate, or generate resources.
-	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
-
-	// FailurePolicy defines how unrecognized errors from the admission endpoint are handled.
-	// Rules within the same policy share the same failure behavior.
-	// Allowed values are Ignore or Fail. Defaults to Fail.
-	// +optional
-	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
-
-	// ValidationFailureAction controls if a validation policy rule failure should disallow
-	// the admission review request (enforce), or allow (audit) the admission review request
-	// and report an error in a policy report. Optional. The default value is "audit".
-	// +optional
-	// +kubebuilder:validation:Enum=audit;enforce
-	ValidationFailureAction string `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
-
-	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
-	// +optional
-	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
-
-	// Background controls if rules are applied to existing resources during a background scan.
-	// Optional. Default value is "true". The value must be set to "false" if the policy rule
-	// uses variables that are only available in the admission review request (e.g. user name).
-	// +optional
-	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
-
-	// SchemaValidation skips policy validation checks.
-	// Optional. The default value is set to "true", it must be set to "false" to disable the validation checks.
-	// +optional
-	SchemaValidation *bool `json:"schemaValidation,omitempty" yaml:"schemaValidation,omitempty"`
-
-	// WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
-	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
-}
-
-func (s *Spec) GetRules() []Rule {
-	return s.Rules
-}
-
-func (s *Spec) SetRules(rules []Rule) {
-	s.Rules = rules
-}
-
-// HasMutateOrValidateOrGenerate checks for rule types
-func (s *Spec) HasMutateOrValidateOrGenerate() bool {
-	for _, rule := range s.Rules {
-		if rule.HasMutate() || rule.HasValidate() || rule.HasGenerate() {
-			return true
-		}
-	}
-	return false
-}
-
-// HasMutate checks for mutate rule types
-func (s *Spec) HasMutate() bool {
-	for _, rule := range s.Rules {
-		if rule.HasMutate() {
-			return true
-		}
-	}
-
-	return false
-}
-
-// HasValidate checks for validate rule types
-func (s *Spec) HasValidate() bool {
-	for _, rule := range s.Rules {
-		if rule.HasValidate() {
-			return true
-		}
-	}
-
-	return false
-}
-
-// HasGenerate checks for generate rule types
-func (s *Spec) HasGenerate() bool {
-	for _, rule := range s.Rules {
-		if rule.HasGenerate() {
-			return true
-		}
-	}
-
-	return false
-}
-
-// HasVerifyImages checks for image verification rule types
-func (s *Spec) HasVerifyImages() bool {
-	for _, rule := range s.Rules {
-		if rule.HasVerifyImages() {
-			return true
-		}
-	}
-
-	return false
-}
-
-// BackgroundProcessingEnabled checks if background is set to true
-func (s *Spec) BackgroundProcessingEnabled() bool {
-	if s.Background == nil {
-		return true
-	}
-
-	return *s.Background
-}
-
-// Rule defines a validation, mutation, or generation control for matching resources.
-// Each rules contains a match declaration to select resources, and an optional exclude
-// declaration to specify which resources to exclude.
-type Rule struct {
-	// Name is a label to identify the rule, It must be unique within the policy.
-	// +kubebuilder:validation:MaxLength=63
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-
-	// Context defines variables and data sources that can be used during rule execution.
-	// +optional
-	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
-
-	// MatchResources defines when this policy rule should be applied. The match
-	// criteria can include resource information (e.g. kind, name, namespace, labels)
-	// and admission review request information like the user name or role.
-	// At least one kind is required.
-	MatchResources MatchResources `json:"match,omitempty" yaml:"match,omitempty"`
-
-	// ExcludeResources defines when this policy rule should not be applied. The exclude
-	// criteria can include resource information (e.g. kind, name, namespace, labels)
-	// and admission review request information like the name or role.
-	// +optional
-	ExcludeResources ExcludeResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
-
-	// Preconditions are used to determine if a policy rule should be applied by evaluating a
-	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
-	// of conditions (without `any` or `all` statements is supported for backwards compatibility but
-	// will be deprecated in the next major release.
-	// See: https://kyverno.io/docs/writing-policies/preconditions/
-	// +optional
-	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
-
-	// Mutation is used to modify matching resources.
-	// +optional
-	Mutation Mutation `json:"mutate,omitempty" yaml:"mutate,omitempty"`
-
-	// Validation is used to validate matching resources.
-	// +optional
-	Validation Validation `json:"validate,omitempty" yaml:"validate,omitempty"`
-
-	// Generation is used to create new resources.
-	// +optional
-	Generation Generation `json:"generate,omitempty" yaml:"generate,omitempty"`
-
-	// VerifyImages is used to verify image signatures and mutate them to add a digest
-	// +optional
-	VerifyImages []*ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
-}
-
-// HasMutate checks for mutate rule
-func (r *Rule) HasMutate() bool {
-	return !reflect.DeepEqual(r.Mutation, Mutation{})
-}
-
-// HasVerifyImages checks for verifyImages rule
-func (r *Rule) HasVerifyImages() bool {
-	return r.VerifyImages != nil && !reflect.DeepEqual(r.VerifyImages, ImageVerification{})
-}
-
-// HasValidate checks for validate rule
-func (r *Rule) HasValidate() bool {
-	return !reflect.DeepEqual(r.Validation, Validation{})
-}
-
-// HasGenerate checks for generate rule
-func (r *Rule) HasGenerate() bool {
-	return !reflect.DeepEqual(r.Generation, Generation{})
-}
-
-// MatchKinds returns a slice of all kinds to match
-func (r *Rule) MatchKinds() []string {
-	matchKinds := r.MatchResources.ResourceDescription.Kinds
-	for _, value := range r.MatchResources.All {
-		matchKinds = append(matchKinds, value.ResourceDescription.Kinds...)
-	}
-	for _, value := range r.MatchResources.Any {
-		matchKinds = append(matchKinds, value.ResourceDescription.Kinds...)
-	}
-
-	return matchKinds
-}
-
-// ExcludeKinds returns a slice of all kinds to exclude
-func (r *Rule) ExcludeKinds() []string {
-	excludeKinds := r.ExcludeResources.ResourceDescription.Kinds
-	for _, value := range r.ExcludeResources.All {
-		excludeKinds = append(excludeKinds, value.ResourceDescription.Kinds...)
-	}
-	for _, value := range r.ExcludeResources.Any {
-		excludeKinds = append(excludeKinds, value.ResourceDescription.Kinds...)
-	}
-	return excludeKinds
-}
-
-func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
-	return FromJSON(r.RawAnyAllConditions)
-}
-
-func (r *Rule) SetAnyAllConditions(in apiextensions.JSON) {
-	r.RawAnyAllConditions = ToJSON(in)
-}
 
 // FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
 // +kubebuilder:validation:Enum=Ignore;Fail
@@ -455,21 +240,6 @@ type ResourceFilter struct {
 
 	// ResourceDescription contains information about the resource being created or modified.
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
-}
-
-// UserInfo contains information about the user performing the operation.
-type UserInfo struct {
-	// Roles is the list of namespaced role names for the user.
-	// +optional
-	Roles []string `json:"roles,omitempty" yaml:"roles,omitempty"`
-
-	// ClusterRoles is the list of cluster-wide role names for the user.
-	// +optional
-	ClusterRoles []string `json:"clusterRoles,omitempty" yaml:"clusterRoles,omitempty"`
-
-	// Subjects is the list of subject names like users, user groups, and service accounts.
-	// +optional
-	Subjects []rbacv1.Subject `json:"subjects,omitempty" yaml:"subjects,omitempty"`
 }
 
 // ResourceDescription contains criteria used to match resources.
@@ -713,42 +483,6 @@ func (v *ForEachValidation) SetAnyPattern(in apiextensions.JSON) {
 	v.RawAnyPattern = ToJSON(in)
 }
 
-// ImageVerification validates that images that match the specified pattern
-// are signed with the supplied public key. Once the image is verified it is
-// mutated to include the SHA digest retrieved during the registration.
-type ImageVerification struct {
-
-	// Image is the image name consisting of the registry address, repository, image, and tag.
-	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
-	Image string `json:"image,omitempty" yaml:"image,omitempty"`
-
-	// Key is the PEM encoded public key that the image or attestation is signed with.
-	Key string `json:"key,omitempty" yaml:"key,omitempty"`
-
-	// Roots is the PEM encoded Root certificate chain used for keyless signing
-	Roots string `json:"roots,omitempty" yaml:"roots,omitempty"`
-
-	// Subject is the verified identity used for keyless signing, for example the email address
-	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
-
-	// Issuer is the certificate issuer used for keyless signing.
-	Issuer string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
-
-	// Annotations are used for image verification.
-	// Every specified key-value pair must exist and match in the verified payload.
-	// The payload may contain other key-value pairs.
-	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
-
-	// Repository is an optional alternate OCI repository to use for image signatures that match this rule.
-	// If specified Repository will override the default OCI image repository configured for the installation.
-	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
-
-	// Attestations are optional checks for signed in-toto Statements used to verify the image.
-	// See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
-	// OCI registry and decodes them into a list of Statement declarations.
-	Attestations []*Attestation `json:"attestations,omitempty" yaml:"attestations,omitempty"`
-}
-
 // Attestation are checks for signed in-toto Statements that are used to verify the image.
 // See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
 // OCI registry and decodes them into a list of Statements.
@@ -808,15 +542,55 @@ type CloneFrom struct {
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }
 
+const (
+	// Ready means that the policy is ready
+	PolicyConditionReady = "Ready"
+)
+
+const (
+	// PolicyReasonSucceeded is the reason set when the policy is ready
+	PolicyReasonSucceeded = "Succeeded"
+	// PolicyReasonSucceeded is the reason set when the policy is not ready
+	PolicyReasonFailed = "Failed"
+)
+
 // PolicyStatus mostly contains runtime information related to policy execution.
 // Deprecated. Policy metrics are now available via the "/metrics" endpoint.
 // See: https://kyverno.io/docs/monitoring-kyverno-with-prometheus-metrics/
 type PolicyStatus struct {
-	// Ready indicates if the policy is ready to serve the admission request
+	// Ready indicates if the policy is ready to serve the admission request.
+	// Deprecated in favor of Conditions
 	Ready bool `json:"ready" yaml:"ready"`
+	// Conditions is a list of conditions that apply to the policy
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// Autogen contains autogen status information
 	// +optional
 	Autogen AutogenStatus `json:"autogen" yaml:"autogen"`
+	// Rules is a list of Rule instances. It contains original rules defined in the spec
+	// auto generated rules added for pod controllers
+	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
+}
+
+func (status *PolicyStatus) SetReady(ready bool) {
+	condition := metav1.Condition{
+		Type: PolicyConditionReady,
+	}
+	if ready {
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = PolicyReasonSucceeded
+	} else {
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = PolicyReasonFailed
+	}
+	status.Ready = ready
+	meta.SetStatusCondition(&status.Conditions, condition)
+}
+
+// IsReady indicates if the policy is ready to serve the admission request
+func (status *PolicyStatus) IsReady() bool {
+	condition := meta.FindStatusCondition(status.Conditions, PolicyConditionReady)
+	return condition != nil && condition.Status == metav1.ConditionTrue
 }
 
 // AutogenStatus contains autogen status information.

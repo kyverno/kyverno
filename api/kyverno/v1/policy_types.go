@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // Policy declares validation, mutation, and generation behaviors for matching resources.
@@ -28,6 +29,11 @@ type Policy struct {
 	// +optional
 	// Deprecated. Policy metrics are available via the metrics endpoint
 	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
+}
+
+// GetRules returns the policy rules
+func (p *Policy) GetRules() []Rule {
+	return p.Spec.GetRules()
 }
 
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
@@ -73,6 +79,19 @@ func (p *Policy) HasVerifyImages() bool {
 // BackgroundProcessingEnabled checks if background is set to true
 func (p *Policy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
+}
+
+// IsReady indicates if the policy is ready to serve the admission request
+func (p *Policy) IsReady() bool {
+	return p.Status.IsReady()
+}
+
+// Validate implements programmatic validation
+func (p *Policy) Validate() field.ErrorList {
+	var errs field.ErrorList
+	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
+	return errs
 }
 
 // PolicyList is a list of Policy instances.

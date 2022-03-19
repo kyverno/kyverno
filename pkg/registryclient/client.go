@@ -30,6 +30,11 @@ var (
 	DefaultKeychain authn.Keychain = defaultKeychain
 )
 
+// InitializeLocal loads the docker credentials and initializes the default auth method for container registry API calls
+func InitializeLocal() {
+	DefaultKeychain = authn.DefaultKeychain
+}
+
 // Initialize loads the image pull secrets and initializes the default auth method for container registry API calls
 func Initialize(client kubernetes.Interface, namespace, serviceAccount string, imagePullSecrets []string) error {
 	kubeClient = client
