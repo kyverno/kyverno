@@ -688,8 +688,10 @@ func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy, statu
 	policyCopy.Status.Autogen.Supported = supported
 	policyCopy.Status.Autogen.Activated = activated
 	if toggle.AutogenInternals {
-		mutated, _ := kyvernocommon.MutatePolicy(policy, false, m.log)
-		// TODO: compute full rule set before updating status rules
+		mutated, err := kyvernocommon.MutatePolicy(policy, false, m.log)
+		if err != nil {
+			return err
+		}
 		policyCopy.Status.Rules = mutated.Spec.Rules
 	} else {
 		policyCopy.Status.Rules = policy.Spec.Rules
