@@ -9,7 +9,7 @@ import (
 )
 
 func Test_ClusterPolicy_Name(t *testing.T) {
-	subject := Policy{
+	subject := ClusterPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "this-is-a-way-too-long-policy-name-that-should-trigger-an-error-when-calling-the-policy-validation-method",
 		},

@@ -94,7 +94,7 @@ func AddCloneLabel(client *dclient.Client, pInformer kyvernoinformer.ClusterPoli
 	}
 
 	for _, policy := range policies {
-		for _, rule := range policy.Spec.GetRules() {
+		for _, rule := range policy.GetRules() {
 			if rule.HasGenerate() {
 				clone := rule.Generation.Clone
 				if clone.Name != "" {
