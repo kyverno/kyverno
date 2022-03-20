@@ -16,6 +16,7 @@ You can discuss changes with maintainers in the [Kyverno Slack Channel](https://
 Add the milestone label by commenting `/milestone 1.2.3`.
 
 -->
+
 ## What type of PR is this
 
 <!--
@@ -85,13 +86,15 @@ them, don't hesitate to ask. We're here to help! This is simply a reminder of wh
 
 - [ ] I have read the [contributing guidelines](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md).
 - [ ] I have read the [PR documentation guide](https://github.com/kyverno/kyverno/blob/main/.github/pr_documentation.md) and followed the process including adding proof manifests to this PR.
-- [ ] I have added tests that prove my fix is effective or that my feature works.
+- [ ] This is a bug fix and I have added unit tests that prove my fix is effective.
+- [ ] This is a feature and I have added CLI tests that are applicable.
+- [ ] My PR needs to be cherry picked to a specific release branch which is <replace>.
 - [ ] My PR contains new or altered behavior to Kyverno and
-  - [ ] CLI support should be added my PR doesn't contain that functionality.
+  - [ ] CLI support should be added and my PR doesn't contain that functionality.
   - [ ] I have added or changed [the documentation](https://github.com/kyverno/website) myself in an existing PR and the link is:
   <!-- Uncomment to link to the PR -->
   <!-- https://github.com/kyverno/website/pull/123 -->
-  - [ ] I have raised an issue in [kyverno/website](https://github.com/kyverno/website) to track the doc update and the link is:
+  - [ ] I have raised an issue in [kyverno/website](https://github.com/kyverno/website) to track the documentation update and the link is:
   <!-- Uncomment to link to the issue -->
   <!-- https://github.com/kyverno/website/issues/1 -->
 

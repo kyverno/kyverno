@@ -9,13 +9,13 @@ metadata:
 data:
   # resource types to be skipped by kyverno policy engine
   {{- if .Values.config.resourceFilters }}
-  resourceFilters: {{ join "" .Values.config.resourceFilters | quote }}
+  resourceFilters: {{ tpl (join "" .Values.config.resourceFilters) . | quote }}
   {{- end -}}
   {{- if .Values.config.excludeGroupRole }}
-  excludeGroupRole: {{ join "" .Values.config.excludeGroupRole | quote }}
+  excludeGroupRole: {{ join "," .Values.config.excludeGroupRole | quote }}
   {{- end -}}
   {{- if .Values.config.excludeUsername }}
-  excludeUsername: {{ join "" .Values.config.excludeUsername | quote }}
+  excludeUsername: {{ join "," .Values.config.excludeUsername | quote }}
   {{- end -}}
   {{- if .Values.config.webhooks }}
   webhooks: {{ .Values.config.webhooks  | toJson | quote }}

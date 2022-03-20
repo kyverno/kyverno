@@ -3,8 +3,11 @@ package registryclient
 import (
 	"context"
 
+	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
+	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/authn/k8schain"
+	kauth "github.com/google/go-containerregistry/pkg/authn/kubernetes"
+	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/pkg/errors"
 	"k8s.io/client-go/kubernetes"
 )
@@ -15,7 +18,22 @@ var (
 	kubeClient            kubernetes.Interface
 	kyvernoNamespace      string
 	kyvernoServiceAccount string
+
+	amazonKeychain  authn.Keychain = authn.NewKeychainFromHelper(ecr.NewECRHelper())
+	azureKeychain   authn.Keychain = authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper())
+	defaultKeychain authn.Keychain = authn.NewMultiKeychain(
+		authn.DefaultKeychain,
+		google.Keychain,
+		amazonKeychain,
+		azureKeychain,
+	)
+	DefaultKeychain authn.Keychain = defaultKeychain
 )
+
+// InitializeLocal loads the docker credentials and initializes the default auth method for container registry API calls
+func InitializeLocal() {
+	DefaultKeychain = authn.DefaultKeychain
+}
 
 // Initialize loads the image pull secrets and initializes the default auth method for container registry API calls
 func Initialize(client kubernetes.Interface, namespace, serviceAccount string, imagePullSecrets []string) error {
@@ -25,18 +43,22 @@ func Initialize(client kubernetes.Interface, namespace, serviceAccount string, i
 	Secrets = imagePullSecrets
 
 	var kc authn.Keychain
-	kcOpts := &k8schain.Options{
+	kcOpts := kauth.Options{
 		Namespace:          namespace,
 		ServiceAccountName: serviceAccount,
 		ImagePullSecrets:   imagePullSecrets,
 	}
 
-	kc, err := k8schain.New(context.Background(), client, *kcOpts)
+	kc, err := kauth.New(context.Background(), client, kcOpts)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize registry keychain")
 	}
 
-	authn.DefaultKeychain = kc
+	DefaultKeychain = authn.NewMultiKeychain(
+		defaultKeychain,
+		kc,
+	)
+
 	return nil
 }
 

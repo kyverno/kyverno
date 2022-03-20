@@ -1,7 +1,10 @@
 package v1
 
 import (
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // ClusterPolicy declares validation, mutation, and generation behaviors for matching resources.
@@ -25,6 +28,69 @@ type ClusterPolicy struct {
 	// Status contains policy runtime data.
 	// +optional
 	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
+}
+
+// GetRules returns the policy rules
+func (p *ClusterPolicy) GetRules() []Rule {
+	return p.Spec.GetRules()
+}
+
+// HasAutoGenAnnotation checks if a policy has auto-gen annotation
+func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
+	annotations := p.GetAnnotations()
+	val, ok := annotations[PodControllersAnnotation]
+	if ok && strings.ToLower(val) != "none" {
+		return true
+	}
+	return false
+}
+
+// HasMutateOrValidateOrGenerate checks for rule types
+func (p *ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
+	for _, rule := range p.Spec.Rules {
+		if rule.HasMutate() || rule.HasValidate() || rule.HasGenerate() {
+			return true
+		}
+	}
+	return false
+}
+
+// HasMutate checks for mutate rule types
+func (p *ClusterPolicy) HasMutate() bool {
+	return p.Spec.HasMutate()
+}
+
+// HasValidate checks for validate rule types
+func (p *ClusterPolicy) HasValidate() bool {
+	return p.Spec.HasValidate()
+}
+
+// HasGenerate checks for generate rule types
+func (p *ClusterPolicy) HasGenerate() bool {
+	return p.Spec.HasGenerate()
+}
+
+// HasVerifyImages checks for image verification rule types
+func (p *ClusterPolicy) HasVerifyImages() bool {
+	return p.Spec.HasVerifyImages()
+}
+
+// BackgroundProcessingEnabled checks if background is set to true
+func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
+	return p.Spec.BackgroundProcessingEnabled()
+}
+
+// IsReady indicates if the policy is ready to serve the admission request
+func (p *ClusterPolicy) IsReady() bool {
+	return p.Status.IsReady()
+}
+
+// Validate implements programmatic validation
+func (p *ClusterPolicy) Validate() field.ErrorList {
+	var errs field.ErrorList
+	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
+	return errs
 }
 
 // ClusterPolicyList is a list of ClusterPolicy instances.

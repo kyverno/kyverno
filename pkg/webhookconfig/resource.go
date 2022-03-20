@@ -26,7 +26,7 @@ func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *
 	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.MutatingWebhookServicePath)
 	logger.V(4).Info("Debug MutatingWebhookConfig registered", "url", url)
-	return &admregapi.MutatingWebhookConfiguration{
+	webhook := &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.MutatingWebhookConfigurationDebugName,
 		},
@@ -41,22 +41,26 @@ func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
 				admregapi.Ignore,
 			),
-			generateDebugMutatingWebhook(
-				config.MutatingWebhookName+"-fail",
-				url,
-				caData,
-				true,
-				wrc.timeoutSeconds,
-				wrc.defaultResourceWebhookRule(),
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
-				admregapi.Fail,
-			),
 		},
 	}
+
+	if wrc.autoUpdateWebhooks {
+		webhook.Webhooks = append(webhook.Webhooks, generateDebugMutatingWebhook(
+			config.MutatingWebhookName+"-fail",
+			url,
+			caData,
+			true,
+			wrc.timeoutSeconds,
+			wrc.defaultResourceWebhookRule(),
+			[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+			admregapi.Fail,
+		))
+	}
+	return webhook
 }
 
 func (wrc *Register) constructDefaultMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
-	return &admregapi.MutatingWebhookConfiguration{
+	webhook := &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.MutatingWebhookConfigurationName,
 			OwnerReferences: []v1.OwnerReference{
@@ -74,18 +78,22 @@ func (wrc *Register) constructDefaultMutatingWebhookConfig(caData []byte) *admre
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
 				admregapi.Ignore,
 			),
-			generateMutatingWebhook(
-				config.MutatingWebhookName+"-fail",
-				config.MutatingWebhookServicePath,
-				caData,
-				false,
-				wrc.timeoutSeconds,
-				wrc.defaultResourceWebhookRule(),
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update},
-				admregapi.Fail,
-			),
 		},
 	}
+
+	if wrc.autoUpdateWebhooks {
+		webhook.Webhooks = append(webhook.Webhooks, generateMutatingWebhook(
+			config.MutatingWebhookName+"-fail",
+			config.MutatingWebhookServicePath,
+			caData,
+			false,
+			wrc.timeoutSeconds,
+			wrc.defaultResourceWebhookRule(),
+			[]admregapi.OperationType{admregapi.Create, admregapi.Update},
+			admregapi.Fail,
+		))
+	}
+	return webhook
 }
 
 //getResourceMutatingWebhookConfigName returns the webhook configuration name
@@ -125,7 +133,7 @@ func (wrc *Register) removeResourceMutatingWebhookConfiguration(wg *sync.WaitGro
 func (wrc *Register) constructDefaultDebugValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.ValidatingWebhookServicePath)
 
-	return &admregapi.ValidatingWebhookConfiguration{
+	webhook := &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.ValidatingWebhookConfigurationDebugName,
 		},
@@ -140,22 +148,26 @@ func (wrc *Register) constructDefaultDebugValidatingWebhookConfig(caData []byte)
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete, admregapi.Connect},
 				admregapi.Ignore,
 			),
-			generateDebugValidatingWebhook(
-				config.ValidatingWebhookName+"-fail",
-				url,
-				caData,
-				true,
-				wrc.timeoutSeconds,
-				wrc.defaultResourceWebhookRule(),
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete, admregapi.Connect},
-				admregapi.Fail,
-			),
 		},
 	}
+
+	if wrc.autoUpdateWebhooks {
+		webhook.Webhooks = append(webhook.Webhooks, generateDebugValidatingWebhook(
+			config.ValidatingWebhookName+"-fail",
+			url,
+			caData,
+			true,
+			wrc.timeoutSeconds,
+			wrc.defaultResourceWebhookRule(),
+			[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete, admregapi.Connect},
+			admregapi.Fail,
+		))
+	}
+	return webhook
 }
 
 func (wrc *Register) constructDefaultValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
-	return &admregapi.ValidatingWebhookConfiguration{
+	webhook := &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.ValidatingWebhookConfigurationName,
 			OwnerReferences: []v1.OwnerReference{
@@ -173,18 +185,22 @@ func (wrc *Register) constructDefaultValidatingWebhookConfig(caData []byte) *adm
 				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete, admregapi.Connect},
 				admregapi.Ignore,
 			),
-			generateValidatingWebhook(
-				config.ValidatingWebhookName+"-fail",
-				config.ValidatingWebhookServicePath,
-				caData,
-				false,
-				wrc.timeoutSeconds,
-				wrc.defaultResourceWebhookRule(),
-				[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete, admregapi.Connect},
-				admregapi.Fail,
-			),
 		},
 	}
+
+	if wrc.autoUpdateWebhooks {
+		webhook.Webhooks = append(webhook.Webhooks, generateValidatingWebhook(
+			config.ValidatingWebhookName+"-fail",
+			config.ValidatingWebhookServicePath,
+			caData,
+			false,
+			wrc.timeoutSeconds,
+			wrc.defaultResourceWebhookRule(),
+			[]admregapi.OperationType{admregapi.Create, admregapi.Update, admregapi.Delete, admregapi.Connect},
+			admregapi.Fail,
+		))
+	}
+	return webhook
 }
 
 // getResourceValidatingWebhookConfigName returns the webhook configuration name

@@ -97,6 +97,8 @@ func strategicMergePatch(logger logr.Logger, base, overlay string) ([]byte, erro
 		}
 	}
 
+	patchStr, _ := preprocessedYaml.String()
+	logger.V(3).Info("applying strategic merge patch", "patch", patchStr)
 	f := patchstrategicmerge.Filter{
 		Patch: preprocessedYaml,
 	}

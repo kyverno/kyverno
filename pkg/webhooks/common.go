@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/minio/pkg/wildcard"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -25,11 +26,37 @@ func isResponseSuccessful(engineReponses []*response.EngineResponse) bool {
 	return true
 }
 
+func checkEngineResponse(er *response.EngineResponse) bool {
+	nsAction := ""
+	actionOverride := false
+
+	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
+		action := v.Action
+		if action != common.Enforce && action != common.Audit {
+			continue
+		}
+
+		for _, ns := range v.Namespaces {
+			if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
+				nsAction = action
+				actionOverride = true
+				break
+			}
+		}
+
+		if actionOverride {
+			break
+		}
+	}
+
+	return !er.IsSuccessful() && ((actionOverride && nsAction == common.Enforce) || (!actionOverride && er.PolicyResponse.ValidationFailureAction == common.Enforce))
+}
+
 // returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
 func toBlockResource(engineReponses []*response.EngineResponse, log logr.Logger) bool {
 	for _, er := range engineReponses {
-		if !er.IsSuccessful() && er.PolicyResponse.ValidationFailureAction == common.Enforce {
+		if checkEngineResponse(er) {
 			log.Info("spec.ValidationFailureAction set to enforce blocking resource request", "policy", er.PolicyResponse.Policy.Name)
 			return true
 		}
@@ -44,7 +71,7 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 	policyToRule := make(map[string]interface{})
 	var resourceName string
 	for _, er := range engineResponses {
-		if !er.IsSuccessful() && er.PolicyResponse.ValidationFailureAction == common.Enforce {
+		if checkEngineResponse(er) {
 			ruleToReason := make(map[string]string)
 			for _, rule := range er.PolicyResponse.Rules {
 				if rule.Status != response.RuleStatusPass {
@@ -116,7 +143,7 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 func containsRBACInfo(policies ...[]*kyverno.ClusterPolicy) bool {
 	for _, policySlice := range policies {
 		for _, policy := range policySlice {
-			for _, rule := range policy.Spec.Rules {
+			for _, rule := range policy.GetRules() {
 				if checkForRBACInfo(rule) {
 					return true
 				}

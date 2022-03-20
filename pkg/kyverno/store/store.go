@@ -1,6 +1,8 @@
 package store
 
-var Mock bool
+import "github.com/kyverno/kyverno/pkg/registryclient"
+
+var Mock, RegistryAccess bool
 var ContextVar Context
 
 func SetMock(mock bool) {
@@ -9,6 +11,17 @@ func SetMock(mock bool) {
 
 func GetMock() bool {
 	return Mock
+}
+
+func SetRegistryAccess(access bool) {
+	if access {
+		registryclient.InitializeLocal()
+	}
+	RegistryAccess = access
+}
+
+func GetRegistryAccess() bool {
+	return RegistryAccess
 }
 
 func SetContext(context Context) {

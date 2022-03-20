@@ -1,0 +1,36 @@
+name: test-preconditions
+policies:
+  - policy.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: test-jmespath
+    rule: test-jmespath
+    resource: test-valid1
+    kind: Pod
+    status: pass
+  - policy: test-jmespath
+    rule: test-jmespath
+    resource: test-valid2
+    kind: Pod
+    status: pass
+  - policy: test-jmespath
+    rule: test-jmespath
+    resource: test-valid3
+    kind: Pod
+    status: pass
+  - policy: test-jmespath
+    rule: test-jmespath
+    resource: test-invalid
+    kind: Pod
+    status: fail
+  - policy: namespace-validation
+    rule: namespace-validation
+    resource: test-invalid
+    kind: Namespace
+    status: fail
+  - policy: namespace-validation
+    rule: namespace-validation
+    resource: test-valid
+    kind: Namespace
+    status: pass

@@ -3,6 +3,7 @@ package webhookconfig
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -235,18 +236,23 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface)
 			}
 		}
 
+		retry := false
+
 		if err := wrc.updateResourceMutatingWebhookConfiguration(nsSelector); err != nil {
 			logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
-			go func() { wrc.UpdateWebhookChan <- true }()
-		} else {
-			logger.V(4).Info("successfully updated mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
+			retry = true
 		}
 
 		if err := wrc.updateResourceValidatingWebhookConfiguration(nsSelector); err != nil {
 			logger.Error(err, "unable to update validatingWebhookConfigurations", "name", getResourceValidatingWebhookConfigName(wrc.serverIP))
-			go func() { wrc.UpdateWebhookChan <- true }()
-		} else {
-			logger.V(4).Info("successfully updated validatingWebhookConfigurations", "name", getResourceValidatingWebhookConfigName(wrc.serverIP))
+			retry = true
+		}
+
+		if retry {
+			go func() {
+				time.Sleep(1 * time.Second)
+				wrc.UpdateWebhookChan <- true
+			}()
 		}
 	}
 }
@@ -534,7 +540,7 @@ func (wrc *Register) constructVerifyMutatingWebhookConfig(caData []byte) *admreg
 				true,
 				wrc.timeoutSeconds,
 				admregapi.Rule{
-					Resources:   []string{"deployments/*"},
+					Resources:   []string{"deployments"},
 					APIGroups:   []string{"apps"},
 					APIVersions: []string{"v1"},
 				},
@@ -561,7 +567,7 @@ func (wrc *Register) constructDebugVerifyMutatingWebhookConfig(caData []byte) *a
 				true,
 				wrc.timeoutSeconds,
 				admregapi.Rule{
-					Resources:   []string{"deployments/*"},
+					Resources:   []string{"deployments"},
 					APIGroups:   []string{"apps"},
 					APIVersions: []string{"v1"},
 				},
@@ -734,15 +740,31 @@ func (wrc *Register) updateResourceValidatingWebhookConfiguration(nsSelector map
 		ok       bool
 	)
 
+	webhookChanged := false
 	for i, whu := range webhooksUntyped {
 		webhook, ok = whu.(map[string]interface{})
 		if !ok {
 			return errors.Wrapf(err, "type mismatched, expected map[string]interface{}, got %T", webhooksUntyped[i])
 		}
+
+		currentSelector, _, err := unstructured.NestedMap(webhook, "namespaceSelector")
+		if err != nil {
+			return errors.Wrapf(err, "unable to get validatingWebhookConfigurations.webhooks["+fmt.Sprint(i)+"].namespaceSelector")
+		}
+
+		if !reflect.DeepEqual(nsSelector, currentSelector) {
+			webhookChanged = true
+		}
+
 		if err = unstructured.SetNestedMap(webhook, nsSelector, "namespaceSelector"); err != nil {
 			return errors.Wrapf(err, "unable to set validatingWebhookConfigurations.webhooks["+fmt.Sprint(i)+"].namespaceSelector")
 		}
 		webhooks = append(webhooks, webhook)
+	}
+
+	if !webhookChanged {
+		wrc.log.V(4).Info("namespaceSelector unchanged, skip updating validatingWebhookConfigurations")
+		return nil
 	}
 
 	if err = unstructured.SetNestedSlice(resourceValidating.UnstructuredContent(), webhooks, "webhooks"); err != nil {
@@ -752,6 +774,8 @@ func (wrc *Register) updateResourceValidatingWebhookConfiguration(nsSelector map
 	if _, err := wrc.client.UpdateResource(resourceValidating.GetAPIVersion(), resourceValidating.GetKind(), "", resourceValidating, false); err != nil {
 		return err
 	}
+
+	wrc.log.V(3).Info("successfully updated validatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
 
 	return nil
 }
@@ -784,15 +808,31 @@ func (wrc *Register) updateResourceMutatingWebhookConfiguration(nsSelector map[s
 		ok       bool
 	)
 
+	webhookChanged := false
 	for i, whu := range webhooksUntyped {
 		webhook, ok = whu.(map[string]interface{})
 		if !ok {
 			return errors.Wrapf(err, "type mismatched, expected map[string]interface{}, got %T", webhooksUntyped[i])
 		}
+
+		currentSelector, _, err := unstructured.NestedMap(webhook, "namespaceSelector")
+		if err != nil {
+			return errors.Wrapf(err, "unable to get mutatingWebhookConfigurations.webhooks["+fmt.Sprint(i)+"].namespaceSelector")
+		}
+
+		if !reflect.DeepEqual(nsSelector, currentSelector) {
+			webhookChanged = true
+		}
+
 		if err = unstructured.SetNestedMap(webhook, nsSelector, "namespaceSelector"); err != nil {
 			return errors.Wrapf(err, "unable to set mutatingWebhookConfigurations.webhooks["+fmt.Sprint(i)+"].namespaceSelector")
 		}
 		webhooks = append(webhooks, webhook)
+	}
+
+	if !webhookChanged {
+		wrc.log.V(4).Info("namespaceSelector unchanged, skip updating mutatingWebhookConfigurations")
+		return nil
 	}
 
 	if err = unstructured.SetNestedSlice(resourceMutating.UnstructuredContent(), webhooks, "webhooks"); err != nil {
@@ -802,6 +842,8 @@ func (wrc *Register) updateResourceMutatingWebhookConfiguration(nsSelector map[s
 	if _, err := wrc.client.UpdateResource(resourceMutating.GetAPIVersion(), resourceMutating.GetKind(), "", resourceMutating, false); err != nil {
 		return err
 	}
+
+	wrc.log.V(3).Info("successfully updated mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
 
 	return nil
 }

@@ -1,7 +1,14 @@
+## v1.7.0-rc1
+
+### Note
+
+- `status.ready` of the policy is deprecated in favor of `policy.IsReady()`. The implementation was changed to use `status.conditions` that offer more flexibility. The `status.ready` will be kept for a couple of releases until we remove it in the future.
+
 ## v1.6.0-rc1
 ### Note
 - Helm charts are changed to enforce PodDisruptionBudget for multi-replica clusters and PDB is removed from install manifests.
-
+- `anyPattern` for Kyverno validate policies breaks in Kubernetes `v1.23.0`-`v1.23.2`, and the fix is being tracked by this [PR](https://github.com/kubernetes/kubernetes/pull/107688) and will be available in `v1.23.3`.
+- To use `any/all` conditions for policies that use `preconditons` and `deny.conditions`, the user can go to this [resource](https://kyverno.io/docs/writing-policies/preconditions/#any-and-all-statements) as a good starting point.
 ## v1.5.0-rc1
 ### Note
 - The Helm CRDs was switched back to kyverno chart. To upgrade using Helm, please refer to https://github.com/kyverno/website/pull/304.

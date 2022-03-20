@@ -234,13 +234,13 @@ func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.Adm
 		return
 	}
 
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range policy.GetRules() {
 		if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
 			updatedRule, err := getGeneratedByResource(newRes, resLabels, ws.client, rule, logger)
 			if err != nil {
 				logger.V(4).Info("skipping generate policy and resource pattern validaton", "error", err)
 			} else {
-				data := updatedRule.Generation.DeepCopy().Data
+				data := updatedRule.Generation.DeepCopy().GetData()
 				if data != nil {
 					if _, err := gen.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
 						enqueueBool = true

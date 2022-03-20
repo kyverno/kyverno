@@ -1,281 +1,59 @@
 {{- $name := "restrict-volume-types" }}
 {{- if eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
+{{- include "kyverno-policies.supportedKyvernoCheck" (dict "top" . "ver" ">= 1.6.0-0") }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: {{ $name }}
   annotations:
+    policies.kyverno.io/title: Restrict Volume Types
     policies.kyverno.io/category: Pod Security Standards (Restricted)
     {{- if .Values.podSecuritySeverity }}
     policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
     {{- end }}
+    policies.kyverno.io/subject: Pod,Volume
+    policies.kyverno.io/minversion: 1.6.0
+    kyverno.io/kubernetes-version: "1.22-1.23"
+    kyverno.io/kyverno-version: 1.6.0
     policies.kyverno.io/description: >-
       In addition to restricting HostPath volumes, the restricted pod security profile
       limits usage of non-core volume types to those defined through PersistentVolumes.
-  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
-    app: kyverno
+      This policy blocks any other type of volume other than those in the allow list.
 spec:
-  background: true
   validationFailureAction: {{ .Values.validationFailureAction }}
+  {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
+  validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
+  {{- end }}
+  background: {{ .Values.background }}
   rules:
-  - name: restricted-vol-gcePersistentDisk
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the gcePersistentDisk type volume is disallowed.
-        The fields spec.volumes[*].gcePersistentDisk must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(gcePersistentDisk): "null"
-  - name: restricted-vol-awsElasticBlockStore
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the awsElasticBlockStore type volume is disallowed.
-        The fields spec.volumes[*].awsElasticBlockStore must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(awsElasticBlockStore): "null"
-  - name: restricted-vol-gitRepo
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the gitRepo type volume is disallowed.
-        The fields spec.volumes[*].gitRepo must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(gitRepo): "null"
-  - name: restricted-vol-nfs
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the nfs type volume is disallowed.
-        The fields spec.volumes[*].nfs must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(nfs): "null"
-  - name: restricted-vol-iscsi
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the iscsi type volume is disallowed.
-        The fields spec.volumes[*].iscsi must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(iscsi): "null"
-  - name: restricted-vol-glusterfs
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the glusterfs type volume is disallowed.
-        The fields spec.volumes[*].glusterfs must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(glusterfs): "null"
-  - name: restricted-vol-rbd
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the rbd type volume is disallowed.
-        The fields spec.volumes[*].rbd must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(rbd): "null"
-  - name: restricted-vol-flexVolume
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the flexVolume type volume is disallowed.
-        The fields spec.volumes[*].flexVolume must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(flexVolume): "null"
-  - name: restricted-vol-cinder
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the cinder type volume is disallowed.
-        The fields spec.volumes[*].cinder must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(cinder): "null"
-  - name: restricted-vol-cephfs
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the cephfs type volume is disallowed.
-        The fields spec.volumes[*].cephfs must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(cephfs): "null"
-  - name: restricted-vol-flocker
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the flocker type volume is disallowed.
-        The fields spec.volumes[*].flocker must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(flocker): "null"
-  - name: restricted-vol-fc
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the fc type volume is disallowed.
-        The fields spec.volumes[*].fc must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(fc): "null"
-  - name: restricted-vol-azureFile
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the azureFile type volume is disallowed.
-        The fields spec.volumes[*].azureFile must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(azureFile): "null"
-  - name: restricted-vol-vsphereVolume
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the vsphereVolume type volume is disallowed.
-        The fields spec.volumes[*].vsphereVolume must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(vsphereVolume): "null"
-  - name: restricted-vol-quobyte
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the quobyte type volume is disallowed.
-        The fields spec.volumes[*].quobyte must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(quobyte): "null"
-  - name: restricted-vol-azureDisk
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the azureDisk type volume is disallowed.
-        The fields spec.volumes[*].azureDisk must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(azureDisk): "null"
-  - name: restricted-vol-portworxVolume
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the portworxVolume type volume is disallowed.
-        The fields spec.volumes[*].portworxVolume must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(portworxVolume): "null"
-  - name: restricted-vol-scaleIO
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the scaleIO type volume is disallowed.
-        The fields spec.volumes[*].scaleIO must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(scaleIO): "null"
-  - name: restricted-vol-storageos
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the storageos type volume is disallowed.
-        The fields spec.volumes[*].storageos must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(storageos): "null"
-  - name: restricted-vol-csi
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: >-
-        Use of the csi type volume is disallowed.
-        The fields spec.volumes[*].csi must not be set.
-      pattern:
-        spec:
-          =(volumes):
-          - X(csi): "null"
-{{- end -}}
+    - name: restricted-volumes
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      {{- with index .Values "policyExclude" $name }}
+      exclude:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      validate:
+        message: >-
+          Only the following types of volumes may be used: configMap, csi, downwardAPI,
+          emptyDir, ephemeral, persistentVolumeClaim, projected, and secret.
+        deny:
+          conditions:
+            all:
+            - key: "{{`{{ request.object.spec.volumes[].keys(@)[] || '' }}`}}"
+              operator: AnyNotIn
+              value:
+              - name
+              - configMap
+              - csi
+              - downwardAPI
+              - emptyDir
+              - ephemeral
+              - persistentVolumeClaim
+              - projected
+              - secret
+              - ''
+{{- end }}

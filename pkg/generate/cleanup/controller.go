@@ -141,7 +141,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	// clean up the GR
 	// Get the corresponding GR
 	// get the list of GR for the current Policy version
-	rules := p.Spec.Rules
+	rules := p.GetRules()
 
 	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, c.client, p.GetName(), logger)
 
