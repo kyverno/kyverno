@@ -284,14 +284,16 @@ test-e2e:
 	go test ./test/e2e/generate -v
 	$(eval export E2E="")
 
-test-e2e-local:
+port-forward.PID:
+	kubectl port-forward -n kyverno service/kyverno-svc-metrics 8000:8000 & echo $$! > $@
+
+test-e2e-local: port-forward.PID
 	$(eval export E2E="ok")
 	kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/github/rbac.yaml
-	kubectl port-forward -n kyverno service/kyverno-svc-metrics  8000:8000 &
 	go test ./test/e2e/metrics -v
 	go test ./test/e2e/mutate -v
 	go test ./test/e2e/generate -v
-	kill  $!
+	kill `cat $<` && rm $<
 	$(eval export E2E="")
 
 helm-test-values:
