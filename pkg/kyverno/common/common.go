@@ -803,20 +803,20 @@ func ProcessImageVerifyEngineResponse(policy *v1.ClusterPolicy, imageVerifyRespo
 					rc.Pass++
 
 				} else if imageVerifyResponseRule.Status == response.RuleStatusSkip {
-					fmt.Printf("\nskipped imageVerify policy %s -> resource %s", policy.Name, resPath)
+					log.Log.V(3).Info("\nskipped imageVerify policy %s -> resource %s", policy.Name, resPath)
 					rc.Skip++
 
 				} else if imageVerifyResponseRule.Status == response.RuleStatusError {
-					fmt.Printf("\nerror while applying imageVerify policy %s -> resource %s\nerror: %s", policy.Name, resPath, imageVerifyResponseRule.Message)
+					log.Log.V(3).Info("\nerror while applying imageVerify policy %s -> resource %s\nerror: %s", policy.Name, resPath, imageVerifyResponseRule.Message)
 					rc.Error++
 
 				} else {
 					if printCount < 1 {
-						fmt.Printf("\nfailed to apply imageVerify policy %s -> resource %s", policy.Name, resPath)
+						log.Log.V(3).Info("\nfailed to apply imageVerify policy %s -> resource %s", policy.Name, resPath)
 						printCount++
 
 					}
-					fmt.Printf("%d. %s - %s \n", i+1, imageVerifyResponseRule.Name, imageVerifyResponseRule.Message)
+					log.Log.V(3).Info("%d. %s - %s \n", i+1, imageVerifyResponseRule.Name, imageVerifyResponseRule.Message)
 					rc.Fail++
 				}
 				continue
