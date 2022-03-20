@@ -48,7 +48,7 @@ func filterRules(policyContext *PolicyContext, startTime time.Time) *response.En
 		return resp
 	}
 
-	for _, rule := range policyContext.Policy.Spec.Rules {
+	for _, rule := range policyContext.Policy.GetRules() {
 		if ruleResp := filterRule(rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}

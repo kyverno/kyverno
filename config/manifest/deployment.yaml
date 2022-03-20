@@ -21,6 +21,9 @@ spec:
         # do not remove
         app.kubernetes.io/name: kyverno
     spec:
+      volumes:
+        - name: sigstore
+          emptyDir: {}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -93,6 +96,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: KYVERNO_SVC
               value: kyverno-svc
+            - name: TUF_ROOT
+              value: /.sigstore
           securityContext:
             runAsNonRoot: true
             privileged: false
@@ -127,6 +132,10 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 4
             successThreshold: 1
+          # Failing to provide a writable $TUF_ROOT can cause TUF client initialization to panic
+          volumeMounts:
+          - mountPath: /.sigstore
+            name: sigstore
   strategy:
     type: RollingUpdate
     rollingUpdate:

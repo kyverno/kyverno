@@ -143,7 +143,7 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 func containsRBACInfo(policies ...[]*kyverno.ClusterPolicy) bool {
 	for _, policySlice := range policies {
 		for _, policy := range policySlice {
-			for _, rule := range policy.Spec.Rules {
+			for _, rule := range policy.GetRules() {
 				if checkForRBACInfo(rule) {
 					return true
 				}

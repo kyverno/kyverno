@@ -19,9 +19,9 @@ func containsUserVariables(policy *kyverno.ClusterPolicy, vars [][]string) error
 			return fmt.Errorf("variable %s is not allowed", s[0])
 		}
 	}
-
-	for idx := range policy.Spec.Rules {
-		if err := hasUserMatchExclude(idx, &policy.Spec.Rules[idx]); err != nil {
+	rules := policy.GetRules()
+	for idx := range rules {
+		if err := hasUserMatchExclude(idx, &rules[idx]); err != nil {
 			return err
 		}
 	}

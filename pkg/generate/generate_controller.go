@@ -258,7 +258,7 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 	}
 
 	var policyHasGenerate bool
-	for _, rule := range curP.Spec.Rules {
+	for _, rule := range curP.GetRules() {
 		if rule.HasGenerate() {
 			policyHasGenerate = true
 		}

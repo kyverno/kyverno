@@ -20,18 +20,6 @@ background-color: #1589dd;
 <li>
 <a href="#kyverno.io%2fv1"><b style="color: white">kyverno.io/v1</b></a>
 </li>
-<li>
-<a href="#kyverno.io%2fv1alpha1"><b style="color: white">kyverno.io/v1alpha1</b></a>
-</li>
-<li>
-<a href="#kyverno.io%2fv1alpha2"><b style="color: white">kyverno.io/v1alpha2</b></a>
-</li>
-<li>
-<a href="#wgpolicyk8s.io%2fv1alpha1"><b style="color: white">wgpolicyk8s.io/v1alpha1</b></a>
-</li>
-<li>
-<a href="#wgpolicyk8s.io%2fv1alpha2"><b style="color: white">wgpolicyk8s.io/v1alpha2</b></a>
-</li>
 </ul>
 </nav>
 <h2 id="kyverno.io/v1">kyverno.io/v1</h2>
@@ -138,7 +126,6 @@ Kubernetes admission/v1beta1.Operation
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.Attestation">Attestation</a>, 
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>)
 </p>
@@ -195,10 +182,6 @@ Here, all of the conditions need to pass</p>
 <h3 id="kyverno.io/v1.Attestation">Attestation
 </h3>
 <p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
-</p>
-<p>
 <p>Attestation are checks for signed in-toto Statements that are used to verify the image.
 See <a href="https://github.com/in-toto/attestation">https://github.com/in-toto/attestation</a>. Kyverno fetches signed attestations from the
 OCI registry and decodes them into a list of Statements.</p>
@@ -226,8 +209,8 @@ string
 <td>
 <code>conditions</code></br>
 <em>
-<a href="#kyverno.io/v1.AnyAllConditions">
-[]AnyAllConditions
+<a href="#kyverno.io/v1.*./api/kyverno/v1.AnyAllConditions">
+[]*./api/kyverno/v1.AnyAllConditions
 </a>
 </em>
 </td>
@@ -235,6 +218,61 @@ string
 <em>(Optional)</em>
 <p>Conditions are used to verify attributes within a Predicate. If no Conditions are specified
 the attestation check is satisfied as long there are predicates that match the predicate type.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.AutogenStatus">AutogenStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.PolicyStatus">PolicyStatus</a>)
+</p>
+<p>
+<p>AutogenStatus contains autogen status information.
+It indicates requested, supported and effective autogen controllers used when
+automatically generating rules.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>requested</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Requested indicates the autogen requested controllers</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>supported</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Supported indicates the autogen supported controllers</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>activated</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Activated indicates the autogen activated controllers</p>
 </td>
 </tr>
 </tbody>
@@ -371,6 +409,21 @@ and report an error in a policy report. Optional. The default value is &ldquo;au
 </tr>
 <tr>
 <td>
+<code>validationFailureActionOverrides</code></br>
+<em>
+<a href="#kyverno.io/v1.ValidationFailureActionOverride">
+[]ValidationFailureActionOverride
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>background</code></br>
 <em>
 bool
@@ -450,7 +503,7 @@ PolicyStatus
 <td>
 <code>key</code></br>
 <em>
-k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 </em>
 </td>
 <td>
@@ -467,15 +520,17 @@ ConditionOperator
 </em>
 </td>
 <td>
-<p>Operator is the operation to perform. Valid operators
-are Equals, NotEquals, In, AnyIn, AllIn and NotIn, AnyNotIn, AllNotIn.</p>
+<p>Operator is the conditional operation to perform. Valid operators are:
+Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+DurationLessThanOrEquals, DurationLessThan</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>value</code></br>
 <em>
-k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 </em>
 </td>
 <td>
@@ -596,6 +651,20 @@ APICall
 data retrieved is stored in the context.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>imageRegistry</code></br>
+<em>
+<a href="#kyverno.io/v1.ImageRegistry">
+ImageRegistry
+</a>
+</em>
+</td>
+<td>
+<p>ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
+details.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -621,7 +690,7 @@ data retrieved is stored in the context.</p>
 <td>
 <code>conditions</code></br>
 <em>
-k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 </em>
 </td>
 <td>
@@ -727,11 +796,7 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 <h3 id="kyverno.io/v1.ForEachMutation">ForEachMutation
 </h3>
 <p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.Mutation">Mutation</a>)
-</p>
-<p>
-<p>ForEachMutation applies policy rule changes to nested elements.</p>
+<p>ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -787,7 +852,7 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 <td>
 <code>patchStrategicMerge</code></br>
 <em>
-k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 </em>
 </td>
 <td>
@@ -797,17 +862,26 @@ See <a href="https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-a
 and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/">https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/</a>.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>patchesJson6902</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
+See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rfc6902</a> and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/">https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/</a>.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
 <h3 id="kyverno.io/v1.ForEachValidation">ForEachValidation
 </h3>
 <p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.Validation">Validation</a>)
-</p>
-<p>
-<p>ForEachValidation applies policy rule checks to nested elements.</p>
+<p>ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -827,6 +901,20 @@ string
 <td>
 <p>List specifies a JMESPath expression that results in one or more elements
 to which the validation logic is applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>elementScope</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ElementScope specifies whether to use the current list element as the scope for validation. Defaults to &ldquo;true&rdquo; if not specified.
+When set to &ldquo;false&rdquo;, &ldquo;request.object&rdquo; is used as the validation scope within the foreach
+block to allow referencing other elements in the subtree.</p>
 </td>
 </tr>
 <tr>
@@ -863,7 +951,7 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 <td>
 <code>pattern</code></br>
 <em>
-k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 </em>
 </td>
 <td>
@@ -875,7 +963,7 @@ k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
 <td>
 <code>anyPattern</code></br>
 <em>
-k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 </em>
 </td>
 <td>
@@ -1219,7 +1307,7 @@ Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 <td>
 <code>data</code></br>
 <em>
-k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 </em>
 </td>
 <td>
@@ -1248,12 +1336,55 @@ resource will be created with default data only.</p>
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v1.ImageVerification">ImageVerification
+<h3 id="kyverno.io/v1.ImageRegistry">ImageRegistry
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.Rule">Rule</a>)
+<a href="#kyverno.io/v1.ContextEntry">ContextEntry</a>)
 </p>
+<p>
+<p>ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
+details.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>reference</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Reference is image reference to a container image in the registry.
+Example: ghcr.io/kyverno/kyverno:latest</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>jmesPath</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>JMESPath is an optional JSON Match Expression that can be used to
+transform the ImageData struct returned as a result of processing
+the image reference.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ImageVerification">ImageVerification
+</h3>
 <p>
 <p>ImageVerification validates that images that match the specified pattern
 are signed with the supplied public key. Once the image is verified it is
@@ -1314,6 +1445,41 @@ string
 </tr>
 <tr>
 <td>
+<code>issuer</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Issuer is the certificate issuer used for keyless signing.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>additionalExtensions</code></br>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<p>AdditionalExtensions are certificate-extensions used for keyless signing.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>annotations</code></br>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<p>Annotations are used for image verification.
+Every specified key-value pair must exist and match in the verified payload.
+The payload may contain other key-value pairs.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>repository</code></br>
 <em>
 string
@@ -1328,8 +1494,8 @@ If specified Repository will override the default OCI image repository configure
 <td>
 <code>attestations</code></br>
 <em>
-<a href="#kyverno.io/v1.Attestation">
-[]Attestation
+<a href="#kyverno.io/v1.*./api/kyverno/v1.Attestation">
+[]*./api/kyverno/v1.Attestation
 </a>
 </em>
 </td>
@@ -1443,39 +1609,9 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 <tbody>
 <tr>
 <td>
-<code>overlay</code></br>
-<em>
-k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Overlay specifies an overlay pattern to modify resources.
-DEPRECATED. Use PatchStrategicMerge instead. Scheduled for
-removal in release 1.5+.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>patches</code></br>
-<em>
-<a href="#kyverno.io/v1.Patch">
-[]Patch
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Patches specifies a RFC 6902 JSON Patch to modify resources.
-DEPRECATED. Use PatchesJSON6902 instead. Scheduled for
-removal in release 1.5+.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>patchStrategicMerge</code></br>
 <em>
-k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 </em>
 </td>
 <td>
@@ -1502,70 +1638,14 @@ See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rf
 <td>
 <code>foreach</code></br>
 <em>
-<a href="#kyverno.io/v1.ForEachMutation">
-[]ForEachMutation
+<a href="#kyverno.io/v1.*./api/kyverno/v1.ForEachMutation">
+[]*./api/kyverno/v1.ForEachMutation
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>ForEachMutation applies policy rule changes to nested elements.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.Patch">Patch
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.Mutation">Mutation</a>)
-</p>
-<p>
-<p>Patch is a RFC 6902 JSON Patch.
-See: <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rfc6902</a></p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>path</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Path specifies path of the resource.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>op</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Operation specifies operations supported by JSON Patch.
-i.e:- add, replace and delete.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>value</code></br>
-<em>
-k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Value specifies the value to be applied.</p>
+<p>ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
 </td>
 </tr>
 </tbody>
@@ -1659,6 +1739,21 @@ and report an error in a policy report. Optional. The default value is &ldquo;au
 </tr>
 <tr>
 <td>
+<code>validationFailureActionOverrides</code></br>
+<em>
+<a href="#kyverno.io/v1.ValidationFailureActionOverride">
+[]ValidationFailureActionOverride
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>background</code></br>
 <em>
 bool
@@ -1746,7 +1841,50 @@ bool
 </em>
 </td>
 <td>
-<p>Ready indicates if the policy is ready to serve the admission request</p>
+<p>Ready indicates if the policy is ready to serve the admission request.
+Deprecated in favor of Conditions</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions is a list of conditions that apply to the policy</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>autogen</code></br>
+<em>
+<a href="#kyverno.io/v1.AutogenStatus">
+AutogenStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Autogen contains autogen status information</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>rules</code></br>
+<em>
+<a href="#kyverno.io/v1.Rule">
+[]Rule
+</a>
+</em>
+</td>
+<td>
+<p>Rules is a list of Rule instances. It contains original rules defined in the spec
+auto generated rules added for pod controllers</p>
 </td>
 </tr>
 </tbody>
@@ -1977,7 +2115,7 @@ ResourceDescription
 </table>
 <hr />
 <h3 id="kyverno.io/v1.ResourceFilters">ResourceFilters
-(<code>[]github.com/kyverno/kyverno/api/kyverno/v1.ResourceFilter</code> alias)</p></h3>
+(<code>[]./api/kyverno/v1.ResourceFilter</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.ExcludeResources">ExcludeResources</a>, 
@@ -2058,6 +2196,7 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.PolicyStatus">PolicyStatus</a>, 
 <a href="#kyverno.io/v1.Spec">Spec</a>)
 </p>
 <p>
@@ -2134,7 +2273,7 @@ and admission review request information like the name or role.</p>
 <td>
 <code>preconditions</code></br>
 <em>
-k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 </em>
 </td>
 <td>
@@ -2192,8 +2331,8 @@ Generation
 <td>
 <code>verifyImages</code></br>
 <em>
-<a href="#kyverno.io/v1.ImageVerification">
-[]ImageVerification
+<a href="#kyverno.io/v1.*./api/kyverno/v1.ImageVerification">
+[]*./api/kyverno/v1.ImageVerification
 </a>
 </em>
 </td>
@@ -2265,6 +2404,21 @@ string
 <p>ValidationFailureAction controls if a validation policy rule failure should disallow
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional. The default value is &ldquo;audit&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validationFailureActionOverrides</code></br>
+<em>
+<a href="#kyverno.io/v1.ValidationFailureActionOverride">
+[]ValidationFailureActionOverride
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
 </td>
 </tr>
 <tr>
@@ -2403,21 +2557,21 @@ string
 <td>
 <code>foreach</code></br>
 <em>
-<a href="#kyverno.io/v1.ForEachValidation">
-[]ForEachValidation
+<a href="#kyverno.io/v1.*./api/kyverno/v1.ForEachValidation">
+[]*./api/kyverno/v1.ForEachValidation
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>ForEach applies policy rule changes to nested elements.</p>
+<p>ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>pattern</code></br>
 <em>
-k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 </em>
 </td>
 <td>
@@ -2429,7 +2583,7 @@ k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
 <td>
 <code>anyPattern</code></br>
 <em>
-k8s.io/apiextensions-apiserver/pkg/apis/apiextensions.JSON
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 </em>
 </td>
 <td>
@@ -2450,6 +2604,45 @@ Deny
 <td>
 <em>(Optional)</em>
 <p>Deny defines conditions used to pass or fail a validation rule.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ValidationFailureActionOverride">ValidationFailureActionOverride
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Spec">Spec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>action</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespaces</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
 </td>
 </tr>
 </tbody>
@@ -2516,1347 +2709,6 @@ string
 </tbody>
 </table>
 <hr />
-<h2 id="kyverno.io/v1alpha1">kyverno.io/v1alpha1</h2>
-<p>
-<p>Package v1alpha1 contains API Schema definitions for the policy v1alpha1 API group</p>
-</p>
-Resource Types:
-<ul></ul>
-<hr />
-<h3 id="kyverno.io/v1alpha1.ClusterReportChangeRequest">ClusterReportChangeRequest
-</h3>
-<p>
-<p>ClusterReportChangeRequest is the Schema for the ClusterReportChangeRequests API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>metadata</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>scope</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectreference-v1-core">
-Kubernetes core/v1.ObjectReference
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>scopeSelector</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#labelselector-v1-meta">
-Kubernetes meta/v1.LabelSelector
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ScopeSelector is an optional selector for multiple scopes (e.g. Pods).
-Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>summary</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha1.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha1.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1alpha1.ReportChangeRequest">ReportChangeRequest
-</h3>
-<p>
-<p>ReportChangeRequest is the Schema for the ReportChangeRequests API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>metadata</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>scope</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectreference-v1-core">
-Kubernetes core/v1.ObjectReference
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>scopeSelector</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#labelselector-v1-meta">
-Kubernetes meta/v1.LabelSelector
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ScopeSelector is an optional selector for multiple scopes (e.g. Pods).
-Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>summary</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha1.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha1.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="kyverno.io/v1alpha2">kyverno.io/v1alpha2</h2>
-<p>
-<p>Package v1alpha2 contains API Schema definitions for the policy v1alpha2 API group</p>
-</p>
-Resource Types:
-<ul></ul>
-<hr />
-<h3 id="kyverno.io/v1alpha2.ClusterReportChangeRequest">ClusterReportChangeRequest
-</h3>
-<p>
-<p>ClusterReportChangeRequest is the Schema for the ClusterReportChangeRequests API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>metadata</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>scope</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectreference-v1-core">
-Kubernetes core/v1.ObjectReference
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>scopeSelector</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#labelselector-v1-meta">
-Kubernetes meta/v1.LabelSelector
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ScopeSelector is an optional selector for multiple scopes (e.g. Pods).
-Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>summary</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1alpha2.ReportChangeRequest">ReportChangeRequest
-</h3>
-<p>
-<p>ReportChangeRequest is the Schema for the ReportChangeRequests API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>metadata</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>scope</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectreference-v1-core">
-Kubernetes core/v1.ObjectReference
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>scopeSelector</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#labelselector-v1-meta">
-Kubernetes meta/v1.LabelSelector
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ScopeSelector is an optional selector for multiple scopes (e.g. Pods).
-Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>summary</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="wgpolicyk8s.io/v1alpha1">wgpolicyk8s.io/v1alpha1</h2>
-<p>
-<p>Package v1alpha1 contains API Schema definitions for the policy v1alpha1 API group</p>
-</p>
-Resource Types:
-<ul><li>
-<a href="#wgpolicyk8s.io/v1alpha1.ClusterPolicyReport">ClusterPolicyReport</a>
-</li><li>
-<a href="#wgpolicyk8s.io/v1alpha1.PolicyReport">PolicyReport</a>
-</li></ul>
-<hr />
-<h3 id="wgpolicyk8s.io/v1alpha1.ClusterPolicyReport">ClusterPolicyReport
-</h3>
-<p>
-<p>ClusterPolicyReport is the Schema for the clusterpolicyreports API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-wgpolicyk8s.io/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
-string
-</td>
-<td><code>ClusterPolicyReport</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>scope</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectreference-v1-core">
-Kubernetes core/v1.ObjectReference
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>scopeSelector</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#labelselector-v1-meta">
-Kubernetes meta/v1.LabelSelector
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ScopeSelector is an optional selector for multiple scopes (e.g. Pods).
-Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>summary</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha1.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha1.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="wgpolicyk8s.io/v1alpha1.PolicyReport">PolicyReport
-</h3>
-<p>
-<p>PolicyReport is the Schema for the policyreports API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-wgpolicyk8s.io/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
-string
-</td>
-<td><code>PolicyReport</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>scope</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectreference-v1-core">
-Kubernetes core/v1.ObjectReference
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>scopeSelector</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#labelselector-v1-meta">
-Kubernetes meta/v1.LabelSelector
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ScopeSelector is an optional selector for multiple scopes (e.g. Pods).
-Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>summary</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha1.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha1.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="wgpolicyk8s.io/v1alpha1.PolicyReportResult">PolicyReportResult
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#wgpolicyk8s.io/v1alpha1.ClusterPolicyReport">ClusterPolicyReport</a>, 
-<a href="#wgpolicyk8s.io/v1alpha1.PolicyReport">PolicyReport</a>, 
-<a href="#kyverno.io/v1alpha1.ClusterReportChangeRequest">ClusterReportChangeRequest</a>, 
-<a href="#kyverno.io/v1alpha1.ReportChangeRequest">ReportChangeRequest</a>)
-</p>
-<p>
-<p>PolicyReportResult provides the result for an individual policy</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>policy</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Policy is the name of the policy</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>rule</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Rule is the name of the policy rule</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resources</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectreference-v1-core">
-[]Kubernetes core/v1.ObjectReference
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Resources is an optional reference to the resource checked by the policy and rule</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resourceSelector</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#labelselector-v1-meta">
-Kubernetes meta/v1.LabelSelector
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ResourceSelector is an optional selector for policy results that apply to multiple resources.
-For example, a policy result may apply to all pods that match a label.
-Either a Resource or a ResourceSelector can be specified. If neither are provided, the
-result is assumed to be for the policy report scope.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>message</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Message is a short user friendly description of the policy rule</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>status</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha1.PolicyStatus">
-PolicyStatus
-</a>
-</em>
-</td>
-<td>
-<p>Status indicates the result of the policy rule check</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>scored</code></br>
-<em>
-bool
-</em>
-</td>
-<td>
-<p>Scored indicates if this policy rule is scored</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>data</code></br>
-<em>
-map[string]string
-</em>
-</td>
-<td>
-<p>Data provides additional information for the policy rule</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>category</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Category indicates policy category</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>severity</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha1.PolicySeverity">
-PolicySeverity
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Severity indicates policy severity</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="wgpolicyk8s.io/v1alpha1.PolicyReportSummary">PolicyReportSummary
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#wgpolicyk8s.io/v1alpha1.ClusterPolicyReport">ClusterPolicyReport</a>, 
-<a href="#wgpolicyk8s.io/v1alpha1.PolicyReport">PolicyReport</a>, 
-<a href="#kyverno.io/v1alpha1.ClusterReportChangeRequest">ClusterReportChangeRequest</a>, 
-<a href="#kyverno.io/v1alpha1.ReportChangeRequest">ReportChangeRequest</a>)
-</p>
-<p>
-<p>PolicyReportSummary provides a status count summary</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>pass</code></br>
-<em>
-int
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Pass provides the count of policies whose requirements were met</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>fail</code></br>
-<em>
-int
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Fail provides the count of policies whose requirements were not met</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>warn</code></br>
-<em>
-int
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Warn provides the count of unscored policies whose requirements were not met</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>error</code></br>
-<em>
-int
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Error provides the count of policies that could not be evaluated</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>skip</code></br>
-<em>
-int
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Skip indicates the count of policies that were not selected for evaluation</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="wgpolicyk8s.io/v1alpha1.PolicySeverity">PolicySeverity
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#wgpolicyk8s.io/v1alpha1.PolicyReportResult">PolicyReportResult</a>)
-</p>
-<p>
-<p>PolicySeverity has one of the following values:
-- high
-- low
-- medium</p>
-</p>
-<h3 id="wgpolicyk8s.io/v1alpha1.PolicyStatus">PolicyStatus
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#wgpolicyk8s.io/v1alpha1.PolicyReportResult">PolicyReportResult</a>)
-</p>
-<p>
-<p>PolicyStatus has one of the following values:
-- pass: indicates that the policy requirements are met
-- fail: indicates that the policy requirements are not met
-- warn: indicates that the policy requirements and not met, and the policy is not scored
-- error: indicates that the policy could not be evaluated
-- skip: indicates that the policy was not selected based on user inputs or applicability</p>
-</p>
-<h2 id="wgpolicyk8s.io/v1alpha2">wgpolicyk8s.io/v1alpha2</h2>
-<p>
-<p>Package v1alpha2 contains API Schema definitions for the policy v1alpha2 API group</p>
-</p>
-Resource Types:
-<ul><li>
-<a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>
-</li><li>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>
-</li></ul>
-<hr />
-<h3 id="wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport
-</h3>
-<p>
-<p>ClusterPolicyReport is the Schema for the clusterpolicyreports API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-wgpolicyk8s.io/v1alpha2
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
-string
-</td>
-<td><code>ClusterPolicyReport</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>scope</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectreference-v1-core">
-Kubernetes core/v1.ObjectReference
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>scopeSelector</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#labelselector-v1-meta">
-Kubernetes meta/v1.LabelSelector
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ScopeSelector is an optional selector for multiple scopes (e.g. Pods).
-Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>summary</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport
-</h3>
-<p>
-<p>PolicyReport is the Schema for the policyreports API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-wgpolicyk8s.io/v1alpha2
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
-string
-</td>
-<td><code>PolicyReport</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>scope</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectreference-v1-core">
-Kubernetes core/v1.ObjectReference
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>scopeSelector</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#labelselector-v1-meta">
-Kubernetes meta/v1.LabelSelector
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ScopeSelector is an optional selector for multiple scopes (e.g. Pods).
-Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>summary</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="wgpolicyk8s.io/v1alpha2.PolicyReportResult">PolicyReportResult
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
-<a href="#kyverno.io/v1alpha2.ClusterReportChangeRequest">ClusterReportChangeRequest</a>, 
-<a href="#kyverno.io/v1alpha2.ReportChangeRequest">ReportChangeRequest</a>)
-</p>
-<p>
-<p>PolicyReportResult provides the result for an individual policy</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>source</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Source is an identifier for the policy engine that manages this report</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>policy</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Policy is the name of the policy</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>rule</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Rule is the name of the policy rule</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resources</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectreference-v1-core">
-[]Kubernetes core/v1.ObjectReference
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Resources is an optional reference to the resource checked by the policy and rule</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resourceSelector</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#labelselector-v1-meta">
-Kubernetes meta/v1.LabelSelector
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ResourceSelector is an optional selector for policy results that apply to multiple resources.
-For example, a policy result may apply to all pods that match a label.
-Either a Resource or a ResourceSelector can be specified. If neither are provided, the
-result is assumed to be for the policy report scope.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>message</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Message is a short user friendly description of the policy rule</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>result</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyResult">
-PolicyResult
-</a>
-</em>
-</td>
-<td>
-<p>Result indicates the outcome of the policy rule execution</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>scored</code></br>
-<em>
-bool
-</em>
-</td>
-<td>
-<p>Scored indicates if this policy rule is scored</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>properties</code></br>
-<em>
-map[string]string
-</em>
-</td>
-<td>
-<p>Properties provides additional information for the policy rule</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>timestamp</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#timestamp-v1-meta">
-Kubernetes meta/v1.Timestamp
-</a>
-</em>
-</td>
-<td>
-<p>Timestamp indicates the time the result was found</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>category</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Category indicates policy category</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>severity</code></br>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicySeverity">
-PolicySeverity
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Severity indicates policy severity</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="wgpolicyk8s.io/v1alpha2.PolicyReportSummary">PolicyReportSummary
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
-<a href="#kyverno.io/v1alpha2.ClusterReportChangeRequest">ClusterReportChangeRequest</a>, 
-<a href="#kyverno.io/v1alpha2.ReportChangeRequest">ReportChangeRequest</a>)
-</p>
-<p>
-<p>PolicyReportSummary provides a status count summary</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>pass</code></br>
-<em>
-int
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Pass provides the count of policies whose requirements were met</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>fail</code></br>
-<em>
-int
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Fail provides the count of policies whose requirements were not met</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>warn</code></br>
-<em>
-int
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Warn provides the count of unscored policies whose requirements were not met</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>error</code></br>
-<em>
-int
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Error provides the count of policies that could not be evaluated</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>skip</code></br>
-<em>
-int
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Skip indicates the count of policies that were not selected for evaluation</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="wgpolicyk8s.io/v1alpha2.PolicyResult">PolicyResult
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">PolicyReportResult</a>)
-</p>
-<p>
-<p>PolicyResult has one of the following values:
-- pass: indicates that the policy requirements are met
-- fail: indicates that the policy requirements are not met
-- warn: indicates that the policy requirements and not met, and the policy is not scored
-- error: indicates that the policy could not be evaluated
-- skip: indicates that the policy was not selected based on user inputs or applicability</p>
-</p>
-<h3 id="wgpolicyk8s.io/v1alpha2.PolicySeverity">PolicySeverity
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">PolicyReportResult</a>)
-</p>
-<p>
-<p>PolicySeverity has one of the following values:
-- high
-- low
-- medium</p>
-</p>
 </div>
 <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>

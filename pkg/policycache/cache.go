@@ -124,7 +124,7 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 		pName = pSpace + "/" + pName
 	}
 
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range policy.GetRules() {
 
 		if len(rule.MatchResources.Any) > 0 {
 			for _, rmr := range rule.MatchResources.Any {
@@ -230,8 +230,7 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 		pName = pSpace + "/" + pName
 	}
 
-	for _, rule := range policy.Spec.Rules {
-
+	for _, rule := range policy.GetRules() {
 		if len(rule.MatchResources.Any) > 0 {
 			for _, rmr := range rule.MatchResources.Any {
 				removeCacheHelper(rmr, m, pName)
