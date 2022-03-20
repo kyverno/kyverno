@@ -3,7 +3,6 @@ package v1
 import (
 	"strings"
 
-	"github.com/kyverno/kyverno/pkg/toggle"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -77,11 +76,16 @@ func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 }
 
 // GetRules returns the policy rules
-func (p *ClusterPolicy) GetRules() []Rule {
-	if toggle.AutogenInternals && p.Status.Rules != nil && len(p.Status.Rules) != 0 {
-		return p.Status.Rules
-	}
+func (p *ClusterPolicy) GetRulesXXX() []Rule {
+	// if toggle.AutogenInternals && p.Status.Rules != nil && len(p.Status.Rules) != 0 {
+	// 	return p.Status.Rules
+	// }
 	return p.Spec.Rules
+}
+
+// GetSpec returns the policy spec
+func (p *ClusterPolicy) GetSpec() Spec {
+	return p.Spec
 }
 
 // IsReady indicates if the policy is ready to serve the admission request

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/distribution/distribution/reference"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
@@ -127,7 +128,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			clusterResources = append(clusterResources, k)
 		}
 	}
-	rules := policy.GetRules()
+	rules := autogen.ComputeRules(policy)
 	rulesPath := specPath.Child("rules")
 	for i, rule := range rules {
 		rulePath := rulesPath.Index(i)
@@ -385,7 +386,7 @@ func ValidateVariables(p *kyverno.ClusterPolicy, backgroundMode bool) error {
 
 // hasInvalidVariables - checks for unexpected variables in the policy
 func hasInvalidVariables(policy *kyverno.ClusterPolicy, background bool) error {
-	for _, r := range policy.GetRules() {
+	for _, r := range autogen.ComputeRules(policy) {
 		ruleCopy := r.DeepCopy()
 
 		if err := ruleForbiddenSectionsHaveVariables(ruleCopy); err != nil {

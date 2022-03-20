@@ -1,0 +1,49 @@
+name: "Bug Report: Other"
+description: Report a bug not applicable to other issue templates.
+title: "[Bug] "
+labels: ["bug","triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please tell us about the bug, but before doing so ensure you have read the [documentation](https://kyverno.io/docs/).
+  - type: dropdown
+    id: kyverno-version
+    attributes:
+      label: Kyverno Version
+      description: What version of Kyverno are you running?
+      options:
+        - 1.4.x
+        - 1.5.x
+        - 1.6.x
+    validations:
+      required: true
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Description
+      description: Describe what happened.
+      # placeholder: Tell us what you see!
+      # value: "asdf"
+    validations:
+      required: true
+  - type: input
+    id: slack
+    attributes:
+      label: Slack discussion
+      description: >-
+        If this issue is the result of a discussion thread on Slack, please provide the link to the discussion for reference.
+      # placeholder: ex. email@example.com
+    validations:
+      required: false
+  - type: checkboxes
+    id: troubleshooting
+    attributes:
+      label: Troubleshooting
+      description: >-
+        By submitting this issue, you agree that you have performed some basic attempts at researching and solving your problem.
+      options:
+        - label: I have read and followed the documentation AND the [troubleshooting guide](https://kyverno.io/docs/troubleshooting/).
+          required: true
+        - label: I have searched other issues in this repository and mine is not recorded.
+          required: true

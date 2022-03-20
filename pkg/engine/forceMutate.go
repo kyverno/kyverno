@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -19,7 +20,7 @@ func ForceMutate(ctx *context.Context, policy kyverno.ClusterPolicy, resource un
 		"namespace", resource.GetNamespace(), "name", resource.GetName())
 
 	patchedResource := resource
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(&policy) {
 		if !rule.HasMutate() {
 			continue
 		}

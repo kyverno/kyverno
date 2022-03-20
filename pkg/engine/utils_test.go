@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -897,7 +898,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		}
 		resource, _ := utils.ConvertToUnstructured(tc.Resource)
 
-		for _, rule := range policy.GetRules() {
+		for _, rule := range autogen.ComputeRules(&policy) {
 			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, []string{}, nil, "")
 			if err != nil {
 				if !tc.areErrorsExpected {

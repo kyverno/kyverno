@@ -271,7 +271,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	// we process policies that are not set of background processing
 	// as we need to clean up GRs when a policy is deleted
 	// skip generate policies with clone
-	rules := p.GetRules()
+	rules := autogen.ComputeRules(p)
 
 	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, pc.client, p.GetName(), logger)
 
@@ -377,11 +377,11 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 
 func (pc *PolicyController) enqueueRCRDeletedRule(old, cur *kyverno.ClusterPolicy) {
 	curRule := make(map[string]bool)
-	for _, rule := range cur.GetRules() {
+	for _, rule := range autogen.ComputeRules(cur) {
 		curRule[rule.Name] = true
 	}
 
-	for _, rule := range old.GetRules() {
+	for _, rule := range autogen.ComputeRules(old) {
 		if !curRule[rule.Name] {
 			pc.prGenerator.Add(policyreport.Info{
 				PolicyName: cur.GetName(),
@@ -566,7 +566,7 @@ func missingAutoGenRules(policy *kyverno.ClusterPolicy, log logr.Logger) bool {
 	var podRuleName []string
 	ruleCount := 1
 	if canApplyAutoGen, _ := autogen.CanAutoGen(&policy.Spec, log); canApplyAutoGen {
-		for _, rule := range policy.GetRules() {
+		for _, rule := range autogen.ComputeRules(policy) {
 			podRuleName = append(podRuleName, rule.Name)
 		}
 	}
@@ -593,7 +593,7 @@ func missingAutoGenRules(policy *kyverno.ClusterPolicy, log logr.Logger) bool {
 			}
 		}
 
-		if len(policy.GetRules()) != (ruleCount * len(podRuleName)) {
+		if len(autogen.ComputeRules(policy)) != (ruleCount * len(podRuleName)) {
 			return true
 		}
 	}

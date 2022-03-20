@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -39,7 +40,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 	var err error
 
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(&policy) {
 		if !rule.HasMutate() {
 			continue
 		}

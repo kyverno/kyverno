@@ -68,7 +68,7 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, autogenIntern
 
 func checkForGVKFormatPatch(policy *kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
 	patches = make([][]byte, 0)
-	for i, rule := range policy.GetRules() {
+	for i, rule := range autogen.ComputeRules(policy) {
 		patchByte, err := convertGVKForKinds(fmt.Sprintf("/spec/rules/%s/match/resources/kinds", strconv.Itoa(i)), rule.MatchResources.Kinds, log)
 		if err == nil && patchByte != nil {
 			patches = append(patches, patchByte)

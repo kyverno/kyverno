@@ -1,7 +1,7 @@
 name: "Bug Report: CLI"
 description: Report a bug in the Kyverno CLI.
 title: "[Bug] [CLI] "
-labels: ["bug", "type:cli"]
+labels: ["bug", "type:cli", "triage"]
 body:
   - type: markdown
     attributes:

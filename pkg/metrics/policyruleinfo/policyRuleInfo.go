@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	prom "github.com/prometheus/client_golang/prometheus"
 )
@@ -73,7 +74,7 @@ func (pc PromConfig) AddPolicy(policy interface{}) error {
 		policyName := inputPolicy.ObjectMeta.Name
 		ready := inputPolicy.Status.Ready
 		// registering the metrics on a per-rule basis
-		for _, rule := range inputPolicy.GetRules() {
+		for _, rule := range autogen.ComputeRules(inputPolicy) {
 			ruleName := rule.Name
 			ruleType := metrics.ParseRuleType(rule)
 
@@ -93,7 +94,7 @@ func (pc PromConfig) AddPolicy(policy interface{}) error {
 		policyName := inputPolicy.ObjectMeta.Name
 		ready := inputPolicy.Status.Ready
 		// registering the metrics on a per-rule basis
-		for _, rule := range inputPolicy.GetRules() {
+		for _, rule := range autogen.ComputeRules(inputPolicy) {
 			ruleName := rule.Name
 			ruleType := metrics.ParseRuleType(rule)
 
@@ -110,7 +111,7 @@ func (pc PromConfig) AddPolicy(policy interface{}) error {
 func (pc PromConfig) RemovePolicy(policy interface{}) error {
 	switch inputPolicy := policy.(type) {
 	case *kyverno.ClusterPolicy:
-		for _, rule := range inputPolicy.GetRules() {
+		for _, rule := range autogen.ComputeRules(inputPolicy) {
 			policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.ValidationFailureAction)
 			if err != nil {
 				return err
@@ -129,7 +130,7 @@ func (pc PromConfig) RemovePolicy(policy interface{}) error {
 		}
 		return nil
 	case *kyverno.Policy:
-		for _, rule := range inputPolicy.GetRules() {
+		for _, rule := range autogen.ComputeRules(inputPolicy) {
 			policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.ValidationFailureAction)
 			if err != nil {
 				return err

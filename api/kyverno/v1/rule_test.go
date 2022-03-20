@@ -88,7 +88,7 @@ func Test_Validate_RuleType_MultipleRule(t *testing.T) {
 	var policy *ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
-	for _, rule := range policy.GetRules() {
+	for _, rule := range policy.Spec.Rules {
 		path := field.NewPath("dummy")
 		errs := rule.Validate(path)
 		assert.Assert(t, len(errs) != 0)
@@ -143,7 +143,7 @@ func Test_Validate_RuleType_SingleRule(t *testing.T) {
 	var policy *ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
-	for _, rule := range policy.GetRules() {
+	for _, rule := range policy.Spec.Rules {
 		path := field.NewPath("dummy")
 		errs := rule.Validate(path)
 		assert.Assert(t, len(errs) == 0)
