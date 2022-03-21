@@ -14,7 +14,7 @@ func Test_ClusterPolicy_Name(t *testing.T) {
 			Name: "this-is-a-way-too-long-policy-name-that-should-trigger-an-error-when-calling-the-policy-validation-method",
 		},
 	}
-	errs := subject.Validate()
+	errs := subject.Validate(false)
 	assert.Assert(t, len(errs) == 1)
 	assert.Equal(t, errs[0].Field, "name")
 	assert.Equal(t, errs[0].Type, field.ErrorTypeTooLong)
