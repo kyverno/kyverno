@@ -30,4 +30,43 @@ spec:
   ingress:
     - {}
   {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-apiserver
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  # Allow ingress from kube-apiserver on port 9443
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+        - podSelector:
+            matchLabels:
+              component: kube-apiserver
+              tier: control-plane
+      ports:
+        - port: 9443
+  # If openEgress is true allow all egress traffic else allow egress to only kube-apiserver on port 9443
+  {{- if .Values.networkPolicy.openEgress }}
+  egress:
+  - {}
+  {{- else }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+        - podSelector:
+            matchLabels:
+              component: kube-apiserver
+              tier: control-plane
+      ports:
+        - port: 9443
+  {{- end }}
 {{- end }}

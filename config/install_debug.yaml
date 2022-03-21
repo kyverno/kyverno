@@ -12002,9 +12002,42 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: allow-apiserver
+  namespace: kyverno
+spec:
+  egress:
+  - ports:
+    - port: 9443
+    to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    - podSelector:
+        matchLabels:
+          component: kube-apiserver
+          tier: control-plane
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    - podSelector:
+        matchLabels:
+          component: kube-apiserver
+          tier: control-plane
+    ports:
+    - port: 9443
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   labels:
     app: kyverno
-  name: defaultnetworkpolicy
+  name: allow-prometheus
   namespace: kyverno
 spec:
   ingress:
