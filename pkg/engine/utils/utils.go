@@ -38,6 +38,9 @@ func (ri RuleType) String() string {
 // ApplyPatches patches given resource with given patches and returns patched document
 // return original resource if any error occurs
 func ApplyPatches(resource []byte, patches [][]byte) ([]byte, error) {
+	if len(patches) == 0 {
+		return resource, nil
+	}
 	joinedPatches := JoinPatches(patches)
 	patch, err := jsonpatch.DecodePatch(joinedPatches)
 	if err != nil {

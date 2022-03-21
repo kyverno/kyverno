@@ -102,10 +102,10 @@ func VerifySignature(opts Options) (digest string, err error) {
 	if err != nil {
 		msg := err.Error()
 		log.Info("image verification failed", "error", msg)
-		if strings.Contains(msg, "MANIFEST_UNKNOWN: manifest unknown") {
-			return "", fmt.Errorf("signature not found")
-		} else if strings.Contains(msg, "no matching signatures") {
+		if strings.Contains(msg, "failed to verify signature") {
 			return "", fmt.Errorf("signature mismatch")
+		} else if strings.Contains(msg, "no matching signatures") {
+			return "", fmt.Errorf("signature not found")
 		}
 
 		return "", err

@@ -1841,7 +1841,22 @@ bool
 </em>
 </td>
 <td>
-<p>Ready indicates if the policy is ready to serve the admission request</p>
+<p>Ready indicates if the policy is ready to serve the admission request.
+Deprecated in favor of Conditions</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions is a list of conditions that apply to the policy</p>
 </td>
 </tr>
 <tr>

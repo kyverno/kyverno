@@ -30,7 +30,7 @@ const (
 // - otherwise it returns all pod controllers
 func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, controllers string) {
 	var needAutogen bool
-	rules := spec.GetRules()
+	rules := spec.Rules
 	for _, rule := range rules {
 		match := rule.MatchResources
 		exclude := rule.ExcludeResources
@@ -166,7 +166,7 @@ func GetControllers(meta metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger)
 
 // GenerateRulePatches generates rule for podControllers based on scenario A and C
 func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger) (rulePatches [][]byte, errs []error) {
-	rules := spec.GetRules()
+	rules := spec.Rules
 	insertIdx := len(rules)
 
 	ruleMap := createRuleMap(rules)
