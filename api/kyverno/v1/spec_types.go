@@ -145,8 +145,11 @@ func (s *Spec) ValidateRules(path *field.Path) field.ErrorList {
 }
 
 // Validate implements programmatic validation
-func (s *Spec) Validate(path *field.Path) field.ErrorList {
+func (s *Spec) Validate(path *field.Path, namespaced bool) field.ErrorList {
 	var errs field.ErrorList
 	errs = append(errs, s.ValidateRules(path.Child("rules"))...)
+	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {
+		errs = append(errs, field.Forbidden(path.Child("validationFailureActionOverrides"), "Use of validationFailureActionOverrides is supported only with ClusterPolicy"))
+	}
 	return errs
 }
