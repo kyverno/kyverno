@@ -1,7 +1,7 @@
 name: "Feature Request"
 description: Suggest a new feature for Kyverno to support.
 title: "[Feature] "
-labels: ["enhancement"]
+labels: ["enhancement", "triage"]
 body:
   - type: markdown
     attributes:
