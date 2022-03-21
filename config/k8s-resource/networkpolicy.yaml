@@ -1,0 +1,82 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus
+  namespace: kyverno
+  labels:
+    app: kyverno
+spec:
+  podSelector:
+    matchLabels:
+      app: kyverno
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: prometheus
+    ports:
+    # Webhook access
+    - protocol: TCP
+      port: 9443
+    # Allow prometheus scrape for metrics
+    - protocol: TCP
+      port: 8000
+
+  policyTypes:
+    - Ingress
+    - Egress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-apiserver
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  # Allow ingress from kube-apiserver on port 9443
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+        - podSelector:
+            matchLabels:
+              component: kube-apiserver
+              tier: control-plane
+      ports:
+        - port: 9443
+  # Allow egress to kube-apiserver on port 9443
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+        - podSelector:
+            matchLabels:
+              component: kube-apiserver
+              tier: control-plane
+      ports:
+        - port: 9443
+
+---
+# (Optional): Egress traffic allowed for pods with label: app=kyverno
+# Uncomment the policy mentioned below if image verification policy rules are configured
+# to allow traffic to OCI registries
+
+# apiVersion: networking.k8s.io/v1
+# kind: NetworkPolicy
+# metadata:
+#   name: internet-egress
+# spec:
+#   podSelector:
+#     matchLabels:
+#       app: kyverno
+#   egress:
+#   - {}
+#   policyTypes:
+#   - Egress
+---

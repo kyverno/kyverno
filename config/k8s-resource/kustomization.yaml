@@ -11,3 +11,4 @@ resources:
 - ./metricsconfigmap.yaml
 - ./service.yaml
 - ./serviceaccount.yaml
+- ./networkpolicy.yaml

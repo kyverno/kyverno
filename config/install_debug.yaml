@@ -11998,3 +11998,28 @@ spec:
   selector:
     app: kyverno
     app.kubernetes.io/name: kyverno
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app: kyverno
+  name: defaultnetworkpolicy
+  namespace: kyverno
+spec:
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: prometheus
+    ports:
+    - port: 9443
+      protocol: TCP
+    - port: 8000
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: kyverno
+  policyTypes:
+  - Ingress
+  - Egress
