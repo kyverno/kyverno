@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -86,11 +87,13 @@ func (p *Policy) IsReady() bool {
 	return p.Status.IsReady()
 }
 
-// Validate implements programmatic validation
-func (p *Policy) Validate() field.ErrorList {
+// Validate implements programmatic validation.
+// namespaced means that the policy is bound to a namespace and therefore
+// should not filter/generate cluster wide resources.
+func (p *Policy) Validate(namespaced bool, clusterResources sets.String) field.ErrorList {
 	var errs field.ErrorList
 	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
-	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), namespaced, clusterResources)...)
 	return errs
 }
 

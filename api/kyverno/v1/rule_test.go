@@ -13,7 +13,7 @@ func Test_Validate_RuleType_EmptyRule(t *testing.T) {
 		Name: "validate-user-privilege",
 	}
 	path := field.NewPath("dummy")
-	errs := subject.Validate(path)
+	errs := subject.Validate(path, false, nil)
 	assert.Equal(t, len(errs), 1)
 	assert.Equal(t, errs[0].Field, "dummy")
 	assert.Equal(t, errs[0].Type, field.ErrorTypeInvalid)
@@ -90,7 +90,7 @@ func Test_Validate_RuleType_MultipleRule(t *testing.T) {
 	assert.NilError(t, err)
 	for _, rule := range policy.GetRules() {
 		path := field.NewPath("dummy")
-		errs := rule.Validate(path)
+		errs := rule.Validate(path, false, nil)
 		assert.Assert(t, len(errs) != 0)
 	}
 }
@@ -145,7 +145,7 @@ func Test_Validate_RuleType_SingleRule(t *testing.T) {
 	assert.NilError(t, err)
 	for _, rule := range policy.GetRules() {
 		path := field.NewPath("dummy")
-		errs := rule.Validate(path)
+		errs := rule.Validate(path, false, nil)
 		assert.Assert(t, len(errs) == 0)
 	}
 }
