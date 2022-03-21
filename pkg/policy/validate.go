@@ -26,6 +26,7 @@ import (
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -79,36 +80,21 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 
 // Validate checks the policy and rules declarations for required configurations
 func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) (*v1beta1.AdmissionResponse, error) {
-	var errs field.ErrorList
-	namespaced := false
+	namespaced := policy.GetNamespace() != ""
 	background := policy.Spec.Background == nil || *policy.Spec.Background
+
+	var errs field.ErrorList
 	specPath := field.NewPath("spec")
 
-	clusterResources := make([]string, 0)
 	err := ValidateVariables(policy, background)
 	if err != nil {
 		return nil, err
 	}
 
-	if errs := policy.Validate(); len(errs) != 0 {
-		return nil, errs.ToAggregate()
-	}
-
-	if policy.GetNamespace() != "" {
-		namespaced = true
-	}
-
 	var res []*metav1.APIResourceList
-
+	clusterResources := sets.NewString()
 	if !mock && namespaced {
-		var Empty struct{}
-		clusterResourcesMap := make(map[string]*struct{})
 		// Get all the cluster type kind supported by cluster
-
-		if len(policy.Spec.ValidationFailureActionOverrides) > 0 {
-			return nil, fmt.Errorf("invalid policy: use of ValidationFailureActionOverrides in a Namespace Policy")
-		}
-
 		res, err := client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
 		if err != nil {
 			return nil, err
@@ -116,17 +102,16 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		for _, resList := range res {
 			for _, r := range resList.APIResources {
 				if !r.Namespaced {
-					if _, ok := clusterResourcesMap[r.Kind]; !ok {
-						clusterResourcesMap[r.Kind] = &Empty
-					}
+					clusterResources.Insert(r.Kind)
 				}
 			}
 		}
-
-		for k := range clusterResourcesMap {
-			clusterResources = append(clusterResources, k)
-		}
 	}
+
+	if errs := policy.Validate(namespaced, clusterResources); len(errs) != 0 {
+		return nil, errs.ToAggregate()
+	}
+
 	rules := policy.GetRules()
 	rulesPath := specPath.Child("rules")
 	for i, rule := range rules {
@@ -894,9 +879,6 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 
 func validateResources(path *field.Path, rule kyverno.Rule) (string, error) {
 	// validate userInfo in match and exclude
-	if errs := rule.MatchResources.UserInfo.Validate(path.Child("match")); len(errs) != 0 {
-		return "match", errs.ToAggregate()
-	}
 	if errs := rule.ExcludeResources.UserInfo.Validate(path.Child("exclude")); len(errs) != 0 {
 		return "exclude", errs.ToAggregate()
 	}
@@ -907,10 +889,6 @@ func validateResources(path *field.Path, rule kyverno.Rule) (string, error) {
 
 	if (len(rule.ExcludeResources.Any) > 0 || len(rule.ExcludeResources.All) > 0) && !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) {
 		return "exclude.", fmt.Errorf("can't specify any/all together with exclude resources")
-	}
-
-	if len(rule.MatchResources.Any) > 0 && len(rule.MatchResources.All) > 0 {
-		return "match.", fmt.Errorf("can't specify any and all together")
 	}
 
 	if len(rule.ExcludeResources.Any) > 0 && len(rule.ExcludeResources.All) > 0 {
@@ -1306,68 +1284,26 @@ func isWildcardPresent(v string) bool {
 
 // checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in
 // Match and Exclude block
-func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources []string, mock bool, res []*metav1.APIResourceList) error {
-	// Contains Namespaces in Match->ResourceDescription
-	if len(rule.MatchResources.ResourceDescription.Namespaces) > 0 {
-		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in match.resources")
-	}
+func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources sets.String, mock bool, res []*metav1.APIResourceList) error {
 	// Contains Namespaces in Exclude->ResourceDescription
 	if len(rule.ExcludeResources.ResourceDescription.Namespaces) > 0 {
 		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in exclude.resources")
 	}
 
 	if !mock {
-		// Contains "Cluster Wide Resources" in Match->ResourceDescription->Kinds
-		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
-			for _, k := range clusterResources {
-				if kind == k {
-					return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
-				}
-			}
-		}
-
-		// Contains "Cluster Wide Resources" in Match->All->ResourceFilter->ResourceDescription->Kinds
-		for _, allResourceFilter := range rule.MatchResources.All {
-			fmt.Println(allResourceFilter.ResourceDescription)
-			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
-				for _, k := range clusterResources {
-					if kind == k {
-						return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
-					}
-				}
-			}
-		}
-
-		// Contains "Cluster Wide Resources" in Match->Any->ResourceFilter->ResourceDescription->Kinds
-		for _, allResourceFilter := range rule.MatchResources.Any {
-			fmt.Println(allResourceFilter.ResourceDescription)
-			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
-				for _, k := range clusterResources {
-					if kind == k {
-						return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
-					}
-				}
-			}
-		}
-
 		// Contains "Cluster Wide Resources" in Exclude->ResourceDescription->Kinds
 		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-			for _, k := range clusterResources {
-				if kind == k {
-					return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in exclude.resources.kinds", kind)
-				}
+			if clusterResources.Has(kind) {
+				return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in exclude.resources.kinds", kind)
 			}
-
 		}
 
 		// Contains "Cluster Wide Resources" in Exclude->All->ResourceFilter->ResourceDescription->Kinds
 		for _, allResourceFilter := range rule.ExcludeResources.All {
 			fmt.Println(allResourceFilter.ResourceDescription)
 			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
-				for _, k := range clusterResources {
-					if kind == k {
-						return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
-					}
+				if clusterResources.Has(kind) {
+					return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
 				}
 			}
 		}
@@ -1376,10 +1312,8 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources [
 		for _, allResourceFilter := range rule.ExcludeResources.Any {
 			fmt.Println(allResourceFilter.ResourceDescription)
 			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
-				for _, k := range clusterResources {
-					if kind == k {
-						return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
-					}
+				if clusterResources.Has(kind) {
+					return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
 				}
 			}
 		}
@@ -1431,7 +1365,6 @@ func podControllerAutoGenExclusion(policy *kyverno.ClusterPolicy) bool {
 	val, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
 	reorderVal := strings.Split(strings.ToLower(val), ",")
 	sort.Slice(reorderVal, func(i, j int) bool { return reorderVal[i] < reorderVal[j] })
-
 	if ok && strings.ToLower(val) == "none" || reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) == false {
 		return true
 	}

@@ -197,8 +197,11 @@ func main() {
 			os.Exit(1)
 		}
 
-		lease := coord.Lease{}
-		lease.ObjectMeta.Name = "kyvernopre-lock"
+		lease := coord.Lease{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "kyvernopre-lock",
+			},
+		}
 		_, err = kubeClientLeaderElection.CoordinationV1().Leases(getKyvernoNameSpace()).Create(ctx, &lease, v1.CreateOptions{})
 		if err != nil {
 			log.Log.Info("Failed to create lease 'kyvernopre-lock'")

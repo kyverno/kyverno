@@ -6,6 +6,7 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -130,8 +131,9 @@ func (r *Rule) ValidateRuleType(path *field.Path) field.ErrorList {
 }
 
 // Validate implements programmatic validation
-func (r *Rule) Validate(path *field.Path) field.ErrorList {
+func (r *Rule) Validate(path *field.Path, namespaced bool, clusterResources sets.String) field.ErrorList {
 	var errs field.ErrorList
 	errs = append(errs, r.ValidateRuleType(path)...)
+	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
 	return errs
 }
