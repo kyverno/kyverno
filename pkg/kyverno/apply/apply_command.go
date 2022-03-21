@@ -15,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -140,7 +139,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&policyReport, "policy-report", "", false, "Generates policy report when passed (default policyviolation r")
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
 	cmd.Flags().BoolVarP(&stdin, "stdin", "i", false, "Optional mutate policy parameter to pipe directly through to kubectl")
-	cmd.Flags().BoolVarP(&toggle.AutogenInternals, "autogenInternals", "", toggle.DefaultAutogenInternals, "Use autogen internals")
+	// cmd.Flags().BoolVarP(&toggle.AutogenInternals, "autogenInternals", "", toggle.DefaultAutogenInternals, "Use autogen internals")
 	cmd.Flags().BoolVarP(&registryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	return cmd
 }

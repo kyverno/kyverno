@@ -88,7 +88,7 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&outputType, "output", "o", "", "Prints the mutated policy in yaml or json format")
 	cmd.Flags().StringArrayVarP(&crdPaths, "crd", "c", []string{}, "Path to CRD files")
-	cmd.Flags().BoolVarP(&toggle.AutogenInternals, "autogenInternals", "", toggle.DefaultAutogenInternals, "Use autogen internals")
+	// cmd.Flags().BoolVarP(&toggle.AutogenInternals, "autogenInternals", "", toggle.DefaultAutogenInternals, "Use autogen internals")
 	return cmd
 }
 
@@ -180,7 +180,7 @@ func validatePolicies(policies []*v1.ClusterPolicy, v1crd apiextensions.CustomRe
 			fmt.Printf("Policy %s is valid.\n\n", policy.Name)
 			if outputType != "" {
 				logger := log.Log.WithName("validate")
-				p, err := common.MutatePolicy(policy, toggle.AutogenInternals, logger)
+				p, err := common.MutatePolicy(policy, toggle.AutogenInternals(), logger)
 				if err != nil {
 					if !sanitizederror.IsErrorSanitized(err) {
 						return sanitizederror.NewWithError("failed to mutate policy.", err)
