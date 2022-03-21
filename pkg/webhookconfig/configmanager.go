@@ -18,9 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
-	kyvernocommon "github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	admregapi "k8s.io/api/admissionregistration/v1"
@@ -581,6 +579,61 @@ func (m *webhookConfigManager) getWebhook(webhookKind, webhookName string) (reso
 	return resourceWebhook, nil
 }
 
+// webhookRulesEqual compares webhook rules between
+// the representation returned by the API server,
+// and the internal representation that is generated.
+//
+// The two representations are slightly different,
+// so this function handles those differences.
+func webhookRulesEqual(apiRules []interface{}, internalRules []interface{}) (bool, error) {
+	// Handle edge case when both are empty.
+	// API representation is a nil slice,
+	// internal representation is one rule
+	// but with no selectors.
+	if len(apiRules) == 0 && len(internalRules) == 1 {
+		if len(internalRules[0].(map[string]interface{})) == 0 {
+			return true, nil
+		}
+	}
+
+	// Both *should* be length 1, but as long
+	// as they are equal the next loop works.
+	if len(apiRules) != len(internalRules) {
+		return false, nil
+	}
+
+	for i := range internalRules {
+		internal, ok := internalRules[i].(map[string]interface{})
+		if !ok {
+			return false, errors.New("type conversion of internal rules failed")
+		}
+		api, ok := apiRules[i].(map[string]interface{})
+		if !ok {
+			return false, errors.New("type conversion of API rules failed")
+		}
+
+		// Range over the fields of internal, as the
+		// API rule has extra fields (operations, scope)
+		// that can't be checked on the internal rules.
+		for field := range internal {
+			// Convert the API rules values to []string.
+			apiValues, _, err := unstructured.NestedStringSlice(api, field)
+			if err != nil {
+				return false, errors.Wrapf(err, "error getting string slice for API rules field %s", field)
+			}
+
+			// Internal type is already []string.
+			internalValues := internal[field]
+
+			if !reflect.DeepEqual(internalValues, apiValues) {
+				return false, nil
+			}
+		}
+	}
+
+	return true, nil
+}
+
 func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName string, webhooksMap map[string]interface{}) error {
 	logger := m.log.WithName("compareAndUpdateWebhook").WithValues("kind", webhookKind, "name", webhookName)
 	resourceWebhook, err := m.getWebhook(webhookKind, webhookName)
@@ -623,7 +676,13 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 			continue
 		}
 
-		if !reflect.DeepEqual(rules, []interface{}{w.rule}) {
+		rulesEqual, err := webhookRulesEqual(rules, []interface{}{w.rule})
+		if err != nil {
+			logger.Error(err, "failed to compare webhook rules")
+			continue
+		}
+
+		if !rulesEqual {
 			changed = true
 
 			tmpRules, ok := newWebooks[i].(map[string]interface{})["rules"].([]interface{})
@@ -687,15 +746,7 @@ func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy, statu
 	policyCopy.Status.Autogen.Requested = requested
 	policyCopy.Status.Autogen.Supported = supported
 	policyCopy.Status.Autogen.Activated = activated
-	if toggle.AutogenInternals {
-		mutated, err := kyvernocommon.MutatePolicy(policy, false, m.log)
-		if err != nil {
-			return err
-		}
-		policyCopy.Status.Rules = mutated.Spec.Rules
-	} else {
-		policyCopy.Status.Rules = policy.Spec.Rules
-	}
+	policyCopy.Status.Rules = autogen.ComputeRules(policy)
 	if reflect.DeepEqual(policyCopy.Status, policy.Status) {
 		return nil
 	}

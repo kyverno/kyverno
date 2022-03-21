@@ -71,8 +71,8 @@ func (pc PromConfig) AddPolicy(policy interface{}) error {
 		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy.Spec.Background)
 		policyType := metrics.Cluster
 		policyNamespace := "" // doesn't matter for cluster policy
-		policyName := inputPolicy.ObjectMeta.Name
-		ready := inputPolicy.Status.Ready
+		policyName := inputPolicy.GetName()
+		ready := inputPolicy.IsReady()
 		// registering the metrics on a per-rule basis
 		for _, rule := range autogen.ComputeRules(inputPolicy) {
 			ruleName := rule.Name
@@ -90,9 +90,9 @@ func (pc PromConfig) AddPolicy(policy interface{}) error {
 		}
 		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy.Spec.Background)
 		policyType := metrics.Namespaced
-		policyNamespace := inputPolicy.ObjectMeta.Namespace
-		policyName := inputPolicy.ObjectMeta.Name
-		ready := inputPolicy.Status.Ready
+		policyNamespace := inputPolicy.GetNamespace()
+		policyName := inputPolicy.GetName()
+		ready := inputPolicy.IsReady()
 		// registering the metrics on a per-rule basis
 		for _, rule := range autogen.ComputeRules(inputPolicy) {
 			ruleName := rule.Name
@@ -119,10 +119,10 @@ func (pc PromConfig) RemovePolicy(policy interface{}) error {
 			policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy.Spec.Background)
 			policyType := metrics.Cluster
 			policyNamespace := "" // doesn't matter for cluster policy
-			policyName := inputPolicy.ObjectMeta.Name
+			policyName := inputPolicy.GetName()
 			ruleName := rule.Name
 			ruleType := metrics.ParseRuleType(rule)
-			ready := inputPolicy.Status.Ready
+			ready := inputPolicy.IsReady()
 
 			if err = pc.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleDeleted, ready); err != nil {
 				return err
@@ -137,11 +137,11 @@ func (pc PromConfig) RemovePolicy(policy interface{}) error {
 			}
 			policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy.Spec.Background)
 			policyType := metrics.Namespaced
-			policyNamespace := inputPolicy.ObjectMeta.Namespace
-			policyName := inputPolicy.ObjectMeta.Name
+			policyNamespace := inputPolicy.GetNamespace()
+			policyName := inputPolicy.GetName()
 			ruleName := rule.Name
 			ruleType := metrics.ParseRuleType(rule)
-			ready := inputPolicy.Status.Ready
+			ready := inputPolicy.IsReady()
 
 			if err = pc.registerPolicyRuleInfoMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, PolicyRuleDeleted, ready); err != nil {
 				return err

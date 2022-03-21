@@ -48,11 +48,6 @@ type Spec struct {
 	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
 }
 
-// // GetRules returns the spec rules
-// func (s *Spec) GetRules() []Rule {
-// 	return s.Rules
-// }
-
 func (s *Spec) SetRules(rules []Rule) {
 	s.Rules = rules
 }
@@ -135,18 +130,21 @@ func (s *Spec) ValidateRuleNames(path *field.Path) field.ErrorList {
 }
 
 // ValidateRules implements programmatic validation of Rules
-func (s *Spec) ValidateRules(path *field.Path) field.ErrorList {
+func (s *Spec) ValidateRules(path *field.Path, namespaced bool, clusterResources sets.String) field.ErrorList {
 	var errs field.ErrorList
 	errs = append(errs, s.ValidateRuleNames(path)...)
 	for i, rule := range s.Rules {
-		errs = append(errs, rule.Validate(path.Index(i))...)
+		errs = append(errs, rule.Validate(path.Index(i), namespaced, clusterResources)...)
 	}
 	return errs
 }
 
 // Validate implements programmatic validation
-func (s *Spec) Validate(path *field.Path) field.ErrorList {
+func (s *Spec) Validate(path *field.Path, namespaced bool, clusterResources sets.String) field.ErrorList {
 	var errs field.ErrorList
-	errs = append(errs, s.ValidateRules(path.Child("rules"))...)
+	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, clusterResources)...)
+	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {
+		errs = append(errs, field.Forbidden(path.Child("validationFailureActionOverrides"), "Use of validationFailureActionOverrides is supported only with ClusterPolicy"))
+	}
 	return errs
 }

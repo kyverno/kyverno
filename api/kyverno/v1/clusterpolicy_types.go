@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -75,14 +76,6 @@ func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
 }
 
-// GetRules returns the policy rules
-func (p *ClusterPolicy) GetRulesXXX() []Rule {
-	// if toggle.AutogenInternals && p.Status.Rules != nil && len(p.Status.Rules) != 0 {
-	// 	return p.Status.Rules
-	// }
-	return p.Spec.Rules
-}
-
 // GetSpec returns the policy spec
 func (p *ClusterPolicy) GetSpec() Spec {
 	return p.Spec
@@ -94,10 +87,12 @@ func (p *ClusterPolicy) IsReady() bool {
 }
 
 // Validate implements programmatic validation
-func (p *ClusterPolicy) Validate() field.ErrorList {
+// namespaced means that the policy is bound to a namespace and therefore
+// should not filter/generate cluster wide resources.
+func (p *ClusterPolicy) Validate(namespaced bool, clusterResources sets.String) field.ErrorList {
 	var errs field.ErrorList
 	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
-	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), namespaced, clusterResources)...)
 	return errs
 }
 

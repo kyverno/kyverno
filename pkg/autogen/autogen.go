@@ -9,6 +9,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
@@ -244,7 +245,6 @@ func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger
 
 type Policy interface {
 	GetAnnotations() map[string]string
-	GetRulesXXX() []kyverno.Rule
 	GetSpec() kyverno.Spec
 }
 
@@ -303,6 +303,9 @@ func convertRule(rule kyvernoRule, kind string) kyverno.Rule {
 
 func ComputeRules(p Policy) []kyverno.Rule {
 	spec := p.GetSpec()
+	if !toggle.AutogenInternals {
+		return spec.Rules
+	}
 	applyAutoGen, desiredControllers := CanAutoGen(&spec, log.Log)
 
 	if !applyAutoGen {
@@ -321,11 +324,11 @@ func ComputeRules(p Policy) []kyverno.Rule {
 	}
 
 	if actualControllers == "none" {
-		return p.GetRulesXXX()
+		return spec.Rules
 	}
 	genRules := GenerateRules(&spec, actualControllers, log.Log)
 	if len(genRules) == 0 {
-		return p.GetRulesXXX()
+		return spec.Rules
 	}
 	var out []kyverno.Rule
 	out = append(out, spec.Rules...)

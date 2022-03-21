@@ -3,8 +3,3 @@ kind: Kustomization
 
 resources:
 - ./release
-images:
-- name: ghcr.io/kyverno/kyverno
-  newTag: 1.7-dev-90-ge7ed4345a
-- name: ghcr.io/kyverno/kyvernopre
-  newTag: 1.7-dev-90-ge7ed4345a

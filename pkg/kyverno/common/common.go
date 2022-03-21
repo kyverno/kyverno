@@ -214,14 +214,6 @@ func MutatePolicy(policy *v1.ClusterPolicy, autogenInternals bool, logger logr.L
 		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.Name), err)
 	}
 
-	if autogenInternals {
-		mutated, err := MutatePolicy(policy, false, logger)
-		if err != nil {
-			return nil, err
-		}
-		p.Status.Rules = mutated.Spec.Rules
-	}
-
 	return &p, nil
 }
 
