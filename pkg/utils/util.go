@@ -46,6 +46,12 @@ func ContainsPod(list []string, element string) bool {
 	return false
 }
 
+// SkipSubResources check to skip list of resources which don't have group.
+func SkipSubResources(kind string) bool {
+	s := []string{"PodExecOptions", "PodAttachOptions", "PodProxyOptions", "ServiceProxyOptions", "NodeProxyOptions"}
+	return ContainsPod(s, kind)
+}
+
 // ContainsNamepace check if namespace satisfies any list of pattern(regex)
 func ContainsNamepace(patterns []string, ns string) bool {
 	return contains(patterns, ns, compareNamespaces)
