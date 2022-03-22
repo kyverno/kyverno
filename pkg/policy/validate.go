@@ -1380,7 +1380,7 @@ func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.
 			return fmt.Errorf("kind and match resource kind should not be the same")
 		}
 
-		if !mock && !utils.SkipSubResources(k) {
+		if !mock && !utils.SkipSubResources(k) && !strings.Contains(kind, "*") {
 			_, _, err := client.DiscoveryClient.FindResource(gv, k)
 			if err != nil {
 				return fmt.Errorf("unable to convert GVK to GVR, %s, err: %s", kinds, err)

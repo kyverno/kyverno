@@ -2,6 +2,7 @@ package policy
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -206,12 +207,14 @@ func (pc *PolicyController) processExistingKinds(kind []string, policy *kyverno.
 		_, err := pc.rm.GetScope(k)
 		if err != nil {
 			gv, k := common.GetKindFromGVK(k)
-			resourceSchema, _, err := pc.client.DiscoveryClient.FindResource(gv, k)
-			if err != nil {
-				logger.Error(err, "failed to find resource", "kind", k)
-				continue
+			if !strings.Contains(k, "*") {
+				resourceSchema, _, err := pc.client.DiscoveryClient.FindResource(gv, k)
+				if err != nil {
+					logger.Error(err, "failed to find resource", "kind", k)
+					continue
+				}
+				pc.rm.RegisterScope(k, resourceSchema.Namespaced)
 			}
-			pc.rm.RegisterScope(k, resourceSchema.Namespaced)
 		}
 
 		// this tracker would help to ensure that even for multiple namespaces, duplicate metric are not generated
