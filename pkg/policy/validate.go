@@ -1201,39 +1201,7 @@ func validateMatchedResourceDescription(rd kyverno.ResourceDescription) (string,
 // checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in
 // Match and Exclude block
 func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources sets.String, mock bool, res []*metav1.APIResourceList) error {
-	// Contains Namespaces in Exclude->ResourceDescription
-	if len(rule.ExcludeResources.ResourceDescription.Namespaces) > 0 {
-		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in exclude.resources")
-	}
-
 	if !mock {
-		// Contains "Cluster Wide Resources" in Exclude->ResourceDescription->Kinds
-		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-			if clusterResources.Has(kind) {
-				return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in exclude.resources.kinds", kind)
-			}
-		}
-
-		// Contains "Cluster Wide Resources" in Exclude->All->ResourceFilter->ResourceDescription->Kinds
-		for _, allResourceFilter := range rule.ExcludeResources.All {
-			fmt.Println(allResourceFilter.ResourceDescription)
-			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
-				if clusterResources.Has(kind) {
-					return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
-				}
-			}
-		}
-
-		// Contains "Cluster Wide Resources" in Exclude->Any->ResourceFilter->ResourceDescription->Kinds
-		for _, allResourceFilter := range rule.ExcludeResources.Any {
-			fmt.Println(allResourceFilter.ResourceDescription)
-			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
-				if clusterResources.Has(kind) {
-					return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
-				}
-			}
-		}
-
 		// Check for generate policy
 		// - if resource to be generated is namespaced resource then the namespace field
 		// should be mentioned
