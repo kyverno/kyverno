@@ -23,15 +23,13 @@ import (
 	"github.com/pkg/errors"
 	admregapi "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	adminformers "k8s.io/client-go/informers/admissionregistration/v1"
-	informers "k8s.io/client-go/informers/core/v1"
 	admlisters "k8s.io/client-go/listers/admissionregistration/v1"
-	listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -83,9 +81,6 @@ type webhookConfigManager struct {
 	stopCh <-chan struct{}
 
 	log logr.Logger
-
-	nsLister       listers.NamespaceLister
-	nsListerSynced func() bool
 }
 
 type manage interface {
@@ -100,7 +95,6 @@ func newWebhookConfigManager(
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
 	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
 	resCache resourcecache.ResourceCache,
-	nsInformer informers.NamespaceInformer,
 	serverIP string,
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
@@ -124,9 +118,6 @@ func newWebhookConfigManager(
 
 	m.pLister = pInformer.Lister()
 	m.npLister = npInformer.Lister()
-
-	m.nsLister = nsInformer.Lister()
-	m.nsListerSynced = nsInformer.Informer().HasSynced
 
 	m.pListerSynced = pInformer.Informer().HasSynced
 	m.npListerSynced = npInformer.Informer().HasSynced
@@ -302,7 +293,7 @@ func (m *webhookConfigManager) start() {
 	m.log.Info("starting")
 	defer m.log.Info("shutting down")
 
-	if !cache.WaitForCacheSync(m.stopCh, m.pListerSynced, m.npListerSynced, m.mutateInformerSynced, m.validateInformerSynced, m.nsListerSynced) {
+	if !cache.WaitForCacheSync(m.stopCh, m.pListerSynced, m.npListerSynced, m.mutateInformerSynced, m.validateInformerSynced) {
 		m.log.Info("failed to sync informer cache")
 		return
 	}
@@ -414,22 +405,14 @@ func (m *webhookConfigManager) getPolicy(namespace, name string) (*kyverno.Clust
 func (m *webhookConfigManager) listAllPolicies() ([]*kyverno.ClusterPolicy, error) {
 	policies := []*kyverno.ClusterPolicy{}
 
-	namespaces, err := m.nsLister.List(labels.Everything())
+	polList, err := m.npLister.Policies(metav1.NamespaceAll).List(labels.Everything())
 	if err != nil {
-		m.log.Error(err, "unabled to list namespaces")
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to list Policy")
 	}
 
-	for _, ns := range namespaces {
-		polList, err := m.npLister.Policies(ns.GetName()).List(labels.Everything())
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to list Policy")
-		}
-
-		for _, pol := range polList {
-			p := kyverno.ClusterPolicy(*pol)
-			policies = append(policies, &p)
-		}
+	for _, pol := range polList {
+		p := kyverno.ClusterPolicy(*pol)
+		policies = append(policies, &p)
 	}
 
 	cpolList, err := m.pLister.List(labels.Everything())
@@ -751,10 +734,10 @@ func (m *webhookConfigManager) updateStatus(policy *kyverno.ClusterPolicy, statu
 		return nil
 	}
 	if policy.GetNamespace() == "" {
-		_, err := m.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), policyCopy, v1.UpdateOptions{})
+		_, err := m.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), policyCopy, metav1.UpdateOptions{})
 		return err
 	}
-	_, err := m.kyvernoClient.KyvernoV1().Policies(policyCopy.GetNamespace()).UpdateStatus(context.TODO(), (*kyverno.Policy)(policyCopy), v1.UpdateOptions{})
+	_, err := m.kyvernoClient.KyvernoV1().Policies(policyCopy.GetNamespace()).UpdateStatus(context.TODO(), (*kyverno.Policy)(policyCopy), metav1.UpdateOptions{})
 	return err
 }
 
