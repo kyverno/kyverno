@@ -182,7 +182,7 @@ func defaultBackgroundFlag(spec *kyverno.Spec, log logr.Logger) ([]byte, string)
 
 func defaultvalidationFailureAction(spec *kyverno.Spec, log logr.Logger) ([]byte, string) {
 	// set ValidationFailureAction to "audit" if not specified
-	Audit := common.Audit
+	Audit := kyverno.Audit
 	if spec.ValidationFailureAction == "" {
 		log.V(4).Info("setting default value", "spec.validationFailureAction", Audit)
 
@@ -193,7 +193,7 @@ func defaultvalidationFailureAction(spec *kyverno.Spec, log logr.Logger) ([]byte
 		}{
 			"/spec/validationFailureAction",
 			"add",
-			Audit,
+			string(Audit),
 		}
 
 		patchByte, err := json.Marshal(jsonPatch)

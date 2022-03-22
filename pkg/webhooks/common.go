@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/minio/pkg/wildcard"
@@ -27,12 +26,12 @@ func isResponseSuccessful(engineReponses []*response.EngineResponse) bool {
 }
 
 func checkEngineResponse(er *response.EngineResponse) bool {
-	nsAction := ""
+	var nsAction kyverno.ValidationFailureAction
 	actionOverride := false
 
 	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
 		action := v.Action
-		if action != common.Enforce && action != common.Audit {
+		if action != kyverno.Enforce && action != kyverno.Audit {
 			continue
 		}
 
@@ -49,7 +48,7 @@ func checkEngineResponse(er *response.EngineResponse) bool {
 		}
 	}
 
-	return !er.IsSuccessful() && ((actionOverride && nsAction == common.Enforce) || (!actionOverride && er.PolicyResponse.ValidationFailureAction == common.Enforce))
+	return !er.IsSuccessful() && ((actionOverride && nsAction == kyverno.Enforce) || (!actionOverride && er.PolicyResponse.ValidationFailureAction == kyverno.Enforce))
 }
 
 // returns true -> if there is even one policy that blocks resource request

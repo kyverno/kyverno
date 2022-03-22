@@ -7,11 +7,11 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
-func ParsePolicyValidationMode(validationFailureAction string) (PolicyValidationMode, error) {
+func ParsePolicyValidationMode(validationFailureAction kyverno.ValidationFailureAction) (PolicyValidationMode, error) {
 	switch validationFailureAction {
-	case "enforce":
+	case kyverno.Enforce:
 		return Enforce, nil
-	case "audit":
+	case kyverno.Audit:
 		return Audit, nil
 	default:
 		return "", fmt.Errorf("wrong validation failure action found %s. Allowed: '%s', '%s'", validationFailureAction, "enforce", "audit")
