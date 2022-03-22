@@ -200,13 +200,13 @@ func buildKey(policy, pv, kind, ns, name, rv string) string {
 	return policy + "/" + pv + "/" + kind + "/" + ns + "/" + name + "/" + rv
 }
 
-func (pc *PolicyController) processExistingKinds(kind []string, policy *kyverno.ClusterPolicy, rule kyverno.Rule, logger logr.Logger) {
+func (pc *PolicyController) processExistingKinds(kinds []string, policy *kyverno.ClusterPolicy, rule kyverno.Rule, logger logr.Logger) {
 
-	for _, k := range kind {
-		logger = logger.WithValues("rule", rule.Name, "kind", k)
-		_, err := pc.rm.GetScope(k)
+	for _, kind := range kinds {
+		logger = logger.WithValues("rule", rule.Name, "kind", kind)
+		_, err := pc.rm.GetScope(kind)
 		if err != nil {
-			gv, k := common.GetKindFromGVK(k)
+			gv, k := common.GetKindFromGVK(kind)
 			if !strings.Contains(k, "*") {
 				resourceSchema, _, err := pc.client.DiscoveryClient.FindResource(gv, k)
 				if err != nil {
@@ -222,10 +222,10 @@ func (pc *PolicyController) processExistingKinds(kind []string, policy *kyverno.
 
 		if policy.Namespace != "" {
 			ns := policy.Namespace
-			pc.applyAndReportPerNamespace(policy, k, ns, rule, logger.WithValues("kind", k).WithValues("ns", ns), &metricRegisteredTracker)
+			pc.applyAndReportPerNamespace(policy, kind, ns, rule, logger.WithValues("kind", kind).WithValues("ns", ns), &metricRegisteredTracker)
 			continue
 		}
 
-		pc.applyAndReportPerNamespace(policy, k, "", rule, logger.WithValues("kind", k), &metricRegisteredTracker)
+		pc.applyAndReportPerNamespace(policy, kind, "", rule, logger.WithValues("kind", kind), &metricRegisteredTracker)
 	}
 }
