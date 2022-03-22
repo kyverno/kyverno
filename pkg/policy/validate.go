@@ -559,7 +559,7 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		return false
 	}
 
-	if reflect.DeepEqual(rule.ExcludeResources, kyverno.ExcludeResources{}) {
+	if reflect.DeepEqual(rule.ExcludeResources, kyverno.MatchResources{}) {
 		return false
 	}
 
