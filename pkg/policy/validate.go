@@ -916,27 +916,6 @@ func validateResources(path *field.Path, rule kyverno.Rule) (string, error) {
 		}
 	}
 
-	if len(rule.ExcludeResources.Any) > 0 {
-		for _, rmr := range rule.ExcludeResources.Any {
-			// exclude resources
-			if path, err := validateExcludeResourceDescription(rmr.ResourceDescription); err != nil {
-				return fmt.Sprintf("exclude.resources.%s", path), err
-			}
-		}
-	} else if len(rule.ExcludeResources.All) > 0 {
-		for _, rmr := range rule.ExcludeResources.All {
-			// exclude resources
-			if path, err := validateExcludeResourceDescription(rmr.ResourceDescription); err != nil {
-				return fmt.Sprintf("exclude.resources.%s", path), err
-			}
-		}
-	} else {
-		// exclude resources
-		if path, err := validateExcludeResourceDescription(rule.ExcludeResources.ResourceDescription); err != nil {
-			return fmt.Sprintf("exclude.resources.%s", path), err
-		}
-	}
-
 	//validating the values present under validate.preconditions, if they exist
 	if target := rule.GetAnyAllConditions(); target != nil {
 		if path, err := validateConditions(target, "preconditions"); err != nil {
@@ -1216,70 +1195,7 @@ func validateMatchedResourceDescription(rd kyverno.ResourceDescription) (string,
 		return "", fmt.Errorf("match resources not specified")
 	}
 
-	if rd.Name != "" && len(rd.Names) > 0 {
-		return "", fmt.Errorf("both name and names can not be specified together")
-	}
-
-	if err := validateResourceDescription(rd); err != nil {
-		return "match", err
-	}
-
 	return "", nil
-}
-
-func validateExcludeResourceDescription(rd kyverno.ResourceDescription) (string, error) {
-	if reflect.DeepEqual(rd, kyverno.ResourceDescription{}) {
-		// exclude is not mandatory
-		return "", nil
-	}
-
-	if rd.Name != "" && len(rd.Names) > 0 {
-		return "", fmt.Errorf("both name and names can not be specified together")
-	}
-
-	if err := validateResourceDescription(rd); err != nil {
-		return "exclude", err
-	}
-	return "", nil
-}
-
-// validateResourceDescription returns error if selector is invalid
-// field type is checked through openapi
-func validateResourceDescription(rd kyverno.ResourceDescription) error {
-	if rd.Selector != nil {
-		if labelSelectorContainsWildcard(rd.Selector) {
-			return nil
-		}
-
-		selector, err := metav1.LabelSelectorAsSelector(rd.Selector)
-		if err != nil {
-			return err
-		}
-		requirements, _ := selector.Requirements()
-		if len(requirements) == 0 {
-			return errors.New("the requirements are not specified in selector")
-		}
-	}
-	return nil
-}
-
-func labelSelectorContainsWildcard(v *metav1.LabelSelector) bool {
-	for k, v := range v.MatchLabels {
-		if isWildcardPresent(k) {
-			return true
-		}
-		if isWildcardPresent(v) {
-			return true
-		}
-	}
-	return false
-}
-
-func isWildcardPresent(v string) bool {
-	if strings.Contains(v, "*") || strings.Contains(v, "?") {
-		return true
-	}
-	return false
 }
 
 // checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in
