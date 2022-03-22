@@ -1,0 +1,16 @@
+name: test-simple
+policies:
+  - policy.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: check-deprecated-api
+    rule: validate-v1-25-removal
+    resource: hello
+    kind: CronJob
+    status: skip
+  - policy: check-deprecated-api
+    rule: validate-v1-25-removal
+    resource: hello-fail
+    kind: CronJob
+    status: fail
