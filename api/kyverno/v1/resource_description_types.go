@@ -55,6 +55,19 @@ type ResourceDescription struct {
 // Validate implements programmatic validation
 func (r *ResourceDescription) Validate(path *field.Path, namespaced bool, clusterResources sets.String) field.ErrorList {
 	var errs field.ErrorList
+	if r.Name != "" && len(r.Names) > 0 {
+		errs = append(errs, field.Invalid(path, r, "Both name and names can not be specified together"))
+	}
+	if r.Selector != nil && !labelSelectorContainsWildcard(r.Selector) {
+		if selector, err := metav1.LabelSelectorAsSelector(r.Selector); err != nil {
+			errs = append(errs, field.Invalid(path.Child("selector"), r.Selector, err.Error()))
+		} else {
+			requirements, _ := selector.Requirements()
+			if len(requirements) == 0 {
+				errs = append(errs, field.Invalid(path.Child("selector"), r.Selector, "The requirements are not specified in selector"))
+			}
+		}
+	}
 	if namespaced {
 		if len(r.Namespaces) > 0 {
 			errs = append(errs, field.Forbidden(path.Child("namespaces"), "Filtering namespaces not allowed in namespaced policies"))
