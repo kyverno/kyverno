@@ -1246,7 +1246,7 @@ func jsonPatchOnPod(rule kyverno.Rule) bool {
 
 func podControllerAutoGenExclusion(policy *kyverno.ClusterPolicy) bool {
 	annotations := policy.GetAnnotations()
-	val, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
+	val, ok := annotations[kyverno.PodControllersAnnotation]
 	reorderVal := strings.Split(strings.ToLower(val), ",")
 	sort.Slice(reorderVal, func(i, j int) bool { return reorderVal[i] < reorderVal[j] })
 	if ok && strings.ToLower(val) == "none" || reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) == false {
