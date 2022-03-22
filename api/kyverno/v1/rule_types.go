@@ -32,7 +32,7 @@ type Rule struct {
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the name or role.
 	// +optional
-	ExcludeResources ExcludeResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
+	ExcludeResources MatchResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 
 	// Preconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
