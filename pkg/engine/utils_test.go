@@ -1302,7 +1302,7 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 	}
 
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription},
-		ExcludeResources: v1.ExcludeResources{ResourceDescription: resourceDescriptionExclude}}
+		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude}}
 
 	if err := MatchesResourceDescription(*resource, rule, v1.RequestInfo{}, []string{}, nil, ""); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")

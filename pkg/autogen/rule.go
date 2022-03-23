@@ -25,7 +25,7 @@ import (
 type kyvernoRule struct {
 	Name             string                       `json:"name"`
 	MatchResources   *kyverno.MatchResources      `json:"match"`
-	ExcludeResources *kyverno.ExcludeResources    `json:"exclude,omitempty"`
+	ExcludeResources *kyverno.MatchResources      `json:"exclude,omitempty"`
 	Context          *[]kyverno.ContextEntry      `json:"context,omitempty"`
 	AnyAllConditions *apiextensions.JSON          `json:"preconditions,omitempty"`
 	Mutation         *kyverno.Mutation            `json:"mutate,omitempty"`
@@ -44,7 +44,7 @@ func createRuleMap(rules []kyverno.Rule) map[string]kyvernoRule {
 			jsonFriendlyStruct.MatchResources = rule.MatchResources.DeepCopy()
 		}
 
-		if !reflect.DeepEqual(rule.ExcludeResources, kyverno.ExcludeResources{}) {
+		if !reflect.DeepEqual(rule.ExcludeResources, kyverno.MatchResources{}) {
 			jsonFriendlyStruct.ExcludeResources = rule.ExcludeResources.DeepCopy()
 		}
 
@@ -133,7 +133,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		}
 	}
 
-	if !reflect.DeepEqual(exclude, kyverno.ExcludeResources{}) {
+	if !reflect.DeepEqual(exclude, kyverno.MatchResources{}) {
 		controllerRule.ExcludeResources = exclude.DeepCopy()
 	}
 

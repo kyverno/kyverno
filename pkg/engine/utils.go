@@ -48,7 +48,7 @@ func checkKind(kinds []string, resource unstructured.Unstructured) bool {
 				return true
 			}
 		} else {
-			if resource.GroupVersionKind().Group == SplitGVK[0] && resource.GroupVersionKind().Kind == strings.Title(SplitGVK[2]) && (resource.GroupVersionKind().Version == SplitGVK[1] || resource.GroupVersionKind().Version == "*") {
+			if resource.GroupVersionKind().Group == SplitGVK[0] && resource.GroupVersionKind().Kind == strings.Title(SplitGVK[2]) && (resource.GroupVersionKind().Version == SplitGVK[1] || SplitGVK[1] == "*") {
 				return true
 			}
 		}

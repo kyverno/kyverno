@@ -261,44 +261,6 @@ func Test_Validate_PreconditionsValuesList_KeyRequestOperation_UnknownItem(t *te
 	assert.Assert(t, err != nil)
 }
 
-func Test_Validate_ResourceDescription_MissingKindsOnExclude(t *testing.T) {
-	var err error
-	excludeResourcedescirption := []byte(`
-	{
-		"selector": {
-		   "matchLabels": {
-			  "app.type": "prod"
-		   }
-		}
-	 }`)
-
-	var rd kyverno.ResourceDescription
-	err = json.Unmarshal(excludeResourcedescirption, &rd)
-	assert.NilError(t, err)
-
-	_, err = validateExcludeResourceDescription(rd)
-	assert.NilError(t, err)
-}
-
-func Test_Validate_ResourceDescription_InvalidSelector(t *testing.T) {
-	rawResourcedescirption := []byte(`
-	{
-		"kinds": [
-		   "Deployment"
-		],
-		"selector": {
-		   "app.type": "prod"
-		}
-	 }`)
-
-	var rd kyverno.ResourceDescription
-	err := json.Unmarshal(rawResourcedescirption, &rd)
-	assert.NilError(t, err)
-
-	err = validateResourceDescription(rd)
-	assert.Assert(t, err != nil)
-}
-
 func Test_Validate_Policy(t *testing.T) {
 	rawPolicy := []byte(`
 	{

@@ -559,7 +559,7 @@ func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
 		return false
 	}
 
-	if reflect.DeepEqual(rule.ExcludeResources, kyverno.ExcludeResources{}) {
+	if reflect.DeepEqual(rule.ExcludeResources, kyverno.MatchResources{}) {
 		return false
 	}
 
@@ -916,27 +916,6 @@ func validateResources(path *field.Path, rule kyverno.Rule) (string, error) {
 		}
 	}
 
-	if len(rule.ExcludeResources.Any) > 0 {
-		for _, rmr := range rule.ExcludeResources.Any {
-			// exclude resources
-			if path, err := validateExcludeResourceDescription(rmr.ResourceDescription); err != nil {
-				return fmt.Sprintf("exclude.resources.%s", path), err
-			}
-		}
-	} else if len(rule.ExcludeResources.All) > 0 {
-		for _, rmr := range rule.ExcludeResources.All {
-			// exclude resources
-			if path, err := validateExcludeResourceDescription(rmr.ResourceDescription); err != nil {
-				return fmt.Sprintf("exclude.resources.%s", path), err
-			}
-		}
-	} else {
-		// exclude resources
-		if path, err := validateExcludeResourceDescription(rule.ExcludeResources.ResourceDescription); err != nil {
-			return fmt.Sprintf("exclude.resources.%s", path), err
-		}
-	}
-
 	//validating the values present under validate.preconditions, if they exist
 	if target := rule.GetAnyAllConditions(); target != nil {
 		if path, err := validateConditions(target, "preconditions"); err != nil {
@@ -1216,108 +1195,13 @@ func validateMatchedResourceDescription(rd kyverno.ResourceDescription) (string,
 		return "", fmt.Errorf("match resources not specified")
 	}
 
-	if rd.Name != "" && len(rd.Names) > 0 {
-		return "", fmt.Errorf("both name and names can not be specified together")
-	}
-
-	if err := validateResourceDescription(rd); err != nil {
-		return "match", err
-	}
-
 	return "", nil
-}
-
-func validateExcludeResourceDescription(rd kyverno.ResourceDescription) (string, error) {
-	if reflect.DeepEqual(rd, kyverno.ResourceDescription{}) {
-		// exclude is not mandatory
-		return "", nil
-	}
-
-	if rd.Name != "" && len(rd.Names) > 0 {
-		return "", fmt.Errorf("both name and names can not be specified together")
-	}
-
-	if err := validateResourceDescription(rd); err != nil {
-		return "exclude", err
-	}
-	return "", nil
-}
-
-// validateResourceDescription returns error if selector is invalid
-// field type is checked through openapi
-func validateResourceDescription(rd kyverno.ResourceDescription) error {
-	if rd.Selector != nil {
-		if labelSelectorContainsWildcard(rd.Selector) {
-			return nil
-		}
-
-		selector, err := metav1.LabelSelectorAsSelector(rd.Selector)
-		if err != nil {
-			return err
-		}
-		requirements, _ := selector.Requirements()
-		if len(requirements) == 0 {
-			return errors.New("the requirements are not specified in selector")
-		}
-	}
-	return nil
-}
-
-func labelSelectorContainsWildcard(v *metav1.LabelSelector) bool {
-	for k, v := range v.MatchLabels {
-		if isWildcardPresent(k) {
-			return true
-		}
-		if isWildcardPresent(v) {
-			return true
-		}
-	}
-	return false
-}
-
-func isWildcardPresent(v string) bool {
-	if strings.Contains(v, "*") || strings.Contains(v, "?") {
-		return true
-	}
-	return false
 }
 
 // checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in
 // Match and Exclude block
 func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources sets.String, mock bool, res []*metav1.APIResourceList) error {
-	// Contains Namespaces in Exclude->ResourceDescription
-	if len(rule.ExcludeResources.ResourceDescription.Namespaces) > 0 {
-		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in exclude.resources")
-	}
-
 	if !mock {
-		// Contains "Cluster Wide Resources" in Exclude->ResourceDescription->Kinds
-		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-			if clusterResources.Has(kind) {
-				return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in exclude.resources.kinds", kind)
-			}
-		}
-
-		// Contains "Cluster Wide Resources" in Exclude->All->ResourceFilter->ResourceDescription->Kinds
-		for _, allResourceFilter := range rule.ExcludeResources.All {
-			fmt.Println(allResourceFilter.ResourceDescription)
-			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
-				if clusterResources.Has(kind) {
-					return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
-				}
-			}
-		}
-
-		// Contains "Cluster Wide Resources" in Exclude->Any->ResourceFilter->ResourceDescription->Kinds
-		for _, allResourceFilter := range rule.ExcludeResources.Any {
-			fmt.Println(allResourceFilter.ResourceDescription)
-			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
-				if clusterResources.Has(kind) {
-					return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
-				}
-			}
-		}
-
 		// Check for generate policy
 		// - if resource to be generated is namespaced resource then the namespace field
 		// should be mentioned
@@ -1362,7 +1246,7 @@ func jsonPatchOnPod(rule kyverno.Rule) bool {
 
 func podControllerAutoGenExclusion(policy *kyverno.ClusterPolicy) bool {
 	annotations := policy.GetAnnotations()
-	val, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
+	val, ok := annotations[kyverno.PodControllersAnnotation]
 	reorderVal := strings.Split(strings.ToLower(val), ",")
 	sort.Slice(reorderVal, func(i, j int) bool { return reorderVal[i] < reorderVal[j] })
 	if ok && strings.ToLower(val) == "none" || reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) == false {
@@ -1380,7 +1264,7 @@ func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.
 			return fmt.Errorf("kind and match resource kind should not be the same")
 		}
 
-		if !mock && !utils.SkipSubResources(k) {
+		if !mock && !utils.SkipSubResources(k) && !strings.Contains(kind, "*") {
 			_, _, err := client.DiscoveryClient.FindResource(gv, k)
 			if err != nil {
 				return fmt.Errorf("unable to convert GVK to GVR, %s, err: %s", kinds, err)
