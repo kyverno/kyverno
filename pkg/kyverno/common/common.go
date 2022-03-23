@@ -26,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	ut "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/generate"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/policymutation"
@@ -33,6 +34,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	k8syaml "sigs.k8s.io/yaml"
@@ -459,7 +461,7 @@ func MutatePolicies(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
 	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool,
 	namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts,
-	printPatchResource bool) ([]*response.EngineResponse, policyreport.Info, error) {
+	printPatchResource bool, ruleToCloneResource map[string]string) ([]*response.EngineResponse, policyreport.Info, error) {
 
 	var engineResponses []*response.EngineResponse
 	namespaceLabels := make(map[string]string)
@@ -605,11 +607,17 @@ OuterLoop:
 			ExcludeResourceFunc: func(s1, s2, s3 string) bool {
 				return false
 			},
-			JSONContext:     context.NewContext(),
+			JSONContext:     ctx,
 			NamespaceLabels: namespaceLabels,
 		}
 		generateResponse := engine.Generate(policyContext)
 		if generateResponse != nil {
+			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, ruleToCloneResource)
+			if err != nil {
+				log.Log.Error(err, "failed to apply generate policy")
+			} else {
+				generateResponse.PolicyResponse.Rules = newRuleResponse
+			}
 			engineResponses = append(engineResponses, generateResponse)
 		}
 		processGenerateEngineResponse(policy, generateResponse, resPath, rc)
@@ -1039,4 +1047,81 @@ func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, po
 	}
 
 	return patchedResource, nil
+}
+
+func initializeMockController(objects []runtime.Object) (*generate.Controller, error) {
+
+	dclient, err := client.NewMockClient(runtime.NewScheme(), nil, objects...)
+	if err != nil {
+		fmt.Printf("Failed to mock dynamic client")
+		return nil, err
+	}
+
+	dclient.DiscoveryClient = client.NewFakeDiscoveryClient(nil)
+	c := generate.NewControllerWithOnlyClient(dclient)
+	return c, nil
+}
+
+func handleGeneratePolicy(generateResponse *response.EngineResponse, policyContext engine.PolicyContext, ruleToCloneResource map[string]string) ([]response.RuleResponse, error) {
+
+	objects := []runtime.Object{&policyContext.NewResource}
+	var resources = []*unstructured.Unstructured{}
+
+	for _, rule := range generateResponse.PolicyResponse.Rules {
+		if path, ok := ruleToCloneResource[rule.Name]; ok {
+			resourceBytes, err := getFileBytes(path)
+			if err != nil {
+				fmt.Printf("failed to get resource bytes\n")
+			} else {
+				resources, err = GetResource(resourceBytes)
+				if err != nil {
+					fmt.Printf("failed to convert resource bytes to unstructured format\n")
+				}
+			}
+		}
+	}
+
+	for _, res := range resources {
+		objects = append(objects, res)
+	}
+
+	c, err := initializeMockController(objects)
+	if err != nil {
+		fmt.Println("error at controller")
+		return nil, err
+	}
+
+	gr := v1.GenerateRequest{
+		Spec: v1.GenerateRequestSpec{
+			Policy: generateResponse.PolicyResponse.Policy.Name,
+			Resource: v1.ResourceSpec{
+				Kind:       generateResponse.PolicyResponse.Resource.Kind,
+				Namespace:  generateResponse.PolicyResponse.Resource.Namespace,
+				Name:       generateResponse.PolicyResponse.Resource.Name,
+				APIVersion: generateResponse.PolicyResponse.Resource.APIVersion,
+			},
+		},
+	}
+
+	var newRuleResponse []response.RuleResponse
+
+	for _, rule := range generateResponse.PolicyResponse.Rules {
+		genResource, _, err := c.ApplyGeneratePolicy(log.Log, &policyContext, gr, []string{rule.Name})
+		if err != nil {
+			fmt.Println("error at apply generate")
+			rule.Status = response.RuleStatusError
+			return nil, err
+		}
+
+		unstrGenResource, err := c.GetUnstrResource(genResource[0])
+		if err != nil {
+			rule.Status = response.RuleStatusError
+			return nil, err
+		}
+
+		rule.GeneratedResource = *unstrGenResource
+		newRuleResponse = append(newRuleResponse, rule)
+	}
+
+	return newRuleResponse, nil
 }

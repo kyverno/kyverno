@@ -235,7 +235,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	}
 
 	// Apply the generate rule on resource
-	return c.applyGeneratePolicy(logger, policyContext, gr, applicableRules)
+	return c.ApplyGeneratePolicy(logger, policyContext, gr, applicableRules)
 }
 
 func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateRequest, err error, genResources []kyverno.ResourceSpec, precreatedResource bool) error {
@@ -249,7 +249,7 @@ func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateReque
 	return statusControl.Success(gr, genResources)
 }
 
-func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, gr kyverno.GenerateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, processExisting bool, err error) {
+func (c *Controller) ApplyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, gr kyverno.GenerateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, processExisting bool, err error) {
 	// Get the response as the actions to be performed on the resource
 	// - - substitute values
 	policy := policyContext.Policy
@@ -332,7 +332,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	var err error
 	var mode ResourceMode
 	var noGenResource kyverno.ResourceSpec
-	genUnst, err := getUnstrRule(rule.Generation.DeepCopy())
+	genUnst, err := GetUnstrRule(rule.Generation.DeepCopy())
 	if err != nil {
 		return noGenResource, err
 	}
@@ -557,10 +557,33 @@ const (
 	Update = "UPDATE"
 )
 
-func getUnstrRule(rule *kyverno.Generation) (*unstructured.Unstructured, error) {
+func GetUnstrRule(rule *kyverno.Generation) (*unstructured.Unstructured, error) {
 	ruleData, err := json.Marshal(rule)
 	if err != nil {
 		return nil, err
 	}
 	return utils.ConvertToUnstructured(ruleData)
+}
+
+func (c *Controller) ApplyResource(resource *unstructured.Unstructured) error {
+	kind, _, namespace, apiVersion, err := getResourceInfo(resource.Object)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.CreateResource(apiVersion, kind, namespace, resource, false)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Controller) GetUnstrResource(genResourceSpec kyverno.ResourceSpec) (*unstructured.Unstructured, error) {
+	resource, err := c.client.GetResource(genResourceSpec.APIVersion, genResourceSpec.Kind, genResourceSpec.Namespace, genResourceSpec.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return resource, nil
 }
