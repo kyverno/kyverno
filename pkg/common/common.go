@@ -87,6 +87,9 @@ func GetKindFromGVK(str string) (apiVersion string, kind string) {
 	if strings.Count(str, "/") == 1 {
 		return splitString[0], splitString[1]
 	}
+	if splitString[1] == "*" {
+		return "", splitString[2]
+	}
 	return splitString[0] + "/" + splitString[1], splitString[2]
 }
 

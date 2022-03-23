@@ -736,7 +736,11 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy *kyverno.Cluste
 					m.log.Error(err, "unable to convert GVK to GVR", "GVK", gvk)
 					continue
 				}
-				gvrList = append(gvrList, gvr)
+				if strings.Contains(gvk, "*") {
+					gvrList = append(gvrList, schema.GroupVersionResource{Group: gvr.Group, Version: "*", Resource: gvr.Resource})
+				} else {
+					gvrList = append(gvrList, gvr)
+				}
 			}
 		}
 	}
