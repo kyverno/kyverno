@@ -42,14 +42,18 @@ spec:
   podSelector:
     matchLabels:
       app: kyverno
-  {{- if .Values.networkPolicy.prometheusMatchLabels }}
   ingress:
   - from:
+    {{- with .Values.networkPolicy.prometheusNamespaceLabels }}
+    - namespaceSelector:
+        matchLabels:
+            {{ toYaml . | nindent 10 }}
+    {{- end }}
+    {{- with .Values.networkPolicy.prometheusPodLabels }}
     - podSelector:
         matchLabels:
-          {{- with .Values.networkPolicy.prometheusMatchLabels }}
-            {{- toYaml . | nindent 4 }}
-          {{- end }}
+            {{ toYaml . | nindent 10 }}
+    {{- end }}
     ports:
     # Webhook access
     - protocol: TCP
@@ -57,10 +61,6 @@ spec:
     # Allow prometheus scrape for metrics
     - protocol: TCP
       port: 8000
-  {{- else }}
-  ingress:
-  - {}
-  {{- end }}
   policyTypes:
     - Ingress
     - Egress

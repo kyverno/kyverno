@@ -340,13 +340,19 @@ installCRDs: true
 networkPolicy:
   # -- When true, use a NetworkPolicy to allow ingress to the webhook
   # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
-  enabled: false
+  enabled: true
   # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
   ingressFrom: []
   # -- If openEgress is true allow all egress traffic else allow egress to only kube-apiserver on port 9443
   openEgress: false
-  # -- A list of matchLabels for the allow-prometheus network policy
-  prometheusMatchLabels: []
+  # -- A list of matchLabels for matching pods with respective labels in the allow-prometheus network policy
+  # Example: app.kubernetes.io/name: prometheus-pod
+  prometheusNamespaceLabels:
+    app.kubernetes.io/name: prometheus
+  # -- A list of matchLabels for matching pods with respective labels in the allow-prometheus network policy
+  # Example: app.kubernetes.io/name: prometheus-pod
+  # Uncomment the line below to use pod labels
+  # prometheusPodLabels: []
 
 webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
