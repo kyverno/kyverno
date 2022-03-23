@@ -81,6 +81,11 @@ func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
 }
 
+// IsNamespaced indicates if the policy is namespace scoped
+func (p *ClusterPolicy) IsNamespaced() bool {
+	return p.GetNamespace() != ""
+}
+
 // IsReady indicates if the policy is ready to serve the admission request
 func (p *ClusterPolicy) IsReady() bool {
 	return p.Status.IsReady()
@@ -89,10 +94,10 @@ func (p *ClusterPolicy) IsReady() bool {
 // Validate implements programmatic validation
 // namespaced means that the policy is bound to a namespace and therefore
 // should not filter/generate cluster wide resources.
-func (p *ClusterPolicy) Validate(namespaced bool, clusterResources sets.String) field.ErrorList {
+func (p *ClusterPolicy) Validate(clusterResources sets.String) field.ErrorList {
 	var errs field.ErrorList
 	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
-	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), namespaced, clusterResources)...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), clusterResources)...)
 	return errs
 }
 
