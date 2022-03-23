@@ -3,10 +3,14 @@ module github.com/kyverno/kyverno
 go 1.17
 
 require (
+	github.com/aquilax/truncate v1.0.0
+	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20220216180153-3d7835abdf40
+	github.com/blang/semver/v4 v4.0.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
+	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220119192733-fe33c00cee21
 	github.com/cornelk/hashmap v1.0.1
-	github.com/dchest/siphash v1.2.1 // indirect
 	github.com/distribution/distribution v2.7.1+incompatible
+	github.com/evanphx/json-patch v4.12.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.13.0
 	github.com/gardener/controller-manager-library v0.2.0
@@ -15,8 +19,8 @@ require (
 	github.com/go-git/go-git/v5 v5.2.0
 	github.com/go-logr/logr v1.2.2
 	github.com/google/go-containerregistry v0.8.1-0.20220209165246-a44adc326839
+	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20220128225446-c63684ed5f15
 	github.com/googleapis/gnostic v0.5.5
-	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/in-toto/in-toto-golang v0.3.4-0.20211211042327-af1f9fb822bf
 	github.com/jmespath/go-jmespath v0.4.0
 	github.com/julienschmidt/httprouter v1.3.0
@@ -35,7 +39,7 @@ require (
 	github.com/sigstore/sigstore v1.1.1-0.20220217212907-e48ca03a5ba7
 	github.com/spf13/cobra v1.3.0
 	github.com/stretchr/testify v1.7.0
-	github.com/xanzy/ssh-agent v0.3.0 // indirect
+	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gotest.tools v2.2.0+incompatible
@@ -50,16 +54,6 @@ require (
 	sigs.k8s.io/kustomize/api v0.11.2
 	sigs.k8s.io/kustomize/kyaml v0.13.3
 	sigs.k8s.io/yaml v1.3.0
-)
-
-require (
-	github.com/aquilax/truncate v1.0.0
-	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20220216180153-3d7835abdf40
-	github.com/blang/semver/v4 v4.0.0
-	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220119192733-fe33c00cee21
-	github.com/evanphx/json-patch v4.12.0+incompatible
-	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20220128225446-c63684ed5f15
-	gopkg.in/inf.v0 v0.9.1
 )
 
 require (
@@ -80,7 +74,6 @@ require (
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
-	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/PaesslerAG/gval v1.0.0 // indirect
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
@@ -113,9 +106,10 @@ require (
 	github.com/coreos/go-oidc/v3 v3.1.0 // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20210823021906-dc406ceaf94b // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dchest/siphash v1.1.0 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/docker/cli v20.10.12+incompatible // indirect
-	github.com/docker/distribution v2.8.0+incompatible // indirect
+	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v20.10.12+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.6.4 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
@@ -152,6 +146,7 @@ require (
 	github.com/google/trillian v1.4.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.1.1 // indirect
+	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.1.0 // indirect
@@ -232,6 +227,7 @@ require (
 	github.com/theupdateframework/go-tuf v0.0.0-20220211205608-f0c3294f63b9 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	github.com/xanzy/go-gitlab v0.56.0 // indirect
+	github.com/xanzy/ssh-agent v0.2.1 // indirect
 	github.com/xlab/treeprint v0.0.0-20181112141820-a009c3971eca // indirect
 	go.mongodb.org/mongo-driver v1.8.3 // indirect
 	go.opencensus.io v0.23.0 // indirect
@@ -260,7 +256,7 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	k8s.io/utils v0.0.0-20220127004650-9b3446523e65 // indirect
 	knative.dev/pkg v0.0.0-20220202132633-df430fa0dd96 // indirect
-	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 // indirect
+	sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6 // indirect
 	sigs.k8s.io/release-utils v0.4.1-0.20220207182343-6dadf2228617 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 )
