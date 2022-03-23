@@ -1,0 +1,34 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-deprecated-api
+  annotations:
+    policies.kyverno.io/title: Check deprecated APIs
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/subject: Kubernetes APIs
+    policies.kyverno.io/description: >-
+      Kubernetes APIs are sometimes deprecated and removed after a few releases.
+      As a best practice, older API versions should be replaced with newer versions.
+      This policy validates for APIs that are deprecated or scheduled for removal.
+      Note that checking for some of these resources may require modifying the Kyverno
+      ConfigMap to remove filters.
+spec:
+  validationFailureAction: enforce
+  background: true
+  rules:
+  - name: validate-v1-25-removal
+    match:
+      resources:
+        kinds:
+        - batch/*/CronJob
+    preconditions:
+      all:
+      - key: "{{request.object.apiVersion}}"
+        operator: In
+        value:
+        - batch/v1beta1
+    validate:
+      message: >-
+        {{ request.object.apiVersion }}/{{ request.object.kind }} is deprecated and will be removed in v1.25.
+        See: https://kubernetes.io/docs/reference/using-api/deprecation-guide/
+      deny: {}
