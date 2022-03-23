@@ -105,9 +105,9 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	m.Lock()
 	defer m.Unlock()
 
-	enforcePolicy := policy.Spec.ValidationFailureAction == common.Enforce
+	enforcePolicy := policy.Spec.ValidationFailureAction == kyverno.Enforce
 	for _, k := range policy.Spec.ValidationFailureActionOverrides {
-		if k.Action == common.Enforce {
+		if k.Action == kyverno.Enforce {
 			enforcePolicy = true
 			break
 		}

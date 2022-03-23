@@ -7,6 +7,23 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
+// ValidationFailureAction defines the policy validation failure action
+type ValidationFailureAction string
+
+// Policy Reporting Modes
+const (
+	// Enforce blocks the request on failure
+	Enforce ValidationFailureAction = "enforce"
+	// Audit indicates not to block the request on failure, but report failiures as policy violations
+	Audit ValidationFailureAction = "audit"
+)
+
+type ValidationFailureActionOverride struct {
+	// +kubebuilder:validation:Enum=audit;enforce
+	Action     ValidationFailureAction `json:"action,omitempty" yaml:"action,omitempty"`
+	Namespaces []string                `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
+}
+
 // Spec contains a list of Rule instances and other policy controls.
 type Spec struct {
 	// Rules is a list of Rule instances. A Policy contains multiple rules and
@@ -24,7 +41,7 @@ type Spec struct {
 	// and report an error in a policy report. Optional. The default value is "audit".
 	// +optional
 	// +kubebuilder:validation:Enum=audit;enforce
-	ValidationFailureAction string `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
+	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
 	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.

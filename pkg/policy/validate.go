@@ -22,7 +22,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/utils"
-	"github.com/minio/pkg/wildcard"
 	"github.com/pkg/errors"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -81,7 +80,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 
 // Validate checks the policy and rules declarations for required configurations
 func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) (*v1beta1.AdmissionResponse, error) {
-	namespaced := policy.GetNamespace() != ""
+	namespaced := policy.IsNamespaced()
 	background := policy.Spec.Background == nil || *policy.Spec.Background
 
 	var errs field.ErrorList
@@ -109,7 +108,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 	}
 
-	if errs := policy.Validate(namespaced, clusterResources); len(errs) != 0 {
+	if errs := policy.Validate(clusterResources); len(errs) != 0 {
 		return nil, errs.ToAggregate()
 	}
 	rules := autogen.ComputeRules(policy)
@@ -147,10 +146,6 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
 		if namespaced {
 			return nil, checkClusterResourceInMatchAndExclude(rule, clusterResources, mock, res)
-		}
-
-		if doMatchAndExcludeConflict(rule) {
-			return nil, fmt.Errorf("path: spec.rules[%v]: rule is matching an empty set", rule.Name)
 		}
 
 		// validate rule actions
@@ -536,240 +531,6 @@ func validateMatchKindHelper(rule kyverno.Rule) error {
 	}
 
 	return fmt.Errorf("at least one element must be specified in a kind block, the kind attribute is mandatory when working with the resources element")
-}
-
-// doMatchAndExcludeConflict checks if the resultant
-// of match and exclude block is not an empty set
-// returns true if it is an empty set
-func doMatchAndExcludeConflict(rule kyverno.Rule) bool {
-
-	if len(rule.ExcludeResources.All) > 0 || len(rule.MatchResources.All) > 0 {
-		return false
-	}
-
-	// if both have any then no resource should be common
-	if len(rule.MatchResources.Any) > 0 && len(rule.ExcludeResources.Any) > 0 {
-		for _, rmr := range rule.MatchResources.Any {
-			for _, rer := range rule.ExcludeResources.Any {
-				if reflect.DeepEqual(rmr, rer) {
-					return true
-				}
-			}
-		}
-		return false
-	}
-
-	if reflect.DeepEqual(rule.ExcludeResources, kyverno.ExcludeResources{}) {
-		return false
-	}
-
-	excludeRoles := make(map[string]bool)
-	for _, role := range rule.ExcludeResources.UserInfo.Roles {
-		excludeRoles[role] = true
-	}
-
-	excludeClusterRoles := make(map[string]bool)
-	for _, clusterRoles := range rule.ExcludeResources.UserInfo.ClusterRoles {
-		excludeClusterRoles[clusterRoles] = true
-	}
-
-	excludeSubjects := make(map[string]bool)
-	for _, subject := range rule.ExcludeResources.UserInfo.Subjects {
-		subjectRaw, _ := json.Marshal(subject)
-		excludeSubjects[string(subjectRaw)] = true
-	}
-
-	excludeKinds := make(map[string]bool)
-	for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-		excludeKinds[kind] = true
-	}
-
-	excludeNamespaces := make(map[string]bool)
-	for _, namespace := range rule.ExcludeResources.ResourceDescription.Namespaces {
-		excludeNamespaces[namespace] = true
-	}
-
-	excludeSelectorMatchExpressions := make(map[string]bool)
-	if rule.ExcludeResources.ResourceDescription.Selector != nil {
-		for _, matchExpression := range rule.ExcludeResources.ResourceDescription.Selector.MatchExpressions {
-			matchExpressionRaw, _ := json.Marshal(matchExpression)
-			excludeSelectorMatchExpressions[string(matchExpressionRaw)] = true
-		}
-	}
-
-	excludeNamespaceSelectorMatchExpressions := make(map[string]bool)
-	if rule.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
-		for _, matchExpression := range rule.ExcludeResources.ResourceDescription.NamespaceSelector.MatchExpressions {
-			matchExpressionRaw, _ := json.Marshal(matchExpression)
-			excludeNamespaceSelectorMatchExpressions[string(matchExpressionRaw)] = true
-		}
-	}
-
-	if len(excludeRoles) > 0 {
-		if len(rule.MatchResources.UserInfo.Roles) == 0 {
-			return false
-		}
-
-		for _, role := range rule.MatchResources.UserInfo.Roles {
-			if !excludeRoles[role] {
-				return false
-			}
-		}
-	}
-
-	if len(excludeClusterRoles) > 0 {
-		if len(rule.MatchResources.UserInfo.ClusterRoles) == 0 {
-			return false
-		}
-
-		for _, clusterRole := range rule.MatchResources.UserInfo.ClusterRoles {
-			if !excludeClusterRoles[clusterRole] {
-				return false
-			}
-		}
-	}
-
-	if len(excludeSubjects) > 0 {
-		if len(rule.MatchResources.UserInfo.Subjects) == 0 {
-			return false
-		}
-
-		for _, subject := range rule.MatchResources.UserInfo.Subjects {
-			subjectRaw, _ := json.Marshal(subject)
-			if !excludeSubjects[string(subjectRaw)] {
-				return false
-			}
-		}
-	}
-
-	if rule.ExcludeResources.ResourceDescription.Name != "" {
-		if !wildcard.Match(rule.ExcludeResources.ResourceDescription.Name, rule.MatchResources.ResourceDescription.Name) {
-			return false
-		}
-	}
-
-	if len(rule.ExcludeResources.ResourceDescription.Names) > 0 {
-		excludeSlice := rule.ExcludeResources.ResourceDescription.Names
-		matchSlice := rule.MatchResources.ResourceDescription.Names
-
-		// if exclude block has something and match doesn't it means we
-		// have a non empty set
-		if len(rule.MatchResources.ResourceDescription.Names) == 0 {
-			return false
-		}
-
-		// if *any* name in match and exclude conflicts
-		// we want user to fix that
-		for _, matchName := range matchSlice {
-			for _, excludeName := range excludeSlice {
-				if wildcard.Match(excludeName, matchName) {
-					return true
-				}
-			}
-		}
-		return false
-	}
-
-	if len(excludeNamespaces) > 0 {
-		if len(rule.MatchResources.ResourceDescription.Namespaces) == 0 {
-			return false
-		}
-
-		for _, namespace := range rule.MatchResources.ResourceDescription.Namespaces {
-			if !excludeNamespaces[namespace] {
-				return false
-			}
-		}
-	}
-
-	if len(excludeKinds) > 0 {
-		if len(rule.MatchResources.ResourceDescription.Kinds) == 0 {
-			return false
-		}
-
-		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
-			if !excludeKinds[kind] {
-				return false
-			}
-		}
-	}
-
-	if rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector != nil {
-		if len(excludeSelectorMatchExpressions) > 0 {
-			if len(rule.MatchResources.ResourceDescription.Selector.MatchExpressions) == 0 {
-				return false
-			}
-
-			for _, matchExpression := range rule.MatchResources.ResourceDescription.Selector.MatchExpressions {
-				matchExpressionRaw, _ := json.Marshal(matchExpression)
-				if !excludeSelectorMatchExpressions[string(matchExpressionRaw)] {
-					return false
-				}
-			}
-		}
-
-		if len(rule.ExcludeResources.ResourceDescription.Selector.MatchLabels) > 0 {
-			if len(rule.MatchResources.ResourceDescription.Selector.MatchLabels) == 0 {
-				return false
-			}
-
-			for label, value := range rule.MatchResources.ResourceDescription.Selector.MatchLabels {
-				if rule.ExcludeResources.ResourceDescription.Selector.MatchLabels[label] != value {
-					return false
-				}
-			}
-		}
-	}
-
-	if rule.MatchResources.ResourceDescription.NamespaceSelector != nil && rule.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
-		if len(excludeNamespaceSelectorMatchExpressions) > 0 {
-			if len(rule.MatchResources.ResourceDescription.NamespaceSelector.MatchExpressions) == 0 {
-				return false
-			}
-
-			for _, matchExpression := range rule.MatchResources.ResourceDescription.NamespaceSelector.MatchExpressions {
-				matchExpressionRaw, _ := json.Marshal(matchExpression)
-				if !excludeNamespaceSelectorMatchExpressions[string(matchExpressionRaw)] {
-					return false
-				}
-			}
-		}
-
-		if len(rule.ExcludeResources.ResourceDescription.NamespaceSelector.MatchLabels) > 0 {
-			if len(rule.MatchResources.ResourceDescription.NamespaceSelector.MatchLabels) == 0 {
-				return false
-			}
-
-			for label, value := range rule.MatchResources.ResourceDescription.NamespaceSelector.MatchLabels {
-				if rule.ExcludeResources.ResourceDescription.NamespaceSelector.MatchLabels[label] != value {
-					return false
-				}
-			}
-		}
-	}
-
-	if (rule.MatchResources.ResourceDescription.Selector == nil && rule.ExcludeResources.ResourceDescription.Selector != nil) ||
-		(rule.MatchResources.ResourceDescription.Selector != nil && rule.ExcludeResources.ResourceDescription.Selector == nil) {
-		return false
-	}
-
-	if (rule.MatchResources.ResourceDescription.NamespaceSelector == nil && rule.ExcludeResources.ResourceDescription.NamespaceSelector != nil) ||
-		(rule.MatchResources.ResourceDescription.NamespaceSelector != nil && rule.ExcludeResources.ResourceDescription.NamespaceSelector == nil) {
-		return false
-	}
-
-	if rule.MatchResources.Annotations != nil && rule.ExcludeResources.Annotations != nil {
-		if !(reflect.DeepEqual(rule.MatchResources.Annotations, rule.ExcludeResources.Annotations)) {
-			return false
-		}
-	}
-
-	if (rule.MatchResources.Annotations == nil && rule.ExcludeResources.Annotations != nil) ||
-		(rule.MatchResources.Annotations != nil && rule.ExcludeResources.Annotations == nil) {
-		return false
-	}
-
-	return true
 }
 
 // isLabelAndAnnotationsString :- Validate if labels and annotations contains only string values
@@ -1201,39 +962,7 @@ func validateMatchedResourceDescription(rd kyverno.ResourceDescription) (string,
 // checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in
 // Match and Exclude block
 func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources sets.String, mock bool, res []*metav1.APIResourceList) error {
-	// Contains Namespaces in Exclude->ResourceDescription
-	if len(rule.ExcludeResources.ResourceDescription.Namespaces) > 0 {
-		return fmt.Errorf("namespaced cluster policy : field namespaces not allowed in exclude.resources")
-	}
-
 	if !mock {
-		// Contains "Cluster Wide Resources" in Exclude->ResourceDescription->Kinds
-		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-			if clusterResources.Has(kind) {
-				return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in exclude.resources.kinds", kind)
-			}
-		}
-
-		// Contains "Cluster Wide Resources" in Exclude->All->ResourceFilter->ResourceDescription->Kinds
-		for _, allResourceFilter := range rule.ExcludeResources.All {
-			fmt.Println(allResourceFilter.ResourceDescription)
-			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
-				if clusterResources.Has(kind) {
-					return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
-				}
-			}
-		}
-
-		// Contains "Cluster Wide Resources" in Exclude->Any->ResourceFilter->ResourceDescription->Kinds
-		for _, allResourceFilter := range rule.ExcludeResources.Any {
-			fmt.Println(allResourceFilter.ResourceDescription)
-			for _, kind := range allResourceFilter.ResourceDescription.Kinds {
-				if clusterResources.Has(kind) {
-					return fmt.Errorf("namespaced policy : cluster-wide resource '%s' not allowed in match.resources.kinds", kind)
-				}
-			}
-		}
-
 		// Check for generate policy
 		// - if resource to be generated is namespaced resource then the namespace field
 		// should be mentioned
@@ -1278,7 +1007,7 @@ func jsonPatchOnPod(rule kyverno.Rule) bool {
 
 func podControllerAutoGenExclusion(policy *kyverno.ClusterPolicy) bool {
 	annotations := policy.GetAnnotations()
-	val, ok := annotations["pod-policies.kyverno.io/autogen-controllers"]
+	val, ok := annotations[kyverno.PodControllersAnnotation]
 	reorderVal := strings.Split(strings.ToLower(val), ",")
 	sort.Slice(reorderVal, func(i, j int) bool { return reorderVal[i] < reorderVal[j] })
 	if ok && strings.ToLower(val) == "none" || reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) == false {
@@ -1296,7 +1025,7 @@ func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.
 			return fmt.Errorf("kind and match resource kind should not be the same")
 		}
 
-		if !mock && !utils.SkipSubResources(k) {
+		if !mock && !utils.SkipSubResources(k) && !strings.Contains(kind, "*") {
 			_, _, err := client.DiscoveryClient.FindResource(gv, k)
 			if err != nil {
 				return fmt.Errorf("unable to convert GVK to GVR, %s, err: %s", kinds, err)
