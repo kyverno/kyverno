@@ -1,13 +1,8 @@
 apiVersion: v1
-kind: Namespace
-metadata:
-  name: ns-with-secret
----
-apiVersion: v1
 kind: Secret
 metadata:
   name: regcred
-  namespace: ns-with-secret
+  namespace: default
 type: Opaque
 data:
   password: MWYyZDFlMmU2N2Rm

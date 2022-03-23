@@ -27,5 +27,5 @@ spec:
       namespace: "{{request.object.metadata.name}}"
       synchronize: true
       clone:
-        namespace: ns-with-secret
+        namespace: default
         name: regcred
