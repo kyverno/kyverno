@@ -10,6 +10,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/common"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 )
 
@@ -17,7 +18,7 @@ import (
 // - ValidationFailureAction
 // - Background
 // - auto-gen annotation and rules
-func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, autogenInternals bool, log logr.Logger) ([]byte, []string) {
+func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, []string) {
 	var patches [][]byte
 	var updateMsgs []string
 
@@ -39,7 +40,7 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, autogenIntern
 	}
 
 	// if autogenInternals is enabled, we don't mutate rules in the webhook
-	if !autogenInternals {
+	if !toggle.AutogenInternals() {
 		patch, errs := GeneratePodControllerRule(*policy, log)
 		if len(errs) > 0 {
 			var errMsgs []string

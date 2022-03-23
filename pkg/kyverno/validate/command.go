@@ -13,7 +13,6 @@ import (
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -180,7 +179,7 @@ func validatePolicies(policies []*v1.ClusterPolicy, v1crd apiextensions.CustomRe
 			fmt.Printf("Policy %s is valid.\n\n", policy.Name)
 			if outputType != "" {
 				logger := log.Log.WithName("validate")
-				p, err := common.MutatePolicy(policy, toggle.AutogenInternals(), logger)
+				p, err := common.MutatePolicy(policy, logger)
 				if err != nil {
 					if !sanitizederror.IsErrorSanitized(err) {
 						return sanitizederror.NewWithError("failed to mutate policy.", err)

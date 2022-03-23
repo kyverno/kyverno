@@ -15,7 +15,6 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/toggle"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-git/go-billy/v5"
@@ -176,8 +175,8 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 }
 
 // MutatePolicy - applies mutation to a policy
-func MutatePolicy(policy *v1.ClusterPolicy, autogenInternals bool, logger logr.Logger) (*v1.ClusterPolicy, error) {
-	patches, _ := policymutation.GenerateJSONPatchesForDefaults(policy, autogenInternals, logger)
+func MutatePolicy(policy *v1.ClusterPolicy, logger logr.Logger) (*v1.ClusterPolicy, error) {
+	patches, _ := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
 	if len(patches) == 0 {
 		return policy, nil
 	}
@@ -445,7 +444,7 @@ func MutatePolicies(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 	logger := log.Log.WithName("apply")
 
 	for _, policy := range policies {
-		p, err := MutatePolicy(policy, toggle.AutogenInternals(), logger)
+		p, err := MutatePolicy(policy, logger)
 		if err != nil {
 			if !sanitizederror.IsErrorSanitized(err) {
 				return nil, sanitizederror.NewWithError("failed to mutate policy.", err)
