@@ -31,7 +31,7 @@ type PolicyResponse struct {
 	// rule response
 	Rules []RuleResponse `json:"rules"`
 	// ValidationFailureAction: audit (default) or enforce
-	ValidationFailureAction string
+	ValidationFailureAction kyverno.ValidationFailureAction
 
 	ValidationFailureActionOverrides []ValidationFailureActionOverride
 }
@@ -177,6 +177,6 @@ func (er EngineResponse) getRules(status RuleStatus) []string {
 }
 
 type ValidationFailureActionOverride struct {
-	Action     string   `json:"action"`
-	Namespaces []string `json:"namespaces"`
+	Action     kyverno.ValidationFailureAction `json:"action"`
+	Namespaces []string                        `json:"namespaces"`
 }

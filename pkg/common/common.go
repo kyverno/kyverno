@@ -20,14 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// Policy Reporting Modes
-const (
-	// Enforce blocks the request on failure
-	Enforce = "enforce"
-	// Audit indicates not to block the request on failure, but report failiures as policy violations
-	Audit = "audit"
-)
-
 // Policy Reporting Types
 const (
 	PolicyViolation = "POLICYVIOLATION"
@@ -86,6 +78,9 @@ func GetKindFromGVK(str string) (apiVersion string, kind string) {
 	splitString := strings.Split(str, "/")
 	if strings.Count(str, "/") == 1 {
 		return splitString[0], splitString[1]
+	}
+	if splitString[1] == "*" {
+		return "", splitString[2]
 	}
 	return splitString[0] + "/" + splitString[1], splitString[2]
 }

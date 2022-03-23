@@ -82,6 +82,11 @@ func (p *Policy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
 }
 
+// IsNamespaced indicates if the policy is namespace scoped
+func (p *Policy) IsNamespaced() bool {
+	return false
+}
+
 // IsReady indicates if the policy is ready to serve the admission request
 func (p *Policy) IsReady() bool {
 	return p.Status.IsReady()
