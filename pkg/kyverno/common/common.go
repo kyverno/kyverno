@@ -729,33 +729,34 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 					return nil, sanitizederror.NewWithError("failed to extract the resources", err)
 				}
 			}
-		} else if (len(resourcePaths) > 0 && resourcePaths[0] != "-") || len(resourcePaths) < 0 || cluster {
-
-			fileDesc, err := os.Stat(resourcePaths[0])
-			if err != nil {
-				return nil, err
-			}
-			if fileDesc.IsDir() {
-
-				files, err := ioutil.ReadDir(resourcePaths[0])
+		} else {
+			if len(resourcePaths) > 0 {
+				fileDesc, err := os.Stat(resourcePaths[0])
 				if err != nil {
-					return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", resourcePaths[0]), err)
+					return nil, err
 				}
-				listOfFiles := make([]string, 0)
-				for _, file := range files {
-					ext := filepath.Ext(file.Name())
-					if ext == ".yaml" || ext == ".yml" {
-						listOfFiles = append(listOfFiles, filepath.Join(resourcePaths[0], file.Name()))
+				if fileDesc.IsDir() {
+
+					files, err := ioutil.ReadDir(resourcePaths[0])
+					if err != nil {
+						return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", resourcePaths[0]), err)
 					}
+					listOfFiles := make([]string, 0)
+					for _, file := range files {
+						ext := filepath.Ext(file.Name())
+						if ext == ".yaml" || ext == ".yml" {
+							listOfFiles = append(listOfFiles, filepath.Join(resourcePaths[0], file.Name()))
+						}
+					}
+					resourcePaths = listOfFiles
 				}
-				resourcePaths = listOfFiles
 			}
+
 			resources, err = GetResources(policies, resourcePaths, dClient, cluster, namespace, policyReport)
 			if err != nil {
 				return resources, err
 			}
 		}
-
 	}
 	return resources, err
 }
