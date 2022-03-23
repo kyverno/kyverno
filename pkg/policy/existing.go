@@ -2,6 +2,7 @@ package policy
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,7 +24,7 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 	// Parse through all the resources drops the cache after configured rebuild time
 	pc.rm.Drop()
 
-	for _, rule := range policy.Spec.GetRules() {
+	for _, rule := range policy.GetRules() {
 		if !rule.HasValidate() && !rule.HasVerifyImages() {
 			continue
 		}
@@ -199,18 +200,21 @@ func buildKey(policy, pv, kind, ns, name, rv string) string {
 	return policy + "/" + pv + "/" + kind + "/" + ns + "/" + name + "/" + rv
 }
 
-func (pc *PolicyController) processExistingKinds(kind []string, policy *kyverno.ClusterPolicy, rule kyverno.Rule, logger logr.Logger) {
+func (pc *PolicyController) processExistingKinds(kinds []string, policy *kyverno.ClusterPolicy, rule kyverno.Rule, logger logr.Logger) {
 
-	for _, k := range kind {
-		logger = logger.WithValues("rule", rule.Name, "kind", k)
-		_, err := pc.rm.GetScope(k)
+	for _, kind := range kinds {
+		logger = logger.WithValues("rule", rule.Name, "kind", kind)
+		_, err := pc.rm.GetScope(kind)
 		if err != nil {
-			resourceSchema, _, err := pc.client.DiscoveryClient.FindResource("", k)
-			if err != nil {
-				logger.Error(err, "failed to find resource", "kind", k)
-				continue
+			gv, k := common.GetKindFromGVK(kind)
+			if !strings.Contains(k, "*") {
+				resourceSchema, _, err := pc.client.DiscoveryClient.FindResource(gv, k)
+				if err != nil {
+					logger.Error(err, "failed to find resource", "kind", k)
+					continue
+				}
+				pc.rm.RegisterScope(k, resourceSchema.Namespaced)
 			}
-			pc.rm.RegisterScope(k, resourceSchema.Namespaced)
 		}
 
 		// this tracker would help to ensure that even for multiple namespaces, duplicate metric are not generated
@@ -218,10 +222,10 @@ func (pc *PolicyController) processExistingKinds(kind []string, policy *kyverno.
 
 		if policy.Namespace != "" {
 			ns := policy.Namespace
-			pc.applyAndReportPerNamespace(policy, k, ns, rule, logger.WithValues("kind", k).WithValues("ns", ns), &metricRegisteredTracker)
+			pc.applyAndReportPerNamespace(policy, kind, ns, rule, logger.WithValues("kind", kind).WithValues("ns", ns), &metricRegisteredTracker)
 			continue
 		}
 
-		pc.applyAndReportPerNamespace(policy, k, "", rule, logger.WithValues("kind", k), &metricRegisteredTracker)
+		pc.applyAndReportPerNamespace(policy, kind, "", rule, logger.WithValues("kind", kind), &metricRegisteredTracker)
 	}
 }

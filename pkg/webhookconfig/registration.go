@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	adminformers "k8s.io/client-go/informers/admissionregistration/v1"
 	informers "k8s.io/client-go/informers/apps/v1"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	admlisters "k8s.io/client-go/listers/admissionregistration/v1"
 	listers "k8s.io/client-go/listers/apps/v1"
 	rest "k8s.io/client-go/rest"
@@ -81,7 +80,6 @@ func NewRegister(
 	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
 	resCache resourcecache.ResourceCache,
 	kDeplInformer informers.DeploymentInformer,
-	nsInformer coreinformers.NamespaceInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	serverIP string,
@@ -110,7 +108,7 @@ func NewRegister(
 		stopCh:               stopCh,
 	}
 
-	register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, mwcInformer, vwcInformer, resCache, nsInformer, serverIP, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
+	register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, mwcInformer, vwcInformer, resCache, serverIP, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
 
 	return register
 }
@@ -236,14 +234,23 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface)
 			}
 		}
 
+		retry := false
+
 		if err := wrc.updateResourceMutatingWebhookConfiguration(nsSelector); err != nil {
 			logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
-			go func() { wrc.UpdateWebhookChan <- true }()
+			retry = true
 		}
 
 		if err := wrc.updateResourceValidatingWebhookConfiguration(nsSelector); err != nil {
 			logger.Error(err, "unable to update validatingWebhookConfigurations", "name", getResourceValidatingWebhookConfigName(wrc.serverIP))
-			go func() { wrc.UpdateWebhookChan <- true }()
+			retry = true
+		}
+
+		if retry {
+			go func() {
+				time.Sleep(1 * time.Second)
+				wrc.UpdateWebhookChan <- true
+			}()
 		}
 	}
 }
@@ -531,7 +538,7 @@ func (wrc *Register) constructVerifyMutatingWebhookConfig(caData []byte) *admreg
 				true,
 				wrc.timeoutSeconds,
 				admregapi.Rule{
-					Resources:   []string{"deployments/*"},
+					Resources:   []string{"deployments"},
 					APIGroups:   []string{"apps"},
 					APIVersions: []string{"v1"},
 				},
@@ -558,7 +565,7 @@ func (wrc *Register) constructDebugVerifyMutatingWebhookConfig(caData []byte) *a
 				true,
 				wrc.timeoutSeconds,
 				admregapi.Rule{
-					Resources:   []string{"deployments/*"},
+					Resources:   []string{"deployments"},
 					APIGroups:   []string{"apps"},
 					APIVersions: []string{"v1"},
 				},

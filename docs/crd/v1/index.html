@@ -703,87 +703,6 @@ See: <a href="https://kyverno.io/docs/writing-policies/validate/#deny-rules">htt
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v1.ExcludeResources">ExcludeResources
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.Rule">Rule</a>)
-</p>
-<p>
-<p>ExcludeResources specifies resource and admission review request data for
-which a policy rule is not applicable.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>any</code></br>
-<em>
-<a href="#kyverno.io/v1.ResourceFilters">
-ResourceFilters
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Any allows specifying resources which will be ORed</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>all</code></br>
-<em>
-<a href="#kyverno.io/v1.ResourceFilters">
-ResourceFilters
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>All allows specifying resources which will be ANDed</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>UserInfo</code></br>
-<em>
-<a href="#kyverno.io/v1.UserInfo">
-UserInfo
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>UserInfo contains information about the user performing the operation.
-Specifying UserInfo directly under exclude is being deprecated.
-Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resources</code></br>
-<em>
-<a href="#kyverno.io/v1.ResourceDescription">
-ResourceDescription
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ResourceDescription contains information about the resource being created or modified.
-Specifying ResourceDescription directly under exclude is being deprecated.
-Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v1.FailurePolicyType">FailurePolicyType
 (<code>string</code> alias)</p></h3>
 <p>
@@ -1456,6 +1375,17 @@ string
 </tr>
 <tr>
 <td>
+<code>additionalExtensions</code></br>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<p>AdditionalExtensions are certificate-extensions used for keyless signing.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>annotations</code></br>
 <em>
 map[string]string
@@ -1830,7 +1760,22 @@ bool
 </em>
 </td>
 <td>
-<p>Ready indicates if the policy is ready to serve the admission request</p>
+<p>Ready indicates if the policy is ready to serve the admission request.
+Deprecated in favor of Conditions</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions is a list of conditions that apply to the policy</p>
 </td>
 </tr>
 <tr>
@@ -1926,7 +1871,6 @@ Kubernetes authentication/v1.UserInfo
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ExcludeResources">ExcludeResources</a>, 
 <a href="#kyverno.io/v1.MatchResources">MatchResources</a>, 
 <a href="#kyverno.io/v1.ResourceFilter">ResourceFilter</a>)
 </p>
@@ -2092,7 +2036,6 @@ ResourceDescription
 (<code>[]./api/kyverno/v1.ResourceFilter</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ExcludeResources">ExcludeResources</a>, 
 <a href="#kyverno.io/v1.MatchResources">MatchResources</a>)
 </p>
 <p>
@@ -2231,8 +2174,8 @@ At least one kind is required.</p>
 <td>
 <code>exclude</code></br>
 <em>
-<a href="#kyverno.io/v1.ExcludeResources">
-ExcludeResources
+<a href="#kyverno.io/v1.MatchResources">
+MatchResources
 </a>
 </em>
 </td>
@@ -2442,7 +2385,6 @@ based on the failure policy. The default timeout is 10s, the value must be betwe
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ExcludeResources">ExcludeResources</a>, 
 <a href="#kyverno.io/v1.MatchResources">MatchResources</a>, 
 <a href="#kyverno.io/v1.ResourceFilter">ResourceFilter</a>)
 </p>

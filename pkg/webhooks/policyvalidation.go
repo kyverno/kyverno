@@ -38,7 +38,8 @@ func (ws *WebhookServer) policyValidation(request *v1beta1.AdmissionRequest) *v1
 	logger.V(3).Info("start policy change validation")
 	defer logger.V(3).Info("finished policy change validation", "time", time.Since(startTime).String())
 
-	if err := policyvalidate.Validate(policy, ws.client, false, ws.openAPIController); err != nil {
+	response, err := policyvalidate.Validate(policy, ws.client, false, ws.openAPIController)
+	if err != nil {
 		logger.Error(err, "policy validation errors")
 		return &v1beta1.AdmissionResponse{
 			Allowed: false,
@@ -47,7 +48,9 @@ func (ws *WebhookServer) policyValidation(request *v1beta1.AdmissionRequest) *v1
 			},
 		}
 	}
-
+	if response != nil && len(response.Warnings) != 0 {
+		return response
+	}
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 	}

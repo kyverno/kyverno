@@ -154,6 +154,7 @@ func Command() *cobra.Command {
 	var testCase string
 	var testFile []byte
 	var fileName, gitBranch string
+	var registryAccess bool
 	cmd = &cobra.Command{
 		Use: "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>\n  kyverno test --manifest-mutate > kyverno-test.yaml\n  kyverno test --manifest-validate > kyverno-test.yaml",
 		// Args:    cobra.ExactArgs(1),
@@ -211,6 +212,7 @@ results:
 				fmt.Println(string(testFile))
 				return nil
 			}
+			store.SetRegistryAccess(registryAccess)
 			_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
@@ -225,6 +227,7 @@ results:
 	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "", `run some specific test cases by passing a string argument in double quotes to this flag like - "policy=<policy_name>, rule=<rule_name>, resource=<resource_name". The argument could be any combination of policy, rule and resource.`)
 	cmd.Flags().BoolP("manifest-mutate", "", false, "prints out a template test manifest for a mutate policy")
 	cmd.Flags().BoolP("manifest-validate", "", false, "prints out a template test manifest for a validate policy")
+	cmd.Flags().BoolVarP(&registryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	return cmd
 }
 
@@ -294,7 +297,6 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	fs := memfs.New()
 	rc = &resultCounts{}
 	var testYamlCount int
-	var testYamlNameCount int
 	var tf = &testFilter{
 		enabled: true,
 	}
@@ -396,11 +398,8 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 				continue
 			}
 
-			if strings.Contains(file.Name(), fileName) || strings.Contains(file.Name(), "test.yaml") {
+			if file.Name() == fileName {
 				testYamlCount++
-				if strings.Contains(file.Name(), "test.yaml") {
-					testYamlNameCount++
-				}
 				policyresoucePath := strings.Trim(yamlFilePath, fileName)
 				bytes, err := ioutil.ReadAll(file)
 				if err != nil {
@@ -423,21 +422,14 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		if testYamlCount == 0 {
 			fmt.Printf("\n No test yamls available \n")
 		}
-		if testYamlNameCount > 0 {
-			fmt.Printf("\n Note : test.yaml file name is deprecated in 1.6.0 release. Please provide test yaml file as kyverno-test.yaml \n")
-		}
 
 	} else {
 		var testFiles int
-		var deprecatedFiles int
 		path := filepath.Clean(dirPath[0])
-		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, &deprecatedFiles, openAPIController, tf)
+		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, openAPIController, tf)
 
 		if testFiles == 0 {
 			fmt.Printf("\n No test files found. Please provide test YAML files named kyverno-test.yaml \n")
-		}
-		if deprecatedFiles > 0 {
-			fmt.Printf("\n Note: The test.yaml file name is deprecated in 1.6.0 release. Please use kyverno-test.yaml instead. \n")
 		}
 	}
 
@@ -458,7 +450,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, deprecatedFiles *int, openAPIController *openapi.Controller, tf *testFilter) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, openAPIController *openapi.Controller, tf *testFilter) []error {
 	var errors []error
 
 	files, err := ioutil.ReadDir(path)
@@ -467,14 +459,11 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, deprecatedFiles, openAPIController, tf)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, openAPIController, tf)
 			continue
 		}
-		if strings.Contains(file.Name(), fileName) || strings.Contains(file.Name(), "test.yaml") {
+		if file.Name() == fileName {
 			*testFiles++
-			if strings.Compare(file.Name(), "test.yaml") == 0 {
-				*deprecatedFiles++
-			}
 			// We accept the risk of including files here as we read the test dir only.
 			yamlFile, err := ioutil.ReadFile(filepath.Join(path, file.Name())) // #nosec G304
 			if err != nil {
@@ -831,7 +820,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	for _, p := range filteredPolicies {
 		var filteredRules = []v1.Rule{}
 
-		for _, rule := range p.Spec.GetRules() {
+		for _, rule := range p.GetRules() {
 			for _, res := range values.Results {
 				if rule.Name == res.Rule {
 					filteredRules = append(filteredRules, rule)
@@ -904,7 +893,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 
 	for _, policy := range mutatedPolicies {
-		err := policy2.Validate(policy, nil, true, openAPIController)
+		_, err := policy2.Validate(policy, nil, true, openAPIController)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", policy.Name)
 			continue

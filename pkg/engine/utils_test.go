@@ -897,7 +897,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		}
 		resource, _ := utils.ConvertToUnstructured(tc.Resource)
 
-		for _, rule := range policy.Spec.GetRules() {
+		for _, rule := range policy.GetRules() {
 			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, []string{}, nil, "")
 			if err != nil {
 				if !tc.areErrorsExpected {
@@ -1302,7 +1302,7 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 	}
 
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription},
-		ExcludeResources: v1.ExcludeResources{ResourceDescription: resourceDescriptionExclude}}
+		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude}}
 
 	if err := MatchesResourceDescription(*resource, rule, v1.RequestInfo{}, []string{}, nil, ""); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")

@@ -87,7 +87,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	ctx.JSONContext.Checkpoint()
 	defer ctx.JSONContext.Restore()
 
-	rules := ctx.Policy.Spec.GetRules()
+	rules := ctx.Policy.GetRules()
 	for i := range rules {
 		rule := &rules[i]
 		if !rule.HasValidate() {
