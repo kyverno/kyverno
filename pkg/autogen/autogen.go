@@ -248,32 +248,42 @@ type Policy interface {
 	GetSpec() kyverno.Spec
 }
 
+// podControllersKey annotation could be:
+// scenario A: not exist, set default to "all", which generates on all pod controllers
+//               - if name / selector exist in resource description -> skip
+//                 as these fields may not be applicable to pod controllers
+// scenario B: "none", user explicitly disable this feature -> skip
+// scenario C: some certain controllers that user set -> generate on defined controllers
+//             copy entire match / exclude block, it's users' responsibility to
+//             make sure all fields are applicable to pod controllers
+
 // GenerateRules generates rule for podControllers based on scenario A and C
 func GenerateRules(spec *kyverno.Spec, controllers string, log logr.Logger) []kyverno.Rule {
 	var rules []kyverno.Rule
 	for _, rule := range spec.Rules {
 		// handle all other controllers other than CronJob
-		genRule := generateRuleForControllers(*rule.DeepCopy(), stripCronJob(controllers), log)
-		if genRule != nil {
-			rules = append(rules, convertRule(*genRule, "Pod"))
+		if genRule := generateRuleForControllers(*rule.DeepCopy(), stripCronJob(controllers), log); genRule != nil {
+			if convRule, err := convertRule(*genRule, "Pod"); err == nil {
+				rules = append(rules, *convRule)
+			}
 		}
 		// handle CronJob, it appends an additional rule
-		genRule = generateCronJobRule(*rule.DeepCopy(), controllers, log)
-		if genRule != nil {
-			rules = append(rules, convertRule(*genRule, "Cronjob"))
+		if genRule := generateCronJobRule(*rule.DeepCopy(), controllers, log); genRule != nil {
+			if convRule, err := convertRule(*genRule, "Cronjob"); err == nil {
+				rules = append(rules, *convRule)
+			}
 		}
 	}
 	return rules
 }
 
-func convertRule(rule kyvernoRule, kind string) kyverno.Rule {
-	// TODO: marshall, rewrite and unmarshall
+func convertRule(rule kyvernoRule, kind string) (*kyverno.Rule, error) {
 	if bytes, err := json.Marshal(rule); err != nil {
-		// TODO
+		return nil, err
 	} else {
 		bytes = updateGenRuleByte(bytes, kind, rule)
 		if err := json.Unmarshal(bytes, &rule); err != nil {
-			// TODO
+			return nil, err
 		}
 	}
 	out := kyverno.Rule{
@@ -298,7 +308,7 @@ func convertRule(rule kyvernoRule, kind string) kyverno.Rule {
 	if rule.Validation != nil {
 		out.Validation = *rule.Validation
 	}
-	return out
+	return &out, nil
 }
 
 func ComputeRules(p Policy) []kyverno.Rule {

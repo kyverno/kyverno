@@ -9,8 +9,7 @@ const (
 	AutogenInternalsFlagName    = "autogenInternals"
 	AutogenInternalsDescription = "Enables autogen internal policies. When this is 'true' policy rules should not be mutated."
 	AutogenInternalsEnvVar      = "FLAG_AUTOGEN_INTERNALS"
-	// TODO: set default values to false
-	DefaultAutogenInternals = true
+	DefaultAutogenInternals     = false
 )
 
 var autogenInternals *bool
