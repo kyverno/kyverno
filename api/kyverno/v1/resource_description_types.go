@@ -2,6 +2,7 @@ package v1
 
 import (
 	"fmt"
+	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -53,8 +54,10 @@ type ResourceDescription struct {
 }
 
 // Validate implements programmatic validation
-func (r *ResourceDescription) Validate(path *field.Path, namespaced bool, clusterResources sets.String) field.ErrorList {
-	var errs field.ErrorList
+func (r *ResourceDescription) Validate(path *field.Path, mandatory bool, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
+	if mandatory && reflect.DeepEqual(r, &ResourceDescription{}) {
+		errs = append(errs, field.Invalid(path, r, "Resources is mandatory and must be specified"))
+	}
 	if r.Name != "" && len(r.Names) > 0 {
 		errs = append(errs, field.Invalid(path, r, "Both name and names can not be specified together"))
 	}

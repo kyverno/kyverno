@@ -13,39 +13,6 @@ import (
 	"gotest.tools/assert"
 )
 
-func Test_Validate_ResourceDescription_Empty(t *testing.T) {
-	var err error
-	rawResourcedescirption := []byte(`{}`)
-
-	var rd kyverno.ResourceDescription
-	err = json.Unmarshal(rawResourcedescirption, &rd)
-	assert.NilError(t, err)
-
-	_, err = validateMatchedResourceDescription(rd)
-	assert.Assert(t, err != nil)
-}
-
-func Test_Validate_ResourceDescription_MatchedValid(t *testing.T) {
-	rawResourcedescirption := []byte(`
-	{
-		"kinds": [
-		   "Deployment"
-		],
-		"selector": {
-		   "matchLabels": {
-			  "app.type": "prod"
-		   }
-		}
-	 }`)
-
-	var rd kyverno.ResourceDescription
-	err := json.Unmarshal(rawResourcedescirption, &rd)
-	assert.NilError(t, err)
-
-	_, err = validateMatchedResourceDescription(rd)
-	assert.NilError(t, err)
-}
-
 func Test_Validate_DenyConditions_KeyRequestOperation_Empty(t *testing.T) {
 	denyConditions := []byte(`[]`)
 

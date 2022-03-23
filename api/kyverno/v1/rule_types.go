@@ -302,7 +302,7 @@ func (r *Rule) Validate(path *field.Path, namespaced bool, clusterResources sets
 	var errs field.ErrorList
 	errs = append(errs, r.ValidateRuleType(path)...)
 	errs = append(errs, r.ValidateMathExcludeConflict(path)...)
-	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
-	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
+	errs = append(errs, r.MatchResources.Validate(path.Child("match"), true, namespaced, clusterResources)...)
+	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), false, namespaced, clusterResources)...)
 	return errs
 }

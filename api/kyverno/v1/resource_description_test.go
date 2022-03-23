@@ -61,7 +61,39 @@ func Test_ResourceDescription(t *testing.T) {
 
 	path := field.NewPath("dummy")
 	for _, testCase := range testCases {
-		errs := testCase.subject.Validate(path, testCase.namespaced, nil)
+		errs := testCase.subject.Validate(path, false, testCase.namespaced, nil)
+		assert.Equal(t, len(errs), len(testCase.errors))
+		for i, err := range errs {
+			assert.Equal(t, err.Error(), testCase.errors[i])
+		}
+	}
+}
+
+func Test_Validate_ResourceDescription_Empty(t *testing.T) {
+	testCases := []struct {
+		name       string
+		namespaced bool
+		mandatory  bool
+		subject    ResourceDescription
+		errors     []string
+	}{{
+		name:       "empty - not mandatory",
+		namespaced: true,
+		mandatory:  false,
+		subject:    ResourceDescription{},
+	}, {
+		name:       "empty - mandatory",
+		namespaced: true,
+		mandatory:  true,
+		subject:    ResourceDescription{},
+		errors: []string{
+			`dummy: Invalid value: v1.ResourceDescription{Kinds:[]string(nil), Name:"", Names:[]string(nil), Namespaces:[]string(nil), Annotations:map[string]string(nil), Selector:(*v1.LabelSelector)(nil), NamespaceSelector:(*v1.LabelSelector)(nil)}: Resources is mandatory and must be specified`,
+		},
+	}}
+
+	path := field.NewPath("dummy")
+	for _, testCase := range testCases {
+		errs := testCase.subject.Validate(path, testCase.mandatory, testCase.namespaced, nil)
 		assert.Equal(t, len(errs), len(testCase.errors))
 		for i, err := range errs {
 			assert.Equal(t, err.Error(), testCase.errors[i])

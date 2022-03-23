@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"reflect"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -31,22 +33,25 @@ type MatchResources struct {
 }
 
 // Validate implements programmatic validation
-func (m *MatchResources) Validate(path *field.Path, namespaced bool, clusterResources sets.String) field.ErrorList {
+func (m *MatchResources) Validate(path *field.Path, mandatory bool, namespaced bool, clusterResources sets.String) field.ErrorList {
 	var errs field.ErrorList
 	if len(m.Any) > 0 && len(m.All) > 0 {
 		errs = append(errs, field.Invalid(path, m, "Can't specify any and all together"))
 	}
+	if (len(m.Any) > 0 || len(m.All) > 0) && !reflect.DeepEqual(m.ResourceDescription, ResourceDescription{}) {
+		errs = append(errs, field.Invalid(path, m, "Can't specify any/all together with match resources"))
+	}
 	anyPath := path.Child("any")
 	for i, filter := range m.Any {
 		errs = append(errs, filter.UserInfo.Validate(anyPath.Index(i))...)
-		errs = append(errs, filter.ResourceDescription.Validate(anyPath.Index(i), namespaced, clusterResources)...)
+		errs = append(errs, filter.ResourceDescription.Validate(anyPath.Index(i), mandatory, namespaced, clusterResources)...)
 	}
 	allPath := path.Child("all")
 	for i, filter := range m.All {
 		errs = append(errs, filter.UserInfo.Validate(anyPath.Index(i))...)
-		errs = append(errs, filter.ResourceDescription.Validate(allPath.Index(i), namespaced, clusterResources)...)
+		errs = append(errs, filter.ResourceDescription.Validate(allPath.Index(i), mandatory, namespaced, clusterResources)...)
 	}
 	errs = append(errs, m.UserInfo.Validate(path)...)
-	errs = append(errs, m.ResourceDescription.Validate(path, namespaced, clusterResources)...)
+	errs = append(errs, m.ResourceDescription.Validate(path, mandatory && len(m.Any) == 0 && len(m.All) == 0, namespaced, clusterResources)...)
 	return errs
 }

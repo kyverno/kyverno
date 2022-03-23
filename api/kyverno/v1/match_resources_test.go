@@ -58,7 +58,7 @@ func Test_MatchResources(t *testing.T) {
 
 	path := field.NewPath("dummy")
 	for _, testCase := range testCases {
-		errs := testCase.subject.Validate(path, testCase.namespaced, nil)
+		errs := testCase.subject.Validate(path, false, testCase.namespaced, nil)
 		assert.Equal(t, len(errs), len(testCase.errors))
 		for i, err := range errs {
 			assert.Equal(t, err.Error(), testCase.errors[i])

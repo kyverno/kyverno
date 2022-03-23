@@ -639,44 +639,6 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 }
 
 func validateResources(path *field.Path, rule kyverno.Rule) (string, error) {
-	// validate userInfo in match and exclude
-	if errs := rule.ExcludeResources.UserInfo.Validate(path.Child("exclude")); len(errs) != 0 {
-		return "exclude", errs.ToAggregate()
-	}
-
-	if (len(rule.MatchResources.Any) > 0 || len(rule.MatchResources.All) > 0) && !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyverno.ResourceDescription{}) {
-		return "match.", fmt.Errorf("can't specify any/all together with match resources")
-	}
-
-	if (len(rule.ExcludeResources.Any) > 0 || len(rule.ExcludeResources.All) > 0) && !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyverno.ResourceDescription{}) {
-		return "exclude.", fmt.Errorf("can't specify any/all together with exclude resources")
-	}
-
-	if len(rule.ExcludeResources.Any) > 0 && len(rule.ExcludeResources.All) > 0 {
-		return "match.", fmt.Errorf("can't specify any and all together")
-	}
-
-	if len(rule.MatchResources.Any) > 0 {
-		for _, rmr := range rule.MatchResources.Any {
-			// matched resources
-			if path, err := validateMatchedResourceDescription(rmr.ResourceDescription); err != nil {
-				return fmt.Sprintf("match.resources.%s", path), err
-			}
-		}
-	} else if len(rule.MatchResources.All) > 0 {
-		for _, rmr := range rule.MatchResources.All {
-			// matched resources
-			if path, err := validateMatchedResourceDescription(rmr.ResourceDescription); err != nil {
-				return fmt.Sprintf("match.resources.%s", path), err
-			}
-		}
-	} else {
-		// matched resources
-		if path, err := validateMatchedResourceDescription(rule.MatchResources.ResourceDescription); err != nil {
-			return fmt.Sprintf("match.resources.%s", path), err
-		}
-	}
-
 	//validating the values present under validate.preconditions, if they exist
 	if target := rule.GetAnyAllConditions(); target != nil {
 		if path, err := validateConditions(target, "preconditions"); err != nil {
@@ -944,19 +906,6 @@ func validateImageRegistry(entry kyverno.ContextEntry) error {
 	}
 
 	return nil
-}
-
-// validateResourceDescription checks if all necessary fields are present and have values. Also checks a Selector.
-// field type is checked through openapi
-// Returns error if
-// - kinds is empty array in matched resource block, i.e. kinds: []
-// - selector is invalid
-func validateMatchedResourceDescription(rd kyverno.ResourceDescription) (string, error) {
-	if reflect.DeepEqual(rd, kyverno.ResourceDescription{}) {
-		return "", fmt.Errorf("match resources not specified")
-	}
-
-	return "", nil
 }
 
 // checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in
