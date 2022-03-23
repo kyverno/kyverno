@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/tls"
@@ -123,7 +124,7 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			timeDiff := time.Since(t.Time())
 			lastRequestTimeFromAnn := lastRequestTimeFromAnnotation(register, t.log.WithName("lastRequestTimeFromAnnotation"))
 			if lastRequestTimeFromAnn == nil {
-				if err := status.UpdateLastRequestTimestmap(t.Time()); err != nil {
+				if err := status.UpdateLastRequestTimestmap(t.Time(), &v1.PolicyStatus{}); err != nil {
 					logger.Error(err, "failed to annotate deployment for lastRequestTime")
 				} else {
 					logger.Info("initialized lastRequestTimestamp", "time", t.Time())
@@ -163,7 +164,7 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			if idleT > idleCheckInterval {
 				if t.Time().After(*lastRequestTimeFromAnn) {
 					logger.V(3).Info("updating annotation lastRequestTimestamp with the latest in-memory timestamp", "time", t.Time(), "lastRequestTimestamp", lastRequestTimeFromAnn)
-					if err := status.UpdateLastRequestTimestmap(t.Time()); err != nil {
+					if err := status.UpdateLastRequestTimestmap(t.Time(), &v1.PolicyStatus{}); err != nil {
 						logger.Error(err, "failed to update lastRequestTimestamp annotation")
 					}
 				}
