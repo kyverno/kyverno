@@ -134,7 +134,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | installCRDs | bool | `true` | Whether to have Helm install the Kyverno CRDs. If the CRDs are not installed by Helm, they must be added before policies can be created. |
 | networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
-| networkPolicy.openEgress | bool | `false` |  |
+| networkPolicy.openEgress | bool | `false` | If openEgress is true allow all egress traffic else allow egress to only kube-apiserver on port 9443 |
+| networkPolicy.prometheusMatchLabels | list | `[]` | A list of matchLabels for the allow-prometheus network policy |
 | webhooksCleanup.enable | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
 
