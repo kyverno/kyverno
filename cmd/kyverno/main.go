@@ -243,7 +243,6 @@ func main() {
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		rCache,
 		kubeKyvernoInformer.Apps().V1().Deployments(),
-		kubeInformer.Core().V1().Namespaces(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
 		serverIP,
@@ -251,7 +250,8 @@ func main() {
 		debug,
 		autoUpdateWebhooks,
 		stopCh,
-		log.Log)
+		log.Log,
+	)
 
 	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, log.Log)
 	if err != nil {
