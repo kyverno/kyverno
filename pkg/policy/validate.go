@@ -79,7 +79,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 
 // Validate checks the policy and rules declarations for required configurations
 func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) (*v1beta1.AdmissionResponse, error) {
-	namespaced := policy.GetNamespace() != ""
+	namespaced := policy.IsNamespaced()
 	background := policy.Spec.Background == nil || *policy.Spec.Background
 
 	var errs field.ErrorList
@@ -107,7 +107,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 	}
 
-	if errs := policy.Validate(namespaced, clusterResources); len(errs) != 0 {
+	if errs := policy.Validate(clusterResources); len(errs) != 0 {
 		return nil, errs.ToAggregate()
 	}
 

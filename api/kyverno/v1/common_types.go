@@ -525,9 +525,3 @@ type ResourceSpec struct {
 	// Name specifies the resource name.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }
-
-type ValidationFailureActionOverride struct {
-	// +kubebuilder:validation:Enum=audit;enforce
-	Action     string   `json:"action,omitempty" yaml:"action,omitempty"`
-	Namespaces []string `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
-}
