@@ -102,6 +102,11 @@ func (r Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
 }
 
+// HasYAMLVerify checks for validate rule
+func (r Rule) HasYAMLSignatureVerify() bool {
+	return r.Validation.Key != ""
+}
+
 // MatchKinds returns a slice of all kinds to match
 func (r Rule) MatchKinds() []string {
 	matchKinds := r.MatchResources.ResourceDescription.Kinds
