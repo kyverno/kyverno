@@ -31,6 +31,11 @@ type ClusterPolicy struct {
 	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
+// GetSpec returns the policy spec
+func (p *ClusterPolicy) GetSpec() Spec {
+	return p.Spec
+}
+
 // GetRules returns the policy rules
 func (p *ClusterPolicy) GetRules() []Rule {
 	return p.Spec.GetRules()
