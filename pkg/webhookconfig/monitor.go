@@ -11,7 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/pkg/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
@@ -46,7 +46,7 @@ const (
 type Monitor struct {
 	// deployClient is used to manage Kyverno deployment
 	deployClient appsv1.DeploymentInterface
-	leaseClient  coordinationv1.CoordinationV1Interface
+	leaseClient  coordinationv1.LeaseInterface
 
 	// lastSeenRequestTime records the timestamp
 	// of the latest received admission request
@@ -60,6 +60,7 @@ type Monitor struct {
 func NewMonitor(kubeClient kubernetes.Interface, log logr.Logger) (*Monitor, error) {
 	monitor := &Monitor{
 		deployClient:        kubeClient.AppsV1().Deployments(config.KyvernoNamespace),
+		leaseClient:         kubeClient.CoordinationV1().Leases(config.KyvernoNamespace),
 		lastSeenRequestTime: time.Now(),
 		log:                 log,
 	}
@@ -125,7 +126,7 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			}()
 
 			timeDiff := time.Since(t.Time())
-			lastRequestTimeFromAnn := lastRequestTimeFromAnnotation(register, t.log.WithName("lastRequestTimeFromAnnotation"))
+			lastRequestTimeFromAnn := lastRequestTimeFromAnnotation(&Monitor{}, register, t.log.WithName("lastRequestTimeFromAnnotation"))
 			if lastRequestTimeFromAnn == nil {
 				if err := status.UpdateLastRequestTimestmap(t.Time()); err != nil {
 					logger.Error(err, "failed to annotate deployment for lastRequestTime")
@@ -204,9 +205,9 @@ func registerWebhookIfNotPresent(register *Register, logger logr.Logger) error {
 	return nil
 }
 
-func lastRequestTimeFromAnnotation(register *Register, logger logr.Logger) *time.Time {
-	var leaseClient coordinationv1.CoordinationV1Interface
-	lease, err := leaseClient.Leases(deployNamespace).Get(context.TODO(), "kyverno", v1.GetOptions{})
+func lastRequestTimeFromAnnotation(t *Monitor, register *Register, logger logr.Logger) *time.Time {
+
+	lease, err := t.leaseClient.Get(context.TODO(), "kyverno", metav1.GetOptions{})
 	if err != nil {
 		log.Log.Info("Lease 'kyverno' not found. Starting clean-up...")
 	}
