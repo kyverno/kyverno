@@ -113,7 +113,7 @@ func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
 
 	t, err := new.MarshalText()
 	if err != nil {
-		return errors.Wrapf(err, "key %s, val %s", annLastRequestTime, t)
+		return errors.Wrap(err, "failed to marshal timestamp")
 	}
 
 	annotation[annLastRequestTime] = string(t)
@@ -122,7 +122,7 @@ func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
 	//update annotations in lease
 	_, err = vc.leaseClient.Update(context.TODO(), lease, metav1.UpdateOptions{})
 	if err != nil {
-		return errors.Wrap(err, "failed to update lease")
+		return errors.Wrapf(err, "failed to update annotation %s for deployment %s in namespace %s", annLastRequestTime, lease.GetName(), lease.GetNamespace())
 	}
 
 	return nil
