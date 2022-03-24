@@ -1,19 +1,21 @@
 package webhookconfig
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
+	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //maxRetryCount defines the max deadline count
@@ -44,6 +46,7 @@ const (
 type Monitor struct {
 	// deployClient is used to manage Kyverno deployment
 	deployClient appsv1.DeploymentInterface
+	leaseClient  coordinationv1.CoordinationV1Interface
 
 	// lastSeenRequestTime records the timestamp
 	// of the latest received admission request
@@ -84,7 +87,7 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 	logger := t.log.WithName("webhookMonitor")
 
 	logger.V(3).Info("starting webhook monitor", "interval", idleCheckInterval.String())
-	status := newStatusControl(t.deployClient, eventGen, logger.WithName("WebhookStatusControl"))
+	status := newStatusControl(t.deployClient, eventGen, logger.WithName("WebhookStatusControl"), t.leaseClient)
 
 	ticker := time.NewTicker(tickerInterval)
 	defer ticker.Stop()
@@ -124,7 +127,7 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			timeDiff := time.Since(t.Time())
 			lastRequestTimeFromAnn := lastRequestTimeFromAnnotation(register, t.log.WithName("lastRequestTimeFromAnnotation"))
 			if lastRequestTimeFromAnn == nil {
-				if err := status.UpdateLastRequestTimestmap(t.Time(), &v1.PolicyStatus{}); err != nil {
+				if err := status.UpdateLastRequestTimestmap(t.Time()); err != nil {
 					logger.Error(err, "failed to annotate deployment for lastRequestTime")
 				} else {
 					logger.Info("initialized lastRequestTimestamp", "time", t.Time())
@@ -164,7 +167,7 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			if idleT > idleCheckInterval {
 				if t.Time().After(*lastRequestTimeFromAnn) {
 					logger.V(3).Info("updating annotation lastRequestTimestamp with the latest in-memory timestamp", "time", t.Time(), "lastRequestTimestamp", lastRequestTimeFromAnn)
-					if err := status.UpdateLastRequestTimestmap(t.Time(), &v1.PolicyStatus{}); err != nil {
+					if err := status.UpdateLastRequestTimestmap(t.Time()); err != nil {
 						logger.Error(err, "failed to update lastRequestTimestamp annotation")
 					}
 				}
@@ -202,22 +205,13 @@ func registerWebhookIfNotPresent(register *Register, logger logr.Logger) error {
 }
 
 func lastRequestTimeFromAnnotation(register *Register, logger logr.Logger) *time.Time {
-	_, deploy, err := register.GetKubePolicyDeployment()
+	var leaseClient coordinationv1.CoordinationV1Interface
+	lease, err := leaseClient.Leases(deployNamespace).Get(context.TODO(), "kyverno", v1.GetOptions{})
 	if err != nil {
-		logger.Info("unable to get Kyverno deployment", "reason", err.Error())
-		return nil
+		log.Log.Info("Lease 'kyverno' not found. Starting clean-up...")
 	}
 
-	timeStamp, ok, err := unstructured.NestedString(deploy.UnstructuredContent(), "metadata", "annotations", annLastRequestTime)
-	if err != nil {
-		logger.Info("unable to get annotation", "reason", err.Error())
-		return nil
-	}
-
-	if !ok {
-		logger.Info("timestamp not set in the annotation, setting")
-		return nil
-	}
+	timeStamp := lease.ObjectMeta.Annotations[annLastRequestTime]
 
 	annTime, err := time.Parse(time.RFC3339, timeStamp)
 	if err != nil {

@@ -6,12 +6,14 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
+	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var deployName string = config.KyvernoDeploymentName
@@ -27,6 +29,7 @@ type statusControl struct {
 	deployClient appsv1.DeploymentInterface
 	eventGen     event.Interface
 	log          logr.Logger
+	leaseClient  coordinationv1.CoordinationV1Interface
 }
 
 //success ...
@@ -40,11 +43,12 @@ func (vc statusControl) failure() error {
 }
 
 // NewStatusControl creates a new webhook status control
-func newStatusControl(deployClient appsv1.DeploymentInterface, eventGen event.Interface, log logr.Logger) *statusControl {
+func newStatusControl(deployClient appsv1.DeploymentInterface, eventGen event.Interface, log logr.Logger, leaseClient coordinationv1.CoordinationV1Interface) *statusControl {
 	return &statusControl{
 		deployClient: deployClient,
 		eventGen:     eventGen,
 		log:          log,
+		leaseClient:  leaseClient,
 	}
 }
 
@@ -97,9 +101,13 @@ func createStatusUpdateEvent(status string, eventGen event.Interface) {
 	eventGen.Add(e)
 }
 
-func (vc statusControl) UpdateLastRequestTimestmap(new time.Time, status *kyvernov1.PolicyStatus) error {
+func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
 
-	annotation := status.Annotations
+	lease, err := vc.leaseClient.Leases(deployNamespace).Get(context.TODO(), "kyverno", v1.GetOptions{})
+	if err != nil {
+		log.Log.Info("Lease 'kyverno' not found. Starting clean-up...")
+	}
+	annotation := lease.GetAnnotations()
 	if annotation == nil {
 		annotation = make(map[string]string)
 	}
@@ -110,7 +118,13 @@ func (vc statusControl) UpdateLastRequestTimestmap(new time.Time, status *kyvern
 	}
 
 	annotation[annLastRequestTime] = string(t)
-	status.Annotations = annotation
+	lease.SetAnnotations(annotation)
+
+	//update annotations in lease
+	_, err = vc.leaseClient.Leases(deployNamespace).Update(context.TODO(), lease, v1.UpdateOptions{})
+	if err != nil {
+		return errors.Wrap(err, "failed to update lease")
+	}
 
 	return nil
 }

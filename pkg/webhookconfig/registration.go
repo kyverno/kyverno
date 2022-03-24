@@ -538,8 +538,8 @@ func (wrc *Register) constructVerifyMutatingWebhookConfig(caData []byte) *admreg
 				true,
 				wrc.timeoutSeconds,
 				admregapi.Rule{
-					Resources:   []string{"deployments"},
-					APIGroups:   []string{"apps"},
+					Resources:   []string{"Lease"},
+					APIGroups:   []string{"coordination.k8s.io"},
 					APIVersions: []string{"v1"},
 				},
 				[]admregapi.OperationType{admregapi.Update},
@@ -565,8 +565,8 @@ func (wrc *Register) constructDebugVerifyMutatingWebhookConfig(caData []byte) *a
 				true,
 				wrc.timeoutSeconds,
 				admregapi.Rule{
-					Resources:   []string{"deployments"},
-					APIGroups:   []string{"apps"},
+					Resources:   []string{"Lease"},
+					APIGroups:   []string{"coordination.k8s.io"},
 					APIVersions: []string{"v1"},
 				},
 				[]admregapi.OperationType{admregapi.Update},
