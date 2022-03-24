@@ -477,8 +477,6 @@ type PolicyStatus struct {
 	// Rules is a list of Rule instances. It contains original rules defined in the spec
 	// auto generated rules added for pod controllers
 	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
-
-	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
 func (status *PolicyStatus) SetReady(ready bool) {
