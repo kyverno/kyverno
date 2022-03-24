@@ -294,7 +294,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				}
 			}
 		}
-		globalValMap = common.Set_default_value_request_operation_to_create(matches, globalValMap)
+		globalValMap = common.SetDefaultValueOfRequestOperationToCreate(matches, globalValMap)
 
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
 

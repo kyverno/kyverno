@@ -1058,7 +1058,7 @@ func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, po
 }
 
 // Setting request.operation value equal to CREATE by default
-func Set_default_value_request_operation_to_create(matches [][]string, globalValMap map[string]string) map[string]string {
+func SetDefaultValueOfRequestOperationToCreate(matches [][]string, globalValMap map[string]string) map[string]string {
 	for _, vars := range matches {
 		vari := strings.Join(vars, " ")
 		if strings.Contains(vari, "request.operation") {
