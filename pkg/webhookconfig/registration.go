@@ -279,10 +279,10 @@ func (wrc *Register) ValidateWebhookConfigurations(namespace, name string) error
 	return json.Unmarshal([]byte(webhooks), &webhookCfgs)
 }
 
-// cleanupKyvernoResource returns true if Kyverno deployment is terminating
+// cleanupKyvernoResource returns true if Kyverno lease is terminating
 func (wrc *Register) cleanupKyvernoResource() bool {
 	logger := wrc.log.WithName("cleanupKyvernoResource")
-	deploy, err := wrc.client.GetResource("", "Deployment", deployNamespace, deployName)
+	deploy, err := wrc.client.GetResource("", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName)
 	if err != nil {
 		if errorsapi.IsNotFound(err) {
 			logger.Info("Kyverno deployment not found, cleanup Kyverno resources")

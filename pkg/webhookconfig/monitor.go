@@ -3,7 +3,6 @@ package webhookconfig
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -11,13 +10,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/tls"
-	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //maxRetryCount defines the max deadline count
@@ -25,13 +21,6 @@ const (
 	tickerInterval    time.Duration = 30 * time.Second
 	idleCheckInterval time.Duration = 60 * time.Second
 	idleDeadline      time.Duration = idleCheckInterval * 5
-)
-
-var (
-	kubeconfig           string
-	setupLog             = log.Log.WithName("setup")
-	clientRateLimitQPS   float64
-	clientRateLimitBurst int
 )
 
 // Monitor stores the last webhook request time and monitors registered webhooks.
@@ -53,9 +42,8 @@ var (
 // not compare other details like the webhook settings.
 //
 type Monitor struct {
-	// deployClient is used to manage Kyverno deployment
-	deployClient appsv1.DeploymentInterface
-	leaseClient  coordinationv1.LeaseInterface
+	// leaseClient is used to manage Kyverno lease
+	leaseClient coordinationv1.LeaseInterface
 
 	// lastSeenRequestTime records the timestamp
 	// of the latest received admission request
@@ -68,7 +56,6 @@ type Monitor struct {
 // NewMonitor returns a new instance of webhook monitor
 func NewMonitor(kubeClient kubernetes.Interface, log logr.Logger) (*Monitor, error) {
 	monitor := &Monitor{
-		deployClient:        kubeClient.AppsV1().Deployments(config.KyvernoNamespace),
 		leaseClient:         kubeClient.CoordinationV1().Leases(config.KyvernoNamespace),
 		lastSeenRequestTime: time.Now(),
 		log:                 log,
@@ -97,7 +84,7 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 	logger := t.log.WithName("webhookMonitor")
 
 	logger.V(3).Info("starting webhook monitor", "interval", idleCheckInterval.String())
-	status := newStatusControl(t.deployClient, eventGen, logger.WithName("WebhookStatusControl"), t.leaseClient)
+	status := newStatusControl(t.leaseClient, eventGen, logger.WithName("WebhookStatusControl"))
 
 	ticker := time.NewTicker(tickerInterval)
 	defer ticker.Stop()
@@ -135,7 +122,7 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			}()
 
 			timeDiff := time.Since(t.Time())
-			lastRequestTimeFromAnn := lastRequestTimeFromAnnotation(register, t.log.WithName("lastRequestTimeFromAnnotation"))
+			lastRequestTimeFromAnn := lastRequestTimeFromAnnotation(t.leaseClient, t.log.WithName("lastRequestTimeFromAnnotation"))
 			if lastRequestTimeFromAnn == nil {
 				if err := status.UpdateLastRequestTimestmap(t.Time()); err != nil {
 					logger.Error(err, "failed to annotate deployment for lastRequestTime")
@@ -214,24 +201,11 @@ func registerWebhookIfNotPresent(register *Register, logger logr.Logger) error {
 	return nil
 }
 
-func lastRequestTimeFromAnnotation(register *Register, logger logr.Logger) *time.Time {
+func lastRequestTimeFromAnnotation(leaseClient coordinationv1.LeaseInterface, logger logr.Logger) *time.Time {
 
-	// create client config
-	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst, log.Log)
+	lease, err := leaseClient.Get(context.TODO(), "kyverno", metav1.GetOptions{})
 	if err != nil {
-		setupLog.Error(err, "Failed to build kubeconfig")
-		os.Exit(1)
-	}
-
-	leaseClient, err := utils.NewKubeClient(clientConfig)
-	if err != nil {
-		setupLog.Error(err, "Failed to create kubernetes client")
-		os.Exit(1)
-	}
-
-	lease, err := leaseClient.CoordinationV1().Leases(config.KyvernoNamespace).Get(context.TODO(), "kyverno", v1.GetOptions{})
-	if err != nil {
-		log.Log.Info("Lease 'kyverno' not found. Starting clean-up...")
+		logger.Info("Lease 'kyverno' not found. Starting clean-up...")
 	}
 
 	timeStamp := lease.GetAnnotations()

@@ -10,13 +10,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var deployName string = config.KyvernoDeploymentName
-var deployNamespace string = config.KyvernoNamespace
+var leaseName string = "kyverno"
+var leaseNamespace string = config.KyvernoNamespace
 
 const (
 	annWebhookStatus   string = "kyverno.io/webhookActive"
@@ -25,10 +23,9 @@ const (
 
 //statusControl controls the webhook status
 type statusControl struct {
-	deployClient appsv1.DeploymentInterface
-	eventGen     event.Interface
-	log          logr.Logger
-	leaseClient  coordinationv1.LeaseInterface
+	eventGen    event.Interface
+	log         logr.Logger
+	leaseClient coordinationv1.LeaseInterface
 }
 
 //success ...
@@ -42,23 +39,23 @@ func (vc statusControl) failure() error {
 }
 
 // NewStatusControl creates a new webhook status control
-func newStatusControl(deployClient appsv1.DeploymentInterface, eventGen event.Interface, log logr.Logger, leaseClient coordinationv1.LeaseInterface) *statusControl {
+func newStatusControl(leaseClient coordinationv1.LeaseInterface, eventGen event.Interface, log logr.Logger) *statusControl {
 	return &statusControl{
-		deployClient: deployClient,
-		eventGen:     eventGen,
-		log:          log,
-		leaseClient:  leaseClient,
+		eventGen:    eventGen,
+		log:         log,
+		leaseClient: leaseClient,
 	}
 }
 
 func (vc statusControl) setStatus(status string) error {
-	logger := vc.log.WithValues("name", deployName, "namespace", deployNamespace)
+	logger := vc.log.WithValues("name", leaseName, "namespace", leaseNamespace)
 	var ann map[string]string
 	var err error
 
 	lease, err := vc.leaseClient.Get(context.TODO(), "kyverno", metav1.GetOptions{})
 	if err != nil {
-		log.Log.Info("Lease 'kyverno' not found. Starting clean-up...")
+		vc.log.WithName("UpdateLastRequestTimestmap").Error(err, "Lease 'kyverno' not found. Starting clean-up...")
+		return err
 	}
 
 	ann = lease.GetAnnotations()
@@ -67,9 +64,9 @@ func (vc statusControl) setStatus(status string) error {
 		ann[annWebhookStatus] = status
 	}
 
-	deployStatus, ok := ann[annWebhookStatus]
+	leaseStatus, ok := ann[annWebhookStatus]
 	if ok {
-		if deployStatus == status {
+		if leaseStatus == status {
 			logger.V(4).Info(fmt.Sprintf("annotation %s already set to '%s'", annWebhookStatus, status))
 			return nil
 		}
@@ -92,9 +89,9 @@ func (vc statusControl) setStatus(status string) error {
 
 func createStatusUpdateEvent(status string, eventGen event.Interface) {
 	e := event.Info{}
-	e.Kind = "Deployment"
-	e.Namespace = deployNamespace
-	e.Name = deployName
+	e.Kind = "Lease"
+	e.Namespace = leaseNamespace
+	e.Name = leaseName
 	e.Reason = "Update"
 	e.Message = fmt.Sprintf("admission control webhook active status changed to %s", status)
 	eventGen.Add(e)
@@ -102,10 +99,20 @@ func createStatusUpdateEvent(status string, eventGen event.Interface) {
 
 func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
 
-	lease, err := vc.leaseClient.Get(context.TODO(), "kyverno", metav1.GetOptions{})
+	lease, err := vc.leaseClient.Get(context.TODO(), leaseName, metav1.GetOptions{})
 	if err != nil {
-		log.Log.Info("Lease 'kyverno' not found. Starting clean-up...")
+		vc.log.WithName("UpdateLastRequestTimestmap").Error(err, "Lease 'kyverno' not found. Starting clean-up...")
+		return err
 	}
+
+	//add label to lease
+	label := lease.GetLabels()
+	if len(label) == 0 {
+		label = make(map[string]string)
+		label["app.kubernetes.io/name"] = "kyverno"
+	}
+	lease.SetLabels(label)
+
 	annotation := lease.GetAnnotations()
 	if annotation == nil {
 		annotation = make(map[string]string)
