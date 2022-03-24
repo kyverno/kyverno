@@ -55,13 +55,13 @@ func (vc statusControl) setStatus(status string) error {
 	logger := vc.log.WithValues("name", deployName, "namespace", deployNamespace)
 	var ann map[string]string
 	var err error
-	deploy, err := vc.deployClient.Get(context.TODO(), deployName, metav1.GetOptions{})
+
+	lease, err := vc.leaseClient.Get(context.TODO(), "kyverno", metav1.GetOptions{})
 	if err != nil {
-		logger.Error(err, "failed to get deployment")
-		return err
+		log.Log.Info("Lease 'kyverno' not found. Starting clean-up...")
 	}
 
-	ann = deploy.GetAnnotations()
+	ann = lease.GetAnnotations()
 	if ann == nil {
 		ann = map[string]string{}
 		ann[annWebhookStatus] = status
@@ -76,14 +76,14 @@ func (vc statusControl) setStatus(status string) error {
 	}
 
 	ann[annWebhookStatus] = status
-	deploy.SetAnnotations(ann)
+	lease.SetAnnotations(ann)
 
-	_, err = vc.deployClient.Update(context.TODO(), deploy, metav1.UpdateOptions{})
+	_, err = vc.leaseClient.Update(context.TODO(), lease, metav1.UpdateOptions{})
 	if err != nil {
 		return errors.Wrapf(err, "key %s, val %s", annWebhookStatus, status)
 	}
 
-	logger.Info("updated deployment annotation", "key", annWebhookStatus, "val", status)
+	logger.Info("updated lease annotation", "key", annWebhookStatus, "val", status)
 
 	// create event on kyverno deployment
 	createStatusUpdateEvent(status, vc.eventGen)
@@ -113,7 +113,7 @@ func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
 
 	t, err := new.MarshalText()
 	if err != nil {
-		return errors.Wrap(err, "failed to marshal timestamp")
+		return errors.Wrapf(err, "key %s, val %s", annLastRequestTime, t)
 	}
 
 	annotation[annLastRequestTime] = string(t)

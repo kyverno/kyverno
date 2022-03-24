@@ -3,6 +3,7 @@ package webhookconfig
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -10,8 +11,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/tls"
+	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
@@ -23,6 +25,13 @@ const (
 	tickerInterval    time.Duration = 30 * time.Second
 	idleCheckInterval time.Duration = 60 * time.Second
 	idleDeadline      time.Duration = idleCheckInterval * 5
+)
+
+var (
+	kubeconfig           string
+	setupLog             = log.Log.WithName("setup")
+	clientRateLimitQPS   float64
+	clientRateLimitBurst int
 )
 
 // Monitor stores the last webhook request time and monitors registered webhooks.
@@ -126,7 +135,7 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			}()
 
 			timeDiff := time.Since(t.Time())
-			lastRequestTimeFromAnn := lastRequestTimeFromAnnotation(&Monitor{}, register, t.log.WithName("lastRequestTimeFromAnnotation"))
+			lastRequestTimeFromAnn := lastRequestTimeFromAnnotation(register, t.log.WithName("lastRequestTimeFromAnnotation"))
 			if lastRequestTimeFromAnn == nil {
 				if err := status.UpdateLastRequestTimestmap(t.Time()); err != nil {
 					logger.Error(err, "failed to annotate deployment for lastRequestTime")
@@ -205,18 +214,35 @@ func registerWebhookIfNotPresent(register *Register, logger logr.Logger) error {
 	return nil
 }
 
-func lastRequestTimeFromAnnotation(t *Monitor, register *Register, logger logr.Logger) *time.Time {
+func lastRequestTimeFromAnnotation(register *Register, logger logr.Logger) *time.Time {
 
-	lease, err := t.leaseClient.Get(context.TODO(), "kyverno", metav1.GetOptions{})
+	// create client config
+	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst, log.Log)
+	if err != nil {
+		setupLog.Error(err, "Failed to build kubeconfig")
+		os.Exit(1)
+	}
+
+	leaseClient, err := utils.NewKubeClient(clientConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
+	}
+
+	lease, err := leaseClient.CoordinationV1().Leases(config.KyvernoNamespace).Get(context.TODO(), "kyverno", v1.GetOptions{})
 	if err != nil {
 		log.Log.Info("Lease 'kyverno' not found. Starting clean-up...")
 	}
 
-	timeStamp := lease.ObjectMeta.Annotations[annLastRequestTime]
+	timeStamp := lease.GetAnnotations()
+	if timeStamp == nil {
+		logger.Info("timestamp not set in the annotation, setting")
+		return nil
+	}
 
-	annTime, err := time.Parse(time.RFC3339, timeStamp)
+	annTime, err := time.Parse(time.RFC3339, timeStamp[annLastRequestTime])
 	if err != nil {
-		logger.Error(err, "failed to parse timestamp annotation", "timeStamp", timeStamp)
+		logger.Error(err, "failed to parse timestamp annotation", "timeStamp", timeStamp[annLastRequestTime])
 		return nil
 	}
 
