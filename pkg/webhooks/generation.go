@@ -208,8 +208,10 @@ func (ws *WebhookServer) updateAnnotationInGR(gr *kyverno.GenerateRequest, logge
 	if len(grAnnotations) == 0 {
 		grAnnotations = make(map[string]string)
 	}
+	ws.Lock()
 	grAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
 	gr.SetAnnotations(grAnnotations)
+	ws.Unlock()
 	_, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(contextdefault.TODO(), gr, metav1.UpdateOptions{})
 	if err != nil {
 		logger.Error(err, "failed to update generate request for the resource", "generate request", gr.Name)
