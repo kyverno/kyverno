@@ -49,7 +49,8 @@ type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// policyLister can list/get cluster policy from the shared informer's store
-	policyLister kyvernolister.ClusterPolicyLister
+	policyLister  kyvernolister.ClusterPolicyLister
+	npolicyLister kyvernolister.PolicyLister
 
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestNamespaceLister
@@ -76,6 +77,7 @@ func NewController(
 	kyvernoClient *kyvernoclient.Clientset,
 	client *dclient.Client,
 	policyInformer kyvernoinformer.ClusterPolicyInformer,
+	npolicyInformer kyvernoinformer.PolicyInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
 	eventGen event.Interface,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
@@ -106,6 +108,7 @@ func NewController(
 	})
 
 	c.policyLister = policyInformer.Lister()
+	c.npolicyLister = npolicyInformer.Lister()
 	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
 
 	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
