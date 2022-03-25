@@ -50,6 +50,9 @@ type Controller struct {
 	// pLister can list/get cluster policy from the shared informer's store
 	pLister kyvernolister.ClusterPolicyLister
 
+	// npLister can list/get namespace policy from the shared informer's store
+	npLister kyvernolister.PolicyLister
+
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestNamespaceLister
 
@@ -75,6 +78,7 @@ func NewController(
 	kyvernoclient *kyvernoclient.Clientset,
 	client *dclient.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
+	npInformer kyvernoinformer.PolicyInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
 	log logr.Logger,
@@ -92,6 +96,7 @@ func NewController(
 	c.control = Control{client: kyvernoclient}
 
 	c.pLister = pInformer.Lister()
+	c.npLister = npInformer.Lister()
 	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
 
 	c.pSynced = pInformer.Informer().HasSynced
@@ -338,11 +343,25 @@ func (c *Controller) syncGenerateRequest(key string) error {
 		return err
 	}
 
-	_, err = c.pLister.Get(gr.Spec.Policy)
+	pNamespace, pName, err := cache.SplitMetaNamespaceKey(gr.Spec.Policy)
+	if err != nil {
+		return err
+	}
+	_, err = c.pLister.Get(pName)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
+
+		_, err = c.npLister.Policies(pNamespace).Get(pName)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
+		} else {
+			return c.processGR(*gr)
+		}
+
 		err = c.control.Delete(gr.Name)
 		if err != nil {
 			return err

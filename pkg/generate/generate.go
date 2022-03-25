@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/tools/cache"
 )
 
 func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
@@ -121,7 +122,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 
 	logger.V(3).Info("applying generate policy rule")
 
-	policyObj, err := c.policyLister.Get(gr.Spec.Policy)
+	policyObj, err := c.getPolicy(gr)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			for _, e := range gr.Status.GeneratedResources {
@@ -137,7 +138,6 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 					}
 				}
 			}
-
 			return nil, false, nil
 		}
 
@@ -191,7 +191,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
-		Policy:              *policyObj,
+		Policy:              policyObj.(kyverno.ClusterPolicy),
 		AdmissionInfo:       gr.Spec.Context.UserRequestInfo,
 		ExcludeGroupRole:    c.Config.GetExcludeGroupRole(),
 		ExcludeResourceFunc: c.Config.ToFilter,
@@ -237,6 +237,28 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 
 	// Apply the generate rule on resource
 	return c.applyGeneratePolicy(logger, policyContext, gr, applicableRules)
+}
+
+func (c *Controller) getPolicy(gr kyverno.GenerateRequest) (interface{}, error) {
+	var policyObj *kyverno.ClusterPolicy
+	//	var npolicyObj *kyverno.Policy
+
+	pNamespace, pName, err := cache.SplitMetaNamespaceKey(gr.Spec.Policy)
+	if err != nil {
+		return nil, nil
+	}
+	policyObj, err = c.policyLister.Get(pName)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			npolicyObj, err := c.npolicyLister.Policies(pNamespace).Get(pName)
+			if err != nil {
+				return nil, nil
+			}
+			return npolicyObj, nil
+		}
+		return nil, nil
+	}
+	return policyObj, nil
 }
 
 func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateRequest, err error, genResources []kyverno.ResourceSpec, precreatedResource bool) error {
