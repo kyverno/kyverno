@@ -2,6 +2,29 @@ apiVersion: v1
 entries:
   kyverno:
   - apiVersion: v1
+    appVersion: v1.6.2-rc1
+    created: "2022-03-25T17:17:49.229046941Z"
+    description: Kubernetes Native Policy Management
+    digest: 438ce44d1520b6e07264a5b918bdabe17f8cf66cd1f6210e759496a5abba78be
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-v2.3.2-rc1.tgz
+    version: v2.3.2-rc1
+  - apiVersion: v1
     appVersion: v1.6.1
     created: "2022-03-02T06:34:11.235298947Z"
     description: Kubernetes Native Policy Management
@@ -1950,6 +1973,29 @@ entries:
     version: v2.0.2
   kyverno-policies:
   - apiVersion: v1
+    appVersion: v1.6.2-rc1
+    created: "2022-03-25T17:17:49.225939558Z"
+    description: Kubernetes Pod Security Standards implemented as Kyverno policies
+    digest: 0ef5c44c7b205dba71e8e76423cb1c13b34032972ba0cd71e75817d2199a3d86
+    home: https://kyverno.io/policies/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno-policies
+    sources:
+    - https://github.com/kyverno/policies
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-policies-v2.3.2-rc1.tgz
+    version: v2.3.2-rc1
+  - apiVersion: v1
     appVersion: v1.6.1
     created: "2022-03-02T06:34:11.232979402Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
@@ -2616,4 +2662,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-03-02T06:34:11.231154867Z"
+generated: "2022-03-25T17:17:49.22355434Z"
