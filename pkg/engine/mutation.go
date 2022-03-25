@@ -193,7 +193,7 @@ func mutateElements(name string, foreach *kyverno.ForEachMutation, ctx *PolicyCo
 
 	patchedResource := resource
 	var allPatches [][]byte
-	if foreach.RawPatchStrategicMerge != nil {
+	if foreach.PatchStrategicMerge != nil {
 		invertedElement(elements)
 	}
 
