@@ -241,7 +241,7 @@ func Test_GetRequestedControllers(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		controllers := GetRequestedControllers(test.meta)
+		controllers := GetRequestedControllers(&test.meta)
 		assert.DeepEqual(t, test.expectedControllers, controllers)
 	}
 }
