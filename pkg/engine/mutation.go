@@ -193,6 +193,9 @@ func mutateElements(name string, foreach *kyverno.ForEachMutation, ctx *PolicyCo
 
 	patchedResource := resource
 	var allPatches [][]byte
+	if foreach.PatchStrategicMerge != nil {
+		invertedElement(elements)
+	}
 
 	for i, e := range elements {
 		ctx.JSONContext.Reset()
