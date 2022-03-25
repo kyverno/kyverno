@@ -545,6 +545,13 @@ func (wrc *Register) constructVerifyMutatingWebhookConfig(caData []byte) *admreg
 				[]admregapi.OperationType{admregapi.Update},
 				admregapi.Ignore,
 			),
+			{
+				ObjectSelector: &v1.LabelSelector{
+					MatchLabels: map[string]string{
+						"app.kubernetes.io/name": "kyverno",
+					},
+				},
+			},
 		},
 	}
 }
@@ -572,6 +579,13 @@ func (wrc *Register) constructDebugVerifyMutatingWebhookConfig(caData []byte) *a
 				[]admregapi.OperationType{admregapi.Update},
 				admregapi.Ignore,
 			),
+			{
+				ObjectSelector: &v1.LabelSelector{
+					MatchLabels: map[string]string{
+						"app.kubernetes.io/name": "kyverno",
+					},
+				},
+			},
 		},
 	}
 }
