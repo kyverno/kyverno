@@ -707,7 +707,7 @@ func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) 
 		status.Autogen.Supported = supported
 		status.Autogen.Activated = activated
 		status.Rules = spec.Rules
-		return reflect.DeepEqual(status, copy)
+		return !reflect.DeepEqual(status, copy)
 	}
 	if namespace == "" {
 		p, err := m.pLister.Get(name)
