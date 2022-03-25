@@ -118,7 +118,7 @@ func GetSupportedControllers(spec *kyverno.Spec, log logr.Logger) []string {
 }
 
 // GetRequestedControllers returns the requested autogen controllers based on object annotations.
-func GetRequestedControllers(meta metav1.ObjectMeta) []string {
+func GetRequestedControllers(meta *metav1.ObjectMeta) []string {
 	annotations := meta.GetAnnotations()
 	if annotations == nil {
 		return nil
@@ -135,7 +135,7 @@ func GetRequestedControllers(meta metav1.ObjectMeta) []string {
 
 // GetControllers computes the autogen controllers that should be applied to a policy.
 // It returns the requested, supported and effective controllers (intersection of requested and supported ones).
-func GetControllers(meta metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger) ([]string, []string, []string) {
+func GetControllers(meta *metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger) ([]string, []string, []string) {
 	// compute supported and requested controllers
 	supported := GetSupportedControllers(spec, log)
 	requested := GetRequestedControllers(meta)
