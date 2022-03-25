@@ -5,7 +5,7 @@ import (
 
 	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor"
 
-	"github.com/minio/pkg/wildcard"
+	wildcard "github.com/kyverno/go-wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
