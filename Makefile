@@ -228,10 +228,16 @@ e2e-kustomize: kustomize ## Build kustomize manifests for e2e tests
 	kustomize edit set image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
 	kustomize build config/ -o config/install.yaml
 
-.PHONY: create-e2e-infrastruture
-create-e2e-infrastruture: kind-e2e-cluster docker-build-initContainer-local docker-build-kyverno-local e2e-kustomize ## Setup infrastructure for e2e tests
+.PHONY: e2e-init-container
+e2e-init-container: kind-e2e-cluster docker-build-initContainer-local
 	kind load docker-image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+
+.PHONY: e2e-kyverno-container
+e2e-kyverno-container: kind-e2e-cluster docker-build-kyverno-local
 	kind load docker-image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
+
+.PHONY: create-e2e-infrastruture
+create-e2e-infrastruture: e2e-init-container e2e-kyverno-container e2e-kustomize ## Setup infrastructure for e2e tests
 
 ##################################
 # Testing & Code-Coverage
