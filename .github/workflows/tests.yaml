@@ -67,6 +67,10 @@ jobs:
       - name: Verify generated code is up to date
         run: make verify-codegen
 
+      - name: Go vet
+        run: |
+          make vet
+
   tests:
     runs-on: ubuntu-latest
     needs: pre-checks
