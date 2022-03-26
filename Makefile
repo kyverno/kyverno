@@ -31,6 +31,9 @@ K8S_VERSION ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 
 export K8S_VERSION
 TEST_GIT_BRANCH ?= main
 
+KIND_VERSION=v0.11.1
+KIND_IMAGE?=kindest/node:v1.23.3
+
 ##################################
 # KYVERNO
 ##################################
@@ -152,7 +155,6 @@ gen-crd-api-reference-docs: ## Install gen-crd-api-reference-docs
 generate-api-docs: gen-crd-api-reference-docs ## Generate api reference docs
 	rm -rf docs/crd
 	mkdir docs/crd
-	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1alpha1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha1/index.html
 	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
 	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
 
@@ -209,9 +211,33 @@ docker-build-all-amd64: docker-buildx-builder docker-build-initContainer-amd64 d
 # Create e2e Infrastruture
 ##################################
 
-create-e2e-infrastruture: docker-build-initContainer-local docker-build-kyverno-local
-	chmod a+x $(PWD)/scripts/create-e2e-infrastruture.sh
-	$(PWD)/scripts/create-e2e-infrastruture.sh
+.PHONY: kind-install
+kind-install: ## Install kind
+ifeq (, $(shell which kind))
+	go install sigs.k8s.io/kind@$(KIND_VERSION)
+endif
+
+.PHONY: kind-e2e-cluster
+kind-e2e-cluster: kind-install ## Create kind cluster for e2e tests
+	kind create cluster --image=$(KIND_IMAGE)
+
+.PHONY: e2e-kustomize
+e2e-kustomize: kustomize ## Build kustomize manifests for e2e tests
+	cd config && \
+	kustomize edit set image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) && \
+	kustomize edit set image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+	kustomize build config/ -o config/install.yaml
+
+.PHONY: e2e-init-container
+e2e-init-container: kind-e2e-cluster docker-build-initContainer-local
+	kind load docker-image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+
+.PHONY: e2e-kyverno-container
+e2e-kyverno-container: kind-e2e-cluster docker-build-kyverno-local
+	kind load docker-image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
+
+.PHONY: create-e2e-infrastruture
+create-e2e-infrastruture: e2e-init-container e2e-kyverno-container e2e-kustomize ## Setup infrastructure for e2e tests
 
 ##################################
 # Testing & Code-Coverage
@@ -306,7 +332,9 @@ godownloader:
 
 .PHONY: kustomize
 kustomize: ## Install kustomize
+ifeq (, $(shell which kustomize))
 	go install sigs.k8s.io/kustomize/kustomize/v4@latest
+endif
 
 .PHONY: kustomize-crd
 kustomize-crd: kustomize ## Create install.yaml

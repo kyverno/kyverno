@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/minio/pkg/wildcard"
+	wildcard "github.com/kyverno/go-wildcard"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/go-logr/logr"

@@ -2148,6 +2148,8 @@ spec:
                 items:
                   properties:
                     action:
+                      description: ValidationFailureAction defines the policy validation
+                        failure action
                       enum:
                       - audit
                       - enforce

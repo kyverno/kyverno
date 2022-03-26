@@ -32,6 +32,11 @@ type Policy struct {
 	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
+// GetSpec returns the policy spec
+func (p *Policy) GetSpec() Spec {
+	return p.Spec
+}
+
 // GetRules returns the policy rules
 func (p *Policy) GetRules() []Rule {
 	return p.Spec.GetRules()
@@ -80,6 +85,11 @@ func (p *Policy) HasVerifyImages() bool {
 // BackgroundProcessingEnabled checks if background is set to true
 func (p *Policy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
+}
+
+// IsNamespaced indicates if the policy is namespace scoped
+func (p *Policy) IsNamespaced() bool {
+	return false
 }
 
 // IsReady indicates if the policy is ready to serve the admission request

@@ -5,12 +5,10 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/kyverno/kyverno/pkg/engine/mutate"
-
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -184,6 +182,9 @@ func mutateElements(name string, foreach *kyverno.ForEachMutation, ctx *PolicyCo
 
 	patchedResource := resource
 	var allPatches [][]byte
+	if foreach.RawPatchStrategicMerge != nil {
+		invertedElement(elements)
+	}
 
 	for i, e := range elements {
 		ctx.JSONContext.Reset()

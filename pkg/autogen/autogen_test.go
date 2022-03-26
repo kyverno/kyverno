@@ -220,28 +220,28 @@ func Test_GetRequestedControllers(t *testing.T) {
 		},
 		{
 			name:                "annotation-empty",
-			meta:                metav1.ObjectMeta{Annotations: map[string]string{"pod-policies.kyverno.io/autogen-controllers": ""}},
+			meta:                metav1.ObjectMeta{Annotations: map[string]string{kyverno.PodControllersAnnotation: ""}},
 			expectedControllers: nil,
 		},
 		{
 			name:                "annotation-none",
-			meta:                metav1.ObjectMeta{Annotations: map[string]string{"pod-policies.kyverno.io/autogen-controllers": "none"}},
+			meta:                metav1.ObjectMeta{Annotations: map[string]string{kyverno.PodControllersAnnotation: "none"}},
 			expectedControllers: []string{},
 		},
 		{
 			name:                "annotation-job",
-			meta:                metav1.ObjectMeta{Annotations: map[string]string{"pod-policies.kyverno.io/autogen-controllers": "Job"}},
+			meta:                metav1.ObjectMeta{Annotations: map[string]string{kyverno.PodControllersAnnotation: "Job"}},
 			expectedControllers: []string{"Job"},
 		},
 		{
 			name:                "annotation-job-deployment",
-			meta:                metav1.ObjectMeta{Annotations: map[string]string{"pod-policies.kyverno.io/autogen-controllers": "Job,Deployment"}},
+			meta:                metav1.ObjectMeta{Annotations: map[string]string{kyverno.PodControllersAnnotation: "Job,Deployment"}},
 			expectedControllers: []string{"Job", "Deployment"},
 		},
 	}
 
 	for _, test := range testCases {
-		controllers := GetRequestedControllers(test.meta)
+		controllers := GetRequestedControllers(&test.meta)
 		assert.DeepEqual(t, test.expectedControllers, controllers)
 	}
 }
