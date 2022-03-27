@@ -462,7 +462,7 @@ func MutatePolicies(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
 	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool,
 	namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts,
-	printPatchResource bool, ruleToCloneResource map[string]string) ([]*response.EngineResponse, policyreport.Info, error) {
+	printPatchResource bool, ruleToCloneSourceResource map[string]string) ([]*response.EngineResponse, policyreport.Info, error) {
 
 	var engineResponses []*response.EngineResponse
 	namespaceLabels := make(map[string]string)
@@ -613,7 +613,7 @@ OuterLoop:
 		}
 		generateResponse := engine.Generate(policyContext)
 		if generateResponse != nil {
-			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, ruleToCloneResource)
+			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, ruleToCloneSourceResource)
 			if err != nil {
 				log.Log.Error(err, "failed to apply generate policy")
 			} else {
@@ -1084,13 +1084,13 @@ func initializeMockController(objects []runtime.Object) (*generate.Controller, e
 	return c, nil
 }
 
-func handleGeneratePolicy(generateResponse *response.EngineResponse, policyContext engine.PolicyContext, ruleToCloneResource map[string]string) ([]response.RuleResponse, error) {
+func handleGeneratePolicy(generateResponse *response.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]response.RuleResponse, error) {
 
 	objects := []runtime.Object{&policyContext.NewResource}
 	var resources = []*unstructured.Unstructured{}
 
 	for _, rule := range generateResponse.PolicyResponse.Rules {
-		if path, ok := ruleToCloneResource[rule.Name]; ok {
+		if path, ok := ruleToCloneSourceResource[rule.Name]; ok {
 			resourceBytes, err := getFileBytes(path)
 			if err != nil {
 				fmt.Printf("failed to get resource bytes\n")
