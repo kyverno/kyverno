@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/minio/pkg/wildcard"
+	wildcard "github.com/kyverno/go-wildcard"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
