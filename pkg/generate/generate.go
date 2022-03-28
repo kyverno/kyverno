@@ -122,7 +122,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 
 	logger.V(3).Info("applying generate policy rule")
 
-	policyObj, err := c.getPolicy(gr)
+	policySpec, err := c.getPolicySpec(gr)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			for _, e := range gr.Status.GeneratedResources {
@@ -191,7 +191,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
-		Policy:              policyObj.(kyverno.ClusterPolicy),
+		PolicySpec:          policySpec,
 		AdmissionInfo:       gr.Spec.Context.UserRequestInfo,
 		ExcludeGroupRole:    c.Config.GetExcludeGroupRole(),
 		ExcludeResourceFunc: c.Config.ToFilter,
@@ -201,7 +201,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	}
 
 	// check if the policy still applies to the resource
-	engineResponse := engine.Generate(policyContext)
+	engineResponse := engine.GenerateResponse(policyContext, gr)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		logger.V(4).Info(doesNotApply)
 		return nil, false, errors.New(doesNotApply)
@@ -239,26 +239,26 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	return c.applyGeneratePolicy(logger, policyContext, gr, applicableRules)
 }
 
-func (c *Controller) getPolicy(gr kyverno.GenerateRequest) (interface{}, error) {
-	var policyObj *kyverno.ClusterPolicy
-	//	var npolicyObj *kyverno.Policy
+// getPolicySpec gets the policy spec from the ClusterPolicy/Policy
+func (c *Controller) getPolicySpec(gr kyverno.GenerateRequest) (kyverno.Spec, error) {
+	var policySpec kyverno.Spec
 
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(gr.Spec.Policy)
 	if err != nil {
-		return nil, nil
+		return policySpec, err
 	}
-	policyObj, err = c.policyLister.Get(pName)
+	policyObj, err := c.policyLister.Get(pName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			npolicyObj, err := c.npolicyLister.Policies(pNamespace).Get(pName)
 			if err != nil {
-				return nil, nil
+				return policySpec, err
 			}
-			return npolicyObj, nil
+			return npolicyObj.Spec, nil
 		}
-		return nil, nil
+		return policySpec, err
 	}
-	return policyObj, nil
+	return policyObj.Spec, nil
 }
 
 func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateRequest, err error, genResources []kyverno.ResourceSpec, precreatedResource bool) error {
@@ -276,6 +276,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 	// Get the response as the actions to be performed on the resource
 	// - - substitute values
 	policy := policyContext.Policy
+	policy.Spec = policyContext.PolicySpec
 	resource := policyContext.NewResource
 
 	jsonContext := policyContext.JSONContext
@@ -299,7 +300,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 		if len(rule.MatchResources.Kinds) > 0 {
 			if len(rule.MatchResources.Annotations) == 0 && rule.MatchResources.Selector == nil {
 				rcreationTime := resource.GetCreationTimestamp()
-				pcreationTime := policy.GetCreationTimestamp()
+				pcreationTime := policyContext.Policy.GetCreationTimestamp()
 				processExisting = rcreationTime.Before(&pcreationTime)
 			}
 		}
