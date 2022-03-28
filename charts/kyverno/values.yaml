@@ -143,8 +143,8 @@ envVarsInit: {}
 envVars: {}
 
 # -- Extra arguments to give to the binary.
-extraArgs: []
-# - --webhookTimeout=4
+extraArgs:
+  - --autogenInternals=false
 
 resources:
   # -- Pod resource limits

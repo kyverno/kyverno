@@ -7,6 +7,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -141,7 +142,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	// clean up the GR
 	// Get the corresponding GR
 	// get the list of GR for the current Policy version
-	rules := p.GetRules()
+	rules := autogen.ComputeRules(p)
 
 	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, c.client, p.GetName(), logger)
 

@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -258,7 +259,7 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 	}
 
 	var policyHasGenerate bool
-	for _, rule := range curP.GetRules() {
+	for _, rule := range autogen.ComputeRules(curP) {
 		if rule.HasGenerate() {
 			policyHasGenerate = true
 		}

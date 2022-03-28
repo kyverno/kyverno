@@ -8,6 +8,7 @@ import (
 	"time"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -87,7 +88,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	ctx.JSONContext.Checkpoint()
 	defer ctx.JSONContext.Restore()
 
-	rules := ctx.Policy.GetRules()
+	rules := autogen.ComputeRules(&ctx.Policy)
 	for i := range rules {
 		rule := &rules[i]
 		if !rule.HasValidate() {
