@@ -126,7 +126,7 @@ type WebhookServer struct {
 
 	promConfig *metrics.PromConfig
 
-	sync.RWMutex
+	mu sync.RWMutex
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
