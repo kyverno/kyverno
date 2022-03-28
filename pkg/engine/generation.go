@@ -3,6 +3,7 @@ package engine
 import (
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -48,7 +49,7 @@ func filterRules(policyContext *PolicyContext, startTime time.Time) *response.En
 		return resp
 	}
 
-	for _, rule := range policyContext.Policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(&policyContext.Policy) {
 		if ruleResp := filterRule(rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}

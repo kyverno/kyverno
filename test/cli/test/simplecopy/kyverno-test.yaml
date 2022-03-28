@@ -1,0 +1,17 @@
+name: allowed-label-changes
+policies:
+  - policy.yaml
+resources:
+  - resources.yaml
+variables: values.yaml
+results:
+  - policy: allowed-label-changes
+    rule: safe-label
+    resource: badpod01
+    kind: Pod
+    result: fail
+  - policy: allowed-label-changes
+    rule: safe-label
+    resource: goodpod01
+    kind: Pod
+    result: pass

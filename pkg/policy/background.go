@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -19,7 +20,7 @@ func containsUserVariables(policy *kyverno.ClusterPolicy, vars [][]string) error
 			return fmt.Errorf("variable %s is not allowed", s[0])
 		}
 	}
-	rules := policy.GetRules()
+	rules := autogen.ComputeRules(policy)
 	for idx := range rules {
 		if err := hasUserMatchExclude(idx, &rules[idx]); err != nil {
 			return err

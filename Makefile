@@ -294,10 +294,8 @@ test-unit: $(GO_ACC)
 	@echo "	running unit tests"
 	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
 
-code-cov-report:
-# generate code coverage report
+code-cov-report: ## Generate code coverage report
 	@echo "	generating code coverage report"
-
 	GO111MODULE=on go test -v -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
 	go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
@@ -359,16 +357,15 @@ release-notes:
 ##################################
 
 .PHONY: kyverno-crd
-kyverno-crd: controller-gen
+kyverno-crd: controller-gen ## Generate Kyverno CRDs
 	$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
 
 .PHONY: report-crd
-report-crd: controller-gen
+report-crd: controller-gen ## Generate policy reports CRDs
 	$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
 
-# install the right version of controller-gen
 .PHONY: install-controller-gen
-install-controller-gen:
+install-controller-gen: ## Install controller-gen
 	@{ \
 	set -e ;\
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
@@ -379,9 +376,8 @@ install-controller-gen:
 	}
 	CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
 
-# setup controller-gen with the right version, if necessary
 .PHONY: controller-gen
-controller-gen:
+controller-gen: ## Setup controller-gen
 ifeq (, $(shell which controller-gen))
 	@{ \
 	echo "controller-gen not found!";\
