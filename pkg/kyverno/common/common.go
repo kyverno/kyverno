@@ -216,46 +216,6 @@ func MutatePolicy(policy *v1.ClusterPolicy, autogenInternals bool, logger logr.L
 	return &p, nil
 }
 
-// GetCRDs - Extracting the crds from multiple YAML
-func GetCRDs(paths []string) (unstructuredCrds []*unstructured.Unstructured, err error) {
-	unstructuredCrds = make([]*unstructured.Unstructured, 0)
-	for _, path := range paths {
-		path = filepath.Clean(path)
-
-		fileDesc, err := os.Stat(path)
-		if err != nil {
-			return nil, err
-		}
-
-		if fileDesc.IsDir() {
-			files, err := ioutil.ReadDir(path)
-			if err != nil {
-				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
-			}
-
-			listOfFiles := make([]string, 0)
-			for _, file := range files {
-				listOfFiles = append(listOfFiles, filepath.Join(path, file.Name()))
-			}
-
-			policiesFromDir, err := GetCRDs(listOfFiles)
-			if err != nil {
-				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to extract crds from %v", listOfFiles), err)
-			}
-
-			unstructuredCrds = append(unstructuredCrds, policiesFromDir...)
-		} else {
-			getCRDs, err := GetCRD(path)
-			if err != nil {
-				fmt.Printf("\nError: failed to extract crds from %s.  \nCause: %s\n", path, err)
-				os.Exit(2)
-			}
-			unstructuredCrds = append(unstructuredCrds, getCRDs...)
-		}
-	}
-	return unstructuredCrds, nil
-}
-
 // GetCRD - Extracts crds from a YAML
 func GetCRD(path string) (unstructuredCrds []*unstructured.Unstructured, err error) {
 	path = filepath.Clean(path)

@@ -7,7 +7,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/kyverno/apply"
 	"github.com/kyverno/kyverno/pkg/kyverno/jp"
 	"github.com/kyverno/kyverno/pkg/kyverno/test"
-	"github.com/kyverno/kyverno/pkg/kyverno/validate"
 	"github.com/kyverno/kyverno/pkg/kyverno/version"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
@@ -27,7 +26,6 @@ func CLI() {
 	commands := []*cobra.Command{
 		version.Command(),
 		apply.Command(),
-		validate.Command(),
 		test.Command(),
 		jp.Command(),
 	}
