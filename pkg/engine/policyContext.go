@@ -13,6 +13,9 @@ type PolicyContext struct {
 	// Policy is the policy to be processed
 	Policy kyverno.ClusterPolicy
 
+	// PolicySpec is the policy spec to be processed for generate policy
+	PolicySpec kyverno.Spec
+
 	// NewResource is the resource to be processed
 	NewResource unstructured.Unstructured
 
