@@ -1,0 +1,23 @@
+name: Nancy
+
+on:
+  # Trigger analysis when pushing in master or pull requests, and when creating
+  # a pull request.
+  push:
+    branches:
+      - 'main'
+      - 'release*'
+  pull_request:
+      types: [opened, synchronize, reopened]
+
+jobs:
+  nancy:
+    runs-on: ubuntu-latest
+    name: Nancy
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: WriteGoList
+      run: go list -json -m all > go.list
+    - name: Nancy SAST Scan
+      uses: sonatype-nexus-community/nancy-github-action@main
