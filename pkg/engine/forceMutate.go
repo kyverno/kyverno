@@ -19,7 +19,8 @@ func ForceMutate(ctx *context.Context, policy kyverno.ClusterPolicy, resource un
 		"namespace", resource.GetNamespace(), "name", resource.GetName())
 
 	patchedResource := resource
-	for _, rule := range policy.GetRules() {
+	// TODO: if we apply autogen, tests will fail
+	for _, rule := range policy.Spec.Rules {
 		if !rule.HasMutate() {
 			continue
 		}

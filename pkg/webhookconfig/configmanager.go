@@ -441,17 +441,17 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 		spec := p.GetSpec()
 		if spec.HasValidate() || spec.HasGenerate() {
 			if spec.FailurePolicy != nil && *spec.FailurePolicy == kyverno.Ignore {
-				m.mergeWebhook(validateIgnore, &spec, true)
+				m.mergeWebhook(validateIgnore, p, true)
 			} else {
-				m.mergeWebhook(validateFail, &spec, true)
+				m.mergeWebhook(validateFail, p, true)
 			}
 		}
 
 		if spec.HasMutate() || spec.HasVerifyImages() {
 			if spec.FailurePolicy != nil && *spec.FailurePolicy == kyverno.Ignore {
-				m.mergeWebhook(mutateIgnore, &spec, false)
+				m.mergeWebhook(mutateIgnore, p, false)
 			} else {
-				m.mergeWebhook(mutateFail, &spec, false)
+				m.mergeWebhook(mutateFail, p, false)
 			}
 		}
 	}
@@ -734,9 +734,9 @@ func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) 
 }
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
-func (m *webhookConfigManager) mergeWebhook(dst *webhook, spec *kyverno.Spec, updateValidate bool) {
+func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy policy, updateValidate bool) {
 	matchedGVK := make([]string, 0)
-	for _, rule := range spec.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
 			matchedGVK = append(matchedGVK, rule.MatchKinds()...)
@@ -818,6 +818,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, spec *kyverno.Spec, up
 	dst.rule[apiVersions] = removeDuplicates(versions)
 	dst.rule[resources] = removeDuplicates(rsrcs)
 
+	spec := policy.GetSpec()
 	if spec.WebhookTimeoutSeconds != nil {
 		if dst.maxWebhookTimeout < int64(*spec.WebhookTimeoutSeconds) {
 			dst.maxWebhookTimeout = int64(*spec.WebhookTimeoutSeconds)
@@ -850,7 +851,7 @@ func webhookKey(webhookKind, failurePolicy string) string {
 }
 
 func hasWildcard(spec *kyverno.Spec) bool {
-	for _, rule := range spec.GetRules() {
+	for _, rule := range spec.Rules {
 		if kinds := rule.MatchKinds(); utils.ContainsString(kinds, "*") {
 			return true
 		}
