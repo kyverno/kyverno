@@ -10,7 +10,6 @@ import (
 	logr "github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/policymutation"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -43,7 +42,7 @@ func (ws *WebhookServer) policyMutation(request *v1beta1.AdmissionRequest) *v1be
 	defer logger.V(3).Info("finished policy change mutation", "time", time.Since(startTime).String())
 
 	// Generate JSON Patches for defaults
-	patches, updateMsgs := policymutation.GenerateJSONPatchesForDefaults(policy, toggle.AutogenInternals, logger)
+	patches, updateMsgs := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
 	if len(patches) != 0 {
 		patchType := v1beta1.PatchTypeJSONPatch
 		return &v1beta1.AdmissionResponse{

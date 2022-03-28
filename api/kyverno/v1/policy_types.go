@@ -32,16 +32,6 @@ type Policy struct {
 	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
-// GetSpec returns the policy spec
-func (p *Policy) GetSpec() Spec {
-	return p.Spec
-}
-
-// GetRules returns the policy rules
-func (p *Policy) GetRules() []Rule {
-	return p.Spec.GetRules()
-}
-
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
 func (p *Policy) HasAutoGenAnnotation() bool {
 	annotations := p.GetAnnotations()
@@ -85,6 +75,11 @@ func (p *Policy) HasVerifyImages() bool {
 // BackgroundProcessingEnabled checks if background is set to true
 func (p *Policy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
+}
+
+// GetSpec returns the policy spec
+func (p *Policy) GetSpec() Spec {
+	return p.Spec
 }
 
 // IsNamespaced indicates if the policy is namespace scoped

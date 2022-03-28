@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	wildcard "github.com/kyverno/go-wildcard"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	yamlv2 "gopkg.in/yaml.v2"
@@ -142,7 +143,7 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 func containsRBACInfo(policies ...[]*kyverno.ClusterPolicy) bool {
 	for _, policySlice := range policies {
 		for _, policy := range policySlice {
-			for _, rule := range policy.GetRules() {
+			for _, rule := range autogen.ComputeRules(policy) {
 				if checkForRBACInfo(rule) {
 					return true
 				}

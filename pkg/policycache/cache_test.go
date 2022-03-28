@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	lv1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/labels"
@@ -49,7 +50,7 @@ func Test_All(t *testing.T) {
 	policy := newPolicy(t)
 	//add
 	pCache.Add(policy)
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
 			// get
@@ -82,7 +83,7 @@ func Test_Add_Duplicate_Policy(t *testing.T) {
 	pCache.Add(policy)
 	pCache.Add(policy)
 	pCache.Add(policy)
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
 			mutate := pCache.get(Mutate, kind, "")
@@ -111,7 +112,7 @@ func Test_Add_Validate_Audit(t *testing.T) {
 	policy.Spec.ValidationFailureAction = "audit"
 	pCache.Add(policy)
 	pCache.Add(policy)
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
 			validateEnforce := pCache.get(ValidateEnforce, kind, "")
@@ -930,7 +931,7 @@ func Test_Ns_All(t *testing.T) {
 	//add
 	pCache.Add(policy)
 	nspace := policy.GetNamespace()
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
 			// get
@@ -963,7 +964,7 @@ func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
 	pCache.Add(policy)
 	pCache.Add(policy)
 	nspace := policy.GetNamespace()
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
 			mutate := pCache.get(Mutate, kind, nspace)
@@ -992,7 +993,7 @@ func Test_Ns_Add_Validate_Audit(t *testing.T) {
 	policy.Spec.ValidationFailureAction = "audit"
 	pCache.Add(policy)
 	pCache.Add(policy)
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
 			validateEnforce := pCache.get(ValidateEnforce, kind, nspace)
@@ -1031,7 +1032,7 @@ func Test_GVk_Cache(t *testing.T) {
 	policy := newGVKPolicy(t)
 	//add
 	pCache.Add(policy)
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
 			generate := pCache.get(Generate, kind, "")
@@ -1065,7 +1066,7 @@ func Test_Add_Validate_Enforce(t *testing.T) {
 	nspace := policy.GetNamespace()
 	//add
 	pCache.Add(policy)
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 			validateEnforce := pCache.get(ValidateEnforce, kind, nspace)
 			if len(validateEnforce) != 1 {
@@ -1100,7 +1101,7 @@ func Test_Mutate_Policy(t *testing.T) {
 	pCache.Add(policy)
 	pCache.Add(policy)
 	pCache.Add(policy)
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
 			// get
@@ -1117,7 +1118,7 @@ func Test_Generate_Policy(t *testing.T) {
 	policy := newgenratePolicy(t)
 	//add
 	pCache.Add(policy)
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
 			// get
