@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -24,7 +25,7 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 	// Parse through all the resources drops the cache after configured rebuild time
 	pc.rm.Drop()
 
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		if !rule.HasValidate() && !rule.HasVerifyImages() {
 			continue
 		}

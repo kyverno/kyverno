@@ -11,6 +11,7 @@ import (
 	"time"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 
 	"github.com/go-logr/logr"
@@ -259,7 +260,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 	// To manage existing resources, we compare the creation time for the default resource to be generated and policy creation time
 
 	ruleNameToProcessingTime := make(map[string]time.Duration)
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(&policy) {
 		var err error
 		if !rule.HasGenerate() {
 			continue

@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -31,7 +32,7 @@ func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient 
 	var resourceTypes []string
 
 	for _, policy := range policies {
-		for _, rule := range policy.GetRules() {
+		for _, rule := range autogen.ComputeRules(policy) {
 			resourceTypesInRule := GetKindsFromRule(rule)
 			for resourceKind := range resourceTypesInRule {
 				resourceTypesMap[resourceKind] = true
@@ -120,7 +121,7 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []*v1.ClusterPolicy, res
 	var resourceTypesMap = make(map[string]bool)
 	var resourceTypes []string
 	for _, policy := range policies {
-		for _, rule := range policy.GetRules() {
+		for _, rule := range autogen.ComputeRules(policy) {
 			for _, kind := range rule.MatchResources.Kinds {
 				resourceTypesMap[kind] = true
 			}
