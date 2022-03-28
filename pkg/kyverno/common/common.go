@@ -573,6 +573,27 @@ OuterLoop:
 		}
 	}
 
+	var policyHasImageVerify bool
+	for _, rule := range policy.Spec.Rules {
+		if rule.HasVerifyImages() {
+			policyHasImageVerify = true
+		}
+	}
+	var imageVerifyResponse *response.EngineResponse
+	if policyHasImageVerify {
+		policyCtx := &engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels}
+		imageVerifyResponse = engine.VerifyAndPatchImages(policyCtx)
+		err = ProcessImageVerifyEngineResponse(policy, imageVerifyResponse, resPath, rc)
+		if err != nil {
+			if !sanitizederror.IsErrorSanitized(err) {
+				return engineResponses, policyreport.Info{}, sanitizederror.NewWithError("failed to print imageVerify result", err)
+			}
+		}
+	}
+	if imageVerifyResponse != nil {
+		engineResponses = append(engineResponses, imageVerifyResponse)
+	}
+
 	var policyHasValidate bool
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasValidate() {
@@ -765,6 +786,50 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 		}
 	}
 	return resources, err
+}
+
+func ProcessImageVerifyEngineResponse(policy *v1.ClusterPolicy, imageVerifyResponse *response.EngineResponse, resPath string, rc *ResultCounts) error {
+	printCount := 0
+	for _, policyRule := range policy.Spec.Rules {
+		if !policyRule.HasVerifyImages() {
+			continue
+		}
+
+		ruleFoundInEngineResponse := false
+		for i, imageVerifyResponseRule := range imageVerifyResponse.PolicyResponse.Rules {
+			if policyRule.Name == imageVerifyResponseRule.Name {
+				ruleFoundInEngineResponse = true
+
+				if imageVerifyResponseRule.Status == response.RuleStatusPass {
+					rc.Pass++
+
+				} else if imageVerifyResponseRule.Status == response.RuleStatusSkip {
+					log.Log.V(3).Info("\nskipped imageVerify policy %s -> resource %s", policy.Name, resPath)
+					rc.Skip++
+
+				} else if imageVerifyResponseRule.Status == response.RuleStatusError {
+					log.Log.V(3).Info("\nerror while applying imageVerify policy %s -> resource %s\nerror: %s", policy.Name, resPath, imageVerifyResponseRule.Message)
+					rc.Error++
+
+				} else {
+					if printCount < 1 {
+						log.Log.V(3).Info("\nfailed to apply imageVerify policy %s -> resource %s", policy.Name, resPath)
+						printCount++
+
+					}
+					log.Log.V(3).Info("%d. %s - %s \n", i+1, imageVerifyResponseRule.Name, imageVerifyResponseRule.Message)
+					rc.Fail++
+				}
+				continue
+			}
+		}
+		if !ruleFoundInEngineResponse {
+			rc.Skip++
+		}
+
+	}
+
+	return nil
 }
 
 func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) policyreport.Info {
