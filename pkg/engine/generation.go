@@ -49,7 +49,7 @@ func filterRules(policyContext *PolicyContext, startTime time.Time) *response.En
 		return resp
 	}
 
-	for _, rule := range autogen.ComputeRules(&policyContext.Policy) {
+	for _, rule := range autogen.ComputeRules(policyContext.Policy) {
 		if ruleResp := filterRule(rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
@@ -74,7 +74,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 	excludeGroupRole := policyContext.ExcludeGroupRole
 	namespaceLabels := policyContext.NamespaceLabels
 
-	logger := log.Log.WithName("Generate").WithValues("policy", policy.Name,
+	logger := log.Log.WithName("Generate").WithValues("policy", policy.GetName(),
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 
 	if err = MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, ""); err != nil {

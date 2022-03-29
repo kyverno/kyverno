@@ -143,7 +143,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	}
 
 	ctx := &engine.PolicyContext{
-		Policy:           *policy,
+		Policy:           policy,
 		NewResource:      *resource,
 		ExcludeGroupRole: []string{},
 		JSONContext:      context.NewContext(),
@@ -160,7 +160,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	}
 
 	ctx = &engine.PolicyContext{
-		Policy:           *policy,
+		Policy:           policy,
 		NewResource:      *resource,
 		ExcludeGroupRole: []string{},
 		JSONContext:      context.NewContext(),
@@ -182,7 +182,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		} else {
 			policyContext := &engine.PolicyContext{
 				NewResource:      *resource,
-				Policy:           *policy,
+				Policy:           policy,
 				Client:           client,
 				ExcludeGroupRole: []string{},
 				ExcludeResourceFunc: func(s1, s2, s3 string) bool {

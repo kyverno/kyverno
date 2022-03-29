@@ -80,7 +80,7 @@ func (ws *WebhookServer) handleGenerate(
 
 		for _, policy := range policies {
 			var rules []response.RuleResponse
-			policyContext.Policy = *policy
+			policyContext.Policy = policy
 			if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 				policyContext.NamespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, ws.nsLister, logger)
 			}
@@ -100,10 +100,10 @@ func (ws *WebhookServer) handleGenerate(
 			}
 
 			// registering the kyverno_policy_results_total metric concurrently
-			go ws.registerPolicyResultsMetricGeneration(logger, string(request.Operation), *policy, *engineResponse)
+			go ws.registerPolicyResultsMetricGeneration(logger, string(request.Operation), policy, *engineResponse)
 
 			// registering the kyverno_policy_execution_duration_seconds metric concurrently
-			go ws.registerPolicyExecutionDurationMetricGenerate(logger, string(request.Operation), *policy, *engineResponse)
+			go ws.registerPolicyExecutionDurationMetricGenerate(logger, string(request.Operation), policy, *engineResponse)
 		}
 
 		// Adds Generate Request to a channel(queue size 1000) to generators
@@ -127,23 +127,23 @@ func (ws *WebhookServer) handleGenerate(
 	*generateEngineResponsesSenderForAdmissionRequestsCountMetric <- engineResponses
 }
 
-func (ws *WebhookServer) registerPolicyResultsMetricGeneration(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
+func (ws *WebhookServer) registerPolicyResultsMetricGeneration(logger logr.Logger, resourceRequestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	resourceRequestOperationPromAlias, err := policyResults.ParseResourceRequestOperation(resourceRequestOperation)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 	if err := policyResults.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 }
 
-func (ws *WebhookServer) registerPolicyExecutionDurationMetricGenerate(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
+func (ws *WebhookServer) registerPolicyExecutionDurationMetricGenerate(logger logr.Logger, resourceRequestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	resourceRequestOperationPromAlias, err := policyExecutionDuration.ParseResourceRequestOperation(resourceRequestOperation)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 	if err := policyExecutionDuration.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 }
 
