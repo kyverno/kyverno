@@ -77,8 +77,8 @@ func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 }
 
 // GetSpec returns the policy spec
-func (p *ClusterPolicy) GetSpec() Spec {
-	return p.Spec
+func (p *ClusterPolicy) GetSpec() *Spec {
+	return &p.Spec
 }
 
 // IsNamespaced indicates if the policy is namespace scoped

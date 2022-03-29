@@ -109,7 +109,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | config.existingConfig | string | `""` | Name of an existing config map (ignores default/provided resourceFilters) |
 | config.excludeGroupRole | string | `nil` | Exclude group role |
 | config.excludeUsername | string | `nil` | Exclude username |
-| config.webhooks | string | `nil` | Defines the `namespaceSelector` in the webhook configurations. Note that it takes a list of `namespaceSelector` in the JSON format, and only the first element will be forwarded to the webhook configurations. |
+| config.webhooks | string | `nil` | Defines the `namespaceSelector` in the webhook configurations. Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element will be forwarded to the webhook configurations. |
 | config.generateSuccessEvents | bool | `false` | Generate success events. |
 | config.metricsConfig | object | `{"namespaces":{"exclude":[],"include":[]}}` | Metrics config. |
 | updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
