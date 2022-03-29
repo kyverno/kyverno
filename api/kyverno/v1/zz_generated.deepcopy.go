@@ -861,8 +861,16 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	in.MatchResources.DeepCopyInto(&out.MatchResources)
-	in.ExcludeResources.DeepCopyInto(&out.ExcludeResources)
+	if in.MatchResources != nil {
+		in, out := &in.MatchResources, &out.MatchResources
+		*out = new(MatchResources)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.ExcludeResources != nil {
+		in, out := &in.ExcludeResources, &out.ExcludeResources
+		*out = new(MatchResources)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.RawAnyAllConditions != nil {
 		in, out := &in.RawAnyAllConditions, &out.RawAnyAllConditions
 		*out = new(apiextensionsv1.JSON)

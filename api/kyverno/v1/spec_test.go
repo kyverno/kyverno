@@ -12,7 +12,7 @@ func Test_Validate_UniqueRuleName(t *testing.T) {
 	subject := Spec{
 		Rules: []Rule{{
 			Name: "deny-privileged-disallowpriviligedescalation",
-			MatchResources: MatchResources{
+			MatchResources: &MatchResources{
 				ResourceDescription: ResourceDescription{
 					Kinds: []string{
 						"Pod",
@@ -27,7 +27,7 @@ func Test_Validate_UniqueRuleName(t *testing.T) {
 			},
 		}, {
 			Name: "deny-privileged-disallowpriviligedescalation",
-			MatchResources: MatchResources{
+			MatchResources: &MatchResources{
 				ResourceDescription: ResourceDescription{
 					Kinds: []string{
 						"Pod",

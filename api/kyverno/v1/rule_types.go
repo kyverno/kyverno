@@ -28,13 +28,13 @@ type Rule struct {
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.
 	// At least one kind is required.
-	MatchResources MatchResources `json:"match,omitempty" yaml:"match,omitempty"`
+	MatchResources *MatchResources `json:"match,omitempty" yaml:"match,omitempty"`
 
 	// ExcludeResources defines when this policy rule should not be applied. The exclude
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the name or role.
 	// +optional
-	ExcludeResources MatchResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
+	ExcludeResources *MatchResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 
 	// Preconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
@@ -148,7 +148,7 @@ func (r *Rule) ValidateMathExcludeConflict(path *field.Path) (errs field.ErrorLi
 		}
 		return errs
 	}
-	if reflect.DeepEqual(r.ExcludeResources, MatchResources{}) {
+	if r.ExcludeResources == nil {
 		return errs
 	}
 	excludeRoles := sets.NewString(r.ExcludeResources.Roles...)

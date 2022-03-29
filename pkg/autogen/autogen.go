@@ -291,10 +291,10 @@ func convertRule(rule kyvernoRule, kind string) (*kyverno.Rule, error) {
 		VerifyImages: rule.VerifyImages,
 	}
 	if rule.MatchResources != nil {
-		out.MatchResources = *rule.MatchResources
+		out.MatchResources = rule.MatchResources
 	}
 	if rule.ExcludeResources != nil {
-		out.ExcludeResources = *rule.ExcludeResources
+		out.ExcludeResources = rule.ExcludeResources
 	}
 	if rule.Context != nil {
 		out.Context = *rule.Context

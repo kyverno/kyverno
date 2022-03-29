@@ -40,11 +40,11 @@ func createRuleMap(rules []kyverno.Rule) map[string]kyvernoRule {
 
 		jsonFriendlyStruct.Name = rule.Name
 
-		if !reflect.DeepEqual(rule.MatchResources, kyverno.MatchResources{}) {
+		if rule.MatchResources != nil {
 			jsonFriendlyStruct.MatchResources = rule.MatchResources.DeepCopy()
 		}
 
-		if !reflect.DeepEqual(rule.ExcludeResources, kyverno.MatchResources{}) {
+		if rule.ExcludeResources != nil {
 			jsonFriendlyStruct.ExcludeResources = rule.ExcludeResources.DeepCopy()
 		}
 
@@ -133,7 +133,7 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		}
 	}
 
-	if !reflect.DeepEqual(exclude, kyverno.MatchResources{}) {
+	if exclude != nil {
 		controllerRule.ExcludeResources = exclude.DeepCopy()
 	}
 
