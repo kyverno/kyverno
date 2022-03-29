@@ -59,6 +59,9 @@ type Controller struct {
 	// pSynced returns true if the cluster policy has been synced at least once
 	pSynced cache.InformerSynced
 
+	// pSynced returns true if the Namespace policy has been synced at least once
+	npSynced cache.InformerSynced
+
 	// grSynced returns true if the generate request store has been synced at least once
 	grSynced cache.InformerSynced
 
@@ -100,6 +103,7 @@ func NewController(
 	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
 
 	c.pSynced = pInformer.Informer().HasSynced
+	c.npSynced = npInformer.Informer().HasSynced
 	c.grSynced = grInformer.Informer().HasSynced
 
 	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
@@ -254,7 +258,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, c.pSynced, c.grSynced) {
+	if !cache.WaitForCacheSync(stopCh, c.pSynced, c.grSynced, c.npSynced) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
