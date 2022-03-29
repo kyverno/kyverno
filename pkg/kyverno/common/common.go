@@ -600,7 +600,7 @@ OuterLoop:
 	if policyHasGenerate {
 		policyContext := &engine.PolicyContext{
 			NewResource:      *resource,
-			PolicySpec:       policy.GetSpec(),
+			Policy:           *policy,
 			ExcludeGroupRole: []string{},
 			ExcludeResourceFunc: func(s1, s2, s3 string) bool {
 				return false

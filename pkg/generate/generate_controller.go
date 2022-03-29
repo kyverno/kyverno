@@ -49,7 +49,9 @@ type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// policyLister can list/get cluster policy from the shared informer's store
-	policyLister  kyvernolister.ClusterPolicyLister
+	policyLister kyvernolister.ClusterPolicyLister
+
+	// policyLister can list/get policy from the shared informer's store
 	npolicyLister kyvernolister.PolicyLister
 
 	// grLister can list/get generate request from the shared informer's store
@@ -57,6 +59,9 @@ type Controller struct {
 
 	// policySynced returns true if the Cluster policy store has been synced at least once
 	policySynced cache.InformerSynced
+
+	// npolicySynced returns true if the Namespace policy store has been synced at least once
+	npolicySynced cache.InformerSynced
 
 	// grSynced returns true if the Generate Request store has been synced at least once
 	grSynced cache.InformerSynced
@@ -100,6 +105,8 @@ func NewController(
 
 	c.policySynced = policyInformer.Informer().HasSynced
 
+	c.npolicySynced = npolicyInformer.Informer().HasSynced
+
 	c.grSynced = grInformer.Informer().HasSynced
 	grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addGR,
@@ -127,7 +134,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	defer c.queue.ShutDown()
 	defer c.log.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, c.policySynced, c.grSynced) {
+	if !cache.WaitForCacheSync(stopCh, c.policySynced, c.grSynced, c.npolicySynced) {
 		c.log.Info("failed to sync informer cache")
 		return
 	}

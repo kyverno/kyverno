@@ -58,6 +58,9 @@ type Controller struct {
 	// pSynced returns true if the cluster policy has been synced at least once
 	pSynced cache.InformerSynced
 
+	// npSynced returns true if the Namespace policy has been synced at least once
+	npSynced cache.InformerSynced
+
 	// grSynced returns true if the generate request store has been synced at least once
 	grSynced cache.InformerSynced
 
@@ -99,6 +102,7 @@ func NewController(
 	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
 
 	c.pSynced = pInformer.Informer().HasSynced
+	c.npSynced = npInformer.Informer().HasSynced
 	c.grSynced = grInformer.Informer().HasSynced
 
 	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
@@ -253,7 +257,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, c.pSynced, c.grSynced) {
+	if !cache.WaitForCacheSync(stopCh, c.pSynced, c.grSynced, c.npSynced) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
@@ -346,26 +350,33 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	if err != nil {
 		return err
 	}
-	_, err = c.pLister.Get(pName)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return err
-		}
 
+	if pNamespace == "" {
+		_, err = c.pLister.Get(pName)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
+			logger.Error(err, "failed to get clusterpolicy, deleting the generate request")
+			err = c.control.Delete(gr.Name)
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+	} else {
 		_, err = c.npLister.Policies(pNamespace).Get(pName)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				return err
 			}
-		} else {
-			return c.processGR(*gr)
+			logger.Error(err, "failed to get policy, deleting the generate request")
+			err = c.control.Delete(gr.Name)
+			if err != nil {
+				return err
+			}
+			return nil
 		}
-
-		err = c.control.Delete(gr.Name)
-		if err != nil {
-			return err
-		}
-		return nil
 	}
 	return c.processGR(*gr)
 }
