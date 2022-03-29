@@ -31,8 +31,7 @@ type MatchResources struct {
 }
 
 // Validate implements programmatic validation
-func (m *MatchResources) Validate(path *field.Path, namespaced bool, clusterResources sets.String) field.ErrorList {
-	var errs field.ErrorList
+func (m *MatchResources) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
 	if len(m.Any) > 0 && len(m.All) > 0 {
 		errs = append(errs, field.Invalid(path, m, "Can't specify any and all together"))
 	}
