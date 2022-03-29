@@ -61,7 +61,7 @@ func convertPolicyToClusterPolicy(nsPolicies *kyverno.Policy) *kyverno.ClusterPo
 
 func (c *Controller) addPolicy(obj interface{}) {
 	p := obj.(*kyverno.ClusterPolicy)
-	c.Cache.Add(p)
+	c.Cache.add(p)
 }
 
 func (c *Controller) updatePolicy(old, cur interface{}) {
@@ -71,19 +71,19 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 	if reflect.DeepEqual(pOld.Spec, pNew.Spec) {
 		return
 	}
-	c.Cache.Remove(pOld)
-	c.Cache.Add(pNew)
+	c.Cache.remove(pOld)
+	c.Cache.add(pNew)
 }
 
 func (c *Controller) deletePolicy(obj interface{}) {
 	p := obj.(*kyverno.ClusterPolicy)
-	c.Cache.Remove(p)
+	c.Cache.remove(p)
 }
 
 // addNsPolicy - Add Policy to cache
 func (c *Controller) addNsPolicy(obj interface{}) {
 	p := obj.(*kyverno.Policy)
-	c.Cache.Add(convertPolicyToClusterPolicy(p))
+	c.Cache.add(convertPolicyToClusterPolicy(p))
 }
 
 // updateNsPolicy - Update Policy of cache
@@ -93,14 +93,14 @@ func (c *Controller) updateNsPolicy(old, cur interface{}) {
 	if reflect.DeepEqual(npOld.Spec, npNew.Spec) {
 		return
 	}
-	c.Cache.Remove(convertPolicyToClusterPolicy(npOld))
-	c.Cache.Add(convertPolicyToClusterPolicy(npNew))
+	c.Cache.remove(convertPolicyToClusterPolicy(npOld))
+	c.Cache.add(convertPolicyToClusterPolicy(npNew))
 }
 
 // deleteNsPolicy - Delete Policy from cache
 func (c *Controller) deleteNsPolicy(obj interface{}) {
 	p := obj.(*kyverno.Policy)
-	c.Cache.Remove(convertPolicyToClusterPolicy(p))
+	c.Cache.remove(convertPolicyToClusterPolicy(p))
 }
 
 // Run waits until policy informer to be synced
