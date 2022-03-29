@@ -243,11 +243,6 @@ func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger
 	return
 }
 
-type Policy interface {
-	GetAnnotations() map[string]string
-	GetSpec() kyverno.Spec
-}
-
 // podControllersKey annotation could be:
 // scenario A: not exist, set default to "all", which generates on all pod controllers
 //               - if name / selector exist in resource description -> skip
@@ -311,12 +306,12 @@ func convertRule(rule kyvernoRule, kind string) (*kyverno.Rule, error) {
 	return &out, nil
 }
 
-func ComputeRules(p Policy) []kyverno.Rule {
+func ComputeRules(p kyverno.PolicyInterface) []kyverno.Rule {
 	spec := p.GetSpec()
 	if !toggle.AutogenInternals() {
 		return spec.Rules
 	}
-	applyAutoGen, desiredControllers := CanAutoGen(&spec, log.Log)
+	applyAutoGen, desiredControllers := CanAutoGen(spec, log.Log)
 
 	if !applyAutoGen {
 		desiredControllers = "none"

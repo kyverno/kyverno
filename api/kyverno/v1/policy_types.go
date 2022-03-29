@@ -78,8 +78,8 @@ func (p *Policy) BackgroundProcessingEnabled() bool {
 }
 
 // GetSpec returns the policy spec
-func (p *Policy) GetSpec() Spec {
-	return p.Spec
+func (p *Policy) GetSpec() *Spec {
+	return &p.Spec
 }
 
 // IsNamespaced indicates if the policy is namespace scoped
