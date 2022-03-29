@@ -36,12 +36,6 @@ import (
 
 var DefaultWebhookTimeout int64 = 10
 
-// policy abstracts the concrete policy type (Policy vs ClusterPolicy)
-type policy interface {
-	metav1.Object
-	GetSpec() kyverno.Spec
-}
-
 // webhookConfigManager manges the webhook configuration dynamically
 // it is NOT multi-thread safe
 type webhookConfigManager struct {
@@ -372,7 +366,7 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 	return nil
 }
 
-func (m *webhookConfigManager) getPolicy(namespace, name string) (policy, error) {
+func (m *webhookConfigManager) getPolicy(namespace, name string) (kyverno.PolicyInterface, error) {
 	if namespace == "" {
 		return m.pLister.Get(name)
 	} else {
@@ -380,8 +374,8 @@ func (m *webhookConfigManager) getPolicy(namespace, name string) (policy, error)
 	}
 }
 
-func (m *webhookConfigManager) listAllPolicies() ([]policy, error) {
-	policies := []policy{}
+func (m *webhookConfigManager) listAllPolicies() ([]kyverno.PolicyInterface, error) {
+	policies := []kyverno.PolicyInterface{}
 	polList, err := m.npLister.Policies(metav1.NamespaceAll).List(labels.Everything())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to list Policy")
@@ -734,7 +728,7 @@ func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) 
 }
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
-func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy policy, updateValidate bool) {
+func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyInterface, updateValidate bool) {
 	matchedGVK := make([]string, 0)
 	for _, rule := range autogen.ComputeRules(policy) {
 		// matching kinds in generate policies need to be added to both webhook
