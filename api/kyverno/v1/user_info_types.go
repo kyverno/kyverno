@@ -24,8 +24,7 @@ type UserInfo struct {
 }
 
 // ValidateSubjects implements programmatic validation of Subjects
-func (u *UserInfo) ValidateSubjects(path *field.Path) field.ErrorList {
-	var errs field.ErrorList
+func (u *UserInfo) ValidateSubjects(path *field.Path) (errs field.ErrorList) {
 	for index, subject := range u.Subjects {
 		entry := path.Index(index)
 		if subject.Kind == "" {
@@ -42,8 +41,7 @@ func (u *UserInfo) ValidateSubjects(path *field.Path) field.ErrorList {
 }
 
 // ValidateRoles implements programmatic validation of Roles
-func (u *UserInfo) ValidateRoles(path *field.Path) field.ErrorList {
-	var errs field.ErrorList
+func (u *UserInfo) ValidateRoles(path *field.Path) (errs field.ErrorList) {
 	for i, r := range u.Roles {
 		role := strings.Split(r, ":")
 		if len(role) != 2 {
@@ -54,8 +52,7 @@ func (u *UserInfo) ValidateRoles(path *field.Path) field.ErrorList {
 }
 
 // Validate implements programmatic validation
-func (u *UserInfo) Validate(path *field.Path) field.ErrorList {
-	var errs field.ErrorList
+func (u *UserInfo) Validate(path *field.Path) (errs field.ErrorList) {
 	errs = append(errs, u.ValidateSubjects(path.Child("subjects"))...)
 	errs = append(errs, u.ValidateRoles(path.Child("roles"))...)
 	return errs

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -28,11 +29,6 @@ type ClusterPolicy struct {
 	// Status contains policy runtime data.
 	// +optional
 	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
-}
-
-// GetRules returns the policy rules
-func (p *ClusterPolicy) GetRules() []Rule {
-	return p.Spec.GetRules()
 }
 
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
@@ -80,18 +76,27 @@ func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
 }
 
+// GetSpec returns the policy spec
+func (p *ClusterPolicy) GetSpec() Spec {
+	return p.Spec
+}
+
+// IsNamespaced indicates if the policy is namespace scoped
+func (p *ClusterPolicy) IsNamespaced() bool {
+	return p.GetNamespace() != ""
+}
+
 // IsReady indicates if the policy is ready to serve the admission request
 func (p *ClusterPolicy) IsReady() bool {
 	return p.Status.IsReady()
 }
 
-// Validate implements programmatic validation.
+// Validate implements programmatic validation
 // namespaced means that the policy is bound to a namespace and therefore
 // should not filter/generate cluster wide resources.
-func (p *ClusterPolicy) Validate(namespaced bool) field.ErrorList {
-	var errs field.ErrorList
+func (p *ClusterPolicy) Validate(clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
-	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), namespaced)...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), clusterResources)...)
 	return errs
 }
 

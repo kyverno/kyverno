@@ -143,8 +143,8 @@ envVarsInit: {}
 envVars: {}
 
 # -- Extra arguments to give to the binary.
-extraArgs: []
-# - --webhookTimeout=4
+extraArgs:
+  - --autogenInternals=false
 
 resources:
   # -- Pod resource limits
@@ -249,12 +249,20 @@ config:
   # -- Defines the `namespaceSelector` in the webhook configurations.
   # Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element
   # will be forwarded to the webhook configurations.
-  # By default, all resources with the `webhooks.kyverno.io/exclude` lable will be excluded.
   webhooks:
-    - objectSelector:
-        matchExpressions:
-        - key: webhooks.kyverno.io/exclude
-          operator: DoesNotExist
+    # Exlude namespaces
+    # - namespaceSelector:
+    #     matchExpressions:
+    #     - key: environment
+    #       operator: In
+    #       values:
+    #         - prod
+    # Exlude objects
+    # - objectSelector:
+    #     matchExpressions:
+    #     - key: webhooks.kyverno.io/exclude
+    #       operator: DoesNotExist
+
   # -- Generate success events.
   generateSuccessEvents: false
   # -- Metrics config.

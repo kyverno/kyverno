@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -124,6 +125,8 @@ type WebhookServer struct {
 	grController *generate.Controller
 
 	promConfig *metrics.PromConfig
+
+	mu sync.RWMutex
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration

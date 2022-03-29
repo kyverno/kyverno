@@ -909,3 +909,121 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 		}
 	}
 }
+
+func Test_foreach_order_mutation_(t *testing.T) {
+	policyRaw := []byte(`{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+      "name": "replace-image"
+    },
+    "spec": {
+      "background": false,
+      "rules": [
+        {
+          "name": "replace-image",
+          "match": {
+            "all": [
+              {
+                "resources": {
+                  "kinds": [
+                    "Pod"
+                  ]
+                }
+              }
+            ]
+          },
+          "mutate": {
+            "foreach": [
+              {
+                "list": "request.object.spec.containers",
+                "patchStrategicMerge": {
+                  "spec": {
+                    "containers": [
+                      {
+                        "(name)": "{{ element.name }}",
+                        "image": "replaced"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }`)
+	resourceRaw := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+      "name": "mongodb",
+      "labels": {
+        "app": "mongodb"
+      }
+    },
+    "spec": {
+      "containers": [
+        {
+          "image": "docker.io/mongo:5.0.3",
+          "name": "mongod"
+        },
+        {
+          "image": "nginx",
+          "name": "nginx"
+        },
+        {
+          "image": "nginx",
+          "name": "nginx3"
+        },
+        {
+          "image": "quay.io/mongodb/mongodb-agent:11.0.5.6963-1",
+          "name": "mongodb-agent"
+        }
+      ]
+    }
+  }`)
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &policy)
+	assert.NilError(t, err)
+
+	resource, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := context.NewContext()
+	err = ctx.AddResourceAsObject(resource.Object)
+	assert.NilError(t, err)
+
+	policyContext := &PolicyContext{
+		Policy:      policy,
+		JSONContext: ctx,
+		NewResource: *resource,
+	}
+
+	err = ctx.AddImageInfo(resource)
+	assert.NilError(t, err)
+
+	err = context.MutateResourceWithImageInfo(resourceRaw, ctx)
+	assert.NilError(t, err)
+
+	er := Mutate(policyContext)
+
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+
+	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
+	assert.NilError(t, err)
+
+	for i, c := range containers {
+		ctnr := c.(map[string]interface{})
+		switch i {
+		case 0:
+			assert.Equal(t, ctnr["name"], "mongod")
+		case 1:
+			assert.Equal(t, ctnr["name"], "nginx")
+		case 3:
+			assert.Equal(t, ctnr["name"], "mongodb-agent")
+		}
+	}
+}

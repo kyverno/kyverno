@@ -397,7 +397,9 @@ Allowed values are Ignore or Fail. Defaults to Fail.</p>
 <td>
 <code>validationFailureAction</code></br>
 <em>
-string
+<a href="#kyverno.io/v1.ValidationFailureAction">
+ValidationFailureAction
+</a>
 </em>
 </td>
 <td>
@@ -698,87 +700,6 @@ k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 of conditions (without <code>any</code> or <code>all</code> statements) is also supported for backwards compatibility
 but will be deprecated in the next major release.
 See: <a href="https://kyverno.io/docs/writing-policies/validate/#deny-rules">https://kyverno.io/docs/writing-policies/validate/#deny-rules</a></p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.ExcludeResources">ExcludeResources
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.Rule">Rule</a>)
-</p>
-<p>
-<p>ExcludeResources specifies resource and admission review request data for
-which a policy rule is not applicable.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>any</code></br>
-<em>
-<a href="#kyverno.io/v1.ResourceFilters">
-ResourceFilters
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Any allows specifying resources which will be ORed</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>all</code></br>
-<em>
-<a href="#kyverno.io/v1.ResourceFilters">
-ResourceFilters
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>All allows specifying resources which will be ANDed</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>UserInfo</code></br>
-<em>
-<a href="#kyverno.io/v1.UserInfo">
-UserInfo
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>UserInfo contains information about the user performing the operation.
-Specifying UserInfo directly under exclude is being deprecated.
-Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resources</code></br>
-<em>
-<a href="#kyverno.io/v1.ResourceDescription">
-ResourceDescription
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ResourceDescription contains information about the resource being created or modified.
-Specifying ResourceDescription directly under exclude is being deprecated.
-Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 </td>
 </tr>
 </tbody>
@@ -1727,7 +1648,9 @@ Allowed values are Ignore or Fail. Defaults to Fail.</p>
 <td>
 <code>validationFailureAction</code></br>
 <em>
-string
+<a href="#kyverno.io/v1.ValidationFailureAction">
+ValidationFailureAction
+</a>
 </em>
 </td>
 <td>
@@ -1952,7 +1875,6 @@ Kubernetes authentication/v1.UserInfo
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ExcludeResources">ExcludeResources</a>, 
 <a href="#kyverno.io/v1.MatchResources">MatchResources</a>, 
 <a href="#kyverno.io/v1.ResourceFilter">ResourceFilter</a>)
 </p>
@@ -2118,7 +2040,6 @@ ResourceDescription
 (<code>[]./api/kyverno/v1.ResourceFilter</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ExcludeResources">ExcludeResources</a>, 
 <a href="#kyverno.io/v1.MatchResources">MatchResources</a>)
 </p>
 <p>
@@ -2257,8 +2178,8 @@ At least one kind is required.</p>
 <td>
 <code>exclude</code></br>
 <em>
-<a href="#kyverno.io/v1.ExcludeResources">
-ExcludeResources
+<a href="#kyverno.io/v1.MatchResources">
+MatchResources
 </a>
 </em>
 </td>
@@ -2396,7 +2317,9 @@ Allowed values are Ignore or Fail. Defaults to Fail.</p>
 <td>
 <code>validationFailureAction</code></br>
 <em>
-string
+<a href="#kyverno.io/v1.ValidationFailureAction">
+ValidationFailureAction
+</a>
 </em>
 </td>
 <td>
@@ -2468,7 +2391,6 @@ based on the failure policy. The default timeout is 10s, the value must be betwe
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ExcludeResources">ExcludeResources</a>, 
 <a href="#kyverno.io/v1.MatchResources">MatchResources</a>, 
 <a href="#kyverno.io/v1.ResourceFilter">ResourceFilter</a>)
 </p>
@@ -2609,6 +2531,16 @@ Deny
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ValidationFailureAction">ValidationFailureAction
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Spec">Spec</a>, 
+<a href="#kyverno.io/v1.ValidationFailureActionOverride">ValidationFailureActionOverride</a>)
+</p>
+<p>
+<p>ValidationFailureAction defines the policy validation failure action</p>
+</p>
 <h3 id="kyverno.io/v1.ValidationFailureActionOverride">ValidationFailureActionOverride
 </h3>
 <p>
@@ -2629,7 +2561,9 @@ Deny
 <td>
 <code>action</code></br>
 <em>
-string
+<a href="#kyverno.io/v1.ValidationFailureAction">
+ValidationFailureAction
+</a>
 </em>
 </td>
 <td>

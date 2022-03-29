@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
@@ -104,9 +105,9 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	m.Lock()
 	defer m.Unlock()
 
-	enforcePolicy := policy.Spec.ValidationFailureAction == common.Enforce
+	enforcePolicy := policy.Spec.ValidationFailureAction == kyverno.Enforce
 	for _, k := range policy.Spec.ValidationFailureActionOverrides {
-		if k.Action == common.Enforce {
+		if k.Action == kyverno.Enforce {
 			enforcePolicy = true
 			break
 		}
@@ -124,7 +125,7 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 		pName = pSpace + "/" + pName
 	}
 
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 
 		if len(rule.MatchResources.Any) > 0 {
 			for _, rmr := range rule.MatchResources.Any {
@@ -230,7 +231,7 @@ func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
 		pName = pSpace + "/" + pName
 	}
 
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		if len(rule.MatchResources.Any) > 0 {
 			for _, rmr := range rule.MatchResources.Any {
 				removeCacheHelper(rmr, m, pName)

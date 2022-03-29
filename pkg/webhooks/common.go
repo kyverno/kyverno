@@ -5,11 +5,11 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	wildcard "github.com/kyverno/go-wildcard"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/minio/pkg/wildcard"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,12 +27,12 @@ func isResponseSuccessful(engineReponses []*response.EngineResponse) bool {
 }
 
 func checkEngineResponse(er *response.EngineResponse) bool {
-	nsAction := ""
+	var nsAction kyverno.ValidationFailureAction
 	actionOverride := false
 
 	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
 		action := v.Action
-		if action != common.Enforce && action != common.Audit {
+		if action != kyverno.Enforce && action != kyverno.Audit {
 			continue
 		}
 
@@ -49,7 +49,7 @@ func checkEngineResponse(er *response.EngineResponse) bool {
 		}
 	}
 
-	return !er.IsSuccessful() && ((actionOverride && nsAction == common.Enforce) || (!actionOverride && er.PolicyResponse.ValidationFailureAction == common.Enforce))
+	return !er.IsSuccessful() && ((actionOverride && nsAction == kyverno.Enforce) || (!actionOverride && er.PolicyResponse.ValidationFailureAction == kyverno.Enforce))
 }
 
 // returns true -> if there is even one policy that blocks resource request
@@ -143,7 +143,7 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 func containsRBACInfo(policies ...[]*kyverno.ClusterPolicy) bool {
 	for _, policySlice := range policies {
 		for _, policy := range policySlice {
-			for _, rule := range policy.GetRules() {
+			for _, rule := range autogen.ComputeRules(policy) {
 				if checkForRBACInfo(rule) {
 					return true
 				}

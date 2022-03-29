@@ -180,55 +180,6 @@ var ConditionOperators = map[string]ConditionOperator{
 	"DurationLessThan":            ConditionOperator("DurationLessThan"),
 }
 
-// MatchResources is used to specify resource and admission review request data for
-// which a policy rule is applicable.
-type MatchResources struct {
-	// Any allows specifying resources which will be ORed
-	// +optional
-	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
-
-	// All allows specifying resources which will be ANDed
-	// +optional
-	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
-
-	// UserInfo contains information about the user performing the operation.
-	// Specifying UserInfo directly under match is being deprecated.
-	// Please specify under "any" or "all" instead.
-	// +optional
-	UserInfo `json:",omitempty" yaml:",omitempty"`
-
-	// ResourceDescription contains information about the resource being created or modified.
-	// Requires at least one tag to be specified when under MatchResources.
-	// Specifying ResourceDescription directly under match is being deprecated.
-	// Please specify under "any" or "all" instead.
-	// +optional
-	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
-}
-
-// ExcludeResources specifies resource and admission review request data for
-// which a policy rule is not applicable.
-type ExcludeResources struct {
-	// Any allows specifying resources which will be ORed
-	// +optional
-	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
-
-	// All allows specifying resources which will be ANDed
-	// +optional
-	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
-
-	// UserInfo contains information about the user performing the operation.
-	// Specifying UserInfo directly under exclude is being deprecated.
-	// Please specify under "any" or "all" instead.
-	// +optional
-	UserInfo `json:",omitempty" yaml:",omitempty"`
-
-	// ResourceDescription contains information about the resource being created or modified.
-	// Specifying ResourceDescription directly under exclude is being deprecated.
-	// Please specify under "any" or "all" instead.
-	// +optional
-	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
-}
-
 // ResourceFilters is a slice of ResourceFilter
 type ResourceFilters []ResourceFilter
 
@@ -240,50 +191,6 @@ type ResourceFilter struct {
 
 	// ResourceDescription contains information about the resource being created or modified.
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
-}
-
-// ResourceDescription contains criteria used to match resources.
-type ResourceDescription struct {
-	// Kinds is a list of resource kinds.
-	// +optional
-	Kinds []string `json:"kinds,omitempty" yaml:"kinds,omitempty"`
-
-	// Name is the name of the resource. The name supports wildcard characters
-	// "*" (matches zero or many characters) and "?" (at least one character).
-	// +optional
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-
-	// Names are the names of the resources. Each name supports wildcard characters
-	// "*" (matches zero or many characters) and "?" (at least one character).
-	// NOTE: "Name" is being deprecated in favor of "Names".
-	// +optional
-	Names []string `json:"names,omitempty" yaml:"names,omitempty"`
-
-	// Namespaces is a list of namespaces names. Each name supports wildcard characters
-	// "*" (matches zero or many characters) and "?" (at least one character).
-	// +optional
-	Namespaces []string `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
-
-	// Annotations is a  map of annotations (key-value pairs of type string). Annotation keys
-	// and values support the wildcard characters "*" (matches zero or many characters) and
-	// "?" (matches at least one character).
-	// +optional
-	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
-
-	// Selector is a label selector. Label keys and values in `matchLabels` support the wildcard
-	// characters `*` (matches zero or many characters) and `?` (matches one character).
-	// Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that
-	// using ["*" : "*"] matches any key and value but does not match an empty label set.
-	// +optional
-	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
-
-	// NamespaceSelector is a label selector for the resource namespace. Label keys and values
-	// in `matchLabels` support the wildcard characters `*` (matches zero or many characters)
-	// and `?` (matches one character).Wildcards allows writing label selectors like
-	// ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but
-	// does not match an empty label set.
-	// +optional
-	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty" yaml:"namespaceSelector,omitempty"`
 }
 
 // Mutation defines how resource are modified.
@@ -617,10 +524,4 @@ type ResourceSpec struct {
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 	// Name specifies the resource name.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-}
-
-type ValidationFailureActionOverride struct {
-	// +kubebuilder:validation:Enum=audit;enforce
-	Action     string   `json:"action,omitempty" yaml:"action,omitempty"`
-	Namespaces []string `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 }

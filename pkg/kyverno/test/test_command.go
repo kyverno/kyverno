@@ -18,6 +18,7 @@ import (
 	"github.com/kataras/tablewriter"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
@@ -295,7 +296,6 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	fs := memfs.New()
 	rc = &resultCounts{}
 	var testYamlCount int
-	var testYamlNameCount int
 	var tf = &testFilter{
 		enabled: true,
 	}
@@ -397,11 +397,8 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 				continue
 			}
 
-			if file.Name() == fileName || file.Name() == "test.yaml" {
+			if file.Name() == fileName {
 				testYamlCount++
-				if file.Name() == "test.yaml" {
-					testYamlNameCount++
-				}
 				policyresoucePath := strings.Trim(yamlFilePath, fileName)
 				bytes, err := ioutil.ReadAll(file)
 				if err != nil {
@@ -424,21 +421,14 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		if testYamlCount == 0 {
 			fmt.Printf("\n No test yamls available \n")
 		}
-		if testYamlNameCount > 0 {
-			fmt.Printf("\n Note : test.yaml file name is deprecated in 1.6.0 release. Please provide test yaml file as kyverno-test.yaml \n")
-		}
 
 	} else {
 		var testFiles int
-		var deprecatedFiles int
 		path := filepath.Clean(dirPath[0])
-		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, &deprecatedFiles, openAPIController, tf)
+		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, openAPIController, tf)
 
 		if testFiles == 0 {
 			fmt.Printf("\n No test files found. Please provide test YAML files named kyverno-test.yaml \n")
-		}
-		if deprecatedFiles > 0 {
-			fmt.Printf("\n Note: The test.yaml file name is deprecated in 1.6.0 release. Please use kyverno-test.yaml instead. \n")
 		}
 	}
 
@@ -459,7 +449,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, deprecatedFiles *int, openAPIController *openapi.Controller, tf *testFilter) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, openAPIController *openapi.Controller, tf *testFilter) []error {
 	var errors []error
 
 	files, err := ioutil.ReadDir(path)
@@ -468,14 +458,11 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, deprecatedFiles, openAPIController, tf)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, openAPIController, tf)
 			continue
 		}
-		if file.Name() == fileName || file.Name() == "test.yaml" {
+		if file.Name() == fileName {
 			*testFiles++
-			if strings.Compare(file.Name(), "test.yaml") == 0 {
-				*deprecatedFiles++
-			}
 			// We accept the risk of including files here as we read the test dir only.
 			yamlFile, err := ioutil.ReadFile(filepath.Join(path, file.Name())) // #nosec G304
 			if err != nil {
@@ -789,7 +776,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	for _, p := range filteredPolicies {
 		var filteredRules = []v1.Rule{}
 
-		for _, rule := range p.GetRules() {
+		for _, rule := range autogen.ComputeRules(p) {
 			for _, res := range values.Results {
 				if rule.Name == res.Rule {
 					filteredRules = append(filteredRules, rule)
