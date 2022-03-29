@@ -4,16 +4,14 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 )
 
 type pMap struct {
-	sync.RWMutex
+	lock sync.RWMutex
 
 	// kindDataMap field stores names of ClusterPolicies and  Namespaced Policies.
 	// Since both the policy name use same type (i.e. string), Both policies can be differentiated based on
@@ -26,84 +24,9 @@ type pMap struct {
 	nameCacheMap map[PolicyType]map[string]bool
 }
 
-// policyCache ...
-type policyCache struct {
-	pMap
-	logr.Logger
-	// list/get cluster policy resource
-	pLister kyvernolister.ClusterPolicyLister
-
-	// npLister can list/get namespace policy from the shared informer's store
-	npLister kyvernolister.PolicyLister
-}
-
-// Interface ...
-// Interface get method use for to get policy names and mostly use to test cache testcases
-type Interface interface {
-
-	// Add adds a policy to the cache
-	Add(policy *kyverno.ClusterPolicy)
-
-	// Remove removes a policy from the cache
-	Remove(policy *kyverno.ClusterPolicy)
-
-	// GetPolicies returns all policies that apply to a namespace, including cluster-wide policies
-	// If the namespace is empty, only cluster-wide policies are returned
-	GetPolicies(pkey PolicyType, kind string, nspace string) []*kyverno.ClusterPolicy
-
-	get(pkey PolicyType, kind string, nspace string) []string
-}
-
-// newPolicyCache ...
-func newPolicyCache(log logr.Logger, pLister kyvernolister.ClusterPolicyLister, npLister kyvernolister.PolicyLister) Interface {
-	namesCache := map[PolicyType]map[string]bool{
-		Mutate:          make(map[string]bool),
-		ValidateEnforce: make(map[string]bool),
-		ValidateAudit:   make(map[string]bool),
-		Generate:        make(map[string]bool),
-		VerifyImages:    make(map[string]bool),
-	}
-
-	return &policyCache{
-		pMap{
-			nameCacheMap: namesCache,
-			kindDataMap:  make(map[string]map[PolicyType][]string),
-		},
-		log,
-		pLister,
-		npLister,
-	}
-}
-
-// Add a policy to cache
-func (pc *policyCache) Add(policy *kyverno.ClusterPolicy) {
-	pc.pMap.add(policy)
-	pc.Logger.V(4).Info("policy is added to cache", "name", policy.GetName())
-}
-
-// Get the list of matched policies
-func (pc *policyCache) get(pkey PolicyType, kind, nspace string) []string {
-	return pc.pMap.get(pkey, kind, nspace)
-}
-func (pc *policyCache) GetPolicies(pkey PolicyType, kind, nspace string) []*kyverno.ClusterPolicy {
-	policies := pc.getPolicyObject(pkey, kind, "")
-	if nspace == "" {
-		return policies
-	}
-
-	nsPolicies := pc.getPolicyObject(pkey, kind, nspace)
-	return append(policies, nsPolicies...)
-}
-
-// Remove a policy from cache
-func (pc *policyCache) Remove(policy *kyverno.ClusterPolicy) {
-	pc.pMap.remove(policy)
-	pc.Logger.V(4).Info("policy is removed from cache", "name", policy.GetName())
-}
-
 func (m *pMap) add(policy *kyverno.ClusterPolicy) {
-	m.Lock()
-	defer m.Unlock()
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
 	enforcePolicy := policy.Spec.ValidationFailureAction == kyverno.Enforce
 	for _, k := range policy.Spec.ValidationFailureActionOverrides {
@@ -126,7 +49,6 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	}
 
 	for _, rule := range autogen.ComputeRules(policy) {
-
 		if len(rule.MatchResources.Any) > 0 {
 			for _, rmr := range rule.MatchResources.Any {
 				addCacheHelper(rmr, m, rule, mutateMap, pName, enforcePolicy, validateEnforceMap, validateAuditMap, generateMap, imageVerifyMap)
@@ -146,6 +68,48 @@ func (m *pMap) add(policy *kyverno.ClusterPolicy) {
 	m.nameCacheMap[ValidateAudit] = validateAuditMap
 	m.nameCacheMap[Generate] = generateMap
 	m.nameCacheMap[VerifyImages] = imageVerifyMap
+}
+
+func (m *pMap) get(key PolicyType, gvk, namespace string) (names []string) {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+	_, kind := common.GetKindFromGVK(gvk)
+	for _, policyName := range m.kindDataMap[kind][key] {
+		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
+		if !isNamespacedPolicy && namespace == "" {
+			names = append(names, key)
+		} else {
+			if ns == namespace {
+				names = append(names, policyName)
+			}
+		}
+	}
+	return names
+}
+
+func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	var pName = policy.GetName()
+	pSpace := policy.GetNamespace()
+	if pSpace != "" {
+		pName = pSpace + "/" + pName
+	}
+
+	for _, rule := range autogen.ComputeRules(policy) {
+		if len(rule.MatchResources.Any) > 0 {
+			for _, rmr := range rule.MatchResources.Any {
+				removeCacheHelper(rmr, m, pName)
+			}
+		} else if len(rule.MatchResources.All) > 0 {
+			for _, rmr := range rule.MatchResources.All {
+				removeCacheHelper(rmr, m, pName)
+			}
+		} else {
+			r := kyverno.ResourceFilter{UserInfo: rule.MatchResources.UserInfo, ResourceDescription: rule.MatchResources.ResourceDescription}
+			removeCacheHelper(r, m, pName)
+		}
+	}
 }
 
 func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, mutateMap map[string]bool, pName string, enforcePolicy bool, validateEnforceMap map[string]bool, validateAuditMap map[string]bool, generateMap map[string]bool, imageVerifyMap map[string]bool) {
@@ -205,48 +169,6 @@ func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, muta
 	}
 }
 
-func (m *pMap) get(key PolicyType, gvk, namespace string) (names []string) {
-	m.RLock()
-	defer m.RUnlock()
-	_, kind := common.GetKindFromGVK(gvk)
-	for _, policyName := range m.kindDataMap[kind][key] {
-		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
-		if !isNamespacedPolicy && namespace == "" {
-			names = append(names, key)
-		} else {
-			if ns == namespace {
-				names = append(names, policyName)
-			}
-		}
-	}
-	return names
-}
-
-func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
-	m.Lock()
-	defer m.Unlock()
-	var pName = policy.GetName()
-	pSpace := policy.GetNamespace()
-	if pSpace != "" {
-		pName = pSpace + "/" + pName
-	}
-
-	for _, rule := range autogen.ComputeRules(policy) {
-		if len(rule.MatchResources.Any) > 0 {
-			for _, rmr := range rule.MatchResources.Any {
-				removeCacheHelper(rmr, m, pName)
-			}
-		} else if len(rule.MatchResources.All) > 0 {
-			for _, rmr := range rule.MatchResources.All {
-				removeCacheHelper(rmr, m, pName)
-			}
-		} else {
-			r := kyverno.ResourceFilter{UserInfo: rule.MatchResources.UserInfo, ResourceDescription: rule.MatchResources.ResourceDescription}
-			removeCacheHelper(r, m, pName)
-		}
-	}
-}
-
 func removeCacheHelper(rmr kyverno.ResourceFilter, m *pMap, pName string) {
 	for _, gvk := range rmr.Kinds {
 		_, kind := common.GetKindFromGVK(gvk)
@@ -267,25 +189,4 @@ func removeCacheHelper(rmr kyverno.ResourceFilter, m *pMap, pName string) {
 			}
 		}
 	}
-}
-
-func (pc *policyCache) getPolicyObject(key PolicyType, gvk string, nspace string) (policyObject []*kyverno.ClusterPolicy) {
-	_, kind := common.GetKindFromGVK(gvk)
-	policyNames := pc.pMap.get(key, kind, nspace)
-	wildcardPolicies := pc.pMap.get(key, "*", nspace)
-	policyNames = append(policyNames, wildcardPolicies...)
-	for _, policyName := range policyNames {
-		var policy *kyverno.ClusterPolicy
-		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
-		if !isNamespacedPolicy {
-			policy, _ = pc.pLister.Get(key)
-		} else {
-			if ns == nspace {
-				nspolicy, _ := pc.npLister.Policies(ns).Get(key)
-				policy = policy2.ConvertPolicyToClusterPolicy(nspolicy)
-			}
-		}
-		policyObject = append(policyObject, policy)
-	}
-	return policyObject
 }
