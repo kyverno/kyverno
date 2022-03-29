@@ -11,6 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -236,7 +237,7 @@ func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.Adm
 		return
 	}
 
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
 			updatedRule, err := getGeneratedByResource(newRes, resLabels, ws.client, rule, logger)
 			if err != nil {
@@ -442,8 +443,15 @@ func applyGenerateRequest(request *v1beta1.AdmissionRequest, gnGenerator generat
 }
 
 func transform(admissionRequestInfo kyverno.AdmissionRequestInfoObject, userRequestInfo kyverno.RequestInfo, er *response.EngineResponse) kyverno.GenerateRequestSpec {
+	var PolicyNameNamespaceKey string
+	if er.PolicyResponse.Policy.Namespace != "" {
+		PolicyNameNamespaceKey = fmt.Sprintf("%s", er.PolicyResponse.Policy.Namespace+"/"+er.PolicyResponse.Policy.Name)
+	} else {
+		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Name
+	}
+
 	gr := kyverno.GenerateRequestSpec{
-		Policy: er.PolicyResponse.Policy.Name,
+		Policy: PolicyNameNamespaceKey,
 		Resource: kyverno.ResourceSpec{
 			Kind:       er.PolicyResponse.Resource.Kind,
 			Namespace:  er.PolicyResponse.Resource.Namespace,

@@ -30,8 +30,7 @@ func ToJSON(in apiextensions.JSON) *apiextv1.JSON {
 }
 
 // ValidatePolicyName validates policy name
-func ValidatePolicyName(path *field.Path, name string) field.ErrorList {
-	var errs field.ErrorList
+func ValidatePolicyName(path *field.Path, name string) (errs field.ErrorList) {
 	// policy name is stored in the label of the report change request
 	if len(name) > 63 {
 		errs = append(errs, field.TooLong(path, name, 63))
