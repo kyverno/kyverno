@@ -347,26 +347,33 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	if err != nil {
 		return err
 	}
-	_, err = c.pLister.Get(pName)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return err
-		}
 
+	if pNamespace == "" {
+		_, err = c.pLister.Get(pName)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
+			logger.Error(err, "failed to get clusterpolicy, deleting the generate request")
+			err = c.control.Delete(gr.Name)
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+	} else {
 		_, err = c.npLister.Policies(pNamespace).Get(pName)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				return err
 			}
-		} else {
-			return c.processGR(*gr)
+			logger.Error(err, "failed to get policy, deleting the generate request")
+			err = c.control.Delete(gr.Name)
+			if err != nil {
+				return err
+			}
+			return nil
 		}
-
-		err = c.control.Delete(gr.Name)
-		if err != nil {
-			return err
-		}
-		return nil
 	}
 	return c.processGR(*gr)
 }

@@ -61,7 +61,7 @@ func filterGenerateRules(policyContext *PolicyContext, policyNameKey string, sta
 		return resp
 	}
 
-	for _, rule := range policyContext.PolicySpec.Rules {
+	for _, rule := range autogen.ComputeRules(&policyContext.Policy) {
 		if ruleResp := filterRule(rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}

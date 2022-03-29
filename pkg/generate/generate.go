@@ -189,9 +189,12 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		logger.Error(err, "unable to add image info to variables context")
 	}
 
+	policy := kyverno.ClusterPolicy{
+		Spec: policySpec,
+	}
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
-		PolicySpec:          policySpec,
+		Policy:              policy,
 		AdmissionInfo:       gr.Spec.Context.UserRequestInfo,
 		ExcludeGroupRole:    c.Config.GetExcludeGroupRole(),
 		ExcludeResourceFunc: c.Config.ToFilter,
@@ -247,18 +250,20 @@ func (c *Controller) getPolicySpec(gr kyverno.GenerateRequest) (kyverno.Spec, er
 	if err != nil {
 		return policySpec, err
 	}
-	policyObj, err := c.policyLister.Get(pName)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			npolicyObj, err := c.npolicyLister.Policies(pNamespace).Get(pName)
-			if err != nil {
-				return policySpec, err
-			}
-			return npolicyObj.Spec, nil
+
+	if pNamespace == "" {
+		policyObj, err := c.policyLister.Get(pName)
+		if err != nil {
+			return policySpec, err
 		}
-		return policySpec, err
+		return policyObj.Spec, err
+	} else {
+		npolicyObj, err := c.npolicyLister.Policies(pNamespace).Get(pName)
+		if err != nil {
+			return policySpec, err
+		}
+		return npolicyObj.Spec, nil
 	}
-	return policyObj.Spec, nil
 }
 
 func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateRequest, err error, genResources []kyverno.ResourceSpec, precreatedResource bool) error {
@@ -276,7 +281,6 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 	// Get the response as the actions to be performed on the resource
 	// - - substitute values
 	policy := policyContext.Policy
-	policy.Spec = policyContext.PolicySpec
 	resource := policyContext.NewResource
 
 	jsonContext := policyContext.JSONContext
@@ -300,7 +304,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 		if len(rule.MatchResources.Kinds) > 0 {
 			if len(rule.MatchResources.Annotations) == 0 && rule.MatchResources.Selector == nil {
 				rcreationTime := resource.GetCreationTimestamp()
-				pcreationTime := policyContext.Policy.GetCreationTimestamp()
+				pcreationTime := policy.GetCreationTimestamp()
 				processExisting = rcreationTime.Before(&pcreationTime)
 			}
 		}
