@@ -95,8 +95,7 @@ func (p *Policy) IsReady() bool {
 // Validate implements programmatic validation.
 // namespaced means that the policy is bound to a namespace and therefore
 // should not filter/generate cluster wide resources.
-func (p *Policy) Validate(namespaced bool, clusterResources sets.String) field.ErrorList {
-	var errs field.ErrorList
+func (p *Policy) Validate(namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), namespaced, clusterResources)...)
 	return errs
