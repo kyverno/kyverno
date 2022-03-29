@@ -443,8 +443,15 @@ func applyGenerateRequest(request *v1beta1.AdmissionRequest, gnGenerator generat
 }
 
 func transform(admissionRequestInfo kyverno.AdmissionRequestInfoObject, userRequestInfo kyverno.RequestInfo, er *response.EngineResponse) kyverno.GenerateRequestSpec {
+	var PolicyNameNamespaceKey string
+	if er.PolicyResponse.Policy.Namespace != "" {
+		PolicyNameNamespaceKey = fmt.Sprintf("%s", er.PolicyResponse.Policy.Namespace+"/"+er.PolicyResponse.Policy.Name)
+	} else {
+		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Name
+	}
+
 	gr := kyverno.GenerateRequestSpec{
-		Policy: er.PolicyResponse.Policy.Name,
+		Policy: PolicyNameNamespaceKey,
 		Resource: kyverno.ResourceSpec{
 			Kind:       er.PolicyResponse.Resource.Kind,
 			Namespace:  er.PolicyResponse.Resource.Namespace,
