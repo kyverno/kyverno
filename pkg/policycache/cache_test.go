@@ -473,7 +473,7 @@ func newAnyPolicy(t *testing.T) *kyverno.ClusterPolicy {
 	return policy
 }
 
-func newNsPolicy(t *testing.T) *kyverno.ClusterPolicy {
+func newNsPolicy(t *testing.T) kyverno.PolicyInterface {
 	rawPolicy := []byte(`{
 		"metadata": {
 		  "name": "test-policy",
@@ -577,7 +577,7 @@ func newNsPolicy(t *testing.T) *kyverno.ClusterPolicy {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	return convertPolicyToClusterPolicy(policy)
+	return policy
 }
 
 func newGVKPolicy(t *testing.T) *kyverno.ClusterPolicy {
@@ -637,7 +637,7 @@ func newGVKPolicy(t *testing.T) *kyverno.ClusterPolicy {
 	return policy
 }
 
-func newUserTestPolicy(t *testing.T) *kyverno.ClusterPolicy {
+func newUserTestPolicy(t *testing.T) kyverno.PolicyInterface {
 	rawPolicy := []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "Policy",
@@ -676,7 +676,7 @@ func newUserTestPolicy(t *testing.T) *kyverno.ClusterPolicy {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	return convertPolicyToClusterPolicy(policy)
+	return policy
 }
 
 func newgenratePolicy(t *testing.T) *kyverno.ClusterPolicy {
@@ -771,7 +771,7 @@ func newMutatePolicy(t *testing.T) *kyverno.ClusterPolicy {
 
 	return policy
 }
-func newNsMutatePolicy(t *testing.T) *kyverno.ClusterPolicy {
+func newNsMutatePolicy(t *testing.T) kyverno.PolicyInterface {
 	rawPolicy := []byte(`{
 		"metadata": {
 		  "name": "logger-sidecar",
@@ -814,7 +814,7 @@ func newNsMutatePolicy(t *testing.T) *kyverno.ClusterPolicy {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	return convertPolicyToClusterPolicy(policy)
+	return policy
 }
 
 func newValidateAuditPolicy(t *testing.T) *kyverno.ClusterPolicy {
@@ -990,7 +990,7 @@ func Test_Ns_Add_Validate_Audit(t *testing.T) {
 	pCache.add(policy)
 	pCache.add(policy)
 	nspace := policy.GetNamespace()
-	policy.Spec.ValidationFailureAction = "audit"
+	policy.GetSpec().ValidationFailureAction = "audit"
 	pCache.add(policy)
 	pCache.add(policy)
 	for _, rule := range autogen.ComputeRules(policy) {

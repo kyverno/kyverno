@@ -5,7 +5,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
-	policy2 "github.com/kyverno/kyverno/pkg/policy"
+	"github.com/kyverno/kyverno/pkg/policy"
 )
 
 // Interface ...
@@ -13,15 +13,15 @@ import (
 type Interface interface {
 	// GetPolicies returns all policies that apply to a namespace, including cluster-wide policies
 	// If the namespace is empty, only cluster-wide policies are returned
-	GetPolicies(pkey PolicyType, kind string, nspace string) []*kyverno.ClusterPolicy
+	GetPolicies(PolicyType, string, string) []kyverno.PolicyInterface
 
 	// add adds a policy to the cache
-	add(policy *kyverno.ClusterPolicy)
+	add(kyverno.PolicyInterface)
 
 	// remove removes a policy from the cache
-	remove(policy *kyverno.ClusterPolicy)
+	remove(kyverno.PolicyInterface)
 
-	get(pkey PolicyType, kind string, nspace string) []string
+	get(PolicyType, string, string) []string
 }
 
 // policyCache ...
@@ -58,7 +58,7 @@ func newPolicyCache(log logr.Logger, pLister kyvernolister.ClusterPolicyLister, 
 }
 
 // Add a policy to cache
-func (pc *policyCache) add(policy *kyverno.ClusterPolicy) {
+func (pc *policyCache) add(policy kyverno.PolicyInterface) {
 	pc.pMap.add(policy)
 	pc.logger.V(4).Info("policy is added to cache", "name", policy.GetName())
 }
@@ -68,7 +68,7 @@ func (pc *policyCache) get(pkey PolicyType, kind, nspace string) []string {
 	return pc.pMap.get(pkey, kind, nspace)
 }
 
-func (pc *policyCache) GetPolicies(pkey PolicyType, kind, nspace string) []*kyverno.ClusterPolicy {
+func (pc *policyCache) GetPolicies(pkey PolicyType, kind, nspace string) []kyverno.PolicyInterface {
 	policies := pc.getPolicyObject(pkey, kind, "")
 	if nspace == "" {
 		return policies
@@ -78,28 +78,29 @@ func (pc *policyCache) GetPolicies(pkey PolicyType, kind, nspace string) []*kyve
 }
 
 // Remove a policy from cache
-func (pc *policyCache) remove(policy *kyverno.ClusterPolicy) {
-	pc.pMap.remove(policy)
-	pc.logger.V(4).Info("policy is removed from cache", "name", policy.GetName())
+func (pc *policyCache) remove(p kyverno.PolicyInterface) {
+	pc.pMap.remove(p)
+	pc.logger.V(4).Info("policy is removed from cache", "name", p.GetName())
 }
 
-func (pc *policyCache) getPolicyObject(key PolicyType, gvk string, nspace string) (policyObject []*kyverno.ClusterPolicy) {
+func (pc *policyCache) getPolicyObject(key PolicyType, gvk string, nspace string) (policyObject []kyverno.PolicyInterface) {
 	_, kind := common.GetKindFromGVK(gvk)
 	policyNames := pc.pMap.get(key, kind, nspace)
 	wildcardPolicies := pc.pMap.get(key, "*", nspace)
 	policyNames = append(policyNames, wildcardPolicies...)
 	for _, policyName := range policyNames {
-		var policy *kyverno.ClusterPolicy
-		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
+		var p kyverno.PolicyInterface
+		ns, key, isNamespacedPolicy := policy.ParseNamespacedPolicy(policyName)
 		if !isNamespacedPolicy {
-			policy, _ = pc.pLister.Get(key)
+			p, _ = pc.pLister.Get(key)
 		} else {
 			if ns == nspace {
-				nspolicy, _ := pc.npLister.Policies(ns).Get(key)
-				policy = policy2.ConvertPolicyToClusterPolicy(nspolicy)
+				p, _ = pc.npLister.Policies(ns).Get(key)
 			}
 		}
-		policyObject = append(policyObject, policy)
+		if p != nil {
+			policyObject = append(policyObject, p)
+		}
 	}
 	return policyObject
 }
