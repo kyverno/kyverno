@@ -194,7 +194,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	}
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
-		Policy:              policy,
+		Policy:              &policy,
 		AdmissionInfo:       gr.Spec.Context.UserRequestInfo,
 		ExcludeGroupRole:    c.Config.GetExcludeGroupRole(),
 		ExcludeResourceFunc: c.Config.ToFilter,
@@ -287,7 +287,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 	// To manage existing resources, we compare the creation time for the default resource to be generated and policy creation time
 
 	ruleNameToProcessingTime := make(map[string]time.Duration)
-	for _, rule := range autogen.ComputeRules(&policy) {
+	for _, rule := range autogen.ComputeRules(policy) {
 		var err error
 		if !rule.HasGenerate() {
 			continue
@@ -321,9 +321,9 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 		}
 
 		if !processExisting {
-			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy.Name, gr)
+			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy.GetName(), gr)
 			if err != nil {
-				log.Error(err, "failed to apply generate rule", "policy", policy.Name,
+				log.Error(err, "failed to apply generate rule", "policy", policy.GetName(),
 					"rule", rule.Name, "resource", resource.GetName(), "suggestion", "users need to grant Kyverno's service account additional privileges")
 				return nil, processExisting, err
 			}

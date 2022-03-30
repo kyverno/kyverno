@@ -29,7 +29,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 
 	policy := policyContext.Policy
 	patchedResource := policyContext.NewResource
-	logger := log.Log.WithName("EngineVerifyImages").WithValues("policy", policy.Name,
+	logger := log.Log.WithName("EngineVerifyImages").WithValues("policy", policy.GetName(),
 		"kind", patchedResource.GetKind(), "namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
 
 	startTime := time.Now()
@@ -49,7 +49,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 		}
 	}
 
-	rules := autogen.ComputeRules(&policyContext.Policy)
+	rules := autogen.ComputeRules(policyContext.Policy)
 	for i := range rules {
 		rule := &rules[i]
 		if len(rule.VerifyImages) == 0 {

@@ -9,9 +9,8 @@ import (
 
 // PolicyContext contains the contexts for engine to process
 type PolicyContext struct {
-
 	// Policy is the policy to be processed
-	Policy kyverno.ClusterPolicy
+	Policy kyverno.PolicyInterface
 
 	// NewResource is the resource to be processed
 	NewResource unstructured.Unstructured

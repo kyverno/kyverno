@@ -513,7 +513,7 @@ OuterLoop:
 	if err := context.MutateResourceWithImageInfo(resourceRaw, ctx); err != nil {
 		log.Log.Error(err, "failed to add image variables to context")
 	}
-	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *updated_resource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
+	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: policy, NewResource: *updated_resource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
 	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}
@@ -543,7 +543,7 @@ OuterLoop:
 	var info policyreport.Info
 	var validateResponse *response.EngineResponse
 	if policyHasValidate {
-		policyCtx := &engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels}
+		policyCtx := &engine.PolicyContext{Policy: policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels}
 		validateResponse = engine.Validate(policyCtx)
 		info = ProcessValidateEngineResponse(policy, validateResponse, resPath, rc, policyReport)
 	}
@@ -561,7 +561,7 @@ OuterLoop:
 	if policyHasGenerate {
 		policyContext := &engine.PolicyContext{
 			NewResource:      *resource,
-			Policy:           *policy,
+			Policy:           policy,
 			ExcludeGroupRole: []string{},
 			ExcludeResourceFunc: func(s1, s2, s3 string) bool {
 				return false

@@ -14,7 +14,7 @@ type EngineResponse struct {
 	PatchedResource unstructured.Unstructured
 
 	// Original policy
-	Policy *kyverno.ClusterPolicy
+	Policy kyverno.PolicyInterface
 
 	// Policy Response
 	PolicyResponse PolicyResponse

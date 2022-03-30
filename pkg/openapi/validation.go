@@ -160,7 +160,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 		newResource := unstructured.Unstructured{Object: resource}
 		newResource.SetKind(kind)
 
-		patchedResource, err := engine.ForceMutate(nil, newPolicy, newResource)
+		patchedResource, err := engine.ForceMutate(nil, &newPolicy, newResource)
 		if err != nil {
 			return err
 		}
