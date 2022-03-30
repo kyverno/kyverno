@@ -78,7 +78,6 @@ func (ws *WebhookServer) handleMutation(
 		if !spec.HasMutate() {
 			continue
 		}
-
 		logger.V(3).Info("applying policy mutate rules", "policy", policy.GetName())
 		policyContext.Policy = policy
 		engineResponse, policyPatches, err := ws.applyMutation(request, policyContext, logger)
