@@ -12,7 +12,10 @@ spec:
       app: kyverno
   ingress:
   - from:
-    - podSelector:
+    - namespaceSelector:
+        matchLabels:
+          app.kubernetes.io/name: kyverno
+      podSelector:
         matchLabels:
           app.kubernetes.io/name: prometheus
     ports:
@@ -43,7 +46,7 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kube-system
-        - podSelector:
+          podSelector:
             matchLabels:
               component: kube-apiserver
               tier: control-plane
@@ -55,7 +58,7 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kube-system
-        - podSelector:
+          podSelector:
             matchLabels:
               component: kube-apiserver
               tier: control-plane
