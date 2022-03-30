@@ -33,7 +33,7 @@ type validationHandler struct {
 func (v *validationHandler) handleValidation(
 	promConfig *metrics.PromConfig,
 	request *v1beta1.AdmissionRequest,
-	policies []*v1.ClusterPolicy,
+	policies []v1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 	namespaceLabels map[string]string,
 	admissionRequestTimestamp int64) (bool, string) {
@@ -58,8 +58,8 @@ func (v *validationHandler) handleValidation(
 
 	var engineResponses []*response.EngineResponse
 	for _, policy := range policies {
-		logger.V(3).Info("evaluating policy", "policy", policy.Name)
-		policyContext.Policy = *policy
+		logger.V(3).Info("evaluating policy", "policy", policy.GetName())
+		policyContext.Policy = policy
 		policyContext.NamespaceLabels = namespaceLabels
 		engineResponse := engine.Validate(policyContext)
 		if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
@@ -75,12 +75,12 @@ func (v *validationHandler) handleValidation(
 
 		engineResponses = append(engineResponses, engineResponse)
 		if !engineResponse.IsSuccessful() {
-			logger.V(2).Info("validation failed", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
+			logger.V(2).Info("validation failed", "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
 			continue
 		}
 
 		if len(engineResponse.GetSuccessRules()) > 0 {
-			logger.V(2).Info("validation passed", "policy", policy.Name)
+			logger.V(2).Info("validation passed", "policy", policy.GetName())
 		}
 	}
 
@@ -116,7 +116,7 @@ func (v *validationHandler) handleValidation(
 	if request.Operation == v1beta1.Delete {
 		managed := true
 		for _, er := range engineResponses {
-			if er.Policy != nil && !engine.ManagedPodResource(*er.Policy, er.PatchedResource) {
+			if er.Policy != nil && !engine.ManagedPodResource(er.Policy, er.PatchedResource) {
 				managed = false
 				break
 			}
@@ -150,23 +150,23 @@ func getResourceName(request *v1beta1.AdmissionRequest) string {
 	return resourceName
 }
 
-func registerPolicyResultsMetricValidation(promConfig *metrics.PromConfig, logger logr.Logger, requestOperation string, policy v1.ClusterPolicy, engineResponse response.EngineResponse) {
+func registerPolicyResultsMetricValidation(promConfig *metrics.PromConfig, logger logr.Logger, requestOperation string, policy v1.PolicyInterface, engineResponse response.EngineResponse) {
 	resourceRequestOperationPromAlias, err := policyResults.ParseResourceRequestOperation(requestOperation)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 	if err := policyResults.ParsePromConfig(*promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 }
 
-func registerPolicyExecutionDurationMetricValidate(promConfig *metrics.PromConfig, logger logr.Logger, requestOperation string, policy v1.ClusterPolicy, engineResponse response.EngineResponse) {
+func registerPolicyExecutionDurationMetricValidate(promConfig *metrics.PromConfig, logger logr.Logger, requestOperation string, policy v1.PolicyInterface, engineResponse response.EngineResponse) {
 	resourceRequestOperationPromAlias, err := policyExecutionDuration.ParseResourceRequestOperation(requestOperation)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 	if err := policyExecutionDuration.ParsePromConfig(*promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 }
 

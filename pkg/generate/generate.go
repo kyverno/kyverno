@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/tools/cache"
 )
 
 func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
@@ -121,7 +122,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 
 	logger.V(3).Info("applying generate policy rule")
 
-	policyObj, err := c.policyLister.Get(gr.Spec.Policy)
+	policySpec, err := c.getPolicySpec(gr)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			for _, e := range gr.Status.GeneratedResources {
@@ -137,7 +138,6 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 					}
 				}
 			}
-
 			return nil, false, nil
 		}
 
@@ -189,9 +189,12 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		logger.Error(err, "unable to add image info to variables context")
 	}
 
+	policy := kyverno.ClusterPolicy{
+		Spec: policySpec,
+	}
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
-		Policy:              *policyObj,
+		Policy:              &policy,
 		AdmissionInfo:       gr.Spec.Context.UserRequestInfo,
 		ExcludeGroupRole:    c.Config.GetExcludeGroupRole(),
 		ExcludeResourceFunc: c.Config.ToFilter,
@@ -201,7 +204,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	}
 
 	// check if the policy still applies to the resource
-	engineResponse := engine.Generate(policyContext)
+	engineResponse := engine.GenerateResponse(policyContext, gr)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		logger.V(4).Info(doesNotApply)
 		return nil, false, errors.New(doesNotApply)
@@ -239,6 +242,30 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	return c.applyGeneratePolicy(logger, policyContext, gr, applicableRules)
 }
 
+// getPolicySpec gets the policy spec from the ClusterPolicy/Policy
+func (c *Controller) getPolicySpec(gr kyverno.GenerateRequest) (kyverno.Spec, error) {
+	var policySpec kyverno.Spec
+
+	pNamespace, pName, err := cache.SplitMetaNamespaceKey(gr.Spec.Policy)
+	if err != nil {
+		return policySpec, err
+	}
+
+	if pNamespace == "" {
+		policyObj, err := c.policyLister.Get(pName)
+		if err != nil {
+			return policySpec, err
+		}
+		return policyObj.Spec, err
+	} else {
+		npolicyObj, err := c.npolicyLister.Policies(pNamespace).Get(pName)
+		if err != nil {
+			return policySpec, err
+		}
+		return npolicyObj.Spec, nil
+	}
+}
+
 func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateRequest, err error, genResources []kyverno.ResourceSpec, precreatedResource bool) error {
 	if err != nil {
 		return statusControl.Failed(gr, err.Error(), genResources)
@@ -260,7 +287,7 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 	// To manage existing resources, we compare the creation time for the default resource to be generated and policy creation time
 
 	ruleNameToProcessingTime := make(map[string]time.Duration)
-	for _, rule := range autogen.ComputeRules(&policy) {
+	for _, rule := range autogen.ComputeRules(policy) {
 		var err error
 		if !rule.HasGenerate() {
 			continue
@@ -294,9 +321,9 @@ func (c *Controller) applyGeneratePolicy(log logr.Logger, policyContext *engine.
 		}
 
 		if !processExisting {
-			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy.Name, gr)
+			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy.GetName(), gr)
 			if err != nil {
-				log.Error(err, "failed to apply generate rule", "policy", policy.Name,
+				log.Error(err, "failed to apply generate rule", "policy", policy.GetName(),
 					"rule", rule.Name, "resource", resource.GetName(), "suggestion", "users need to grant Kyverno's service account additional privileges")
 				return nil, processExisting, err
 			}

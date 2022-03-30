@@ -51,9 +51,9 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPo
 	if !*metricAlreadyRegistered && len(engineResponses) > 0 {
 		for _, engineResponse := range engineResponses {
 			// registering the kyverno_policy_results_total metric concurrently
-			go pc.registerPolicyResultsMetricValidation(logger, *policy, *engineResponse)
+			go pc.registerPolicyResultsMetricValidation(logger, policy, *engineResponse)
 			// registering the kyverno_policy_execution_duration_seconds metric concurrently
-			go pc.registerPolicyExecutionDurationMetricValidate(logger, *policy, *engineResponse)
+			go pc.registerPolicyExecutionDurationMetricValidate(logger, policy, *engineResponse)
 		}
 		*metricAlreadyRegistered = true
 	}
@@ -61,15 +61,15 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPo
 	pc.report(engineResponses, logger)
 }
 
-func (pc *PolicyController) registerPolicyResultsMetricValidation(logger logr.Logger, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
+func (pc *PolicyController) registerPolicyResultsMetricValidation(logger logr.Logger, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	if err := policyResults.ParsePromConfig(*pc.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 }
 
-func (pc *PolicyController) registerPolicyExecutionDurationMetricValidate(logger logr.Logger, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
+func (pc *PolicyController) registerPolicyExecutionDurationMetricValidate(logger logr.Logger, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	if err := policyExecutionDuration.ParsePromConfig(*pc.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, "", metrics.ResourceCreated); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 }
 
@@ -92,7 +92,7 @@ func (pc *PolicyController) applyPolicy(policy *kyverno.ClusterPolicy, resource 
 // excludeAutoGenResources filter out the pods / jobs with ownerReference
 func excludeAutoGenResources(policy kyverno.ClusterPolicy, resourceMap map[string]unstructured.Unstructured, log logr.Logger) {
 	for uid, r := range resourceMap {
-		if engine.ManagedPodResource(policy, r) {
+		if engine.ManagedPodResource(&policy, r) {
 			log.V(4).Info("exclude resource", "namespace", r.GetNamespace(), "kind", r.GetKind(), "name", r.GetName())
 			delete(resourceMap, uid)
 		}
