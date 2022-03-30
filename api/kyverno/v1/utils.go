@@ -51,6 +51,7 @@ func isWildcardPresent(v string) bool {
 	if strings.Contains(v, "*") || strings.Contains(v, "?") {
 		return true
 	}
+
 	return false
 }
 
