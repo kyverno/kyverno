@@ -13,7 +13,7 @@ import (
 )
 
 // GetPolicy - extracts policies from YAML bytes
-func GetPolicy(bytes []byte) (clusterPolicies []*v1.ClusterPolicy, err error) {
+func GetPolicy(bytes []byte) (clusterPolicies []v1.PolicyInterface, err error) {
 	policies, err := SplitYAMLDocuments(bytes)
 	if err != nil {
 		return nil, err
