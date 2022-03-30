@@ -36,7 +36,7 @@ func (ws *WebhookServer) handleVerifyImages(request *v1beta1.AdmissionRequest,
 	var engineResponses []*response.EngineResponse
 	var patches [][]byte
 	for _, p := range policies {
-		policyContext.Policy = *p
+		policyContext.Policy = p
 		resp := engine.VerifyAndPatchImages(policyContext)
 		engineResponses = append(engineResponses, resp)
 		patches = append(patches, resp.GetPatches()...)
