@@ -79,7 +79,7 @@ func (ws *WebhookServer) handleMutation(
 		}
 
 		logger.V(3).Info("applying policy mutate rules", "policy", policy.Name)
-		policyContext.Policy = *policy
+		policyContext.Policy = policy
 		engineResponse, policyPatches, err := ws.applyMutation(request, policyContext, logger)
 		if err != nil {
 			// TODO report errors in engineResponse and record in metrics
@@ -99,10 +99,10 @@ func (ws *WebhookServer) handleMutation(
 		engineResponses = append(engineResponses, engineResponse)
 
 		// registering the kyverno_policy_results_total metric concurrently
-		go ws.registerPolicyResultsMetricMutation(logger, string(request.Operation), *policy, *engineResponse)
+		go ws.registerPolicyResultsMetricMutation(logger, string(request.Operation), policy, *engineResponse)
 
 		// registering the kyverno_policy_execution_duration_seconds metric concurrently
-		go ws.registerPolicyExecutionDurationMetricMutate(logger, string(request.Operation), *policy, *engineResponse)
+		go ws.registerPolicyExecutionDurationMetricMutate(logger, string(request.Operation), policy, *engineResponse)
 	}
 
 	// generate annotations
@@ -147,35 +147,35 @@ func (ws *WebhookServer) applyMutation(request *v1beta1.AdmissionRequest, policy
 	policyPatches := engineResponse.GetPatches()
 
 	if !engineResponse.IsSuccessful() && len(engineResponse.GetFailedRules()) > 0 {
-		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy.Name, engineResponse.GetFailedRules())
+		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy.GetName(), engineResponse.GetFailedRules())
 	}
 
 	if engineResponse.PatchedResource.GetKind() != "*" {
 		err := ws.openAPIController.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to validate resource mutated by policy %s", policyContext.Policy.Name)
+			return nil, nil, errors.Wrapf(err, "failed to validate resource mutated by policy %s", policyContext.Policy.GetName())
 		}
 	}
 
 	return engineResponse, policyPatches, nil
 }
 
-func (ws *WebhookServer) registerPolicyResultsMetricMutation(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
+func (ws *WebhookServer) registerPolicyResultsMetricMutation(logger logr.Logger, resourceRequestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	resourceRequestOperationPromAlias, err := policyResults.ParseResourceRequestOperation(resourceRequestOperation)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 	if err := policyResults.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 }
 
-func (ws *WebhookServer) registerPolicyExecutionDurationMetricMutate(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
+func (ws *WebhookServer) registerPolicyExecutionDurationMetricMutate(logger logr.Logger, resourceRequestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	resourceRequestOperationPromAlias, err := policyExecutionDuration.ParseResourceRequestOperation(resourceRequestOperation)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 	if err := policyExecutionDuration.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 }

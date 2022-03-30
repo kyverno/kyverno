@@ -86,7 +86,7 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 		t.Error(err)
 	}
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Mutate(policyContext)
@@ -159,7 +159,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Mutate(policyContext)
@@ -254,7 +254,7 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured,
 	}
@@ -357,7 +357,7 @@ func Test_chained_rules(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resource,
 	}
@@ -451,7 +451,7 @@ func Test_precondition(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured,
 	}
@@ -548,7 +548,7 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured,
 	}
@@ -636,7 +636,7 @@ func Test_foreach(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resource,
 	}
@@ -743,7 +743,7 @@ func Test_foreach_element_mutation(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resource,
 	}
@@ -869,7 +869,7 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resource,
 	}
@@ -996,7 +996,7 @@ func Test_foreach_order_mutation_(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resource,
 	}

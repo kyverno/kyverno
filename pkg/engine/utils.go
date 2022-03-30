@@ -427,7 +427,7 @@ func excludeResource(podControllers string, resource unstructured.Unstructured) 
 // ManagedPodResource returns true:
 // - if the policy has auto-gen annotation && resource == Pod
 // - if the auto-gen contains cronJob && resource == Job
-func ManagedPodResource(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) bool {
+func ManagedPodResource(policy kyverno.PolicyInterface, resource unstructured.Unstructured) bool {
 	podControllers, ok := policy.GetAnnotations()[kyverno.PodControllersAnnotation]
 	if !ok || strings.ToLower(podControllers) == "none" {
 		return false
