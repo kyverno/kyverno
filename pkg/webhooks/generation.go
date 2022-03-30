@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*kyverno.ClusterPolicy, ts int64, logger logr.Logger) {
+func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyverno.PolicyInterface, ts int64, logger logr.Logger) {
 	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
 	generateEngineResponsesSenderForAdmissionReviewDurationMetric := make(chan []*response.EngineResponse, 1)
 	generateEngineResponsesSenderForAdmissionRequestsCountMetric := make(chan []*response.EngineResponse, 1)
@@ -47,7 +47,7 @@ func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest
 //handleGenerate handles admission-requests for policies with generate rules
 func (ws *WebhookServer) handleGenerate(
 	request *v1beta1.AdmissionRequest,
-	policies []*kyverno.ClusterPolicy,
+	policies []kyverno.PolicyInterface,
 	ctx *context.Context,
 	userRequestInfo kyverno.RequestInfo,
 	dynamicConfig config.Interface,
@@ -148,7 +148,7 @@ func (ws *WebhookServer) registerPolicyExecutionDurationMetricGenerate(logger lo
 }
 
 //handleUpdatesForGenerateRules handles admission-requests for update
-func (ws *WebhookServer) handleUpdatesForGenerateRules(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy) {
+func (ws *WebhookServer) handleUpdatesForGenerateRules(request *v1beta1.AdmissionRequest, policies []kyverno.PolicyInterface) {
 	if request.Operation != v1beta1.Update {
 		return
 	}
@@ -220,7 +220,7 @@ func (ws *WebhookServer) updateAnnotationInGR(gr *kyverno.GenerateRequest, logge
 }
 
 //handleUpdateGenerateTargetResource - handles update of target resource for generate policy
-func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, resLabels map[string]string, logger logr.Logger) {
+func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.AdmissionRequest, policies []kyverno.PolicyInterface, resLabels map[string]string, logger logr.Logger) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {

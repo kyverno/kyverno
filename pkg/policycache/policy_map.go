@@ -7,7 +7,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/common"
-	policy2 "github.com/kyverno/kyverno/pkg/policy"
+	"github.com/kyverno/kyverno/pkg/policy"
 )
 
 type pMap struct {
@@ -24,12 +24,13 @@ type pMap struct {
 	nameCacheMap map[PolicyType]map[string]bool
 }
 
-func (m *pMap) add(policy *kyverno.ClusterPolicy) {
+func (m *pMap) add(policy kyverno.PolicyInterface) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	enforcePolicy := policy.Spec.ValidationFailureAction == kyverno.Enforce
-	for _, k := range policy.Spec.ValidationFailureActionOverrides {
+	spec := policy.GetSpec()
+	enforcePolicy := spec.ValidationFailureAction == kyverno.Enforce
+	for _, k := range spec.ValidationFailureActionOverrides {
 		if k.Action == kyverno.Enforce {
 			enforcePolicy = true
 			break
@@ -75,7 +76,7 @@ func (m *pMap) get(key PolicyType, gvk, namespace string) (names []string) {
 	defer m.lock.RUnlock()
 	_, kind := common.GetKindFromGVK(gvk)
 	for _, policyName := range m.kindDataMap[kind][key] {
-		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
+		ns, key, isNamespacedPolicy := policy.ParseNamespacedPolicy(policyName)
 		if !isNamespacedPolicy && namespace == "" {
 			names = append(names, key)
 		} else {
@@ -87,7 +88,7 @@ func (m *pMap) get(key PolicyType, gvk, namespace string) (names []string) {
 	return names
 }
 
-func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
+func (m *pMap) remove(policy kyverno.PolicyInterface) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	var pName = policy.GetName()

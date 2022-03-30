@@ -33,7 +33,7 @@ type validationHandler struct {
 func (v *validationHandler) handleValidation(
 	promConfig *metrics.PromConfig,
 	request *v1beta1.AdmissionRequest,
-	policies []*v1.ClusterPolicy,
+	policies []v1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 	namespaceLabels map[string]string,
 	admissionRequestTimestamp int64) (bool, string) {
@@ -58,7 +58,7 @@ func (v *validationHandler) handleValidation(
 
 	var engineResponses []*response.EngineResponse
 	for _, policy := range policies {
-		logger.V(3).Info("evaluating policy", "policy", policy.Name)
+		logger.V(3).Info("evaluating policy", "policy", policy.GetName())
 		policyContext.Policy = policy
 		policyContext.NamespaceLabels = namespaceLabels
 		engineResponse := engine.Validate(policyContext)
@@ -75,12 +75,12 @@ func (v *validationHandler) handleValidation(
 
 		engineResponses = append(engineResponses, engineResponse)
 		if !engineResponse.IsSuccessful() {
-			logger.V(2).Info("validation failed", "policy", policy.Name, "failed rules", engineResponse.GetFailedRules())
+			logger.V(2).Info("validation failed", "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
 			continue
 		}
 
 		if len(engineResponse.GetSuccessRules()) > 0 {
-			logger.V(2).Info("validation passed", "policy", policy.Name)
+			logger.V(2).Info("validation passed", "policy", policy.GetName())
 		}
 	}
 
