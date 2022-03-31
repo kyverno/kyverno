@@ -94,14 +94,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			ruleResp, patchedResource = mutateResource(ruleCopy, policyContext, patchedResource, logger)
 		}
 
-		if ruleResp != nil {
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
-			if ruleResp.Status == response.RuleStatusError {
-				incrementErrorCount(resp)
-			} else {
-				incrementAppliedCount(resp)
-			}
-		}
+		resp.Add(ruleResp)
 	}
 
 	for _, r := range resp.PolicyResponse.Rules {

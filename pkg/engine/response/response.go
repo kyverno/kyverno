@@ -55,7 +55,7 @@ type ResourceSpec struct {
 }
 
 //GetKey returns the key
-func (rs ResourceSpec) GetKey() string {
+func (rs *ResourceSpec) GetKey() string {
 	return rs.Kind + "/" + rs.Namespace + "/" + rs.Name
 }
 
@@ -98,7 +98,7 @@ type RuleResponse struct {
 }
 
 //ToString ...
-func (rr RuleResponse) ToString() string {
+func (rr *RuleResponse) ToString() string {
 	return fmt.Sprintf("rule %s (%s): %v", rr.Name, rr.Type, rr.Message)
 }
 
@@ -111,7 +111,7 @@ type RuleStats struct {
 }
 
 //IsSuccessful checks if any rule has failed or not
-func (er EngineResponse) IsSuccessful() bool {
+func (er *EngineResponse) IsSuccessful() bool {
 	for _, r := range er.PolicyResponse.Rules {
 		if r.Status == RuleStatusFail || r.Status == RuleStatusError {
 			return false
@@ -122,7 +122,7 @@ func (er EngineResponse) IsSuccessful() bool {
 }
 
 //IsFailed checks if any rule has succeeded or not
-func (er EngineResponse) IsFailed() bool {
+func (er *EngineResponse) IsFailed() bool {
 	for _, r := range er.PolicyResponse.Rules {
 		if r.Status == RuleStatusFail {
 			return true
@@ -133,7 +133,7 @@ func (er EngineResponse) IsFailed() bool {
 }
 
 //GetPatches returns all the patches joined
-func (er EngineResponse) GetPatches() [][]byte {
+func (er *EngineResponse) GetPatches() [][]byte {
 	var patches [][]byte
 	for _, r := range er.PolicyResponse.Rules {
 		if r.Patches != nil {
@@ -145,17 +145,17 @@ func (er EngineResponse) GetPatches() [][]byte {
 }
 
 //GetFailedRules returns failed rules
-func (er EngineResponse) GetFailedRules() []string {
+func (er *EngineResponse) GetFailedRules() []string {
 	return er.getRules(RuleStatusFail)
 }
 
 //GetSuccessRules returns success rules
-func (er EngineResponse) GetSuccessRules() []string {
+func (er *EngineResponse) GetSuccessRules() []string {
 	return er.getRules(RuleStatusPass)
 }
 
 // GetResourceSpec returns resourceSpec of er
-func (er EngineResponse) GetResourceSpec() ResourceSpec {
+func (er *EngineResponse) GetResourceSpec() ResourceSpec {
 	return ResourceSpec{
 		Kind:       er.PatchedResource.GetKind(),
 		APIVersion: er.PatchedResource.GetAPIVersion(),
@@ -165,7 +165,7 @@ func (er EngineResponse) GetResourceSpec() ResourceSpec {
 	}
 }
 
-func (er EngineResponse) getRules(status RuleStatus) []string {
+func (er *EngineResponse) getRules(status RuleStatus) []string {
 	var rules []string
 	for _, r := range er.PolicyResponse.Rules {
 		if r.Status == status {
@@ -174,6 +174,19 @@ func (er EngineResponse) getRules(status RuleStatus) []string {
 	}
 
 	return rules
+}
+
+func (er *EngineResponse) Add(ruleResp *RuleResponse)  {
+	if ruleResp == nil {
+		return
+	}
+
+	er.PolicyResponse.Rules = append(er.PolicyResponse.Rules, *ruleResp)
+	if ruleResp.Status == RuleStatusPass ||  ruleResp.Status == RuleStatusFail || ruleResp.Status == RuleStatusWarn {
+		er.PolicyResponse.RulesAppliedCount++
+	} else if  ruleResp.Status == RuleStatusError {
+		er.PolicyResponse.RulesErrorCount++
+	}
 }
 
 type ValidationFailureActionOverride struct {

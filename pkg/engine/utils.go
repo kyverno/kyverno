@@ -486,11 +486,3 @@ func ruleResponse(rule *kyverno.Rule, ruleType engineUtils.RuleType, msg string,
 		Status:  status,
 	}
 }
-
-func incrementAppliedCount(resp *response.EngineResponse) {
-	resp.PolicyResponse.RulesAppliedCount++
-}
-
-func incrementErrorCount(resp *response.EngineResponse) {
-	resp.PolicyResponse.RulesErrorCount++
-}

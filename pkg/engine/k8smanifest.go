@@ -12,8 +12,10 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"strings"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
@@ -32,9 +34,15 @@ func VerifyManifestSignature(ctx *PolicyContext, logger logr.Logger) *response.E
 		return resp
 	}
 
+	startTime := time.Now()
+	defer func() {
+		buildResponse(ctx, resp, startTime)
+		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "rulesApplied", resp.PolicyResponse.RulesAppliedCount)
+	}()
+
 	for _, rule := range ctx.Policy.Spec.Rules {
 		ruleResp := verifyManifestRule(ctx, rule, logger)
-		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
+		resp.Add(ruleResp)
 	}
 
 	return resp
@@ -43,11 +51,10 @@ func VerifyManifestSignature(ctx *PolicyContext, logger logr.Logger) *response.E
 func verifyManifestRule(ctx *PolicyContext, rule kyverno.Rule, logger logr.Logger) *response.RuleResponse {
 	verified, diff, err := verifyManifest(ctx, rule.Validation.Key, rule.Validation.IgnoreFields)
 	if err != nil {
-		return ruleError(&rule, utils.Validation, "manifest verification failed", err)
+		return ruleError(&rule, utils.Validation, "failed to verify manifest", err)
 	}
 
 	if !verified {
-		logger.Info("invalid request ", "verified: ", verified, "diff: ", diff)
 		return ruleResponse(&rule, utils.Validation, "manifest mismatch: diff: "+diff.String(), response.RuleStatusFail)
 	}
 
@@ -60,11 +67,13 @@ func verifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields 
 	// adding default ignoreFields from github.com/sigstore/k8s-manifest-sigstore/blob/main/pkg/k8smanifest/resources/default-config.yaml
 	vo = k8smanifest.AddDefaultConfig(vo)
 
+	log.Info("using verify resource options", "config", vo)
 
 	objManifest, err := yaml.Marshal(policyContext.NewResource.Object)
 	if err != nil {
-		return false, nil, fmt.Errorf("err: %v\n", err)
+		return false, nil, errors.Wrap(err, "failed to marshal YAML")
 	}
+
 	annotation := policyContext.NewResource.GetAnnotations()
 	signatureAnnotationKey := DefaultAnnotationKeyDomain + "signature"
 	messageAnnotationKey := DefaultAnnotationKeyDomain + "message"

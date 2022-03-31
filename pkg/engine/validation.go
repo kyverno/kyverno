@@ -142,13 +142,7 @@ func addRuleResponse(log logr.Logger, resp *response.EngineResponse, ruleResp *r
 	ruleResp.RuleStats.RuleExecutionTimestamp = startTime.Unix()
 	log.V(4).Info("finished processing rule", "processingTime", ruleResp.RuleStats.ProcessingTime.String())
 
-	if ruleResp.Status == response.RuleStatusPass || ruleResp.Status == response.RuleStatusFail {
-		incrementAppliedCount(resp)
-	} else if ruleResp.Status == response.RuleStatusError {
-		incrementErrorCount(resp)
-	}
-
-	resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
+	resp.Add(ruleResp)
 }
 
 type validator struct {

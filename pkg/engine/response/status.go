@@ -23,7 +23,7 @@ const (
 	// checks.
 	RuleStatusError
 	// RuleStatusSkip indicates that the policy rule was not selected based on user inputs or applicability, for example
-	// when preconditions are not met, or when conditional or global anchors are not satistied.
+	// when preconditions are not met, or when conditional or global anchors are not satisfied.
 	RuleStatusSkip
 )
 

@@ -90,8 +90,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 
 func appendError(resp *response.EngineResponse, rule *v1.Rule, msg string, status response.RuleStatus) {
 	rr := ruleResponse(rule, utils.ImageVerify, msg, status)
-	resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
-	incrementErrorCount(resp)
+	resp.Add(rr)
 }
 
 func substituteVariables(rule *v1.Rule, ctx context.EvalInterface, logger logr.Logger) (*v1.Rule, error) {
@@ -151,8 +150,7 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 			ruleResp = iv.attestImage(imageVerify, imageInfo)
 		}
 
-		iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
-		incrementAppliedCount(iv.resp)
+		iv.resp.Add(ruleResp)
 	}
 }
 
