@@ -14,12 +14,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/utils"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // applyPolicy applies policy on a resource
-func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured,
+func applyPolicy(policy kyverno.PolicyInterface, resource unstructured.Unstructured,
 	logger logr.Logger, excludeGroupRole []string,
 	client *client.Client, namespaceLabels map[string]string) (responses []*response.EngineResponse) {
 
@@ -59,7 +59,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	}
 
 	policyCtx := &engine.PolicyContext{
-		Policy:           &policy,
+		Policy:           policy,
 		NewResource:      resource,
 		ExcludeGroupRole: excludeGroupRole,
 		JSONContext:      ctx,
@@ -73,10 +73,10 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	return engineResponses
 }
 
-func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, log logr.Logger, jsonContext *context.Context, namespaceLabels map[string]string) (*response.EngineResponse, error) {
+func mutation(policy kyverno.PolicyInterface, resource unstructured.Unstructured, log logr.Logger, jsonContext *context.Context, namespaceLabels map[string]string) (*response.EngineResponse, error) {
 
 	policyContext := &engine.PolicyContext{
-		Policy:          &policy,
+		Policy:          policy,
 		NewResource:     resource,
 		JSONContext:     jsonContext,
 		NamespaceLabels: namespaceLabels,
@@ -110,7 +110,7 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 
 		patches := rule.Patches
 
-		patch, err := jsonpatch.DecodePatch(utils.JoinPatches(patches))
+		patch, err := jsonpatch.DecodePatch(jsonutils.JoinPatches(patches))
 		if err != nil {
 			log.Error(err, "failed to decode JSON patch", "patches", patches)
 			return &response.EngineResponse{}, err

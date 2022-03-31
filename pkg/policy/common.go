@@ -41,22 +41,6 @@ func transformResource(resource unstructured.Unstructured) []byte {
 	return data
 }
 
-// convertPoliciesToClusterPolicies - convert array of Policy to array of ClusterPolicy
-func convertPoliciesToClusterPolicies(nsPolicies []*kyverno.Policy) []*kyverno.ClusterPolicy {
-	var cpols []*kyverno.ClusterPolicy
-	for _, pol := range nsPolicies {
-		cpol := kyverno.ClusterPolicy(*pol)
-		cpols = append(cpols, &cpol)
-	}
-	return cpols
-}
-
-// ConvertPolicyToClusterPolicy - convert Policy to ClusterPolicy
-func ConvertPolicyToClusterPolicy(nsPolicies *kyverno.Policy) *kyverno.ClusterPolicy {
-	cpol := kyverno.ClusterPolicy(*nsPolicies)
-	return &cpol
-}
-
 func ParseNamespacedPolicy(key string) (string, string, bool) {
 	namespace := ""
 	index := strings.Index(key, "/")

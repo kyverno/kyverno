@@ -18,9 +18,11 @@ import (
 
 // Mutate performs mutation. Overlay first and then mutation patches
 func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
-	resp = &response.EngineResponse{}
 	startTime := time.Now()
 	policy := policyContext.Policy
+	resp = &response.EngineResponse{
+		Policy: policy,
+	}
 	patchedResource := policyContext.NewResource
 	ctx := policyContext.JSONContext
 	var skippedRules []string

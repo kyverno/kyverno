@@ -90,7 +90,7 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func getPolicyFromGivenPath(policyPaths []string) (policies []*v1.ClusterPolicy, err error) {
+func getPolicyFromGivenPath(policyPaths []string) (policies []v1.PolicyInterface, err error) {
 	var errs []error
 	if policyPaths[0] == "-" {
 		if common.IsInputFromPipe() {
@@ -129,7 +129,7 @@ func getPolicyCRD() (v1crd apiextensions.CustomResourceDefinitionSpec, err error
 	return
 }
 
-func validatePolicyAccordingToPolicyCRD(policy *v1.ClusterPolicy, v1crd apiextensions.CustomResourceDefinitionSpec) (err error, errList field.ErrorList) {
+func validatePolicyAccordingToPolicyCRD(policy v1.PolicyInterface, v1crd apiextensions.CustomResourceDefinitionSpec) (err error, errList field.ErrorList) {
 	policyBytes, err := json.Marshal(policy)
 	if err != nil {
 		return sanitizederror.NewWithError("failed to marshal policy", err), nil
@@ -153,7 +153,7 @@ func validatePolicyAccordingToPolicyCRD(policy *v1.ClusterPolicy, v1crd apiexten
 	return
 }
 
-func validatePolicies(policies []*v1.ClusterPolicy, v1crd apiextensions.CustomResourceDefinitionSpec, openAPIController *openapi.Controller, outputType string) error {
+func validatePolicies(policies []v1.PolicyInterface, v1crd apiextensions.CustomResourceDefinitionSpec, openAPIController *openapi.Controller, outputType string) error {
 	invalidPolicyFound := false
 	for _, policy := range policies {
 		err, errorList := validatePolicyAccordingToPolicyCRD(policy, v1crd)
@@ -167,7 +167,7 @@ func validatePolicies(policies []*v1.ClusterPolicy, v1crd apiextensions.CustomRe
 
 		fmt.Println("----------------------------------------------------------------------")
 		if errorList != nil || err != nil {
-			fmt.Printf("Policy %s is invalid.\n", policy.Name)
+			fmt.Printf("Policy %s is invalid.\n", policy.GetName())
 			if errorList != nil {
 				fmt.Printf("Error: invalid policy.\nCause: %s\n\n", errorList)
 			} else {
@@ -175,7 +175,7 @@ func validatePolicies(policies []*v1.ClusterPolicy, v1crd apiextensions.CustomRe
 			}
 			invalidPolicyFound = true
 		} else {
-			fmt.Printf("Policy %s is valid.\n\n", policy.Name)
+			fmt.Printf("Policy %s is valid.\n\n", policy.GetName())
 			if outputType != "" {
 				logger := log.Log.WithName("validate")
 				p, err := common.MutatePolicy(policy, logger)
