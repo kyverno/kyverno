@@ -161,12 +161,10 @@ func NewWebhookServer(
 		return nil, errors.New("NewWebhookServer is not initialized properly")
 	}
 
-	var tlsConfig tls.Config
 	pair, err := tls.X509KeyPair(tlsPair.Certificate, tlsPair.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
-	tlsConfig.Certificates = []tls.Certificate{pair}
 
 	ws := &WebhookServer{
 		client:         client,
@@ -229,7 +227,7 @@ func NewWebhookServer(
 
 	ws.server = &http.Server{
 		Addr:         ":9443", // Listen on port for HTTPS requests
-		TLSConfig:    &tlsConfig,
+		TLSConfig:    &tls.Config{Certificates: []tls.Certificate{pair}, MinVersion: tls.VersionTLS12},
 		Handler:      mux,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
@@ -555,7 +553,6 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 		JSONContext:         ctx,
 		Client:              ws.client,
 	}
-
 	vh := &validationHandler{
 		log:         ws.log,
 		eventGen:    ws.eventGen,
