@@ -11,7 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	"github.com/kyverno/kyverno/pkg/utils"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 )
 
 // GenerateJSONPatchesForDefaults generates default JSON patches for
@@ -64,7 +64,7 @@ func GenerateJSONPatchesForDefaults(policy kyverno.PolicyInterface, log logr.Log
 	}
 	patches = append(patches, formatedGVK...)
 
-	return utils.JoinPatches(patches), updateMsgs
+	return jsonutils.JoinPatches(patches), updateMsgs
 }
 
 func checkForGVKFormatPatch(policy kyverno.PolicyInterface, log logr.Logger) (patches [][]byte, errs []error) {
