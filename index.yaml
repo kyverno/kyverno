@@ -2,6 +2,29 @@ apiVersion: v1
 entries:
   kyverno:
   - apiVersion: v1
+    appVersion: v1.6.2
+    created: "2022-03-31T08:51:11.578945491Z"
+    description: Kubernetes Native Policy Management
+    digest: 45c460c6c551072dc44733f88d055c8c6a45a868275317ae3813e67d01ab2b91
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-v2.3.2.tgz
+    version: v2.3.2
+  - apiVersion: v1
     appVersion: v1.6.2-rc3
     created: "2022-03-30T14:19:42.109792228Z"
     description: Kubernetes Native Policy Management
@@ -2019,6 +2042,29 @@ entries:
     version: v2.0.2
   kyverno-policies:
   - apiVersion: v1
+    appVersion: v1.6.2
+    created: "2022-03-31T08:51:11.574849779Z"
+    description: Kubernetes Pod Security Standards implemented as Kyverno policies
+    digest: 28528093caed60abfca8d514057867d0a720f8eba4cbfa3829cd8d6d1602f2dd
+    home: https://kyverno.io/policies/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno-policies
+    sources:
+    - https://github.com/kyverno/policies
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-policies-v2.3.2.tgz
+    version: v2.3.2
+  - apiVersion: v1
     appVersion: v1.6.2-rc3
     created: "2022-03-30T14:19:42.106175903Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
@@ -2754,4 +2800,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-03-30T14:19:42.104541092Z"
+generated: "2022-03-31T08:51:11.573714876Z"
