@@ -14,7 +14,7 @@ func Test_Policy_Name(t *testing.T) {
 			Name: "this-is-a-way-too-long-policy-name-that-should-trigger-an-error-when-calling-the-policy-validation-method",
 		},
 	}
-	errs := subject.Validate(true, nil)
+	errs := subject.Validate(nil)
 	assert.Assert(t, len(errs) == 1)
 	assert.Equal(t, errs[0].Field, "name")
 	assert.Equal(t, errs[0].Type, field.ErrorTypeTooLong)

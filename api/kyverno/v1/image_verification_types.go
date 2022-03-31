@@ -42,8 +42,7 @@ type ImageVerification struct {
 }
 
 // Validate implements programmatic validation
-func (i *ImageVerification) Validate(path *field.Path) field.ErrorList {
-	var errs field.ErrorList
+func (i *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 	hasKey := i.Key != ""
 	hasRoots := i.Roots != ""
 	hasSubject := i.Subject != ""

@@ -1,0 +1,29 @@
+{
+  "extends": ["config:base", "@MarcelMue"],
+  "gitAuthor": "Renovate Bot <renovate@whitesourcesoftware.com>",
+  "commitBody": "Signed-off-by: {{{gitAuthor}}}",
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "matchPackagePatterns": ["^sigs.k8s.io"],
+      "groupName": "k8s sigs modules"
+    },
+    {
+      "matchPackagePatterns": ["^k8s.io"],
+      "groupName": "k8s modules"
+    },
+    {
+      "matchPackagePatterns": ["^k8s.io"],
+      "allowedVersions": "< 0.23.0"
+    },
+    {
+      "excludePackagePatterns": ["^k8s.io", "^sigs.k8s.io"],
+      "groupName": "general modules"
+    }
+  ],
+  "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
+  "dependencyDashboard": true,
+  "schedule": [
+    "on monday after 9am"
+  ]
+}

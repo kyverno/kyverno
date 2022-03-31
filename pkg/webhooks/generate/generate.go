@@ -109,6 +109,10 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.Generate
 	var i int
 	var err error
 
+	_, policyName, err := cache.SplitMetaNamespaceKey(grSpec.Policy)
+	if err != nil {
+		return err
+	}
 	applyResource := func() error {
 		gr := kyverno.GenerateRequest{
 			Spec: grSpec,
@@ -121,7 +125,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.Generate
 		if action == v1beta1.Create || action == v1beta1.Update {
 			log.V(4).Info("querying all generate requests")
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
-				"generate.kyverno.io/policy-name":        grSpec.Policy,
+				"generate.kyverno.io/policy-name":        policyName,
 				"generate.kyverno.io/resource-name":      grSpec.Resource.Name,
 				"generate.kyverno.io/resource-kind":      grSpec.Resource.Kind,
 				"generate.kyverno.io/resource-namespace": grSpec.Resource.Namespace,
@@ -154,7 +158,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.Generate
 			if !isExist {
 				gr.SetGenerateName("gr-")
 				gr.SetLabels(map[string]string{
-					"generate.kyverno.io/policy-name":        grSpec.Policy,
+					"generate.kyverno.io/policy-name":        policyName,
 					"generate.kyverno.io/resource-name":      grSpec.Resource.Name,
 					"generate.kyverno.io/resource-kind":      grSpec.Resource.Kind,
 					"generate.kyverno.io/resource-namespace": grSpec.Resource.Namespace,
