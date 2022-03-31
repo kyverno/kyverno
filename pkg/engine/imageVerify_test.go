@@ -170,7 +170,7 @@ func buildContext(t *testing.T, policy, resource string) *PolicyContext {
 	}
 
 	policyContext := &PolicyContext{
-		Policy:      cpol,
+		Policy:      &cpol,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 

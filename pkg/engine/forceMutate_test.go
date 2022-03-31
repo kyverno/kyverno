@@ -103,7 +103,7 @@ func Test_ForceMutateSubstituteVars(t *testing.T) {
 	err = ctx.AddResource(rawResource)
 	assert.NilError(t, err)
 
-	mutatedResource, err := ForceMutate(ctx, policy, *resourceUnstructured)
+	mutatedResource, err := ForceMutate(ctx, &policy, *resourceUnstructured)
 	assert.NilError(t, err)
 
 	assert.DeepEqual(t, expectedResource, mutatedResource.UnstructuredContent())
@@ -208,7 +208,7 @@ func Test_ForceMutateSubstituteVarsWithPatchesJson6902(t *testing.T) {
 	err = ctx.AddResource(rawResource)
 	assert.NilError(t, err)
 
-	mutatedResource, err := ForceMutate(ctx, policy, *resourceUnstructured)
+	mutatedResource, err := ForceMutate(ctx, &policy, *resourceUnstructured)
 	assert.NilError(t, err)
 
 	assert.DeepEqual(t, expectedResource.UnstructuredContent(), mutatedResource.UnstructuredContent())
@@ -294,7 +294,7 @@ func Test_ForceMutateSubstituteVarsWithPatchStrategicMerge(t *testing.T) {
 	err = ctx.AddResource(rawResource)
 	assert.NilError(t, err)
 
-	mutatedResource, err := ForceMutate(ctx, policy, *resourceUnstructured)
+	mutatedResource, err := ForceMutate(ctx, &policy, *resourceUnstructured)
 	assert.NilError(t, err)
 
 	assert.DeepEqual(t, expectedResource, mutatedResource.UnstructuredContent())

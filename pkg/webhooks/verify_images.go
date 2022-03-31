@@ -12,7 +12,7 @@ import (
 	"k8s.io/api/admission/v1beta1"
 )
 
-func (ws *WebhookServer) applyImageVerifyPolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*v1.ClusterPolicy, logger logr.Logger) ([]byte, error) {
+func (ws *WebhookServer) applyImageVerifyPolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []v1.PolicyInterface, logger logr.Logger) ([]byte, error) {
 	ok, message, imagePatches := ws.handleVerifyImages(request, policyContext, policies)
 	if !ok {
 		return nil, errors.New(message)
@@ -24,7 +24,7 @@ func (ws *WebhookServer) applyImageVerifyPolicies(request *v1beta1.AdmissionRequ
 
 func (ws *WebhookServer) handleVerifyImages(request *v1beta1.AdmissionRequest,
 	policyContext *engine.PolicyContext,
-	policies []*v1.ClusterPolicy) (bool, string, []byte) {
+	policies []v1.PolicyInterface) (bool, string, []byte) {
 
 	if len(policies) == 0 {
 		return true, "", nil
@@ -36,7 +36,7 @@ func (ws *WebhookServer) handleVerifyImages(request *v1beta1.AdmissionRequest,
 	var engineResponses []*response.EngineResponse
 	var patches [][]byte
 	for _, p := range policies {
-		policyContext.Policy = *p
+		policyContext.Policy = p
 		resp := engine.VerifyAndPatchImages(policyContext)
 		engineResponses = append(engineResponses, resp)
 		patches = append(patches, resp.GetPatches()...)

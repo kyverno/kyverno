@@ -67,7 +67,7 @@ func GeneratePRsFromEngineResponse(ers []*response.EngineResponse, log logr.Logg
 			continue
 		}
 
-		if er.Policy != nil && engine.ManagedPodResource(*er.Policy, er.PatchedResource) {
+		if er.Policy != nil && engine.ManagedPodResource(er.Policy, er.PatchedResource) {
 			continue
 		}
 

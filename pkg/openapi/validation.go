@@ -13,6 +13,7 @@ import (
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/data"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -138,7 +139,7 @@ func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured,
 // ValidatePolicyMutation ...
 func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	var kindToRules = make(map[string][]v1.Rule)
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(&policy) {
 		if rule.HasMutate() {
 			for _, kind := range rule.MatchResources.Kinds {
 				kindToRules[kind] = append(kindToRules[common.GetFormatedKind(kind)], rule)
@@ -159,7 +160,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 		newResource := unstructured.Unstructured{Object: resource}
 		newResource.SetKind(kind)
 
-		patchedResource, err := engine.ForceMutate(nil, newPolicy, newResource)
+		patchedResource, err := engine.ForceMutate(nil, &newPolicy, newResource)
 		if err != nil {
 			return err
 		}

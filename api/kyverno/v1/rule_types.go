@@ -115,8 +115,7 @@ func (r *Rule) SetAnyAllConditions(in apiextensions.JSON) {
 }
 
 // ValidateRuleType checks only one type of rule is defined per rule
-func (r *Rule) ValidateRuleType(path *field.Path) field.ErrorList {
-	var errs field.ErrorList
+func (r *Rule) ValidateRuleType(path *field.Path) (errs field.ErrorList) {
 	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate(), r.HasVerifyImages()}
 	count := 0
 	for _, v := range ruleTypes {
@@ -298,8 +297,7 @@ func (r *Rule) ValidateMathExcludeConflict(path *field.Path) (errs field.ErrorLi
 }
 
 // Validate implements programmatic validation
-func (r *Rule) Validate(path *field.Path, namespaced bool, clusterResources sets.String) field.ErrorList {
-	var errs field.ErrorList
+func (r *Rule) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
 	errs = append(errs, r.ValidateMathExcludeConflict(path)...)
 	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)

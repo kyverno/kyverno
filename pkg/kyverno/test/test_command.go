@@ -18,6 +18,7 @@ import (
 	"github.com/kataras/tablewriter"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
@@ -820,7 +821,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	for _, p := range filteredPolicies {
 		var filteredRules = []v1.Rule{}
 
-		for _, rule := range p.GetRules() {
+		for _, rule := range autogen.ComputeRules(p) {
 			for _, res := range values.Results {
 				if rule.Name == res.Rule {
 					filteredRules = append(filteredRules, rule)
