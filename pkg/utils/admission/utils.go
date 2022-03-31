@@ -62,3 +62,28 @@ func ResponseWithMessageAndPatch(allowed bool, msg string, patch []byte) *v1beta
 	r.Patch = patch
 	return r
 }
+
+func ResponseStatus(allowed bool, status, msg string) *v1beta1.AdmissionResponse {
+	r := Response(allowed)
+	r.Result = &metav1.Status{
+		Status:  status,
+		Message: msg,
+	}
+	return r
+}
+
+func ResponseFailure(allowed bool, msg string) *v1beta1.AdmissionResponse {
+	return ResponseStatus(allowed, metav1.StatusFailure, msg)
+}
+
+func ResponseSuccess(allowed bool, msg string) *v1beta1.AdmissionResponse {
+	return ResponseStatus(allowed, metav1.StatusSuccess, msg)
+}
+
+func ResponseSuccessWithPatch(allowed bool, msg string, patch []byte) *v1beta1.AdmissionResponse {
+	r := ResponseSuccess(allowed, msg)
+	if len(patch) > 0 {
+		r.Patch = patch
+	}
+	return r
+}

@@ -12,9 +12,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/metrics"
-	policyExecutionDuration "github.com/kyverno/kyverno/pkg/metrics/policyexecutionduration"
-	policyResults "github.com/kyverno/kyverno/pkg/metrics/policyresults"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	"k8s.io/api/admission/v1beta1"
@@ -158,24 +155,4 @@ func (ws *WebhookServer) applyMutation(request *v1beta1.AdmissionRequest, policy
 	}
 
 	return engineResponse, policyPatches, nil
-}
-
-func (ws *WebhookServer) registerPolicyResultsMetricMutation(logger logr.Logger, resourceRequestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
-	resourceRequestOperationPromAlias, err := policyResults.ParseResourceRequestOperation(resourceRequestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
-	}
-	if err := policyResults.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
-	}
-}
-
-func (ws *WebhookServer) registerPolicyExecutionDurationMetricMutate(logger logr.Logger, resourceRequestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
-	resourceRequestOperationPromAlias, err := policyExecutionDuration.ParseResourceRequestOperation(resourceRequestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
-	}
-	if err := policyExecutionDuration.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
-	}
 }
