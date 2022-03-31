@@ -49,10 +49,6 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	var err error
 
 	for _, rule := range policy.Spec.Rules {
-		if rule.HasYAMLSignatureVerify() {
-			verifyManifestSignature(rule, policyContext, logger)
-		}
-
 		if !rule.HasMutate() {
 			continue
 		}
@@ -119,23 +115,6 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 	resp.PatchedResource = patchedResource
 	return resp
-}
-
-func verifyManifestSignature(rule kyverno.Rule, ctx *PolicyContext, logger logr.Logger) *response.RuleResponse {
-	if isDeleteRequest(ctx) {
-		return ruleResponse(&rule, utils.Validation, "manifest match not required for delete request", response.RuleStatusSkip)
-	}
-
-	verified, diff, err := VerifyManifest(ctx, rule.Validation.Key, rule.Validation.IgnoreFields)
-	if err != nil {
-		return ruleError(&rule, utils.Validation, "manifest verification failed", err)
-	}
-	if !verified {
-		logger.Info("invalid request ", "verified: ", verified, "diff: ", diff)
-		return ruleResponse(&rule, utils.Validation, "manifest mismatch: diff: "+diff.String(), response.RuleStatusFail)
-	} else {
-		return ruleResponse(&rule, utils.Validation, "manifest match successfull", response.RuleStatusPass)
-	}
 }
 
 func mutateResource(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {

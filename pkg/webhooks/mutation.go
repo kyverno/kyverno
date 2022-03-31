@@ -36,7 +36,7 @@ func (ws *WebhookServer) applyMutatePolicies(request *v1beta1.AdmissionRequest, 
 }
 
 // handleMutation handles mutating webhook admission request
-// return value: generated patches, triggered policies, engine responses correspdonding to the triggered policies
+// return value: generated patches, triggered policies, engine responses corresponding to the triggered policies
 func (ws *WebhookServer) handleMutation(
 	request *v1beta1.AdmissionRequest,
 	policyContext *engine.PolicyContext,

@@ -54,8 +54,8 @@ func checkEngineResponse(er *response.EngineResponse) bool {
 
 // returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
-func toBlockResource(engineReponses []*response.EngineResponse, log logr.Logger) bool {
-	for _, er := range engineReponses {
+func toBlockResource(engineResponses []*response.EngineResponse, log logr.Logger) bool {
+	for _, er := range engineResponses {
 		if checkEngineResponse(er) {
 			log.Info("spec.ValidationFailureAction set to enforce blocking resource request", "policy", er.PolicyResponse.Policy.Name)
 			return true

@@ -10,4 +10,5 @@ const (
 	ValidateAudit
 	Generate
 	VerifyImages
+	VerifyYAML
 )

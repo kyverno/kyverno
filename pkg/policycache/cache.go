@@ -50,7 +50,6 @@ type Interface interface {
 	// If the namespace is empty, only cluster-wide policies are returned
 	GetPolicies(pkey PolicyType, kind string, nspace string) []*kyverno.ClusterPolicy
 
-	get(pkey PolicyType, kind string, nspace string) []string
 }
 
 // newPolicyCache ...
@@ -61,6 +60,7 @@ func newPolicyCache(log logr.Logger, pLister kyvernolister.ClusterPolicyLister, 
 		ValidateAudit:   make(map[string]bool),
 		Generate:        make(map[string]bool),
 		VerifyImages:    make(map[string]bool),
+		VerifyYAML:      make(map[string]bool),
 	}
 
 	return &policyCache{

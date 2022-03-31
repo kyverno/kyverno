@@ -8,6 +8,10 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"fmt"
+	"github.com/go-logr/logr"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"io/ioutil"
 	"strings"
 
@@ -22,17 +26,40 @@ import (
 
 const DefaultAnnotationKeyDomain = "cosign.sigstore.dev/"
 
-// This is common ignore fields for changes by k8s system
-//go:embed resources/default-config.yaml
-var defaultConfigBytes []byte
+func VerifyManifestSignature(ctx *PolicyContext, logger logr.Logger) *response.EngineResponse {
+	resp := &response.EngineResponse{Policy: &ctx.Policy}
+	if isDeleteRequest(ctx) {
+		return resp
+	}
 
-func VerifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields k8smanifest.ObjectFieldBindingList) (bool, *mapnode.DiffResult, error) {
+	for _, rule := range ctx.Policy.Spec.Rules {
+		ruleResp := verifyManifestRule(ctx, rule, logger)
+		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
+	}
+
+	return resp
+}
+
+func verifyManifestRule(ctx *PolicyContext, rule kyverno.Rule, logger logr.Logger) *response.RuleResponse {
+	verified, diff, err := verifyManifest(ctx, rule.Validation.Key, rule.Validation.IgnoreFields)
+	if err != nil {
+		return ruleError(&rule, utils.Validation, "manifest verification failed", err)
+	}
+
+	if !verified {
+		logger.Info("invalid request ", "verified: ", verified, "diff: ", diff)
+		return ruleResponse(&rule, utils.Validation, "manifest mismatch: diff: "+diff.String(), response.RuleStatusFail)
+	}
+
+	return ruleResponse(&rule, utils.Validation, "manifest verified", response.RuleStatusPass)
+}
+
+func verifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields k8smanifest.ObjectFieldBindingList) (bool, *mapnode.DiffResult, error) {
 	vo := &k8smanifest.VerifyResourceOption{}
+
 	// adding default ignoreFields from github.com/sigstore/k8s-manifest-sigstore/blob/main/pkg/k8smanifest/resources/default-config.yaml
 	vo = k8smanifest.AddDefaultConfig(vo)
-	// kubectl mutates the manifet request before it reaches to kyverno.
-	// adding default ignoreFields from ../resources/default-config.yaml
-	vo = addDefaultConfig(vo)
+
 
 	objManifest, err := yaml.Marshal(policyContext.NewResource.Object)
 	if err != nil {
@@ -150,28 +177,4 @@ func matchManifest(inputManifestBytes, foundManifestBytes []byte, ignoreFields [
 		diff = nil
 	}
 	return matched, diff, nil
-}
-
-func addConfig(vo, defaultConfig *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {
-	if vo == nil {
-		return nil
-	}
-	ignoreFields := []k8smanifest.ObjectFieldBinding(vo.IgnoreFields)
-	ignoreFields = append(ignoreFields, []k8smanifest.ObjectFieldBinding(defaultConfig.IgnoreFields)...)
-	vo.IgnoreFields = ignoreFields
-	return vo
-}
-
-func loadDefaultConfig() *k8smanifest.VerifyResourceOption {
-	var defaultConfig *k8smanifest.VerifyResourceOption
-	err := yaml.Unmarshal(defaultConfigBytes, &defaultConfig)
-	if err != nil {
-		return nil
-	}
-	return defaultConfig
-}
-
-func addDefaultConfig(vo *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {
-	dvo := loadDefaultConfig()
-	return addConfig(vo, dvo)
 }
