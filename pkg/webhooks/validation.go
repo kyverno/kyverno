@@ -123,7 +123,9 @@ func (v *validationHandler) handleValidation(
 		}
 
 		if !managed {
-			v.prGenerator.Add(buildDeletionPrInfo(policyContext.OldResource))
+			if policyContext.OldResource != nil {
+				v.prGenerator.Add(buildDeletionPrInfo(*policyContext.OldResource))
+			}
 		}
 
 		return true, ""

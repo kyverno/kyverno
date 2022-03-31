@@ -2140,7 +2140,7 @@ func executeTest(t *testing.T, err error, test testCase) {
 	pc := &PolicyContext{
 		Policy:        &policy,
 		NewResource:   newR,
-		OldResource:   oldR,
+		OldResource:   &oldR,
 		AdmissionInfo: userInfo,
 		JSONContext:   ctx,
 	}
@@ -3080,7 +3080,8 @@ func Test_delete_ignore_pattern(t *testing.T) {
 	policyContextDelete := &PolicyContext{
 		Policy:      &policy,
 		JSONContext: ctx,
-		OldResource: *resourceUnstructured}
+		OldResource: resourceUnstructured,
+	}
 	engineResponseDelete := Validate(policyContextDelete)
 	assert.Equal(t, len(engineResponseDelete.PolicyResponse.Rules), 0)
 }

@@ -59,7 +59,7 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 		// for delete requests patched resource will be oldResource since newResource is empty
 		var resource = ctx.NewResource
 		if reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
-			resource = ctx.OldResource
+			resource = *ctx.OldResource
 		}
 
 		resp.PatchedResource = resource
@@ -116,7 +116,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) (*response.RuleResponse, error) {
 	ctxCopy := ctx.Copy()
 	ctxCopy.NewResource = *ctxCopy.OldResource.DeepCopy()
-	ctxCopy.OldResource = unstructured.Unstructured{}
+	ctxCopy.OldResource = nil
 
 	if err := ctxCopy.JSONContext.ReplaceResourceAsObject(ctxCopy.NewResource.Object); err != nil {
 		return nil, errors.Wrapf(err, "failed to replace object in the JSON context")
@@ -418,7 +418,7 @@ func isDeleteRequest(ctx *PolicyContext) bool {
 
 func isUpdateRequest(ctx *PolicyContext) bool {
 	// is the OldObject and NewObject are available, the request is an UPDATE
-	return !isEmptyUnstructured(&ctx.OldResource) && !isEmptyUnstructured(&ctx.NewResource)
+	return !isEmptyUnstructured(ctx.OldResource) && !isEmptyUnstructured(&ctx.NewResource)
 }
 
 func isEmptyUnstructured(u *unstructured.Unstructured) bool {
@@ -440,8 +440,8 @@ func matches(logger logr.Logger, rule *kyverno.Rule, ctx *PolicyContext) bool {
 		return true
 	}
 
-	if !reflect.DeepEqual(ctx.OldResource, unstructured.Unstructured{}) {
-		err := MatchesResourceDescription(ctx.OldResource, *rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, ctx.NamespaceLabels, "")
+	if ctx.OldResource != nil {
+		err := MatchesResourceDescription(*ctx.OldResource, *rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, ctx.NamespaceLabels, "")
 		if err == nil {
 			return true
 		}

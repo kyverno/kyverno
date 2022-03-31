@@ -392,7 +392,7 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 	}
 
 	if request.Operation == v1beta1.Update {
-		policyContext.OldResource = resource
+		policyContext.OldResource = &resource
 	}
 
 	return policyContext, nil
@@ -548,7 +548,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 
 	policyContext := &engine.PolicyContext{
 		NewResource:         newResource,
-		OldResource:         oldResource,
+		OldResource:         &oldResource,
 		AdmissionInfo:       userRequestInfo,
 		ExcludeGroupRole:    ws.configHandler.GetExcludeGroupRole(),
 		ExcludeResourceFunc: ws.configHandler.ToFilter,

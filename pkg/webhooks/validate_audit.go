@@ -187,7 +187,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 
 	policyContext := &engine.PolicyContext{
 		NewResource:         newResource,
-		OldResource:         oldResource,
+		OldResource:         &oldResource,
 		AdmissionInfo:       userRequestInfo,
 		ExcludeGroupRole:    h.configHandler.GetExcludeGroupRole(),
 		ExcludeResourceFunc: h.configHandler.ToFilter,
