@@ -154,11 +154,10 @@ func (pc *PolicyController) requeuePolicies() {
 	}
 	if pols, err := pc.npLister.Policies(metav1.NamespaceAll).List(labels.Everything()); err == nil {
 		for _, p := range pols {
-			pol := ConvertPolicyToClusterPolicy(p)
-			if !pc.canBackgroundProcess(pol) {
+			if !pc.canBackgroundProcess(p) {
 				continue
 			}
-			pc.enqueuePolicy(pol)
+			pc.enqueuePolicy(p)
 		}
 	} else {
 		logger.Error(err, "unable to list Policies")
