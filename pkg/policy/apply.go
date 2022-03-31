@@ -14,7 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/utils"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -110,7 +110,7 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 
 		patches := rule.Patches
 
-		patch, err := jsonpatch.DecodePatch(utils.JoinPatches(patches))
+		patch, err := jsonpatch.DecodePatch(jsonutils.JoinPatches(patches))
 		if err != nil {
 			log.Error(err, "failed to decode JSON patch", "patches", patches)
 			return &response.EngineResponse{}, err
