@@ -9,9 +9,9 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 )
 
 // GenerateJSONPatchesForDefaults generates default JSON patches for
@@ -127,7 +127,7 @@ func checkForGVKFormatPatch(policy kyverno.PolicyInterface, log logr.Logger) (pa
 func convertGVKForKinds(path string, kinds []string, log logr.Logger) ([]byte, error) {
 	kindList := []string{}
 	for _, k := range kinds {
-		gvk := common.GetFormatedKind(k)
+		gvk := kubeutils.GetFormatedKind(k)
 		if gvk == k {
 			continue
 		}
