@@ -152,26 +152,15 @@ func (pc *PolicyController) requeuePolicies() {
 	} else {
 		logger.Error(err, "unable to list ClusterPolicies")
 	}
-
-	namespaces, err := pc.nsLister.List(labels.Everything())
-	if err != nil {
-		logger.Error(err, "unable to list namespaces")
-		return
-	}
-
-	for _, ns := range namespaces {
-		pols, err := pc.npLister.Policies(ns.GetName()).List(labels.Everything())
-		if err != nil {
-			logger.Error(err, "unable to list Policies", "namespace", ns.GetName())
-			continue
-		}
-
+	if pols, err := pc.npLister.Policies(metav1.NamespaceAll).List(labels.Everything()); err == nil {
 		for _, p := range pols {
 			if !pc.canBackgroundProcess(p) {
 				continue
 			}
 			pc.enqueuePolicy(p)
 		}
+	} else {
+		logger.Error(err, "unable to list Policies")
 	}
 }
 
