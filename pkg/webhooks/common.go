@@ -14,7 +14,7 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/pkg/errors"
 	yamlv2 "gopkg.in/yaml.v2"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -129,7 +129,7 @@ func (i *ArrayFlags) Set(value string) error {
 }
 
 // patchRequest applies patches to the request.Object and returns a new copy of the request
-func patchRequest(patches []byte, request *v1beta1.AdmissionRequest, logger logr.Logger) *v1beta1.AdmissionRequest {
+func patchRequest(patches []byte, request *admissionv1.AdmissionRequest, logger logr.Logger) *admissionv1.AdmissionRequest {
 	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
 	newRequest := request.DeepCopy()
 	newRequest.Object.Raw = patchedResource
@@ -200,7 +200,7 @@ func checkForRBACInfo(rule kyverno.Rule) bool {
 }
 
 // extracts the new and old resource as unstructured
-func extractResources(newRaw []byte, request *v1beta1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
+func extractResources(newRaw []byte, request *admissionv1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
 	var emptyResource unstructured.Unstructured
 
 	// New Resource
@@ -258,7 +258,7 @@ func excludeKyvernoResources(kind string) bool {
 	}
 }
 
-func newVariablesContext(request *v1beta1.AdmissionRequest, userRequestInfo *v1.RequestInfo) (*enginectx.Context, error) {
+func newVariablesContext(request *admissionv1.AdmissionRequest, userRequestInfo *v1.RequestInfo) (*enginectx.Context, error) {
 	ctx := enginectx.NewContext()
 	if err := ctx.AddRequest(request); err != nil {
 		return nil, errors.Wrap(err, "failed to load incoming request in context")

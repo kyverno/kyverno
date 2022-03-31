@@ -20,7 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/userinfo"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers/core/v1"
@@ -41,7 +41,7 @@ const (
 // the request is processed in background, with the exact same logic
 // when process the admission request in the webhook
 type AuditHandler interface {
-	Add(request *v1beta1.AdmissionRequest)
+	Add(request *admissionv1.AdmissionRequest)
 	Run(workers int, stopCh <-chan struct{})
 }
 
@@ -94,7 +94,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	}
 }
 
-func (h *auditHandler) Add(request *v1beta1.AdmissionRequest) {
+func (h *auditHandler) Add(request *admissionv1.AdmissionRequest) {
 	h.log.V(4).Info("admission request added", "uid", request.UID, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation)
 	h.queue.Add(request)
 }
@@ -131,7 +131,7 @@ func (h *auditHandler) processNextWorkItem() bool {
 
 	defer h.queue.Done(obj)
 
-	request, ok := obj.(*v1beta1.AdmissionRequest)
+	request, ok := obj.(*admissionv1.AdmissionRequest)
 	if !ok {
 		h.queue.Forget(obj)
 		h.log.Info("incorrect type: expecting type 'AdmissionRequest'", "object", obj)
@@ -144,7 +144,7 @@ func (h *auditHandler) processNextWorkItem() bool {
 	return true
 }
 
-func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
+func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
 	var roles, clusterRoles []string
 	var err error
 	// time at which the corresponding the admission request's processing got initiated
@@ -205,7 +205,7 @@ func (h *auditHandler) process(request *v1beta1.AdmissionRequest) error {
 	return nil
 }
 
-func (h *auditHandler) handleErr(err error, key interface{}, request *v1beta1.AdmissionRequest) {
+func (h *auditHandler) handleErr(err error, key interface{}, request *admissionv1.AdmissionRequest) {
 	logger := h.log.WithName("handleErr")
 	if err == nil {
 		h.queue.Forget(key)

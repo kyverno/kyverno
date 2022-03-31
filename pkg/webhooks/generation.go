@@ -28,13 +28,13 @@ import (
 	policyResults "github.com/kyverno/kyverno/pkg/metrics/policyresults"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyverno.PolicyInterface, ts int64, logger logr.Logger) {
+func (ws *WebhookServer) applyGeneratePolicies(request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyverno.PolicyInterface, ts int64, logger logr.Logger) {
 	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
 	generateEngineResponsesSenderForAdmissionReviewDurationMetric := make(chan []*response.EngineResponse, 1)
 	generateEngineResponsesSenderForAdmissionRequestsCountMetric := make(chan []*response.EngineResponse, 1)
@@ -46,7 +46,7 @@ func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest
 
 //handleGenerate handles admission-requests for policies with generate rules
 func (ws *WebhookServer) handleGenerate(
-	request *v1beta1.AdmissionRequest,
+	request *admissionv1.AdmissionRequest,
 	policies []kyverno.PolicyInterface,
 	ctx *context.Context,
 	userRequestInfo kyverno.RequestInfo,
@@ -61,7 +61,7 @@ func (ws *WebhookServer) handleGenerate(
 	logger.V(6).Info("generate request")
 
 	var engineResponses []*response.EngineResponse
-	if (request.Operation == v1beta1.Create || request.Operation == v1beta1.Update) && len(policies) != 0 {
+	if (request.Operation == admissionv1.Create || request.Operation == admissionv1.Update) && len(policies) != 0 {
 		// convert RAW to unstructured
 		new, old, err := kyvernoutils.ExtractResources(nil, request)
 		if err != nil {
@@ -116,7 +116,7 @@ func (ws *WebhookServer) handleGenerate(
 		}
 	}
 
-	if request.Operation == v1beta1.Update {
+	if request.Operation == admissionv1.Update {
 		ws.handleUpdatesForGenerateRules(request, policies)
 	}
 
@@ -148,8 +148,8 @@ func (ws *WebhookServer) registerPolicyExecutionDurationMetricGenerate(logger lo
 }
 
 //handleUpdatesForGenerateRules handles admission-requests for update
-func (ws *WebhookServer) handleUpdatesForGenerateRules(request *v1beta1.AdmissionRequest, policies []kyverno.PolicyInterface) {
-	if request.Operation != v1beta1.Update {
+func (ws *WebhookServer) handleUpdatesForGenerateRules(request *admissionv1.AdmissionRequest, policies []kyverno.PolicyInterface) {
+	if request.Operation != admissionv1.Update {
 		return
 	}
 
@@ -164,7 +164,7 @@ func (ws *WebhookServer) handleUpdatesForGenerateRules(request *v1beta1.Admissio
 		ws.handleUpdateGenerateSourceResource(resLabels, logger)
 	}
 
-	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == v1beta1.Update {
+	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == admissionv1.Update {
 		ws.handleUpdateGenerateTargetResource(request, policies, resLabels, logger)
 	}
 }
@@ -220,7 +220,7 @@ func (ws *WebhookServer) updateAnnotationInGR(gr *kyverno.GenerateRequest, logge
 }
 
 //handleUpdateGenerateTargetResource - handles update of target resource for generate policy
-func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.AdmissionRequest, policies []kyverno.PolicyInterface, resLabels map[string]string, logger logr.Logger) {
+func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *admissionv1.AdmissionRequest, policies []kyverno.PolicyInterface, resLabels map[string]string, logger logr.Logger) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
@@ -283,7 +283,7 @@ func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.Adm
 
 func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client *client.Client, rule kyverno.Rule, logger logr.Logger) (kyverno.Rule, error) {
 	var apiVersion, kind, name, namespace string
-	sourceRequest := &v1beta1.AdmissionRequest{}
+	sourceRequest := &admissionv1.AdmissionRequest{}
 	kind = resLabels["kyverno.io/generated-by-kind"]
 	name = resLabels["kyverno.io/generated-by-name"]
 	if kind != "Namespace" {
@@ -378,7 +378,7 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 }
 
 //HandleDelete handles admission-requests for delete
-func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
+func (ws *WebhookServer) handleDelete(request *admissionv1.AdmissionRequest) {
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
 	if err != nil {
@@ -386,7 +386,7 @@ func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
 	}
 
 	resLabels := resource.GetLabels()
-	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && request.Operation == v1beta1.Delete {
+	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && request.Operation == admissionv1.Delete {
 		grName := resLabels["policy.kyverno.io/gr-name"]
 		gr, err := ws.grLister.Get(grName)
 		if err != nil {
@@ -420,8 +420,8 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.E
 	}
 }
 
-func applyGenerateRequest(request *v1beta1.AdmissionRequest, gnGenerator generate.GenerateRequests, userRequestInfo kyverno.RequestInfo,
-	action v1beta1.Operation, engineResponses ...*response.EngineResponse) (failedGenerateRequest []generateRequestResponse) {
+func applyGenerateRequest(request *admissionv1.AdmissionRequest, gnGenerator generate.GenerateRequests, userRequestInfo kyverno.RequestInfo,
+	action admissionv1.Operation, engineResponses ...*response.EngineResponse) (failedGenerateRequest []generateRequestResponse) {
 
 	requestBytes, err := json.Marshal(request)
 	if err != nil {

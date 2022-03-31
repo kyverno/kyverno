@@ -13,7 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	utils2 "github.com/kyverno/kyverno/pkg/utils"
 	"gotest.tools/assert"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
 func TestGetAnchorsFromMap_ThereAreAnchors(t *testing.T) {
@@ -2104,7 +2104,7 @@ func executeTest(t *testing.T, err error, test testCase) {
 		t.Fatal(err)
 	}
 
-	var request *v1beta1.AdmissionRequest
+	var request *admissionv1.AdmissionRequest
 	err = json.Unmarshal(test.request, &request)
 	if err != nil {
 		t.Fatal(err)

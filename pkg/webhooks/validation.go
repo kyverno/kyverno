@@ -12,7 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	v1beta1 "k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -28,7 +28,7 @@ type validationHandler struct {
 // patchedResource is the (resource + patches) after applying mutation rules
 func (v *validationHandler) handleValidation(
 	promConfig *metrics.PromConfig,
-	request *v1beta1.AdmissionRequest,
+	request *admissionv1.AdmissionRequest,
 	policies []v1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 	namespaceLabels map[string]string,
@@ -48,7 +48,7 @@ func (v *validationHandler) handleValidation(
 		deletionTimeStamp = policyContext.OldResource.GetDeletionTimestamp()
 	}
 
-	if deletionTimeStamp != nil && request.Operation == v1beta1.Update {
+	if deletionTimeStamp != nil && request.Operation == admissionv1.Update {
 		return true, ""
 	}
 
@@ -94,7 +94,7 @@ func (v *validationHandler) handleValidation(
 	// Scenario 3:
 	//   all policies were applied successfully.
 	//   create an event on the resource
-	events := generateEvents(engineResponses, blocked, (request.Operation == v1beta1.Update), logger)
+	events := generateEvents(engineResponses, blocked, (request.Operation == admissionv1.Update), logger)
 	v.eventGen.Add(events...)
 
 	if blocked {
@@ -109,7 +109,7 @@ func (v *validationHandler) handleValidation(
 
 	// reports are generated for non-managed pods/jobs only
 	// no need to create rcr for managed resources
-	if request.Operation == v1beta1.Delete {
+	if request.Operation == admissionv1.Delete {
 		managed := true
 		for _, er := range engineResponses {
 			if er.Policy != nil && !engine.ManagedPodResource(er.Policy, er.PatchedResource) {
@@ -137,7 +137,7 @@ func (v *validationHandler) handleValidation(
 	return true, ""
 }
 
-func getResourceName(request *v1beta1.AdmissionRequest) string {
+func getResourceName(request *admissionv1.AdmissionRequest) string {
 	resourceName := request.Kind.Kind + "/" + request.Name
 	if request.Namespace != "" {
 		resourceName = request.Namespace + "/" + resourceName
