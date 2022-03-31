@@ -28,6 +28,10 @@ import (
 
 const DefaultAnnotationKeyDomain = "cosign.sigstore.dev/"
 
+//go:embed resources/default-config.yaml
+var defaultConfigBytes []byte
+
+
 func VerifyManifestSignature(ctx *PolicyContext, logger logr.Logger) *response.EngineResponse {
 	resp := &response.EngineResponse{Policy: &ctx.Policy}
 	if isDeleteRequest(ctx) {
@@ -41,14 +45,14 @@ func VerifyManifestSignature(ctx *PolicyContext, logger logr.Logger) *response.E
 	}()
 
 	for _, rule := range ctx.Policy.Spec.Rules {
-		ruleResp := verifyManifestRule(ctx, rule, logger)
+		ruleResp := handleVerifyManifest(ctx, rule, logger)
 		resp.Add(ruleResp)
 	}
 
 	return resp
 }
 
-func verifyManifestRule(ctx *PolicyContext, rule kyverno.Rule, logger logr.Logger) *response.RuleResponse {
+func handleVerifyManifest(ctx *PolicyContext, rule kyverno.Rule, logger logr.Logger) *response.RuleResponse {
 	verified, diff, err := verifyManifest(ctx, rule.Validation.Key, rule.Validation.IgnoreFields)
 	if err != nil {
 		return ruleError(&rule, utils.Validation, "failed to verify manifest", err)
@@ -64,8 +68,12 @@ func verifyManifestRule(ctx *PolicyContext, rule kyverno.Rule, logger logr.Logge
 func verifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields k8smanifest.ObjectFieldBindingList) (bool, *mapnode.DiffResult, error) {
 	vo := &k8smanifest.VerifyResourceOption{}
 
-	// adding default ignoreFields from github.com/sigstore/k8s-manifest-sigstore/blob/main/pkg/k8smanifest/resources/default-config.yaml
+	// adding default ignoreFields from
+	// github.com/sigstore/k8s-manifest-sigstore/blob/main/pkg/k8smanifest/resources/default-config.yaml
 	vo = k8smanifest.AddDefaultConfig(vo)
+
+	// adding default ignoreFields from pkg/engine/resources/default-config.yaml
+	vo = addDefaultConfig(vo)
 
 	log.Info("using verify resource options", "config", vo)
 
@@ -111,7 +119,7 @@ func verifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields 
 	// appending user supplied ignoreFields.
 	vo.IgnoreFields = append(vo.IgnoreFields, ignoreFields...)
 	// get ignore fields configuration for this resource if found.
-	ignore := []string{}
+	var ignore []string
 	if vo != nil {
 		if ok, fields := vo.IgnoreFields.Match(obj); ok {
 			ignore = append(ignore, fields...)
@@ -187,3 +195,28 @@ func matchManifest(inputManifestBytes, foundManifestBytes []byte, ignoreFields [
 	}
 	return matched, diff, nil
 }
+
+func addConfig(vo, defaultConfig *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {
+	if vo == nil {
+		return nil
+	}
+	ignoreFields := []k8smanifest.ObjectFieldBinding(vo.IgnoreFields)
+	ignoreFields = append(ignoreFields, []k8smanifest.ObjectFieldBinding(defaultConfig.IgnoreFields)...)
+	vo.IgnoreFields = ignoreFields
+	return vo
+}
+
+func loadDefaultConfig() *k8smanifest.VerifyResourceOption {
+	var defaultConfig *k8smanifest.VerifyResourceOption
+	err := yaml.Unmarshal(defaultConfigBytes, &defaultConfig)
+	if err != nil {
+		return nil
+	}
+	return defaultConfig
+}
+
+func addDefaultConfig(vo *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {
+	dvo := loadDefaultConfig()
+	return addConfig(vo, dvo)
+}
+

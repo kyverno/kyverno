@@ -10,7 +10,7 @@ import (
 
 var test_policy = `{}`
 
-var signed_resource = `{
+var signedResource = `{
 	"apiVersion": "v1",
 	"kind": "Pod",
 	"metadata": {
@@ -36,12 +36,40 @@ EpLCSBfCcCyTotqkFCsGjhAFiSblvmX8vn51dbnZ7cdtiahat/eehymyJg==
 -----END PUBLIC KEY-----`
 
 func Test_VerifyManifest(t *testing.T) {
-	policyContext := buildContext(t, test_policy, signed_resource)
+	policyContext := buildContext(t, test_policy, signedResource)
 	var diffVar *mapnode.DiffResult
 	ignoreFields := k8smanifest.ObjectFieldBindingList{}
 
 	verified, diff, err := verifyManifest(policyContext, ecdsaPub, ignoreFields)
 	assert.NilError(t, err)
 	assert.Equal(t, verified, true)
+	assert.Equal(t, diff, diffVar)
+}
+
+var unsignedResource = `{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {
+		"name": "nginx"
+	},
+	"spec": {
+		"containers": [
+			{
+				"image": "nginx:1.14.2",
+				"name": "nginx"
+			}
+		]
+	}
+}`
+
+
+func Test_VerifyManifest_no_signature(t *testing.T) {
+	policyContext := buildContext(t, test_policy, unsignedResource)
+	var diffVar *mapnode.DiffResult
+	ignoreFields := k8smanifest.ObjectFieldBindingList{}
+
+	verified, diff, err := verifyManifest(policyContext, "", ignoreFields)
+	assert.ErrorContains(t, err, "")
+	assert.Equal(t, verified, false)
 	assert.Equal(t, diff, diffVar)
 }

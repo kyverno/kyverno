@@ -20,6 +20,7 @@ func (ws *WebhookServer) applyVerifyManifestPolicies(request *v1beta1.AdmissionR
 	resourceName := getResourceName(request)
 	logger = logger.WithValues("action", "verifyManifests", "resource", resourceName)
 
+
 	var engineResponses []*response.EngineResponse
 	for _, p := range policies {
 		policyContext.Policy = *p
@@ -31,6 +32,9 @@ func (ws *WebhookServer) applyVerifyManifestPolicies(request *v1beta1.AdmissionR
 	ws.prGenerator.Add(prInfos...)
 
 	blocked := toBlockResource(engineResponses, logger)
+
+	logger.Info("completed manifest check", "blocked", blocked, "responses", engineResponses)
+
 	if blocked {
 		message := getEnforceFailureErrorMsg(engineResponses)
 		logger.V(4).Info("resource blocked", "reason", message)
