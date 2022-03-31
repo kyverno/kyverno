@@ -7,9 +7,12 @@ import (
 	"github.com/go-logr/logr"
 	wildcard "github.com/kyverno/go-wildcard"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/pkg/errors"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -253,4 +256,18 @@ func excludeKyvernoResources(kind string) bool {
 	default:
 		return false
 	}
+}
+
+func newVariablesContext(request *v1beta1.AdmissionRequest, userRequestInfo *v1.RequestInfo) (*enginectx.Context, error) {
+	ctx := enginectx.NewContext()
+	if err := ctx.AddRequest(request); err != nil {
+		return nil, errors.Wrap(err, "failed to load incoming request in context")
+	}
+	if err := ctx.AddUserInfo(*userRequestInfo); err != nil {
+		return nil, errors.Wrap(err, "failed to load userInfo in context")
+	}
+	if err := ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username); err != nil {
+		return nil, errors.Wrap(err, "failed to load service account in context")
+	}
+	return ctx, nil
 }

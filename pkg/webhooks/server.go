@@ -16,7 +16,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
-	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/generate"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -258,51 +257,30 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 
 // RunAsync TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
-	logger := ws.log
 	if !cache.WaitForCacheSync(stopCh, ws.grSynced, ws.pSynced, ws.rbSynced, ws.crbSynced, ws.rSynced, ws.crSynced) {
-		logger.Info("failed to sync informer cache")
+		ws.log.Info("failed to sync informer cache")
 	}
-
 	go func() {
-		logger.V(3).Info("started serving requests", "addr", ws.server.Addr)
+		ws.log.V(3).Info("started serving requests", "addr", ws.server.Addr)
 		if err := ws.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
-			logger.Error(err, "failed to listen to requests")
+			ws.log.Error(err, "failed to listen to requests")
 		}
 	}()
-
-	logger.Info("starting service")
-
+	ws.log.Info("starting service")
 }
 
 // Stop TLS server and returns control after the server is shut down
 func (ws *WebhookServer) Stop(ctx context.Context) {
-	logger := ws.log
-
 	// remove the static webhook configurations
 	go ws.webhookRegister.Remove(ws.cleanUp)
-
 	// shutdown http.Server with context timeout
 	err := ws.server.Shutdown(ctx)
 	if err != nil {
 		// Error from closing listeners, or context timeout:
-		logger.Error(err, "shutting down server")
+		ws.log.Error(err, "shutting down server")
 		err = ws.server.Close()
 		if err != nil {
-			logger.Error(err, "server shut down failed")
+			ws.log.Error(err, "server shut down failed")
 		}
 	}
-}
-
-func newVariablesContext(request *v1beta1.AdmissionRequest, userRequestInfo *v1.RequestInfo) (*enginectx.Context, error) {
-	ctx := enginectx.NewContext()
-	if err := ctx.AddRequest(request); err != nil {
-		return nil, errors.Wrap(err, "failed to load incoming request in context")
-	}
-	if err := ctx.AddUserInfo(*userRequestInfo); err != nil {
-		return nil, errors.Wrap(err, "failed to load userInfo in context")
-	}
-	if err := ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username); err != nil {
-		return nil, errors.Wrap(err, "failed to load service account in context")
-	}
-	return ctx, nil
 }
