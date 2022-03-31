@@ -282,9 +282,9 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	p := obj.(*kyverno.Policy)
 
 	// register kyverno_policy_rule_info_total metric concurrently
-	go pc.registerPolicyRuleInfoMetricAddNsPolicy(logger, p)
+	go pc.registerPolicyRuleInfoMetricAddPolicy(logger, p)
 	// register kyverno_policy_changes_total metric concurrently
-	go pc.registerPolicyChangesMetricAddNsPolicy(logger, p)
+	go pc.registerPolicyChangesMetricAddPolicy(logger, p)
 
 	logger.Info("policy created", "uid", p.UID, "kind", "Policy", "name", p.Name, "namespaces", p.Namespace)
 
@@ -309,9 +309,9 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	curP := cur.(*kyverno.Policy)
 
 	// register kyverno_policy_rule_info_total metric concurrently
-	go pc.registerPolicyRuleInfoMetricUpdateNsPolicy(logger, oldP, curP)
+	go pc.registerPolicyRuleInfoMetricUpdatePolicy(logger, oldP, curP)
 	// register kyverno_policy_changes_total metric concurrently
-	go pc.registerPolicyChangesMetricUpdateNsPolicy(logger, oldP, curP)
+	go pc.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP)
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
 		nsPol, _ := common.MutatePolicy(curP, logger)
@@ -353,9 +353,9 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	}
 
 	// register kyverno_policy_rule_info_total metric concurrently
-	go pc.registerPolicyRuleInfoMetricDeleteNsPolicy(logger, p)
+	go pc.registerPolicyRuleInfoMetricDeletePolicy(logger, p)
 	// register kyverno_policy_changes_total metric concurrently
-	go pc.registerPolicyChangesMetricDeleteNsPolicy(logger, p)
+	go pc.registerPolicyChangesMetricDeletePolicy(logger, p)
 
 	logger.Info("policy deleted event", "uid", p.UID, "kind", "Policy", "policy_name", p.Name, "namespaces", p.Namespace)
 
