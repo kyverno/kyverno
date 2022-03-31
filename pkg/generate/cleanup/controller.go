@@ -49,11 +49,17 @@ type Controller struct {
 	// pLister can list/get cluster policy from the shared informer's store
 	pLister kyvernolister.ClusterPolicyLister
 
+	// npLister can list/get namespace policy from the shared informer's store
+	npLister kyvernolister.PolicyLister
+
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestNamespaceLister
 
 	// pSynced returns true if the cluster policy has been synced at least once
 	pSynced cache.InformerSynced
+
+	// npSynced returns true if the Namespace policy has been synced at least once
+	npSynced cache.InformerSynced
 
 	// grSynced returns true if the generate request store has been synced at least once
 	grSynced cache.InformerSynced
@@ -74,6 +80,7 @@ func NewController(
 	kyvernoclient *kyvernoclient.Clientset,
 	client *dclient.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
+	npInformer kyvernoinformer.PolicyInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
 	log logr.Logger,
@@ -91,9 +98,11 @@ func NewController(
 	c.control = Control{client: kyvernoclient}
 
 	c.pLister = pInformer.Lister()
+	c.npLister = npInformer.Lister()
 	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
 
 	c.pSynced = pInformer.Informer().HasSynced
+	c.npSynced = npInformer.Informer().HasSynced
 	c.grSynced = grInformer.Informer().HasSynced
 
 	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
@@ -248,7 +257,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, c.pSynced, c.grSynced) {
+	if !cache.WaitForCacheSync(stopCh, c.pSynced, c.grSynced, c.npSynced) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
@@ -337,16 +346,37 @@ func (c *Controller) syncGenerateRequest(key string) error {
 		return err
 	}
 
-	_, err = c.pLister.Get(gr.Spec.Policy)
+	pNamespace, pName, err := cache.SplitMetaNamespaceKey(gr.Spec.Policy)
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return err
-		}
-		err = c.control.Delete(gr.Name)
+		return err
+	}
+
+	if pNamespace == "" {
+		_, err = c.pLister.Get(pName)
 		if err != nil {
-			return err
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
+			logger.Error(err, "failed to get clusterpolicy, deleting the generate request")
+			err = c.control.Delete(gr.Name)
+			if err != nil {
+				return err
+			}
+			return nil
 		}
-		return nil
+	} else {
+		_, err = c.npLister.Policies(pNamespace).Get(pName)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
+			logger.Error(err, "failed to get policy, deleting the generate request")
+			err = c.control.Delete(gr.Name)
+			if err != nil {
+				return err
+			}
+			return nil
+		}
 	}
 	return c.processGR(*gr)
 }

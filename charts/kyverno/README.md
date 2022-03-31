@@ -128,6 +128,8 @@ The following table lists the configurable parameters of the kyverno chart and t
 | `testImage.tag` | tag for chart test image | `nil` |
 | `tolerations` | list of node taints to tolerate | `[]` |
 | `topologySpreadConstraints` | node/pod topology spread constrains | `[]` |  |
+| `webhooksCleanup.enable` | create a helm pre-delete hook to cleanup webhooks | `false`|
+| `webhooksCleanup.image` | kubectl image to run commands for deleting webhooks| `bitnami/kubectl:latest`|
 
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,

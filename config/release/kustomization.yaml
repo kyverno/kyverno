@@ -9,6 +9,6 @@ transformers:
 
 images:
 - name: ghcr.io/kyverno/kyverno
-  newTag: v1.6.2-rc1
+  newTag: v1.6.2
 - name: ghcr.io/kyverno/kyvernopre
-  newTag: v1.6.2-rc1
+  newTag: v1.6.2
