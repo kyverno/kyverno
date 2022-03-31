@@ -11,6 +11,7 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/utils"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -270,7 +271,7 @@ func Test_Any(t *testing.T) {
 	}
 
 	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
-	fmt.Println("utils.JoinPatches(patches)erterter", string(utils.JoinPatches(rulePatches)))
+	fmt.Println("utils.JoinPatches(patches)erterter", string(jsonutils.JoinPatches(rulePatches)))
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -544,7 +545,7 @@ func Test_Deny(t *testing.T) {
 	}
 
 	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
-	fmt.Println("utils.JoinPatches(patches)erterter", string(utils.JoinPatches(rulePatches)))
+	fmt.Println("utils.JoinPatches(patches)erterter", string(jsonutils.JoinPatches(rulePatches)))
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
