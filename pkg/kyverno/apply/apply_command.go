@@ -272,9 +272,9 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
-				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, policy.Name)
+				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, policy.GetName())
 			} else {
-				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, policy.Name)
+				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, policy.GetName())
 			}
 
 			continue
@@ -285,8 +285,8 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		if len(variable) > 0 {
 			if len(variables) == 0 {
 				// check policy in variable file
-				if valuesFile == "" || valuesMap[policy.Name] == nil {
-					skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, policy.Name)
+				if valuesFile == "" || valuesMap[policy.GetName()] == nil {
+					skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, policy.GetName())
 					continue
 				}
 			}
@@ -297,12 +297,12 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		for _, resource := range resources {
 			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
 			if err != nil {
-				return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.Name, resource.GetName()), err)
+				return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}
 
 			_, info, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin, rc, true)
 			if err != nil {
-				return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
+				return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
 			pvInfos = append(pvInfos, info)
 

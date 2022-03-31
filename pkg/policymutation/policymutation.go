@@ -18,30 +18,30 @@ import (
 // - ValidationFailureAction
 // - Background
 // - auto-gen annotation and rules
-func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logger) ([]byte, []string) {
+func GenerateJSONPatchesForDefaults(policy kyverno.PolicyInterface, log logr.Logger) ([]byte, []string) {
 	var patches [][]byte
 	var updateMsgs []string
-
+	spec := policy.GetSpec()
 	// default 'ValidationFailureAction'
-	if patch, updateMsg := defaultvalidationFailureAction(&policy.Spec, log); patch != nil {
+	if patch, updateMsg := defaultvalidationFailureAction(spec, log); patch != nil {
 		patches = append(patches, patch)
 		updateMsgs = append(updateMsgs, updateMsg)
 	}
 
 	// default 'Background'
-	if patch, updateMsg := defaultBackgroundFlag(&policy.Spec, log); patch != nil {
+	if patch, updateMsg := defaultBackgroundFlag(spec, log); patch != nil {
 		patches = append(patches, patch)
 		updateMsgs = append(updateMsgs, updateMsg)
 	}
 
-	if patch, updateMsg := defaultFailurePolicy(&policy.Spec, log); patch != nil {
+	if patch, updateMsg := defaultFailurePolicy(spec, log); patch != nil {
 		patches = append(patches, patch)
 		updateMsgs = append(updateMsgs, updateMsg)
 	}
 
 	// if autogenInternals is enabled, we don't mutate rules in the webhook
 	if !toggle.AutogenInternals() {
-		patch, errs := GeneratePodControllerRule(*policy, log)
+		patch, errs := GeneratePodControllerRule(policy, log)
 		if len(errs) > 0 {
 			var errMsgs []string
 			for _, err := range errs {
@@ -67,14 +67,14 @@ func GenerateJSONPatchesForDefaults(policy *kyverno.ClusterPolicy, log logr.Logg
 	return utils.JoinPatches(patches), updateMsgs
 }
 
-func checkForGVKFormatPatch(policy *kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
+func checkForGVKFormatPatch(policy kyverno.PolicyInterface, log logr.Logger) (patches [][]byte, errs []error) {
 	patches = make([][]byte, 0)
 	for i, rule := range autogen.ComputeRules(policy) {
 		patchByte, err := convertGVKForKinds(fmt.Sprintf("/spec/rules/%s/match/resources/kinds", strconv.Itoa(i)), rule.MatchResources.Kinds, log)
 		if err == nil && patchByte != nil {
 			patches = append(patches, patchByte)
 		} else if err != nil {
-			errs = append(errs, fmt.Errorf("failed to GVK for rule '%s/%s/%d/match': %v", policy.Name, rule.Name, i, err))
+			errs = append(errs, fmt.Errorf("failed to GVK for rule '%s/%s/%d/match': %v", policy.GetName(), rule.Name, i, err))
 		}
 
 		for j, matchAll := range rule.MatchResources.All {
@@ -82,7 +82,7 @@ func checkForGVKFormatPatch(policy *kyverno.ClusterPolicy, log logr.Logger) (pat
 			if err == nil && patchByte != nil {
 				patches = append(patches, patchByte)
 			} else if err != nil {
-				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/match/all/%d': %v", policy.Name, rule.Name, i, j, err))
+				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/match/all/%d': %v", policy.GetName(), rule.Name, i, j, err))
 			}
 		}
 
@@ -91,7 +91,7 @@ func checkForGVKFormatPatch(policy *kyverno.ClusterPolicy, log logr.Logger) (pat
 			if err == nil && patchByte != nil {
 				patches = append(patches, patchByte)
 			} else if err != nil {
-				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/match/any/%d': %v", policy.Name, rule.Name, i, k, err))
+				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/match/any/%d': %v", policy.GetName(), rule.Name, i, k, err))
 			}
 		}
 
@@ -99,7 +99,7 @@ func checkForGVKFormatPatch(policy *kyverno.ClusterPolicy, log logr.Logger) (pat
 		if err == nil && patchByte != nil {
 			patches = append(patches, patchByte)
 		} else if err != nil {
-			errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/exclude': %v", policy.Name, rule.Name, i, err))
+			errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/exclude': %v", policy.GetName(), rule.Name, i, err))
 		}
 
 		for j, excludeAll := range rule.ExcludeResources.All {
@@ -107,7 +107,7 @@ func checkForGVKFormatPatch(policy *kyverno.ClusterPolicy, log logr.Logger) (pat
 			if err == nil && patchByte != nil {
 				patches = append(patches, patchByte)
 			} else if err != nil {
-				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/exclude/all/%d': %v", policy.Name, rule.Name, i, j, err))
+				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/exclude/all/%d': %v", policy.GetName(), rule.Name, i, j, err))
 			}
 		}
 
@@ -116,7 +116,7 @@ func checkForGVKFormatPatch(policy *kyverno.ClusterPolicy, log logr.Logger) (pat
 			if err == nil && patchByte != nil {
 				patches = append(patches, patchByte)
 			} else if err != nil {
-				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/exclude/any/%d': %v", policy.Name, rule.Name, i, k, err))
+				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/exclude/any/%d': %v", policy.GetName(), rule.Name, i, k, err))
 			}
 		}
 	}
@@ -252,8 +252,9 @@ func defaultFailurePolicy(spec *kyverno.Spec, log logr.Logger) ([]byte, string) 
 //             make sure all fields are applicable to pod controllers
 
 // GeneratePodControllerRule returns two patches: rulePatches and annotation patch(if necessary)
-func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (patches [][]byte, errs []error) {
-	applyAutoGen, desiredControllers := autogen.CanAutoGen(&policy.Spec, log)
+func GeneratePodControllerRule(policy kyverno.PolicyInterface, log logr.Logger) (patches [][]byte, errs []error) {
+	spec := policy.GetSpec()
+	applyAutoGen, desiredControllers := autogen.CanAutoGen(spec, log)
 
 	if !applyAutoGen {
 		desiredControllers = "none"
@@ -268,7 +269,7 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 		actualControllers = desiredControllers
 		annPatch, err := defaultPodControllerAnnotation(ann, actualControllers)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to generate pod controller annotation for policy '%s': %v", policy.Name, err))
+			errs = append(errs, fmt.Errorf("failed to generate pod controller annotation for policy '%s': %v", policy.GetName(), err))
 		} else {
 			patches = append(patches, annPatch)
 		}
@@ -285,7 +286,7 @@ func GeneratePodControllerRule(policy kyverno.ClusterPolicy, log logr.Logger) (p
 
 	log.V(3).Info("auto generating rule for pod controllers", "controllers", actualControllers)
 
-	p, err := autogen.GenerateRulePatches(&policy.Spec, actualControllers, log)
+	p, err := autogen.GenerateRulePatches(spec, actualControllers, log)
 	patches = append(patches, p...)
 	errs = append(errs, err...)
 	return

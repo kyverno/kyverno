@@ -167,11 +167,10 @@ func (pc *PolicyController) requeuePolicies() {
 		}
 
 		for _, p := range pols {
-			pol := ConvertPolicyToClusterPolicy(p)
-			if !pc.canBackgroundProcess(pol) {
+			if !pc.canBackgroundProcess(p) {
 				continue
 			}
-			pc.enqueuePolicy(pol)
+			pc.enqueuePolicy(p)
 		}
 	}
 }
