@@ -126,7 +126,7 @@ type WebhookServer struct {
 
 	promConfig *metrics.PromConfig
 
-	sync.RWMutex
+	mu sync.RWMutex
 }
 
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
@@ -509,7 +509,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 
 	if len(generatePolicies) == 0 && request.Operation == v1beta1.Update {
 		// handle generate source resource updates
-		go ws.handleUpdatesForGenerateRules(request, []*v1.ClusterPolicy{})
+		go ws.handleUpdatesForGenerateRules(request, []v1.PolicyInterface{})
 	}
 
 	var roles, clusterRoles []string

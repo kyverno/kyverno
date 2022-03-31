@@ -58,14 +58,14 @@ func (pc PromConfig) registerPolicyExecutionDurationMetric(
 
 //policy - policy related data
 //engineResponse - resource and rule related data
-func (pc PromConfig) ProcessEngineResponse(policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, generateRuleLatencyType string, resourceRequestOperation metrics.ResourceRequestOperation) error {
+func (pc PromConfig) ProcessEngineResponse(policy kyverno.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, generateRuleLatencyType string, resourceRequestOperation metrics.ResourceRequestOperation) error {
 
-	policyValidationMode, err := metrics.ParsePolicyValidationMode(policy.Spec.ValidationFailureAction)
+	policyValidationMode, err := metrics.ParsePolicyValidationMode(policy.GetSpec().ValidationFailureAction)
 	if err != nil {
 		return err
 	}
 	policyType := metrics.Namespaced
-	policyBackgroundMode := metrics.ParsePolicyBackgroundMode(policy.Spec.Background)
+	policyBackgroundMode := metrics.ParsePolicyBackgroundMode(policy.GetSpec().Background)
 	policyNamespace := policy.GetNamespace()
 	if policyNamespace == "" {
 		policyNamespace = "-"

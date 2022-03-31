@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/distribution/distribution/reference"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
@@ -78,9 +79,10 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, openAPIController *openapi.Controller) (*v1beta1.AdmissionResponse, error) {
+func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool, openAPIController *openapi.Controller) (*v1beta1.AdmissionResponse, error) {
 	namespaced := policy.IsNamespaced()
-	background := policy.Spec.Background == nil || *policy.Spec.Background
+	spec := policy.GetSpec()
+	background := spec.Background == nil || *spec.Background
 
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
@@ -110,8 +112,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 	if errs := policy.Validate(clusterResources); len(errs) != 0 {
 		return nil, errs.ToAggregate()
 	}
-
-	rules := policy.GetRules()
+	rules := autogen.ComputeRules(policy)
 	rulesPath := specPath.Child("rules")
 	for i, rule := range rules {
 		rulePath := rulesPath.Index(i)
@@ -176,7 +177,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 			}
 		}
 
-		if utils.ContainsString(rule.MatchResources.Kinds, "*") && (policy.Spec.Background == nil || *policy.Spec.Background) {
+		if utils.ContainsString(rule.MatchResources.Kinds, "*") && (spec.Background == nil || *spec.Background) {
 			return nil, fmt.Errorf("wildcard policy not allowed in background mode. Set spec.background=false to disable background mode for this policy rule ")
 		}
 
@@ -248,7 +249,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		exclude := rule.ExcludeResources
 		for _, value := range match.Any {
 			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
+				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
 					return nil, errors.Wrapf(err, "the kind defined in the any match resource is invalid")
 				}
@@ -256,7 +257,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 		for _, value := range match.All {
 			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
+				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
 					return nil, errors.Wrapf(err, "the kind defined in the all match resource is invalid")
 				}
@@ -264,7 +265,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 		for _, value := range exclude.Any {
 			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
+				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
 					return nil, errors.Wrapf(err, "the kind defined in the any exclude resource is invalid")
 				}
@@ -272,18 +273,18 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 		for _, value := range exclude.All {
 			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, client, *policy)
+				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
 					return nil, errors.Wrapf(err, "the kind defined in the all exclude resource is invalid")
 				}
 			}
 		}
 		if !utils.ContainsString(rule.MatchResources.Kinds, "*") {
-			err := validateKinds(rule.MatchResources.Kinds, mock, client, *policy)
+			err := validateKinds(rule.MatchResources.Kinds, mock, client, policy)
 			if err != nil {
 				return nil, errors.Wrapf(err, "match resource kind is invalid")
 			}
-			err = validateKinds(rule.ExcludeResources.Kinds, mock, client, *policy)
+			err = validateKinds(rule.ExcludeResources.Kinds, mock, client, policy)
 			if err != nil {
 				return nil, errors.Wrapf(err, "exclude resource kind is invalid")
 			}
@@ -335,8 +336,8 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 		}
 	}
 
-	if policy.Spec.SchemaValidation == nil || *policy.Spec.SchemaValidation {
-		if err := openAPIController.ValidatePolicyMutation(*policy); err != nil {
+	if spec.SchemaValidation == nil || *spec.SchemaValidation {
+		if err := openAPIController.ValidatePolicyMutation(policy); err != nil {
 			return nil, err
 		}
 	}
@@ -344,7 +345,7 @@ func Validate(policy *kyverno.ClusterPolicy, client *dclient.Client, mock bool, 
 	return nil, nil
 }
 
-func ValidateVariables(p *kyverno.ClusterPolicy, backgroundMode bool) error {
+func ValidateVariables(p kyverno.PolicyInterface, backgroundMode bool) error {
 	vars := hasVariables(p)
 	if len(vars) == 0 {
 		return nil
@@ -364,8 +365,8 @@ func ValidateVariables(p *kyverno.ClusterPolicy, backgroundMode bool) error {
 }
 
 // hasInvalidVariables - checks for unexpected variables in the policy
-func hasInvalidVariables(policy *kyverno.ClusterPolicy, background bool) error {
-	for _, r := range policy.GetRules() {
+func hasInvalidVariables(policy kyverno.PolicyInterface, background bool) error {
+	for _, r := range autogen.ComputeRules(policy) {
 		ruleCopy := r.DeepCopy()
 
 		if err := ruleForbiddenSectionsHaveVariables(ruleCopy); err != nil {
@@ -411,7 +412,7 @@ func ruleForbiddenSectionsHaveVariables(rule *kyverno.Rule) error {
 }
 
 // hasVariables - check for variables in the policy
-func hasVariables(policy *kyverno.ClusterPolicy) [][]string {
+func hasVariables(policy kyverno.PolicyInterface) [][]string {
 	policyRaw, _ := json.Marshal(policy)
 	matches := variables.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
 	return matches
@@ -1005,7 +1006,7 @@ func jsonPatchOnPod(rule kyverno.Rule) bool {
 	return false
 }
 
-func podControllerAutoGenExclusion(policy *kyverno.ClusterPolicy) bool {
+func podControllerAutoGenExclusion(policy kyverno.PolicyInterface) bool {
 	annotations := policy.GetAnnotations()
 	val, ok := annotations[kyverno.PodControllersAnnotation]
 	reorderVal := strings.Split(strings.ToLower(val), ",")
@@ -1018,10 +1019,10 @@ func podControllerAutoGenExclusion(policy *kyverno.ClusterPolicy) bool {
 
 // validateKinds verifies if an API resource that matches 'kind' is valid kind
 // and found in the cache, returns error if not found
-func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.ClusterPolicy) error {
+func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.PolicyInterface) error {
 	for _, kind := range kinds {
 		gv, k := comn.GetKindFromGVK(kind)
-		if k == p.Kind {
+		if k == p.GetKind() {
 			return fmt.Errorf("kind and match resource kind should not be the same")
 		}
 

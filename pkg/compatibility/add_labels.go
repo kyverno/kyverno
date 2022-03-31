@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -94,7 +95,7 @@ func AddCloneLabel(client *dclient.Client, pInformer kyvernoinformer.ClusterPoli
 	}
 
 	for _, policy := range policies {
-		for _, rule := range policy.GetRules() {
+		for _, rule := range autogen.ComputeRules(policy) {
 			if rule.HasGenerate() {
 				clone := rule.Generation.Clone
 				if clone.Name != "" {

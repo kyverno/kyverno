@@ -13,6 +13,7 @@ import (
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/data"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -136,9 +137,9 @@ func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured,
 }
 
 // ValidatePolicyMutation ...
-func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
+func (o *Controller) ValidatePolicyMutation(policy v1.PolicyInterface) error {
 	var kindToRules = make(map[string][]v1.Rule)
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasMutate() {
 			for _, kind := range rule.MatchResources.Kinds {
 				kindToRules[kind] = append(kindToRules[common.GetFormatedKind(kind)], rule)
@@ -147,8 +148,9 @@ func (o *Controller) ValidatePolicyMutation(policy v1.ClusterPolicy) error {
 	}
 
 	for kind, rules := range kindToRules {
-		newPolicy := *policy.DeepCopy()
-		newPolicy.Spec.SetRules(rules)
+		newPolicy := policy.CreateDeepCopy()
+		spec := newPolicy.GetSpec()
+		spec.SetRules(rules)
 		k := o.gvkToDefinitionName.GetKind(kind)
 		resource, _ := o.generateEmptyResource(o.definitions.GetSchema(k)).(map[string]interface{})
 		if resource == nil || len(resource) == 0 {
