@@ -125,6 +125,14 @@ func (i *ArrayFlags) Set(value string) error {
 	return nil
 }
 
+// patchRequest applies patches to the request.Object and returns a new copy of the request
+func patchRequest(patches []byte, request *v1beta1.AdmissionRequest, logger logr.Logger) *v1beta1.AdmissionRequest {
+	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
+	newRequest := request.DeepCopy()
+	newRequest.Object.Raw = patchedResource
+	return newRequest
+}
+
 func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) []byte {
 	if patch == nil {
 		return resource
