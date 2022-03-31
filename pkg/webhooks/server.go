@@ -196,7 +196,7 @@ func NewWebhookServer(
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
 	ws.server = &http.Server{
 		Addr:         ":9443", // Listen on port for HTTPS requests
-		TLSConfig:    &tls.Config{Certificates: []tls.Certificate{pair}},
+		TLSConfig:    &tls.Config{Certificates: []tls.Certificate{pair}, MinVersion: tls.VersionTLS12},
 		Handler:      mux,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
