@@ -28,6 +28,9 @@ func registerAdmissionRequestsMetric(
 		"resource_namespace":         resourceNamespace,
 		"resource_request_operation": string(resourceRequestOperation),
 	}).Inc()
+
+	metrics.RecordAdmissionRequests(resourceKind, resourceNamespace, resourceRequestOperation, pc.Log)
+
 	return nil
 }
 

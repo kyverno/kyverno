@@ -35,6 +35,9 @@ func registerPolicyResultsMetric(
 		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_policy_results_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
 		return nil
 	}
+
+	metrics.RecordPolicyResults(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, resourceKind, resourceNamespace, resourceRequestOperation, ruleName, ruleResult, ruleType, ruleExecutionCause, pc.Log)
+
 	pc.Metrics.PolicyResults.With(prom.Labels{
 		"policy_validation_mode":     string(policyValidationMode),
 		"policy_type":                string(policyType),
