@@ -285,6 +285,7 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{RawKey: kyverno.ToJSON(5), Operator: kyverno.ConditionOperators["In"], RawValue: kyverno.ToJSON([]interface{}{1, 2, 3})}, false},
 		{kyverno.Condition{RawKey: kyverno.ToJSON(5.5), Operator: kyverno.ConditionOperators["In"], RawValue: kyverno.ToJSON([]interface{}{1, 1.5, 2, 3})}, false},
 		{kyverno.Condition{RawKey: kyverno.ToJSON("5"), Operator: kyverno.ConditionOperators["In"], RawValue: kyverno.ToJSON([]interface{}{"1", "2", "3"})}, false},
+		{kyverno.Condition{RawKey: kyverno.ToJSON("1.1.1.1"), Operator: kyverno.ConditionOperators["In"], RawValue: kyverno.ToJSON([]interface{}{"1*"})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1.1.1.1", "4.4.4.4"}), Operator: kyverno.ConditionOperators["In"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, false},
 
 		// Not In
@@ -310,6 +311,7 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "5.5.5.5"}), Operator: kyverno.ConditionOperators["AnyIn"], RawValue: kyverno.ToJSON([]interface{}{"2*"})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "5.5.5.5"}), Operator: kyverno.ConditionOperators["AnyIn"], RawValue: kyverno.ToJSON([]interface{}{"4*"})}, false},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"5"}), Operator: kyverno.ConditionOperators["AnyIn"], RawValue: kyverno.ToJSON("1-3")}, false},
+		{kyverno.Condition{RawKey: kyverno.ToJSON("1.1.1.1"), Operator: kyverno.ConditionOperators["AnyIn"], RawValue: kyverno.ToJSON([]interface{}{"1*"})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON("5"), Operator: kyverno.ConditionOperators["AnyIn"], RawValue: kyverno.ToJSON("1-10")}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON(5), Operator: kyverno.ConditionOperators["AnyIn"], RawValue: kyverno.ToJSON("1-10")}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{1, 5}), Operator: kyverno.ConditionOperators["AnyIn"], RawValue: kyverno.ToJSON("7-10")}, false},
