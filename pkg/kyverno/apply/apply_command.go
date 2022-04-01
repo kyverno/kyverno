@@ -106,14 +106,8 @@ More info: https://kyverno.io/docs/kyverno-cli/
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
-<<<<<<< HEAD
 	var cluster, policyReport, stdin, registryAccess bool
-	var mutateLogPath, variablesString, valuesFile, namespace string
-=======
-	var cluster, policyReport, stdin bool
 	var mutateLogPath, variablesString, valuesFile, namespace, userInfoPath string
-
->>>>>>> 1402b2d1b (add support for roles, cluster roles and subjects)
 	cmd = &cobra.Command{
 		Use:     "apply",
 		Short:   "applies policies on resources",
@@ -128,11 +122,7 @@ func Command() *cobra.Command {
 				}
 			}()
 
-<<<<<<< HEAD
-			rc, resources, skipInvalidPolicies, pvInfos, err := applyCommandHelper(resourcePaths, cluster, policyReport, mutateLogPath, variablesString, valuesFile, namespace, policyPaths, stdin, registryAccess)
-=======
-			rc, resources, skipInvalidPolicies, pvInfos, err := applyCommandHelper(resourcePaths, userInfoPath, cluster, policyReport, mutateLogPath, variablesString, valuesFile, namespace, policyPaths, stdin)
->>>>>>> 1402b2d1b (add support for roles, cluster roles and subjects)
+			rc, resources, skipInvalidPolicies, pvInfos, err := applyCommandHelper(resourcePaths, userInfoPath, cluster, policyReport, mutateLogPath, variablesString, valuesFile, namespace, policyPaths, stdin, registryAccess)
 			if err != nil {
 				return err
 			}
@@ -155,13 +145,8 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-<<<<<<< HEAD
-func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool, mutateLogPath string,
-	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool, registryAccess bool) (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, pvInfos []policyreport.Info, err error) {
-=======
 func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster bool, policyReport bool, mutateLogPath string,
-	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool) (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, pvInfos []policyreport.Info, err error) {
->>>>>>> 1402b2d1b (add support for roles, cluster roles and subjects)
+	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool, registryAccess bool) (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, pvInfos []policyreport.Info, err error) {
 	store.SetMock(true)
 	store.SetRegistryAccess(registryAccess)
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
