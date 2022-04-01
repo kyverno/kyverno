@@ -1,7 +1,6 @@
 package autogen
 
 import (
-	"encoding/json"
 	"reflect"
 	"strings"
 
@@ -69,37 +68,32 @@ func createRule(rule *kyverno.Rule) *kyvernoRule {
 	return &jsonFriendlyStruct
 }
 
-func createRuleMap(rules []kyverno.Rule) map[string]kyvernoRule {
-	var ruleMap = make(map[string]kyvernoRule)
-	for _, rule := range rules {
-		ruleMap[rule.Name] = *createRule(&rule)
-	}
-	return ruleMap
-}
-
 type generateResourceFilters func(kyverno.ResourceFilters, []string) kyverno.ResourceFilters
 
-func generateRule(logger logr.Logger, name string, r kyverno.Rule, tplKey, shift string, kinds []string, grf generateResourceFilters) *kyverno.Rule {
-	autoRule := r.DeepCopy()
-	autoRule.Name = name
-	// overwrite Kinds by pod controllers defined in the annotation
-	if len(autoRule.MatchResources.Any) > 0 {
-		autoRule.MatchResources.Any = grf(autoRule.MatchResources.Any, kinds)
-	} else if len(autoRule.MatchResources.All) > 0 {
-		autoRule.MatchResources.All = grf(autoRule.MatchResources.All, kinds)
-	} else {
-		autoRule.MatchResources.Kinds = kinds
+func generateRule(logger logr.Logger, name string, rule *kyverno.Rule, tplKey, shift string, kinds []string, grf generateResourceFilters) *kyverno.Rule {
+	if rule == nil {
+		return nil
 	}
-	if len(autoRule.ExcludeResources.Any) > 0 {
-		autoRule.ExcludeResources.Any = grf(autoRule.ExcludeResources.Any, kinds)
-	} else if len(autoRule.ExcludeResources.All) > 0 {
-		autoRule.ExcludeResources.All = grf(autoRule.ExcludeResources.All, kinds)
+	rule = rule.DeepCopy()
+	rule.Name = name
+	// overwrite Kinds by pod controllers defined in the annotation
+	if len(rule.MatchResources.Any) > 0 {
+		rule.MatchResources.Any = grf(rule.MatchResources.Any, kinds)
+	} else if len(rule.MatchResources.All) > 0 {
+		rule.MatchResources.All = grf(rule.MatchResources.All, kinds)
 	} else {
-		if len(autoRule.ExcludeResources.Kinds) != 0 {
-			autoRule.ExcludeResources.Kinds = kinds
+		rule.MatchResources.Kinds = kinds
+	}
+	if len(rule.ExcludeResources.Any) > 0 {
+		rule.ExcludeResources.Any = grf(rule.ExcludeResources.Any, kinds)
+	} else if len(rule.ExcludeResources.All) > 0 {
+		rule.ExcludeResources.All = grf(rule.ExcludeResources.All, kinds)
+	} else {
+		if len(rule.ExcludeResources.Kinds) != 0 {
+			rule.ExcludeResources.Kinds = kinds
 		}
 	}
-	if target := autoRule.Mutation.GetPatchStrategicMerge(); target != nil {
+	if target := rule.Mutation.GetPatchStrategicMerge(); target != nil {
 		newMutation := kyverno.Mutation{}
 		newMutation.SetPatchStrategicMerge(
 			map[string]interface{}{
@@ -108,12 +102,12 @@ func generateRule(logger logr.Logger, name string, r kyverno.Rule, tplKey, shift
 				},
 			},
 		)
-		autoRule.Mutation = newMutation
-		return autoRule
+		rule.Mutation = newMutation
+		return rule
 	}
-	if len(autoRule.Mutation.ForEachMutation) > 0 && autoRule.Mutation.ForEachMutation != nil {
+	if len(rule.Mutation.ForEachMutation) > 0 && rule.Mutation.ForEachMutation != nil {
 		var newForeachMutation []*kyverno.ForEachMutation
-		for _, foreach := range autoRule.Mutation.ForEachMutation {
+		for _, foreach := range rule.Mutation.ForEachMutation {
 			temp := kyverno.ForEachMutation{
 				List:             foreach.List,
 				Context:          foreach.Context,
@@ -128,14 +122,14 @@ func generateRule(logger logr.Logger, name string, r kyverno.Rule, tplKey, shift
 			)
 			newForeachMutation = append(newForeachMutation, &temp)
 		}
-		autoRule.Mutation = kyverno.Mutation{
+		rule.Mutation = kyverno.Mutation{
 			ForEachMutation: newForeachMutation,
 		}
-		return autoRule
+		return rule
 	}
-	if target := autoRule.Validation.GetPattern(); target != nil {
+	if target := rule.Validation.GetPattern(); target != nil {
 		newValidate := kyverno.Validation{
-			Message: variables.FindAndShiftReferences(logger, autoRule.Validation.Message, shift, "pattern"),
+			Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
 		}
 		newValidate.SetPattern(
 			map[string]interface{}{
@@ -144,62 +138,91 @@ func generateRule(logger logr.Logger, name string, r kyverno.Rule, tplKey, shift
 				},
 			},
 		)
-		autoRule.Validation = newValidate
-		return autoRule
+		rule.Validation = newValidate
+		return rule
 	}
-	if autoRule.Validation.Deny != nil {
+	if rule.Validation.Deny != nil {
 		deny := kyverno.Validation{
-			Message: variables.FindAndShiftReferences(logger, autoRule.Validation.Message, shift, "deny"),
-			Deny:    autoRule.Validation.Deny,
+			Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "deny"),
+			Deny:    rule.Validation.Deny,
 		}
-		autoRule.Validation = deny
-		return autoRule
+		rule.Validation = deny
+		return rule
 	}
-	if autoRule.Validation.GetAnyPattern() != nil {
-		anyPatterns, err := autoRule.Validation.DeserializeAnyPattern()
+	if rule.Validation.GetAnyPattern() != nil {
+		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 		if err != nil {
 			logger.Error(err, "failed to deserialize anyPattern, expect type array")
 		}
-		patterns := validateAnyPattern(anyPatterns)
-		autoRule.Validation = kyverno.Validation{
-			Message: variables.FindAndShiftReferences(logger, autoRule.Validation.Message, shift, "anyPattern"),
+		var patterns []interface{}
+		for _, pattern := range anyPatterns {
+			newPattern := map[string]interface{}{
+				"spec": map[string]interface{}{
+					tplKey: pattern,
+				},
+			}
+			patterns = append(patterns, newPattern)
 		}
-		autoRule.Validation.SetAnyPattern(patterns)
-		return autoRule
+		rule.Validation = kyverno.Validation{
+			Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "anyPattern"),
+		}
+		rule.Validation.SetAnyPattern(patterns)
+		return rule
 	}
-	if len(autoRule.Validation.ForEachValidation) > 0 && autoRule.Validation.ForEachValidation != nil {
-		newForeachValidate := make([]*kyverno.ForEachValidation, len(autoRule.Validation.ForEachValidation))
-		for i, foreach := range autoRule.Validation.ForEachValidation {
+	if len(rule.Validation.ForEachValidation) > 0 && rule.Validation.ForEachValidation != nil {
+		newForeachValidate := make([]*kyverno.ForEachValidation, len(rule.Validation.ForEachValidation))
+		for i, foreach := range rule.Validation.ForEachValidation {
 			newForeachValidate[i] = foreach
 		}
-		autoRule.Validation = kyverno.Validation{
-			Message:           variables.FindAndShiftReferences(logger, autoRule.Validation.Message, shift, "pattern"),
+		rule.Validation = kyverno.Validation{
+			Message:           variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
 			ForEachValidation: newForeachValidate,
 		}
-		return autoRule
+		return rule
 	}
-	if autoRule.VerifyImages != nil {
-		newVerifyImages := make([]*kyverno.ImageVerification, len(autoRule.VerifyImages))
-		for i, vi := range autoRule.VerifyImages {
+	if rule.VerifyImages != nil {
+		newVerifyImages := make([]*kyverno.ImageVerification, len(rule.VerifyImages))
+		for i, vi := range rule.VerifyImages {
 			newVerifyImages[i] = vi.DeepCopy()
 		}
-		autoRule.VerifyImages = newVerifyImages
-		return autoRule
+		rule.VerifyImages = newVerifyImages
+		return rule
 	}
 	return nil
 }
 
-func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.Logger) *kyverno.Rule {
+func getAutogenRuleName(prefix string, name string) string {
+	name = prefix + "-" + name
+	if len(name) > 63 {
+		name = name[:63]
+	}
+	return name
+}
+
+func isAutogenRuleName(name string) bool {
+	return strings.HasPrefix(name, "autogen-")
+}
+
+func getAnyAllAutogenRule(v kyverno.ResourceFilters, match string, kinds []string) kyverno.ResourceFilters {
+	anyKind := v.DeepCopy()
+	for i, value := range v {
+		if kubeutils.ContainsKind(value.Kinds, match) {
+			anyKind[i].Kinds = kinds
+		}
+	}
+	return anyKind
+}
+
+func generateRuleForControllers(rule *kyverno.Rule, controllers string, log logr.Logger) *kyverno.Rule {
 	logger := log.WithName("generateRuleForControllers")
-	if strings.HasPrefix(rule.Name, "autogen-") || controllers == "" {
+	if isAutogenRuleName(rule.Name) || controllers == "" {
 		logger.V(5).Info("skip generateRuleForControllers")
 		return nil
 	}
 	logger.V(3).Info("processing rule", "rulename", rule.Name)
 	match, exclude := rule.MatchResources, rule.ExcludeResources
 	matchKinds, excludeKinds := match.GetKinds(), exclude.GetKinds()
-	if !kubeutils.ContainsKind(matchKinds, "Pod") ||
-		(len(excludeKinds) != 0 && !kubeutils.ContainsKind(excludeKinds, "Pod")) {
+	if !kubeutils.ContainsKind(matchKinds, "Pod") || (len(excludeKinds) != 0 && !kubeutils.ContainsKind(excludeKinds, "Pod")) {
 		return nil
 	}
 	// Support backwards compatibility
@@ -232,38 +255,33 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 		"template",
 		"spec/template",
 		strings.Split(controllers, ","),
-		getAnyAllAutogenRule,
+		func(r kyverno.ResourceFilters, kinds []string) kyverno.ResourceFilters {
+			return getAnyAllAutogenRule(r, "Pod", kinds)
+		},
 	)
 }
 
-func generateCronJobRule(rule kyverno.Rule, controllers string, log logr.Logger) *kyverno.Rule {
-	logger := log.WithName("handleCronJob")
+func generateCronJobRule(rule *kyverno.Rule, controllers string, log logr.Logger) *kyverno.Rule {
+	logger := log.WithName("generateCronJobRule")
 	hasCronJob := strings.Contains(controllers, PodControllerCronJob) || strings.Contains(controllers, "all")
 	if !hasCronJob {
 		return nil
 	}
 	logger.V(3).Info("generating rule for cronJob")
-	autoRule := generateRuleForControllers(rule, controllers, log)
-	if autoRule == nil {
-		return nil
-	}
-	name := getAutogenRuleName("autogen-cronjob", rule.Name)
 	return generateRule(
 		logger,
-		name,
-		*autoRule,
+		getAutogenRuleName("autogen-cronjob", rule.Name),
+		generateRuleForControllers(rule, controllers, log),
 		"jobTemplate",
 		"spec/jobTemplate/spec/template",
 		[]string{PodControllerCronJob},
-		cronJobAnyAllAutogenRule,
+		func(r kyverno.ResourceFilters, kinds []string) kyverno.ResourceFilters {
+			return getAnyAllAutogenRule(r, "Job", kinds)
+		},
 	)
 }
 
-func updateGenRuleByte(pbyte []byte, kind string, genRule kyvernoRule) (obj []byte) {
-	// TODO: do we need to unmarshall here ?
-	if err := json.Unmarshal(pbyte, &genRule); err != nil {
-		return obj
-	}
+func updateGenRuleByte(pbyte []byte, kind string) (obj []byte) {
 	if kind == "Pod" {
 		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.template.spec"))
 	}

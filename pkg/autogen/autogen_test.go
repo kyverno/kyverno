@@ -16,6 +16,42 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+func Test_getAutogenRuleName(t *testing.T) {
+	testCases := []struct {
+		name     string
+		ruleName string
+		prefix   string
+		expected string
+	}{
+		{"valid", "valid-rule-name", "autogen", "autogen-valid-rule-name"},
+		{"truncated", "too-long-this-rule-name-will-be-truncated-to-63-characters", "autogen", "autogen-too-long-this-rule-name-will-be-truncated-to-63-charact"},
+		{"valid-cronjob", "valid-rule-name", "autogen-cronjob", "autogen-cronjob-valid-rule-name"},
+		{"truncated-cronjob", "too-long-this-rule-name-will-be-truncated-to-63-characters", "autogen-cronjob", "autogen-cronjob-too-long-this-rule-name-will-be-truncated-to-63"},
+	}
+	for _, test := range testCases {
+		res := getAutogenRuleName(test.prefix, test.ruleName)
+		assert.Equal(t, test.expected, res)
+	}
+}
+
+func Test_isAutogenRule(t *testing.T) {
+	testCases := []struct {
+		name     string
+		ruleName string
+		expected bool
+	}{
+		{"normal", "valid-rule-name", false},
+		{"simple", "autogen-simple", true},
+		{"simple-cronjob", "autogen-cronjob-simple", true},
+		{"truncated", "autogen-too-long-this-rule-name-will-be-truncated-to-63-charact", true},
+		{"truncated-cronjob", "autogen-cronjob-too-long-this-rule-name-will-be-truncated-to-63", true},
+	}
+	for _, test := range testCases {
+		res := isAutogenRuleName(test.ruleName)
+		assert.Equal(t, test.expected, res)
+	}
+}
+
 func Test_CanAutoGen(t *testing.T) {
 	testCases := []struct {
 		name                string

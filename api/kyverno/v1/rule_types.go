@@ -81,31 +81,6 @@ func (r *Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
 }
 
-// // MatchKinds returns a slice of all kinds to match
-// func (r *Rule) MatchKinds() []string {
-// 	matchKinds := r.MatchResources.ResourceDescription.Kinds
-// 	for _, value := range r.MatchResources.All {
-// 		matchKinds = append(matchKinds, value.ResourceDescription.Kinds...)
-// 	}
-// 	for _, value := range r.MatchResources.Any {
-// 		matchKinds = append(matchKinds, value.ResourceDescription.Kinds...)
-// 	}
-
-// 	return matchKinds
-// }
-
-// // ExcludeKinds returns a slice of all kinds to exclude
-// func (r *Rule) ExcludeKinds() []string {
-// 	excludeKinds := r.ExcludeResources.ResourceDescription.Kinds
-// 	for _, value := range r.ExcludeResources.All {
-// 		excludeKinds = append(excludeKinds, value.ResourceDescription.Kinds...)
-// 	}
-// 	for _, value := range r.ExcludeResources.Any {
-// 		excludeKinds = append(excludeKinds, value.ResourceDescription.Kinds...)
-// 	}
-// 	return excludeKinds
-// }
-
 func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
 	return FromJSON(r.RawAnyAllConditions)
 }
