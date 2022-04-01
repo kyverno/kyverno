@@ -206,7 +206,7 @@ func (v *validator) validate() *response.RuleResponse {
 		return ruleError(v.rule, utils.Validation, "failed to evaluate preconditions", err)
 	}
 
-	if !preconditionsPassed && v.ctx.Policy.Spec.ValidationFailureAction != "audit" {
+	if !preconditionsPassed && v.ctx.Policy.GetSpec().ValidationFailureAction != kyverno.Audit {
 		return ruleResponse(v.rule, utils.Validation, "preconditions not met", response.RuleStatusSkip)
 	}
 
