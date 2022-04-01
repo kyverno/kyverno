@@ -6,8 +6,8 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/policy"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 )
 
 type pMap struct {
@@ -74,7 +74,7 @@ func (m *pMap) add(policy kyverno.PolicyInterface) {
 func (m *pMap) get(key PolicyType, gvk, namespace string) (names []string) {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
-	_, kind := common.GetKindFromGVK(gvk)
+	_, kind := kubeutils.GetKindFromGVK(gvk)
 	for _, policyName := range m.kindDataMap[kind][key] {
 		ns, key, isNamespacedPolicy := policy.ParseNamespacedPolicy(policyName)
 		if !isNamespacedPolicy && namespace == "" {
@@ -115,7 +115,7 @@ func (m *pMap) remove(policy kyverno.PolicyInterface) {
 
 func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, mutateMap map[string]bool, pName string, enforcePolicy bool, validateEnforceMap map[string]bool, validateAuditMap map[string]bool, generateMap map[string]bool, imageVerifyMap map[string]bool) {
 	for _, gvk := range rmr.Kinds {
-		_, k := common.GetKindFromGVK(gvk)
+		_, k := kubeutils.GetKindFromGVK(gvk)
 		kind := strings.Title(k)
 		_, ok := m.kindDataMap[kind]
 		if !ok {
@@ -172,7 +172,7 @@ func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, muta
 
 func removeCacheHelper(rmr kyverno.ResourceFilter, m *pMap, pName string) {
 	for _, gvk := range rmr.Kinds {
-		_, kind := common.GetKindFromGVK(gvk)
+		_, kind := kubeutils.GetKindFromGVK(gvk)
 		dataMap := m.kindDataMap[kind]
 		for policyType, policies := range dataMap {
 			var newPolicies []string

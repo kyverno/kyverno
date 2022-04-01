@@ -4,8 +4,8 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/policy"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 )
 
 // Interface ...
@@ -84,7 +84,7 @@ func (pc *policyCache) remove(p kyverno.PolicyInterface) {
 }
 
 func (pc *policyCache) getPolicyObject(key PolicyType, gvk string, nspace string) (policyObject []kyverno.PolicyInterface) {
-	_, kind := common.GetKindFromGVK(gvk)
+	_, kind := kubeutils.GetKindFromGVK(gvk)
 	policyNames := pc.pMap.get(key, kind, nspace)
 	wildcardPolicies := pc.pMap.get(key, "*", nspace)
 	policyNames = append(policyNames, wildcardPolicies...)
